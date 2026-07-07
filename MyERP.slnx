@@ -1,0 +1,23 @@
+<Solution>
+    <Configurations>
+        <Platform Name="Any CPU" />
+    </Configurations>
+    <Folder Name="/src/">
+        <Project Path="src/MyERP.Domain/MyERP.Domain.csproj" />
+        <Project Path="src/MyERP.Application/MyERP.Application.csproj" />
+        <Project Path="src/MyERP.EntityFrameworkCore/MyERP.EntityFrameworkCore.csproj" />
+        <Project Path="src/MyERP.Domain.Shared/MyERP.Domain.Shared.csproj" />
+        <Project Path="src/MyERP.Application.Contracts/MyERP.Application.Contracts.csproj" />
+        <Project Path="src/MyERP.HttpApi/MyERP.HttpApi.csproj" />
+        <Project Path="src/MyERP.HttpApi.Client/MyERP.HttpApi.Client.csproj" />
+        <Project Path="src/MyERP.HttpApi.Host/MyERP.HttpApi.Host.csproj" />
+        <Project Path="src/MyERP.DbMigrator/MyERP.DbMigrator.csproj" />
+    </Folder>
+    <Folder Name="/test/">
+        <Project Path="test/MyERP.Application.Tests/MyERP.Application.Tests.csproj" />
+        <Project Path="test/MyERP.EntityFrameworkCore.Tests/MyERP.EntityFrameworkCore.Tests.csproj" />
+        <Project Path="test/MyERP.TestBase/MyERP.TestBase.csproj" />
+        <Project Path="test/MyERP.Domain.Tests/MyERP.Domain.Tests.csproj" />
+        <Project Path="test/MyERP.HttpApi.Client.ConsoleTestApp/MyERP.HttpApi.Client.ConsoleTestApp.csproj" />
+    </Folder>
+</Solution>

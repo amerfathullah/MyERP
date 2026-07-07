@@ -1,0 +1,85 @@
+{
+  "id": "15cbcad9-dfd2-4c5a-9db5-067e529be088",
+  "creationTime": "07/07/2026 14:00:45 +00:00",
+  "template": "app",
+  "versions": {
+    "AbpFramework": "10.4.1",
+    "AbpStudio": "3.0.6",
+    "TargetDotnetFramework": "net10.0"
+  },
+  "modules": {
+    "MyERP": {
+      "path": "MyERP.abpmdl",
+      "isMainApplication": true,
+      "folder": "main"
+    }
+  },
+  "runProfiles": {
+    "Default": {
+      "path": "etc/abp-studio/run-profiles/Default.abprun.json"
+    }
+  },
+  "options": {
+    "httpRequests": {
+      "ignoredUrls": []
+    }
+  },
+  "creatingStudioConfiguration": {
+    "template": "app",
+    "createdAbpStudioVersion": "3.0.6",
+    "creationTool": "ABP Studio UI",
+    "tiered": "false",
+    "runInstallLibs": "",
+    "useLocalReferences": "false",
+    "multiTenancy": "true",
+    "includeTests": "true",
+    "kubernetesConfiguration": "false",
+    "uiFramework": "angular",
+    "mobileFramework": "none",
+    "distributedEventBus": "none",
+    "databaseProvider": "ef",
+    "runDbMigrator": "",
+    "databaseManagementSystem": "postgresql",
+    "separateTenantSchema": "false",
+    "createInitialMigration": "",
+    "theme": "leptonx-lite",
+    "themeStyle": "",
+    "themeMenuPlacement": "",
+    "progressiveWebApp": "true",
+    "runProgressiveWebAppSupport": "true",
+    "publicWebsite": "false",
+    "socialLogin": "false",
+    "sampleCrudPage": "true",
+    "selectedLanguages": [
+      "English",
+      "Arabic",
+      "Chinese (Simplified)",
+      "Chinese (Traditional)",
+      "Czech",
+      "English (UK)",
+      "Finnish",
+      "French",
+      "German (Germany)",
+      "Hindi ",
+      "Hungarian",
+      "Icelandic",
+      "Italian",
+      "Portuguese (Brazil)",
+      "Romanian (Romania)",
+      "Russian",
+      "Slovak",
+      "Spanish",
+      "Swedish",
+      "Turkish",
+      "Bahasa Melayu"
+    ],
+    "defaultLanguage": "English",
+    "createCommand": "abp new MyERP -t app --ui-framework angular --database-provider ef --database-management-system postgresql --theme leptonx-lite --skip-migration  --skip-migrator  --without-cms-kit --sample-crud-page --dont-run-install-libs --dont-run-bundling --no-social-logins -no-gdpr -no-openiddict-admin-ui -no-audit-logging -no-file-management -no-language-management -no-text-template-management"
+  },
+  "folders": {
+    "items": {
+      "main": {},
+      "modules": {}
+    }
+  }
+}
