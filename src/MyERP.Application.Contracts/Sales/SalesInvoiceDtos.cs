@@ -1,0 +1,85 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using Volo.Abp.Application.Dtos;
+
+namespace MyERP.Sales;
+
+public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
+{
+    public Guid CompanyId { get; set; }
+    public string InvoiceNumber { get; set; } = null!;
+    public DateTime IssueDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public Guid CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public decimal NetTotal { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public string Status { get; set; } = null!;
+    public string? EInvoiceStatus { get; set; }
+    public string? LhdnUuid { get; set; }
+    public List<SalesInvoiceItemDto> Items { get; set; } = new();
+}
+
+public class SalesInvoiceItemDto
+{
+    public Guid Id { get; set; }
+    public Guid ItemId { get; set; }
+    public string Description { get; set; } = null!;
+    public string Uom { get; set; } = null!;
+    public decimal Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal LineTotal { get; set; }
+}
+
+public class CreateSalesInvoiceDto
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    public Guid CustomerId { get; set; }
+
+    [Required]
+    public DateTime IssueDate { get; set; }
+
+    public DateTime? DueDate { get; set; }
+
+    [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
+    public string CurrencyCode { get; set; } = "MYR";
+
+    public string? Notes { get; set; }
+
+    [Required]
+    [MinLength(1)]
+    public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();
+}
+
+public class CreateSalesInvoiceItemDto
+{
+    [Required]
+    public Guid ItemId { get; set; }
+
+    [Required]
+    [StringLength(500)]
+    public string Description { get; set; } = null!;
+
+    [Required]
+    [Range(0.0001, double.MaxValue)]
+    public decimal Quantity { get; set; }
+
+    [Required]
+    [Range(0, double.MaxValue)]
+    public decimal UnitPrice { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal TaxAmount { get; set; }
+
+    [StringLength(20)]
+    public string Uom { get; set; } = "Unit";
+}

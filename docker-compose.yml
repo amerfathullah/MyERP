@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: myerp-postgres
+    environment:
+      POSTGRES_USER: myerp
+      POSTGRES_PASSWORD: myerp_dev_2026
+      POSTGRES_DB: MyERP
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myerp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: myerp-redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/MyERP.HttpApi.Host/Dockerfile
+    container_name: myerp-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__Default=Host=postgres;Port=5432;Database=MyERP;Username=myerp;Password=myerp_dev_2026
+      - Redis__Configuration=redis:6379
+    ports:
+      - "5000:5000"
+
+  angular:
+    build:
+      context: ./angular
+      dockerfile: Dockerfile.local
+    container_name: myerp-angular
+    depends_on:
+      - api
+    ports:
+      - "4200:80"
+
+volumes:
+  pgdata:

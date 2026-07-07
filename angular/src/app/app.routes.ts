@@ -23,13 +23,18 @@ export const APP_ROUTES: Routes = [
     loadChildren: () => import('@abp/ng.setting-management').then(c => c.createRoutes()),
   },
   {
-    path: 'books',
-    loadComponent: () => import('./book/book.component').then(c => c.BookComponent),
+    path: 'companies',
+    loadComponent: () => import('./companies/company-list.component').then(c => c.CompanyListComponent),
     canActivate: [authGuard, permissionGuard],
   },
   {
-    path: 'authors',
-    loadComponent: () => import('./author/author.component').then(c => c.AuthorComponent),
+    path: 'customers',
+    loadComponent: () => import('./customers/customer-list.component').then(c => c.CustomerListComponent),
+    canActivate: [authGuard, permissionGuard],
+  },
+  {
+    path: 'invoices',
+    loadComponent: () => import('./invoices/invoice-list.component').then(c => c.InvoiceListComponent),
     canActivate: [authGuard, permissionGuard],
   },
 ];
