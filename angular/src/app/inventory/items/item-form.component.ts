@@ -4,11 +4,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -19,8 +15,7 @@ import { ItemStore } from '../store/item.store';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule,
-    MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatSlideToggleModule,
+    MatCardModule, MatSelectModule, MatSlideToggleModule,
   ],
   templateUrl: './item-form.component.html',
   styleUrls: ['./item-form.component.scss'],

@@ -100,31 +100,27 @@
                     @if (inv.status === 'Draft') {
                       <li>
                         <button class="dropdown-item" (click)="submit(inv.id)">
-                          <i class="fa fa-paper-plane me-2"></i>Submit
-                        </button>
+                          <i class="fa fa-paper-plane me-2"></i><i class="fa fa-paper-plane me-1"></i>Submit</button>
                       </li>
                     }
                     @if (inv.status === 'Submitted') {
                       <li>
                         <button class="dropdown-item" (click)="post(inv.id)">
-                          <i class="fa fa-check-double me-2"></i>Post
-                        </button>
+                          <i class="fa fa-check-double me-2"></i><i class="fa fa-check-double me-1"></i>Post</button>
                       </li>
                     }
                     @if (inv.status === 'Posted') {
                       <li><hr class="dropdown-divider" /></li>
                       <li>
                         <button class="dropdown-item text-danger" (click)="cancel(inv.id)">
-                          <i class="fa fa-ban me-2"></i>Cancel
-                        </button>
+                          <i class="fa fa-ban me-2"></i><i class="fa fa-times me-1"></i>Cancel</button>
                       </li>
                     }
                     @if (inv.status === 'Draft') {
                       <li><hr class="dropdown-divider" /></li>
                       <li>
                         <button class="dropdown-item text-danger" (click)="delete(inv.id)">
-                          <i class="fa fa-trash me-2"></i>Delete
-                        </button>
+                          <i class="fa fa-trash me-2"></i><i class="fa fa-trash me-1"></i>Delete</button>
                       </li>
                     }
                   </ul>

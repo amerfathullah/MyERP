@@ -12,26 +12,16 @@
       <div class="card-body">
         <h6 class="card-title mb-3">{{ '::NewPayrollRun' | abpLocalization }}</h6>
         <form [formGroup]="createForm" (ngSubmit)="runPayroll()" class="d-flex align-items-end gap-2">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-            <mat-select formControlName="companyId">
-              @for (c of companies(); track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" style="width: 6rem;">
-            <mat-label>{{ '::Year' | abpLocalization }}</mat-label>
-            <input matInput type="number" formControlName="year" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" style="width: 6rem;">
-            <mat-label>{{ '::Month' | abpLocalization }}</mat-label>
-            <input matInput type="number" formControlName="month" min="1" max="12" />
-          </mat-form-field>
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <select class="form-select"></select>
+          <label class="form-label">{{ '::Year' | abpLocalization }}</label>
+            <input class="form-control"/>
+          <label class="form-label">{{ '::Month' | abpLocalization }}</label>
+            <input class="form-control"/>
           <button class="btn btn-primary btn-sm" type="submit">
             <i class="fa fa-calculator me-1"></i> {{ '::Calculate' | abpLocalization }}
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="toggleCreateForm()">{{ '::Cancel' | abpLocalization }}</button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="toggleCreateForm()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
         </form>
       </div>
     </div>
@@ -103,6 +93,12 @@
           [pageSizeOptions]="[10, 20, 50]"
           (page)="onPageChange($event)">
         </mat-paginator>
+      @if (store.entities().length === 0 && !store.isLoading()) {
+        <div class="text-center py-5">
+          <i class="fa fa-money-check fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">No payroll entries yet</h6>
+        </div>
+      }
       }
     </div>
   </div>

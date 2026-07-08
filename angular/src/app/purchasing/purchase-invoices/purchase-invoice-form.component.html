@@ -9,15 +9,15 @@
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Invoice Number</label>
-            <input type="text" class="form-control" formControlName="invoiceNumber" />
+            <input type="text" class="form-control" formControlName="invoiceNumber" [class.is-invalid]="form.get('invoiceNumber')?.invalid && form.get('invoiceNumber')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Issue Date</label>
-            <input type="date" class="form-control" formControlName="issueDate" />
+            <input type="date" class="form-control" formControlName="issueDate" [class.is-invalid]="form.get('issueDate')?.invalid && form.get('issueDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Currency</label>
-            <select class="form-select" formControlName="currency">
+            <select class="form-select" formControlName="currency" [class.is-invalid]="form.get('currency')?.invalid && form.get('currency')?.touched">
               <option value="MYR">MYR</option>
               <option value="USD">USD</option>
               <option value="SGD">SGD</option>
@@ -25,11 +25,11 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Supplier</label>
-            <input type="text" class="form-control" formControlName="supplierName" placeholder="Search supplier..." />
+            <input type="text" class="form-control" formControlName="supplierName" [class.is-invalid]="form.get('supplierName')?.invalid && form.get('supplierName')?.touched" placeholder="Search supplier..." />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Supplier TIN</label>
-            <input type="text" class="form-control" formControlName="supplierTin" />
+            <input type="text" class="form-control" formControlName="supplierTin" [class.is-invalid]="form.get('supplierTin')?.invalid && form.get('supplierTin')?.touched" />
           </div>
         </div>
       </div>
@@ -70,8 +70,7 @@
     <!-- Actions -->
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i> Cancel
-      </button>
+        <i class="fa fa-times me-1"></i><i class="fa fa-times me-1"></i>Cancel</button>
       <button type="button" class="btn btn-outline-secondary" (click)="recalculate()">
         <i class="fa fa-calculator me-1"></i> Recalculate
       </button>

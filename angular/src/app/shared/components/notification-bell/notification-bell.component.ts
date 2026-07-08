@@ -1,8 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatBadgeModule } from '@angular/material/badge';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatListModule } from '@angular/material/list';
 import { MatDividerModule } from '@angular/material/divider';
@@ -14,7 +12,7 @@ import type { AppNotificationDto } from '../../../proxy/notification/models';
   selector: 'app-notification-bell',
   standalone: true,
   imports: [
-    CommonModule, MatBadgeModule, MatButtonModule, MatIconModule,
+    CommonModule, MatBadgeModule,
     MatMenuModule, MatListModule, MatDividerModule, RouterModule
   ],
   templateUrl: './notification-bell.component.html',

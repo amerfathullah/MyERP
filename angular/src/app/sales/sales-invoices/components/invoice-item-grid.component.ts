@@ -2,10 +2,6 @@ import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 
 @Component({
@@ -15,10 +11,6 @@ import { TaxCalculationService } from '../../../shared/services/tax-calculation.
     CommonModule,
     ReactiveFormsModule,
     MatTableModule,
-    MatIconModule,
-    MatButtonModule,
-    MatInputModule,
-    MatFormFieldModule,
   ],
   templateUrl: './invoice-item-grid.component.html',
   styleUrls: ['./invoice-item-grid.component.scss'],

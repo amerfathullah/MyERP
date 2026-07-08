@@ -3,11 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { PurchaseReceiptStore } from '../store/purchase-receipt.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -22,6 +19,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     PageModule,
     MatTableModule,
     MatPaginatorModule,
+    MatMenuModule,
     StatusBadgeComponent,
   ],
   templateUrl: './purchase-receipt-list.component.html',

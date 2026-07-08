@@ -3,15 +3,13 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatCardModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, RouterModule, MatCardModule],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
 })

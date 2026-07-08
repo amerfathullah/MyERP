@@ -8,7 +8,7 @@
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Entry Type</label>
-            <select class="form-select" formControlName="entryType">
+            <select class="form-select" formControlName="entryType" [class.is-invalid]="form.get('entryType')?.invalid && form.get('entryType')?.touched">
               <option value="Receipt">Material Receipt</option>
               <option value="Issue">Material Issue</option>
               <option value="Transfer">Material Transfer</option>
@@ -17,19 +17,19 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Entry Date</label>
-            <input type="date" class="form-control" formControlName="entryDate" />
+            <input type="date" class="form-control" formControlName="entryDate" [class.is-invalid]="form.get('entryDate')?.invalid && form.get('entryDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Source Warehouse</label>
-            <input type="text" class="form-control" formControlName="sourceWarehouse" placeholder="For transfer/issue" />
+            <input type="text" class="form-control" formControlName="sourceWarehouse" [class.is-invalid]="form.get('sourceWarehouse')?.invalid && form.get('sourceWarehouse')?.touched" placeholder="For transfer/issue" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Target Warehouse</label>
-            <input type="text" class="form-control" formControlName="targetWarehouse" />
+            <input type="text" class="form-control" formControlName="targetWarehouse" [class.is-invalid]="form.get('targetWarehouse')?.invalid && form.get('targetWarehouse')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">Remarks</label>
-            <input type="text" class="form-control" formControlName="remarks" />
+            <input type="text" class="form-control" formControlName="remarks" [class.is-invalid]="form.get('remarks')?.invalid && form.get('remarks')?.touched" />
           </div>
         </div>
       </div>
@@ -68,18 +68,15 @@
           </table>
         </div>
         <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="addItem()">
-          <i class="fa fa-plus me-1"></i> Add Item
-        </button>
+          <i class="fa fa-plus me-1"></i><i class="fa fa-plus me-1"></i>Add Item</button>
       </div>
     </div>
 
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i> Cancel
-      </button>
+        <i class="fa fa-times me-1"></i><i class="fa fa-times me-1"></i>Cancel</button>
       <button type="submit" class="btn btn-primary" [disabled]="form.invalid || items.length === 0">
-        <i class="fa fa-save me-1"></i> Save
-      </button>
+        <i class="fa fa-save me-1"></i><i class="fa fa-save me-1"></i>Save</button>
     </div>
   </form>
 </abp-page>

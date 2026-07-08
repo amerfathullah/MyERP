@@ -4,9 +4,9 @@
       <form [formGroup]="filters" class="d-flex flex-wrap align-items-end gap-2">
         <mat-form-field appearance="outline"><mat-label>From</mat-label><input matInput [matDatepicker]="fp" formControlName="fromDate" /><mat-datepicker-toggle matIconSuffix [for]="fp"></mat-datepicker-toggle><mat-datepicker #fp></mat-datepicker></mat-form-field>
         <mat-form-field appearance="outline"><mat-label>To</mat-label><input matInput [matDatepicker]="tp" formControlName="toDate" /><mat-datepicker-toggle matIconSuffix [for]="tp"></mat-datepicker-toggle><mat-datepicker #tp></mat-datepicker></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Item</mat-label><input matInput formControlName="itemCode" placeholder="All" /></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Warehouse</mat-label><input matInput formControlName="warehouse" placeholder="All" /></mat-form-field>
-        <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync"></i> Generate</button>
+        <div><label class="form-label">Item</label><input class="form-control" formControlName="itemCode" placeholder="All" /></div>
+        <div><label class="form-label">Warehouse</label><input class="form-control" formControlName="warehouse" placeholder="All" /></div>
+        <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync"></i><i class="fa fa-sync me-1"></i>Generate</button>
       </form>
     </div>
   </div>

@@ -16,30 +16,20 @@
       <div class="card-body">
         <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="row g-2 pt-2">
           <div class="col-12 col-md-3">
-            <mat-form-field appearance="outline">
-              <mat-label>Code</mat-label>
-              <input matInput formControlName="code" placeholder="e.g., SST-S" />
-            </mat-form-field>
+            <label class="form-label">Code</label>
+            <input class="form-control"/>
           </div>
           <div class="col-12 col-md-3">
-            <mat-form-field appearance="outline">
-              <mat-label>Name</mat-label>
-              <input matInput formControlName="name" placeholder="e.g., Sales Tax 6%" />
-            </mat-form-field>
+            <label class="form-label">Name</label>
+            <input class="form-control"/>
           </div>
           <div class="col-12 col-md-3">
-            <mat-form-field appearance="outline">
-              <mat-label>Type</mat-label>
-              <mat-select formControlName="taxType">
-                <mat-option value="Sales">Sales</mat-option>
-                <mat-option value="Service">Service</mat-option>
-                <mat-option value="Exempt">Exempt</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <label class="form-label">Type</label>
+            <select class="form-select"></select>
           </div>
           <div class="col-12 col-md-3 d-flex gap-2 align-items-center">
-            <button class="btn btn-primary" type="submit">Save</button>
-            <button class="btn btn-outline-secondary" type="button" (click)="showCategoryForm = false">Cancel</button>
+            <button class="btn btn-primary" type="submit"><i class="fa fa-save me-1"></i><i class="fa fa-save me-1"></i>Save</button>
+            <button class="btn btn-outline-secondary" type="button" (click)="showCategoryForm = false"><i class="fa fa-times me-1"></i><i class="fa fa-times me-1"></i>Cancel</button>
           </div>
         </form>
       </div>
@@ -77,32 +67,24 @@
           <hr class="my-3" />
           <form [formGroup]="ruleForm" (ngSubmit)="saveRule()" class="row g-2 pt-2">
             <div class="col-12 col-md-2">
-              <mat-form-field appearance="outline">
-                <mat-label>Rate (%)</mat-label>
-                <input matInput type="number" formControlName="rate" />
-              </mat-form-field>
+              <label class="form-label">Rate (%)</label>
+            <input class="form-control"/>
             </div>
             <div class="col-12 col-md-3">
-              <mat-form-field appearance="outline">
-                <mat-label>Effective From</mat-label>
-                <input matInput type="date" formControlName="effectiveFrom" />
-              </mat-form-field>
+              <label class="form-label">Effective From</label>
+            <input class="form-control"/>
             </div>
             <div class="col-12 col-md-3">
-              <mat-form-field appearance="outline">
-                <mat-label>Effective To</mat-label>
-                <input matInput type="date" formControlName="effectiveTo" />
-              </mat-form-field>
+              <label class="form-label">Effective To</label>
+            <input class="form-control"/>
             </div>
             <div class="col-12 col-md-2">
-              <mat-form-field appearance="outline">
-                <mat-label>Region Filter</mat-label>
-                <input matInput formControlName="regionFilter" />
-              </mat-form-field>
+              <label class="form-label">Region Filter</label>
+            <input class="form-control"/>
             </div>
             <div class="col-12 col-md-2 d-flex gap-2 align-items-center">
-              <button class="btn btn-primary" type="submit">Add Rule</button>
-              <button class="btn btn-outline-secondary" type="button" (click)="showRuleForm = null">Cancel</button>
+              <button class="btn btn-primary" type="submit"><i class="fa fa-plus me-1"></i><i class="fa fa-plus me-1"></i>Add Rule</button>
+              <button class="btn btn-outline-secondary" type="button" (click)="showRuleForm = null"><i class="fa fa-times me-1"></i><i class="fa fa-times me-1"></i>Cancel</button>
             </div>
           </form>
         }

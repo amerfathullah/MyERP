@@ -8,8 +8,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 
 interface StockLedgerRow {
@@ -26,7 +24,7 @@ interface StockLedgerRow {
 @Component({
   selector: 'app-stock-ledger-report',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, MatSelectModule],
+  imports: [CommonModule, ReactiveFormsModule, PageModule, MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatSelectModule],
   templateUrl: './stock-ledger-report.component.html',
   styleUrls: ['./stock-ledger-report.component.scss'],
 })

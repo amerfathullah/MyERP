@@ -3,8 +3,7 @@
     <div class="card-header d-flex align-items-center justify-content-between">
       <h5 class="card-title mb-0">Chart of Accounts</h5>
       <button class="btn btn-primary" (click)="addAccount()">
-        <i class="fa fa-plus"></i>
-        New Account
+        <i class="fa fa-plus"></i><i class="fa fa-plus me-1"></i>New Account
       </button>
     </div>
 
@@ -12,7 +11,7 @@
       <mat-tree [dataSource]="dataSource" [treeControl]="treeControl" class="w-100">
         <!-- Leaf node -->
         <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
-          <button mat-icon-button disabled></button>
+          <button class="btn btn-sm" disabled style="width:28px;"></button>
           <i class="fa fa-file-alt text-muted me-2"></i>
           <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
           <span class="small">{{ node.accountName }}</span>
@@ -26,7 +25,7 @@
         <!-- Group node -->
         <mat-nested-tree-node *matTreeNodeDef="let node; when: hasChild">
           <div class="mat-tree-node">
-            <button mat-icon-button matTreeNodeToggle>
+            <button class="btn btn-sm p-0" matTreeNodeToggle style="width:28px;">
               <i class="fa" [class]="treeControl.isExpanded(node) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
             </button>
             <i class="fa me-2 text-primary">{{ getTypeIcon(node.accountType) }}</i>

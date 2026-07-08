@@ -11,14 +11,8 @@
         </div>
         <div class="card-body pt-3">
           <form [formGroup]="importForm" (ngSubmit)="startImport()">
-            <mat-form-field appearance="outline" class="w-100">
-              <mat-label>{{ '::EntityType' | abpLocalization }}</mat-label>
-              <mat-select formControlName="entityType">
-                @for (type of entityTypes; track type) {
-                  <mat-option [value]="type">{{ type }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
+            <select class="form-select"></select>
 
             <div class="mb-3">
               <input type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)" class="d-none" #fileInput />
@@ -53,14 +47,8 @@
           </h5>
         </div>
         <div class="card-body pt-3">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::EntityType' | abpLocalization }}</mat-label>
-            <mat-select [(value)]="exportEntityType">
-              @for (type of entityTypes; track type) {
-                <mat-option [value]="type">{{ type }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
+            <select class="form-select"></select>
 
           @if (isExporting()) {
             <div class="progress mb-3"><div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div></div>

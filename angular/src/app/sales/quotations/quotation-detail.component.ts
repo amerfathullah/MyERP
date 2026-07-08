@@ -2,13 +2,11 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { QuotationService } from '../../proxy/sales/quotation.service';
@@ -20,8 +18,7 @@ import type { QuotationDto } from '../../proxy/sales/models';
   selector: 'app-quotation-detail',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
-    MatButtonModule, MatIconModule, MatDividerModule,
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationModule, MatTableModule, MatDividerModule
   ],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],

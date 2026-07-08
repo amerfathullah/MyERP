@@ -4,10 +4,6 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { CustomerService } from '../proxy/sales/customer.service';
@@ -18,8 +14,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule,
-    MatCardModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatSlideToggleModule,
+    MatCardModule, MatSlideToggleModule,
   ],
   templateUrl: './customer-form.component.html',
   styleUrls: ['./customer-form.component.scss'],

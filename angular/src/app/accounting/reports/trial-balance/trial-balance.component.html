@@ -7,19 +7,11 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex align-items-end gap-2 flex-wrap">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-          <mat-select formControlName="companyId">
-            @for (company of companies(); track company.id) {
-              <mat-option [value]="company.id">{{ company.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <select class="form-select"></select>
 
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::AsOfDate' | abpLocalization }}</mat-label>
-          <input matInput type="date" formControlName="asOfDate" />
-        </mat-form-field>
+        <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
+            <input class="form-control"/>
 
         <button class="btn btn-primary" (click)="generate()">
           <i class="fa fa-sync"></i> {{ '::Generate' | abpLocalization }}

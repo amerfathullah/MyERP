@@ -4,14 +4,9 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatChipsModule } from '@angular/material/chips';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ImportExportService } from '../proxy/import-export/import-export.service';
 import type { ImportJobDto } from '../proxy/import-export/models';
@@ -21,9 +16,8 @@ import type { ImportJobDto } from '../proxy/import-export/models';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationModule, FormsModule, ReactiveFormsModule,
-    MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule,
-    MatSelectModule, MatInputModule, MatTableModule, MatProgressBarModule,
-    MatChipsModule
+    MatCardModule,
+    MatSelectModule, MatTableModule, MatProgressBarModule
   ],
   templateUrl: './import-export.component.html',
   styleUrls: ['./import-export.component.scss'],

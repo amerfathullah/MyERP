@@ -9,7 +9,7 @@
         <div class="row">
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <select class="form-select" formControlName="companyId">
+            <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
               @for (c of companies(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
@@ -17,7 +17,7 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
-            <select class="form-select" formControlName="supplierId">
+            <select class="form-select" formControlName="supplierId" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
               @for (s of suppliers(); track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
@@ -25,15 +25,15 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::OrderDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="orderDate" />
+            <input type="date" class="form-control" formControlName="orderDate" [class.is-invalid]="form.get('orderDate')?.invalid && form.get('orderDate')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::ExpectedDelivery' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="expectedDeliveryDate" />
+            <input type="date" class="form-control" formControlName="expectedDeliveryDate" [class.is-invalid]="form.get('expectedDeliveryDate')?.invalid && form.get('expectedDeliveryDate')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
-            <textarea class="form-control" formControlName="notes" rows="2"></textarea>
+            <textarea class="form-control" formControlName="notes" [class.is-invalid]="form.get('notes')?.invalid && form.get('notes')?.touched" rows="2"></textarea>
           </div>
         </div>
       </div>
@@ -93,8 +93,8 @@
 
     <!-- Actions -->
     <div class="d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
-      <button type="submit" class="btn btn-primary">{{ '::Save' | abpLocalization }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
+      <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
     </div>
   </form>
 </abp-page>

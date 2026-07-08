@@ -8,7 +8,7 @@
         <div class="row">
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <select class="form-select" formControlName="companyId">
+            <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
               @for (c of companies(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
@@ -16,55 +16,55 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::FirstName' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="firstName" />
+            <input type="text" class="form-control" formControlName="firstName" [class.is-invalid]="form.get('firstName')?.invalid && form.get('firstName')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::LastName' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="lastName" />
+            <input type="text" class="form-control" formControlName="lastName" [class.is-invalid]="form.get('lastName')?.invalid && form.get('lastName')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::DateOfBirth' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="dateOfBirth" />
+            <input type="date" class="form-control" formControlName="dateOfBirth" [class.is-invalid]="form.get('dateOfBirth')?.invalid && form.get('dateOfBirth')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::DateOfJoining' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="dateOfJoining" />
+            <input type="date" class="form-control" formControlName="dateOfJoining" [class.is-invalid]="form.get('dateOfJoining')?.invalid && form.get('dateOfJoining')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Designation' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="designation" />
+            <input type="text" class="form-control" formControlName="designation" [class.is-invalid]="form.get('designation')?.invalid && form.get('designation')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Department' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="department" />
+            <input type="text" class="form-control" formControlName="department" [class.is-invalid]="form.get('department')?.invalid && form.get('department')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="phone" />
+            <input type="text" class="form-control" formControlName="phone" [class.is-invalid]="form.get('phone')?.invalid && form.get('phone')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Email' | abpLocalization }}</label>
-            <input type="email" class="form-control" formControlName="email" />
+            <input type="email" class="form-control" formControlName="email" [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">EPF Number</label>
-            <input type="text" class="form-control" formControlName="epfNumber" />
+            <input type="text" class="form-control" formControlName="epfNumber" [class.is-invalid]="form.get('epfNumber')?.invalid && form.get('epfNumber')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">SOCSO Number</label>
-            <input type="text" class="form-control" formControlName="socsoNumber" />
+            <input type="text" class="form-control" formControlName="socsoNumber" [class.is-invalid]="form.get('socsoNumber')?.invalid && form.get('socsoNumber')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">Tax (PCB) Number</label>
-            <input type="text" class="form-control" formControlName="taxNumber" />
+            <input type="text" class="form-control" formControlName="taxNumber" [class.is-invalid]="form.get('taxNumber')?.invalid && form.get('taxNumber')?.touched" />
           </div>
         </div>
       </div>
     </div>
 
     <div class="d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
-      <button type="submit" class="btn btn-primary">{{ '::Save' | abpLocalization }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
+      <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
     </div>
   </form>
 </abp-page>

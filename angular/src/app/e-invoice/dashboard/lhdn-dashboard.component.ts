@@ -2,9 +2,7 @@ import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
 import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController } from 'chart.js';
 
@@ -24,9 +22,7 @@ interface StatCard {
     CommonModule,
     PageModule,
     MatCardModule,
-    MatIconModule,
     MatTableModule,
-    MatButtonModule,
   ],
   templateUrl: './lhdn-dashboard.component.html',
   styleUrls: ['./lhdn-dashboard.component.scss'],

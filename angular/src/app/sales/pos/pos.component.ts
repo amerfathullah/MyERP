@@ -4,10 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatListModule } from '@angular/material/list';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -28,8 +24,7 @@ interface CartItem {
   standalone: true,
   imports: [
     CommonModule, FormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatDividerModule, MatListModule,
+    MatCardModule, MatDividerModule, MatListModule,
   ],
   templateUrl: './pos.component.html',
   styleUrls: ['./pos.component.scss'],

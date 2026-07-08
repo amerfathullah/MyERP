@@ -8,15 +8,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 
 @Component({
   selector: 'app-einvoice-status-report',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, MatSelectModule, LhdnStatusBadgeComponent],
+  imports: [CommonModule, ReactiveFormsModule, PageModule, MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatSelectModule, LhdnStatusBadgeComponent],
   templateUrl: './einvoice-status-report.component.html',
   styleUrls: ['./einvoice-status-report.component.scss'],
 })

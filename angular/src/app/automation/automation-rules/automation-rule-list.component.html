@@ -87,6 +87,12 @@
         [pageSizeOptions]="[20, 50, 100]"
         (page)="onPageChange($event)">
       </mat-paginator>
+      @if (store.entities().length === 0 && !store.isLoading()) {
+        <div class="text-center py-5">
+          <i class="fa fa-robot fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">No automation rules yet</h6>
+        </div>
+      }
     </div>
   </div>
 </abp-page>

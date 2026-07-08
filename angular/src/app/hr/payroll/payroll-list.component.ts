@@ -7,8 +7,6 @@ import { LocalizationModule } from '@abp/ng.core';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PayrollStore } from '../store/payroll.store';
@@ -20,8 +18,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatTableModule, MatPaginatorModule, MatDialogModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule,
+    MatTableModule, MatPaginatorModule, MatDialogModule, MatSelectModule,
     StatusBadgeComponent,
   ],
   templateUrl: './payroll-list.component.html',

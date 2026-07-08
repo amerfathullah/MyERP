@@ -4,9 +4,6 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatMenuModule } from '@angular/material/menu';
@@ -17,8 +14,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   selector: 'app-approval-rules-list',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
-    MatButtonModule, MatIconModule, MatChipsModule, MatSlideToggleModule,
+    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatSlideToggleModule,
     MatPaginatorModule, MatMenuModule, RouterModule,
   ],
   templateUrl: './approval-rules-list.component.html',

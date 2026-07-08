@@ -8,7 +8,7 @@
         <div class="row">
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <select class="form-select" formControlName="companyId">
+            <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
               @for (c of companies(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
@@ -16,31 +16,31 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Name' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="name" />
+            <input type="text" class="form-control" formControlName="name" [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">Code</label>
-            <input type="text" class="form-control" formControlName="warehouseCode" />
+            <input type="text" class="form-control" formControlName="warehouseCode" [class.is-invalid]="form.get('warehouseCode')?.invalid && form.get('warehouseCode')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Address' | abpLocalization }}</label>
-            <textarea class="form-control" formControlName="address" rows="2"></textarea>
+            <textarea class="form-control" formControlName="address" [class.is-invalid]="form.get('address')?.invalid && form.get('address')?.touched" rows="2"></textarea>
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::City' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="city" />
+            <input type="text" class="form-control" formControlName="city" [class.is-invalid]="form.get('city')?.invalid && form.get('city')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::State' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="state" />
+            <input type="text" class="form-control" formControlName="state" [class.is-invalid]="form.get('state')?.invalid && form.get('state')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::PostalCode' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="postalCode" />
+            <input type="text" class="form-control" formControlName="postalCode" [class.is-invalid]="form.get('postalCode')?.invalid && form.get('postalCode')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Country' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="country" />
+            <input type="text" class="form-control" formControlName="country" [class.is-invalid]="form.get('country')?.invalid && form.get('country')?.touched" />
           </div>
           <div class="col-12 mb-3">
             <div class="d-flex align-items-center gap-3">
@@ -59,8 +59,8 @@
     </div>
 
     <div class="d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
-      <button type="submit" class="btn btn-primary">{{ '::Save' | abpLocalization }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
+      <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
     </div>
   </form>
 </abp-page>

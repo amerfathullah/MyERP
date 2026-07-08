@@ -74,8 +74,7 @@
             <td mat-cell *matCellDef="let t">
               @if (!t.isReconciled) {
                 <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id)">
-                  <i class="fa fa-check"></i> Reconcile
-                </button>
+                  <i class="fa fa-check"></i><i class="fa fa-check me-1"></i>Reconcile</button>
               } @else {
                 <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id)">
                   <i class="fa fa-undo"></i> Undo

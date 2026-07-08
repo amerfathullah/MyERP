@@ -64,13 +64,13 @@
               <td mat-cell *matCellDef="let inv">
                 <div class="d-flex gap-1">
                   @if (inv.status === 'Draft') {
-                    <button class="btn btn-outline-primary btn-sm" (click)="submit(inv.id)">{{ '::Submit' | abpLocalization }}</button>
+                    <button class="btn btn-outline-primary btn-sm" (click)="submit(inv.id)"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
                   }
                   @if (inv.status === 'Submitted') {
-                    <button class="btn btn-outline-primary btn-sm" (click)="post(inv.id)">{{ '::Post' | abpLocalization }}</button>
+                    <button class="btn btn-success btn-sm" (click)="post(inv.id)"><i class="fa fa-check-double me-1"></i>{{ '::Post' | abpLocalization }}</button>
                   }
                   @if (inv.status === 'Posted') {
-                    <button class="btn btn-outline-danger btn-sm" (click)="cancel(inv.id)">{{ '::Cancel' | abpLocalization }}</button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="cancel(inv.id)"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
                   }
                 </div>
               </td>

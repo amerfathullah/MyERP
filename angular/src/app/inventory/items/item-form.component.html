@@ -8,15 +8,15 @@
         <div class="row">
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::ItemCode' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="itemCode" />
+            <input type="text" class="form-control" formControlName="itemCode" [class.is-invalid]="form.get('itemCode')?.invalid && form.get('itemCode')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::ItemName' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="itemName" />
+            <input type="text" class="form-control" formControlName="itemName" [class.is-invalid]="form.get('itemName')?.invalid && form.get('itemName')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::ItemType' | abpLocalization }}</label>
-            <select class="form-select" formControlName="itemType">
+            <select class="form-select" formControlName="itemType" [class.is-invalid]="form.get('itemType')?.invalid && form.get('itemType')?.touched">
               @for (t of itemTypes; track t.value) {
                 <option [value]="t.value">{{ t.label }}</option>
               }
@@ -24,27 +24,27 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::ItemGroup' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="itemGroup" />
+            <input type="text" class="form-control" formControlName="itemGroup" [class.is-invalid]="form.get('itemGroup')?.invalid && form.get('itemGroup')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::UOM' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="uom" />
+            <input type="text" class="form-control" formControlName="uom" [class.is-invalid]="form.get('uom')?.invalid && form.get('uom')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="companyId" />
+            <input type="text" class="form-control" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SellingPrice' | abpLocalization }}</label>
-            <input type="number" class="form-control" formControlName="standardSellingPrice" />
+            <input type="number" class="form-control" formControlName="standardSellingPrice" [class.is-invalid]="form.get('standardSellingPrice')?.invalid && form.get('standardSellingPrice')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::BuyingPrice' | abpLocalization }}</label>
-            <input type="number" class="form-control" formControlName="standardBuyingPrice" />
+            <input type="number" class="form-control" formControlName="standardBuyingPrice" [class.is-invalid]="form.get('standardBuyingPrice')?.invalid && form.get('standardBuyingPrice')?.touched" />
           </div>
           <div class="col-12 mb-3">
             <label class="form-label">{{ '::Description' | abpLocalization }}</label>
-            <textarea class="form-control" formControlName="description" rows="3"></textarea>
+            <textarea class="form-control" formControlName="description" [class.is-invalid]="form.get('description')?.invalid && form.get('description')?.touched" rows="3"></textarea>
           </div>
           <div class="col-12 mb-3">
             <div class="d-flex gap-3">
@@ -61,8 +61,7 @@
         </div>
 
         <div class="d-flex justify-content-end gap-2 pt-3">
-          <button type="button" class="btn btn-outline-secondary" routerLink="/inventory/items">
-            {{ '::Cancel' | abpLocalization }}
+          <button type="button" class="btn btn-outline-secondary" routerLink="/inventory/items"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
           </button>
           <button type="submit" class="btn btn-primary">
             <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}

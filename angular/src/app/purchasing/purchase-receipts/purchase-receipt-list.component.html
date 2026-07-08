@@ -61,6 +61,12 @@
         [pageSizeOptions]="[10, 20, 50]"
         (page)="onPageChange($event)">
       </mat-paginator>
+      @if (store.entities().length === 0 && !store.isLoading()) {
+        <div class="text-center py-5">
+          <i class="fa fa-box-open fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">No purchase receipts yet</h6>
+        </div>
+      }
     </div>
   </div>
 </abp-page>

@@ -8,23 +8,23 @@
         <div class="row">
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="companyId" />
+            <input type="text" class="form-control" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="customerId" />
+            <input type="text" class="form-control" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="postingDate" />
+            <input type="date" class="form-control" formControlName="postingDate" [class.is-invalid]="form.get('postingDate')?.invalid && form.get('postingDate')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SalesOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="salesOrderId" placeholder="Optional" />
+            <input type="text" class="form-control" formControlName="salesOrderId" [class.is-invalid]="form.get('salesOrderId')?.invalid && form.get('salesOrderId')?.touched" placeholder="Optional" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="warehouseId" />
+            <input type="text" class="form-control" formControlName="warehouseId" [class.is-invalid]="form.get('warehouseId')?.invalid && form.get('warehouseId')?.touched" />
           </div>
         </div>
 
@@ -58,8 +58,7 @@
         </div>
 
         <div class="d-flex justify-content-end gap-2 pt-3">
-          <button type="button" class="btn btn-outline-secondary" routerLink="/sales/delivery-notes">
-            {{ '::Cancel' | abpLocalization }}
+          <button type="button" class="btn btn-outline-secondary" routerLink="/sales/delivery-notes"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
           </button>
           <button type="submit" class="btn btn-primary">
             <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}

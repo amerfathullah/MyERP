@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
 import { MatTreeModule, MatTreeNestedDataSource } from '@angular/material/tree';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { NestedTreeControl } from '@angular/cdk/tree';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
@@ -27,8 +25,6 @@ export interface AccountNode {
     PageModule,
     MatCardModule,
     MatTreeModule,
-    MatIconModule,
-    MatButtonModule,
   ],
   templateUrl: './chart-of-accounts.component.html',
   styleUrls: ['./chart-of-accounts.component.scss'],

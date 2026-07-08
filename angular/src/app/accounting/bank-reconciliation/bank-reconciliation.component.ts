@@ -4,9 +4,6 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
@@ -16,8 +13,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../pro
   selector: 'app-bank-reconciliation',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
-    MatButtonModule, MatIconModule, MatChipsModule, MatPaginatorModule,
+    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatPaginatorModule,
   ],
   templateUrl: './bank-reconciliation.component.html',
   styleUrls: ['./bank-reconciliation.component.scss'],

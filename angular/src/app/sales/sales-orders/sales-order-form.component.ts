@@ -4,12 +4,8 @@ import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angula
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 
@@ -18,9 +14,8 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, PageModule,
-    MatCardModule, MatFormFieldModule, MatInputModule,
-    MatDatepickerModule, MatNativeDateModule, MatButtonModule,
-    MatIconModule, InvoiceItemGridComponent,
+    MatCardModule,
+    MatDatepickerModule, MatNativeDateModule, InvoiceItemGridComponent,
   ],
   templateUrl: './sales-order-form.component.html',
   styleUrls: ['./sales-order-form.component.scss'],

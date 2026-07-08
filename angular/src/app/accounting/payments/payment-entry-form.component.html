@@ -19,41 +19,41 @@
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Payment Date</label>
-            <input type="date" class="form-control" formControlName="paymentDate" />
+            <input type="date" class="form-control" formControlName="paymentDate" [class.is-invalid]="form.get('paymentDate')?.invalid && form.get('paymentDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Party Type</label>
-            <select class="form-select" formControlName="partyType">
+            <select class="form-select" formControlName="partyType" [class.is-invalid]="form.get('partyType')?.invalid && form.get('partyType')?.touched">
               <option value="Customer">Customer</option>
               <option value="Supplier">Supplier</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Party Name</label>
-            <input type="text" class="form-control" formControlName="partyName" placeholder="Search..." />
+            <input type="text" class="form-control" formControlName="partyName" [class.is-invalid]="form.get('partyName')?.invalid && form.get('partyName')?.touched" placeholder="Search..." />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Paid From Account</label>
-            <input type="text" class="form-control" formControlName="paidFromAccount" placeholder="e.g., Accounts Receivable" />
+            <input type="text" class="form-control" formControlName="paidFromAccount" [class.is-invalid]="form.get('paidFromAccount')?.invalid && form.get('paidFromAccount')?.touched" placeholder="e.g., Accounts Receivable" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Paid To Account</label>
-            <input type="text" class="form-control" formControlName="paidToAccount" placeholder="e.g., Cash and Bank" />
+            <input type="text" class="form-control" formControlName="paidToAccount" [class.is-invalid]="form.get('paidToAccount')?.invalid && form.get('paidToAccount')?.touched" placeholder="e.g., Cash and Bank" />
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Amount (MYR)</label>
             <div class="input-group">
               <span class="input-group-text"><i class="fa fa-money-bill"></i></span>
-              <input type="number" class="form-control" formControlName="amount" />
+              <input type="number" class="form-control" formControlName="amount" [class.is-invalid]="form.get('amount')?.invalid && form.get('amount')?.touched" />
             </div>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Reference No.</label>
-            <input type="text" class="form-control" formControlName="reference" />
+            <input type="text" class="form-control" formControlName="reference" [class.is-invalid]="form.get('reference')?.invalid && form.get('reference')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">Remarks</label>
-            <input type="text" class="form-control" formControlName="remarks" />
+            <input type="text" class="form-control" formControlName="remarks" [class.is-invalid]="form.get('remarks')?.invalid && form.get('remarks')?.touched" />
           </div>
         </div>
       </div>
@@ -62,8 +62,7 @@
     <!-- Actions -->
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i> Cancel
-      </button>
+        <i class="fa fa-times me-1"></i><i class="fa fa-times me-1"></i>Cancel</button>
       <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
         <i class="fa fa-save me-1"></i> Save Payment
       </button>

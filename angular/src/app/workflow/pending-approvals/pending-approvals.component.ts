@@ -4,9 +4,6 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatMenuModule } from '@angular/material/menu';
 import { RouterModule } from '@angular/router';
@@ -16,8 +13,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   selector: 'app-pending-approvals',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
-    MatButtonModule, MatIconModule, MatChipsModule, MatPaginatorModule,
+    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatPaginatorModule,
     MatMenuModule, RouterModule,
   ],
   templateUrl: './pending-approvals.component.html',

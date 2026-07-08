@@ -3,74 +3,43 @@
     <div class="card-body">
       <form [formGroup]="form" (ngSubmit)="save()" class="row g-3">
         <div class="col-12">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::Name' | abpLocalization }}</mat-label>
-            <input matInput formControlName="name" />
-            <mat-error>Required (max 128 chars)</mat-error>
-          </mat-form-field>
+          <label class="form-label">{{ '::Name' | abpLocalization }}</label>
+            <input class="form-control"/>
         </div>
 
         <div class="col-12">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::Description' | abpLocalization }}</mat-label>
-            <textarea matInput formControlName="description" rows="2"></textarea>
-          </mat-form-field>
+          <label class="form-label">{{ '::Description' | abpLocalization }}</label>
+            <textarea class="form-control"></textarea>
         </div>
 
         <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::Trigger' | abpLocalization }}</mat-label>
-            <mat-select formControlName="trigger">
-              @for (t of triggers; track t.value) {
-                <mat-option [value]="t.value">{{ t.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <label class="form-label">{{ '::Trigger' | abpLocalization }}</label>
+            <select class="form-select"></select>
         </div>
 
         <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::DocumentType' | abpLocalization }}</mat-label>
-            <mat-select formControlName="documentType">
-              <mat-option value="">All Documents</mat-option>
-              @for (dt of documentTypes; track dt) {
-                <mat-option [value]="dt">{{ dt }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
+            <select class="form-select"></select>
         </div>
 
         <div class="col-12">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>Condition (e.g., "GrandTotal > 5000")</mat-label>
-            <input matInput formControlName="conditionExpression" placeholder="Field Operator Value" />
-            <mat-hint>Leave empty to always trigger</mat-hint>
-          </mat-form-field>
+          <label class="form-label">Condition (e.g., "GrandTotal > 5000")</label>
+            <input class="form-control"/>
         </div>
 
         <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::Action' | abpLocalization }}</mat-label>
-            <mat-select formControlName="action">
-              @for (a of actions; track a.value) {
-                <mat-option [value]="a.value">{{ a.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <label class="form-label">{{ '::Action' | abpLocalization }}</label>
+            <select class="form-select"></select>
         </div>
 
         <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>{{ '::Priority' | abpLocalization }}</mat-label>
-            <input matInput type="number" formControlName="priority" />
-          </mat-form-field>
+          <label class="form-label">{{ '::Priority' | abpLocalization }}</label>
+            <input class="form-control"/>
         </div>
 
         <div class="col-12">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>Action Config (JSON)</mat-label>
-            <textarea matInput formControlName="actionConfig" rows="3" placeholder='{"subject": "...", "template": "..."}'></textarea>
-          </mat-form-field>
+          <label class="form-label">Action Config (JSON)</label>
+            <textarea class="form-control"></textarea>
         </div>
 
         <div class="col-12">
@@ -78,8 +47,7 @@
         </div>
 
         <div class="col-12 d-flex gap-2 justify-content-end pt-3">
-          <button class="btn btn-outline-secondary" type="button" routerLink="/automation">
-            {{ '::Cancel' | abpLocalization }}
+          <button class="btn btn-outline-secondary" type="button" routerLink="/automation"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
           </button>
           <button class="btn btn-primary" type="submit">
             <i class="fa fa-save"></i> {{ '::Save' | abpLocalization }}

@@ -4,13 +4,13 @@
       <form [formGroup]="filters" class="d-flex flex-wrap align-items-end gap-2">
         <mat-form-field appearance="outline"><mat-label>From</mat-label><input matInput [matDatepicker]="fp" formControlName="fromDate" /><mat-datepicker-toggle matIconSuffix [for]="fp"></mat-datepicker-toggle><mat-datepicker #fp></mat-datepicker></mat-form-field>
         <mat-form-field appearance="outline"><mat-label>To</mat-label><input matInput [matDatepicker]="tp" formControlName="toDate" /><mat-datepicker-toggle matIconSuffix [for]="tp"></mat-datepicker-toggle><mat-datepicker #tp></mat-datepicker></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Type</mat-label>
-          <mat-select formControlName="documentType"><mat-option value="sales">Sales</mat-option><mat-option value="purchase">Purchase</mat-option></mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Status</mat-label>
-          <mat-select formControlName="status"><mat-option value="">All</mat-option><mat-option value="Valid">Valid</mat-option><mat-option value="Invalid">Invalid</mat-option><mat-option value="Submitted">Submitted</mat-option><mat-option value="NotSubmitted">Not Submitted</mat-option></mat-select>
-        </mat-form-field>
-        <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync"></i> Generate</button>
+        <div><label class="form-label">Type</label>
+          <select class="form-select" formControlName="documentType"><option value="sales">Sales</option><option value="purchase">Purchase</option></select>
+        </div>
+        <div><label class="form-label">Status</label>
+          <select class="form-select" formControlName="status"><option value="">All</option><option value="Valid">Valid</option><option value="Invalid">Invalid</option><option value="Submitted">Submitted</option><option value="NotSubmitted">Not Submitted</option></select>
+        </div>
+        <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync"></i><i class="fa fa-sync me-1"></i>Generate</button>
       </form>
     </div>
   </div>

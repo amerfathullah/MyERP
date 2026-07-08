@@ -2,18 +2,17 @@
   <!-- Left: Item grid -->
   <div class="col-12 col-lg-8 d-flex flex-column gap-2">
     <!-- Search -->
-    <mat-form-field appearance="outline" class="w-100">
-      <mat-label>Search items</mat-label>
-      <input matInput [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..."
+    <div class="input-group">
+      <span class="input-group-text"><i class="fa fa-search"></i></span>
+      <input class="form-control" [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..."
         (ngModelChange)="onSearchChange($event)" />
-      <i class="fa fa-search" matPrefix></i>
-    </mat-form-field>
+    </div>
 
     <!-- Item grid from API -->
     <div class="row g-2 overflow-auto flex-grow-1">
       @for (item of items(); track item.id) {
         <div class="col-6 col-md-4">
-          <button class="btn btn-outline-secondary w-100 d-flex flex-column align-align-align-items-start"
+          <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-start"
             style="height: 6rem;" (click)="addToCart(item)">
             <span class="fw-medium small">{{ item.itemName }}</span>
             <span class="small text-muted font-monospace">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
@@ -60,11 +59,13 @@
           <span>Total</span>
           <span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
         </div>
-        <mat-form-field appearance="outline" class="w-100 mb-2">
-          <mat-label>Amount Received</mat-label>
-          <input matInput type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
-          <span matPrefix>MYR&nbsp;</span>
-        </mat-form-field>
+        <div class="mb-2">
+          <label class="form-label">Amount Received</label>
+          <div class="input-group">
+            <span class="input-group-text">MYR</span>
+            <input class="form-control" type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
+          </div>
+        </div>
         @if (change > 0) {
           <div class="d-flex justify-content-between mb-3 text-success fw-bold">
             <span>Change</span>
