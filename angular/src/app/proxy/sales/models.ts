@@ -1,4 +1,49 @@
-import type { FullAuditedEntityDto } from '@abp/ng.core';
+import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+
+export interface CreateDeliveryNoteDto {
+  companyId: string;
+  customerId: string;
+  warehouseId: string;
+  postingDate: string;
+  salesOrderId?: string | null;
+  shippingAddress?: string | null;
+  transporter?: string | null;
+  trackingNumber?: string | null;
+  isReturn?: boolean;
+  returnAgainstId?: string | null;
+  notes?: string | null;
+  items: CreateDeliveryNoteItemDto[];
+}
+
+export interface CreateDeliveryNoteItemDto {
+  itemId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxAmount?: number;
+  uom?: string;
+  salesOrderItemId?: string | null;
+}
+
+export interface CreateQuotationDto {
+  companyId: string;
+  customerId: string;
+  issueDate: string;
+  validUntil?: string | null;
+  currencyCode?: string;
+  terms?: string | null;
+  notes?: string | null;
+  items: CreateQuotationItemDto[];
+}
+
+export interface CreateQuotationItemDto {
+  itemId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxAmount?: number;
+  uom?: string;
+}
 
 export interface CreateSalesInvoiceDto {
   companyId: string;
@@ -11,6 +56,28 @@ export interface CreateSalesInvoiceDto {
 }
 
 export interface CreateSalesInvoiceItemDto {
+  itemId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxAmount?: number;
+  uom?: string;
+}
+
+export interface CreateSalesOrderDto {
+  companyId: string;
+  customerId: string;
+  orderDate: string;
+  deliveryDate?: string | null;
+  customerPoNumber?: string | null;
+  currencyCode?: string;
+  terms?: string | null;
+  notes?: string | null;
+  quotationId?: string | null;
+  items: CreateSalesOrderItemDto[];
+}
+
+export interface CreateSalesOrderItemDto {
   itemId: string;
   description: string;
   quantity: number;
@@ -63,6 +130,67 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface DeliveryNoteDto extends EntityDto<string> {
+  companyId?: string;
+  deliveryNumber?: string;
+  postingDate?: string;
+  customerId?: string;
+  salesOrderId?: string | null;
+  warehouseId?: string;
+  shippingAddress?: string | null;
+  transporter?: string | null;
+  trackingNumber?: string | null;
+  currencyCode?: string;
+  netTotal?: number;
+  taxAmount?: number;
+  grandTotal?: number;
+  isReturn?: boolean;
+  returnAgainstId?: string | null;
+  status?: string;
+  items?: DeliveryNoteItemDto[];
+}
+
+export interface DeliveryNoteItemDto {
+  id?: string;
+  itemId?: string;
+  description?: string;
+  uom?: string;
+  quantity?: number;
+  unitPrice?: number;
+  taxAmount?: number;
+  lineTotal?: number;
+  salesOrderItemId?: string | null;
+}
+
+export interface QuotationDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  quotationNumber?: string;
+  issueDate?: string;
+  validUntil?: string | null;
+  customerId?: string;
+  customerName?: string | null;
+  currencyCode?: string;
+  netTotal?: number;
+  taxAmount?: number;
+  grandTotal?: number;
+  terms?: string | null;
+  notes?: string | null;
+  status?: string;
+  convertedToSalesOrderId?: string | null;
+  items?: QuotationItemDto[];
+}
+
+export interface QuotationItemDto {
+  id?: string;
+  itemId?: string;
+  description?: string;
+  uom?: string;
+  quantity?: number;
+  unitPrice?: number;
+  taxAmount?: number;
+  lineTotal?: number;
+}
+
 export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   invoiceNumber?: string;
@@ -83,6 +211,36 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
 }
 
 export interface SalesInvoiceItemDto {
+  id?: string;
+  itemId?: string;
+  description?: string;
+  uom?: string;
+  quantity?: number;
+  unitPrice?: number;
+  taxAmount?: number;
+  lineTotal?: number;
+}
+
+export interface SalesOrderDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  deliveryDate?: string | null;
+  customerId?: string;
+  customerName?: string | null;
+  customerPoNumber?: string | null;
+  currencyCode?: string;
+  netTotal?: number;
+  taxAmount?: number;
+  grandTotal?: number;
+  terms?: string | null;
+  notes?: string | null;
+  status?: string;
+  quotationId?: string | null;
+  items?: SalesOrderItemDto[];
+}
+
+export interface SalesOrderItemDto {
   id?: string;
   itemId?: string;
   description?: string;

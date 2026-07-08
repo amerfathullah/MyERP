@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationModule } from '@abp/ng.core';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,60 +11,72 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-
-interface TrialBalanceRow {
-  accountCode: string;
-  accountName: string;
-  debit: number;
-  credit: number;
-}
+import { MatSelectModule } from '@angular/material/select';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { ReportingService } from '../../../proxy/accounting/reporting.service';
+import { CompanyService } from '../../../proxy/core/company.service';
+import type { TrialBalanceRowDto, TrialBalanceReportDto } from '../../../proxy/accounting/models';
+import type { CompanyDto } from '../../../proxy/core/models';
+import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-trial-balance',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule,
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
     MatCardModule, MatTableModule, MatFormFieldModule,
     MatDatepickerModule, MatNativeDateModule, MatInputModule,
-    MatButtonModule, MatIconModule,
+    MatButtonModule, MatIconModule, MatSelectModule,
+    LoadingOverlayComponent,
   ],
   templateUrl: './trial-balance.component.html',
   styleUrls: ['./trial-balance.component.scss'],
 })
 export class TrialBalanceComponent {
-  private fb = new FormBuilder();
+  private fb = inject(FormBuilder);
+  private reportingService = inject(ReportingService);
+  private companyService = inject(CompanyService);
+  private toaster = inject(ToasterService);
 
   filters = this.fb.group({
-    fromDate: [new Date(new Date().getFullYear(), 0, 1)],
-    toDate: [new Date()],
+    companyId: ['', Validators.required],
+    asOfDate: [new Date().toISOString().split('T')[0], Validators.required],
   });
 
-  displayedColumns = ['accountCode', 'accountName', 'debit', 'credit'];
-  data: TrialBalanceRow[] = [];
-  totalDebit = 0;
-  totalCredit = 0;
+  companies = signal<CompanyDto[]>([]);
+  displayedColumns = ['accountCode', 'accountName', 'accountType', 'debit', 'credit', 'closingDebit', 'closingCredit'];
+  data = signal<TrialBalanceRowDto[]>([]);
+  totalDebit = signal(0);
+  totalCredit = signal(0);
+  isLoading = signal(false);
+
+  ngOnInit(): void {
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
+      .subscribe(res => this.companies.set(res.items ?? []));
+  }
 
   generate(): void {
-    // TODO: Call reporting API
-    // Mock data
-    this.data = [
-      { accountCode: '1110', accountName: 'Cash and Bank', debit: 50000, credit: 0 },
-      { accountCode: '1120', accountName: 'Accounts Receivable', debit: 25000, credit: 0 },
-      { accountCode: '2100', accountName: 'Accounts Payable', debit: 0, credit: 12000 },
-      { accountCode: '3100', accountName: 'Share Capital', debit: 0, credit: 100000 },
-      { accountCode: '4100', accountName: 'Sales Revenue', debit: 0, credit: 200000 },
-      { accountCode: '5100', accountName: 'Cost of Goods Sold', debit: 120000, credit: 0 },
-      { accountCode: '5200', accountName: 'Operating Expenses', debit: 35000, credit: 0 },
-      { accountCode: '3200', accountName: 'Retained Earnings', debit: 0, credit: 18000 },
-      { accountCode: '2200', accountName: 'SST Payable', debit: 0, credit: 3500 },
-      { accountCode: '1130', accountName: 'Inventory', debit: 15000, credit: 0 },
-      { accountCode: '1210', accountName: 'Equipment', debit: 80000, credit: 0 },
-      { accountCode: '4200', accountName: 'Service Revenue', debit: 0, credit: 50000 },
-      { accountCode: '5300', accountName: 'Depreciation', debit: 8500, credit: 0 },
-      { accountCode: '2300', accountName: 'Accumulated Depreciation', debit: 0, credit: 8500 },
-      { accountCode: '5400', accountName: 'Salaries & Wages', debit: 58000, credit: 0 },
-    ];
-    this.totalDebit = this.data.reduce((s, r) => s + r.debit, 0);
-    this.totalCredit = this.data.reduce((s, r) => s + r.credit, 0);
+    if (this.filters.invalid) {
+      this.filters.markAllAsTouched();
+      return;
+    }
+    this.isLoading.set(true);
+    const { companyId, asOfDate } = this.filters.getRawValue();
+
+    this.reportingService.getTrialBalance({
+      companyId: companyId!,
+      asOfDate: asOfDate!,
+    }).subscribe({
+      next: (report) => {
+        this.data.set(report.rows ?? []);
+        this.totalDebit.set(report.totalDebit ?? 0);
+        this.totalCredit.set(report.totalCredit ?? 0);
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.toaster.error(err?.error?.error?.message ?? 'Failed to generate report');
+      },
+    });
   }
 }

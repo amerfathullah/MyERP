@@ -38,6 +38,7 @@
     "@angular/router": "~21.2.0",
     "@ngrx/signals": "^21.1.1",
     "@tailwindcss/postcss": "^4.3.2",
+    "chart.js": "^4.5.1",
     "postcss": "^8.5.16",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.3.2",

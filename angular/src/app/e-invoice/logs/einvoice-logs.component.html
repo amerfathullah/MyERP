@@ -6,10 +6,10 @@
         <mat-card-title>Submission Logs</mat-card-title>
       </mat-card-header>
       <mat-card-content class="pt-4">
-        @if (logs.length === 0) {
+        @if (submissions.length === 0) {
           <p class="text-center text-gray-500 py-8">No submissions yet.</p>
         } @else {
-          <table mat-table [dataSource]="logs" class="w-full">
+          <table mat-table [dataSource]="submissions" class="w-full">
             <ng-container matColumnDef="invoiceNumber">
               <th mat-header-cell *matHeaderCellDef>Invoice #</th>
               <td mat-cell *matCellDef="let log" class="font-medium">{{ log.invoiceNumber }}</td>

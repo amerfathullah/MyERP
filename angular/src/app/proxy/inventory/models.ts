@@ -1,6 +1,25 @@
+import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
 import type { FullAuditedEntityDto } from '@abp/ng.core';
+
+export interface CreateStockEntryDto {
+  companyId: string;
+  entryType: StockEntryType;
+  postingDate: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  notes?: string | null;
+  items: CreateStockEntryItemDto[];
+}
+
+export interface CreateStockEntryItemDto {
+  itemId: string;
+  quantity: number;
+  sourceWarehouseId?: string | null;
+  targetWarehouseId?: string | null;
+  valuationRate?: number | null;
+}
 
 export interface CreateUpdateItemDto {
   companyId: string;
@@ -57,6 +76,27 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface StockEntryDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  entryNumber?: string | null;
+  entryType?: StockEntryType;
+  postingDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  notes?: string | null;
+  status?: string;
+  items?: StockEntryItemDto[];
+}
+
+export interface StockEntryItemDto {
+  id?: string;
+  itemId?: string;
+  quantity?: number;
+  sourceWarehouseId?: string | null;
+  targetWarehouseId?: string | null;
+  valuationRate?: number | null;
+}
+
 export interface WarehouseDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   branchId?: string | null;
@@ -70,4 +110,34 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+}
+
+// Stock Ledger Report
+export interface StockLedgerRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  itemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface StockLedgerRowDto {
+  postingDate?: string;
+  itemName?: string;
+  warehouseName?: string;
+  quantityChange?: number;
+  valuationRate?: number;
+  stockValue?: number;
+  balanceQuantity?: number;
+  balanceValue?: number;
+  voucherType?: string | null;
+  voucherId?: string | null;
+}
+
+export interface StockLedgerReportDto {
+  fromDate?: string;
+  toDate?: string;
+  rows?: StockLedgerRowDto[];
+  totalIn?: number;
+  totalOut?: number;
 }

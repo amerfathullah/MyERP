@@ -28,9 +28,9 @@ const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
   styleUrls: ['./lhdn-status-badge.component.scss'],
 })
 export class LhdnStatusBadgeComponent {
-  @Input({ required: true }) status!: LhdnStatus;
+  @Input({ required: true }) status!: string;
 
   get config(): LhdnStatusConfig {
-    return LHDN_STATUS_MAP[this.status] ?? LHDN_STATUS_MAP['NotSubmitted'];
+    return LHDN_STATUS_MAP[this.status as LhdnStatus] ?? LHDN_STATUS_MAP['NotSubmitted'];
   }
 }

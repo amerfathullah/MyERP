@@ -17,6 +17,50 @@ export interface AccountDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface BalanceSheetReportDto {
+  asOfDate?: string;
+  companyId?: string;
+  assetRows?: BalanceSheetRowDto[];
+  liabilityRows?: BalanceSheetRowDto[];
+  equityRows?: BalanceSheetRowDto[];
+  totalAssets?: number;
+  totalLiabilities?: number;
+  totalEquity?: number;
+}
+
+export interface BalanceSheetRequestDto {
+  companyId: string;
+  asOfDate: string;
+}
+
+export interface BalanceSheetRowDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: string;
+  amount?: number;
+  level?: number;
+  isGroup?: boolean;
+}
+
+export interface CreateJournalEntryDto {
+  companyId: string;
+  fiscalYearId: string;
+  postingDate: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  referenceNumber?: string | null;
+  narration?: string | null;
+  lines: CreateJournalEntryLineDto[];
+}
+
+export interface CreateJournalEntryLineDto {
+  accountId: string;
+  amount: number;
+  isDebit: boolean;
+  description?: string | null;
+}
+
 export interface CreatePaymentEntryDto {
   companyId: string;
   paymentType: PaymentType;
@@ -47,6 +91,29 @@ export interface CreateUpdateAccountDto {
   isActive?: boolean;
 }
 
+export interface JournalEntryDto extends EntityDto<string> {
+  companyId?: string;
+  fiscalYearId?: string;
+  entryNumber?: string | null;
+  postingDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  referenceNumber?: string | null;
+  narration?: string | null;
+  status?: string;
+  totalDebit?: number;
+  totalCredit?: number;
+  lines?: JournalEntryLineDto[];
+}
+
+export interface JournalEntryLineDto {
+  id?: string;
+  accountId?: string;
+  amount?: number;
+  isDebit?: boolean;
+  description?: string | null;
+}
+
 export interface PaymentEntryDto extends EntityDto<string> {
   companyId?: string;
   paymentNumber?: string | null;
@@ -57,4 +124,60 @@ export interface PaymentEntryDto extends EntityDto<string> {
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;
+}
+
+export interface ProfitLossReportDto {
+  fromDate?: string;
+  toDate?: string;
+  companyId?: string;
+  revenueRows?: ProfitLossRowDto[];
+  expenseRows?: ProfitLossRowDto[];
+  totalRevenue?: number;
+  totalExpense?: number;
+  netProfitOrLoss?: number;
+}
+
+export interface ProfitLossRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+}
+
+export interface ProfitLossRowDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: string;
+  amount?: number;
+  level?: number;
+  isGroup?: boolean;
+}
+
+export interface TrialBalanceReportDto {
+  asOfDate?: string;
+  companyId?: string;
+  rows?: TrialBalanceRowDto[];
+  totalDebit?: number;
+  totalCredit?: number;
+}
+
+export interface TrialBalanceRequestDto {
+  companyId: string;
+  asOfDate: string;
+  fiscalYearId?: string | null;
+}
+
+export interface TrialBalanceRowDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: string;
+  isGroup?: boolean;
+  level?: number;
+  openingDebit?: number;
+  openingCredit?: number;
+  debit?: number;
+  credit?: number;
+  closingDebit?: number;
+  closingCredit?: number;
 }

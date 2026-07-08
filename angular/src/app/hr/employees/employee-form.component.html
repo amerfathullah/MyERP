@@ -1,0 +1,80 @@
+<abp-page [title]="isEditMode ? ('::EditEmployee' | abpLocalization) : ('::NewEmployee' | abpLocalization)">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <mat-card>
+      <mat-card-content>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
+            <mat-select formControlName="companyId">
+              @for (c of companies(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::FirstName' | abpLocalization }}</mat-label>
+            <input matInput formControlName="firstName" />
+            <mat-error>Required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::LastName' | abpLocalization }}</mat-label>
+            <input matInput formControlName="lastName" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::DateOfBirth' | abpLocalization }}</mat-label>
+            <input matInput type="date" formControlName="dateOfBirth" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::DateOfJoining' | abpLocalization }}</mat-label>
+            <input matInput type="date" formControlName="dateOfJoining" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Designation' | abpLocalization }}</mat-label>
+            <input matInput formControlName="designation" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Department' | abpLocalization }}</mat-label>
+            <input matInput formControlName="department" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Phone' | abpLocalization }}</mat-label>
+            <input matInput formControlName="phone" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Email' | abpLocalization }}</mat-label>
+            <input matInput type="email" formControlName="email" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>EPF Number</mat-label>
+            <input matInput formControlName="epfNumber" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>SOCSO Number</mat-label>
+            <input matInput formControlName="socsoNumber" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Tax (PCB) Number</mat-label>
+            <input matInput formControlName="taxNumber" />
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="flex justify-end gap-3 mt-4">
+      <button mat-stroked-button type="button" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
+      <button mat-flat-button color="primary" type="submit">{{ '::Save' | abpLocalization }}</button>
+    </div>
+  </form>
+</abp-page>

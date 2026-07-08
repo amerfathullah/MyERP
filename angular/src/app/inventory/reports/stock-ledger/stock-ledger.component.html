@@ -1,0 +1,101 @@
+<abp-page [title]="'::StockLedger' | abpLocalization">
+  @if (isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <!-- Filters -->
+  <mat-card class="mb-4">
+    <mat-card-content>
+      <form [formGroup]="filters" (ngSubmit)="loadReport()" class="flex flex-wrap items-end gap-4">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
+          <mat-select formControlName="companyId">
+            @for (c of companies(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>From Date</mat-label>
+          <input matInput type="date" formControlName="fromDate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>To Date</mat-label>
+          <input matInput type="date" formControlName="toDate" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">
+          <mat-icon>search</mat-icon> Load
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Summary -->
+  @if (rows().length > 0) {
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-3 mb-4">
+      <mat-card>
+        <mat-card-content class="text-center py-3">
+          <p class="text-xl font-bold text-green-700 font-mono">{{ totalIn() | number:'1.2-2' }}</p>
+          <small class="text-gray-500">Total Stock In</small>
+        </mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-content class="text-center py-3">
+          <p class="text-xl font-bold text-red-600 font-mono">{{ totalOut() | number:'1.2-2' }}</p>
+          <small class="text-gray-500">Total Stock Out</small>
+        </mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-content class="text-center py-3">
+          <p class="text-xl font-bold font-mono">{{ rows().length }}</p>
+          <small class="text-gray-500">Entries</small>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+
+  <!-- Data table -->
+  <mat-card>
+    <table mat-table [dataSource]="rows()" class="w-full">
+      <ng-container matColumnDef="postingDate">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let row">{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="itemName">
+        <th mat-header-cell *matHeaderCellDef>Item</th>
+        <td mat-cell *matCellDef="let row" class="font-medium">{{ row.itemName }}</td>
+      </ng-container>
+      <ng-container matColumnDef="warehouseName">
+        <th mat-header-cell *matHeaderCellDef>Warehouse</th>
+        <td mat-cell *matCellDef="let row">{{ row.warehouseName }}</td>
+      </ng-container>
+      <ng-container matColumnDef="quantityChange">
+        <th mat-header-cell *matHeaderCellDef>Qty Change</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono"
+          [class.text-green-700]="row.quantityChange > 0"
+          [class.text-red-600]="row.quantityChange < 0">
+          {{ row.quantityChange > 0 ? '+' : '' }}{{ row.quantityChange | number:'1.2-2' }}
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="valuationRate">
+        <th mat-header-cell *matHeaderCellDef>Rate</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.valuationRate | number:'1.2-2' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="balanceQuantity">
+        <th mat-header-cell *matHeaderCellDef>Balance Qty</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono font-bold">{{ row.balanceQuantity | number:'1.2-2' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="balanceValue">
+        <th mat-header-cell *matHeaderCellDef>Balance Value</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.balanceValue | number:'1.2-2' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="voucherType">
+        <th mat-header-cell *matHeaderCellDef>Voucher</th>
+        <td mat-cell *matCellDef="let row" class="text-sm text-gray-500">{{ row.voucherType ?? '—' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+  </mat-card>
+</abp-page>

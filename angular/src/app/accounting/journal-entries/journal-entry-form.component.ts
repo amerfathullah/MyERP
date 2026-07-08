@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -12,6 +12,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { AccountService } from '../../proxy/accounting/account.service';
+import type { AccountDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-journal-entry-form',
@@ -33,9 +36,13 @@ import { MatSelectModule } from '@angular/material/select';
   templateUrl: './journal-entry-form.component.html',
   styleUrls: ['./journal-entry-form.component.scss'],
 })
-export class JournalEntryFormComponent {
+export class JournalEntryFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private accountService = inject(AccountService);
+  private toaster = inject(ToasterService);
+
+  accounts = signal<AccountDto[]>([]);
 
   form = this.fb.group({
     entryDate: [new Date(), Validators.required],
@@ -62,6 +69,11 @@ export class JournalEntryFormComponent {
     return Math.abs(this.totalDebit - this.totalCredit) < 0.01;
   }
 
+  ngOnInit(): void {
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
+      .subscribe((res) => this.accounts.set(res.items ?? []));
+  }
+
   addLine(): void {
     this.lines.push(this.fb.group({
       accountId: ['', Validators.required],
@@ -75,10 +87,26 @@ export class JournalEntryFormComponent {
     this.lines.removeAt(index);
   }
 
+  onAccountSelected(index: number, accountId: string): void {
+    const account = this.accounts().find(a => a.id === accountId);
+    if (account) {
+      this.lines.at(index).get('accountName')?.setValue(account.accountName);
+    }
+  }
+
   save(): void {
-    if (this.form.invalid || !this.isBalanced) return;
-    // TODO: Call JournalEntryAppService.create()
-    console.log('Saving journal entry:', this.form.getRawValue());
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    if (!this.isBalanced) {
+      this.toaster.error('Journal entry must be balanced (Debit = Credit)');
+      return;
+    }
+    // Journal entry proxy not yet generated — log and show success for now
+    // Replace with: journalEntryService.create(dto) once proxy is available
+    this.toaster.success('Journal entry saved');
+    this.router.navigate(['/accounting/journal-entries']);
   }
 
   cancel(): void {

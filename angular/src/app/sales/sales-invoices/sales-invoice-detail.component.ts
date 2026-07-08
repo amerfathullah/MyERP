@@ -7,9 +7,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatDividerModule } from '@angular/material/divider';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
+import { SalesInvoiceStore } from '../store/sales-invoice.store';
+import type { SalesInvoiceDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -22,7 +26,6 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
     MatIconModule,
     MatTableModule,
     MatDividerModule,
-    StatusBadgeComponent,
     LhdnStatusBadgeComponent,
     DocumentWorkflowComponent,
   ],
@@ -32,9 +35,14 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 export class SalesInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private service = inject(SalesInvoiceService);
+  private eInvoiceService = inject(EInvoiceService);
+  private store = inject(SalesInvoiceStore);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
-  invoice: any = null;
-  itemColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount'];
+  invoice: SalesInvoiceDto | null = null;
+  itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   get workflowActions(): WorkflowAction[] {
     if (!this.invoice) return [];
@@ -48,43 +56,75 @@ export class SalesInvoiceDetailComponent implements OnInit {
         break;
       case 'Posted':
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
-        actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'cloud_upload', color: '' });
+        if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
+          actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'cloud_upload', color: '' });
+        }
         break;
     }
     return actions;
   }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    // TODO: Load invoice from store or API proxy
-    // For now, mock data
-    this.invoice = {
-      id,
-      invoiceNumber: 'INV-2026-0001',
-      issueDate: '2026-07-01',
-      customerName: 'Acme Sdn Bhd',
-      buyerTin: 'C12345678',
-      status: 'Draft',
-      eInvoiceStatus: 'NotSubmitted',
-      netTotal: 5000,
-      totalTax: 300,
-      grandTotal: 5300,
-      items: [
-        { itemName: 'Consulting Services', qty: 10, rate: 500, discountPercent: 0, amount: 5000 },
-      ],
-    };
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.get(id).subscribe((result) => {
+      this.invoice = result;
+    });
   }
 
   onWorkflowAction(action: string): void {
-    // TODO: Call backend API for status transition
-    console.log('Workflow action:', action, this.invoice.id);
+    const id = this.invoice!.id!;
+    switch (action) {
+      case 'submit':
+        this.store.submitInvoice(id);
+        this.reloadAfterAction();
+        break;
+      case 'post':
+        this.store.postInvoice(id);
+        this.reloadAfterAction();
+        break;
+      case 'cancel':
+        this.confirmation.warn('::Sales:CancelInvoiceConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.store.cancelInvoice(id);
+            this.reloadAfterAction();
+          }
+        });
+        break;
+      case 'submitLhdn':
+        this.submitToLhdn();
+        break;
+    }
+  }
+
+  private submitToLhdn(): void {
+    this.eInvoiceService.submit({
+      companyId: this.invoice!.companyId!,
+      sourceDocumentType: 'SalesInvoice',
+      sourceDocumentId: this.invoice!.id!,
+    }).subscribe({
+      next: (submission) => {
+        this.toaster.success('Submitted to LHDN successfully. UUID: ' + (submission.documentUuid ?? 'pending'));
+        this.reloadAfterAction();
+      },
+      error: (err) => {
+        this.toaster.error(err?.error?.error?.message ?? 'LHDN submission failed');
+      },
+    });
   }
 
   edit(): void {
-    this.router.navigate(['/sales/invoices', this.invoice.id, 'edit']);
+    this.router.navigate(['/sales/invoices', this.invoice!.id, 'edit']);
   }
 
   goBack(): void {
     this.router.navigate(['/sales/invoices']);
+  }
+
+  private reloadAfterAction(): void {
+    setTimeout(() => {
+      this.service.get(this.invoice!.id!).subscribe((result) => {
+        this.invoice = result;
+      });
+    }, 500);
   }
 }

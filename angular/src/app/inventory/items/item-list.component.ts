@@ -6,6 +6,9 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatMenuModule } from '@angular/material/menu';
+import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { ItemStore } from '../store/item.store';
@@ -20,6 +23,8 @@ import { ItemStore } from '../store/item.store';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
+    MatPaginatorModule,
+    MatMenuModule,
     StatusBadgeComponent,
     LoadingOverlayComponent,
   ],
@@ -29,13 +34,30 @@ import { ItemStore } from '../store/item.store';
 export class ItemListComponent implements OnInit {
   readonly store = inject(ItemStore);
   private router = inject(Router);
-  displayedColumns = ['itemCode', 'itemName', 'itemGroup', 'uom', 'stockQty', 'rate', 'status'];
+  private confirmation = inject(ConfirmationService);
+  displayedColumns = ['itemCode', 'itemName', 'itemGroup', 'uom', 'standardSellingPrice', 'actions'];
 
   ngOnInit(): void {
-    // TODO: Wire up to ItemAppService proxy
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.store.load({
+      skipCount: event.pageIndex * event.pageSize,
+      maxResultCount: event.pageSize,
+      sorting: '',
+    });
   }
 
   createItem(): void {
-    // TODO: Navigate to create form or open dialog
+    this.router.navigate(['/inventory/items/new']);
+  }
+
+  delete(id: string): void {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        this.store.remove(id);
+      }
+    });
   }
 }

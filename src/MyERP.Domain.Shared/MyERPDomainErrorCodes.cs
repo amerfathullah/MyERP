@@ -21,4 +21,15 @@ public static class MyERPDomainErrorCodes
     public const string EInvoiceSubmissionFailed = "MyERP:04001";
     public const string EInvoiceAlreadySubmitted = "MyERP:04002";
     public const string EInvoiceCancellationFailed = "MyERP:04003";
+
+    // Import/Export
+    public const string UnsupportedEntityType = "MyERP:05001";
+
+    // Approval Workflow
+    public const string ApprovalPending = "MyERP:06001";
+    public const string ApprovalAlreadyReviewed = "MyERP:06002";
+
+    // Document Conversion
+    public const string DocumentMustBeSubmittedForConversion = "MyERP:07001";
+    public const string DocumentAlreadyConverted = "MyERP:07002";
 }

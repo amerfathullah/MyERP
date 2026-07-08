@@ -69,3 +69,16 @@ export interface CreateUpdateCompanyDto {
   fiscalYearStartMonth?: number;
   isActive?: boolean;
 }
+
+export interface DashboardSummaryDto {
+  totalCustomers?: number;
+  totalSuppliers?: number;
+  totalItems?: number;
+  draftInvoices?: number;
+  outstandingInvoices?: number;
+  pendingPurchaseOrders?: number;
+  submittedEInvoices?: number;
+  pendingApprovals?: number;
+  monthlyRevenue?: number;
+  monthlyExpenses?: number;
+}

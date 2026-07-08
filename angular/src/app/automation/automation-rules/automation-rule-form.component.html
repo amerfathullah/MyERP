@@ -1,0 +1,75 @@
+<abp-page [title]="'::NewAutomationRule' | abpLocalization">
+  <mat-card>
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <mat-form-field appearance="outline" class="md:col-span-2">
+          <mat-label>{{ '::Name' | abpLocalization }}</mat-label>
+          <input matInput formControlName="name" />
+          <mat-error>Required (max 128 chars)</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="md:col-span-2">
+          <mat-label>{{ '::Description' | abpLocalization }}</mat-label>
+          <textarea matInput formControlName="description" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ '::Trigger' | abpLocalization }}</mat-label>
+          <mat-select formControlName="trigger">
+            @for (t of triggers; track t.value) {
+              <mat-option [value]="t.value">{{ t.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ '::DocumentType' | abpLocalization }}</mat-label>
+          <mat-select formControlName="documentType">
+            <mat-option value="">All Documents</mat-option>
+            @for (dt of documentTypes; track dt) {
+              <mat-option [value]="dt">{{ dt }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="md:col-span-2">
+          <mat-label>Condition (e.g., "GrandTotal > 5000")</mat-label>
+          <input matInput formControlName="conditionExpression" placeholder="Field Operator Value" />
+          <mat-hint>Leave empty to always trigger</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ '::Action' | abpLocalization }}</mat-label>
+          <mat-select formControlName="action">
+            @for (a of actions; track a.value) {
+              <mat-option [value]="a.value">{{ a.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ '::Priority' | abpLocalization }}</mat-label>
+          <input matInput type="number" formControlName="priority" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="md:col-span-2">
+          <mat-label>Action Config (JSON)</mat-label>
+          <textarea matInput formControlName="actionConfig" rows="3" placeholder='{"subject": "...", "template": "..."}'></textarea>
+        </mat-form-field>
+
+        <div class="md:col-span-2">
+          <mat-slide-toggle formControlName="isActive">Active</mat-slide-toggle>
+        </div>
+
+        <div class="md:col-span-2 flex gap-3 justify-end pt-4">
+          <button mat-stroked-button type="button" routerLink="/automation">
+            {{ '::Cancel' | abpLocalization }}
+          </button>
+          <button mat-flat-button color="primary" type="submit">
+            <mat-icon>save</mat-icon> {{ '::Save' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</abp-page>

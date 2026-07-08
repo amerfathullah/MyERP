@@ -5,42 +5,55 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-
-interface SubmissionLog {
-  id: string;
-  invoiceNumber: string;
-  documentType: string;
-  lhdnUuid: string;
-  status: string;
-  submittedAt: string;
-  responseMessage: string;
-}
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import type { SalesInvoiceDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-einvoice-logs',
   standalone: true,
-  imports: [CommonModule, PageModule, MatCardModule, MatTableModule, MatIconModule, MatButtonModule, LhdnStatusBadgeComponent, LoadingOverlayComponent],
+  imports: [CommonModule, PageModule, MatCardModule, MatTableModule, MatIconModule, MatButtonModule, MatPaginatorModule, LhdnStatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './einvoice-logs.component.html',
   styleUrls: ['./einvoice-logs.component.scss'],
 })
 export class EinvoiceLogsComponent implements OnInit {
-  logs: SubmissionLog[] = [];
+  private invoiceService = inject(SalesInvoiceService);
+  private toaster = inject(ToasterService);
+
+  submissions: SalesInvoiceDto[] = [];
+  totalCount = 0;
   isLoading = false;
-  displayedColumns = ['invoiceNumber', 'documentType', 'lhdnUuid', 'status', 'submittedAt', 'actions'];
+  displayedColumns = ['invoiceNumber', 'eInvoiceStatus', 'lhdnUuid', 'issueDate', 'actions'];
 
   ngOnInit(): void {
-    // TODO: Wire to EInvoiceSubmissionAppService proxy
-    // Mock data
-    this.logs = [
-      { id: '1', invoiceNumber: 'INV-2026-0001', documentType: 'Invoice', lhdnUuid: 'abc123-def456', status: 'Valid', submittedAt: '2026-07-01T10:30:00', responseMessage: 'Document validated' },
-      { id: '2', invoiceNumber: 'INV-2026-0002', documentType: 'Invoice', lhdnUuid: 'ghi789-jkl012', status: 'Submitted', submittedAt: '2026-07-05T14:20:00', responseMessage: 'Pending validation' },
-      { id: '3', invoiceNumber: 'CN-2026-0001', documentType: 'Credit Note', lhdnUuid: 'mno345-pqr678', status: 'Invalid', submittedAt: '2026-07-06T09:15:00', responseMessage: 'Invalid buyer TIN' },
-    ];
+    this.loadLogs(0, 20);
+  }
+
+  loadLogs(skipCount: number, maxResultCount: number): void {
+    this.isLoading = true;
+    this.invoiceService.getList({ skipCount, maxResultCount, sorting: '' }).subscribe({
+      next: (result) => {
+        // Filter to only invoices that have been submitted to LHDN
+        this.submissions = (result.items ?? []).filter(inv => inv.eInvoiceStatus && inv.eInvoiceStatus !== 'NotSubmitted');
+        this.totalCount = this.submissions.length;
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toaster.error('Failed to load submission logs');
+      },
+    });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.loadLogs(event.pageIndex * event.pageSize, event.pageSize);
   }
 
   refreshStatus(id: string): void {
-    // TODO: Call EInvoiceService.getStatus(uuid)
+    // Will be wired when dedicated EInvoiceService proxy is generated
+    this.toaster.info('Status refresh will be available once e-invoice API is deployed');
   }
 }

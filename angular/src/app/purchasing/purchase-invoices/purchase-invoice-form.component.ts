@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,6 +13,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
+import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
+import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 @Component({
   selector: 'app-purchase-invoice-form',
@@ -37,17 +40,23 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
 export class PurchaseInvoiceFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private taxCalc = inject(TaxCalculationService);
+  private service = inject(PurchaseInvoiceService);
+  private store = inject(PurchaseInvoiceStore);
 
   form = this.fb.group({
-    invoiceNumber: ['', Validators.required],
-    issueDate: [new Date(), Validators.required],
+    companyId: ['', Validators.required],
     supplierId: ['', Validators.required],
-    supplierName: [''],
-    supplierTin: ['', Validators.required],
-    currency: ['MYR'],
+    issueDate: [new Date().toISOString().split('T')[0], Validators.required],
+    dueDate: [''],
+    supplierInvoiceNumber: [''],
+    notes: [''],
     items: this.fb.array([]),
   });
+
+  isEditMode = false;
+  entityId: string | null = null;
 
   calcResult: TaxCalculationResult = {
     netTotal: 0,
@@ -61,23 +70,52 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // TODO: If editing, load purchase invoice by route param ID
+    this.entityId = this.route.snapshot.paramMap.get('id');
+    this.isEditMode = !!this.entityId;
+
+    if (this.isEditMode) {
+      this.service.get(this.entityId!).subscribe((invoice) => {
+        this.form.patchValue({
+          companyId: invoice.companyId,
+          supplierId: invoice.supplierId,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          supplierInvoiceNumber: invoice.supplierInvoiceNumber,
+        });
+        invoice.items?.forEach((item: any) => this.addItemRow(item));
+      });
+    }
+  }
+
+  addItemRow(item?: any): void {
+    this.items.push(this.fb.group({
+      itemId: [item?.itemId ?? '', Validators.required],
+      description: [item?.description ?? '', Validators.required],
+      quantity: [item?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+      unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+      taxAmount: [item?.taxAmount ?? 0],
+      uom: [item?.uom ?? 'EA'],
+    }));
   }
 
   recalculate(): void {
     const itemValues = this.items.controls.map(c => ({
-      qty: c.get('qty')?.value ?? 0,
-      rate: c.get('rate')?.value ?? 0,
-      discountPercent: c.get('discountPercent')?.value ?? 0,
+      qty: c.get('quantity')?.value ?? 0,
+      rate: c.get('unitPrice')?.value ?? 0,
+      discountPercent: 0,
     }));
     this.calcResult = this.taxCalc.calculate(itemValues, []);
   }
 
   save(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     this.recalculate();
-    // TODO: Call PurchaseInvoiceAppService.create() or .update()
-    console.log('Saving purchase invoice:', this.form.getRawValue(), this.calcResult);
+    const dto: CreatePurchaseInvoiceDto = this.form.getRawValue() as any;
+    this.store.create(dto);
+    this.router.navigate(['/purchasing/invoices']);
   }
 
   cancel(): void {

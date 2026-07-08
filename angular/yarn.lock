@@ -1107,6 +1107,11 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
+"@kurkle/color@^0.3.0":
+  version "0.3.4"
+  resolved "https://registry.npmjs.org/@kurkle/color/-/color-0.3.4.tgz"
+  integrity sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==
+
 "@listr2/prompt-adapter-inquirer@3.0.5":
   version "3.0.5"
   resolved "https://registry.npmjs.org/@listr2/prompt-adapter-inquirer/-/prompt-adapter-inquirer-3.0.5.tgz"
@@ -2149,6 +2154,13 @@ chart.js@^3.5.1:
   version "3.9.1"
   resolved "https://registry.npmjs.org/chart.js/-/chart.js-3.9.1.tgz"
   integrity sha512-Ro2JbLmvg83gXF5F4sniaQ+lTbSv18E+TIf2cOeiH1Iqd2PGFOtem+DUufMZsCJwFE7ywPOpfXFBwRTGq7dh6w==
+
+chart.js@^4.5.1:
+  version "4.5.1"
+  resolved "https://registry.npmjs.org/chart.js/-/chart.js-4.5.1.tgz"
+  integrity sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==
+  dependencies:
+    "@kurkle/color" "^0.3.0"
 
 chokidar@^4.0.0:
   version "4.0.3"

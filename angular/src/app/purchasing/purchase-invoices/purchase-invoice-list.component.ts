@@ -31,10 +31,18 @@ import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 export class PurchaseInvoiceListComponent implements OnInit {
   readonly store = inject(PurchaseInvoiceStore);
   private router = inject(Router);
-  displayedColumns = ['invoiceNumber', 'issueDate', 'supplierName', 'grandTotal', 'status', 'eInvoiceStatus', 'actions'];
+  displayedColumns = ['orderNumber', 'orderDate', 'grandTotal', 'status', 'actions'];
 
   ngOnInit(): void {
-    // TODO: Wire up to PurchaseInvoiceAppService proxy
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
+  }
+
+  onPageChange(event: any): void {
+    this.store.load({
+      skipCount: event.pageIndex * event.pageSize,
+      maxResultCount: event.pageSize,
+      sorting: '',
+    });
   }
 
   createInvoice(): void {
@@ -46,14 +54,10 @@ export class PurchaseInvoiceListComponent implements OnInit {
   }
 
   submit(id: string): void {
-    // TODO: Call PurchaseInvoiceAppService.submit(id)
-  }
-
-  post(id: string): void {
-    // TODO: Call PurchaseInvoiceAppService.post(id)
+    this.store.submitInvoice(id);
   }
 
   cancel(id: string): void {
-    // TODO: Call PurchaseInvoiceAppService.cancel(id)
+    this.store.cancelInvoice(id);
   }
 }

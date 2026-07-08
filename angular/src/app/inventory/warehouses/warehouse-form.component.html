@@ -1,0 +1,57 @@
+<abp-page [title]="isEditMode ? ('::EditWarehouse' | abpLocalization) : ('::NewWarehouse' | abpLocalization)">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <mat-card>
+      <mat-card-content>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
+            <mat-select formControlName="companyId">
+              @for (c of companies(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Required</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Name' | abpLocalization }}</mat-label>
+            <input matInput formControlName="name" />
+            <mat-error>Required</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Code</mat-label>
+            <input matInput formControlName="warehouseCode" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="md:col-span-2">
+            <mat-label>{{ '::Address' | abpLocalization }}</mat-label>
+            <textarea matInput formControlName="address" rows="2"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::City' | abpLocalization }}</mat-label>
+            <input matInput formControlName="city" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::State' | abpLocalization }}</mat-label>
+            <input matInput formControlName="state" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::PostalCode' | abpLocalization }}</mat-label>
+            <input matInput formControlName="postalCode" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Country' | abpLocalization }}</mat-label>
+            <input matInput formControlName="country" />
+          </mat-form-field>
+          <div class="flex items-center gap-6">
+            <mat-slide-toggle formControlName="isGroup">Is Group</mat-slide-toggle>
+            <mat-slide-toggle formControlName="isActive">Active</mat-slide-toggle>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="flex justify-end gap-3 mt-4">
+      <button mat-stroked-button type="button" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
+      <button mat-flat-button color="primary" type="submit">{{ '::Save' | abpLocalization }}</button>
+    </div>
+  </form>
+</abp-page>

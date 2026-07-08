@@ -16,6 +16,14 @@ using MyERP.EInvoice;
 using MyERP.EInvoice.Entities;
 using MyERP.HumanResources;
 using MyERP.HumanResources.Entities;
+using MyERP.Workflow.Entities;
+using MyERP.Notification.Entities;
+using MyERP.ImportExport.Entities;
+using MyERP.Automation;
+using MyERP.Automation.Entities;
+using MyERP.Workflow;
+using MyERP.Notification;
+using MyERP.ImportExport;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
 using Volo.Abp.Data;
@@ -55,6 +63,7 @@ public class MyERPDbContext :
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<JournalEntryLine> JournalEntryLines { get; set; }
     public DbSet<PaymentEntry> PaymentEntries { get; set; }
+    public DbSet<BankTransaction> BankTransactions { get; set; }
 
     // Sales
     public DbSet<Customer> Customers { get; set; }
@@ -64,6 +73,8 @@ public class MyERPDbContext :
     public DbSet<SalesOrderItem> SalesOrderItems { get; set; }
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoiceItems { get; set; }
+    public DbSet<DeliveryNote> DeliveryNotes { get; set; }
+    public DbSet<DeliveryNoteItem> DeliveryNoteItems { get; set; }
 
     // Purchasing
     public DbSet<Supplier> Suppliers { get; set; }
@@ -71,6 +82,8 @@ public class MyERPDbContext :
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems { get; set; }
+    public DbSet<PurchaseReceipt> PurchaseReceipts { get; set; }
+    public DbSet<PurchaseReceiptItem> PurchaseReceiptItems { get; set; }
 
     // Inventory
     public DbSet<Item> Items { get; set; }
@@ -85,10 +98,25 @@ public class MyERPDbContext :
 
     // E-Invoice
     public DbSet<EInvoiceSubmission> EInvoiceSubmissions { get; set; }
+    public DbSet<LhdnSuccessLog> LhdnSuccessLogs { get; set; }
 
     // Human Resources
     public DbSet<Employee> Employees { get; set; }
     public DbSet<ContributionRule> ContributionRules { get; set; }
+
+    // Workflow
+    public DbSet<ApprovalRule> ApprovalRules { get; set; }
+    public DbSet<ApprovalRequest> ApprovalRequests { get; set; }
+
+    // Notifications
+    public DbSet<AppNotification> AppNotifications { get; set; }
+
+    // Import/Export
+    public DbSet<ImportJob> ImportJobs { get; set; }
+
+    // Automation
+    public DbSet<AutomationRule> AutomationRules { get; set; }
+    public DbSet<AutomationExecutionLog> AutomationExecutionLogs { get; set; }
 
     #region Entities from the modules
 
@@ -453,6 +481,39 @@ public class MyERPDbContext :
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 
+        // Delivery Notes
+        builder.Entity<DeliveryNote>(b =>
+        {
+            b.ToTable("Sal_DeliveryNotes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DeliveryNumber).IsRequired().HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
+            b.Property(x => x.ShippingAddress).HasMaxLength(500);
+            b.Property(x => x.Transporter).HasMaxLength(200);
+            b.Property(x => x.TrackingNumber).HasMaxLength(100);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.DeliveryNoteId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DeliveryNumber }).IsUnique();
+        });
+
+        builder.Entity<DeliveryNoteItem>(b =>
+        {
+            b.ToTable("Sal_DeliveryNoteItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Uom).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+        });
+
         // Purchase Orders
         builder.Entity<PurchaseOrder>(b =>
         {
@@ -516,6 +577,37 @@ public class MyERPDbContext :
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 
+        // Purchase Receipts
+        builder.Entity<PurchaseReceipt>(b =>
+        {
+            b.ToTable("Pur_PurchaseReceipts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ReceiptNumber).IsRequired().HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
+            b.Property(x => x.SupplierDeliveryNote).HasMaxLength(100);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseReceiptId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ReceiptNumber }).IsUnique();
+        });
+
+        builder.Entity<PurchaseReceiptItem>(b =>
+        {
+            b.ToTable("Pur_PurchaseReceiptItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Uom).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+        });
+
         // Payment Entry
         builder.Entity<PaymentEntry>(b =>
         {
@@ -535,6 +627,20 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PaymentNumber }).IsUnique().HasFilter("\"PaymentNumber\" IS NOT NULL");
         });
 
+        builder.Entity<BankTransaction>(b =>
+        {
+            b.ToTable("Acc_BankTransactions", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ReferenceNumber).HasMaxLength(100);
+            b.Property(x => x.MatchedDocumentRef).HasMaxLength(100);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.BankAccountId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.BankAccountId, x.IsReconciled });
+            b.HasIndex(x => new { x.TenantId, x.BankAccountId, x.TransactionDate });
+        });
+
         // E-Invoice Submissions
         builder.Entity<EInvoiceSubmission>(b =>
         {
@@ -551,6 +657,23 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.DocumentUuid }).IsUnique().HasFilter("\"DocumentUuid\" IS NOT NULL");
             b.HasIndex(x => new { x.TenantId, x.SourceDocumentType, x.SourceDocumentId });
+        });
+
+        builder.Entity<LhdnSuccessLog>(b =>
+        {
+            b.ToTable("EInv_SuccessLogs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DocumentUuid).IsRequired().HasMaxLength(EInvoiceConsts.MaxUuidLength);
+            b.Property(x => x.LongId).HasMaxLength(EInvoiceConsts.MaxLongIdLength);
+            b.Property(x => x.SourceDocumentType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.SourceDocumentNumber).HasMaxLength(64);
+            b.Property(x => x.DocumentTypeCode).IsRequired().HasMaxLength(EInvoiceConsts.MaxDocumentTypeLength);
+            b.Property(x => x.QrCodeUrl).HasMaxLength(EInvoiceConsts.MaxQrCodeUrlLength);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3);
+            b.Property(x => x.GrandTotal).HasColumnType("decimal(18,2)");
+            b.HasOne<EInvoiceSubmission>().WithMany().HasForeignKey(x => x.SubmissionId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.SubmittedAt });
+            b.HasIndex(x => new { x.TenantId, x.DocumentUuid }).IsUnique();
         });
 
         // Stock Entries & Ledger
@@ -626,6 +749,103 @@ public class MyERPDbContext :
             b.Property(x => x.MinimumSalary).HasColumnType("decimal(18,2)");
             b.Property(x => x.MaximumSalary).HasColumnType("decimal(18,2)");
             b.HasIndex(x => new { x.TenantId, x.Type, x.EffectiveFrom });
+        });
+
+        builder.Entity<PayrollEntry>(b =>
+        {
+            b.ToTable("Hr_PayrollEntries", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PayrollNumber).IsRequired().HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).HasMaxLength(10);
+            b.Property(x => x.TotalGrossSalary).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalDeductions).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalNetSalary).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalEmployerContributions).HasColumnType("decimal(18,2)");
+            b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.PayrollEntryId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Year, x.Month }).IsUnique();
+        });
+
+        builder.Entity<PayrollEntryLine>(b =>
+        {
+            b.ToTable("Hr_PayrollEntryLines", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.EmployeeName).IsRequired().HasMaxLength(256);
+            b.Property(x => x.GrossSalary).HasColumnType("decimal(18,2)");
+            b.Property(x => x.EpfEmployee).HasColumnType("decimal(18,2)");
+            b.Property(x => x.EpfEmployer).HasColumnType("decimal(18,2)");
+            b.Property(x => x.SocsoEmployee).HasColumnType("decimal(18,2)");
+            b.Property(x => x.SocsoEmployer).HasColumnType("decimal(18,2)");
+            b.Property(x => x.EisEmployee).HasColumnType("decimal(18,2)");
+            b.Property(x => x.EisEmployer).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Pcb).HasColumnType("decimal(18,2)");
+        });
+
+        // Workflow
+        builder.Entity<ApprovalRule>(b =>
+        {
+            b.ToTable("Wf_ApprovalRules", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DocumentType).IsRequired().HasMaxLength(ApprovalRuleConsts.MaxDocumentTypeLength);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(ApprovalRuleConsts.MaxNameLength);
+            b.Property(x => x.ConditionExpression).HasMaxLength(ApprovalRuleConsts.MaxConditionExpressionLength);
+            b.Property(x => x.Description).HasMaxLength(ApprovalRuleConsts.MaxDescriptionLength);
+            b.Property(x => x.MinimumAmount).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.DocumentType, x.IsActive });
+        });
+
+        builder.Entity<ApprovalRequest>(b =>
+        {
+            b.ToTable("Wf_ApprovalRequests", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DocumentType).IsRequired().HasMaxLength(ApprovalRequestConsts.MaxDocumentTypeLength);
+            b.Property(x => x.Remarks).HasMaxLength(ApprovalRequestConsts.MaxRemarksLength);
+            b.HasOne<ApprovalRule>().WithMany().HasForeignKey(x => x.ApprovalRuleId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.DocumentType, x.DocumentId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.Status, x.Level });
+        });
+
+        // Notifications
+        builder.Entity<AppNotification>(b =>
+        {
+            b.ToTable("App_Notifications", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Subject).IsRequired().HasMaxLength(NotificationConsts.MaxSubjectLength);
+            b.Property(x => x.Body).HasMaxLength(NotificationConsts.MaxBodyLength);
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.IsRead });
+        });
+
+        // Import/Export
+        builder.Entity<ImportJob>(b =>
+        {
+            b.ToTable("App_ImportJobs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.FileName).IsRequired().HasMaxLength(ImportJobConsts.MaxFileNameLength);
+            b.Property(x => x.EntityType).IsRequired().HasMaxLength(ImportJobConsts.MaxEntityTypeLength);
+            b.Property(x => x.ErrorDetails).HasMaxLength(ImportJobConsts.MaxErrorMessageLength);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        // Automation
+        builder.Entity<AutomationRule>(b =>
+        {
+            b.ToTable("Auto_Rules", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(AutomationRuleConsts.MaxNameLength);
+            b.Property(x => x.Description).HasMaxLength(AutomationRuleConsts.MaxDescriptionLength);
+            b.Property(x => x.DocumentType).HasMaxLength(AutomationRuleConsts.MaxDocumentTypeLength);
+            b.Property(x => x.ConditionExpression).HasMaxLength(AutomationRuleConsts.MaxConditionExpressionLength);
+            b.Property(x => x.ActionConfig).HasMaxLength(AutomationRuleConsts.MaxActionConfigLength);
+            b.HasIndex(x => new { x.TenantId, x.Trigger, x.IsActive });
+        });
+
+        builder.Entity<AutomationExecutionLog>(b =>
+        {
+            b.ToTable("Auto_ExecutionLogs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.SourceDocumentType).HasMaxLength(AutomationRuleConsts.MaxDocumentTypeLength);
+            b.Property(x => x.ErrorMessage).HasMaxLength(1024);
+            b.HasOne<AutomationRule>().WithMany().HasForeignKey(x => x.AutomationRuleId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.AutomationRuleId, x.CreationTime });
         });
     }
 }

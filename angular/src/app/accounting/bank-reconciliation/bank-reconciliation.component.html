@@ -1,32 +1,89 @@
-<abp-page [title]="'Bank Reconciliation'">
-  <div class="flex gap-4 mb-6">
-    <mat-card class="flex-1">
-      <mat-card-content class="flex items-center gap-3 py-2">
-        <mat-icon class="text-orange-500 !text-3xl">pending_actions</mat-icon>
-        <div><p class="text-sm text-gray-500">Unreconciled</p><p class="text-xl font-bold">{{ unreconciledCount }}</p></div>
+<abp-page [title]="'::BankReconciliation' | abpLocalization">
+  @if (isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-4 mb-6">
+    <mat-card>
+      <mat-card-content class="text-center py-3">
+        <p class="text-2xl font-bold">{{ summary().totalTransactions ?? 0 }}</p>
+        <small class="text-gray-500">Total</small>
       </mat-card-content>
     </mat-card>
-    <mat-card class="flex-1">
-      <mat-card-content class="flex items-center gap-3 py-2">
-        <mat-icon class="text-blue-500 !text-3xl">account_balance</mat-icon>
-        <div><p class="text-sm text-gray-500">Unreconciled Amount</p><p class="text-xl font-bold font-mono">MYR {{ totalUnreconciled | number:'1.2-2' }}</p></div>
+    <mat-card>
+      <mat-card-content class="text-center py-3">
+        <p class="text-2xl font-bold text-green-600">{{ summary().reconciledCount ?? 0 }}</p>
+        <small class="text-gray-500">Reconciled</small>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content class="text-center py-3">
+        <p class="text-2xl font-bold text-orange-600">{{ summary().unreconciledCount ?? 0 }}</p>
+        <small class="text-gray-500">Unreconciled</small>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content class="text-center py-3">
+        <p class="text-2xl font-bold font-mono">{{ summary().unreconciledBalance ?? 0 | number:'1.2-2' }}</p>
+        <small class="text-gray-500">Balance</small>
       </mat-card-content>
     </mat-card>
   </div>
 
   <mat-card>
-    <mat-card-header class="px-4 pt-4"><mat-card-title>Bank Transactions</mat-card-title></mat-card-header>
+    <mat-card-header class="px-4 pt-4"><mat-card-title>{{ '::BankTransactions' | abpLocalization }}</mat-card-title></mat-card-header>
     <mat-card-content class="pt-4">
-      <table mat-table [dataSource]="transactions" class="w-full">
-        <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let t">{{ t.date | date:'dd/MM/yyyy' }}</td></ng-container>
-        <ng-container matColumnDef="description"><th mat-header-cell *matHeaderCellDef>Description</th><td mat-cell *matCellDef="let t">{{ t.description }}</td></ng-container>
-        <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let t" class="font-mono" [class.text-green-600]="t.amount > 0" [class.text-red-600]="t.amount < 0">{{ t.amount | number:'1.2-2' }}</td></ng-container>
-        <ng-container matColumnDef="matchedInvoice"><th mat-header-cell *matHeaderCellDef>Matched</th><td mat-cell *matCellDef="let t">{{ t.matchedInvoice ?? '—' }}</td></ng-container>
-        <ng-container matColumnDef="reconciled"><th mat-header-cell *matHeaderCellDef>Reconciled</th><td mat-cell *matCellDef="let t"><mat-checkbox [checked]="t.isReconciled" disabled></mat-checkbox></td></ng-container>
-        <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let t">@if (!t.isReconciled) { <button mat-stroked-button color="primary" (click)="reconcile(t.id)"><mat-icon>check</mat-icon> Reconcile</button> }</td></ng-container>
+      <table mat-table [dataSource]="transactions()" class="w-full">
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>{{ '::PostingDate' | abpLocalization }}</th>
+          <td mat-cell *matCellDef="let t">{{ t.transactionDate | date:'dd/MM/yyyy' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="description">
+          <th mat-header-cell *matHeaderCellDef>{{ '::Description' | abpLocalization }}</th>
+          <td mat-cell *matCellDef="let t">{{ t.description }}</td>
+        </ng-container>
+        <ng-container matColumnDef="amount">
+          <th mat-header-cell *matHeaderCellDef>Amount</th>
+          <td mat-cell *matCellDef="let t" class="font-mono" [class.text-green-600]="t.amount > 0" [class.text-red-600]="t.amount < 0">
+            MYR {{ t.amount | number:'1.2-2' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="matchedDoc">
+          <th mat-header-cell *matHeaderCellDef>Matched</th>
+          <td mat-cell *matCellDef="let t">{{ t.matchedDocumentRef ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
+          <td mat-cell *matCellDef="let t">
+            <mat-chip [highlighted]="t.isReconciled" [class]="t.isReconciled ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'">
+              {{ t.isReconciled ? 'Reconciled' : 'Pending' }}
+            </mat-chip>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let t">
+            @if (!t.isReconciled) {
+              <button mat-stroked-button color="primary" (click)="reconcile(t.id)">
+                <mat-icon>check</mat-icon> Reconcile
+              </button>
+            } @else {
+              <button mat-stroked-button (click)="unreconcile(t.id)">
+                <mat-icon>undo</mat-icon> Undo
+              </button>
+            }
+          </td>
+        </ng-container>
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
       </table>
+
+      <mat-paginator
+        [length]="totalCount()"
+        [pageSize]="20"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)">
+      </mat-paginator>
     </mat-card-content>
   </mat-card>
 </abp-page>

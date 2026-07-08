@@ -1,0 +1,41 @@
+<button mat-icon-button [matMenuTriggerFor]="notifMenu"
+  [matBadge]="unreadCount() > 0 ? unreadCount() : null"
+  matBadgeColor="warn" matBadgeSize="small">
+  <mat-icon>notifications</mat-icon>
+</button>
+
+<mat-menu #notifMenu="matMenu" class="notification-menu">
+  <div class="px-4 py-2 flex justify-between items-center border-b">
+    <span class="font-medium text-sm">Notifications</span>
+    @if (unreadCount() > 0) {
+      <button mat-button color="primary" class="text-xs" (click)="markAllAsRead(); $event.stopPropagation()">
+        Mark all read
+      </button>
+    }
+  </div>
+
+  @if (notifications().length === 0) {
+    <div class="px-4 py-6 text-center text-gray-400 text-sm">
+      No notifications
+    </div>
+  } @else {
+    @for (notif of notifications(); track notif.id) {
+      <button mat-menu-item class="h-auto py-2"
+        [class.bg-blue-50]="!notif.isRead"
+        (click)="markAsRead(notif.id!)">
+        <div class="flex items-start gap-2">
+          <mat-icon [class]="getSeverityColor(notif.severity!)">{{ getSeverityIcon(notif.severity!) }}</mat-icon>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate" [class.font-bold]="!notif.isRead">{{ notif.subject }}</p>
+            <p class="text-xs text-gray-500">{{ notif.creationTime | date:'short' }}</p>
+          </div>
+        </div>
+      </button>
+    }
+  }
+
+  <mat-divider></mat-divider>
+  <button mat-menu-item routerLink="/notifications" class="text-center">
+    <span class="text-sm text-primary">View all</span>
+  </button>
+</mat-menu>

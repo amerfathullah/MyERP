@@ -1,0 +1,119 @@
+<abp-page [title]="'::ImportExport' | abpLocalization">
+  <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <!-- Import Card -->
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon class="align-middle mr-1">upload_file</mat-icon>
+          {{ '::ImportData' | abpLocalization }}
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4">
+        <form [formGroup]="importForm" (ngSubmit)="startImport()">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>{{ '::EntityType' | abpLocalization }}</mat-label>
+            <mat-select formControlName="entityType">
+              @for (type of entityTypes; track type) {
+                <mat-option [value]="type">{{ type }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="mb-4">
+            <input type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)" class="hidden" #fileInput />
+            <button mat-stroked-button type="button" (click)="fileInput.click()">
+              <mat-icon>attach_file</mat-icon> Choose File
+            </button>
+            @if (selectedFileName) {
+              <span class="ml-2 text-sm text-gray-600">{{ selectedFileName }}</span>
+            }
+          </div>
+
+          @if (isImporting()) {
+            <mat-progress-bar mode="indeterminate" class="mb-4"></mat-progress-bar>
+          }
+
+          <button mat-flat-button color="primary" type="submit"
+            [disabled]="importForm.invalid || isImporting()">
+            <mat-icon>cloud_upload</mat-icon> {{ '::StartImport' | abpLocalization }}
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Export Card -->
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon class="align-middle mr-1">download</mat-icon>
+          {{ '::ExportData' | abpLocalization }}
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4">
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>{{ '::EntityType' | abpLocalization }}</mat-label>
+          <mat-select [(value)]="exportEntityType">
+            @for (type of entityTypes; track type) {
+              <mat-option [value]="type">{{ type }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        @if (isExporting()) {
+          <mat-progress-bar mode="indeterminate" class="mb-4"></mat-progress-bar>
+        }
+
+        <button mat-flat-button color="accent" (click)="exportData()" [disabled]="isExporting()">
+          <mat-icon>cloud_download</mat-icon> {{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Import History -->
+  @if (importHistory().length > 0) {
+    <mat-card class="mt-6">
+      <mat-card-header>
+        <mat-card-title>{{ '::ImportHistory' | abpLocalization }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="importHistory()" class="w-full">
+          <ng-container matColumnDef="fileName">
+            <th mat-header-cell *matHeaderCellDef>File</th>
+            <td mat-cell *matCellDef="let row">{{ row.fileName }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="entityType">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let row">{{ row.entityType }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">
+              <mat-chip [color]="getStatusColor(row.status)">{{ getStatusLabel(row.status) }}</mat-chip>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="results">
+            <th mat-header-cell *matHeaderCellDef>Results</th>
+            <td mat-cell *matCellDef="let row">
+              {{ row.successCount }}/{{ row.totalRows }} rows
+              @if (row.failureCount > 0) {
+                <span class="text-red-600 ml-1">({{ row.failureCount }} failed)</span>
+              }
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row">{{ row.creationTime | date:'short' }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="['fileName', 'entityType', 'status', 'results', 'date']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['fileName', 'entityType', 'status', 'results', 'date']"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+</abp-page>

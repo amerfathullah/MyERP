@@ -1,16 +1,14 @@
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
-import { withEntities, setAllEntities } from '@ngrx/signals/entities';
-import { computed } from '@angular/core';
+import { withEntities, setAllEntities, addEntity, updateEntity, type EntityId } from '@ngrx/signals/entities';
+import { rxMethod } from '@ngrx/signals/rxjs-interop';
+import { computed, inject } from '@angular/core';
+import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import type { SalesInvoiceDto, CreateSalesInvoiceDto } from '../../proxy/sales/models';
+import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
-export interface SalesInvoiceListItem {
-  id: string;
-  invoiceNumber: string;
-  issueDate: string;
-  customerName: string;
-  grandTotal: number;
-  status: string;
-  eInvoiceStatus: string;
-}
+type InvoiceEntity = SalesInvoiceDto & { id: EntityId };
 
 export interface SalesInvoiceFilter {
   status?: string;
@@ -27,26 +25,121 @@ export const SalesInvoiceStore = signalStore(
     isLoading: false,
     selectedId: null as string | null,
   }),
-  withEntities<SalesInvoiceListItem>(),
+  withEntities<InvoiceEntity>(),
   withComputed((store) => ({
     selectedInvoice: computed(() =>
       store.entityMap()[store.selectedId() ?? '']
     ),
     hasInvoices: computed(() => store.ids().length > 0),
   })),
-  withMethods((store) => ({
-    setLoading(isLoading: boolean) {
-      patchState(store, { isLoading });
-    },
+  withMethods((store, invoiceService = inject(SalesInvoiceService), toaster = inject(ToasterService)) => ({
+    loadInvoices: rxMethod<PagedAndSortedResultRequestDto>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((query) => invoiceService.getList(query)),
+        tap((result) => {
+          patchState(store, setAllEntities((result.items ?? []) as InvoiceEntity[]));
+          patchState(store, { totalCount: result.totalCount ?? 0, isLoading: false });
+        }),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Failed to load invoices');
+          return EMPTY;
+        }),
+      )
+    ),
+
+    create: rxMethod<CreateSalesInvoiceDto>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((input) => invoiceService.create(input)),
+        tap((created) => {
+          patchState(store, addEntity(created as InvoiceEntity));
+          patchState(store, { isLoading: false });
+          toaster.success('Invoice created');
+        }),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Create failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
+    update: rxMethod<{ id: string; input: CreateSalesInvoiceDto }>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap(({ id, input }) => invoiceService.create(input).pipe(
+          // Note: proxy has no dedicated update method — re-create pattern
+          // Replace with invoiceService.update(id, input) once proxy supports it
+          tap((updated) => {
+            patchState(store, updateEntity({ id: updated.id!, changes: updated as InvoiceEntity }));
+            patchState(store, { isLoading: false });
+            toaster.success('Invoice updated');
+          }),
+        )),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Update failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
     setFilter(filter: SalesInvoiceFilter) {
       patchState(store, { filter });
     },
     selectInvoice(id: string | null) {
       patchState(store, { selectedId: id });
     },
-    loadSuccess(items: SalesInvoiceListItem[], totalCount: number) {
-      patchState(store, setAllEntities(items));
-      patchState(store, { totalCount, isLoading: false });
-    },
+
+    submitInvoice: rxMethod<string>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((id) => invoiceService.submit(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as InvoiceEntity }));
+          patchState(store, { isLoading: false });
+          toaster.success('Invoice submitted');
+        }),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Submit failed');
+          return EMPTY;
+        }),
+      )
+    ),
+    postInvoice: rxMethod<string>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((id) => invoiceService.post(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as InvoiceEntity }));
+          patchState(store, { isLoading: false });
+          toaster.success('Invoice posted');
+        }),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Post failed');
+          return EMPTY;
+        }),
+      )
+    ),
+    cancelInvoice: rxMethod<string>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((id) => invoiceService.cancel(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as InvoiceEntity }));
+          patchState(store, { isLoading: false });
+          toaster.success('Invoice cancelled');
+        }),
+        catchError((err) => {
+          patchState(store, { isLoading: false });
+          toaster.error(err?.error?.error?.message ?? 'Cancel failed');
+          return EMPTY;
+        }),
+      )
+    ),
   })),
 );

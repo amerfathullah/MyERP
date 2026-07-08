@@ -1,0 +1,101 @@
+<abp-page [title]="'::Payroll' | abpLocalization">
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="flex justify-between items-center mb-4">
+    <h5 class="text-sm text-gray-500">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
+    <button mat-flat-button color="primary" (click)="toggleCreateForm()">
+      <mat-icon>add</mat-icon> Run Payroll
+    </button>
+  </div>
+
+  <!-- Create payroll form (inline) -->
+  @if (showCreateForm) {
+    <mat-card class="mb-4">
+      <mat-card-header><mat-card-title>New Payroll Run</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="createForm" (ngSubmit)="runPayroll()" class="flex items-end gap-4 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
+            <mat-select formControlName="companyId">
+              @for (c of companies(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="w-24">
+            <mat-label>Year</mat-label>
+            <input matInput type="number" formControlName="year" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="w-24">
+            <mat-label>Month</mat-label>
+            <input matInput type="number" formControlName="month" min="1" max="12" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit">
+            <mat-icon>calculate</mat-icon> Calculate
+          </button>
+          <button mat-stroked-button type="button" (click)="toggleCreateForm()">Cancel</button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- Payroll list -->
+  <mat-card>
+    <table mat-table [dataSource]="store.entities()" class="w-full">
+      <ng-container matColumnDef="payrollNumber">
+        <th mat-header-cell *matHeaderCellDef>Payroll #</th>
+        <td mat-cell *matCellDef="let row" class="font-mono text-sm">
+          <a [routerLink]="[row.id]" class="text-blue-600 hover:underline">{{ row.payrollNumber }}</a>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="periodLabel">
+        <th mat-header-cell *matHeaderCellDef>Period</th>
+        <td mat-cell *matCellDef="let row">{{ row.periodLabel }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="totalGrossSalary">
+        <th mat-header-cell *matHeaderCellDef>Gross</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.totalGrossSalary | number:'1.2-2' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="totalDeductions">
+        <th mat-header-cell *matHeaderCellDef>Deductions</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.totalDeductions | number:'1.2-2' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="totalNetSalary">
+        <th mat-header-cell *matHeaderCellDef>Net Pay</th>
+        <td mat-cell *matCellDef="let row" class="text-right font-mono font-bold">{{ row.totalNetSalary | number:'1.2-2' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row">
+          @if (row.status === 'Draft') {
+            <button mat-icon-button color="primary" (click)="store.submitEntry(row.id)" title="Submit">
+              <mat-icon>send</mat-icon>
+            </button>
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+
+    <mat-paginator
+      [length]="store.totalCount()"
+      [pageSize]="20"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)">
+    </mat-paginator>
+  </mat-card>
+</abp-page>

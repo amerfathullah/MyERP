@@ -8,7 +8,7 @@ export interface WorkflowAction {
   name: string;
   label: string;
   icon: string;
-  color: 'primary' | 'accent' | 'warn' | '';
+  color: string;
 }
 
 @Component({
@@ -19,7 +19,7 @@ export interface WorkflowAction {
   styleUrls: ['./document-workflow.component.scss'],
 })
 export class DocumentWorkflowComponent {
-  @Input({ required: true }) currentStatus!: DocumentStatus;
+  @Input({ required: true }) currentStatus!: string;
   @Input() availableActions: WorkflowAction[] = [];
   @Output() actionTriggered = new EventEmitter<string>();
 }

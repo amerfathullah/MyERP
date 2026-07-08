@@ -1,0 +1,68 @@
+<abp-page [title]="receipt?.receiptNumber ?? 'Purchase Receipt'">
+  @if (!receipt) {
+    <app-loading-overlay />
+  } @else {
+    <app-document-workflow
+      [currentStatus]="receipt.status!"
+      [availableActions]="workflowActions"
+      (actionTriggered)="onWorkflowAction($event)" />
+
+    <mat-card class="mt-4">
+      <mat-card-content>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <span class="text-sm text-gray-500">{{ '::ReceiptNumber' | abpLocalization }}</span>
+            <p class="font-medium">{{ receipt.receiptNumber }}</p>
+          </div>
+          <div>
+            <span class="text-sm text-gray-500">{{ '::PostingDate' | abpLocalization }}</span>
+            <p class="font-medium">{{ receipt.postingDate | date:'dd/MM/yyyy' }}</p>
+          </div>
+          <div>
+            <span class="text-sm text-gray-500">{{ '::Warehouse' | abpLocalization }}</span>
+            <p class="font-medium">{{ receipt.warehouseId }}</p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="mt-4">
+      <mat-card-header><mat-card-title>{{ '::Items' | abpLocalization }}</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="receipt.items!" class="w-full">
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>{{ '::Description' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+          </ng-container>
+          <ng-container matColumnDef="quantity">
+            <th mat-header-cell *matHeaderCellDef>{{ '::Quantity' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="text-right">{{ row.quantity }}</td>
+          </ng-container>
+          <ng-container matColumnDef="unitPrice">
+            <th mat-header-cell *matHeaderCellDef>{{ '::UnitPrice' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.unitPrice | number:'1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="taxAmount">
+            <th mat-header-cell *matHeaderCellDef>{{ '::Tax' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.taxAmount | number:'1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="lineTotal">
+            <th mat-header-cell *matHeaderCellDef>{{ '::LineTotal' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.lineTotal | number:'1.2-2' }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: itemColumns"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="mt-4">
+      <mat-card-content class="text-right">
+        <p>{{ '::NetTotal' | abpLocalization }}: <strong class="font-mono">{{ receipt.netTotal | number:'1.2-2' }}</strong></p>
+        <p>{{ '::Tax' | abpLocalization }}: <strong class="font-mono">{{ receipt.taxAmount | number:'1.2-2' }}</strong></p>
+        <mat-divider class="my-2" />
+        <p class="text-lg">{{ '::GrandTotal' | abpLocalization }}: <strong class="font-mono">{{ receipt.grandTotal | number:'1.2-2' }}</strong></p>
+      </mat-card-content>
+    </mat-card>
+  }
+</abp-page>

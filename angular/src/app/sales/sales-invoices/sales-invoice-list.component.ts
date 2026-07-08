@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -31,25 +32,26 @@ import { SalesInvoiceStore } from '../store/sales-invoice.store';
 })
 export class SalesInvoiceListComponent implements OnInit {
   readonly store = inject(SalesInvoiceStore);
+  private router = inject(Router);
   displayedColumns = ['invoiceNumber', 'issueDate', 'customerName', 'grandTotal', 'status', 'eInvoiceStatus', 'actions'];
 
   ngOnInit(): void {
-    // TODO: Wire up to SalesInvoiceAppService proxy via rxMethod
+    this.store.loadInvoices({ skipCount: 0, maxResultCount: 20 });
   }
 
   createInvoice(): void {
-    // TODO: Navigate to create form
+    this.router.navigate(['/sales/invoices/new']);
   }
 
   submit(id: string): void {
-    // TODO: Call SalesInvoiceAppService.submit(id)
+    this.store.submitInvoice(id);
   }
 
   post(id: string): void {
-    // TODO: Call SalesInvoiceAppService.post(id)
+    this.store.postInvoice(id);
   }
 
   cancel(id: string): void {
-    // TODO: Call SalesInvoiceAppService.cancel(id)
+    this.store.cancelInvoice(id);
   }
 }

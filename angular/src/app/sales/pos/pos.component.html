@@ -4,17 +4,18 @@
     <!-- Search -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Search items</mat-label>
-      <input matInput [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..." />
+      <input matInput [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..."
+        (ngModelChange)="onSearchChange($event)" />
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
 
-    <!-- Quick-add grid -->
+    <!-- Item grid from API -->
     <div class="grid grid-cols-2 gap-3 md:grid-cols-3 overflow-y-auto flex-1">
-      @for (item of quickItems; track item.name) {
+      @for (item of items(); track item.id) {
         <button mat-stroked-button class="!h-24 flex-col !text-left"
-          (click)="addToCart(item.name, item.rate)">
-          <span class="font-medium">{{ item.name }}</span>
-          <span class="text-sm text-gray-500 font-mono">MYR {{ item.rate | number:'1.2-2' }}</span>
+          (click)="addToCart(item)">
+          <span class="font-medium text-sm">{{ item.itemName }}</span>
+          <span class="text-xs text-gray-500 font-mono">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
         </button>
       }
     </div>
@@ -30,7 +31,7 @@
       @if (cart.length === 0) {
         <p class="text-center text-gray-400 py-8">Cart is empty</p>
       } @else {
-        @for (item of cart; track item.itemName; let i = $index) {
+        @for (item of cart; track item.itemId; let i = $index) {
           <div class="flex items-center justify-between py-2 border-b">
             <div class="flex-1">
               <p class="font-medium text-sm">{{ item.itemName }}</p>
@@ -54,14 +55,28 @@
         <span class="text-gray-600">Subtotal</span>
         <span class="font-mono">MYR {{ netTotal | number:'1.2-2' }}</span>
       </div>
-      <div class="flex justify-between text-lg font-bold mb-4">
+      <div class="flex justify-between text-lg font-bold mb-3">
         <span>Total</span>
         <span class="font-mono">MYR {{ grandTotal | number:'1.2-2' }}</span>
       </div>
+      <mat-form-field appearance="outline" class="w-full mb-2">
+        <mat-label>Amount Received</mat-label>
+        <input matInput type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
+        <span matPrefix>MYR&nbsp;</span>
+      </mat-form-field>
+      @if (change > 0) {
+        <div class="flex justify-between mb-3 text-green-700 font-bold">
+          <span>Change</span>
+          <span class="font-mono">MYR {{ change | number:'1.2-2' }}</span>
+        </div>
+      }
       <button mat-flat-button color="primary" class="w-full !h-12 !text-lg"
-        [disabled]="cart.length === 0" (click)="completeSale()">
-        <mat-icon>payments</mat-icon> Complete Sale
+        [disabled]="cart.length === 0 || isProcessing" (click)="completeSale()">
+        <mat-icon>payments</mat-icon> {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
       </button>
+      @if (lastInvoice) {
+        <p class="text-center text-sm text-gray-500 mt-2">Last: {{ lastInvoice }}</p>
+      }
     </div>
   </mat-card>
 </div>

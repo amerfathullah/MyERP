@@ -1,43 +1,63 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ListService } from '@abp/ng.core';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatMenuModule } from '@angular/material/menu';
+import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
+import { CustomerStore } from './store/customer.store';
 
 @Component({
   selector: 'app-customer-list',
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     PageModule,
     MatCardModule,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    StatusBadgeComponent,
+    MatPaginatorModule,
+    MatMenuModule,
     LoadingOverlayComponent,
   ],
-  providers: [ListService],
   templateUrl: './customer-list.component.html',
   styleUrls: ['./customer-list.component.scss'],
 })
 export class CustomerListComponent implements OnInit {
-  customers: any[] = [];
-  isLoading = false;
-  displayedColumns = ['name', 'customerCode', 'tin', 'phone', 'email', 'status'];
+  readonly store = inject(CustomerStore);
+  private router = inject(Router);
+  private confirmation = inject(ConfirmationService);
 
-  constructor(public readonly list: ListService) {}
+  displayedColumns = ['name', 'customerCode', 'tin', 'phone', 'email', 'actions'];
 
   ngOnInit(): void {
-    // TODO: Wire up to CustomerAppService proxy
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.store.load({
+      skipCount: event.pageIndex * event.pageSize,
+      maxResultCount: event.pageSize,
+      sorting: '',
+    });
   }
 
   createCustomer(): void {
-    // TODO: Open create dialog
+    this.router.navigate(['/customers/new']);
+  }
+
+  delete(id: string): void {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        this.store.remove(id);
+      }
+    });
   }
 }

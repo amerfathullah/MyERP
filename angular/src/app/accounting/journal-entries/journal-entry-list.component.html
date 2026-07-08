@@ -1,0 +1,77 @@
+<abp-page [title]="'::JournalEntries' | abpLocalization">
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="flex justify-between items-center mb-4">
+    <h5 class="text-sm text-gray-500">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
+    <button mat-flat-button color="primary" routerLink="new">
+      <mat-icon>add</mat-icon> {{ '::NewJournalEntry' | abpLocalization }}
+    </button>
+  </div>
+
+  <mat-card>
+    <table mat-table [dataSource]="store.entities()" class="w-full">
+      <ng-container matColumnDef="entryNumber">
+        <th mat-header-cell *matHeaderCellDef>{{ '::EntryNumber' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row">{{ row.entryNumber ?? '—' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="postingDate">
+        <th mat-header-cell *matHeaderCellDef>{{ '::PostingDate' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row">{{ row.postingDate | date:'mediumDate' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="referenceType">
+        <th mat-header-cell *matHeaderCellDef>{{ '::ReferenceType' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row">{{ row.referenceType ?? 'Manual' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="totalDebit">
+        <th mat-header-cell *matHeaderCellDef>{{ '::TotalDebit' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row">{{ row.totalDebit | number:'1.2-2' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
+        <td mat-cell *matCellDef="let row">
+          <app-status-badge [status]="row.status" />
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row">
+          <button mat-icon-button [matMenuTriggerFor]="menu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item [routerLink]="[row.id]">
+              <mat-icon>visibility</mat-icon> {{ '::View' | abpLocalization }}
+            </button>
+            @if (row.status === 'Draft') {
+              <button mat-menu-item (click)="store.postEntry(row.id)">
+                <mat-icon>verified</mat-icon> {{ '::Post' | abpLocalization }}
+              </button>
+            }
+            @if (row.status === 'Posted') {
+              <button mat-menu-item (click)="store.cancelEntry(row.id)">
+                <mat-icon>cancel</mat-icon> {{ '::Cancel' | abpLocalization }}
+              </button>
+            }
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+
+    <mat-paginator
+      [length]="store.totalCount()"
+      [pageSize]="20"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)">
+    </mat-paginator>
+  </mat-card>
+</abp-page>

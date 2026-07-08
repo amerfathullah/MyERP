@@ -45,6 +45,96 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         warehousesPermission.AddChild(MyERPPermissions.Warehouses.Create, L("Permission:Warehouses.Create"));
         warehousesPermission.AddChild(MyERPPermissions.Warehouses.Edit, L("Permission:Warehouses.Edit"));
         warehousesPermission.AddChild(MyERPPermissions.Warehouses.Delete, L("Permission:Warehouses.Delete"));
+
+        var taxCategoriesPermission = myGroup.AddPermission(MyERPPermissions.TaxCategories.Default, L("Permission:TaxCategories"));
+        taxCategoriesPermission.AddChild(MyERPPermissions.TaxCategories.Create, L("Permission:TaxCategories.Create"));
+        taxCategoriesPermission.AddChild(MyERPPermissions.TaxCategories.Edit, L("Permission:TaxCategories.Edit"));
+        taxCategoriesPermission.AddChild(MyERPPermissions.TaxCategories.Delete, L("Permission:TaxCategories.Delete"));
+
+        var salesInvoicesPermission = myGroup.AddPermission(MyERPPermissions.SalesInvoices.Default, L("Permission:SalesInvoices"));
+        salesInvoicesPermission.AddChild(MyERPPermissions.SalesInvoices.Create, L("Permission:SalesInvoices.Create"));
+        salesInvoicesPermission.AddChild(MyERPPermissions.SalesInvoices.Edit, L("Permission:SalesInvoices.Edit"));
+        salesInvoicesPermission.AddChild(MyERPPermissions.SalesInvoices.Delete, L("Permission:SalesInvoices.Delete"));
+        salesInvoicesPermission.AddChild(MyERPPermissions.SalesInvoices.Submit, L("Permission:SalesInvoices.Submit"));
+        salesInvoicesPermission.AddChild(MyERPPermissions.SalesInvoices.Cancel, L("Permission:SalesInvoices.Cancel"));
+
+        var journalEntriesPermission = myGroup.AddPermission(MyERPPermissions.JournalEntries.Default, L("Permission:JournalEntries"));
+        journalEntriesPermission.AddChild(MyERPPermissions.JournalEntries.Create, L("Permission:JournalEntries.Create"));
+        journalEntriesPermission.AddChild(MyERPPermissions.JournalEntries.Post, L("Permission:JournalEntries.Post"));
+
+        var quotationsPermission = myGroup.AddPermission(MyERPPermissions.Quotations.Default, L("Permission:Quotations"));
+        quotationsPermission.AddChild(MyERPPermissions.Quotations.Create, L("Permission:Quotations.Create"));
+        quotationsPermission.AddChild(MyERPPermissions.Quotations.Edit, L("Permission:Quotations.Edit"));
+        quotationsPermission.AddChild(MyERPPermissions.Quotations.Delete, L("Permission:Quotations.Delete"));
+        quotationsPermission.AddChild(MyERPPermissions.Quotations.Submit, L("Permission:Quotations.Submit"));
+        quotationsPermission.AddChild(MyERPPermissions.Quotations.Cancel, L("Permission:Quotations.Cancel"));
+
+        var salesOrdersPermission = myGroup.AddPermission(MyERPPermissions.SalesOrders.Default, L("Permission:SalesOrders"));
+        salesOrdersPermission.AddChild(MyERPPermissions.SalesOrders.Create, L("Permission:SalesOrders.Create"));
+        salesOrdersPermission.AddChild(MyERPPermissions.SalesOrders.Edit, L("Permission:SalesOrders.Edit"));
+        salesOrdersPermission.AddChild(MyERPPermissions.SalesOrders.Delete, L("Permission:SalesOrders.Delete"));
+        salesOrdersPermission.AddChild(MyERPPermissions.SalesOrders.Submit, L("Permission:SalesOrders.Submit"));
+        salesOrdersPermission.AddChild(MyERPPermissions.SalesOrders.Cancel, L("Permission:SalesOrders.Cancel"));
+
+        var stockEntriesPermission = myGroup.AddPermission(MyERPPermissions.StockEntries.Default, L("Permission:StockEntries"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Create, L("Permission:StockEntries.Create"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Edit, L("Permission:StockEntries.Edit"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Delete, L("Permission:StockEntries.Delete"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Submit, L("Permission:StockEntries.Submit"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Post, L("Permission:StockEntries.Post"));
+        stockEntriesPermission.AddChild(MyERPPermissions.StockEntries.Cancel, L("Permission:StockEntries.Cancel"));
+
+        var purchaseOrdersPermission = myGroup.AddPermission(MyERPPermissions.PurchaseOrders.Default, L("Permission:PurchaseOrders"));
+        purchaseOrdersPermission.AddChild(MyERPPermissions.PurchaseOrders.Create, L("Permission:PurchaseOrders.Create"));
+        purchaseOrdersPermission.AddChild(MyERPPermissions.PurchaseOrders.Edit, L("Permission:PurchaseOrders.Edit"));
+        purchaseOrdersPermission.AddChild(MyERPPermissions.PurchaseOrders.Delete, L("Permission:PurchaseOrders.Delete"));
+        purchaseOrdersPermission.AddChild(MyERPPermissions.PurchaseOrders.Submit, L("Permission:PurchaseOrders.Submit"));
+        purchaseOrdersPermission.AddChild(MyERPPermissions.PurchaseOrders.Cancel, L("Permission:PurchaseOrders.Cancel"));
+
+        var purchaseInvoicesPermission = myGroup.AddPermission(MyERPPermissions.PurchaseInvoices.Default, L("Permission:PurchaseInvoices"));
+        purchaseInvoicesPermission.AddChild(MyERPPermissions.PurchaseInvoices.Create, L("Permission:PurchaseInvoices.Create"));
+        purchaseInvoicesPermission.AddChild(MyERPPermissions.PurchaseInvoices.Edit, L("Permission:PurchaseInvoices.Edit"));
+        purchaseInvoicesPermission.AddChild(MyERPPermissions.PurchaseInvoices.Delete, L("Permission:PurchaseInvoices.Delete"));
+        purchaseInvoicesPermission.AddChild(MyERPPermissions.PurchaseInvoices.Submit, L("Permission:PurchaseInvoices.Submit"));
+        purchaseInvoicesPermission.AddChild(MyERPPermissions.PurchaseInvoices.Cancel, L("Permission:PurchaseInvoices.Cancel"));
+
+        var paymentEntriesPermission = myGroup.AddPermission(MyERPPermissions.PaymentEntries.Default, L("Permission:PaymentEntries"));
+        paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Create, L("Permission:PaymentEntries.Create"));
+        paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Edit, L("Permission:PaymentEntries.Edit"));
+        paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Delete, L("Permission:PaymentEntries.Delete"));
+        paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Submit, L("Permission:PaymentEntries.Submit"));
+
+        var deliveryNotesPermission = myGroup.AddPermission(MyERPPermissions.DeliveryNotes.Default, L("Permission:DeliveryNotes"));
+        deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Create, L("Permission:DeliveryNotes.Create"));
+        deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Edit, L("Permission:DeliveryNotes.Edit"));
+        deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Delete, L("Permission:DeliveryNotes.Delete"));
+        deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Submit, L("Permission:DeliveryNotes.Submit"));
+        deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Cancel, L("Permission:DeliveryNotes.Cancel"));
+
+        var eInvoicePermission = myGroup.AddPermission(MyERPPermissions.EInvoice.Default, L("Permission:EInvoice"));
+        eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Submit, L("Permission:EInvoice.Submit"));
+        eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Cancel, L("Permission:EInvoice.Cancel"));
+
+        var purchaseReceiptsPermission = myGroup.AddPermission(MyERPPermissions.PurchaseReceipts.Default, L("Permission:PurchaseReceipts"));
+        purchaseReceiptsPermission.AddChild(MyERPPermissions.PurchaseReceipts.Create, L("Permission:PurchaseReceipts.Create"));
+        purchaseReceiptsPermission.AddChild(MyERPPermissions.PurchaseReceipts.Edit, L("Permission:PurchaseReceipts.Edit"));
+        purchaseReceiptsPermission.AddChild(MyERPPermissions.PurchaseReceipts.Delete, L("Permission:PurchaseReceipts.Delete"));
+        purchaseReceiptsPermission.AddChild(MyERPPermissions.PurchaseReceipts.Submit, L("Permission:PurchaseReceipts.Submit"));
+        purchaseReceiptsPermission.AddChild(MyERPPermissions.PurchaseReceipts.Cancel, L("Permission:PurchaseReceipts.Cancel"));
+
+        var approvalWorkflowPermission = myGroup.AddPermission(MyERPPermissions.ApprovalWorkflows.Default, L("Permission:ApprovalWorkflows"));
+        approvalWorkflowPermission.AddChild(MyERPPermissions.ApprovalWorkflows.Create, L("Permission:ApprovalWorkflows.Create"));
+        approvalWorkflowPermission.AddChild(MyERPPermissions.ApprovalWorkflows.Edit, L("Permission:ApprovalWorkflows.Edit"));
+        approvalWorkflowPermission.AddChild(MyERPPermissions.ApprovalWorkflows.Delete, L("Permission:ApprovalWorkflows.Delete"));
+
+        var importExportPermission = myGroup.AddPermission(MyERPPermissions.ImportExport.Default, L("Permission:ImportExport"));
+        importExportPermission.AddChild(MyERPPermissions.ImportExport.Import, L("Permission:ImportExport.Import"));
+        importExportPermission.AddChild(MyERPPermissions.ImportExport.Export, L("Permission:ImportExport.Export"));
+
+        var automationPermission = myGroup.AddPermission(MyERPPermissions.AutomationRules.Default, L("Permission:AutomationRules"));
+        automationPermission.AddChild(MyERPPermissions.AutomationRules.Create, L("Permission:AutomationRules.Create"));
+        automationPermission.AddChild(MyERPPermissions.AutomationRules.Edit, L("Permission:AutomationRules.Edit"));
+        automationPermission.AddChild(MyERPPermissions.AutomationRules.Delete, L("Permission:AutomationRules.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -24,28 +24,16 @@
           <mat-card-title>Current Month Breakdown</mat-card-title>
         </mat-card-header>
         <mat-card-content class="pt-4">
-          <div class="flex items-center justify-center h-48 text-gray-400">
-            <!-- TODO: Pie chart (Chart.js) -->
-            <div class="text-center">
-              <mat-icon class="!text-5xl">pie_chart</mat-icon>
-              <p class="mt-2 text-sm">Chart.js integration pending</p>
-            </div>
-          </div>
+          <canvas #pieCanvas height="200"></canvas>
         </mat-card-content>
       </mat-card>
 
       <mat-card>
         <mat-card-header>
-          <mat-card-title>Monthly Trend</mat-card-title>
+          <mat-card-title>Sales vs Purchase Submissions</mat-card-title>
         </mat-card-header>
         <mat-card-content class="pt-4">
-          <div class="flex items-center justify-center h-48 text-gray-400">
-            <!-- TODO: Bar chart (Chart.js) -->
-            <div class="text-center">
-              <mat-icon class="!text-5xl">bar_chart</mat-icon>
-              <p class="mt-2 text-sm">Chart.js integration pending</p>
-            </div>
-          </div>
+          <canvas #barCanvas height="200"></canvas>
         </mat-card-content>
       </mat-card>
     </div>

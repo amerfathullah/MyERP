@@ -12,23 +12,50 @@
     <h2 class="text-xl font-semibold mb-6">Dashboard</h2>
 
     <!-- Summary cards -->
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-      @for (card of cards; track card.title) {
-        <mat-card class="cursor-pointer hover:shadow-md transition-shadow" [routerLink]="card.link">
+    @if (summary()) {
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <mat-card class="cursor-pointer hover:shadow-md transition-shadow" routerLink="/sales/invoices">
           <mat-card-content class="flex items-center gap-4 py-4">
-            <mat-icon class="!text-4xl" [class]="card.color">{{ card.icon }}</mat-icon>
+            <mat-icon class="!text-4xl text-green-600">trending_up</mat-icon>
             <div>
-              <p class="text-sm text-gray-500">{{ card.title }}</p>
-              <p class="text-xl font-bold" [class]="card.color">{{ card.value }}</p>
+              <p class="text-sm text-gray-500">Revenue (MTD)</p>
+              <p class="text-xl font-bold text-green-600 font-mono">MYR {{ summary()!.monthlyRevenue | number:'1.0-0' }}</p>
             </div>
           </mat-card-content>
         </mat-card>
-      }
-    </div>
+        <mat-card class="cursor-pointer hover:shadow-md transition-shadow" routerLink="/sales/invoices">
+          <mat-card-content class="flex items-center gap-4 py-4">
+            <mat-icon class="!text-4xl text-blue-600">receipt_long</mat-icon>
+            <div>
+              <p class="text-sm text-gray-500">Outstanding Invoices</p>
+              <p class="text-xl font-bold text-blue-600">{{ summary()!.outstandingInvoices }}</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card class="cursor-pointer hover:shadow-md transition-shadow" routerLink="/purchasing/orders">
+          <mat-card-content class="flex items-center gap-4 py-4">
+            <mat-icon class="!text-4xl text-orange-600">shopping_cart</mat-icon>
+            <div>
+              <p class="text-sm text-gray-500">Pending POs</p>
+              <p class="text-xl font-bold text-orange-600">{{ summary()!.pendingPurchaseOrders }}</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card class="cursor-pointer hover:shadow-md transition-shadow" routerLink="/e-invoice/dashboard">
+          <mat-card-content class="flex items-center gap-4 py-4">
+            <mat-icon class="!text-4xl text-purple-600">cloud_done</mat-icon>
+            <div>
+              <p class="text-sm text-gray-500">e-Invoices Submitted</p>
+              <p class="text-xl font-bold text-purple-600">{{ summary()!.submittedEInvoices }}</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    }
 
     <!-- Quick actions -->
     <h3 class="text-lg font-medium mb-4">Quick Actions</h3>
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4 mb-8">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6 mb-8">
       @for (link of quickLinks; track link.route) {
         <button mat-stroked-button class="!h-auto !py-4 flex-col" [routerLink]="link.route">
           <mat-icon class="mb-1">{{ link.icon }}</mat-icon>
@@ -37,25 +64,34 @@
       }
     </div>
 
-    <!-- Recent activity -->
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>Recent Sales Invoices</mat-card-title>
-        </mat-card-header>
-        <mat-card-content class="pt-4">
-          <p class="text-sm text-gray-400 text-center py-6">Connect to backend to display recent invoices.</p>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>Upcoming Payments</mat-card-title>
-        </mat-card-header>
-        <mat-card-content class="pt-4">
-          <p class="text-sm text-gray-400 text-center py-6">Connect to backend to display payment schedule.</p>
-        </mat-card-content>
-      </mat-card>
-    </div>
+    <!-- Stats row -->
+    @if (summary()) {
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4 mb-6">
+        <mat-card>
+          <mat-card-content class="text-center py-3">
+            <p class="text-2xl font-bold">{{ summary()!.totalCustomers }}</p>
+            <small class="text-gray-500">Customers</small>
+          </mat-card-content>
+        </mat-card>
+        <mat-card>
+          <mat-card-content class="text-center py-3">
+            <p class="text-2xl font-bold">{{ summary()!.totalSuppliers }}</p>
+            <small class="text-gray-500">Suppliers</small>
+          </mat-card-content>
+        </mat-card>
+        <mat-card>
+          <mat-card-content class="text-center py-3">
+            <p class="text-2xl font-bold">{{ summary()!.totalItems }}</p>
+            <small class="text-gray-500">Items</small>
+          </mat-card-content>
+        </mat-card>
+        <mat-card>
+          <mat-card-content class="text-center py-3">
+            <p class="text-2xl font-bold text-amber-600">{{ summary()!.pendingApprovals }}</p>
+            <small class="text-gray-500">Pending Approvals</small>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    }
   </div>
 }

@@ -84,4 +84,122 @@ public static class MyERPPermissions
         public const string Create = Default + ".Create";
         public const string Post = Default + ".Post";
     }
+
+    public static class Quotations
+    {
+        public const string Default = GroupName + ".Quotations";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class SalesOrders
+    {
+        public const string Default = GroupName + ".SalesOrders";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class StockEntries
+    {
+        public const string Default = GroupName + ".StockEntries";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Post = Default + ".Post";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class PurchaseOrders
+    {
+        public const string Default = GroupName + ".PurchaseOrders";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class PurchaseInvoices
+    {
+        public const string Default = GroupName + ".PurchaseInvoices";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class PaymentEntries
+    {
+        public const string Default = GroupName + ".PaymentEntries";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
+    public static class DeliveryNotes
+    {
+        public const string Default = GroupName + ".DeliveryNotes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class EInvoice
+    {
+        public const string Default = GroupName + ".EInvoice";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class PurchaseReceipts
+    {
+        public const string Default = GroupName + ".PurchaseReceipts";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class ApprovalWorkflows
+    {
+        public const string Default = GroupName + ".ApprovalWorkflows";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class ImportExport
+    {
+        public const string Default = GroupName + ".ImportExport";
+        public const string Import = Default + ".Import";
+        public const string Export = Default + ".Export";
+    }
+
+    public static class AutomationRules
+    {
+        public const string Default = GroupName + ".AutomationRules";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Employees
+    {
+        public const string Default = GroupName + ".Employees";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
 }

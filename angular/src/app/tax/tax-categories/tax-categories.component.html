@@ -1,0 +1,131 @@
+<abp-page [title]="'::TaxCategories' | abpLocalization">
+  @if (isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="flex justify-between items-center mb-4">
+    <h5 class="text-sm text-gray-500">{{ categories().length }} categories</h5>
+    <button mat-flat-button color="primary" (click)="showCategoryForm = !showCategoryForm">
+      <mat-icon>add</mat-icon> New Category
+    </button>
+  </div>
+
+  <!-- Create category form -->
+  @if (showCategoryForm) {
+    <mat-card class="mb-4">
+      <mat-card-content>
+        <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="grid grid-cols-1 gap-3 md:grid-cols-4 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Code</mat-label>
+            <input matInput formControlName="code" placeholder="e.g., SST-S" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput formControlName="name" placeholder="e.g., Sales Tax 6%" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Type</mat-label>
+            <mat-select formControlName="taxType">
+              <mat-option value="Sales">Sales</mat-option>
+              <mat-option value="Service">Service</mat-option>
+              <mat-option value="Exempt">Exempt</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <div class="flex gap-2 items-center">
+            <button mat-flat-button color="primary" type="submit">Save</button>
+            <button mat-stroked-button type="button" (click)="showCategoryForm = false">Cancel</button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- Categories with expandable rules -->
+  @for (cat of categories(); track cat.id) {
+    <mat-card class="mb-3">
+      <mat-card-content>
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{{ cat.code }}</span>
+            <span class="font-medium">{{ cat.name }}</span>
+            <mat-chip [highlighted]="true" class="text-xs">{{ cat.taxType }}</mat-chip>
+            @if (!cat.isActive) {
+              <mat-chip color="warn">Inactive</mat-chip>
+            }
+          </div>
+          <div class="flex gap-1">
+            <button mat-icon-button (click)="loadRules(cat.id!); openRuleForm(cat.id!)" title="Add Rule">
+              <mat-icon>add_circle</mat-icon>
+            </button>
+            <button mat-icon-button (click)="loadRules(cat.id!)" title="View Rules">
+              <mat-icon>expand_more</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteCategory(cat.id!)" title="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline rule form -->
+        @if (showRuleForm === cat.id) {
+          <mat-divider class="my-3" />
+          <form [formGroup]="ruleForm" (ngSubmit)="saveRule()" class="grid grid-cols-2 gap-3 md:grid-cols-5 pt-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Rate (%)</mat-label>
+              <input matInput type="number" formControlName="rate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Effective From</mat-label>
+              <input matInput type="date" formControlName="effectiveFrom" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Effective To</mat-label>
+              <input matInput type="date" formControlName="effectiveTo" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Region Filter</mat-label>
+              <input matInput formControlName="regionFilter" />
+            </mat-form-field>
+            <div class="flex gap-2 items-center">
+              <button mat-flat-button color="primary" type="submit">Add Rule</button>
+              <button mat-stroked-button type="button" (click)="showRuleForm = null">Cancel</button>
+            </div>
+          </form>
+        }
+
+        <!-- Rules table -->
+        @if (rulesMap()[cat.id!]?.length) {
+          <mat-divider class="my-3" />
+          <table mat-table [dataSource]="rulesMap()[cat.id!]" class="w-full text-sm">
+            <ng-container matColumnDef="rate">
+              <th mat-header-cell *matHeaderCellDef>Rate</th>
+              <td mat-cell *matCellDef="let r" class="font-bold">{{ r.rate }}%</td>
+            </ng-container>
+            <ng-container matColumnDef="effectiveFrom">
+              <th mat-header-cell *matHeaderCellDef>From</th>
+              <td mat-cell *matCellDef="let r">{{ r.effectiveFrom | date:'mediumDate' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="effectiveTo">
+              <th mat-header-cell *matHeaderCellDef>To</th>
+              <td mat-cell *matCellDef="let r">{{ r.effectiveTo ? (r.effectiveTo | date:'mediumDate') : '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="region">
+              <th mat-header-cell *matHeaderCellDef>Region</th>
+              <td mat-cell *matCellDef="let r">{{ r.regionFilter ?? 'All' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let r">
+                <button mat-icon-button color="warn" (click)="deleteRule(r.id, cat.id!)">
+                  <mat-icon class="text-sm">close</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="['rate','effectiveFrom','effectiveTo','region','actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['rate','effectiveFrom','effectiveTo','region','actions']"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+</abp-page>

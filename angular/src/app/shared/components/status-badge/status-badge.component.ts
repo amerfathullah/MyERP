@@ -32,9 +32,9 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   styleUrls: ['./status-badge.component.scss'],
 })
 export class StatusBadgeComponent {
-  @Input({ required: true }) status!: DocumentStatus;
+  @Input({ required: true }) status!: string;
 
   get config(): StatusConfig {
-    return STATUS_MAP[this.status] ?? STATUS_MAP['Draft'];
+    return STATUS_MAP[this.status as DocumentStatus] ?? STATUS_MAP['Draft'];
   }
 }
