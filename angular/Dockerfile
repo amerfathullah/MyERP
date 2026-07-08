@@ -1,12 +1,14 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
+
+RUN corepack enable && corepack prepare pnpm@10.34.4 --activate
 
 WORKDIR /app
-COPY package*.json /app/
+COPY package.json pnpm-lock.yaml /app/
 
-RUN yarn
+RUN pnpm install --frozen-lockfile
 COPY . /app
 
-RUN yarn build:prod
+RUN pnpm build:prod
 
 FROM nginx:alpine
 COPY dynamic-env.json /usr/share/nginx/html

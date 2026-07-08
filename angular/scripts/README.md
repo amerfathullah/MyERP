@@ -17,7 +17,7 @@ You will need to run these scripts if you need to reference an installed package
 ### Prerequisites
 
 1. **PowerShell**: Ensure you have PowerShell Core (pwsh) installed
-2. **Dependencies**: Run `yarn install` in the main demo app directory first (`MyERP/angular`)
+2. **Dependencies**: Run `pnpm install` in the main demo app directory first (`MyERP/angular`)
 3. **Permissions**: On Windows, you may need to run PowerShell as Administrator for symlink creation
 
 ### Basic Usage
@@ -157,7 +157,7 @@ $script:PackagesToSymlink = @(
 
 **Error: "Main app node_modules not found"**
 
-- **Solution**: Run `yarn install` in the main demo app directory first
+- **Solution**: Run `pnpm install` in the main demo app directory first
 
 **Error: "Access denied" on Windows**
 

@@ -19,7 +19,7 @@ function Setup-SelectiveSymlinks {
 
 
     if (-not $mainNodeModules) {
-        Write-Host "❌ Main app node_modules not found. Run npm install first." -ForegroundColor Red
+        Write-Host "❌ Main app node_modules not found. Run pnpm install first." -ForegroundColor Red
         exit 1
     }
 

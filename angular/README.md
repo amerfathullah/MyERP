@@ -5,14 +5,14 @@ This is an Angular application built on the ABP Framework. For more information,
 ## Pre-requirements
 
 * [Node.js v18 or later](https://nodejs.org/)
-* [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+* [pnpm](https://pnpm.io/)
 
 ## Getting Started
 
 ### Install dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Install ABP client-side libraries
@@ -31,7 +31,7 @@ Before running the Angular application, make sure your backend API is running:
 
 ## Development server
 
-Run `ng serve` or `npm start` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+Run `ng serve` or `pnpm start` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
 
 ## ABP CLI Commands
 
