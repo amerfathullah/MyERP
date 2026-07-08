@@ -2,14 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatCardModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
 })
@@ -35,8 +34,7 @@ export class HomeComponent implements OnInit {
     { label: 'Journal Entry', icon: 'book', route: '/accounting/journal-entries/new' },
     { label: 'LHDN Dashboard', icon: 'dashboard', route: '/e-invoice/dashboard' },
     { label: 'Run Payroll', icon: 'payments', route: '/hr/payroll' },
-    { label: 'Stock Ledger', icon: 'inventory', route: '/inventory/reports/stock-ledger' },
-  ];
+    { label: 'Stock Ledger', icon: 'inventory', route: '/inventory/reports/stock-ledger' }];
 
   login() {
     this.authService.navigateToLogin();

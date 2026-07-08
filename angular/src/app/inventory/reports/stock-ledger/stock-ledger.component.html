@@ -62,47 +62,39 @@
   <div class="card">
     <div class="card-body">
       <div class="table-responsive">
-        <table mat-table [dataSource]="rows()" class="w-100">
-      <ng-container matColumnDef="postingDate">
-        <th mat-header-cell *matHeaderCellDef>Date</th>
-        <td mat-cell *matCellDef="let row">{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="itemName">
-        <th mat-header-cell *matHeaderCellDef>Item</th>
-        <td mat-cell *matCellDef="let row" class="fw-medium">{{ row.itemName }}</td>
-      </ng-container>
-      <ng-container matColumnDef="warehouseName">
-        <th mat-header-cell *matHeaderCellDef>Warehouse</th>
-        <td mat-cell *matCellDef="let row">{{ row.warehouseName }}</td>
-      </ng-container>
-      <ng-container matColumnDef="quantityChange">
-        <th mat-header-cell *matHeaderCellDef>Qty Change</th>
-        <td mat-cell *matCellDef="let row" class="text-end font-monospace"
-          [class.text-success]="row.quantityChange > 0"
-          [class.text-danger]="row.quantityChange < 0">
-          {{ row.quantityChange > 0 ? '+' : '' }}{{ row.quantityChange | number:'1.2-2' }}
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="valuationRate">
-        <th mat-header-cell *matHeaderCellDef>Rate</th>
-        <td mat-cell *matCellDef="let row" class="text-end font-monospace">{{ row.valuationRate | number:'1.2-2' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="balanceQuantity">
-        <th mat-header-cell *matHeaderCellDef>Balance Qty</th>
-        <td mat-cell *matCellDef="let row" class="text-end font-monospace fw-bold">{{ row.balanceQuantity | number:'1.2-2' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="balanceValue">
-        <th mat-header-cell *matHeaderCellDef>Balance Value</th>
-        <td mat-cell *matCellDef="let row" class="text-end font-monospace">{{ row.balanceValue | number:'1.2-2' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="voucherType">
-        <th mat-header-cell *matHeaderCellDef>Voucher</th>
-        <td mat-cell *matCellDef="let row" class="small text-muted">{{ row.voucherType ?? '—' }}</td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
+                <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Item</th>
+              <th>Warehouse</th>
+              <th>Qty Change</th>
+              <th>Rate</th>
+              <th>Balance Qty</th>
+              <th>Balance Value</th>
+              <th>Voucher</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track $index ?? $index) {
+              <tr>
+                <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
+                <td class="fw-medium">{{ row.itemName }}</td>
+                <td>{{ row.itemName }}</td>
+                <td class="text-end font-monospace"
+          [class.text-success]="(row.quantityChange ?? 0) >
+                  0"
+                  [class.text-danger]="(row.quantityChange ?? 0) < 0">
+                  {{ (row.quantityChange ?? 0) > 0 ? '+' : '' }}{{ (row.quantityChange ?? 0) | number:'1.2-2' }}
+                </td>
+                <td class="text-end font-monospace">{{ row.valuationRate | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace fw-bold">{{ row.balanceQuantity | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ row.balanceValue | number:'1.2-2' }}</td>
+                <td class="small text-muted">{{ row.voucherType ?? '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

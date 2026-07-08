@@ -20,27 +20,25 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="warehouses" class="w-100">
-            <ng-container matColumnDef="warehouseCode">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Code' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let w" class="font-monospace">{{ w.warehouseCode }}</td>
-            </ng-container>
-            <ng-container matColumnDef="warehouseName">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::Name' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let w" class="text-truncate" style="max-width: 200px;" [title]="w.warehouseName">{{ w.warehouseName }}</td>
-            </ng-container>
-            <ng-container matColumnDef="branch">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Branch' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let w">{{ w.branchName }}</td>
-            </ng-container>
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let w">
-                <app-status-badge [status]="w.isActive ? 'Active' : 'Inactive'" />
-              </td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::Code' | abpLocalization }}</th>
+                <th style="min-width: 150px;">{{ '::Name' | abpLocalization }}</th>
+                <th>{{ '::Branch' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (w of warehouses; track w.id ?? $index) {
+                <tr>
+                  <td class="font-monospace">{{ w.warehouseCode }}</td>
+                  <td class="text-truncate" style="max-width: 200px;" [title]="w.name">{{ w.name }}</td>
+                  <td>{{ w.branchId }}</td>
+                  <td><app-status-badge [status]="w.isActive ? 'Active' : 'Inactive'" /></td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       }

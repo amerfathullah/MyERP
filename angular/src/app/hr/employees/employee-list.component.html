@@ -16,60 +16,43 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="store.entities()" class="w-100">
-            <ng-container matColumnDef="employeeId">
-              <th mat-header-cell *matHeaderCellDef>{{ '::EmployeeId' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="font-monospace small">{{ row.employeeId }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="fullName">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::Name' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="fw-medium text-truncate" style="max-width: 200px;" [title]="row.fullName">{{ row.fullName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="department">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Department' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.department ?? '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="designation">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Designation' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.designation ?? '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let row">
-                <button class="btn btn-sm btn-light" [matMenuTriggerFor]="menu">
-                  <i class="fa fa-ellipsis-v"></i>
-                </button>
-                <mat-menu #menu="matMenu">
-                  <button mat-menu-item [routerLink]="[row.id, 'edit']">
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::EmployeeId' | abpLocalization }}</th>
+                <th style="min-width: 150px;">{{ '::Name' | abpLocalization }}</th>
+                <th>{{ '::Department' | abpLocalization }}</th>
+                <th>{{ '::Designation' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of store.entities(); track $index ?? $index) {
+                <tr>
+                  <td class="font-monospace small">{{ row.id }}</td>
+                  <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="(row.firstName ?? '') + ' ' + (row.lastName ?? '')">{{ (row.firstName ?? '') + ' ' + (row.lastName ?? '') }}</td>
+                  <td>{{ row.department ?? '—' }}</td>
+                  <td>{{ row.designation ?? '—' }}</td>
+                  <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td>
+                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fa fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button class="dropdown-item" [routerLink]="[row.id, 'edit']">
                     <i class="fa fa-pencil me-2"></i> {{ '::Edit' | abpLocalization }}
-                  </button>
-                  <button mat-menu-item (click)="delete(row.id)">
+                    </button>
+                    <li><button class="dropdown-item" (click)="delete(row.id)">
                     <i class="fa fa-trash me-2"></i> {{ '::Delete' | abpLocalization }}
-                  </button>
-                </mat-menu>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    </button>
+                    </ul>
+                  </td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
-
-        <mat-paginator
-          [length]="store.totalCount()"
-          [pageSize]="20"
-          [pageSizeOptions]="[10, 20, 50]"
-          (page)="onPageChange($event)">
-        </mat-paginator>
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-id-badge fa-3x text-muted mb-3 d-block"></i>

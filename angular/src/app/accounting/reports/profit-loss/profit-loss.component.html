@@ -3,19 +3,9 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex align-items-end gap-2">
-        <mat-form-field appearance="outline">
-          <mat-label>From Date</mat-label>
-          <input matInput [matDatepicker]="fromPicker" formControlName="fromDate" />
-          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
-          <mat-datepicker #fromPicker></mat-datepicker>
-        </mat-form-field>
+        <div><label class="form-label">From Date</label><input type="date" class="form-control" formControlName="fromDate" /></div>
 
-        <mat-form-field appearance="outline">
-          <mat-label>To Date</mat-label>
-          <input matInput [matDatepicker]="toPicker" formControlName="toDate" />
-          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
-          <mat-datepicker #toPicker></mat-datepicker>
-        </mat-form-field>
+        <div><label class="form-label">To Date</label><input type="date" class="form-control" formControlName="toDate" /></div>
 
         <button class="btn btn-primary" (click)="generate()">
           <i class="fa fa-sync"></i><i class="fa fa-sync me-1"></i>Generate</button>

@@ -1,7 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormGroup } from '@angular/forms';
-import { MatTableModule } from '@angular/material/table';
 
 export interface ColumnDef {
   field: string;
@@ -15,9 +14,7 @@ export interface ColumnDef {
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
-    MatTableModule,
-  ],
+    ReactiveFormsModule],
   templateUrl: './child-table.component.html',
   styleUrls: ['./child-table.component.scss'],
 })

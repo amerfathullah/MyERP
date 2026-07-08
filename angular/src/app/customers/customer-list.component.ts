@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { CustomerStore } from './store/customer.store';
 
@@ -16,11 +13,7 @@ import { CustomerStore } from './store/customer.store';
     CommonModule,
     RouterModule,
     LocalizationModule,
-    PageModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatTooltipModule,
-  ],
+    PageModule],
   templateUrl: './customer-list.component.html',
   styleUrls: ['./customer-list.component.scss'],
 })
@@ -28,14 +21,11 @@ export class CustomerListComponent implements OnInit {
   readonly store = inject(CustomerStore);
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
-
-  displayedColumns = ['name', 'customerCode', 'tin', 'phone', 'email', 'actions'];
-
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.load({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

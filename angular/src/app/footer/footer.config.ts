@@ -14,5 +14,4 @@ function initFooter() {
 export const FOOTER_PROVIDER = [
   provideAppInitializer(() => {
     initFooter();
-  }),
-];
+  })];

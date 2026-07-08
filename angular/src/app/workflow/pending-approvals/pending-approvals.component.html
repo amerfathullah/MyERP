@@ -10,52 +10,36 @@
   <div class="card">
     <div class="card-body">
       <div class="table-responsive">
-        <table mat-table [dataSource]="store.pendingApprovals()" class="w-100">
-          <ng-container matColumnDef="documentType">
-            <th mat-header-cell *matHeaderCellDef>{{ '::DocumentType' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="badge bg-primary-subtle text-primary">{{ row.documentType }}</span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="level">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Level' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">Level {{ row.level }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="requestedBy">
-            <th mat-header-cell *matHeaderCellDef>{{ '::RequestedBy' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.requestedByUserId }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="createdAt">
-            <th mat-header-cell *matHeaderCellDef>{{ '::CreatedDate' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.creationTime | date:'medium' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let row">
-              <button class="btn btn-sm btn-primary me-2" (click)="approve(row.id)">
-                <i class="fa fa-check"></i> {{ '::Approve' | abpLocalization }}
-              </button>
-              <button class="btn btn-sm btn-outline-danger" (click)="reject(row.id)">
-                <i class="fa fa-times"></i> {{ '::Reject' | abpLocalization }}
-              </button>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::DocumentType' | abpLocalization }}</th>
+              <th>{{ '::Level' | abpLocalization }}</th>
+              <th>{{ '::RequestedBy' | abpLocalization }}</th>
+              <th>{{ '::CreatedDate' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.pendingApprovals(); track $index ?? $index) {
+              <tr>
+                <td><span class="badge bg-primary-subtle text-primary">{{ row.documentType }}</span></td>
+                <td>Level {{ row.level }}</td>
+                <td>{{ row.requestedByUserId }}</td>
+                <td>{{ row.creationTime | date:'medium' }}</td>
+                <td>
+                  <button class="btn btn-sm btn-primary me-2" (click)="approve(row.id)">
+                  <i class="fa fa-check"></i> {{ '::Approve' | abpLocalization }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="reject(row.id)">
+                  <i class="fa fa-times"></i> {{ '::Reject' | abpLocalization }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
         </table>
       </div>
-
-      <mat-paginator
-        [length]="store.pendingCount()"
-        [pageSize]="20"
-        [pageSizeOptions]="[10, 20, 50]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
     </div>
   </div>
 </abp-page>

@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatTableModule } from '@angular/material/table';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
@@ -17,9 +16,7 @@ import type { SupplierDto } from '../proxy/purchasing/models';
     RouterModule,
     LocalizationModule,
     PageModule,
-    MatTableModule,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent],
   templateUrl: './supplier-list.component.html',
   styleUrls: ['./supplier-list.component.scss'],
 })

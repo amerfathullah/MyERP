@@ -4,9 +4,6 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../proxy/core/company.service';
 
@@ -14,9 +11,7 @@ import { CompanyService } from '../proxy/core/company.service';
   selector: 'app-company-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatSelectModule, MatSlideToggleModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './company-form.component.html',
   styleUrls: ['./company-form.component.scss'],
 })
@@ -56,8 +51,7 @@ export class CompanyFormComponent implements OnInit {
     { value: 5, label: 'May' }, { value: 6, label: 'June' },
     { value: 7, label: 'July' }, { value: 8, label: 'August' },
     { value: 9, label: 'September' }, { value: 10, label: 'October' },
-    { value: 11, label: 'November' }, { value: 12, label: 'December' },
-  ];
+    { value: 11, label: 'November' }, { value: 12, label: 'December' }];
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');

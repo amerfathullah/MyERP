@@ -2,8 +2,6 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
-import { MatDividerModule } from '@angular/material/divider';
 import { ActivatedRoute } from '@angular/router';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -15,9 +13,8 @@ import type { PayrollEntryDto } from '../../proxy/hr/models';
   selector: 'app-payroll-detail',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatTableModule, MatDividerModule,
-    DocumentWorkflowComponent, LoadingOverlayComponent,
-  ],
+    CommonModule, PageModule, LocalizationModule,
+    DocumentWorkflowComponent, LoadingOverlayComponent],
   templateUrl: './payroll-detail.component.html',
   styleUrls: ['./payroll-detail.component.scss'],
 })

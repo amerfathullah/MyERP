@@ -3,10 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatSelectModule } from '@angular/material/select';
 import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
@@ -20,12 +16,7 @@ import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
     CommonModule,
     ReactiveFormsModule,
     PageModule,
-    MatCardModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatSelectModule,
-    InvoiceItemGridComponent,
-  ],
+    InvoiceItemGridComponent],
   templateUrl: './purchase-invoice-form.component.html',
   styleUrls: ['./purchase-invoice-form.component.scss'],
 })

@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { ItemStore } from '../store/item.store';
@@ -14,9 +11,7 @@ import { ItemStore } from '../store/item.store';
   selector: 'app-item-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule,
-    MatCardModule, MatSelectModule, MatSlideToggleModule,
-  ],
+    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule],
   templateUrl: './item-form.component.html',
   styleUrls: ['./item-form.component.scss'],
 })
@@ -47,8 +42,7 @@ export class ItemFormComponent implements OnInit {
   itemTypes = [
     { value: 0, label: 'Goods' },
     { value: 1, label: 'Service' },
-    { value: 2, label: 'Fixed Asset' },
-  ];
+    { value: 2, label: 'Fixed Asset' }];
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');

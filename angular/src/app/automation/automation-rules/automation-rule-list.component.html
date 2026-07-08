@@ -13,80 +13,57 @@
   <div class="card">
     <div class="card-body">
       <div class="table-responsive">
-        <table mat-table [dataSource]="store.entities()" class="w-100">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Name' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="fw-medium">{{ row.name }}</span>
-              @if (row.description) {
-                <br><small class="text-muted">{{ row.description }}</small>
-              }
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="trigger">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Trigger' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="badge bg-light text-dark">{{ triggerLabels[row.trigger] || 'Unknown' }}</span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="documentType">
-            <th mat-header-cell *matHeaderCellDef>{{ '::DocumentType' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.documentType || 'All' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="action">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Action' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="badge bg-primary-subtle text-primary">{{ actionLabels[row.action] || 'Unknown' }}</span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="priority">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Priority' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.priority }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="isActive">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Active' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <mat-slide-toggle
-                [checked]="row.isActive"
-                (change)="toggleActive(row.id)"
-                [matTooltip]="row.isActive ? 'Deactivate' : 'Activate'">
-              </mat-slide-toggle>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let row">
-              <button class="btn btn-sm btn-link p-1" [matMenuTriggerFor]="menu">
-                <i class="fa fa-ellipsis-vertical"></i>
-              </button>
-              <mat-menu #menu="matMenu">
-                <button mat-menu-item [routerLink]="[row.id, 'edit']">
+                <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Trigger' | abpLocalization }}</th>
+              <th>{{ '::DocumentType' | abpLocalization }}</th>
+              <th>{{ '::Action' | abpLocalization }}</th>
+              <th>{{ '::Priority' | abpLocalization }}</th>
+              <th>{{ '::Active' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.entities(); track $index ?? $index) {
+              <tr>
+                <td>
+                  <span class="fw-medium">{{ row.name }}</span>
+                  @if (row.description) {
+                  <br><small class="text-muted">{{ row.description }}</small>
+                  }
+                </td>
+                <td><span class="badge bg-light text-dark">{{ triggerLabels[row.trigger!] || 'Unknown' }}</span></td>
+                <td>{{ row.documentType || 'All' }}</td>
+                <td><span class="badge bg-primary-subtle text-primary">{{ actionLabels[row.action!] || 'Unknown' }}</span></td>
+                <td>{{ row.priority }}</td>
+                <td>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox"
+                      [checked]="row.isActive"
+                      (change)="toggleActive(row.id)"
+                      [title]="row.isActive ? 'Deactivate' : 'Activate'" />
+                  </div>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-link p-1" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fa fa-ellipsis-vertical"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                  <li><button class="dropdown-item" [routerLink]="[row.id, 'edit']">
                   <i class="fa fa-pencil me-2"></i> {{ '::Edit' | abpLocalization }}
-                </button>
-                <button mat-menu-item (click)="delete(row.id)">
+                  </button>
+                  <li><button class="dropdown-item" (click)="delete(row.id)">
                   <i class="fa fa-trash me-2"></i> {{ '::Delete' | abpLocalization }}
-                </button>
-              </mat-menu>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  </button>
+                  </ul>
+                </td>
+              </tr>
+            }
+          </tbody>
         </table>
       </div>
-
-      <mat-paginator
-        [length]="store.totalCount()"
-        [pageSize]="50"
-        [pageSizeOptions]="[20, 50, 100]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-robot fa-3x text-muted mb-3 d-block"></i>

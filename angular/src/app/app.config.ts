@@ -39,6 +39,5 @@ export const appConfig: ApplicationConfig = {
     provideLogo(withEnvironmentOptions(environment)),
     provideAccountConfig(),
     provideTenantManagementConfig(),
-    provideAbpThemeShared(),
-  ]
+    provideAbpThemeShared()]
 };

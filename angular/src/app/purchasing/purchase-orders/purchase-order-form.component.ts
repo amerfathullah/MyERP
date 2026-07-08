@@ -4,11 +4,6 @@ import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } fr
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatTableModule } from '@angular/material/table';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
@@ -21,10 +16,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatSelectModule,
-    MatDatepickerModule, MatNativeDateModule, MatTableModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })

@@ -93,33 +93,31 @@
         @if (rulesMap()[cat.id!]?.length) {
           <hr class="my-3" />
           <div class="table-responsive">
-            <table mat-table [dataSource]="rulesMap()[cat.id!]" class="w-100 small">
-              <ng-container matColumnDef="rate">
-                <th mat-header-cell *matHeaderCellDef>Rate</th>
-                <td mat-cell *matCellDef="let r" class="fw-bold">{{ r.rate }}%</td>
-              </ng-container>
-              <ng-container matColumnDef="effectiveFrom">
-                <th mat-header-cell *matHeaderCellDef>From</th>
-                <td mat-cell *matCellDef="let r">{{ r.effectiveFrom | date:'mediumDate' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="effectiveTo">
-                <th mat-header-cell *matHeaderCellDef>To</th>
-                <td mat-cell *matCellDef="let r">{{ r.effectiveTo ? (r.effectiveTo | date:'mediumDate') : '—' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="region">
-                <th mat-header-cell *matHeaderCellDef>Region</th>
-                <td mat-cell *matCellDef="let r">{{ r.regionFilter ?? 'All' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef></th>
-                <td mat-cell *matCellDef="let r">
-                  <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteRule(r.id, cat.id!)">
-                    <i class="fa fa-times small"></i>
-                  </button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="['rate','effectiveFrom','effectiveTo','region','actions']"></tr>
-              <tr mat-row *matRowDef="let row; columns: ['rate','effectiveFrom','effectiveTo','region','actions']"></tr>
+                        <table class="table table-hover w-100 small">
+              <thead>
+                <tr>
+                  <th>Rate</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Region</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of rulesMap()[cat.id!]; track $index) {
+                  <tr>
+                    <td class="fw-bold">{{ r.rate }}%</td>
+                    <td>{{ r.effectiveFrom | date:'mediumDate' }}</td>
+                    <td>{{ r.effectiveTo ? (r.effectiveTo | date:'mediumDate') : '—' }}</td>
+                    <td>{{ r.regionFilter ?? 'All' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteRule(r.id!, cat.id!)">
+                      <i class="fa fa-times small"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
             </table>
           </div>
         }

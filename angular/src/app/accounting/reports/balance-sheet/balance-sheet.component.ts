@@ -3,13 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDividerModule } from '@angular/material/divider';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ReportingService } from '../../../proxy/accounting/reporting.service';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -20,10 +13,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   selector: 'app-balance-sheet',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatFormFieldModule, MatDatepickerModule,
-    MatNativeDateModule, MatInputModule, MatSelectModule, MatDividerModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './balance-sheet.component.html',
   styleUrls: ['./balance-sheet.component.scss'],
 })

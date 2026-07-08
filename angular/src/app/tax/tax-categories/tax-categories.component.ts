@@ -4,12 +4,6 @@ import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatDividerModule } from '@angular/material/divider';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { TaxCategoryService, TaxRuleService } from '../../proxy/tax/tax.service';
 import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
@@ -18,9 +12,7 @@ import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
   selector: 'app-tax-categories',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatSelectModule, MatSlideToggleModule, MatExpansionModule, MatDividerModule,
-  ],
+    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './tax-categories.component.html',
   styleUrls: ['./tax-categories.component.scss'],
 })

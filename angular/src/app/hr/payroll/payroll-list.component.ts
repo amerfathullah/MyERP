@@ -4,10 +4,6 @@ import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MatSelectModule } from '@angular/material/select';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PayrollStore } from '../store/payroll.store';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -18,9 +14,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatTableModule, MatPaginatorModule, MatDialogModule, MatSelectModule,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent],
   templateUrl: './payroll-list.component.html',
   styleUrls: ['./payroll-list.component.scss'],
 })
@@ -30,7 +24,6 @@ export class PayrollListComponent implements OnInit {
   private companyService = inject(CompanyService);
 
   companies = signal<CompanyDto[]>([]);
-  displayedColumns = ['payrollNumber', 'periodLabel', 'totalGrossSalary', 'totalDeductions', 'totalNetSalary', 'status', 'actions'];
   showCreateForm = false;
 
   createForm = this.fb.group({
@@ -45,7 +38,7 @@ export class PayrollListComponent implements OnInit {
       .subscribe(r => this.companies.set(r.items ?? []));
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.load({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

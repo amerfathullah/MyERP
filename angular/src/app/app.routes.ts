@@ -413,5 +413,4 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./tax/tax-categories/tax-categories.component').then(c => c.TaxCategoriesComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
-  },
-];
+  }];

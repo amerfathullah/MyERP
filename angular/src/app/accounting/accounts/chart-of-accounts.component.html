@@ -8,35 +8,39 @@
     </div>
 
     <div class="card-body pt-3">
-      <mat-tree [dataSource]="dataSource" [treeControl]="treeControl" class="w-100">
-        <!-- Leaf node -->
-        <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
-          <button class="btn btn-sm" disabled style="width:28px;"></button>
-          <i class="fa fa-file-alt text-muted me-2"></i>
-          <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
-          <span class="small">{{ node.accountName }}</span>
-          @if (node.balance !== undefined) {
-            <span class="ms-auto font-monospace small text-muted">
-              {{ node.balance | number:'1.2-2' }}
-            </span>
-          }
-        </mat-tree-node>
+      <ul class="list-unstyled mb-0">
+        <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: accounts(), level: 0 }"></ng-container>
+      </ul>
 
-        <!-- Group node -->
-        <mat-nested-tree-node *matTreeNodeDef="let node; when: hasChild">
-          <div class="mat-tree-node">
-            <button class="btn btn-sm p-0" matTreeNodeToggle style="width:28px;">
-              <i class="fa" [class]="treeControl.isExpanded(node) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-            </button>
-            <i class="fa me-2 text-primary">{{ getTypeIcon(node.accountType) }}</i>
-            <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
-            <span class="small fw-semibold">{{ node.accountName }}</span>
-          </div>
-          <div [class.hidden]="!treeControl.isExpanded(node)" role="group">
-            <ng-container matTreeNodeOutlet></ng-container>
-          </div>
-        </mat-nested-tree-node>
-      </mat-tree>
+      <ng-template #treeNodes let-nodes="nodes" let-level="level">
+        @for (node of nodes; track node.id) {
+          <li class="py-1" [style.padding-left.px]="level * 24">
+            @if (hasChild(node)) {
+              <button class="btn btn-sm p-0 me-1" style="width:20px;" (click)="toggleNode(node.id)">
+                <i class="fa" [class]="isExpanded(node.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+              </button>
+              <i class="fa me-2 text-primary">{{ getTypeIcon(node.accountType) }}</i>
+              <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
+              <span class="small fw-semibold">{{ node.accountName }}</span>
+              @if (isExpanded(node.id) && node.children) {
+                <ul class="list-unstyled mb-0">
+                  <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: node.children, level: level + 1 }"></ng-container>
+                </ul>
+              }
+            } @else {
+              <span style="width:20px; display:inline-block;"></span>
+              <i class="fa fa-file-alt text-muted me-2"></i>
+              <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
+              <span class="small">{{ node.accountName }}</span>
+              @if (node.balance !== undefined) {
+                <span class="ms-auto font-monospace small text-muted">
+                  {{ node.balance | number:'1.2-2' }}
+                </span>
+              }
+            }
+          </li>
+        }
+      </ng-template>
     </div>
   </div>
 </abp-page>

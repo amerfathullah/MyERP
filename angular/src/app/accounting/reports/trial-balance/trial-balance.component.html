@@ -25,64 +25,31 @@
     <div class="card">
       <div class="card-body">
         <div class="table-responsive">
-          <table mat-table [dataSource]="data()" class="w-100">
-            <ng-container matColumnDef="accountCode">
-              <th mat-header-cell *matHeaderCellDef>{{ '::AccountCode' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="font-monospace small">{{ row.accountCode }}</td>
-              <td mat-footer-cell *matFooterCellDef class="fw-bold">{{ '::Total' | abpLocalization }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="accountName">
-              <th mat-header-cell *matHeaderCellDef>{{ '::AccountName' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.accountName }}</td>
-              <td mat-footer-cell *matFooterCellDef></td>
-            </ng-container>
-
-            <ng-container matColumnDef="accountType">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Type' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="small text-muted">{{ row.accountType }}</td>
-              <td mat-footer-cell *matFooterCellDef></td>
-            </ng-container>
-
-            <ng-container matColumnDef="debit">
-              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::Debit' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
-                {{ row.debit > 0 ? (row.debit | number:'1.2-2') : '' }}
-              </td>
-              <td mat-footer-cell *matFooterCellDef class="text-end font-monospace fw-bold">
-                {{ totalDebit() | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="credit">
-              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::Credit' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
-                {{ row.credit > 0 ? (row.credit | number:'1.2-2') : '' }}
-              </td>
-              <td mat-footer-cell *matFooterCellDef class="text-end font-monospace fw-bold">
-                {{ totalCredit() | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="closingDebit">
-              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::ClosingDebit' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
-                {{ row.closingDebit > 0 ? (row.closingDebit | number:'1.2-2') : '' }}
-              </td>
-              <td mat-footer-cell *matFooterCellDef></td>
-            </ng-container>
-
-            <ng-container matColumnDef="closingCredit">
-              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::ClosingCredit' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
-                {{ row.closingCredit > 0 ? (row.closingCredit | number:'1.2-2') : '' }}
-              </td>
-              <td mat-footer-cell *matFooterCellDef></td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            <tr mat-footer-row *matFooterRowDef="displayedColumns" class="bg-light"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::AccountCode' | abpLocalization }}</th>
+                <th>{{ '::AccountName' | abpLocalization }}</th>
+                <th>{{ '::Type' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ClosingDebit' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ClosingCredit' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of data(); track $index ?? $index) {
+                <tr>
+                  <td class="font-monospace small">{{ row.accountCode }}</td>
+                  <td>{{ row.accountName }}</td>
+                  <td class="small text-muted">{{ row.accountType }}</td>
+                  <td class="text-end font-monospace">{{ row.debit > 0 ? (row.debit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ row.credit > 0 ? (row.credit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ row.closingDebit > 0 ? (row.closingDebit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ row.closingCredit > 0 ? (row.closingCredit | number:'1.2-2') : '' }}</td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       </div>

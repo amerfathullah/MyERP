@@ -2,12 +2,6 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { AutomationRuleStore } from '../store/automation-rule.store';
@@ -16,18 +10,13 @@ import { AutomationRuleStore } from '../store/automation-rule.store';
   selector: 'app-automation-rule-list',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatSlideToggleModule,
-    MatPaginatorModule, MatMenuModule, MatTooltipModule, RouterModule,
-  ],
+    CommonModule, PageModule, LocalizationModule, RouterModule],
   templateUrl: './automation-rule-list.component.html',
   styleUrls: ['./automation-rule-list.component.scss'],
 })
 export class AutomationRuleListComponent implements OnInit {
   readonly store = inject(AutomationRuleStore);
   private confirmation = inject(ConfirmationService);
-
-  displayedColumns = ['name', 'trigger', 'documentType', 'action', 'priority', 'isActive', 'actions'];
-
   readonly triggerLabels: Record<number, string> = {
     0: 'Document Submitted',
     1: 'Document Approved',
@@ -58,7 +47,7 @@ export class AutomationRuleListComponent implements OnInit {
     this.store.load({ skipCount: 0, maxResultCount: 50, sorting: '' });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.load({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

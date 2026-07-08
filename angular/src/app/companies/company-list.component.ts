@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ListService, PagedResultDto, LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatTableModule } from '@angular/material/table';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
 import { CompanyService } from '../proxy/core/company.service';
 import type { CompanyDto } from '../proxy/core/models';
@@ -17,10 +15,7 @@ import type { CompanyDto } from '../proxy/core/models';
     RouterModule,
     LocalizationModule,
     PageModule,
-    MatTableModule,
-    MatTooltipModule,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent],
   providers: [ListService],
   templateUrl: './company-list.component.html',
   styleUrls: ['./company-list.component.scss'],
@@ -29,8 +24,6 @@ export class CompanyListComponent implements OnInit {
   private companyService = inject(CompanyService);
   companies: CompanyDto[] = [];
   isLoading = false;
-  displayedColumns = ['name', 'taxId', 'sstRegistrationNumber', 'currencyCode', 'status', 'actions'];
-
   constructor(public readonly list: ListService) {}
 
   ngOnInit(): void {

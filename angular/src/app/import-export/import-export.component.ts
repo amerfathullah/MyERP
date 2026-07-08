@@ -3,10 +3,6 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTableModule } from '@angular/material/table';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ImportExportService } from '../proxy/import-export/import-export.service';
 import type { ImportJobDto } from '../proxy/import-export/models';
@@ -15,10 +11,7 @@ import type { ImportJobDto } from '../proxy/import-export/models';
   selector: 'app-import-export',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, FormsModule, ReactiveFormsModule,
-    MatCardModule,
-    MatSelectModule, MatTableModule, MatProgressBarModule
-  ],
+    CommonModule, PageModule, LocalizationModule, FormsModule, ReactiveFormsModule],
   templateUrl: './import-export.component.html',
   styleUrls: ['./import-export.component.scss'],
 })

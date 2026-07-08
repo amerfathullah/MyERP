@@ -3,11 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatTableModule } from '@angular/material/table';
-import { MatSelectModule } from '@angular/material/select';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
@@ -18,13 +13,7 @@ import type { AccountDto } from '../../proxy/accounting/models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    PageModule,
-    MatCardModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatTableModule,
-    MatSelectModule,
-  ],
+    PageModule],
   templateUrl: './journal-entry-form.component.html',
   styleUrls: ['./journal-entry-form.component.scss'],
 })
@@ -42,9 +31,6 @@ export class JournalEntryFormComponent implements OnInit {
     narration: [''],
     lines: this.fb.array([]),
   });
-
-  displayedColumns = ['account', 'debit', 'credit', 'actions'];
-
   get lines(): FormArray {
     return this.form.get('lines') as FormArray;
   }

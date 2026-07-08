@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AutomationRuleStore } from '../store/automation-rule.store';
 
@@ -13,9 +10,7 @@ import { AutomationRuleStore } from '../store/automation-rule.store';
   selector: 'app-automation-rule-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule,
-    MatCardModule, MatSelectModule, MatSlideToggleModule,
-  ],
+    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule],
   templateUrl: './automation-rule-form.component.html',
   styleUrls: ['./automation-rule-form.component.scss'],
 })
@@ -50,8 +45,7 @@ export class AutomationRuleFormComponent {
     { value: 9, label: 'Approval Required' },
     { value: 100, label: 'Daily Schedule' },
     { value: 101, label: 'Weekly Schedule' },
-    { value: 102, label: 'Monthly Schedule' },
-  ];
+    { value: 102, label: 'Monthly Schedule' }];
 
   actions = [
     { value: 0, label: 'Send Notification' },
@@ -60,13 +54,11 @@ export class AutomationRuleFormComponent {
     { value: 3, label: 'Create Approval Request' },
     { value: 4, label: 'Update Field' },
     { value: 5, label: 'Create Follow-up Task' },
-    { value: 6, label: 'Post to Accounting' },
-  ];
+    { value: 6, label: 'Post to Accounting' }];
 
   documentTypes = [
     'SalesInvoice', 'PurchaseInvoice', 'Quotation', 'SalesOrder',
-    'DeliveryNote', 'PaymentEntry', 'JournalEntry', 'StockEntry',
-  ];
+    'DeliveryNote', 'PaymentEntry', 'JournalEntry', 'StockEntry'];
 
   save(): void {
     if (this.form.invalid) {

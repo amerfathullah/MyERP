@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConfirmationService } from '@abp/ng.theme.shared';
 import { Confirmation } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -20,12 +17,8 @@ import { SalesInvoiceStore } from '../store/sales-invoice.store';
     RouterModule,
     PageModule,
     LocalizationModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatTooltipModule,
     StatusBadgeComponent,
-    LhdnStatusBadgeComponent,
-  ],
+    LhdnStatusBadgeComponent],
   templateUrl: './sales-invoice-list.component.html',
   styleUrls: ['./sales-invoice-list.component.scss'],
 })
@@ -43,7 +36,7 @@ export class SalesInvoiceListComponent implements OnInit {
     this.router.navigate(['/sales/invoices/new']);
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.loadInvoices({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

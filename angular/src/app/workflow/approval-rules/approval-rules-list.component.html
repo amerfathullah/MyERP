@@ -13,68 +13,46 @@
   <div class="card">
     <div class="card-body">
       <div class="table-responsive">
-        <table mat-table [dataSource]="store.entities()" class="w-100">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Name' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="documentType">
-            <th mat-header-cell *matHeaderCellDef>{{ '::DocumentType' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="badge bg-light text-dark">{{ row.documentType }}</span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="level">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Level' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.level }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="approver">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Approver' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.approverRoleName || 'User: ' + row.approverUserId }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="minimumAmount">
-            <th mat-header-cell *matHeaderCellDef>{{ '::MinimumAmount' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.minimumAmount ? (row.minimumAmount | number:'1.2-2') : '—' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="isActive">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="badge" [class]="row.isActive ? 'bg-success-subtle text-success' : 'bg-light text-muted'">
-                {{ row.isActive ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let row">
-              <button class="btn btn-sm btn-link p-1" [matMenuTriggerFor]="menu">
-                <i class="fa fa-ellipsis-vertical"></i>
-              </button>
-              <mat-menu #menu="matMenu">
-                <button mat-menu-item [routerLink]="[row.id, 'edit']">
+                <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::DocumentType' | abpLocalization }}</th>
+              <th>{{ '::Level' | abpLocalization }}</th>
+              <th>{{ '::Approver' | abpLocalization }}</th>
+              <th>{{ '::MinimumAmount' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.entities(); track $index ?? $index) {
+              <tr>
+                <td>{{ row.name }}</td>
+                <td><span class="badge bg-light text-dark">{{ row.documentType }}</span></td>
+                <td>{{ row.level }}</td>
+                <td>{{ row.approverRoleName || 'User: ' + row.approverUserId }}</td>
+                <td>{{ row.minimumAmount ? (row.minimumAmount | number:'1.2-2') : '—' }}</td>
+                <td>
+                  <span class="badge" [class]="row.isActive ? 'bg-success-subtle text-success' : 'bg-light text-muted'">
+                  {{ row.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-link p-1" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fa fa-ellipsis-vertical"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                  <li><button class="dropdown-item" [routerLink]="[row.id, 'edit']">
                   <i class="fa fa-pencil me-2"></i> {{ '::Edit' | abpLocalization }}
-                </button>
-              </mat-menu>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  </button>
+                  </ul>
+                </td>
+              </tr>
+            }
+          </tbody>
         </table>
       </div>
-
-      <mat-paginator
-        [length]="store.totalCount()"
-        [pageSize]="50"
-        [pageSizeOptions]="[20, 50, 100]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-shield-halved fa-3x text-muted mb-3 d-block"></i>

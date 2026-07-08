@@ -20,50 +20,31 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="store.entities()" class="w-100">
-            <ng-container matColumnDef="itemCode">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Code' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item" class="font-monospace small">{{ item.itemCode }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="itemName">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::ItemName' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item" class="fw-medium text-truncate" style="max-width: 200px;" [title]="item.itemName">{{ item.itemName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="itemGroup">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Group' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item">{{ item.itemGroup }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="uom">
-              <th mat-header-cell *matHeaderCellDef>{{ '::UoM' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item">{{ item.uom }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="stockQty">
-              <th mat-header-cell *matHeaderCellDef>{{ '::StockQty' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item" class="font-monospace text-end">
-                {{ item.stockQty | number:'1.0-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="rate">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Rate' | abpLocalization }} (MYR)</th>
-              <td mat-cell *matCellDef="let item" class="font-monospace text-end">
-                {{ item.rate | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let item">
-                <app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'" />
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::Code' | abpLocalization }}</th>
+                <th style="min-width: 150px;">{{ '::ItemName' | abpLocalization }}</th>
+                <th>{{ '::Group' | abpLocalization }}</th>
+                <th>{{ '::UoM' | abpLocalization }}</th>
+                <th>{{ '::StockQty' | abpLocalization }}</th>
+                <th>{{ '::Rate' | abpLocalization }} (MYR)</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of store.entities(); track item.id ?? $index) {
+                <tr>
+                  <td class="font-monospace small">{{ item.itemCode }}</td>
+                  <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="item.description">{{ item.description }}</td>
+                  <td>{{ item.itemGroup }}</td>
+                  <td>{{ item.uom }}</td>
+                  <td class="font-monospace text-end">{{ item.standardSellingPrice | number:'1.0-2' }}</td>
+                  <td class="font-monospace text-end">{{ item.standardSellingPrice | number:'1.2-2' }}</td>
+                  <td><app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'" /></td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       }

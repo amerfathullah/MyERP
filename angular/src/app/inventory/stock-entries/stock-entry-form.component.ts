@@ -3,20 +3,12 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTableModule } from '@angular/material/table';
 
 @Component({
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule,
-    MatCardModule,
-    MatDatepickerModule, MatNativeDateModule, MatSelectModule, MatTableModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })
@@ -32,9 +24,6 @@ export class StockEntryFormComponent {
     remarks: [''],
     items: this.fb.array([]),
   });
-
-  displayedColumns = ['itemName', 'qty', 'uom', 'actions'];
-
   get items(): FormArray {
     return this.form.get('items') as FormArray;
   }

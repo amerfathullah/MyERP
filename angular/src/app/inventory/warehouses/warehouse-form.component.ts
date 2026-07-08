@@ -4,9 +4,6 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -16,9 +13,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-warehouse-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatSelectModule, MatSlideToggleModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './warehouse-form.component.html',
   styleUrls: ['./warehouse-form.component.scss'],
 })

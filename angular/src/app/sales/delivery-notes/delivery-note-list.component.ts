@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatMenuModule } from '@angular/material/menu';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
@@ -17,11 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     RouterModule,
     PageModule,
     LocalizationModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatMenuModule,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent],
   templateUrl: './delivery-note-list.component.html',
   styleUrls: ['./delivery-note-list.component.scss'],
 })
@@ -34,7 +27,7 @@ export class DeliveryNoteListComponent implements OnInit {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: 'postingDate DESC' });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.load({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

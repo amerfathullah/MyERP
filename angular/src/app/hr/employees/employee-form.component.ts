@@ -4,8 +4,6 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
 import { EmployeeService } from '../../proxy/hr/employee.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { EmployeeStore } from '../store/employee.store';
@@ -15,9 +13,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-employee-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatSelectModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss'],
 })

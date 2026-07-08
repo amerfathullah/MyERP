@@ -2,9 +2,6 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../proxy/accounting/models';
@@ -13,8 +10,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../pro
   selector: 'app-bank-reconciliation',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatPaginatorModule,
-  ],
+    CommonModule, PageModule, LocalizationModule],
   templateUrl: './bank-reconciliation.component.html',
   styleUrls: ['./bank-reconciliation.component.scss'],
 })
@@ -26,9 +22,6 @@ export class BankReconciliationComponent implements OnInit {
   summary = signal<BankReconciliationSummaryDto>({});
   totalCount = signal(0);
   isLoading = signal(false);
-
-  displayedColumns = ['date', 'description', 'amount', 'matchedDoc', 'status', 'actions'];
-
   // TODO: In production, this would come from a bank account selector
   bankAccountId = '';
 
@@ -82,7 +75,7 @@ export class BankReconciliationComponent implements OnInit {
     });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.loadTransactions(event.pageIndex * event.pageSize, event.pageSize);
   }
 }

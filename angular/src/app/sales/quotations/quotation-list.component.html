@@ -16,59 +16,45 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="store.entities()" class="w-100">
-            <ng-container matColumnDef="quotationNumber">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::QuotationNumber' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="fw-medium">{{ row.quotationNumber }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="issueDate">
-              <th mat-header-cell *matHeaderCellDef>{{ '::IssueDate' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row">{{ row.issueDate | date:'mediumDate' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="grandTotal">
-              <th mat-header-cell *matHeaderCellDef>{{ '::GrandTotal' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row" class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let row">
-                <button class="btn btn-sm btn-light" [matMenuTriggerFor]="menu">
-                  <i class="fa fa-ellipsis-v"></i>
-                </button>
-                <mat-menu #menu="matMenu">
-                  @if (row.status === 'Draft') {
-                    <button mat-menu-item (click)="store.submitQuotation(row.id)">
-                      <i class="fa fa-paper-plane me-2"></i> {{ '::Submit' | abpLocalization }}
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th style="min-width: 150px;">{{ '::QuotationNumber' | abpLocalization }}</th>
+                <th>{{ '::IssueDate' | abpLocalization }}</th>
+                <th>{{ '::GrandTotal' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of store.entities(); track $index ?? $index) {
+                <tr>
+                  <td class="fw-medium">{{ row.quotationNumber }}</td>
+                  <td>{{ row.issueDate | date:'mediumDate' }}</td>
+                  <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
+                  <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td>
+                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fa fa-ellipsis-v"></i>
                     </button>
-                  }
-                  @if (row.status === 'Submitted') {
-                    <button mat-menu-item (click)="store.cancelQuotation(row.id)">
-                      <i class="fa fa-ban me-2"></i> {{ '::Cancel' | abpLocalization }}
+                    <ul class="dropdown-menu dropdown-menu-end">
+                    @if (row.status === 'Draft') {
+                    <li><button class="dropdown-item" (click)="store.submitQuotation(row.id)">
+                    <i class="fa fa-paper-plane me-2"></i> {{ '::Submit' | abpLocalization }}
                     </button>
-                  }
-                </mat-menu>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    }
+                    @if (row.status === 'Submitted') {
+                    <li><button class="dropdown-item" (click)="store.cancelQuotation(row.id)">
+                    <i class="fa fa-ban me-2"></i> {{ '::Cancel' | abpLocalization }}
+                    </button>
+                    }
+                    </ul>
+                  </td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
-
-        <mat-paginator
-          [length]="store.totalCount()"
-          [pageSize]="20"
-          [pageSizeOptions]="[10, 20, 50]"
-          (page)="onPageChange($event)">
-        </mat-paginator>
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-file-alt fa-3x text-muted mb-3 d-block"></i>

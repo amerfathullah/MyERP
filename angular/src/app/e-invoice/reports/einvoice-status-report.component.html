@@ -2,8 +2,8 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex flex-wrap align-items-end gap-2">
-        <mat-form-field appearance="outline"><mat-label>From</mat-label><input matInput [matDatepicker]="fp" formControlName="fromDate" /><mat-datepicker-toggle matIconSuffix [for]="fp"></mat-datepicker-toggle><mat-datepicker #fp></mat-datepicker></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>To</mat-label><input matInput [matDatepicker]="tp" formControlName="toDate" /><mat-datepicker-toggle matIconSuffix [for]="tp"></mat-datepicker-toggle><mat-datepicker #tp></mat-datepicker></mat-form-field>
+        <div><label class="form-label">From</label><input type="date" class="form-control" formControlName="fromDate" /></div>
+        <div><label class="form-label">To</label><input type="date" class="form-control" formControlName="toDate" /></div>
         <div><label class="form-label">Type</label>
           <select class="form-select" formControlName="documentType"><option value="sales">Sales</option><option value="purchase">Purchase</option></select>
         </div>
@@ -18,15 +18,29 @@
     <div class="card">
       <div class="card-body">
         <div class="table-responsive">
-          <table mat-table [dataSource]="data" class="w-100">
-            <ng-container matColumnDef="invoiceNumber"><th mat-header-cell *matHeaderCellDef>Invoice #</th><td mat-cell *matCellDef="let r" class="fw-medium">{{ r.invoiceNumber }}</td></ng-container>
-            <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let r">{{ r.date | date:'dd/MM/yyyy' }}</td></ng-container>
-            <ng-container matColumnDef="party"><th mat-header-cell *matHeaderCellDef>Party</th><td mat-cell *matCellDef="let r">{{ r.party }}</td></ng-container>
-            <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let r" class="font-monospace text-end">{{ r.amount | number:'1.2-2' }}</td></ng-container>
-            <ng-container matColumnDef="lhdnStatus"><th mat-header-cell *matHeaderCellDef>LHDN Status</th><td mat-cell *matCellDef="let r"><app-lhdn-status-badge [status]="r.lhdnStatus" /></td></ng-container>
-            <ng-container matColumnDef="submittedAt"><th mat-header-cell *matHeaderCellDef>Submitted</th><td mat-cell *matCellDef="let r">{{ r.submittedAt ? (r.submittedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td></ng-container>
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Party</th>
+                <th>Amount</th>
+                <th>LHDN Status</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of data; track $index) {
+                <tr>
+                  <td class="fw-medium">{{ r.invoiceNumber }}</td>
+                  <td>{{ r.date | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ r.party }}</td>
+                  <td class="font-monospace text-end">{{ r.amount | number:'1.2-2' }}</td>
+                  <td><app-lhdn-status-badge [status]="r.lhdnStatus" /></td>
+                  <td>{{ r.submittedAt ? (r.submittedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       </div>

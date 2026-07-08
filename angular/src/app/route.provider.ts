@@ -3,8 +3,7 @@ import { inject, provideAppInitializer } from '@angular/core';
 export const APP_ROUTE_PROVIDER = [
   provideAppInitializer(() => {
     configureRoutes();
-  }),
-];
+  })];
 function configureRoutes() {
   const routes = inject(RoutesService);
   routes.add([
@@ -352,6 +351,5 @@ function configureRoutes() {
         order: 55,
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.TaxCategories',
-      },
-  ]);
+      }]);
 }

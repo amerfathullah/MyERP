@@ -3,11 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -18,9 +13,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   selector: 'app-stock-ledger',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './stock-ledger.component.html',
   styleUrls: ['./stock-ledger.component.scss'],
 })
@@ -35,9 +28,6 @@ export class StockLedgerComponent {
   totalIn = signal(0);
   totalOut = signal(0);
   isLoading = signal(false);
-
-  displayedColumns = ['postingDate', 'itemName', 'warehouseName', 'quantityChange', 'valuationRate', 'balanceQuantity', 'balanceValue', 'voucherType'];
-
   filters = this.fb.group({
     companyId: ['', Validators.required],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], Validators.required],

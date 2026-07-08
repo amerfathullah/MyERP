@@ -25,54 +25,41 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="companies" class="w-100">
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 180px;">Name</th>
-              <td mat-cell *matCellDef="let company" class="fw-semibold">
-                <span class="d-inline-block text-truncate" style="max-width: 220px;"
-                  [title]="company.name">
-                  {{ company.name }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="taxId">
-              <th mat-header-cell *matHeaderCellDef style="width: 140px;">TIN</th>
-              <td mat-cell *matCellDef="let company" class="font-monospace small">{{ company.taxId }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="sstRegistrationNumber">
-              <th mat-header-cell *matHeaderCellDef class="d-none d-md-table-cell" style="width: 140px;">SST Reg.</th>
-              <td mat-cell *matCellDef="let company" class="d-none d-md-table-cell font-monospace small">{{ company.sstRegistrationNumber }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="currencyCode">
-              <th mat-header-cell *matHeaderCellDef style="width: 90px;">Currency</th>
-              <td mat-cell *matCellDef="let company">{{ company.currencyCode }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef style="width: 100px;">Status</th>
-              <td mat-cell *matCellDef="let company">
-                <app-status-badge [status]="company.isActive ? 'Active' : 'Inactive'" />
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;"></th>
-              <td mat-cell *matCellDef="let company" class="text-end">
-                <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-primary" [routerLink]="[company.id, 'edit']"
-                    matTooltip="Edit" aria-label="Edit">
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th style="min-width: 180px;">Name</th>
+                <th style="width: 140px;">TIN</th>
+                <th class="d-none d-md-table-cell" style="width: 140px;">SST Reg.</th>
+                <th style="width: 90px;">Currency</th>
+                <th style="width: 100px;">Status</th>
+                <th class="text-end" style="width: 80px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (company of companies; track company.id ?? $index) {
+                <tr>
+                  <td class="fw-semibold">
+                    <span class="d-inline-block text-truncate" style="max-width: 220px;"
+                    [title]="company.name">
+                    {{ company.name }}
+                    </span>
+                  </td>
+                  <td class="font-monospace small">{{ company.taxId }}</td>
+                  <td class="d-none d-md-table-cell font-monospace small">{{ company.sstRegistrationNumber }}</td>
+                  <td>{{ company.currencyCode }}</td>
+                  <td><app-status-badge [status]="company.isActive ? 'Active' : 'Inactive'" /></td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[company.id, 'edit']"
+                    title="Edit" aria-label="Edit">
                     <i class="fa fa-pencil"></i>
-                  </button>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"
-              [routerLink]="[row.id, 'edit']" class="cursor-pointer"></tr>
+                    </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       }

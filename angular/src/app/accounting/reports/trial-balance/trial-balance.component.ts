@@ -3,13 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ReportingService } from '../../../proxy/accounting/reporting.service';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -20,10 +13,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   selector: 'app-trial-balance',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatFormFieldModule,
-    MatDatepickerModule, MatNativeDateModule, MatInputModule, MatSelectModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
   templateUrl: './trial-balance.component.html',
   styleUrls: ['./trial-balance.component.scss'],
 })
@@ -39,7 +29,6 @@ export class TrialBalanceComponent {
   });
 
   companies = signal<CompanyDto[]>([]);
-  displayedColumns = ['accountCode', 'accountName', 'accountType', 'debit', 'credit', 'closingDebit', 'closingCredit'];
   data = signal<TrialBalanceRowDto[]>([]);
   totalDebit = signal(0);
   totalCredit = signal(0);

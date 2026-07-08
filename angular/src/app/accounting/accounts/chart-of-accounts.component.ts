@@ -1,9 +1,6 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatTreeModule, MatTreeNestedDataSource } from '@angular/material/tree';
-import { NestedTreeControl } from '@angular/cdk/tree';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 
@@ -22,25 +19,34 @@ export interface AccountNode {
   standalone: true,
   imports: [
     CommonModule,
-    PageModule,
-    MatCardModule,
-    MatTreeModule,
-  ],
+    PageModule],
   templateUrl: './chart-of-accounts.component.html',
   styleUrls: ['./chart-of-accounts.component.scss'],
 })
 export class ChartOfAccountsComponent implements OnInit {
   private accountService = inject(AccountService);
-  treeControl = new NestedTreeControl<AccountNode>(node => node.children);
-  dataSource = new MatTreeNestedDataSource<AccountNode>();
+  accounts = signal<AccountNode[]>([]);
+  expandedIds = new Set<string>();
 
-  hasChild = (_: number, node: AccountNode) => node.isGroup && !!node.children?.length;
+  toggleNode(id: string): void {
+    if (this.expandedIds.has(id)) {
+      this.expandedIds.delete(id);
+    } else {
+      this.expandedIds.add(id);
+    }
+  }
+
+  isExpanded(id: string): boolean {
+    return this.expandedIds.has(id);
+  }
+
+  hasChild = (node: AccountNode) => node.isGroup && !!node.children?.length;
 
   ngOnInit(): void {
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
       .subscribe((result) => {
-        const accounts = result.items ?? [];
-        this.dataSource.data = this.buildTree(accounts);
+        const accs = result.items ?? [];
+        this.accounts.set(this.buildTree(accs));
       });
   }
 

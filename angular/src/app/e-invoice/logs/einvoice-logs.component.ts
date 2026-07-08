@@ -1,9 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
@@ -15,10 +12,7 @@ import type { SalesInvoiceDto } from '../../proxy/sales/models';
   imports: [
     CommonModule,
     PageModule,
-    MatTableModule,
-    MatPaginatorModule,
-    LhdnStatusBadgeComponent,
-  ],
+    LhdnStatusBadgeComponent],
   templateUrl: './einvoice-logs.component.html',
   styleUrls: ['./einvoice-logs.component.scss'],
 })
@@ -29,8 +23,6 @@ export class EinvoiceLogsComponent implements OnInit {
   submissions: SalesInvoiceDto[] = [];
   totalCount = 0;
   isLoading = false;
-  displayedColumns = ['invoiceNumber', 'eInvoiceStatus', 'lhdnUuid', 'issueDate', 'actions'];
-
   ngOnInit(): void {
     this.loadLogs(0, 20);
   }
@@ -51,7 +43,7 @@ export class EinvoiceLogsComponent implements OnInit {
     });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.loadLogs(event.pageIndex * event.pageSize, event.pageSize);
   }
 

@@ -1,8 +1,6 @@
 import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
 import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController } from 'chart.js';
 
@@ -20,10 +18,7 @@ interface StatCard {
   standalone: true,
   imports: [
     CommonModule,
-    PageModule,
-    MatCardModule,
-    MatTableModule,
-  ],
+    PageModule],
   templateUrl: './lhdn-dashboard.component.html',
   styleUrls: ['./lhdn-dashboard.component.scss'],
 })
@@ -44,8 +39,7 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
       { label: 'Submitted', count: stats.submitted, textClass: 'text-blue-600', icon: 'schedule' },
       { label: 'Cancelled', count: stats.cancelled, textClass: 'text-gray-500', icon: 'cancel' },
       { label: 'Failed', count: stats.failed, textClass: 'text-orange-600', icon: 'warning' },
-      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-gray-400', icon: 'draft' },
-    ];
+      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-gray-400', icon: 'draft' }];
   }
 
   constructor() {
@@ -99,8 +93,7 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
         labels: ['Valid', 'Invalid', 'Submitted', 'Cancelled', 'Failed'],
         datasets: [
           { label: 'Sales', data: [0, 0, 0, 0, 0], backgroundColor: '#2563eb' },
-          { label: 'Purchase', data: [0, 0, 0, 0, 0], backgroundColor: '#7c3aed' },
-        ],
+          { label: 'Purchase', data: [0, 0, 0, 0, 0], backgroundColor: '#7c3aed' }],
       },
       options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
     });

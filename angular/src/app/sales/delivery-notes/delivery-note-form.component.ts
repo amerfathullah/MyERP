@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { Router, ActivatedRoute } from '@angular/router';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
@@ -14,9 +11,7 @@ import { DeliveryNoteStore } from '../store/delivery-note.store';
   selector: 'app-delivery-note-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule,
-    MatCardModule, MatSelectModule, MatDatepickerModule,
-  ],
+    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
   styleUrls: ['./delivery-note-form.component.scss'],
 })

@@ -20,64 +20,43 @@
         </div>
       } @else {
         <div class="table-responsive">
-          <table mat-table [dataSource]="store.entities()" class="w-100">
-            <ng-container matColumnDef="invoiceNumber">
-              <th mat-header-cell *matHeaderCellDef>{{ '::InvoiceNumber' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let inv" class="fw-medium cursor-pointer" (click)="viewDetail(inv.id)">
-                {{ inv.invoiceNumber }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="issueDate">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Date' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="supplierName">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::Supplier' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let inv" class="text-truncate" style="max-width: 200px;" [title]="inv.supplierName">{{ inv.supplierName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="grandTotal">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Total' | abpLocalization }} (MYR)</th>
-              <td mat-cell *matCellDef="let inv" class="text-end font-monospace">
-                {{ inv.grandTotal | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let inv">
-                <app-status-badge [status]="inv.status" />
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="eInvoiceStatus">
-              <th mat-header-cell *matHeaderCellDef>{{ '::EInvoice' | abpLocalization }}</th>
-              <td mat-cell *matCellDef="let inv">
-                <app-lhdn-status-badge [status]="inv.eInvoiceStatus" />
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let inv">
-                <div class="d-flex gap-1">
-                  @if (inv.status === 'Draft') {
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th style="min-width: 150px;">{{ '::Supplier' | abpLocalization }}</th>
+                <th>{{ '::Total' | abpLocalization }} (MYR)</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::EInvoice' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (inv of store.entities(); track inv.id ?? $index) {
+                <tr>
+                  <td class="fw-medium cursor-pointer" (click)="viewDetail(inv.id)">{{ inv.invoiceNumber }}</td>
+                  <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-truncate" style="max-width: 200px;" [title]="inv.supplierId">{{ inv.supplierId }}</td>
+                  <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
+                  <td><app-status-badge [status]="inv.status ?? ''" /></td>
+                  <td><app-lhdn-status-badge [status]="inv.eInvoiceStatus ?? ''" /></td>
+                  <td>
+                    <div class="d-flex gap-1">
+                    @if (inv.status === 'Draft') {
                     <button class="btn btn-outline-primary btn-sm" (click)="submit(inv.id)"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
-                  }
-                  @if (inv.status === 'Submitted') {
+                    }
+                    @if (inv.status === 'Submitted') {
                     <button class="btn btn-success btn-sm" (click)="post(inv.id)"><i class="fa fa-check-double me-1"></i>{{ '::Post' | abpLocalization }}</button>
-                  }
-                  @if (inv.status === 'Posted') {
+                    }
+                    @if (inv.status === 'Posted') {
                     <button class="btn btn-outline-danger btn-sm" (click)="cancel(inv.id)"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
-                  }
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       }

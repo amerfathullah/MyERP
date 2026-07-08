@@ -2,7 +2,6 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatTableModule } from '@angular/material/table';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
@@ -24,10 +23,8 @@ export interface DetailWorkflowAction {
   imports: [
     CommonModule,
     PageModule,
-    MatTableModule,
     StatusBadgeComponent,
-    LhdnStatusBadgeComponent,
-  ],
+    LhdnStatusBadgeComponent],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
 })

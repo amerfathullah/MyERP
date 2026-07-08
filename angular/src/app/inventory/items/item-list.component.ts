@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatMenuModule } from '@angular/material/menu';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ItemStore } from '../store/item.store';
@@ -18,11 +15,7 @@ import { ItemStore } from '../store/item.store';
     RouterModule,
     PageModule,
     LocalizationModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatMenuModule,
-    StatusBadgeComponent,
-  ],
+    StatusBadgeComponent],
   templateUrl: './item-list.component.html',
   styleUrls: ['./item-list.component.scss'],
 })
@@ -30,13 +23,11 @@ export class ItemListComponent implements OnInit {
   readonly store = inject(ItemStore);
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
-  displayedColumns = ['itemCode', 'itemName', 'itemGroup', 'uom', 'standardSellingPrice', 'actions'];
-
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.store.load({
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,

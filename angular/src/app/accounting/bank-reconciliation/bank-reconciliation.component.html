@@ -42,57 +42,47 @@
     <div class="card-header"><h5 class="card-title mb-0">{{ '::BankTransactions' | abpLocalization }}</h5></div>
     <div class="card-body pt-3">
       <div class="table-responsive">
-        <table mat-table [dataSource]="transactions()" class="w-100">
-          <ng-container matColumnDef="date">
-            <th mat-header-cell *matHeaderCellDef>{{ '::PostingDate' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.transactionDate | date:'dd/MM/yyyy' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="description">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Description' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.description }}</td>
-          </ng-container>
-          <ng-container matColumnDef="amount">
-            <th mat-header-cell *matHeaderCellDef>Amount</th>
-            <td mat-cell *matCellDef="let t" class="font-monospace" [class.text-success]="t.amount > 0" [class.text-danger]="t.amount < 0">
-              MYR {{ t.amount | number:'1.2-2' }}
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="matchedDoc">
-            <th mat-header-cell *matHeaderCellDef>Matched</th>
-            <td mat-cell *matCellDef="let t">{{ t.matchedDocumentRef ?? '—' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let t">
-              <span class="badge" [class]="t.isReconciled ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
-                {{ t.isReconciled ? 'Reconciled' : 'Pending' }}
-              </span>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let t">
-              @if (!t.isReconciled) {
-                <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id)">
+                <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::PostingDate' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th>Amount</th>
+              <th>Matched</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of transactions(); track t.id ?? $index) {
+              <tr>
+                <td>{{ t.transactionDate | date:'dd/MM/yyyy' }}</td>
+                <td>{{ t.description }}</td>
+                <td class="font-monospace" [class.text-success]="t.amount>
+                  0" [class.text-danger]="t.amount < 0">
+                  MYR {{ t.amount | number:'1.2-2' }}
+                </td>
+                <td>{{ t.matchedDocumentRef ?? '—' }}</td>
+                <td>
+                  <span class="badge" [class]="t.isReconciled ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
+                  {{ t.isReconciled ? 'Reconciled' : 'Pending' }}
+                  </span>
+                </td>
+                <td>
+                  @if (!t.isReconciled) {
+                  <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id)">
                   <i class="fa fa-check"></i><i class="fa fa-check me-1"></i>Reconcile</button>
-              } @else {
-                <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id)">
+                  } @else {
+                  <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id)">
                   <i class="fa fa-undo"></i> Undo
-                </button>
-              }
-            </td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
         </table>
       </div>
-
-      <mat-paginator
-        [length]="totalCount()"
-        [pageSize]="20"
-        [pageSizeOptions]="[10, 20, 50]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
     </div>
   </div>
 </abp-page>

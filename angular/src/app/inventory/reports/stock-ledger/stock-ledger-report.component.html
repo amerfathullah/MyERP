@@ -2,8 +2,8 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex flex-wrap align-items-end gap-2">
-        <mat-form-field appearance="outline"><mat-label>From</mat-label><input matInput [matDatepicker]="fp" formControlName="fromDate" /><mat-datepicker-toggle matIconSuffix [for]="fp"></mat-datepicker-toggle><mat-datepicker #fp></mat-datepicker></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>To</mat-label><input matInput [matDatepicker]="tp" formControlName="toDate" /><mat-datepicker-toggle matIconSuffix [for]="tp"></mat-datepicker-toggle><mat-datepicker #tp></mat-datepicker></mat-form-field>
+        <div><label class="form-label">From</label><input type="date" class="form-control" formControlName="fromDate" /></div>
+        <div><label class="form-label">To</label><input type="date" class="form-control" formControlName="toDate" /></div>
         <div><label class="form-label">Item</label><input class="form-control" formControlName="itemCode" placeholder="All" /></div>
         <div><label class="form-label">Warehouse</label><input class="form-control" formControlName="warehouse" placeholder="All" /></div>
         <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync"></i><i class="fa fa-sync me-1"></i>Generate</button>
@@ -14,17 +14,33 @@
     <div class="card">
       <div class="card-body">
         <div class="table-responsive">
-          <table mat-table [dataSource]="data" class="w-100">
-            <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let r">{{ r.date | date:'dd/MM/yyyy' }}</td></ng-container>
-            <ng-container matColumnDef="itemCode"><th mat-header-cell *matHeaderCellDef>Code</th><td mat-cell *matCellDef="let r" class="font-monospace small">{{ r.itemCode }}</td></ng-container>
-            <ng-container matColumnDef="itemName"><th mat-header-cell *matHeaderCellDef>Item</th><td mat-cell *matCellDef="let r">{{ r.itemName }}</td></ng-container>
-            <ng-container matColumnDef="warehouse"><th mat-header-cell *matHeaderCellDef>Warehouse</th><td mat-cell *matCellDef="let r">{{ r.warehouse }}</td></ng-container>
-            <ng-container matColumnDef="qtyChange"><th mat-header-cell *matHeaderCellDef>Qty Change</th><td mat-cell *matCellDef="let r" class="font-monospace" [class.text-success]="r.qtyChange > 0" [class.text-danger]="r.qtyChange < 0">{{ r.qtyChange > 0 ? '+' : '' }}{{ r.qtyChange }}</td></ng-container>
-            <ng-container matColumnDef="balanceQty"><th mat-header-cell *matHeaderCellDef>Balance</th><td mat-cell *matCellDef="let r" class="font-monospace fw-medium">{{ r.balanceQty }}</td></ng-container>
-            <ng-container matColumnDef="valuationRate"><th mat-header-cell *matHeaderCellDef>Rate</th><td mat-cell *matCellDef="let r" class="font-monospace">{{ r.valuationRate | number:'1.2-2' }}</td></ng-container>
-            <ng-container matColumnDef="reference"><th mat-header-cell *matHeaderCellDef>Reference</th><td mat-cell *matCellDef="let r">{{ r.reference }}</td></ng-container>
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Code</th>
+                <th>Item</th>
+                <th>Warehouse</th>
+                <th>Qty Change</th>
+                <th>Balance</th>
+                <th>Rate</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of data; track $index) {
+                <tr>
+                  <td>{{ r.date | date:'dd/MM/yyyy' }}</td>
+                  <td class="font-monospace small">{{ r.itemCode }}</td>
+                  <td>{{ r.itemName }}</td>
+                  <td>{{ r.warehouse }}</td>
+                  <td class="font-monospace" [class.text-success]="r.qtyChange>0" [class.text-danger]="r.qtyChange < 0">{{ r.qtyChange > 0 ? '+' : '' }}{{ r.qtyChange }}</td>
+                  <td class="font-monospace fw-medium">{{ r.balanceQty }}</td>
+                  <td class="font-monospace">{{ r.valuationRate | number:'1.2-2' }}</td>
+                  <td>{{ r.reference }}</td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       </div>

@@ -53,29 +53,27 @@
       </div>
       <div class="card-body">
         <div class="table-responsive">
-          <table mat-table [dataSource]="invoice.items ?? []" class="w-100">
-            <ng-container matColumnDef="itemName">
-              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">Item</th>
-              <td mat-cell *matCellDef="let item">{{ item.itemName }}</td>
-            </ng-container>
-            <ng-container matColumnDef="qty">
-              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;">Qty</th>
-              <td mat-cell *matCellDef="let item" class="text-end">{{ item.qty }}</td>
-            </ng-container>
-            <ng-container matColumnDef="rate">
-              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 110px;">Rate</th>
-              <td mat-cell *matCellDef="let item" class="text-end font-monospace">{{ item.rate | number:'1.2-2' }}</td>
-            </ng-container>
-            <ng-container matColumnDef="discountPercent">
-              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;">Disc %</th>
-              <td mat-cell *matCellDef="let item" class="text-end">{{ item.discountPercent }}%</td>
-            </ng-container>
-            <ng-container matColumnDef="amount">
-              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 120px;">Amount</th>
-              <td mat-cell *matCellDef="let item" class="text-end font-monospace fw-semibold">{{ item.amount | number:'1.2-2' }}</td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: itemColumns"></tr>
+                    <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th style="min-width: 150px;">Item</th>
+                <th class="text-end" style="width: 80px;">Qty</th>
+                <th class="text-end" style="width: 110px;">Rate</th>
+                <th class="text-end" style="width: 80px;">Disc %</th>
+                <th class="text-end" style="width: 120px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of invoice.items ?? []; track item.id ?? $index) {
+                <tr>
+                  <td>{{ item.description }}</td>
+                  <td class="text-end">{{ item.quantity }}</td>
+                  <td class="text-end font-monospace">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ item.taxAmount }}%</td>
+                  <td class="text-end font-monospace fw-semibold">{{ item.lineTotal | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
           </table>
         </div>
       </div>

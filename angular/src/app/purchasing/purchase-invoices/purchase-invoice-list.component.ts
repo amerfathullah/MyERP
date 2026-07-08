@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatTableModule } from '@angular/material/table';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
@@ -16,10 +15,8 @@ import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
     RouterModule,
     PageModule,
     LocalizationModule,
-    MatTableModule,
     StatusBadgeComponent,
-    LhdnStatusBadgeComponent,
-  ],
+    LhdnStatusBadgeComponent],
   templateUrl: './purchase-invoice-list.component.html',
   styleUrls: ['./purchase-invoice-list.component.scss'],
 })

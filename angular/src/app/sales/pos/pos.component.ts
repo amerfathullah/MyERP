@@ -3,9 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatListModule } from '@angular/material/list';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
 import type { PosItemDto } from '../../proxy/sales/models';
@@ -23,9 +20,7 @@ interface CartItem {
   selector: 'app-pos',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatDividerModule, MatListModule,
-  ],
+    CommonModule, FormsModule, PageModule, LocalizationModule],
   templateUrl: './pos.component.html',
   styleUrls: ['./pos.component.scss'],
 })

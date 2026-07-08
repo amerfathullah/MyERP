@@ -3,11 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatSelectModule } from '@angular/material/select';
-import { MatRadioModule } from '@angular/material/radio';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 import { AccountService } from '../../proxy/accounting/account.service';
@@ -17,10 +12,7 @@ import type { AccountDto, CreatePaymentEntryDto } from '../../proxy/accounting/m
   selector: 'app-payment-entry-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule,
-    MatCardModule,
-    MatDatepickerModule, MatNativeDateModule, MatSelectModule, MatRadioModule,
-  ],
+    CommonModule, ReactiveFormsModule, PageModule],
   templateUrl: './payment-entry-form.component.html',
   styleUrls: ['./payment-entry-form.component.scss'],
 })
