@@ -21,7 +21,7 @@ public class InvoiceDocumentSigner : ITransientDependency
     /// </summary>
     public string Sign(string invoiceXml, byte[] pfxBytes, string pfxPassword)
     {
-        using var cert = new X509Certificate2(pfxBytes, pfxPassword, X509KeyStorageFlags.Exportable);
+        using var cert = X509CertificateLoader.LoadPkcs12(pfxBytes, pfxPassword, X509KeyStorageFlags.Exportable);
         var privateKey = cert.GetRSAPrivateKey()
             ?? throw new InvalidOperationException("PFX does not contain an RSA private key.");
 
