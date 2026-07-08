@@ -1,4 +1,25 @@
-import type { FullAuditedEntityDto, EntityDto } from '@abp/ng.core';
+import type { TaxType } from './tax-type.enum';
+import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+
+export interface CreateUpdateTaxCategoryDto {
+  code: string;
+  name: string;
+  description?: string | null;
+  taxType: TaxType;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateTaxRuleDto {
+  taxCategoryId: string;
+  rate: number;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  itemGroupFilter?: string | null;
+  regionFilter?: string | null;
+  priority?: number;
+  description?: string | null;
+  isActive?: boolean;
+}
 
 export interface TaxCategoryDto extends FullAuditedEntityDto<string> {
   code?: string;
@@ -8,30 +29,10 @@ export interface TaxCategoryDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
-export interface CreateUpdateTaxCategoryDto {
-  code: string;
-  name: string;
-  description?: string | null;
-  taxType: string;
-  isActive?: boolean;
-}
-
 export interface TaxRuleDto extends EntityDto<string> {
   taxCategoryId?: string;
   rate?: number;
   effectiveFrom?: string;
-  effectiveTo?: string | null;
-  itemGroupFilter?: string | null;
-  regionFilter?: string | null;
-  priority?: number;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface CreateUpdateTaxRuleDto {
-  taxCategoryId: string;
-  rate: number;
-  effectiveFrom: string;
   effectiveTo?: string | null;
   itemGroupFilter?: string | null;
   regionFilter?: string | null;

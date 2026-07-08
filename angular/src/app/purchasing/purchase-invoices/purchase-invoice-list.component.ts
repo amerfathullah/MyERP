@@ -57,6 +57,10 @@ export class PurchaseInvoiceListComponent implements OnInit {
     this.store.submitInvoice(id);
   }
 
+  post(id: string): void {
+    this.store.postInvoice(id);
+  }
+
   cancel(id: string): void {
     this.store.cancelInvoice(id);
   }

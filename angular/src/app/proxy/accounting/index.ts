@@ -1,6 +1,7 @@
 export * from './account-sub-type.enum';
 export * from './account-type.enum';
 export * from './account.service';
+export * from './bank-reconciliation.service';
 export * from './journal-entry.service';
 export * from './models';
 export * from './payment-entry.service';

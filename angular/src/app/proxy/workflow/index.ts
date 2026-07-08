@@ -1,2 +1,4 @@
-export { ApprovalWorkflowService } from './approval-workflow.service';
-export * from './models';
+import * as Dtos from './dtos';
+export * from './approval-status.enum';
+export * from './approval-workflow.service';
+export { Dtos };

@@ -1,4 +1,4 @@
-import type { PayrollEntryDto, PayrollEntryLineDto, CreatePayrollEntryDto } from './models';
+import type { CreatePayrollEntryDto, PayrollEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,14 +9,6 @@ import { Injectable, inject } from '@angular/core';
 export class PayrollService {
   private restService = inject(RestService);
   apiName = 'Default';
-
-  create = (input: CreatePayrollEntryDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PayrollEntryDto>({
-      method: 'POST',
-      url: '/api/app/payroll',
-      body: input,
-    },
-    { apiName: this.apiName, ...config });
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayrollEntryDto>({
@@ -30,6 +22,14 @@ export class PayrollService {
       method: 'GET',
       url: '/api/app/payroll',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName, ...config });
+
+  create = (input: CreatePayrollEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PayrollEntryDto>({
+      method: 'POST',
+      url: '/api/app/payroll',
+      body: input,
     },
     { apiName: this.apiName, ...config });
 

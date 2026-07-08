@@ -1,4 +1,4 @@
-import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AccountType } from './account-type.enum';
 import type { AccountSubType } from './account-sub-type.enum';
 import type { PaymentType } from './payment-type.enum';
@@ -41,6 +41,28 @@ export interface BalanceSheetRowDto {
   amount?: number;
   level?: number;
   isGroup?: boolean;
+}
+
+export interface BankReconciliationSummaryDto {
+  totalTransactions?: number;
+  reconciledCount?: number;
+  unreconciledCount?: number;
+  totalDeposits?: number;
+  totalWithdrawals?: number;
+  unreconciledBalance?: number;
+}
+
+export interface BankTransactionDto extends EntityDto<string> {
+  companyId?: string;
+  bankAccountId?: string;
+  transactionDate?: string;
+  description?: string;
+  amount?: number;
+  referenceNumber?: string | null;
+  isReconciled?: boolean;
+  paymentEntryId?: string | null;
+  matchedDocumentRef?: string | null;
+  reconciledAt?: string | null;
 }
 
 export interface CreateJournalEntryDto {
@@ -89,6 +111,22 @@ export interface CreateUpdateAccountDto {
   description?: string | null;
   isFrozen?: boolean;
   isActive?: boolean;
+}
+
+export interface GetBankTransactionsDto extends PagedAndSortedResultRequestDto {
+  bankAccountId: string;
+  isReconciled?: boolean | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+export interface ImportBankTransactionDto {
+  companyId: string;
+  bankAccountId: string;
+  transactionDate: string;
+  description: string;
+  amount: number;
+  referenceNumber?: string | null;
 }
 
 export interface JournalEntryDto extends EntityDto<string> {
@@ -151,6 +189,12 @@ export interface ProfitLossRowDto {
   amount?: number;
   level?: number;
   isGroup?: boolean;
+}
+
+export interface ReconcileBankTransactionDto {
+  transactionId: string;
+  paymentEntryId: string;
+  matchedDocumentRef?: string | null;
 }
 
 export interface TrialBalanceReportDto {

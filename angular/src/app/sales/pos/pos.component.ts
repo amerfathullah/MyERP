@@ -11,7 +11,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatListModule } from '@angular/material/list';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { PosService, type PosItemDto } from '../../proxy/sales/pos.service';
+import { PosService } from '../../proxy/sales/pos.service';
+import type { PosItemDto } from '../../proxy/sales/models';
 import { debounceTime, Subject } from 'rxjs';
 
 interface CartItem {

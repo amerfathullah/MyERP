@@ -278,6 +278,9 @@ src/MyERP.Blazor.Server.Tiered/Logs/*
 # Use abp install-libs to restore.
 **/wwwroot/libs/*
 
+# Source versions tracking
+.source-versions
+
 # IdentityServer temp files
 tempkey.rsa
 tempkey.jwk

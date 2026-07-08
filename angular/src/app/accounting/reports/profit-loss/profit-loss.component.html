@@ -30,7 +30,7 @@
       <mat-card>
         <mat-card-header><mat-card-title>Revenue</mat-card-title></mat-card-header>
         <mat-card-content class="pt-4">
-          @for (row of revenue; track row.accountName) {
+          @for (row of revenue(); track row.accountName) {
             <div class="flex justify-between py-2 border-b">
               <span>{{ row.accountName }}</span>
               <span class="font-mono text-green-600">{{ row.amount | number:'1.2-2' }}</span>
@@ -38,7 +38,7 @@
           }
           <div class="flex justify-between py-2 font-bold">
             <span>Total Revenue</span>
-            <span class="font-mono text-green-700">{{ totalRevenue | number:'1.2-2' }}</span>
+            <span class="font-mono text-green-700">{{ totalRevenue() | number:'1.2-2' }}</span>
           </div>
         </mat-card-content>
       </mat-card>
@@ -47,7 +47,7 @@
       <mat-card>
         <mat-card-header><mat-card-title>Expenses</mat-card-title></mat-card-header>
         <mat-card-content class="pt-4">
-          @for (row of expenses; track row.accountName) {
+          @for (row of expenses(); track row.accountName) {
             <div class="flex justify-between py-2 border-b">
               <span>{{ row.accountName }}</span>
               <span class="font-mono text-red-600">{{ row.amount | number:'1.2-2' }}</span>
@@ -55,7 +55,7 @@
           }
           <div class="flex justify-between py-2 font-bold">
             <span>Total Expenses</span>
-            <span class="font-mono text-red-700">{{ totalExpenses | number:'1.2-2' }}</span>
+            <span class="font-mono text-red-700">{{ totalExpenses() | number:'1.2-2' }}</span>
           </div>
         </mat-card-content>
       </mat-card>
@@ -66,8 +66,8 @@
       <mat-card-content>
         <div class="flex justify-between items-center text-xl">
           <span class="font-bold">Net Profit / (Loss)</span>
-          <span class="font-mono font-bold" [class]="netProfit >= 0 ? 'text-green-700' : 'text-red-700'">
-            MYR {{ netProfit | number:'1.2-2' }}
+          <span class="font-mono font-bold" [class]="netProfit() >= 0 ? 'text-green-700' : 'text-red-700'">
+            MYR {{ netProfit() | number:'1.2-2' }}
           </span>
         </div>
       </mat-card-content>

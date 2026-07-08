@@ -8,11 +8,12 @@ import { Injectable, inject } from '@angular/core';
 export class DashboardService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   getSummary = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, DashboardSummaryDto>({
       method: 'GET',
       url: '/api/app/dashboard/summary',
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

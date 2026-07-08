@@ -97,22 +97,14 @@ export interface StockEntryItemDto {
   valuationRate?: number | null;
 }
 
-export interface WarehouseDto extends FullAuditedEntityDto<string> {
-  companyId?: string;
-  branchId?: string | null;
-  name?: string;
-  warehouseCode?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-  parentWarehouseId?: string | null;
-  isGroup?: boolean;
-  isActive?: boolean;
+export interface StockLedgerReportDto {
+  fromDate?: string;
+  toDate?: string;
+  rows?: StockLedgerRowDto[];
+  totalIn?: number;
+  totalOut?: number;
 }
 
-// Stock Ledger Report
 export interface StockLedgerRequestDto {
   companyId: string;
   fromDate: string;
@@ -134,10 +126,17 @@ export interface StockLedgerRowDto {
   voucherId?: string | null;
 }
 
-export interface StockLedgerReportDto {
-  fromDate?: string;
-  toDate?: string;
-  rows?: StockLedgerRowDto[];
-  totalIn?: number;
-  totalOut?: number;
+export interface WarehouseDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  branchId?: string | null;
+  name?: string;
+  warehouseCode?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  parentWarehouseId?: string | null;
+  isGroup?: boolean;
+  isActive?: boolean;
 }

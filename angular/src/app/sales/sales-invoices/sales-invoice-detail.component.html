@@ -3,7 +3,7 @@
     <!-- Workflow bar -->
     <div class="mb-6 flex items-center justify-between">
       <app-document-workflow
-        [currentStatus]="invoice.status"
+        [currentStatus]="invoice.status ?? ''"
         [availableActions]="workflowActions"
         (actionTriggered)="onWorkflowAction($event)" />
       <div class="flex gap-2">
@@ -33,12 +33,8 @@
             <p class="font-medium">{{ invoice.customerName }}</p>
           </div>
           <div>
-            <span class="text-sm text-gray-500">Buyer TIN</span>
-            <p class="font-medium">{{ invoice.buyerTin }}</p>
-          </div>
-          <div>
             <span class="text-sm text-gray-500">e-Invoice Status</span>
-            <p><app-lhdn-status-badge [status]="invoice.eInvoiceStatus" /></p>
+            <p><app-lhdn-status-badge [status]="invoice.eInvoiceStatus ?? ''" /></p>
           </div>
         </div>
       </mat-card-content>
@@ -50,7 +46,7 @@
         <mat-card-title>Items</mat-card-title>
       </mat-card-header>
       <mat-card-content class="pt-4">
-        <table mat-table [dataSource]="invoice.items" class="w-full">
+        <table mat-table [dataSource]="invoice.items ?? []" class="w-full">
           <ng-container matColumnDef="itemName">
             <th mat-header-cell *matHeaderCellDef>Item</th>
             <td mat-cell *matCellDef="let item">{{ item.itemName }}</td>
@@ -87,7 +83,7 @@
           </div>
           <div class="flex justify-between w-64">
             <span class="text-sm text-gray-600">Tax</span>
-            <span class="font-mono">{{ invoice.totalTax | number:'1.2-2' }}</span>
+            <span class="font-mono">{{ invoice.taxAmount | number:'1.2-2' }}</span>
           </div>
           <mat-divider class="w-64"></mat-divider>
           <div class="flex justify-between w-64 pt-2">

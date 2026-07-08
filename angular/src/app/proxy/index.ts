@@ -1,7 +1,13 @@
 import * as Accounting from './accounting';
+import * as Automation from './automation';
 import * as Core from './core';
 import * as Einvoice from './einvoice';
+import * as HumanResources from './human-resources';
+import * as ImportExport from './import-export';
 import * as Inventory from './inventory';
+import * as Notification from './notification';
 import * as Purchasing from './purchasing';
 import * as Sales from './sales';
-export { Accounting, Core, Einvoice, Inventory, Purchasing, Sales };
+import * as Tax from './tax';
+import * as Workflow from './workflow';
+export { Accounting, Automation, Core, Einvoice, HumanResources, ImportExport, Inventory, Notification, Purchasing, Sales, Tax, Workflow };

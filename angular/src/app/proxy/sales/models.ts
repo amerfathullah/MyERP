@@ -25,6 +25,14 @@ export interface CreateDeliveryNoteItemDto {
   salesOrderItemId?: string | null;
 }
 
+export interface CreatePosInvoiceDto {
+  companyId: string;
+  customerId?: string | null;
+  items: PosLineItemDto[];
+  paymentMethod?: string;
+  amountReceived?: number;
+}
+
 export interface CreateQuotationDto {
   companyId: string;
   customerId: string;
@@ -160,6 +168,39 @@ export interface DeliveryNoteItemDto {
   taxAmount?: number;
   lineTotal?: number;
   salesOrderItemId?: string | null;
+}
+
+export interface PosInvoiceDto extends EntityDto<string> {
+  invoiceNumber?: string;
+  issueDate?: string;
+  netTotal?: number;
+  taxAmount?: number;
+  grandTotal?: number;
+  amountReceived?: number;
+  change?: number;
+  status?: string;
+}
+
+export interface PosItemDto {
+  id?: string;
+  itemCode?: string;
+  itemName?: string;
+  sellingPrice?: number;
+  uom?: string;
+  barcode?: string | null;
+}
+
+export interface PosItemSearchDto {
+  search?: string | null;
+  maxResultCount?: number;
+}
+
+export interface PosLineItemDto {
+  itemId: string;
+  description?: string;
+  quantity?: number;
+  unitPrice?: number;
+  taxAmount?: number;
 }
 
 export interface QuotationDto extends FullAuditedEntityDto<string> {

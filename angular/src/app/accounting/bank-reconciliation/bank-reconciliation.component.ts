@@ -10,7 +10,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { BankReconciliationService, type BankTransactionDto, type BankReconciliationSummaryDto } from '../../proxy/accounting/bank-reconciliation.service';
+import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
+import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-bank-reconciliation',

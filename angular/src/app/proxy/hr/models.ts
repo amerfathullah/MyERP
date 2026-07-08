@@ -1,19 +1,18 @@
-import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+import type { FullAuditedEntityDto } from '@abp/ng.core';
 
 export interface EmployeeDto extends FullAuditedEntityDto<string> {
   companyId?: string;
-  employeeId?: string;
   firstName?: string;
   lastName?: string | null;
-  fullName?: string;
   dateOfBirth?: string | null;
   dateOfJoining?: string | null;
-  dateOfResignation?: string | null;
-  citizenship?: string;
   phone?: string | null;
   email?: string | null;
   designation?: string | null;
   department?: string | null;
+  epfNumber?: string | null;
+  socsoNumber?: string | null;
+  taxNumber?: string | null;
   status?: string;
 }
 
@@ -32,39 +31,49 @@ export interface CreateUpdateEmployeeDto {
   taxNumber?: string | null;
 }
 
-export interface PayrollEntryDto extends EntityDto<string> {
+export interface PayrollEntryDto extends FullAuditedEntityDto<string> {
   companyId?: string;
-  payrollNumber?: string;
-  year?: number;
-  month?: number;
-  periodLabel?: string;
-  postingDate?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  payrollNumber?: string | null;
+  period?: string;
+  periodLabel?: string | null;
+  basicSalary?: number;
+  grossPay?: number;
   totalGrossSalary?: number;
   totalDeductions?: number;
   totalNetSalary?: number;
   totalEmployerContributions?: number;
-  status?: string;
-  lines?: PayrollEntryLineDto[];
-}
-
-export interface PayrollEntryLineDto {
-  id?: string;
-  employeeId?: string;
-  employeeName?: string;
-  grossSalary?: number;
+  netPay?: number;
   epfEmployee?: number;
   epfEmployer?: number;
   socsoEmployee?: number;
   socsoEmployer?: number;
   eisEmployee?: number;
   eisEmployer?: number;
-  pcb?: number;
+  mtdAmount?: number;
+  status?: string;
+  lines?: PayrollLineDto[];
+}
+
+export interface PayrollLineDto {
+  employeeId?: string;
+  employeeName?: string | null;
+  grossSalary?: number;
+  epfEmployee?: number;
+  socsoEmployee?: number;
+  eisEmployee?: number;
+  mtdAmount?: number;
   totalDeductions?: number;
   netSalary?: number;
+  epfEmployer?: number;
+  socsoEmployer?: number;
+  eisEmployer?: number;
 }
 
 export interface CreatePayrollEntryDto {
   companyId: string;
-  year: number;
-  month: number;
+  employeeId: string;
+  period: string;
+  basicSalary: number;
 }
