@@ -1,0 +1,76 @@
+<abp-page [title]="'Profit & Loss Statement'">
+  <!-- Filters -->
+  <mat-card class="mb-6">
+    <mat-card-content>
+      <form [formGroup]="filters" class="flex items-end gap-4">
+        <mat-form-field appearance="outline">
+          <mat-label>From Date</mat-label>
+          <input matInput [matDatepicker]="fromPicker" formControlName="fromDate" />
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To Date</mat-label>
+          <input matInput [matDatepicker]="toPicker" formControlName="toDate" />
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+          <mat-datepicker #toPicker></mat-datepicker>
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" (click)="generate()">
+          <mat-icon>refresh</mat-icon> Generate
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  @if (revenue.length > 0 || expenses.length > 0) {
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <!-- Revenue -->
+      <mat-card>
+        <mat-card-header><mat-card-title>Revenue</mat-card-title></mat-card-header>
+        <mat-card-content class="pt-4">
+          @for (row of revenue; track row.accountName) {
+            <div class="flex justify-between py-2 border-b">
+              <span>{{ row.accountName }}</span>
+              <span class="font-mono text-green-600">{{ row.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="flex justify-between py-2 font-bold">
+            <span>Total Revenue</span>
+            <span class="font-mono text-green-700">{{ totalRevenue | number:'1.2-2' }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Expenses -->
+      <mat-card>
+        <mat-card-header><mat-card-title>Expenses</mat-card-title></mat-card-header>
+        <mat-card-content class="pt-4">
+          @for (row of expenses; track row.accountName) {
+            <div class="flex justify-between py-2 border-b">
+              <span>{{ row.accountName }}</span>
+              <span class="font-mono text-red-600">{{ row.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="flex justify-between py-2 font-bold">
+            <span>Total Expenses</span>
+            <span class="font-mono text-red-700">{{ totalExpenses | number:'1.2-2' }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Net Profit -->
+    <mat-card class="mt-6">
+      <mat-card-content>
+        <div class="flex justify-between items-center text-xl">
+          <span class="font-bold">Net Profit / (Loss)</span>
+          <span class="font-mono font-bold" [class]="netProfit >= 0 ? 'text-green-700' : 'text-red-700'">
+            MYR {{ netProfit | number:'1.2-2' }}
+          </span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</abp-page>

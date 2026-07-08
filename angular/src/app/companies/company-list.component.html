@@ -1,0 +1,57 @@
+<abp-page [title]="'Companies'">
+  <div class="relative">
+    @if (isLoading) {
+      <app-loading-overlay />
+    }
+
+    <mat-card>
+      <mat-card-header class="flex items-center justify-between px-4 pt-4">
+        <mat-card-title>Companies</mat-card-title>
+        <button mat-flat-button color="primary" (click)="createCompany()">
+          <mat-icon>add</mat-icon>
+          New Company
+        </button>
+      </mat-card-header>
+
+      <mat-card-content class="pt-4">
+        @if (companies.length === 0) {
+          <p class="text-center text-gray-500 py-8">
+            No companies yet. Click "New Company" to get started.
+          </p>
+        } @else {
+          <table mat-table [dataSource]="companies" class="w-full">
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Name</th>
+              <td mat-cell *matCellDef="let company">{{ company.name }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="taxId">
+              <th mat-header-cell *matHeaderCellDef>TIN</th>
+              <td mat-cell *matCellDef="let company">{{ company.taxId }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="sstRegistrationNumber">
+              <th mat-header-cell *matHeaderCellDef>SST Reg.</th>
+              <td mat-cell *matCellDef="let company">{{ company.sstRegistrationNumber }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="currencyCode">
+              <th mat-header-cell *matHeaderCellDef>Currency</th>
+              <td mat-cell *matCellDef="let company">{{ company.currencyCode }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let company">
+                <app-status-badge [status]="company.isActive ? 'Active' : 'Inactive'" />
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </div>
+</abp-page>

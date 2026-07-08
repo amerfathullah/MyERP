@@ -1,0 +1,69 @@
+<abp-page [title]="'Items'">
+  <div class="relative">
+    @if (store.isLoading()) {
+      <app-loading-overlay />
+    }
+
+    <mat-card>
+      <mat-card-header class="flex items-center justify-between px-4 pt-4">
+        <mat-card-title>Items</mat-card-title>
+        <button mat-flat-button color="primary" (click)="createItem()">
+          <mat-icon>add</mat-icon>
+          New Item
+        </button>
+      </mat-card-header>
+
+      <mat-card-content class="pt-4">
+        @if (!store.hasItems()) {
+          <p class="text-center text-gray-500 py-8">No items yet. Click "New Item" to add one.</p>
+        } @else {
+          <table mat-table [dataSource]="store.entities()" class="w-full">
+            <ng-container matColumnDef="itemCode">
+              <th mat-header-cell *matHeaderCellDef>Code</th>
+              <td mat-cell *matCellDef="let item" class="font-mono text-sm">{{ item.itemCode }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="itemName">
+              <th mat-header-cell *matHeaderCellDef>Item Name</th>
+              <td mat-cell *matCellDef="let item" class="font-medium">{{ item.itemName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="itemGroup">
+              <th mat-header-cell *matHeaderCellDef>Group</th>
+              <td mat-cell *matCellDef="let item">{{ item.itemGroup }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="uom">
+              <th mat-header-cell *matHeaderCellDef>UoM</th>
+              <td mat-cell *matCellDef="let item">{{ item.uom }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="stockQty">
+              <th mat-header-cell *matHeaderCellDef>Stock Qty</th>
+              <td mat-cell *matCellDef="let item" class="font-mono text-right">
+                {{ item.stockQty | number:'1.0-2' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="rate">
+              <th mat-header-cell *matHeaderCellDef>Rate (MYR)</th>
+              <td mat-cell *matCellDef="let item" class="font-mono text-right">
+                {{ item.rate | number:'1.2-2' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let item">
+                <app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'" />
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </div>
+</abp-page>

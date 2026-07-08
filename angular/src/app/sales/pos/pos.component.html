@@ -1,0 +1,67 @@
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 h-[calc(100vh-80px)] p-4">
+  <!-- Left: Item grid -->
+  <div class="lg:col-span-2 flex flex-col gap-4">
+    <!-- Search -->
+    <mat-form-field appearance="outline" class="w-full">
+      <mat-label>Search items</mat-label>
+      <input matInput [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..." />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <!-- Quick-add grid -->
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 overflow-y-auto flex-1">
+      @for (item of quickItems; track item.name) {
+        <button mat-stroked-button class="!h-24 flex-col !text-left"
+          (click)="addToCart(item.name, item.rate)">
+          <span class="font-medium">{{ item.name }}</span>
+          <span class="text-sm text-gray-500 font-mono">MYR {{ item.rate | number:'1.2-2' }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Right: Cart -->
+  <mat-card class="flex flex-col">
+    <mat-card-header>
+      <mat-card-title>Cart</mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content class="flex-1 overflow-y-auto pt-4">
+      @if (cart.length === 0) {
+        <p class="text-center text-gray-400 py-8">Cart is empty</p>
+      } @else {
+        @for (item of cart; track item.itemName; let i = $index) {
+          <div class="flex items-center justify-between py-2 border-b">
+            <div class="flex-1">
+              <p class="font-medium text-sm">{{ item.itemName }}</p>
+              <p class="text-xs text-gray-500">MYR {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-sm font-medium">{{ item.amount | number:'1.2-2' }}</span>
+              <button mat-icon-button (click)="removeFromCart(i)">
+                <mat-icon class="!text-base text-red-500">close</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <div class="p-4">
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Subtotal</span>
+        <span class="font-mono">MYR {{ netTotal | number:'1.2-2' }}</span>
+      </div>
+      <div class="flex justify-between text-lg font-bold mb-4">
+        <span>Total</span>
+        <span class="font-mono">MYR {{ grandTotal | number:'1.2-2' }}</span>
+      </div>
+      <button mat-flat-button color="primary" class="w-full !h-12 !text-lg"
+        [disabled]="cart.length === 0" (click)="completeSale()">
+        <mat-icon>payments</mat-icon> Complete Sale
+      </button>
+    </div>
+  </mat-card>
+</div>

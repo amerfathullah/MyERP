@@ -1,0 +1,23 @@
+<abp-page [title]="'Delivery Notes'">
+  <mat-card>
+    <mat-card-header class="flex items-center justify-between px-4 pt-4">
+      <mat-card-title>Delivery Notes</mat-card-title>
+      <button mat-flat-button color="primary" (click)="create()"><mat-icon>add</mat-icon> New</button>
+    </mat-card-header>
+    <mat-card-content class="pt-4">
+      @if (deliveryNotes.length === 0) {
+        <p class="text-center text-gray-500 py-8">No delivery notes yet.</p>
+      } @else {
+        <table mat-table [dataSource]="deliveryNotes" class="w-full">
+          <ng-container matColumnDef="dnNumber"><th mat-header-cell *matHeaderCellDef>DN #</th><td mat-cell *matCellDef="let d">{{ d.dnNumber }}</td></ng-container>
+          <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let d">{{ d.date | date:'dd/MM/yyyy' }}</td></ng-container>
+          <ng-container matColumnDef="customerName"><th mat-header-cell *matHeaderCellDef>Customer</th><td mat-cell *matCellDef="let d">{{ d.customerName }}</td></ng-container>
+          <ng-container matColumnDef="salesOrder"><th mat-header-cell *matHeaderCellDef>Sales Order</th><td mat-cell *matCellDef="let d">{{ d.salesOrderNumber }}</td></ng-container>
+          <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let d"><app-status-badge [status]="d.status" /></td></ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      }
+    </mat-card-content>
+  </mat-card>
+</abp-page>

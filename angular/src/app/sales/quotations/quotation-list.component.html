@@ -1,0 +1,53 @@
+<abp-page [title]="'Quotations'">
+  <div class="relative">
+    @if (isLoading) { <app-loading-overlay /> }
+    <mat-card>
+      <mat-card-header class="flex items-center justify-between px-4 pt-4">
+        <mat-card-title>Quotations</mat-card-title>
+        <button mat-flat-button color="primary" (click)="create()">
+          <mat-icon>add</mat-icon> New Quotation
+        </button>
+      </mat-card-header>
+      <mat-card-content class="pt-4">
+        @if (quotations.length === 0) {
+          <p class="text-center text-gray-500 py-8">No quotations yet.</p>
+        } @else {
+          <table mat-table [dataSource]="quotations" class="w-full">
+            <ng-container matColumnDef="quotationNumber">
+              <th mat-header-cell *matHeaderCellDef>Quotation #</th>
+              <td mat-cell *matCellDef="let q" class="font-medium">{{ q.quotationNumber }}</td>
+            </ng-container>
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let q">{{ q.date | date:'dd/MM/yyyy' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="customerName">
+              <th mat-header-cell *matHeaderCellDef>Customer</th>
+              <td mat-cell *matCellDef="let q">{{ q.customerName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="grandTotal">
+              <th mat-header-cell *matHeaderCellDef>Total (MYR)</th>
+              <td mat-cell *matCellDef="let q" class="text-right font-mono">{{ q.grandTotal | number:'1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let q"><app-status-badge [status]="q.status" /></td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let q">
+                @if (q.status === 'Submitted') {
+                  <button mat-stroked-button color="primary" (click)="convertToSalesOrder(q.id)">
+                    <mat-icon>arrow_forward</mat-icon> Make SO
+                  </button>
+                }
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </div>
+</abp-page>

@@ -1,0 +1,108 @@
+<abp-page [title]="'LHDN e-Invoice Dashboard'">
+  <div class="relative">
+    @if (store.isLoading()) {
+      <app-loading-overlay />
+    }
+
+    <!-- Status summary cards -->
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6 mb-6">
+      @for (stat of statusCards; track stat.label) {
+        <mat-card class="text-center">
+          <mat-card-content class="py-4">
+            <mat-icon class="!text-3xl mb-1" [class]="stat.textClass">{{ stat.icon }}</mat-icon>
+            <h3 class="text-2xl font-bold" [class]="stat.textClass">{{ stat.count }}</h3>
+            <small class="text-sm text-gray-500">{{ stat.label }}</small>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+
+    <!-- Charts row -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 mb-6">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Current Month Breakdown</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="pt-4">
+          <div class="flex items-center justify-center h-48 text-gray-400">
+            <!-- TODO: Pie chart (Chart.js) -->
+            <div class="text-center">
+              <mat-icon class="!text-5xl">pie_chart</mat-icon>
+              <p class="mt-2 text-sm">Chart.js integration pending</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Monthly Trend</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="pt-4">
+          <div class="flex items-center justify-center h-48 text-gray-400">
+            <!-- TODO: Bar chart (Chart.js) -->
+            <div class="text-center">
+              <mat-icon class="!text-5xl">bar_chart</mat-icon>
+              <p class="mt-2 text-sm">Chart.js integration pending</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Sales Submissions</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="pt-4">
+          <div class="space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Total Submissions</span>
+              <span class="font-semibold">{{ store.totalSalesSubmissions() }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Success Rate</span>
+              <span class="font-semibold text-green-600">{{ store.salesSuccessRate() }}%</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Pending</span>
+              <span class="font-semibold text-blue-600">{{ store.salesStats().submitted }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Not Submitted</span>
+              <span class="font-semibold text-gray-500">{{ store.salesStats().notSubmitted }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Purchase Submissions</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="pt-4">
+          <div class="space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Total Submissions</span>
+              <span class="font-semibold">{{ store.totalPurchaseSubmissions() }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Valid</span>
+              <span class="font-semibold text-green-600">{{ store.purchaseStats().valid }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Pending</span>
+              <span class="font-semibold text-blue-600">{{ store.purchaseStats().submitted }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Not Submitted</span>
+              <span class="font-semibold text-gray-500">{{ store.purchaseStats().notSubmitted }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+</abp-page>

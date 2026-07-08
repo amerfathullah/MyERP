@@ -2,55 +2,34 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ListService } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
+import { MatCardModule } from '@angular/material/card';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
+import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-customer-list',
   standalone: true,
-  imports: [CommonModule, PageModule],
+  imports: [
+    CommonModule,
+    PageModule,
+    MatCardModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    StatusBadgeComponent,
+    LoadingOverlayComponent,
+  ],
   providers: [ListService],
-  template: `
-    <abp-page [title]="'Customers'">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between">
-          <h5>Customers</h5>
-          <button class="btn btn-primary btn-sm" (click)="createCustomer()">
-            <i class="fa fa-plus me-1"></i> New Customer
-          </button>
-        </div>
-        <div class="card-body">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Code</th>
-                <th>TIN</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let customer of customers">
-                <td>{{ customer.name }}</td>
-                <td>{{ customer.customerCode }}</td>
-                <td>{{ customer.tin }}</td>
-                <td>{{ customer.phone }}</td>
-                <td>{{ customer.email }}</td>
-                <td>
-                  <span class="badge" [class.bg-success]="customer.isActive" [class.bg-secondary]="!customer.isActive">
-                    {{ customer.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </abp-page>
-  `,
+  templateUrl: './customer-list.component.html',
+  styleUrls: ['./customer-list.component.scss'],
 })
 export class CustomerListComponent implements OnInit {
   customers: any[] = [];
+  isLoading = false;
+  displayedColumns = ['name', 'customerCode', 'tin', 'phone', 'email', 'status'];
 
   constructor(public readonly list: ListService) {}
 

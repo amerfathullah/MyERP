@@ -2,56 +2,34 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ListService, PagedResultDto } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
+import { MatCardModule } from '@angular/material/card';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
+import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-company-list',
   standalone: true,
-  imports: [CommonModule, PageModule],
+  imports: [
+    CommonModule,
+    PageModule,
+    MatCardModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    StatusBadgeComponent,
+    LoadingOverlayComponent,
+  ],
   providers: [ListService],
-  template: `
-    <abp-page [title]="'Companies'">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between">
-          <h5>Companies</h5>
-          <button class="btn btn-primary btn-sm" (click)="createCompany()">
-            <i class="fa fa-plus me-1"></i> New Company
-          </button>
-        </div>
-        <div class="card-body">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>TIN</th>
-                <th>SST Reg.</th>
-                <th>Currency</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let company of companies">
-                <td>{{ company.name }}</td>
-                <td>{{ company.taxId }}</td>
-                <td>{{ company.sstRegistrationNumber }}</td>
-                <td>{{ company.currencyCode }}</td>
-                <td>
-                  <span class="badge" [class.bg-success]="company.isActive" [class.bg-secondary]="!company.isActive">
-                    {{ company.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p *ngIf="companies.length === 0" class="text-muted text-center py-4">
-            No companies yet. Click "New Company" to get started.
-          </p>
-        </div>
-      </div>
-    </abp-page>
-  `,
+  templateUrl: './company-list.component.html',
+  styleUrls: ['./company-list.component.scss'],
 })
 export class CompanyListComponent implements OnInit {
   companies: any[] = [];
+  isLoading = false;
+  displayedColumns = ['name', 'taxId', 'sstRegistrationNumber', 'currencyCode', 'status'];
 
   constructor(public readonly list: ListService) {}
 

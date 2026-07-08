@@ -1,0 +1,12 @@
+<div class="flex items-center gap-2">
+  <app-status-badge [status]="currentStatus" />
+
+  @for (action of availableActions; track action.name) {
+    <button mat-stroked-button
+      [color]="action.color"
+      (click)="actionTriggered.emit(action.name)">
+      <mat-icon>{{ action.icon }}</mat-icon>
+      {{ action.label }}
+    </button>
+  }
+</div>

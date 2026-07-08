@@ -1,0 +1,23 @@
+<abp-page [title]="'Purchase Receipts'">
+  <mat-card>
+    <mat-card-header class="flex items-center justify-between px-4 pt-4">
+      <mat-card-title>Purchase Receipts</mat-card-title>
+      <button mat-flat-button color="primary" (click)="create()"><mat-icon>add</mat-icon> New</button>
+    </mat-card-header>
+    <mat-card-content class="pt-4">
+      @if (receipts.length === 0) {
+        <p class="text-center text-gray-500 py-8">No purchase receipts yet.</p>
+      } @else {
+        <table mat-table [dataSource]="receipts" class="w-full">
+          <ng-container matColumnDef="receiptNumber"><th mat-header-cell *matHeaderCellDef>Receipt #</th><td mat-cell *matCellDef="let r">{{ r.receiptNumber }}</td></ng-container>
+          <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let r">{{ r.date | date:'dd/MM/yyyy' }}</td></ng-container>
+          <ng-container matColumnDef="supplierName"><th mat-header-cell *matHeaderCellDef>Supplier</th><td mat-cell *matCellDef="let r">{{ r.supplierName }}</td></ng-container>
+          <ng-container matColumnDef="purchaseOrder"><th mat-header-cell *matHeaderCellDef>PO Ref</th><td mat-cell *matCellDef="let r">{{ r.purchaseOrderNumber }}</td></ng-container>
+          <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let r"><app-status-badge [status]="r.status" /></td></ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      }
+    </mat-card-content>
+  </mat-card>
+</abp-page>

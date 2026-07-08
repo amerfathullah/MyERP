@@ -1,0 +1,60 @@
+<abp-page [title]="'New Sales Order'">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <mat-card class="mb-6">
+      <mat-card-content>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <mat-form-field appearance="outline">
+            <mat-label>SO #</mat-label>
+            <input matInput formControlName="orderNumber" placeholder="Auto-generated" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Order Date</mat-label>
+            <input matInput [matDatepicker]="dp" formControlName="orderDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="dp"></mat-datepicker-toggle>
+            <mat-datepicker #dp></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Delivery Date</mat-label>
+            <input matInput [matDatepicker]="ddp" formControlName="deliveryDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="ddp"></mat-datepicker-toggle>
+            <mat-datepicker #ddp></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="md:col-span-2">
+            <mat-label>Customer</mat-label>
+            <input matInput formControlName="customerName" placeholder="Search customer..." />
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="mb-6">
+      <mat-card-header><mat-card-title>Items</mat-card-title></mat-card-header>
+      <mat-card-content class="pt-4">
+        <app-invoice-item-grid [items]="items" />
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="mb-6">
+      <mat-card-content>
+        <div class="flex flex-col items-end gap-1">
+          <div class="flex justify-between w-56">
+            <span class="text-sm text-gray-600">Net Total</span>
+            <span class="font-mono">{{ calcResult.netTotal | number:'1.2-2' }}</span>
+          </div>
+          <div class="flex justify-between w-56 border-t pt-2 mt-1">
+            <span class="font-semibold">Grand Total</span>
+            <span class="font-mono font-bold">{{ calcResult.grandTotal | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="flex gap-3 justify-end">
+      <button mat-stroked-button type="button" (click)="cancel()"><mat-icon>close</mat-icon> Cancel</button>
+      <button mat-stroked-button type="button" (click)="recalculate()"><mat-icon>calculate</mat-icon> Recalculate</button>
+      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
+        <mat-icon>save</mat-icon> Save Draft
+      </button>
+    </div>
+  </form>
+</abp-page>

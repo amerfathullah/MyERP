@@ -1,0 +1,41 @@
+<abp-page [title]="'Warehouses'">
+  <div class="relative">
+    @if (isLoading) { <app-loading-overlay /> }
+    <mat-card>
+      <mat-card-header class="flex items-center justify-between px-4 pt-4">
+        <mat-card-title>Warehouses</mat-card-title>
+        <button mat-flat-button color="primary" (click)="createWarehouse()">
+          <mat-icon>add</mat-icon> New Warehouse
+        </button>
+      </mat-card-header>
+      <mat-card-content class="pt-4">
+        @if (warehouses.length === 0) {
+          <p class="text-center text-gray-500 py-8">No warehouses yet.</p>
+        } @else {
+          <table mat-table [dataSource]="warehouses" class="w-full">
+            <ng-container matColumnDef="warehouseCode">
+              <th mat-header-cell *matHeaderCellDef>Code</th>
+              <td mat-cell *matCellDef="let w" class="font-mono">{{ w.warehouseCode }}</td>
+            </ng-container>
+            <ng-container matColumnDef="warehouseName">
+              <th mat-header-cell *matHeaderCellDef>Name</th>
+              <td mat-cell *matCellDef="let w">{{ w.warehouseName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="branch">
+              <th mat-header-cell *matHeaderCellDef>Branch</th>
+              <td mat-cell *matCellDef="let w">{{ w.branchName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let w">
+                <app-status-badge [status]="w.isActive ? 'Active' : 'Inactive'" />
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </div>
+</abp-page>
