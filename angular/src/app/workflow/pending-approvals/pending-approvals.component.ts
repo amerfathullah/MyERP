@@ -10,7 +10,6 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatMenuModule } from '@angular/material/menu';
 import { RouterModule } from '@angular/router';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
 
 @Component({
@@ -19,7 +18,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatChipsModule, MatPaginatorModule,
-    MatMenuModule, RouterModule, LoadingOverlayComponent
+    MatMenuModule, RouterModule,
   ],
   templateUrl: './pending-approvals.component.html',
   styleUrls: ['./pending-approvals.component.scss'],

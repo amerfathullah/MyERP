@@ -1,97 +1,106 @@
 <abp-page [title]="invoice?.invoiceNumber ?? 'Invoice Detail'">
   @if (invoice) {
-    <!-- Workflow bar -->
-    <div class="mb-6 flex items-center justify-between">
-      <app-document-workflow
-        [currentStatus]="invoice.status ?? ''"
-        [availableActions]="workflowActions"
-        (actionTriggered)="onWorkflowAction($event)" />
-      <div class="flex gap-2">
-        <button mat-stroked-button (click)="edit()" [disabled]="invoice.status !== 'Draft'">
-          <mat-icon>edit</mat-icon> Edit
+    <div class="d-flex justify-content-end gap-2 mb-3">
+      @for (action of workflowActions; track action.name) {
+        <button class="btn btn-sm" [ngClass]="action.btnClass" (click)="onWorkflowAction(action.name)">
+          <i class="me-1" [ngClass]="action.icon"></i>
+          {{ action.label }}
         </button>
-        <button mat-stroked-button (click)="goBack()">
-          <mat-icon>arrow_back</mat-icon> Back
-        </button>
+      }
+      <button class="btn btn-outline-primary btn-sm" (click)="edit()" [disabled]="invoice.status !== 'Draft'">
+        <i class="fa fa-pencil me-1"></i>Edit
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
+        <i class="fa fa-arrow-left me-1"></i>Back
+      </button>
+    </div>
+
+    <!-- Status bar -->
+    <div class="card mb-3">
+      <div class="card-body py-2 d-flex align-items-center justify-content-between">
+        <app-status-badge [status]="invoice.status ?? ''" />
+        <div class="d-flex align-items-center gap-2">
+          <app-lhdn-status-badge [status]="invoice.eInvoiceStatus ?? ''" />
+        </div>
       </div>
     </div>
 
     <!-- Header info -->
-    <mat-card class="mb-6">
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <span class="text-sm text-gray-500">Invoice Number</span>
-            <p class="font-medium">{{ invoice.invoiceNumber }}</p>
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">Invoice Number</small>
+            <span class="fw-semibold">{{ invoice.invoiceNumber }}</span>
           </div>
-          <div>
-            <span class="text-sm text-gray-500">Issue Date</span>
-            <p class="font-medium">{{ invoice.issueDate | date:'dd/MM/yyyy' }}</p>
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">Issue Date</small>
+            <span class="fw-semibold">{{ invoice.issueDate | date:'dd MMM yyyy' }}</span>
           </div>
-          <div>
-            <span class="text-sm text-gray-500">Customer</span>
-            <p class="font-medium">{{ invoice.customerName }}</p>
-          </div>
-          <div>
-            <span class="text-sm text-gray-500">e-Invoice Status</span>
-            <p><app-lhdn-status-badge [status]="invoice.eInvoiceStatus ?? ''" /></p>
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">Customer</small>
+            <span class="fw-semibold">{{ invoice.customerName }}</span>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Line items -->
-    <mat-card class="mb-6">
-      <mat-card-header>
-        <mat-card-title>Items</mat-card-title>
-      </mat-card-header>
-      <mat-card-content class="pt-4">
-        <table mat-table [dataSource]="invoice.items ?? []" class="w-full">
-          <ng-container matColumnDef="itemName">
-            <th mat-header-cell *matHeaderCellDef>Item</th>
-            <td mat-cell *matCellDef="let item">{{ item.itemName }}</td>
-          </ng-container>
-          <ng-container matColumnDef="qty">
-            <th mat-header-cell *matHeaderCellDef>Qty</th>
-            <td mat-cell *matCellDef="let item">{{ item.qty }}</td>
-          </ng-container>
-          <ng-container matColumnDef="rate">
-            <th mat-header-cell *matHeaderCellDef>Rate</th>
-            <td mat-cell *matCellDef="let item" class="font-mono">{{ item.rate | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="discountPercent">
-            <th mat-header-cell *matHeaderCellDef>Disc %</th>
-            <td mat-cell *matCellDef="let item">{{ item.discountPercent }}%</td>
-          </ng-container>
-          <ng-container matColumnDef="amount">
-            <th mat-header-cell *matHeaderCellDef>Amount</th>
-            <td mat-cell *matCellDef="let item" class="font-mono font-medium">{{ item.amount | number:'1.2-2' }}</td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: itemColumns"></tr>
-        </table>
-      </mat-card-content>
-    </mat-card>
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="fa fa-list me-2"></i>Items
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table mat-table [dataSource]="invoice.items ?? []" class="w-100">
+            <ng-container matColumnDef="itemName">
+              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">Item</th>
+              <td mat-cell *matCellDef="let item">{{ item.itemName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="qty">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;">Qty</th>
+              <td mat-cell *matCellDef="let item" class="text-end">{{ item.qty }}</td>
+            </ng-container>
+            <ng-container matColumnDef="rate">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 110px;">Rate</th>
+              <td mat-cell *matCellDef="let item" class="text-end font-monospace">{{ item.rate | number:'1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="discountPercent">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;">Disc %</th>
+              <td mat-cell *matCellDef="let item" class="text-end">{{ item.discountPercent }}%</td>
+            </ng-container>
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 120px;">Amount</th>
+              <td mat-cell *matCellDef="let item" class="text-end font-monospace fw-semibold">{{ item.amount | number:'1.2-2' }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: itemColumns"></tr>
+          </table>
+        </div>
+      </div>
+    </div>
 
     <!-- Totals -->
-    <mat-card>
-      <mat-card-content>
-        <div class="flex flex-col items-end gap-2">
-          <div class="flex justify-between w-64">
-            <span class="text-sm text-gray-600">Net Total</span>
-            <span class="font-mono">{{ invoice.netTotal | number:'1.2-2' }}</span>
+    <div class="d-flex justify-content-end">
+      <div class="card card-narrow">
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Net Total</span>
+            <span class="font-monospace">{{ invoice.netTotal | number:'1.2-2' }}</span>
           </div>
-          <div class="flex justify-between w-64">
-            <span class="text-sm text-gray-600">Tax</span>
-            <span class="font-mono">{{ invoice.taxAmount | number:'1.2-2' }}</span>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Tax</span>
+            <span class="font-monospace">{{ invoice.taxAmount | number:'1.2-2' }}</span>
           </div>
-          <mat-divider class="w-64"></mat-divider>
-          <div class="flex justify-between w-64 pt-2">
-            <span class="font-semibold">Grand Total (MYR)</span>
-            <span class="font-mono font-bold text-lg">{{ invoice.grandTotal | number:'1.2-2' }}</span>
+          <hr class="my-2" />
+          <div class="d-flex justify-content-between">
+            <span class="fw-semibold">Grand Total (MYR)</span>
+            <span class="font-monospace fw-bold fs-5">{{ invoice.grandTotal | number:'1.2-2' }}</span>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   }
 </abp-page>

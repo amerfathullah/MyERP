@@ -1,12 +1,12 @@
 <abp-page [title]="'::TrialBalance' | abpLocalization">
   @if (isLoading()) {
-    <app-loading-overlay />
+    <div class="d-flex justify-content-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>
   }
 
   <!-- Filters -->
-  <mat-card class="mb-6">
-    <mat-card-content>
-      <form [formGroup]="filters" class="flex items-end gap-4 flex-wrap">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" class="d-flex align-items-end gap-2 flex-wrap">
         <mat-form-field appearance="outline">
           <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
           <mat-select formControlName="companyId">
@@ -21,83 +21,85 @@
           <input matInput type="date" formControlName="asOfDate" />
         </mat-form-field>
 
-        <button mat-flat-button color="primary" (click)="generate()">
-          <mat-icon>refresh</mat-icon> {{ '::Generate' | abpLocalization }}
+        <button class="btn btn-primary" (click)="generate()">
+          <i class="fa fa-sync"></i> {{ '::Generate' | abpLocalization }}
         </button>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </div>
 
   <!-- Report table -->
   @if (data().length > 0) {
-    <mat-card>
-      <mat-card-content>
-        <table mat-table [dataSource]="data()" class="w-full">
-          <ng-container matColumnDef="accountCode">
-            <th mat-header-cell *matHeaderCellDef>{{ '::AccountCode' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="font-mono text-sm">{{ row.accountCode }}</td>
-            <td mat-footer-cell *matFooterCellDef class="font-bold">{{ '::Total' | abpLocalization }}</td>
-          </ng-container>
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table mat-table [dataSource]="data()" class="w-100">
+            <ng-container matColumnDef="accountCode">
+              <th mat-header-cell *matHeaderCellDef>{{ '::AccountCode' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="font-monospace small">{{ row.accountCode }}</td>
+              <td mat-footer-cell *matFooterCellDef class="fw-bold">{{ '::Total' | abpLocalization }}</td>
+            </ng-container>
 
-          <ng-container matColumnDef="accountName">
-            <th mat-header-cell *matHeaderCellDef>{{ '::AccountName' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.accountName }}</td>
-            <td mat-footer-cell *matFooterCellDef></td>
-          </ng-container>
+            <ng-container matColumnDef="accountName">
+              <th mat-header-cell *matHeaderCellDef>{{ '::AccountName' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.accountName }}</td>
+              <td mat-footer-cell *matFooterCellDef></td>
+            </ng-container>
 
-          <ng-container matColumnDef="accountType">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Type' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-xs text-gray-500">{{ row.accountType }}</td>
-            <td mat-footer-cell *matFooterCellDef></td>
-          </ng-container>
+            <ng-container matColumnDef="accountType">
+              <th mat-header-cell *matHeaderCellDef>{{ '::Type' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="small text-muted">{{ row.accountType }}</td>
+              <td mat-footer-cell *matFooterCellDef></td>
+            </ng-container>
 
-          <ng-container matColumnDef="debit">
-            <th mat-header-cell *matHeaderCellDef class="text-right">{{ '::Debit' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">
-              {{ row.debit > 0 ? (row.debit | number:'1.2-2') : '' }}
-            </td>
-            <td mat-footer-cell *matFooterCellDef class="text-right font-mono font-bold">
-              {{ totalDebit() | number:'1.2-2' }}
-            </td>
-          </ng-container>
+            <ng-container matColumnDef="debit">
+              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::Debit' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
+                {{ row.debit > 0 ? (row.debit | number:'1.2-2') : '' }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="text-end font-monospace fw-bold">
+                {{ totalDebit() | number:'1.2-2' }}
+              </td>
+            </ng-container>
 
-          <ng-container matColumnDef="credit">
-            <th mat-header-cell *matHeaderCellDef class="text-right">{{ '::Credit' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">
-              {{ row.credit > 0 ? (row.credit | number:'1.2-2') : '' }}
-            </td>
-            <td mat-footer-cell *matFooterCellDef class="text-right font-mono font-bold">
-              {{ totalCredit() | number:'1.2-2' }}
-            </td>
-          </ng-container>
+            <ng-container matColumnDef="credit">
+              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::Credit' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
+                {{ row.credit > 0 ? (row.credit | number:'1.2-2') : '' }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="text-end font-monospace fw-bold">
+                {{ totalCredit() | number:'1.2-2' }}
+              </td>
+            </ng-container>
 
-          <ng-container matColumnDef="closingDebit">
-            <th mat-header-cell *matHeaderCellDef class="text-right">{{ '::ClosingDebit' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">
-              {{ row.closingDebit > 0 ? (row.closingDebit | number:'1.2-2') : '' }}
-            </td>
-            <td mat-footer-cell *matFooterCellDef></td>
-          </ng-container>
+            <ng-container matColumnDef="closingDebit">
+              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::ClosingDebit' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
+                {{ row.closingDebit > 0 ? (row.closingDebit | number:'1.2-2') : '' }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef></td>
+            </ng-container>
 
-          <ng-container matColumnDef="closingCredit">
-            <th mat-header-cell *matHeaderCellDef class="text-right">{{ '::ClosingCredit' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">
-              {{ row.closingCredit > 0 ? (row.closingCredit | number:'1.2-2') : '' }}
-            </td>
-            <td mat-footer-cell *matFooterCellDef></td>
-          </ng-container>
+            <ng-container matColumnDef="closingCredit">
+              <th mat-header-cell *matHeaderCellDef class="text-end">{{ '::ClosingCredit' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="text-end font-monospace">
+                {{ row.closingCredit > 0 ? (row.closingCredit | number:'1.2-2') : '' }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef></td>
+            </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-          <tr mat-footer-row *matFooterRowDef="displayedColumns" class="bg-gray-50"></tr>
-        </table>
-      </mat-card-content>
-    </mat-card>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <tr mat-footer-row *matFooterRowDef="displayedColumns" class="bg-light"></tr>
+          </table>
+        </div>
+      </div>
+    </div>
   } @else if (!isLoading()) {
-    <mat-card>
-      <mat-card-content class="text-center py-8 text-gray-500">
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
         {{ '::SelectCompanyAndGenerate' | abpLocalization }}
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   }
 </abp-page>

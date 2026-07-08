@@ -1,62 +1,87 @@
-<abp-page [title]="'Suppliers'">
-  <div class="relative">
-    @if (isLoading) {
-      <app-loading-overlay />
-    }
+<abp-page [title]="'::Suppliers' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" (click)="createSupplier()">
+      <i class="fa fa-plus me-1"></i>
+      {{ '::NewSupplier' | abpLocalization }}
+    </button>
+  </div>
 
-    <mat-card>
-      <mat-card-header class="flex items-center justify-between px-4 pt-4">
-        <mat-card-title>Suppliers</mat-card-title>
-        <button mat-flat-button color="primary" (click)="createSupplier()">
-          <mat-icon>add</mat-icon>
-          New Supplier
-        </button>
-      </mat-card-header>
-
-      <mat-card-content class="pt-4">
-        @if (suppliers.length === 0) {
-          <p class="text-center text-gray-500 py-8">
-            No suppliers yet. Click "New Supplier" to add one.
-          </p>
-        } @else {
-          <table mat-table [dataSource]="suppliers" class="w-full">
+  <div class="card">
+    <div class="card-body">
+      @if (isLoading) {
+        <div class="d-flex justify-content-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (suppliers.length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-truck fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">No suppliers yet. Click "New Supplier" to add one.</p>
+          <button class="btn btn-primary btn-sm" (click)="createSupplier()">
+            <i class="fa fa-plus me-1"></i>{{ '::NewSupplier' | abpLocalization }}
+          </button>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table mat-table [dataSource]="suppliers" class="w-100">
             <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Name</th>
-              <td mat-cell *matCellDef="let supplier">{{ supplier.name }}</td>
+              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">Name</th>
+              <td mat-cell *matCellDef="let supplier" class="fw-semibold">
+                <span class="d-inline-block text-truncate" style="max-width: 200px;"
+                  [title]="supplier.name">{{ supplier.name }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="supplierCode">
-              <th mat-header-cell *matHeaderCellDef>Code</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 100px;">Code</th>
               <td mat-cell *matCellDef="let supplier">{{ supplier.supplierCode }}</td>
             </ng-container>
 
             <ng-container matColumnDef="tin">
-              <th mat-header-cell *matHeaderCellDef>TIN</th>
-              <td mat-cell *matCellDef="let supplier">{{ supplier.tin }}</td>
+              <th mat-header-cell *matHeaderCellDef style="width: 140px;">TIN</th>
+              <td mat-cell *matCellDef="let supplier" class="font-monospace small">{{ supplier.tin }}</td>
             </ng-container>
 
             <ng-container matColumnDef="phone">
-              <th mat-header-cell *matHeaderCellDef>Phone</th>
-              <td mat-cell *matCellDef="let supplier">{{ supplier.phone }}</td>
+              <th mat-header-cell *matHeaderCellDef class="d-none d-md-table-cell" style="width: 130px;">Phone</th>
+              <td mat-cell *matCellDef="let supplier" class="d-none d-md-table-cell">{{ supplier.phone }}</td>
             </ng-container>
 
             <ng-container matColumnDef="email">
-              <th mat-header-cell *matHeaderCellDef>Email</th>
-              <td mat-cell *matCellDef="let supplier">{{ supplier.email }}</td>
+              <th mat-header-cell *matHeaderCellDef class="d-none d-lg-table-cell" style="min-width: 180px;">Email</th>
+              <td mat-cell *matCellDef="let supplier" class="d-none d-lg-table-cell">
+                <span class="d-inline-block text-truncate" style="max-width: 180px;"
+                  [title]="supplier.email">{{ supplier.email }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 100px;">Status</th>
               <td mat-cell *matCellDef="let supplier">
                 <app-status-badge [status]="supplier.isActive ? 'Active' : 'Inactive'" />
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;"></th>
+              <td mat-cell *matCellDef="let supplier" class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary" [routerLink]="[supplier.id, 'edit']"
+                    aria-label="Edit">
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"
+              [routerLink]="[row.id, 'edit']" class="cursor-pointer"></tr>
           </table>
-        }
-      </mat-card-content>
-    </mat-card>
+        </div>
+      }
+    </div>
   </div>
 </abp-page>

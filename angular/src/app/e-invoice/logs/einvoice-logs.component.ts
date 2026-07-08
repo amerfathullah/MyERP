@@ -8,14 +8,19 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import type { SalesInvoiceDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-einvoice-logs',
   standalone: true,
-  imports: [CommonModule, PageModule, MatCardModule, MatTableModule, MatIconModule, MatButtonModule, MatPaginatorModule, LhdnStatusBadgeComponent, LoadingOverlayComponent],
+  imports: [
+    CommonModule,
+    PageModule,
+    MatTableModule,
+    MatPaginatorModule,
+    LhdnStatusBadgeComponent,
+  ],
   templateUrl: './einvoice-logs.component.html',
   styleUrls: ['./einvoice-logs.component.scss'],
 })

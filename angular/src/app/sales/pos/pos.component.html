@@ -1,82 +1,84 @@
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 h-[calc(100vh-80px)] p-4">
+<div class="row g-3 p-3" style="height: calc(100vh - 80px);">
   <!-- Left: Item grid -->
-  <div class="lg:col-span-2 flex flex-col gap-4">
+  <div class="col-12 col-lg-8 d-flex flex-column gap-2">
     <!-- Search -->
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="outline" class="w-100">
       <mat-label>Search items</mat-label>
       <input matInput [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..."
         (ngModelChange)="onSearchChange($event)" />
-      <mat-icon matPrefix>search</mat-icon>
+      <i class="fa fa-search" matPrefix></i>
     </mat-form-field>
 
     <!-- Item grid from API -->
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 overflow-y-auto flex-1">
+    <div class="row g-2 overflow-auto flex-grow-1">
       @for (item of items(); track item.id) {
-        <button mat-stroked-button class="!h-24 flex-col !text-left"
-          (click)="addToCart(item)">
-          <span class="font-medium text-sm">{{ item.itemName }}</span>
-          <span class="text-xs text-gray-500 font-mono">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
-        </button>
+        <div class="col-6 col-md-4">
+          <button class="btn btn-outline-secondary w-100 d-flex flex-column align-align-align-items-start"
+            style="height: 6rem;" (click)="addToCart(item)">
+            <span class="fw-medium small">{{ item.itemName }}</span>
+            <span class="small text-muted font-monospace">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
+          </button>
+        </div>
       }
     </div>
   </div>
 
   <!-- Right: Cart -->
-  <mat-card class="flex flex-col">
-    <mat-card-header>
-      <mat-card-title>Cart</mat-card-title>
-    </mat-card-header>
+  <div class="col-12 col-lg-4">
+    <div class="card d-flex flex-column h-100">
+      <div class="card-header"><h5 class="card-title mb-0">Cart</h5></div>
 
-    <mat-card-content class="flex-1 overflow-y-auto pt-4">
-      @if (cart.length === 0) {
-        <p class="text-center text-gray-400 py-8">Cart is empty</p>
-      } @else {
-        @for (item of cart; track item.itemId; let i = $index) {
-          <div class="flex items-center justify-between py-2 border-b">
-            <div class="flex-1">
-              <p class="font-medium text-sm">{{ item.itemName }}</p>
-              <p class="text-xs text-gray-500">MYR {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
+      <div class="card-body flex-grow-1 overflow-auto pt-3">
+        @if (cart.length === 0) {
+          <p class="text-center text-muted py-5">Cart is empty</p>
+        } @else {
+          @for (item of cart; track item.itemId; let i = $index) {
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+              <div class="flex-grow-1">
+                <p class="fw-medium small mb-0">{{ item.itemName }}</p>
+                <p class="small text-muted mb-0">MYR {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="font-monospace small fw-medium">{{ item.amount | number:'1.2-2' }}</span>
+                <button class="btn btn-sm btn-link p-1" (click)="removeFromCart(i)">
+                  <i class="fa fa-times text-danger"></i>
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="font-mono text-sm font-medium">{{ item.amount | number:'1.2-2' }}</span>
-              <button mat-icon-button (click)="removeFromCart(i)">
-                <mat-icon class="!text-base text-red-500">close</mat-icon>
-              </button>
-            </div>
+          }
+        }
+      </div>
+
+      <hr class="m-0">
+
+      <div class="p-3">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Subtotal</span>
+          <span class="font-monospace">MYR {{ netTotal | number:'1.2-2' }}</span>
+        </div>
+        <div class="d-flex justify-content-between fs-5 fw-bold mb-3">
+          <span>Total</span>
+          <span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
+        </div>
+        <mat-form-field appearance="outline" class="w-100 mb-2">
+          <mat-label>Amount Received</mat-label>
+          <input matInput type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
+          <span matPrefix>MYR&nbsp;</span>
+        </mat-form-field>
+        @if (change > 0) {
+          <div class="d-flex justify-content-between mb-3 text-success fw-bold">
+            <span>Change</span>
+            <span class="font-monospace">MYR {{ change | number:'1.2-2' }}</span>
           </div>
         }
-      }
-    </mat-card-content>
-
-    <mat-divider></mat-divider>
-
-    <div class="p-4">
-      <div class="flex justify-between mb-2">
-        <span class="text-gray-600">Subtotal</span>
-        <span class="font-mono">MYR {{ netTotal | number:'1.2-2' }}</span>
+        <button class="btn btn-primary w-100 py-2 fs-5"
+          [disabled]="cart.length === 0 || isProcessing" (click)="completeSale()">
+          <i class="fa fa-money-bill"></i> {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
+        </button>
+        @if (lastInvoice) {
+          <p class="text-center small text-muted mt-2">Last: {{ lastInvoice }}</p>
+        }
       </div>
-      <div class="flex justify-between text-lg font-bold mb-3">
-        <span>Total</span>
-        <span class="font-mono">MYR {{ grandTotal | number:'1.2-2' }}</span>
-      </div>
-      <mat-form-field appearance="outline" class="w-full mb-2">
-        <mat-label>Amount Received</mat-label>
-        <input matInput type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
-        <span matPrefix>MYR&nbsp;</span>
-      </mat-form-field>
-      @if (change > 0) {
-        <div class="flex justify-between mb-3 text-green-700 font-bold">
-          <span>Change</span>
-          <span class="font-mono">MYR {{ change | number:'1.2-2' }}</span>
-        </div>
-      }
-      <button mat-flat-button color="primary" class="w-full !h-12 !text-lg"
-        [disabled]="cart.length === 0 || isProcessing" (click)="completeSale()">
-        <mat-icon>payments</mat-icon> {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
-      </button>
-      @if (lastInvoice) {
-        <p class="text-center text-sm text-gray-500 mt-2">Last: {{ lastInvoice }}</p>
-      }
     </div>
-  </mat-card>
+  </div>
 </div>

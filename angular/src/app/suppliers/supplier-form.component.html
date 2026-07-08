@@ -1,90 +1,102 @@
 <abp-page [title]="isEditMode ? ('::EditSupplier' | abpLocalization) : ('::NewSupplier' | abpLocalization)">
-  <mat-card>
-    <mat-card-content>
-      <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <mat-form-field appearance="outline" class="md:col-span-2">
-          <mat-label>{{ '::SupplierName' | abpLocalization }}</mat-label>
-          <input matInput formControlName="name" />
-          <mat-error>Required</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::SupplierCode' | abpLocalization }}</mat-label>
-          <input matInput formControlName="supplierCode" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-          <input matInput formControlName="companyId" />
-          <mat-error>Required</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::TIN' | abpLocalization }}</mat-label>
-          <input matInput formControlName="tin" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::RegistrationNumber' | abpLocalization }}</mat-label>
-          <input matInput formControlName="registrationNumber" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::SSTRegistration' | abpLocalization }}</mat-label>
-          <input matInput formControlName="sstRegistrationNumber" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::ContactPerson' | abpLocalization }}</mat-label>
-          <input matInput formControlName="contactPerson" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Phone' | abpLocalization }}</mat-label>
-          <input matInput formControlName="phone" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Email' | abpLocalization }}</mat-label>
-          <input matInput formControlName="email" type="email" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="md:col-span-2">
-          <mat-label>{{ '::Address' | abpLocalization }}</mat-label>
-          <textarea matInput formControlName="address" rows="2"></textarea>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::City' | abpLocalization }}</mat-label>
-          <input matInput formControlName="city" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::State' | abpLocalization }}</mat-label>
-          <input matInput formControlName="state" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::PostalCode' | abpLocalization }}</mat-label>
-          <input matInput formControlName="postalCode" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Country' | abpLocalization }}</mat-label>
-          <input matInput formControlName="country" />
-        </mat-form-field>
-
-        <div>
-          <mat-slide-toggle formControlName="isActive">{{ '::Active' | abpLocalization }}</mat-slide-toggle>
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-truck me-2"></i>Supplier Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::SupplierName' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="name"
+              [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
+            @if (form.get('name')?.errors?.['required'] && form.get('name')?.touched) {
+              <div class="invalid-feedback">Required</div>
+            }
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::SupplierCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="supplierCode" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
+            @if (form.get('companyId')?.errors?.['required'] && form.get('companyId')?.touched) {
+              <div class="invalid-feedback">Required</div>
+            }
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::TIN' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="tin" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::RegistrationNumber' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="registrationNumber" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::SSTRegistration' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="sstRegistrationNumber" />
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="md:col-span-2 flex justify-end gap-3 pt-4">
-          <button mat-stroked-button type="button" routerLink="/suppliers">{{ '::Cancel' | abpLocalization }}</button>
-          <button mat-flat-button color="primary" type="submit">
-            <mat-icon>save</mat-icon> {{ '::Save' | abpLocalization }}
-          </button>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>Contact & Address</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ContactPerson' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="contactPerson" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="phone" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Email' | abpLocalization }}</label>
+            <input type="email" class="form-control" formControlName="email" />
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Address' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="address" rows="2"></textarea>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::City' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="city" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::State' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="state" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PostalCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="postalCode" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Country' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="country" />
+          </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive" />
+              <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
+            </div>
+          </div>
         </div>
-      </form>
-    </mat-card-content>
-  </mat-card>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" routerLink="/suppliers">
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+      </button>
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+      </button>
+    </div>
+  </form>
 </abp-page>

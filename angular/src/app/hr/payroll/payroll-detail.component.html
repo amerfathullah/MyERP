@@ -8,76 +8,78 @@
       (actionTriggered)="onWorkflowAction($event)" />
 
     <!-- Summary cards -->
-    <div class="grid grid-cols-2 gap-4 md:grid-cols-4 mt-4 mb-4">
-      <mat-card>
-        <mat-card-content class="text-center py-3">
-          <p class="text-2xl font-bold font-mono">{{ entry.totalGrossSalary | number:'1.2-2' }}</p>
-          <small class="text-gray-500">Total Gross</small>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content class="text-center py-3">
-          <p class="text-2xl font-bold font-mono text-red-600">{{ entry.totalDeductions | number:'1.2-2' }}</p>
-          <small class="text-gray-500">Total Deductions</small>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content class="text-center py-3">
-          <p class="text-2xl font-bold font-mono text-green-700">{{ entry.totalNetSalary | number:'1.2-2' }}</p>
-          <small class="text-gray-500">Total Net Pay</small>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content class="text-center py-3">
-          <p class="text-2xl font-bold font-mono text-blue-600">{{ entry.totalEmployerContributions | number:'1.2-2' }}</p>
-          <small class="text-gray-500">Employer Cost</small>
-        </mat-card-content>
-      </mat-card>
+    <div class="row mt-4 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-4 fw-bold font-monospace mb-0">{{ entry.totalGrossSalary | number:'1.2-2' }}</p>
+            <small class="text-muted">Total Gross</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-4 fw-bold font-monospace text-danger mb-0">{{ entry.totalDeductions | number:'1.2-2' }}</p>
+            <small class="text-muted">Total Deductions</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-4 fw-bold font-monospace text-success mb-0">{{ entry.totalNetSalary | number:'1.2-2' }}</p>
+            <small class="text-muted">Total Net Pay</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-4 fw-bold font-monospace text-primary mb-0">{{ entry.totalEmployerContributions | number:'1.2-2' }}</p>
+            <small class="text-muted">Employer Cost</small>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Salary slips table -->
-    <mat-card>
-      <mat-card-header>
-        <mat-card-title>{{ entry.periodLabel }} — Salary Breakdown</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <table mat-table [dataSource]="entry.lines!" class="w-full">
-          <ng-container matColumnDef="employeeName">
-            <th mat-header-cell *matHeaderCellDef>Employee</th>
-            <td mat-cell *matCellDef="let row" class="font-medium">{{ row.employeeName }}</td>
-          </ng-container>
-          <ng-container matColumnDef="grossSalary">
-            <th mat-header-cell *matHeaderCellDef>Gross</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.grossSalary | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="epfEmployee">
-            <th mat-header-cell *matHeaderCellDef>EPF</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.epfEmployee | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="socsoEmployee">
-            <th mat-header-cell *matHeaderCellDef>SOCSO</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.socsoEmployee | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="eisEmployee">
-            <th mat-header-cell *matHeaderCellDef>EIS</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.eisEmployee | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="pcb">
-            <th mat-header-cell *matHeaderCellDef>PCB</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.pcb | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="totalDeductions">
-            <th mat-header-cell *matHeaderCellDef>Deductions</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono text-red-600">{{ row.totalDeductions | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="netSalary">
-            <th mat-header-cell *matHeaderCellDef>Net Pay</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono font-bold">{{ row.netSalary | number:'1.2-2' }}</td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="lineColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: lineColumns"></tr>
-        </table>
-      </mat-card-content>
-    </mat-card>
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-users me-2"></i>{{ entry.periodLabel }} — Salary Breakdown</h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm w-100">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th class="text-end">Gross</th>
+                <th class="text-end">EPF</th>
+                <th class="text-end">SOCSO</th>
+                <th class="text-end">EIS</th>
+                <th class="text-end">PCB</th>
+                <th class="text-end">Deductions</th>
+                <th class="text-end">Net Pay</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of entry.lines!; track $index) {
+                <tr>
+                  <td class="fw-medium">{{ row.employeeName }}</td>
+                  <td class="text-end font-monospace">{{ row.grossSalary | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.epfEmployee | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.socsoEmployee | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.eisEmployee | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.pcb | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace text-danger">{{ row.totalDeductions | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ row.netSalary | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   }
 </abp-page>

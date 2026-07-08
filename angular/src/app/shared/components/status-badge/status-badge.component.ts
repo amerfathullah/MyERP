@@ -1,33 +1,31 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatIconModule } from '@angular/material/icon';
 
 export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive';
 
 interface StatusConfig {
   icon: string;
-  colorClass: string;
+  badgeClass: string;
 }
 
 const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
-  Draft: { icon: 'edit_note', colorClass: 'bg-gray-100 text-gray-700' },
-  Submitted: { icon: 'send', colorClass: 'bg-blue-100 text-blue-700' },
-  Approved: { icon: 'check_circle', colorClass: 'bg-indigo-100 text-indigo-700' },
-  Posted: { icon: 'verified', colorClass: 'bg-green-100 text-green-700' },
-  Cancelled: { icon: 'cancel', colorClass: 'bg-red-100 text-red-700' },
-  Rejected: { icon: 'block', colorClass: 'bg-orange-100 text-orange-700' },
-  Overdue: { icon: 'warning', colorClass: 'bg-red-100 text-red-700' },
-  Paid: { icon: 'payments', colorClass: 'bg-green-100 text-green-700' },
-  PartiallyPaid: { icon: 'hourglass_top', colorClass: 'bg-yellow-100 text-yellow-700' },
-  Active: { icon: 'check_circle', colorClass: 'bg-green-100 text-green-700' },
-  Inactive: { icon: 'pause_circle', colorClass: 'bg-gray-100 text-gray-500' },
+  Draft: { icon: 'fa fa-file', badgeClass: 'bg-secondary' },
+  Submitted: { icon: 'fa fa-paper-plane', badgeClass: 'bg-info' },
+  Approved: { icon: 'fa fa-check-circle', badgeClass: 'bg-primary' },
+  Posted: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
+  Cancelled: { icon: 'fa fa-ban', badgeClass: 'bg-danger' },
+  Rejected: { icon: 'fa fa-times-circle', badgeClass: 'bg-warning text-dark' },
+  Overdue: { icon: 'fa fa-exclamation-triangle', badgeClass: 'bg-danger' },
+  Paid: { icon: 'fa fa-check-circle', badgeClass: 'bg-success' },
+  PartiallyPaid: { icon: 'fa fa-clock', badgeClass: 'bg-warning text-dark' },
+  Active: { icon: 'fa fa-check-circle', badgeClass: 'bg-success' },
+  Inactive: { icon: 'fa fa-minus-circle', badgeClass: 'bg-secondary' },
 };
 
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [CommonModule, MatChipsModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './status-badge.component.html',
   styleUrls: ['./status-badge.component.scss'],
 })

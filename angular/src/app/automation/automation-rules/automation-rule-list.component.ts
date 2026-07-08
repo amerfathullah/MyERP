@@ -13,7 +13,6 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { AutomationRuleStore } from '../store/automation-rule.store';
 
 @Component({
@@ -23,7 +22,6 @@ import { AutomationRuleStore } from '../store/automation-rule.store';
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatChipsModule, MatSlideToggleModule,
     MatPaginatorModule, MatMenuModule, MatTooltipModule, RouterModule,
-    LoadingOverlayComponent,
   ],
   templateUrl: './automation-rule-list.component.html',
   styleUrls: ['./automation-rule-list.component.scss'],

@@ -15,15 +15,13 @@ import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.servic
 import { CompanyService } from '../../../proxy/core/company.service';
 import type { StockLedgerRowDto } from '../../../proxy/inventory/models';
 import type { CompanyDto } from '../../../proxy/core/models';
-import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-stock-ledger',
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatButtonModule, MatIconModule, LoadingOverlayComponent,
+    MatCardModule, MatTableModule, MatFormFieldModule, MatInputModule, MatSelectModule,
   ],
   templateUrl: './stock-ledger.component.html',
   styleUrls: ['./stock-ledger.component.scss'],

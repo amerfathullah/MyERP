@@ -5,7 +5,6 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
 import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController } from 'chart.js';
 
@@ -28,7 +27,6 @@ interface StatCard {
     MatIconModule,
     MatTableModule,
     MatButtonModule,
-    LoadingOverlayComponent,
   ],
   templateUrl: './lhdn-dashboard.component.html',
   styleUrls: ['./lhdn-dashboard.component.scss'],

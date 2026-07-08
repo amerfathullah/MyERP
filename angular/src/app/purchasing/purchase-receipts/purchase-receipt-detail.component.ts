@@ -10,7 +10,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseReceiptStore } from '../store/purchase-receipt.store';
@@ -22,7 +21,6 @@ import type { PurchaseReceiptDto } from '../../proxy/purchasing/models';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatDividerModule,
-    DocumentWorkflowComponent, LoadingOverlayComponent,
   ],
   templateUrl: './purchase-receipt-detail.component.html',
   styleUrls: ['./purchase-receipt-detail.component.scss'],

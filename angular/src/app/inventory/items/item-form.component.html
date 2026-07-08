@@ -1,72 +1,74 @@
 <abp-page [title]="isEditMode ? ('::EditItem' | abpLocalization) : ('::NewItem' | abpLocalization)">
-  <mat-card>
-    <mat-card-content>
-      <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::ItemCode' | abpLocalization }}</mat-label>
-          <input matInput formControlName="itemCode" />
-          <mat-error>Required, max 50 chars</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::ItemName' | abpLocalization }}</mat-label>
-          <input matInput formControlName="itemName" />
-          <mat-error>Required</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::ItemType' | abpLocalization }}</mat-label>
-          <mat-select formControlName="itemType">
-            @for (t of itemTypes; track t.value) {
-              <mat-option [value]="t.value">{{ t.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::ItemGroup' | abpLocalization }}</mat-label>
-          <input matInput formControlName="itemGroup" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::UOM' | abpLocalization }}</mat-label>
-          <input matInput formControlName="uom" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-          <input matInput formControlName="companyId" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::SellingPrice' | abpLocalization }}</mat-label>
-          <input matInput type="number" formControlName="standardSellingPrice" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::BuyingPrice' | abpLocalization }}</mat-label>
-          <input matInput type="number" formControlName="standardBuyingPrice" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="md:col-span-2">
-          <mat-label>{{ '::Description' | abpLocalization }}</mat-label>
-          <textarea matInput formControlName="description" rows="3"></textarea>
-        </mat-form-field>
-
-        <div class="flex gap-4">
-          <mat-slide-toggle formControlName="maintainStock">{{ '::MaintainStock' | abpLocalization }}</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isActive">{{ '::Active' | abpLocalization }}</mat-slide-toggle>
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title mb-0"><i class="fa fa-box me-2"></i>{{ '::Item' | abpLocalization }}</h5>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ItemCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="itemCode" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ItemName' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="itemName" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ItemType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="itemType">
+              @for (t of itemTypes; track t.value) {
+                <option [value]="t.value">{{ t.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ItemGroup' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="itemGroup" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::UOM' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="uom" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="companyId" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::SellingPrice' | abpLocalization }}</label>
+            <input type="number" class="form-control" formControlName="standardSellingPrice" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::BuyingPrice' | abpLocalization }}</label>
+            <input type="number" class="form-control" formControlName="standardBuyingPrice" />
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="description" rows="3"></textarea>
+          </div>
+          <div class="col-12 mb-3">
+            <div class="d-flex gap-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" formControlName="maintainStock" id="maintainStock" />
+                <label class="form-check-label" for="maintainStock">{{ '::MaintainStock' | abpLocalization }}</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive" />
+                <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="md:col-span-2 flex justify-end gap-3 pt-4">
-          <button mat-stroked-button type="button" routerLink="/inventory/items">
+        <div class="d-flex justify-content-end gap-2 pt-3">
+          <button type="button" class="btn btn-outline-secondary" routerLink="/inventory/items">
             {{ '::Cancel' | abpLocalization }}
           </button>
-          <button mat-flat-button color="primary" type="submit">
-            <mat-icon>save</mat-icon> {{ '::Save' | abpLocalization }}
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </div>
 </abp-page>

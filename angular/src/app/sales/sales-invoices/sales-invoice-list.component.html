@@ -1,87 +1,150 @@
-<abp-page [title]="'Sales Invoices'">
-  <div class="relative">
-    @if (store.isLoading()) {
-      <app-loading-overlay />
-    }
+<abp-page [title]="'::Sales:Invoices' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" (click)="createInvoice()">
+      <i class="fa fa-plus me-1"></i>
+      {{ '::NewInvoice' | abpLocalization }}
+    </button>
+  </div>
 
-    <mat-card>
-      <mat-card-header class="flex items-center justify-between px-4 pt-4">
-        <mat-card-title>Sales Invoices</mat-card-title>
-        <button mat-flat-button color="primary" (click)="createInvoice()">
-          <mat-icon>add</mat-icon>
-          New Invoice
-        </button>
-      </mat-card-header>
+  <div class="card">
+    <div class="card-body">
+      <!-- Filter row -->
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization" />
+          </div>
+        </div>
+      </div>
 
-      <mat-card-content class="pt-4">
-        @if (!store.hasInvoices()) {
-          <p class="text-center text-gray-500 py-8">No invoices yet.</p>
-        } @else {
-          <table mat-table [dataSource]="store.entities()" class="w-full">
+      @if (store.isLoading()) {
+        <div class="d-flex justify-content-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (!store.hasInvoices()) {
+        <div class="text-center py-5">
+          <i class="fa fa-file-invoice fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">No invoices yet. Create your first sales invoice.</p>
+          <button class="btn btn-primary btn-sm" (click)="createInvoice()">
+            <i class="fa fa-plus me-1"></i>{{ '::NewInvoice' | abpLocalization }}
+          </button>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table mat-table [dataSource]="store.entities()" class="w-100">
             <ng-container matColumnDef="invoiceNumber">
-              <th mat-header-cell *matHeaderCellDef>Invoice #</th>
-              <td mat-cell *matCellDef="let inv" class="font-medium">{{ inv.invoiceNumber }}</td>
+              <th mat-header-cell *matHeaderCellDef style="min-width: 120px;">Invoice #</th>
+              <td mat-cell *matCellDef="let inv" class="fw-semibold">{{ inv.invoiceNumber }}</td>
             </ng-container>
 
             <ng-container matColumnDef="issueDate">
-              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 110px;">Date</th>
               <td mat-cell *matCellDef="let inv">{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
             </ng-container>
 
             <ng-container matColumnDef="customerName">
-              <th mat-header-cell *matHeaderCellDef>Customer</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.customerName }}</td>
+              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">Customer</th>
+              <td mat-cell *matCellDef="let inv">
+                <span class="d-inline-block text-truncate" style="max-width: 180px;"
+                  [title]="inv.customerName">
+                  {{ inv.customerName }}
+                </span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="grandTotal">
-              <th mat-header-cell *matHeaderCellDef>Total (MYR)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right font-mono">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 130px;">Total (MYR)</th>
+              <td mat-cell *matCellDef="let inv" class="text-end font-monospace fw-semibold">
                 {{ inv.grandTotal | number:'1.2-2' }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 120px;">Status</th>
               <td mat-cell *matCellDef="let inv">
                 <app-status-badge [status]="inv.status" />
               </td>
             </ng-container>
 
             <ng-container matColumnDef="eInvoiceStatus">
-              <th mat-header-cell *matHeaderCellDef>e-Invoice</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 130px;">e-Invoice</th>
               <td mat-cell *matCellDef="let inv">
                 <app-lhdn-status-badge [status]="inv.eInvoiceStatus" />
               </td>
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let inv">
-                <div class="flex gap-1">
-                  @if (inv.status === 'Draft') {
-                    <button mat-stroked-button color="primary" (click)="submit(inv.id)">
-                      Submit
-                    </button>
-                  }
-                  @if (inv.status === 'Submitted') {
-                    <button mat-stroked-button color="primary" (click)="post(inv.id)">
-                      Post
-                    </button>
-                  }
-                  @if (inv.status === 'Posted') {
-                    <button mat-stroked-button color="warn" (click)="cancel(inv.id)">
-                      Cancel
-                    </button>
-                  }
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 100px;"></th>
+              <td mat-cell *matCellDef="let inv" class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary" [routerLink]="[inv.id]"
+                    matTooltip="View" aria-label="View">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                  <button class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
+                    data-bs-toggle="dropdown" aria-label="More actions"></button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <a class="dropdown-item" [routerLink]="[inv.id, 'edit']">
+                        <i class="fa fa-pencil me-2"></i>{{ '::Edit' | abpLocalization }}
+                      </a>
+                    </li>
+                    @if (inv.status === 'Draft') {
+                      <li>
+                        <button class="dropdown-item" (click)="submit(inv.id)">
+                          <i class="fa fa-paper-plane me-2"></i>Submit
+                        </button>
+                      </li>
+                    }
+                    @if (inv.status === 'Submitted') {
+                      <li>
+                        <button class="dropdown-item" (click)="post(inv.id)">
+                          <i class="fa fa-check-double me-2"></i>Post
+                        </button>
+                      </li>
+                    }
+                    @if (inv.status === 'Posted') {
+                      <li><hr class="dropdown-divider" /></li>
+                      <li>
+                        <button class="dropdown-item text-danger" (click)="cancel(inv.id)">
+                          <i class="fa fa-ban me-2"></i>Cancel
+                        </button>
+                      </li>
+                    }
+                    @if (inv.status === 'Draft') {
+                      <li><hr class="dropdown-divider" /></li>
+                      <li>
+                        <button class="dropdown-item text-danger" (click)="delete(inv.id)">
+                          <i class="fa fa-trash me-2"></i>Delete
+                        </button>
+                      </li>
+                    }
+                  </ul>
                 </div>
               </td>
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"
+              [routerLink]="[row.id]" class="cursor-pointer"></tr>
           </table>
-        }
-      </mat-card-content>
-    </mat-card>
+        </div>
+
+        <mat-paginator class="mt-3"
+          [length]="store.totalCount()"
+          [pageSize]="20"
+          [pageSizeOptions]="[10, 20, 50]"
+          (page)="onPageChange($event)">
+        </mat-paginator>
+      }
+    </div>
   </div>
 </abp-page>

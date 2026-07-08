@@ -1,13 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ListService, PagedResultDto } from '@abp/ng.core';
+import { RouterModule } from '@angular/router';
+import { ListService, PagedResultDto, LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyService } from '../proxy/core/company.service';
 import type { CompanyDto } from '../proxy/core/models';
 
@@ -16,13 +14,12 @@ import type { CompanyDto } from '../proxy/core/models';
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
+    LocalizationModule,
     PageModule,
-    MatCardModule,
     MatTableModule,
-    MatButtonModule,
-    MatIconModule,
+    MatTooltipModule,
     StatusBadgeComponent,
-    LoadingOverlayComponent,
   ],
   providers: [ListService],
   templateUrl: './company-list.component.html',
@@ -32,7 +29,7 @@ export class CompanyListComponent implements OnInit {
   private companyService = inject(CompanyService);
   companies: CompanyDto[] = [];
   isLoading = false;
-  displayedColumns = ['name', 'taxId', 'sstRegistrationNumber', 'currencyCode', 'status'];
+  displayedColumns = ['name', 'taxId', 'sstRegistrationNumber', 'currencyCode', 'status', 'actions'];
 
   constructor(public readonly list: ListService) {}
 

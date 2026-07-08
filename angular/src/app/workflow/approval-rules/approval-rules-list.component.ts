@@ -11,7 +11,6 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatMenuModule } from '@angular/material/menu';
 import { RouterModule } from '@angular/router';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
 
 @Component({
@@ -20,7 +19,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatChipsModule, MatSlideToggleModule,
-    MatPaginatorModule, MatMenuModule, RouterModule, LoadingOverlayComponent
+    MatPaginatorModule, MatMenuModule, RouterModule,
   ],
   templateUrl: './approval-rules-list.component.html',
   styleUrls: ['./approval-rules-list.component.scss'],

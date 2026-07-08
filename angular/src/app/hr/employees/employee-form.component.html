@@ -1,80 +1,70 @@
 <abp-page [title]="isEditMode ? ('::EditEmployee' | abpLocalization) : ('::NewEmployee' | abpLocalization)">
   <form [formGroup]="form" (ngSubmit)="save()">
-    <mat-card>
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-            <mat-select formControlName="companyId">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-user me-2"></i>{{ '::Employee' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <select class="form-select" formControlName="companyId">
               @for (c of companies(); track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                <option [value]="c.id">{{ c.name }}</option>
               }
-            </mat-select>
-            <mat-error>Required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::FirstName' | abpLocalization }}</mat-label>
-            <input matInput formControlName="firstName" />
-            <mat-error>Required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::LastName' | abpLocalization }}</mat-label>
-            <input matInput formControlName="lastName" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::DateOfBirth' | abpLocalization }}</mat-label>
-            <input matInput type="date" formControlName="dateOfBirth" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::DateOfJoining' | abpLocalization }}</mat-label>
-            <input matInput type="date" formControlName="dateOfJoining" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Designation' | abpLocalization }}</mat-label>
-            <input matInput formControlName="designation" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Department' | abpLocalization }}</mat-label>
-            <input matInput formControlName="department" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Phone' | abpLocalization }}</mat-label>
-            <input matInput formControlName="phone" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Email' | abpLocalization }}</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>EPF Number</mat-label>
-            <input matInput formControlName="epfNumber" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>SOCSO Number</mat-label>
-            <input matInput formControlName="socsoNumber" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Tax (PCB) Number</mat-label>
-            <input matInput formControlName="taxNumber" />
-          </mat-form-field>
+            </select>
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::FirstName' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="firstName" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::LastName' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="lastName" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::DateOfBirth' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="dateOfBirth" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::DateOfJoining' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="dateOfJoining" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::Designation' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="designation" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::Department' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="department" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="phone" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::Email' | abpLocalization }}</label>
+            <input type="email" class="form-control" formControlName="email" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">EPF Number</label>
+            <input type="text" class="form-control" formControlName="epfNumber" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">SOCSO Number</label>
+            <input type="text" class="form-control" formControlName="socsoNumber" />
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">Tax (PCB) Number</label>
+            <input type="text" class="form-control" formControlName="taxNumber" />
+          </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
-    <div class="flex justify-end gap-3 mt-4">
-      <button mat-stroked-button type="button" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
-      <button mat-flat-button color="primary" type="submit">{{ '::Save' | abpLocalization }}</button>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
+      <button type="submit" class="btn btn-primary">{{ '::Save' | abpLocalization }}</button>
     </div>
   </form>
 </abp-page>

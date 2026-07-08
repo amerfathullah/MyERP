@@ -1,85 +1,82 @@
 <abp-page [title]="'Create Purchase Invoice'">
   <form [formGroup]="form" (ngSubmit)="save()">
     <!-- Header fields -->
-    <mat-card class="mb-6">
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Invoice Number</mat-label>
-            <input matInput formControlName="invoiceNumber" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Issue Date</mat-label>
-            <input matInput [matDatepicker]="picker" formControlName="issueDate" />
-            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Currency</mat-label>
-            <mat-select formControlName="currency">
-              <mat-option value="MYR">MYR</mat-option>
-              <mat-option value="USD">USD</mat-option>
-              <mat-option value="SGD">SGD</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Supplier</mat-label>
-            <input matInput formControlName="supplierName" placeholder="Search supplier..." />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Supplier TIN</mat-label>
-            <input matInput formControlName="supplierTin" />
-          </mat-form-field>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>Invoice Details</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Invoice Number</label>
+            <input type="text" class="form-control" formControlName="invoiceNumber" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Issue Date</label>
+            <input type="date" class="form-control" formControlName="issueDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Currency</label>
+            <select class="form-select" formControlName="currency">
+              <option value="MYR">MYR</option>
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Supplier</label>
+            <input type="text" class="form-control" formControlName="supplierName" placeholder="Search supplier..." />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Supplier TIN</label>
+            <input type="text" class="form-control" formControlName="supplierTin" />
+          </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Line items -->
-    <mat-card class="mb-6">
-      <mat-card-header>
-        <mat-card-title>Invoice Items</mat-card-title>
-      </mat-card-header>
-      <mat-card-content class="pt-4">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Invoice Items</h5>
+      </div>
+      <div class="card-body">
         <app-invoice-item-grid [items]="items" />
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Totals -->
-    <mat-card class="mb-6">
-      <mat-card-content>
-        <div class="flex flex-col items-end gap-2">
-          <div class="flex justify-between w-64">
-            <span class="text-sm text-gray-600">Net Total</span>
-            <span class="font-mono font-medium">{{ calcResult.netTotal | number:'1.2-2' }}</span>
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-column align-items-end gap-2">
+          <div class="d-flex justify-content-between" style="width: 260px">
+            <small class="text-muted">Net Total</small>
+            <span class="font-monospace fw-medium">{{ calcResult.netTotal | number:'1.2-2' }}</span>
           </div>
           @for (tax of calcResult.taxLines; track tax.taxName) {
-            <div class="flex justify-between w-64">
-              <span class="text-sm text-gray-600">{{ tax.taxName }} ({{ tax.rate }}%)</span>
-              <span class="font-mono">{{ tax.taxAmount | number:'1.2-2' }}</span>
+            <div class="d-flex justify-content-between" style="width: 260px">
+              <small class="text-muted">{{ tax.taxName }} ({{ tax.rate }}%)</small>
+              <span class="font-monospace">{{ tax.taxAmount | number:'1.2-2' }}</span>
             </div>
           }
-          <div class="flex justify-between w-64 border-t pt-2 mt-2">
-            <span class="font-semibold">Grand Total</span>
-            <span class="font-mono font-bold text-lg">{{ calcResult.grandTotal | number:'1.2-2' }}</span>
+          <div class="d-flex justify-content-between border-top pt-2 mt-2" style="width: 260px">
+            <span class="fw-semibold">Grand Total</span>
+            <span class="font-monospace fw-bold fs-5">{{ calcResult.grandTotal | number:'1.2-2' }}</span>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Actions -->
-    <div class="flex gap-3 justify-end">
-      <button mat-stroked-button type="button" (click)="cancel()">
-        <mat-icon>close</mat-icon> Cancel
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+        <i class="fa fa-times me-1"></i> Cancel
       </button>
-      <button mat-stroked-button type="button" (click)="recalculate()">
-        <mat-icon>calculate</mat-icon> Recalculate
+      <button type="button" class="btn btn-outline-secondary" (click)="recalculate()">
+        <i class="fa fa-calculator me-1"></i> Recalculate
       </button>
-      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
-        <mat-icon>save</mat-icon> Save as Draft
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa fa-save me-1"></i> Save as Draft
       </button>
     </div>
   </form>

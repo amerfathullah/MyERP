@@ -1,8 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
 @use '@angular/material' as mat;
 
-@import 'tailwindcss';
-
 /* Angular Material 3 Theme */
 $my-theme: mat.define-theme((
   color: (
@@ -56,5 +54,132 @@ html {
     width: 20px;
     height: 20px;
     background-image: url('assets/images/getting-started/x.svg');
+  }
+}
+
+/* === GLOBAL UI/UX FIXES === */
+
+// Form fields must fill their container
+mat-form-field,
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+// Tables always fill their container
+.mat-mdc-table {
+  width: 100%;
+}
+
+// Table improvements
+.mat-mdc-table {
+  .mat-mdc-row {
+    min-height: 48px;
+    transition: background-color 0.1s ease;
+
+    &:hover {
+      background-color: var(--bs-light, #f8f9fa);
+    }
+  }
+
+  .mat-mdc-header-cell {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--bs-secondary, #6c757d);
+    letter-spacing: 0.02em;
+  }
+}
+
+// Cell truncation utility
+.mat-mdc-cell.cell-truncate {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Buttons: inline-flex alignment
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+// Buttons in action grids fill their cell
+.btn-grid .btn {
+  width: 100%;
+}
+
+// Badge improvements
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+
+  i {
+    font-size: 0.7em;
+  }
+}
+
+// Card consistency
+.card {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.5rem;
+  box-shadow: none;
+
+  .card-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 1rem 1.25rem;
+  }
+}
+
+// Width constraint utilities
+.card-narrow {
+  max-width: 380px;
+}
+
+.card-medium {
+  max-width: 640px;
+}
+
+// Responsive table wrap
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+// Clickable cards (dashboard)
+.card-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+}
+
+// Form label styling
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.35rem;
+}
+
+// Utility: cursor-pointer (not in Bootstrap)
+.cursor-pointer {
+  cursor: pointer;
+}
+
+// Empty state
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+
+  i {
+    font-size: 3rem;
+    color: var(--bs-secondary, #6c757d);
+    margin-bottom: 1rem;
+    display: block;
   }
 }

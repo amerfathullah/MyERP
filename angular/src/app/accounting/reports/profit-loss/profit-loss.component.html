@@ -1,8 +1,8 @@
 <abp-page [title]="'Profit & Loss Statement'">
   <!-- Filters -->
-  <mat-card class="mb-6">
-    <mat-card-content>
-      <form [formGroup]="filters" class="flex items-end gap-4">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" class="d-flex align-items-end gap-2">
         <mat-form-field appearance="outline">
           <mat-label>From Date</mat-label>
           <input matInput [matDatepicker]="fromPicker" formControlName="fromDate" />
@@ -17,60 +17,64 @@
           <mat-datepicker #toPicker></mat-datepicker>
         </mat-form-field>
 
-        <button mat-flat-button color="primary" (click)="generate()">
-          <mat-icon>refresh</mat-icon> Generate
+        <button class="btn btn-primary" (click)="generate()">
+          <i class="fa fa-sync"></i> Generate
         </button>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </div>
 
   @if (revenue.length > 0 || expenses.length > 0) {
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <div class="row g-4">
       <!-- Revenue -->
-      <mat-card>
-        <mat-card-header><mat-card-title>Revenue</mat-card-title></mat-card-header>
-        <mat-card-content class="pt-4">
-          @for (row of revenue(); track row.accountName) {
-            <div class="flex justify-between py-2 border-b">
-              <span>{{ row.accountName }}</span>
-              <span class="font-mono text-green-600">{{ row.amount | number:'1.2-2' }}</span>
+      <div class="col-12 col-md-6">
+        <div class="card">
+          <div class="card-header"><h5 class="card-title mb-0">Revenue</h5></div>
+          <div class="card-body pt-3">
+            @for (row of revenue(); track row.accountName) {
+              <div class="d-flex justify-content-between py-2 border-bottom">
+                <span>{{ row.accountName }}</span>
+                <span class="font-monospace text-success">{{ row.amount | number:'1.2-2' }}</span>
+              </div>
+            }
+            <div class="d-flex justify-content-between py-2 fw-bold">
+              <span>Total Revenue</span>
+              <span class="font-monospace text-success">{{ totalRevenue() | number:'1.2-2' }}</span>
             </div>
-          }
-          <div class="flex justify-between py-2 font-bold">
-            <span>Total Revenue</span>
-            <span class="font-mono text-green-700">{{ totalRevenue() | number:'1.2-2' }}</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
       <!-- Expenses -->
-      <mat-card>
-        <mat-card-header><mat-card-title>Expenses</mat-card-title></mat-card-header>
-        <mat-card-content class="pt-4">
-          @for (row of expenses(); track row.accountName) {
-            <div class="flex justify-between py-2 border-b">
-              <span>{{ row.accountName }}</span>
-              <span class="font-mono text-red-600">{{ row.amount | number:'1.2-2' }}</span>
+      <div class="col-12 col-md-6">
+        <div class="card">
+          <div class="card-header"><h5 class="card-title mb-0">Expenses</h5></div>
+          <div class="card-body pt-3">
+            @for (row of expenses(); track row.accountName) {
+              <div class="d-flex justify-content-between py-2 border-bottom">
+                <span>{{ row.accountName }}</span>
+                <span class="font-monospace text-danger">{{ row.amount | number:'1.2-2' }}</span>
+              </div>
+            }
+            <div class="d-flex justify-content-between py-2 fw-bold">
+              <span>Total Expenses</span>
+              <span class="font-monospace text-danger">{{ totalExpenses() | number:'1.2-2' }}</span>
             </div>
-          }
-          <div class="flex justify-between py-2 font-bold">
-            <span>Total Expenses</span>
-            <span class="font-mono text-red-700">{{ totalExpenses() | number:'1.2-2' }}</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
     </div>
 
     <!-- Net Profit -->
-    <mat-card class="mt-6">
-      <mat-card-content>
-        <div class="flex justify-between items-center text-xl">
-          <span class="font-bold">Net Profit / (Loss)</span>
-          <span class="font-mono font-bold" [class]="netProfit() >= 0 ? 'text-green-700' : 'text-red-700'">
+    <div class="card mt-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center fs-4">
+          <span class="fw-bold">Net Profit / (Loss)</span>
+          <span class="font-monospace fw-bold" [class]="netProfit() >= 0 ? 'text-success' : 'text-danger'">
             MYR {{ netProfit() | number:'1.2-2' }}
           </span>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   }
 </abp-page>

@@ -1,14 +1,11 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
+import { LocalizationModule } from '@abp/ng.core';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 
 @Component({
@@ -16,14 +13,12 @@ import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     PageModule,
-    MatCardModule,
+    LocalizationModule,
     MatTableModule,
-    MatButtonModule,
-    MatIconModule,
     StatusBadgeComponent,
     LhdnStatusBadgeComponent,
-    LoadingOverlayComponent,
   ],
   templateUrl: './purchase-invoice-list.component.html',
   styleUrls: ['./purchase-invoice-list.component.scss'],

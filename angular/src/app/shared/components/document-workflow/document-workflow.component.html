@@ -1,11 +1,10 @@
-<div class="flex items-center gap-2">
+<div class="d-flex align-items-center gap-2">
   <app-status-badge [status]="currentStatus" />
 
   @for (action of availableActions; track action.name) {
-    <button mat-stroked-button
-      [color]="action.color"
+    <button class="btn btn-sm btn-outline-primary"
       (click)="actionTriggered.emit(action.name)">
-      <mat-icon>{{ action.icon }}</mat-icon>
+      <i class="me-1" [ngClass]="'fa fa-' + action.icon"></i>
       {{ action.label }}
     </button>
   }

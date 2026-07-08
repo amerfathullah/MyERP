@@ -17,7 +17,6 @@ import { ReportingService } from '../../../proxy/accounting/reporting.service';
 import { CompanyService } from '../../../proxy/core/company.service';
 import type { TrialBalanceRowDto, TrialBalanceReportDto } from '../../../proxy/accounting/models';
 import type { CompanyDto } from '../../../proxy/core/models';
-import { LoadingOverlayComponent } from '../../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-trial-balance',
@@ -27,7 +26,6 @@ import { LoadingOverlayComponent } from '../../../shared/components/loading-over
     MatCardModule, MatTableModule, MatFormFieldModule,
     MatDatepickerModule, MatNativeDateModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSelectModule,
-    LoadingOverlayComponent,
   ],
   templateUrl: './trial-balance.component.html',
   styleUrls: ['./trial-balance.component.scss'],

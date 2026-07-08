@@ -1,57 +1,81 @@
-<abp-page [title]="'Companies'">
-  <div class="relative">
-    @if (isLoading) {
-      <app-loading-overlay />
-    }
+<abp-page [title]="'::Companies' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" (click)="createCompany()">
+      <i class="fa fa-plus me-1"></i>
+      {{ '::NewCompany' | abpLocalization }}
+    </button>
+  </div>
 
-    <mat-card>
-      <mat-card-header class="flex items-center justify-between px-4 pt-4">
-        <mat-card-title>Companies</mat-card-title>
-        <button mat-flat-button color="primary" (click)="createCompany()">
-          <mat-icon>add</mat-icon>
-          New Company
-        </button>
-      </mat-card-header>
-
-      <mat-card-content class="pt-4">
-        @if (companies.length === 0) {
-          <p class="text-center text-gray-500 py-8">
-            No companies yet. Click "New Company" to get started.
-          </p>
-        } @else {
-          <table mat-table [dataSource]="companies" class="w-full">
+  <div class="card">
+    <div class="card-body">
+      @if (isLoading) {
+        <div class="d-flex justify-content-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (companies.length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-building fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">No companies yet. Click "New Company" to get started.</p>
+          <button class="btn btn-primary btn-sm" (click)="createCompany()">
+            <i class="fa fa-plus me-1"></i>{{ '::NewCompany' | abpLocalization }}
+          </button>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table mat-table [dataSource]="companies" class="w-100">
             <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Name</th>
-              <td mat-cell *matCellDef="let company">{{ company.name }}</td>
+              <th mat-header-cell *matHeaderCellDef style="min-width: 180px;">Name</th>
+              <td mat-cell *matCellDef="let company" class="fw-semibold">
+                <span class="d-inline-block text-truncate" style="max-width: 220px;"
+                  [title]="company.name">
+                  {{ company.name }}
+                </span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="taxId">
-              <th mat-header-cell *matHeaderCellDef>TIN</th>
-              <td mat-cell *matCellDef="let company">{{ company.taxId }}</td>
+              <th mat-header-cell *matHeaderCellDef style="width: 140px;">TIN</th>
+              <td mat-cell *matCellDef="let company" class="font-monospace small">{{ company.taxId }}</td>
             </ng-container>
 
             <ng-container matColumnDef="sstRegistrationNumber">
-              <th mat-header-cell *matHeaderCellDef>SST Reg.</th>
-              <td mat-cell *matCellDef="let company">{{ company.sstRegistrationNumber }}</td>
+              <th mat-header-cell *matHeaderCellDef class="d-none d-md-table-cell" style="width: 140px;">SST Reg.</th>
+              <td mat-cell *matCellDef="let company" class="d-none d-md-table-cell font-monospace small">{{ company.sstRegistrationNumber }}</td>
             </ng-container>
 
             <ng-container matColumnDef="currencyCode">
-              <th mat-header-cell *matHeaderCellDef>Currency</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 90px;">Currency</th>
               <td mat-cell *matCellDef="let company">{{ company.currencyCode }}</td>
             </ng-container>
 
             <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <th mat-header-cell *matHeaderCellDef style="width: 100px;">Status</th>
               <td mat-cell *matCellDef="let company">
                 <app-status-badge [status]="company.isActive ? 'Active' : 'Inactive'" />
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="text-end" style="width: 80px;"></th>
+              <td mat-cell *matCellDef="let company" class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary" [routerLink]="[company.id, 'edit']"
+                    matTooltip="Edit" aria-label="Edit">
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"
+              [routerLink]="[row.id, 'edit']" class="cursor-pointer"></tr>
           </table>
-        }
-      </mat-card-content>
-    </mat-card>
+        </div>
+      }
+    </div>
   </div>
 </abp-page>

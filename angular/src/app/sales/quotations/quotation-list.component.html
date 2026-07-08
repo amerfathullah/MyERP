@@ -1,67 +1,75 @@
 <abp-page [title]="'::Quotations' | abpLocalization">
-  @if (store.isLoading()) {
-    <app-loading-overlay />
-  }
-
-  <div class="flex justify-between items-center mb-4">
-    <h5 class="text-sm text-gray-500">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
-    <button mat-flat-button color="primary" routerLink="new">
-      <mat-icon>add</mat-icon> {{ '::NewQuotation' | abpLocalization }}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i> {{ '::NewQuotation' | abpLocalization }}
     </button>
   </div>
 
-  <mat-card>
-    <table mat-table [dataSource]="store.entities()" class="w-full">
-      <ng-container matColumnDef="quotationNumber">
-        <th mat-header-cell *matHeaderCellDef>{{ '::QuotationNumber' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row" class="font-medium">{{ row.quotationNumber }}</td>
-      </ng-container>
+  <div class="card">
+    <div class="card-body">
+      @if (store.isLoading()) {
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table mat-table [dataSource]="store.entities()" class="w-100">
+            <ng-container matColumnDef="quotationNumber">
+              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::QuotationNumber' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="fw-medium">{{ row.quotationNumber }}</td>
+            </ng-container>
 
-      <ng-container matColumnDef="issueDate">
-        <th mat-header-cell *matHeaderCellDef>{{ '::IssueDate' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row">{{ row.issueDate | date:'mediumDate' }}</td>
-      </ng-container>
+            <ng-container matColumnDef="issueDate">
+              <th mat-header-cell *matHeaderCellDef>{{ '::IssueDate' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.issueDate | date:'mediumDate' }}</td>
+            </ng-container>
 
-      <ng-container matColumnDef="grandTotal">
-        <th mat-header-cell *matHeaderCellDef>{{ '::GrandTotal' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.grandTotal | number:'1.2-2' }}</td>
-      </ng-container>
+            <ng-container matColumnDef="grandTotal">
+              <th mat-header-cell *matHeaderCellDef>{{ '::GrandTotal' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row" class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
+            </ng-container>
 
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
-      </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
+            </ng-container>
 
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef></th>
-        <td mat-cell *matCellDef="let row">
-          <button mat-icon-button [matMenuTriggerFor]="menu">
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <mat-menu #menu="matMenu">
-            @if (row.status === 'Draft') {
-              <button mat-menu-item (click)="store.submitQuotation(row.id)">
-                <mat-icon>send</mat-icon> {{ '::Submit' | abpLocalization }}
-              </button>
-            }
-            @if (row.status === 'Submitted') {
-              <button mat-menu-item (click)="store.cancelQuotation(row.id)">
-                <mat-icon>cancel</mat-icon> {{ '::Cancel' | abpLocalization }}
-              </button>
-            }
-          </mat-menu>
-        </td>
-      </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let row">
+                <button class="btn btn-sm btn-light" [matMenuTriggerFor]="menu">
+                  <i class="fa fa-ellipsis-v"></i>
+                </button>
+                <mat-menu #menu="matMenu">
+                  @if (row.status === 'Draft') {
+                    <button mat-menu-item (click)="store.submitQuotation(row.id)">
+                      <i class="fa fa-paper-plane me-2"></i> {{ '::Submit' | abpLocalization }}
+                    </button>
+                  }
+                  @if (row.status === 'Submitted') {
+                    <button mat-menu-item (click)="store.cancelQuotation(row.id)">
+                      <i class="fa fa-ban me-2"></i> {{ '::Cancel' | abpLocalization }}
+                    </button>
+                  }
+                </mat-menu>
+              </td>
+            </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
 
-    <mat-paginator
-      [length]="store.totalCount()"
-      [pageSize]="20"
-      [pageSizeOptions]="[10, 20, 50]"
-      (page)="onPageChange($event)">
-    </mat-paginator>
-  </mat-card>
+        <mat-paginator
+          [length]="store.totalCount()"
+          [pageSize]="20"
+          [pageSizeOptions]="[10, 20, 50]"
+          (page)="onPageChange($event)">
+        </mat-paginator>
+      }
+    </div>
+  </div>
 </abp-page>

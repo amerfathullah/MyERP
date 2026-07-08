@@ -11,7 +11,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
@@ -23,7 +22,6 @@ import type { DeliveryNoteDto } from '../../proxy/sales/models';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatDividerModule,
-    DocumentWorkflowComponent, StatusBadgeComponent, LoadingOverlayComponent,
   ],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],

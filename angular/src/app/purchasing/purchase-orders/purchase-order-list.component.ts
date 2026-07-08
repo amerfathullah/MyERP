@@ -3,14 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
 
 @Component({
@@ -18,9 +14,8 @@ import { PurchaseOrderStore } from '../store/purchase-order.store';
   standalone: true,
   imports: [
     CommonModule, RouterModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatPaginatorModule,
-    MatButtonModule, MatIconModule, MatMenuModule,
-    StatusBadgeComponent, LoadingOverlayComponent,
+    MatTableModule, MatPaginatorModule, MatMenuModule,
+    StatusBadgeComponent,
   ],
   templateUrl: './purchase-order-list.component.html',
   styleUrls: ['./purchase-order-list.component.scss'],

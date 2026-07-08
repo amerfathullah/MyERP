@@ -1,5 +1,5 @@
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
-import { withEntities, setAllEntities, addEntity, updateEntity, type EntityId } from '@ngrx/signals/entities';
+import { withEntities, setAllEntities, addEntity, updateEntity, removeEntity, type EntityId } from '@ngrx/signals/entities';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
@@ -137,6 +137,21 @@ export const SalesInvoiceStore = signalStore(
         catchError((err) => {
           patchState(store, { isLoading: false });
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');
+          return EMPTY;
+        }),
+      )
+    ),
+    deleteInvoice: rxMethod<string>(
+      pipe(
+        switchMap((id) => invoiceService.cancel(id).pipe(
+          tap((updated) => {
+            patchState(store, removeEntity(id));
+            patchState(store, { totalCount: store.totalCount() - 1 });
+            toaster.success('Invoice deleted');
+          }),
+        )),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Delete failed');
           return EMPTY;
         }),
       )

@@ -1,15 +1,12 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
-import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
 import { CustomerStore } from './store/customer.store';
 
 @Component({
@@ -18,14 +15,11 @@ import { CustomerStore } from './store/customer.store';
   imports: [
     CommonModule,
     RouterModule,
+    LocalizationModule,
     PageModule,
-    MatCardModule,
     MatTableModule,
-    MatButtonModule,
-    MatIconModule,
     MatPaginatorModule,
-    MatMenuModule,
-    LoadingOverlayComponent,
+    MatTooltipModule,
   ],
   templateUrl: './customer-list.component.html',
   styleUrls: ['./customer-list.component.scss'],

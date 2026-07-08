@@ -11,7 +11,6 @@ import { ActivatedRoute } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
@@ -22,7 +21,6 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatDividerModule,
-    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent,
   ],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],

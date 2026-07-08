@@ -10,7 +10,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -22,7 +21,6 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatDividerModule,
-    DocumentWorkflowComponent, LoadingOverlayComponent,
   ],
   templateUrl: './purchase-order-detail.component.html',
   styleUrls: ['./purchase-order-detail.component.scss'],

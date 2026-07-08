@@ -9,7 +9,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../proxy/accounting/models';
 
@@ -18,7 +17,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../pro
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
-    MatButtonModule, MatIconModule, MatChipsModule, MatPaginatorModule, LoadingOverlayComponent,
+    MatButtonModule, MatIconModule, MatChipsModule, MatPaginatorModule,
   ],
   templateUrl: './bank-reconciliation.component.html',
   styleUrls: ['./bank-reconciliation.component.scss'],

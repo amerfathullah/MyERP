@@ -1,117 +1,98 @@
 <abp-page [title]="'New Journal Entry'">
   <form [formGroup]="form" (ngSubmit)="save()">
     <!-- Header -->
-    <mat-card class="mb-6">
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Entry Date</mat-label>
-            <input matInput [matDatepicker]="picker" formControlName="entryDate" />
-            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Reference</mat-label>
-            <input matInput formControlName="reference" placeholder="e.g., INV-2026-001" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="md:col-span-1">
-            <mat-label>Narration</mat-label>
-            <input matInput formControlName="narration" />
-          </mat-form-field>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-book me-2"></i>Journal Entry</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Entry Date</label>
+            <input type="date" class="form-control" formControlName="entryDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Reference</label>
+            <input type="text" class="form-control" formControlName="reference" placeholder="e.g., INV-2026-001" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Narration</label>
+            <input type="text" class="form-control" formControlName="narration" />
+          </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Journal Lines (Debit/Credit grid) -->
-    <mat-card class="mb-6">
-      <mat-card-header>
-        <mat-card-title>Journal Lines</mat-card-title>
-      </mat-card-header>
-      <mat-card-content class="pt-4">
-        <div class="overflow-x-auto">
-          <table mat-table [dataSource]="lines.controls" class="w-full">
-            <ng-container matColumnDef="account">
-              <th mat-header-cell *matHeaderCellDef>Account</th>
-              <td mat-cell *matCellDef="let row" [formGroup]="row">
-                <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                  <input matInput formControlName="accountName" placeholder="Search account..." />
-                  <!-- TODO: mat-autocomplete with account lookup -->
-                </mat-form-field>
-              </td>
-              <td mat-footer-cell *matFooterCellDef class="font-semibold">Total</td>
-            </ng-container>
-
-            <ng-container matColumnDef="debit">
-              <th mat-header-cell *matHeaderCellDef class="w-36">Debit</th>
-              <td mat-cell *matCellDef="let row" [formGroup]="row">
-                <mat-form-field appearance="outline" class="w-36" subscriptSizing="dynamic">
-                  <input matInput type="number" formControlName="debit" />
-                </mat-form-field>
-              </td>
-              <td mat-footer-cell *matFooterCellDef class="font-mono font-semibold">
-                {{ totalDebit | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="credit">
-              <th mat-header-cell *matHeaderCellDef class="w-36">Credit</th>
-              <td mat-cell *matCellDef="let row" [formGroup]="row">
-                <mat-form-field appearance="outline" class="w-36" subscriptSizing="dynamic">
-                  <input matInput type="number" formControlName="credit" />
-                </mat-form-field>
-              </td>
-              <td mat-footer-cell *matFooterCellDef class="font-mono font-semibold">
-                {{ totalCredit | number:'1.2-2' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="w-12"></th>
-              <td mat-cell *matCellDef="let row; let i = index">
-                <button mat-icon-button color="warn" type="button" (click)="removeLine(i)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-              <td mat-footer-cell *matFooterCellDef></td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            <tr mat-footer-row *matFooterRowDef="displayedColumns"></tr>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-columns me-2"></i>Journal Lines</h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm w-100">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th style="width: 140px">Debit</th>
+                <th style="width: 140px">Credit</th>
+                <th style="width: 50px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of lines.controls; track $index; let i = $index) {
+                <tr [formGroup]="$any(row)">
+                  <td><input type="text" class="form-control form-control-sm" formControlName="accountName" placeholder="Search account..." /></td>
+                  <td><input type="number" class="form-control form-control-sm" formControlName="debit" /></td>
+                  <td><input type="number" class="form-control form-control-sm" formControlName="credit" /></td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeLine(i)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-semibold">
+                <td>Total</td>
+                <td class="font-monospace">{{ totalDebit | number:'1.2-2' }}</td>
+                <td class="font-monospace">{{ totalCredit | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
-        <div class="flex items-center justify-between mt-3">
-          <button mat-stroked-button type="button" (click)="addLine()">
-            <mat-icon>add</mat-icon> Add Line
+        <div class="d-flex align-items-center justify-content-between mt-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addLine()">
+            <i class="fa fa-plus me-1"></i> Add Line
           </button>
 
           @if (!isBalanced && lines.length > 0) {
-            <span class="text-sm text-red-600 font-medium flex items-center gap-1">
-              <mat-icon class="!text-base">error</mat-icon>
+            <span class="text-danger fw-medium small d-flex align-items-center gap-1">
+              <i class="fa fa-exclamation-circle"></i>
               Unbalanced: Difference {{ (totalDebit - totalCredit) | number:'1.2-2' }}
             </span>
           }
           @if (isBalanced && lines.length > 0) {
-            <span class="text-sm text-green-600 font-medium flex items-center gap-1">
-              <mat-icon class="!text-base">check_circle</mat-icon>
+            <span class="text-success fw-medium small d-flex align-items-center gap-1">
+              <i class="fa fa-check-circle"></i>
               Balanced
             </span>
           }
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Actions -->
-    <div class="flex gap-3 justify-end">
-      <button mat-stroked-button type="button" (click)="cancel()">
-        <mat-icon>close</mat-icon> Cancel
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+        <i class="fa fa-times me-1"></i> Cancel
       </button>
-      <button mat-flat-button color="primary" type="submit"
+      <button type="submit" class="btn btn-primary"
         [disabled]="form.invalid || !isBalanced || lines.length === 0">
-        <mat-icon>save</mat-icon> Save as Draft
+        <i class="fa fa-save me-1"></i> Save as Draft
       </button>
     </div>
   </form>

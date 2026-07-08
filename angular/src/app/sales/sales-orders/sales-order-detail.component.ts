@@ -11,7 +11,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesOrderStore } from '../store/sales-order.store';
@@ -23,7 +22,6 @@ import type { SalesOrderDto } from '../../proxy/sales/models';
   imports: [
     CommonModule, PageModule, LocalizationModule, MatCardModule, MatTableModule,
     MatButtonModule, MatIconModule, MatDividerModule,
-    DocumentWorkflowComponent, StatusBadgeComponent, LoadingOverlayComponent,
   ],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],

@@ -4,17 +4,13 @@ import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationModule } from '@abp/ng.core';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PayrollStore } from '../store/payroll.store';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
@@ -24,10 +20,9 @@ import type { CompanyDto } from '../../proxy/core/models';
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule,
-    MatCardModule, MatTableModule, MatPaginatorModule,
-    MatButtonModule, MatIconModule, MatDialogModule,
+    MatTableModule, MatPaginatorModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    StatusBadgeComponent, LoadingOverlayComponent,
+    StatusBadgeComponent,
   ],
   templateUrl: './payroll-list.component.html',
   styleUrls: ['./payroll-list.component.scss'],

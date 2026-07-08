@@ -11,12 +11,19 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { PurchaseReceiptStore } from '../store/purchase-receipt.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-purchase-receipt-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationModule, MatCardModule, MatTableModule, MatPaginatorModule, MatButtonModule, MatIconModule, MatMenuModule, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [
+    CommonModule,
+    RouterModule,
+    LocalizationModule,
+    PageModule,
+    MatTableModule,
+    MatPaginatorModule,
+    StatusBadgeComponent,
+  ],
   templateUrl: './purchase-receipt-list.component.html',
   styleUrls: ['./purchase-receipt-list.component.scss'],
 })

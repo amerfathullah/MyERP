@@ -1,62 +1,66 @@
 <abp-page [title]="'::PurchaseReceipts' | abpLocalization">
   @if (store.isLoading()) {
-    <app-loading-overlay />
+    <div class="d-flex justify-content-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>
   }
 
-  <div class="flex justify-between items-center mb-4">
-    <h5 class="text-sm text-gray-500">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
-    <button mat-flat-button color="primary" routerLink="new">
-      <mat-icon>add</mat-icon> {{ '::NewPurchaseReceipt' | abpLocalization }}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="small text-muted">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
+    <button class="btn btn-primary" routerLink="new">
+      <i class="fa fa-plus"></i> {{ '::NewPurchaseReceipt' | abpLocalization }}
     </button>
   </div>
 
-  <mat-card>
-    <table mat-table [dataSource]="store.entities()" class="w-full">
-      <ng-container matColumnDef="receiptNumber">
-        <th mat-header-cell *matHeaderCellDef>{{ '::ReceiptNumber' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row" class="font-medium">{{ row.receiptNumber }}</td>
-      </ng-container>
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table mat-table [dataSource]="store.entities()" class="w-100">
+          <ng-container matColumnDef="receiptNumber">
+            <th mat-header-cell *matHeaderCellDef>{{ '::ReceiptNumber' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="fw-medium">{{ row.receiptNumber }}</td>
+          </ng-container>
 
-      <ng-container matColumnDef="postingDate">
-        <th mat-header-cell *matHeaderCellDef>{{ '::PostingDate' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row">{{ row.postingDate | date:'mediumDate' }}</td>
-      </ng-container>
+          <ng-container matColumnDef="postingDate">
+            <th mat-header-cell *matHeaderCellDef>{{ '::PostingDate' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row">{{ row.postingDate | date:'mediumDate' }}</td>
+          </ng-container>
 
-      <ng-container matColumnDef="grandTotal">
-        <th mat-header-cell *matHeaderCellDef>{{ '::GrandTotal' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.grandTotal | number:'1.2-2' }}</td>
-      </ng-container>
+          <ng-container matColumnDef="grandTotal">
+            <th mat-header-cell *matHeaderCellDef>{{ '::GrandTotal' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row" class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
+          </ng-container>
 
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
-        <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
-      </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
+            <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
+          </ng-container>
 
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef></th>
-        <td mat-cell *matCellDef="let row">
-          <button mat-icon-button [matMenuTriggerFor]="menu">
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <mat-menu #menu="matMenu">
-            @if (row.status === 'Draft') {
-              <button mat-menu-item (click)="store.submitReceipt(row.id)">
-                <mat-icon>send</mat-icon> {{ '::Submit' | abpLocalization }}
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let row">
+              <button class="btn btn-sm btn-link p-1" [matMenuTriggerFor]="menu">
+                <i class="fa fa-ellipsis-vertical"></i>
               </button>
-            }
-          </mat-menu>
-        </td>
-      </ng-container>
+              <mat-menu #menu="matMenu">
+                @if (row.status === 'Draft') {
+                  <button mat-menu-item (click)="store.submitReceipt(row.id)">
+                    <i class="fa fa-paper-plane me-2"></i> {{ '::Submit' | abpLocalization }}
+                  </button>
+                }
+              </mat-menu>
+            </td>
+          </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
 
-    <mat-paginator
-      [length]="store.totalCount()"
-      [pageSize]="20"
-      [pageSizeOptions]="[10, 20, 50]"
-      (page)="onPageChange($event)">
-    </mat-paginator>
-  </mat-card>
+      <mat-paginator
+        [length]="store.totalCount()"
+        [pageSize]="20"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+    </div>
+  </div>
 </abp-page>

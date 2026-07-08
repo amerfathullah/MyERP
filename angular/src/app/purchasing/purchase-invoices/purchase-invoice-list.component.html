@@ -1,56 +1,59 @@
-<abp-page [title]="'Purchase Invoices'">
-  <div class="relative">
-    @if (store.isLoading()) {
-      <app-loading-overlay />
-    }
+<abp-page [title]="'::PurchaseInvoices' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" (click)="createInvoice()">
+      <i class="fa fa-plus me-1"></i> {{ '::NewPurchaseInvoice' | abpLocalization }}
+    </button>
+  </div>
 
-    <mat-card>
-      <mat-card-header class="flex items-center justify-between px-4 pt-4">
-        <mat-card-title>Purchase Invoices</mat-card-title>
-        <button mat-flat-button color="primary" (click)="createInvoice()">
-          <mat-icon>add</mat-icon>
-          New Purchase Invoice
-        </button>
-      </mat-card-header>
-
-      <mat-card-content class="pt-4">
-        @if (!store.hasInvoices()) {
-          <p class="text-center text-gray-500 py-8">No purchase invoices yet.</p>
-        } @else {
-          <table mat-table [dataSource]="store.entities()" class="w-full">
+  <div class="card">
+    <div class="card-body">
+      @if (store.isLoading()) {
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (!store.hasInvoices()) {
+        <div class="text-center py-5">
+          <i class="fa fa-inbox fa-3x text-muted mb-3 d-block"></i>
+          <p class="text-muted">{{ '::NoPurchaseInvoicesYet' | abpLocalization }}</p>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table mat-table [dataSource]="store.entities()" class="w-100">
             <ng-container matColumnDef="invoiceNumber">
-              <th mat-header-cell *matHeaderCellDef>Invoice #</th>
-              <td mat-cell *matCellDef="let inv" class="font-medium cursor-pointer" (click)="viewDetail(inv.id)">
+              <th mat-header-cell *matHeaderCellDef>{{ '::InvoiceNumber' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let inv" class="fw-medium cursor-pointer" (click)="viewDetail(inv.id)">
                 {{ inv.invoiceNumber }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="issueDate">
-              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <th mat-header-cell *matHeaderCellDef>{{ '::Date' | abpLocalization }}</th>
               <td mat-cell *matCellDef="let inv">{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
             </ng-container>
 
             <ng-container matColumnDef="supplierName">
-              <th mat-header-cell *matHeaderCellDef>Supplier</th>
-              <td mat-cell *matCellDef="let inv">{{ inv.supplierName }}</td>
+              <th mat-header-cell *matHeaderCellDef style="min-width: 150px;">{{ '::Supplier' | abpLocalization }}</th>
+              <td mat-cell *matCellDef="let inv" class="text-truncate" style="max-width: 200px;" [title]="inv.supplierName">{{ inv.supplierName }}</td>
             </ng-container>
 
             <ng-container matColumnDef="grandTotal">
-              <th mat-header-cell *matHeaderCellDef>Total (MYR)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right font-mono">
+              <th mat-header-cell *matHeaderCellDef>{{ '::Total' | abpLocalization }} (MYR)</th>
+              <td mat-cell *matCellDef="let inv" class="text-end font-monospace">
                 {{ inv.grandTotal | number:'1.2-2' }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <th mat-header-cell *matHeaderCellDef>{{ '::Status' | abpLocalization }}</th>
               <td mat-cell *matCellDef="let inv">
                 <app-status-badge [status]="inv.status" />
               </td>
             </ng-container>
 
             <ng-container matColumnDef="eInvoiceStatus">
-              <th mat-header-cell *matHeaderCellDef>e-Invoice</th>
+              <th mat-header-cell *matHeaderCellDef>{{ '::EInvoice' | abpLocalization }}</th>
               <td mat-cell *matCellDef="let inv">
                 <app-lhdn-status-badge [status]="inv.eInvoiceStatus" />
               </td>
@@ -59,15 +62,15 @@
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef></th>
               <td mat-cell *matCellDef="let inv">
-                <div class="flex gap-1">
+                <div class="d-flex gap-1">
                   @if (inv.status === 'Draft') {
-                    <button mat-stroked-button color="primary" (click)="submit(inv.id)">Submit</button>
+                    <button class="btn btn-outline-primary btn-sm" (click)="submit(inv.id)">{{ '::Submit' | abpLocalization }}</button>
                   }
                   @if (inv.status === 'Submitted') {
-                    <button mat-stroked-button color="primary" (click)="post(inv.id)">Post</button>
+                    <button class="btn btn-outline-primary btn-sm" (click)="post(inv.id)">{{ '::Post' | abpLocalization }}</button>
                   }
                   @if (inv.status === 'Posted') {
-                    <button mat-stroked-button color="warn" (click)="cancel(inv.id)">Cancel</button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="cancel(inv.id)">{{ '::Cancel' | abpLocalization }}</button>
                   }
                 </div>
               </td>
@@ -76,8 +79,8 @@
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
           </table>
-        }
-      </mat-card-content>
-    </mat-card>
+        </div>
+      }
+    </div>
   </div>
 </abp-page>

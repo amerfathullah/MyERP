@@ -1,108 +1,124 @@
 <abp-page [title]="isEditMode ? ('::EditCompany' | abpLocalization) : ('::NewCompany' | abpLocalization)">
   <form [formGroup]="form" (ngSubmit)="save()">
-    <mat-card class="mb-4">
-      <mat-card-header><mat-card-title>Company Information</mat-card-title></mat-card-header>
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::CompanyName' | abpLocalization }}</mat-label>
-            <input matInput formControlName="name" />
-            <mat-error>Required</mat-error>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Short Name</mat-label>
-            <input matInput formControlName="shortName" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>TIN (Tax ID)</mat-label>
-            <input matInput formControlName="taxId" placeholder="e.g., C12345678" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Registration No (SSM)</mat-label>
-            <input matInput formControlName="registrationNumber" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>SST Registration No</mat-label>
-            <input matInput formControlName="sstRegistrationNumber" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>MSIC Code</mat-label>
-            <input matInput formControlName="msicCode" />
-          </mat-form-field>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="mb-4">
-      <mat-card-header><mat-card-title>Contact & Address</mat-card-title></mat-card-header>
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Phone' | abpLocalization }}</mat-label>
-            <input matInput formControlName="phone" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Email' | abpLocalization }}</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Website</mat-label>
-            <input matInput formControlName="website" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="md:col-span-2">
-            <mat-label>{{ '::Address' | abpLocalization }}</mat-label>
-            <textarea matInput formControlName="address" rows="2"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::City' | abpLocalization }}</mat-label>
-            <input matInput formControlName="city" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::State' | abpLocalization }}</mat-label>
-            <input matInput formControlName="state" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::PostalCode' | abpLocalization }}</mat-label>
-            <input matInput formControlName="postalCode" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ '::Country' | abpLocalization }}</mat-label>
-            <input matInput formControlName="country" />
-          </mat-form-field>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="mb-4">
-      <mat-card-header><mat-card-title>Settings</mat-card-title></mat-card-header>
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3 pt-4">
-          <mat-form-field appearance="outline">
-            <mat-label>Currency</mat-label>
-            <mat-select formControlName="currencyCode">
-              <mat-option value="MYR">MYR — Malaysian Ringgit</mat-option>
-              <mat-option value="USD">USD — US Dollar</mat-option>
-              <mat-option value="SGD">SGD — Singapore Dollar</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Fiscal Year Start</mat-label>
-            <mat-select formControlName="fiscalYearStartMonth">
-              @for (m of months; track m.value) {
-                <mat-option [value]="m.value">{{ m.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <div class="flex items-center">
-            <mat-slide-toggle formControlName="isActive">Active</mat-slide-toggle>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-building me-2"></i>Company Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CompanyName' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="name"
+              [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
+            @if (form.get('name')?.errors?.['required'] && form.get('name')?.touched) {
+              <div class="invalid-feedback">Required</div>
+            }
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Short Name</label>
+            <input type="text" class="form-control" formControlName="shortName" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">TIN (Tax ID)</label>
+            <input type="text" class="form-control" formControlName="taxId" placeholder="e.g., C12345678" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Registration No (SSM)</label>
+            <input type="text" class="form-control" formControlName="registrationNumber" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">SST Registration No</label>
+            <input type="text" class="form-control" formControlName="sstRegistrationNumber" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">MSIC Code</label>
+            <input type="text" class="form-control" formControlName="msicCode" />
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
-    <div class="flex justify-end gap-3">
-      <button mat-stroked-button type="button" (click)="cancel()">{{ '::Cancel' | abpLocalization }}</button>
-      <button mat-flat-button color="primary" type="submit">{{ '::Save' | abpLocalization }}</button>
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>Contact & Address</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="phone" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Email' | abpLocalization }}</label>
+            <input type="email" class="form-control" formControlName="email" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Website</label>
+            <input type="text" class="form-control" formControlName="website" />
+          </div>
+          <div class="col-12 col-md-8 mb-3">
+            <label class="form-label">{{ '::Address' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="address" rows="2"></textarea>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::City' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="city" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::State' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="state" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PostalCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="postalCode" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Country' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="country" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-gear me-2"></i>Settings</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Currency</label>
+            <select class="form-select" formControlName="currencyCode">
+              <option value="MYR">MYR — Malaysian Ringgit</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="SGD">SGD — Singapore Dollar</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Fiscal Year Start</label>
+            <select class="form-select" formControlName="fiscalYearStartMonth">
+              @for (m of months; track m.value) {
+                <option [value]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive" />
+              <label class="form-check-label" for="isActive">Active</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+      </button>
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+      </button>
     </div>
   </form>
 </abp-page>

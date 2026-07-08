@@ -18,7 +18,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { TaxCategoryService, TaxRuleService } from '../../proxy/tax/tax.service';
 import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
-import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({
   selector: 'app-tax-categories',
@@ -28,7 +27,6 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
     MatCardModule, MatTableModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule,
     MatChipsModule, MatExpansionModule, MatDividerModule,
-    LoadingOverlayComponent,
   ],
   templateUrl: './tax-categories.component.html',
   styleUrls: ['./tax-categories.component.scss'],

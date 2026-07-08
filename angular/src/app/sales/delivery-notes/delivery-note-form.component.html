@@ -1,68 +1,71 @@
 <abp-page [title]="isEditMode ? ('::EditDeliveryNote' | abpLocalization) : ('::NewDeliveryNote' | abpLocalization)">
-  <mat-card>
-    <mat-card-content>
-      <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Company' | abpLocalization }}</mat-label>
-          <input matInput formControlName="companyId" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Customer' | abpLocalization }}</mat-label>
-          <input matInput formControlName="customerId" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::PostingDate' | abpLocalization }}</mat-label>
-          <input matInput type="date" formControlName="postingDate" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::SalesOrder' | abpLocalization }}</mat-label>
-          <input matInput formControlName="salesOrderId" placeholder="Optional" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>{{ '::Warehouse' | abpLocalization }}</mat-label>
-          <input matInput formControlName="warehouseId" />
-        </mat-form-field>
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title mb-0"><i class="fa fa-truck me-2"></i>{{ '::DeliveryNote' | abpLocalization }}</h5>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="companyId" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="customerId" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="postingDate" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::SalesOrder' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="salesOrderId" placeholder="Optional" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="warehouseId" />
+          </div>
+        </div>
 
         <!-- Line Items -->
-        <div class="md:col-span-2">
-          <h6 class="font-medium mb-2">{{ '::Items' | abpLocalization }}</h6>
+        <div class="mt-3">
+          <h6 class="fw-medium mb-2">{{ '::Items' | abpLocalization }}</h6>
           @for (item of items.controls; track $index; let i = $index) {
-            <div [formGroup]="$any(item)" class="grid grid-cols-12 gap-2 mb-2 items-center">
-              <mat-form-field appearance="outline" class="col-span-3">
-                <input matInput formControlName="itemId" placeholder="Item ID" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="col-span-4">
-                <input matInput formControlName="description" placeholder="Description" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="col-span-2">
-                <input matInput type="number" formControlName="quantity" placeholder="Qty" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="col-span-2">
-                <input matInput formControlName="uom" placeholder="UOM" />
-              </mat-form-field>
-              <button mat-icon-button color="warn" type="button" (click)="removeItem(i)" class="col-span-1">
-                <mat-icon>delete</mat-icon>
-              </button>
+            <div [formGroup]="$any(item)" class="row mb-2 align-items-center">
+              <div class="col-3">
+                <input type="text" class="form-control form-control-sm" formControlName="itemId" placeholder="Item ID" />
+              </div>
+              <div class="col-4">
+                <input type="text" class="form-control form-control-sm" formControlName="description" placeholder="Description" />
+              </div>
+              <div class="col-2">
+                <input type="number" class="form-control form-control-sm" formControlName="quantity" placeholder="Qty" />
+              </div>
+              <div class="col-2">
+                <input type="text" class="form-control form-control-sm" formControlName="uom" placeholder="UOM" />
+              </div>
+              <div class="col-1">
+                <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
             </div>
           }
-          <button mat-stroked-button type="button" (click)="addItemRow()">
-            <mat-icon>add</mat-icon> {{ '::AddRow' | abpLocalization }}
+          <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="addItemRow()">
+            <i class="fa fa-plus me-1"></i> {{ '::AddRow' | abpLocalization }}
           </button>
         </div>
 
-        <div class="md:col-span-2 flex justify-end gap-3 pt-4">
-          <button mat-stroked-button type="button" routerLink="/sales/delivery-notes">
+        <div class="d-flex justify-content-end gap-2 pt-3">
+          <button type="button" class="btn btn-outline-secondary" routerLink="/sales/delivery-notes">
             {{ '::Cancel' | abpLocalization }}
           </button>
-          <button mat-flat-button color="primary" type="submit">
-            <mat-icon>save</mat-icon> {{ '::Save' | abpLocalization }}
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </div>
 </abp-page>

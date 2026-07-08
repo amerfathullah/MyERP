@@ -1,16 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { LocalizationModule } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatMenuModule } from '@angular/material/menu';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
-import { LoadingOverlayComponent } from '../shared/components/loading-overlay/loading-overlay.component';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import type { SupplierDto } from '../proxy/purchasing/models';
 
@@ -19,15 +14,11 @@ import type { SupplierDto } from '../proxy/purchasing/models';
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
+    LocalizationModule,
     PageModule,
-    MatCardModule,
     MatTableModule,
-    MatButtonModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatMenuModule,
     StatusBadgeComponent,
-    LoadingOverlayComponent,
   ],
   templateUrl: './supplier-list.component.html',
   styleUrls: ['./supplier-list.component.scss'],
@@ -55,7 +46,7 @@ export class SupplierListComponent implements OnInit {
     });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
     this.loadSuppliers(event.pageIndex * event.pageSize, event.pageSize);
   }
 

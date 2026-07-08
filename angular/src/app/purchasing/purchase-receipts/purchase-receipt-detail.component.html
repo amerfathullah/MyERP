@@ -7,62 +7,64 @@
       [availableActions]="workflowActions"
       (actionTriggered)="onWorkflowAction($event)" />
 
-    <mat-card class="mt-4">
-      <mat-card-content>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <span class="text-sm text-gray-500">{{ '::ReceiptNumber' | abpLocalization }}</span>
-            <p class="font-medium">{{ receipt.receiptNumber }}</p>
+    <div class="card mt-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">{{ '::ReceiptNumber' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ receipt.receiptNumber }}</span>
           </div>
-          <div>
-            <span class="text-sm text-gray-500">{{ '::PostingDate' | abpLocalization }}</span>
-            <p class="font-medium">{{ receipt.postingDate | date:'dd/MM/yyyy' }}</p>
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">{{ '::PostingDate' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ receipt.postingDate | date:'dd/MM/yyyy' }}</span>
           </div>
-          <div>
-            <span class="text-sm text-gray-500">{{ '::Warehouse' | abpLocalization }}</span>
-            <p class="font-medium">{{ receipt.warehouseId }}</p>
+          <div class="col-12 col-md-4 mb-3">
+            <small class="text-muted d-block">{{ '::Warehouse' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ receipt.warehouseId }}</span>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
-    <mat-card class="mt-4">
-      <mat-card-header><mat-card-title>{{ '::Items' | abpLocalization }}</mat-card-title></mat-card-header>
-      <mat-card-content>
-        <table mat-table [dataSource]="receipt.items!" class="w-full">
-          <ng-container matColumnDef="description">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Description' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.description }}</td>
-          </ng-container>
-          <ng-container matColumnDef="quantity">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Quantity' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right">{{ row.quantity }}</td>
-          </ng-container>
-          <ng-container matColumnDef="unitPrice">
-            <th mat-header-cell *matHeaderCellDef>{{ '::UnitPrice' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.unitPrice | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="taxAmount">
-            <th mat-header-cell *matHeaderCellDef>{{ '::Tax' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.taxAmount | number:'1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="lineTotal">
-            <th mat-header-cell *matHeaderCellDef>{{ '::LineTotal' | abpLocalization }}</th>
-            <td mat-cell *matCellDef="let row" class="text-right font-mono">{{ row.lineTotal | number:'1.2-2' }}</td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: itemColumns"></tr>
-        </table>
-      </mat-card-content>
-    </mat-card>
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm w-100">
+            <thead>
+              <tr>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                <th class="text-end">{{ '::UnitPrice' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
+                <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of receipt.items!; track $index) {
+                <tr>
+                  <td>{{ row.description }}</td>
+                  <td class="text-end">{{ row.quantity }}</td>
+                  <td class="text-end font-monospace">{{ row.unitPrice | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.lineTotal | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-    <mat-card class="mt-4">
-      <mat-card-content class="text-right">
-        <p>{{ '::NetTotal' | abpLocalization }}: <strong class="font-mono">{{ receipt.netTotal | number:'1.2-2' }}</strong></p>
-        <p>{{ '::Tax' | abpLocalization }}: <strong class="font-mono">{{ receipt.taxAmount | number:'1.2-2' }}</strong></p>
-        <mat-divider class="my-2" />
-        <p class="text-lg">{{ '::GrandTotal' | abpLocalization }}: <strong class="font-mono">{{ receipt.grandTotal | number:'1.2-2' }}</strong></p>
-      </mat-card-content>
-    </mat-card>
+    <div class="card mt-4" style="max-width: 380px; margin-left: auto">
+      <div class="card-body text-end">
+        <p>{{ '::NetTotal' | abpLocalization }}: <strong class="font-monospace">{{ receipt.netTotal | number:'1.2-2' }}</strong></p>
+        <p>{{ '::Tax' | abpLocalization }}: <strong class="font-monospace">{{ receipt.taxAmount | number:'1.2-2' }}</strong></p>
+        <hr />
+        <p class="fs-5">{{ '::GrandTotal' | abpLocalization }}: <strong class="font-monospace">{{ receipt.grandTotal | number:'1.2-2' }}</strong></p>
+      </div>
+    </div>
   }
 </abp-page>
