@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
@@ -11,6 +12,7 @@ import type { SalesInvoiceDto } from '../../proxy/sales/models';
   standalone: true,
   imports: [
     CommonModule,
+    LocalizationPipe,
     PageModule,
     LhdnStatusBadgeComponent],
   templateUrl: './einvoice-logs.component.html',
