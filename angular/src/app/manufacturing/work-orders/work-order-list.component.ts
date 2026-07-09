@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { WorkOrderStore } from '../store/work-order.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -10,7 +10,7 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 @Component({
   selector: 'app-work-order-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationModule, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './work-order-list.component.html',
   styleUrls: ['./work-order-list.component.scss'],
 })

@@ -16,7 +16,11 @@
       } @else if (!store.hasInvoices()) {
         <div class="text-center py-5">
           <i class="fa fa-inbox fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ '::NoPurchaseInvoicesYet' | abpLocalization }}</p>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoPurchaseInvoicesYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" routerLink="new">
+            <i class="fa fa-plus me-1"></i>{{ '::NewPurchaseInvoice' | abpLocalization }}
+          </button>
         </div>
       } @else {
         <div class="table-responsive">

@@ -1,9 +1,9 @@
-<abp-page [title]="'Chart of Accounts'">
+<abp-page [title]="'::Menu:ChartOfAccounts' | abpLocalization">
   <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between">
-      <h5 class="card-title mb-0">Chart of Accounts</h5>
-      <button class="btn btn-primary" (click)="addAccount()">
-        <i class="fa fa-plus"></i><i class="fa fa-plus me-1"></i>New Account
+      <h5 class="card-title mb-0">{{ '::Menu:ChartOfAccounts' | abpLocalization }}</h5>
+      <button class="btn btn-primary btn-sm" (click)="addAccount()">
+        <i class="fa fa-plus me-1"></i>{{ '::NewAccount' | abpLocalization }}
       </button>
     </div>
 

@@ -1,0 +1,59 @@
+using System;
+using System.Threading.Tasks;
+using MyERP.Manufacturing;
+using Microsoft.AspNetCore.Mvc;
+using Volo.Abp.Application.Dtos;
+
+namespace MyERP.Controllers;
+
+[Route("api/app/manufacturing")]
+public class ManufacturingController : MyERPController
+{
+    private readonly IManufacturingAppService _service;
+
+    public ManufacturingController(IManufacturingAppService service)
+    {
+        _service = service;
+    }
+
+    // BOM
+    [HttpGet("bom/{id}")]
+    public Task<BomDto> GetBomAsync(Guid id) => _service.GetBomAsync(id);
+
+    [HttpGet("bom")]
+    public Task<PagedResultDto<BomDto>> GetBomListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _service.GetBomListAsync(input);
+
+    [HttpPost("bom")]
+    public Task<BomDto> CreateBomAsync(CreateBomDto input) => _service.CreateBomAsync(input);
+
+    [HttpDelete("bom/{id}")]
+    public Task DeleteBomAsync(Guid id) => _service.DeleteBomAsync(id);
+
+    // Work Order
+    [HttpGet("work-order/{id}")]
+    public Task<WorkOrderDto> GetWorkOrderAsync(Guid id) => _service.GetWorkOrderAsync(id);
+
+    [HttpGet("work-order")]
+    public Task<PagedResultDto<WorkOrderDto>> GetWorkOrderListAsync([FromQuery] GetWorkOrderListDto input) => _service.GetWorkOrderListAsync(input);
+
+    [HttpPost("work-order")]
+    public Task<WorkOrderDto> CreateWorkOrderAsync(CreateWorkOrderDto input) => _service.CreateWorkOrderAsync(input);
+
+    [HttpDelete("work-order/{id}")]
+    public Task DeleteWorkOrderAsync(Guid id) => _service.DeleteWorkOrderAsync(id);
+
+    [HttpPost("work-order/{id}/submit")]
+    public Task<WorkOrderDto> SubmitWorkOrderAsync(Guid id) => _service.SubmitWorkOrderAsync(id);
+
+    [HttpPost("work-order/{id}/start")]
+    public Task<WorkOrderDto> StartWorkOrderAsync(Guid id) => _service.StartWorkOrderAsync(id);
+
+    [HttpPost("work-order/{id}/record-production")]
+    public Task<WorkOrderDto> RecordProductionAsync(Guid id, [FromQuery] decimal quantity) => _service.RecordProductionAsync(id, quantity);
+
+    [HttpPost("work-order/{id}/stop")]
+    public Task<WorkOrderDto> StopWorkOrderAsync(Guid id) => _service.StopWorkOrderAsync(id);
+
+    [HttpPost("work-order/{id}/cancel")]
+    public Task<WorkOrderDto> CancelWorkOrderAsync(Guid id) => _service.CancelWorkOrderAsync(id);
+}

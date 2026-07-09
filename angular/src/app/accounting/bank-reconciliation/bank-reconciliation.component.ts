@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../proxy/accounting/models';
@@ -10,7 +10,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto } from '../../pro
   selector: 'app-bank-reconciliation',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule],
+    CommonModule, PageModule, LocalizationPipe],
   templateUrl: './bank-reconciliation.component.html',
   styleUrls: ['./bank-reconciliation.component.scss'],
 })

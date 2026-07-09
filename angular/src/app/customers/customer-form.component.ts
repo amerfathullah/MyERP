@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { CustomerService } from '../proxy/sales/customer.service';
@@ -11,7 +11,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   selector: 'app-customer-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule],
+    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './customer-form.component.html',
   styleUrls: ['./customer-form.component.scss'],
 })

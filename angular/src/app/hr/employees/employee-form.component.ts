@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { EmployeeService } from '../../proxy/hr/employee.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { EmployeeStore } from '../store/employee.store';
@@ -13,7 +13,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-employee-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss'],
 })

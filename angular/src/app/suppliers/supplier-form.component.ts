@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
@@ -11,7 +11,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   selector: 'app-supplier-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule, RouterModule],
+    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './supplier-form.component.html',
   styleUrls: ['./supplier-form.component.scss'],
 })

@@ -5,6 +5,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -12,6 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Manufacturing;
 
 [Authorize(MyERPPermissions.Manufacturing.Default)]
+[RemoteService(false)] // Explicit controller in HttpApi project handles routing
 public class ManufacturingAppService : ApplicationService, IManufacturingAppService
 {
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;

@@ -76,6 +76,9 @@
           <i class="fa fa-money-check fa-3x text-muted mb-3 d-block"></i>
           <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
           <p class="text-muted small mb-3">{{ '::NoPayrollEntriesYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" (click)="create()">
+            <i class="fa fa-plus me-1"></i>{{ '::RunPayroll' | abpLocalization }}
+          </button>
         </div>
       }
       }

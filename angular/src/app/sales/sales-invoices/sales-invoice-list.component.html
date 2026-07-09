@@ -32,7 +32,7 @@
         <div class="text-center py-5">
           <i class="fa fa-file-invoice fa-3x text-muted mb-3 d-block"></i>
           <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-          <p class="text-muted small mb-3">No invoices yet. Create your first sales invoice.</p>
+          <p class="text-muted small mb-3">{{ '::NoSalesInvoicesYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" (click)="createInvoice()">
             <i class="fa fa-plus me-1"></i>{{ '::NewInvoice' | abpLocalization }}
           </button>

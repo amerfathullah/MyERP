@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { NotificationService } from '../../../proxy/notification/notification.service';
 import type { AppNotificationDto } from '../../../proxy/notification/models';
 
@@ -9,7 +9,7 @@ import type { AppNotificationDto } from '../../../proxy/notification/models';
   selector: 'app-notification-bell',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, LocalizationModule
+    CommonModule, RouterModule, LocalizationPipe
   ],
   templateUrl: './notification-bell.component.html',
   styleUrls: ['./notification-bell.component.scss'],

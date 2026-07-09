@@ -3,14 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
 
 @Component({
   selector: 'app-lead-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './lead-form.component.html',
   styleUrls: ['./lead-form.component.scss'],
 })

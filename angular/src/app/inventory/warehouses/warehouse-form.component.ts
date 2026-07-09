@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -13,7 +13,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-warehouse-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './warehouse-form.component.html',
   styleUrls: ['./warehouse-form.component.scss'],
 })

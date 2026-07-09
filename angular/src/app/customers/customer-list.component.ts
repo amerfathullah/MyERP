@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { CustomerStore } from './store/customer.store';
@@ -12,7 +12,7 @@ import { CustomerStore } from './store/customer.store';
   imports: [
     CommonModule,
     RouterModule,
-    LocalizationModule,
+    LocalizationPipe,
     PageModule],
   templateUrl: './customer-list.component.html',
   styleUrls: ['./customer-list.component.scss'],

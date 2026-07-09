@@ -29,11 +29,14 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private store = inject(PurchaseInvoiceStore);
 
   form = this.fb.group({
+    invoiceNumber: [''],
     companyId: ['', Validators.required],
     supplierId: ['', Validators.required],
+    supplierName: [''],
+    supplierTin: [''],
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
-    supplierInvoiceNumber: [''],
+    currency: ['MYR'],
     notes: [''],
     items: this.fb.array([]),
   });
@@ -59,11 +62,12 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((invoice) => {
         this.form.patchValue({
+          invoiceNumber: invoice.invoiceNumber,
           companyId: invoice.companyId,
           supplierId: invoice.supplierId,
+          supplierTin: invoice.supplierTin,
           issueDate: invoice.issueDate,
           dueDate: invoice.dueDate,
-          supplierInvoiceNumber: invoice.supplierInvoiceNumber,
         });
         invoice.items?.forEach((item: any) => this.addItemRow(item));
       });

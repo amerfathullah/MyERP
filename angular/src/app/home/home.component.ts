@@ -1,14 +1,14 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { AuthService, LocalizationModule } from '@abp/ng.core';
+import { AuthService, LocalizationPipe } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, LocalizationModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
 })

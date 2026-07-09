@@ -28,15 +28,15 @@ export class PaymentEntryFormComponent implements OnInit {
   form = this.fb.group({
     companyId: ['', Validators.required],
     paymentType: ['Receive', Validators.required],
-    postingDate: [new Date().toISOString().split('T')[0], Validators.required],
-    paidAmount: [0, [Validators.required, Validators.min(0.01)]],
-    paidFromAccountId: ['', Validators.required],
-    paidToAccountId: ['', Validators.required],
+    paymentDate: [new Date().toISOString().split('T')[0], Validators.required],
+    amount: [0, [Validators.required, Validators.min(0.01)]],
+    paidFromAccount: ['', Validators.required],
+    paidToAccount: ['', Validators.required],
     modeOfPayment: [''],
     partyType: ['Customer'],
-    partyId: [''],
-    referenceNumber: [''],
-    notes: [''],
+    partyName: [''],
+    reference: [''],
+    remarks: [''],
   });
 
   ngOnInit(): void {

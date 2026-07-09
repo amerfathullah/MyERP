@@ -7,7 +7,11 @@
       <div class="card-header"><h5 class="card-title mb-0">Submission Logs</h5></div>
       <div class="card-body pt-3">
         @if (submissions.length === 0) {
-          <p class="text-center text-muted py-5">No submissions yet.</p>
+          <div class="text-center py-5">
+            <i class="fa fa-cloud-arrow-up fa-3x text-muted mb-3 d-block"></i>
+            <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+            <p class="text-muted small mb-3">{{ '::NoSubmissionsYet' | abpLocalization }}</p>
+          </div>
         } @else {
           <div class="table-responsive">
                         <table class="table table-hover w-100">

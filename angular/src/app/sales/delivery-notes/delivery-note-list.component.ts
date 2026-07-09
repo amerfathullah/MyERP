@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
@@ -13,7 +13,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     CommonModule,
     RouterModule,
     PageModule,
-    LocalizationModule,
+    LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './delivery-note-list.component.html',
   styleUrls: ['./delivery-note-list.component.scss'],

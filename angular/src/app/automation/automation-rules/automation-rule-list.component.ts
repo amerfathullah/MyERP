@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { RouterModule } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { AutomationRuleStore } from '../store/automation-rule.store';
@@ -10,7 +10,7 @@ import { AutomationRuleStore } from '../store/automation-rule.store';
   selector: 'app-automation-rule-list',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, RouterModule],
+    CommonModule, PageModule, LocalizationPipe, RouterModule],
   templateUrl: './automation-rule-list.component.html',
   styleUrls: ['./automation-rule-list.component.scss'],
 })

@@ -111,6 +111,8 @@ public class MyERPDbContext :
     // Human Resources
     public DbSet<Employee> Employees { get; set; }
     public DbSet<ContributionRule> ContributionRules { get; set; }
+    public DbSet<PayrollEntry> PayrollEntries { get; set; }
+    public DbSet<PayrollEntryLine> PayrollEntryLines { get; set; }
 
     // Workflow
     public DbSet<ApprovalRule> ApprovalRules { get; set; }

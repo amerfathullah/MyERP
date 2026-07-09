@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ImportExportService } from '../proxy/import-export/import-export.service';
@@ -11,7 +11,7 @@ import type { ImportJobDto } from '../proxy/import-export/models';
   selector: 'app-import-export',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, FormsModule, ReactiveFormsModule],
+    CommonModule, PageModule, LocalizationPipe, FormsModule, ReactiveFormsModule],
   templateUrl: './import-export.component.html',
   styleUrls: ['./import-export.component.scss'],
 })

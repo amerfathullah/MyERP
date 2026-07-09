@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { TaxCategoryService, TaxRuleService } from '../../proxy/tax/tax.service';
 import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
@@ -12,7 +12,7 @@ import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
   selector: 'app-tax-categories',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule],
+    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './tax-categories.component.html',
   styleUrls: ['./tax-categories.component.scss'],
 })

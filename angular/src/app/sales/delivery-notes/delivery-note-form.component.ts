@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
@@ -11,7 +11,7 @@ import { DeliveryNoteStore } from '../store/delivery-note.store';
   selector: 'app-delivery-note-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule],
+    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
   styleUrls: ['./delivery-note-form.component.scss'],
 })

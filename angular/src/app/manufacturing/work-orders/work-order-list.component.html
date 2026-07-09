@@ -1,6 +1,6 @@
 <abp-page [title]="'::Manufacturing:WorkOrders' | abpLocalization">
   <div class="d-flex justify-content-end gap-2 mb-3">
-    <button class="btn btn-primary btn-sm" routerLink="new">
+    <button class="btn btn-primary btn-sm" routerLink="/manufacturing/work-orders/new">
       <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
     </button>
   </div>
@@ -59,6 +59,10 @@
                   <div class="text-center py-5">
                     <i class="fa fa-industry fa-3x text-muted mb-3 d-block"></i>
                     <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                    <p class="text-muted small mb-3">{{ '::NoWorkOrdersYet' | abpLocalization }}</p>
+                    <button class="btn btn-primary btn-sm" routerLink="/manufacturing/work-orders/new">
+                      <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
+                    </button>
                   </div>
                 </td>
               </tr>

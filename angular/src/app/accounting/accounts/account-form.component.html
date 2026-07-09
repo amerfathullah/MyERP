@@ -1,0 +1,64 @@
+<abp-page [title]="isEditMode ? ('::Edit' | abpLocalization) : ('::NewAccount' | abpLocalization)">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Code' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="accountCode"
+              [class.is-invalid]="form.get('accountCode')?.invalid && form.get('accountCode')?.touched" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Name' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="accountName"
+              [class.is-invalid]="form.get('accountName')?.invalid && form.get('accountName')?.touched" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::AccountType' | abpLocalization }} <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="accountType">
+              @for (type of accountTypes; track type[0]) {
+                <option [value]="type[1]">{{ type[0] }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::ParentAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="parentAccountId">
+              <option [ngValue]="null">— None (Root) —</option>
+              @for (acc of parentAccounts; track acc.id) {
+                <option [value]="acc.id">{{ acc.accountCode }} — {{ acc.accountName }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
+            <select class="form-select" formControlName="currency">
+              <option value="MYR">MYR</option>
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" formControlName="isGroup" id="isGroup" />
+              <label class="form-check-label" for="isGroup">Is Group</label>
+            </div>
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="description" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+      </button>
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+      </button>
+    </div>
+  </form>
+</abp-page>

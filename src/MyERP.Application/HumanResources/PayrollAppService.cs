@@ -41,9 +41,14 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
 
     public async Task<PagedResultDto<PayrollEntryDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
-        var totalCount = await _repository.GetCountAsync();
-        var entries = await _repository.GetPagedListAsync(
-            input.SkipCount, input.MaxResultCount, input.Sorting ?? "Year DESC, Month DESC");
+        var queryable = await _repository.WithDetailsAsync();
+        var totalCount = await AsyncExecuter.CountAsync(queryable);
+
+        var entries = await AsyncExecuter.ToListAsync(
+            queryable.OrderByDescending(e => e.Year).ThenByDescending(e => e.Month)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount));
+
         return new PagedResultDto<PayrollEntryDto>(totalCount, entries.Select(MapToDto).ToList());
     }
 

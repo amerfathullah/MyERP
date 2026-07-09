@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PayrollStore } from '../store/payroll.store';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -13,7 +13,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-payroll-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationModule,
+    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './payroll-list.component.html',
   styleUrls: ['./payroll-list.component.scss'],

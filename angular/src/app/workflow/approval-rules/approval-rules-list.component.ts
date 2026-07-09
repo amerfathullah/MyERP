@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { RouterModule } from '@angular/router';
 import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
 
@@ -9,7 +9,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   selector: 'app-approval-rules-list',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, RouterModule],
+    CommonModule, PageModule, LocalizationPipe, RouterModule],
   templateUrl: './approval-rules-list.component.html',
   styleUrls: ['./approval-rules-list.component.scss'],
 })

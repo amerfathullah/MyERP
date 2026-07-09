@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { ListService, PagedResultDto, LocalizationModule } from '@abp/ng.core';
+import { Router, RouterModule } from '@angular/router';
+import { ListService, PagedResultDto, LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
 import { CompanyService } from '../proxy/core/company.service';
@@ -13,7 +13,7 @@ import type { CompanyDto } from '../proxy/core/models';
   imports: [
     CommonModule,
     RouterModule,
-    LocalizationModule,
+    LocalizationPipe,
     PageModule,
     StatusBadgeComponent],
   providers: [ListService],
@@ -35,7 +35,9 @@ export class CompanyListComponent implements OnInit {
     });
   }
 
+  private router = inject(Router);
+
   createCompany(): void {
-    // TODO: Open create dialog
+    this.router.navigate(['/companies/new']);
   }
 }

@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
@@ -19,14 +21,20 @@ export interface AccountNode {
   standalone: true,
   imports: [
     CommonModule,
+    LocalizationPipe,
     PageModule],
   templateUrl: './chart-of-accounts.component.html',
   styleUrls: ['./chart-of-accounts.component.scss'],
 })
 export class ChartOfAccountsComponent implements OnInit {
   private accountService = inject(AccountService);
+  private router = inject(Router);
   accounts = signal<AccountNode[]>([]);
   expandedIds = new Set<string>();
+
+  addAccount(): void {
+    this.router.navigate(['/accounting/accounts/new']);
+  }
 
   toggleNode(id: string): void {
     if (this.expandedIds.has(id)) {
@@ -88,9 +96,5 @@ export class ChartOfAccountsComponent implements OnInit {
       case 'Expense': return 'trending_down';
       default: return 'folder';
     }
-  }
-
-  addAccount(): void {
-    // TODO: Open create account dialog
   }
 }

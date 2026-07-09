@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -15,7 +15,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-invoice-detail',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule,
+    CommonModule, PageModule, LocalizationPipe,
     DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],

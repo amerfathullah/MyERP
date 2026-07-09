@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
@@ -14,7 +14,7 @@ import type { SupplierDto } from '../proxy/purchasing/models';
   imports: [
     CommonModule,
     RouterModule,
-    LocalizationModule,
+    LocalizationPipe,
     PageModule,
     StatusBadgeComponent],
   templateUrl: './supplier-list.component.html',

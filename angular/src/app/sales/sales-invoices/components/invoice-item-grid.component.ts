@@ -1,7 +1,7 @@
 import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 
 @Component({
@@ -10,7 +10,7 @@ import { TaxCalculationService } from '../../../shared/services/tax-calculation.
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    LocalizationModule],
+    LocalizationPipe],
   templateUrl: './invoice-item-grid.component.html',
   styleUrls: ['./invoice-item-grid.component.scss'],
 })

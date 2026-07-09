@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
@@ -12,7 +12,7 @@ import type { LeadDto } from '../../proxy/crm/models';
 @Component({
   selector: 'app-lead-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationModule, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './lead-detail.component.html',
   styleUrls: ['./lead-detail.component.scss'],
 })

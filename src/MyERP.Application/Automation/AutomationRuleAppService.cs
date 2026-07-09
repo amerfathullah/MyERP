@@ -75,9 +75,12 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
 
     public async Task<PagedResultDto<AutomationRuleDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
-        var totalCount = await _ruleRepository.GetCountAsync();
-        var rules = await _ruleRepository.GetPagedListAsync(
-            input.SkipCount, input.MaxResultCount, input.Sorting ?? "Priority, Name");
+        var queryable = await _ruleRepository.GetQueryableAsync();
+        var totalCount = await AsyncExecuter.CountAsync(queryable);
+        var rules = await AsyncExecuter.ToListAsync(
+            queryable.OrderBy(r => r.Priority).ThenBy(r => r.Name)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount));
 
         return new PagedResultDto<AutomationRuleDto>(
             totalCount,

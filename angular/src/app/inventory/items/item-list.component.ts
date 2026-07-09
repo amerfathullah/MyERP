@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ItemStore } from '../store/item.store';
@@ -14,7 +14,7 @@ import { ItemStore } from '../store/item.store';
     CommonModule,
     RouterModule,
     PageModule,
-    LocalizationModule,
+    LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './item-list.component.html',
   styleUrls: ['./item-list.component.scss'],

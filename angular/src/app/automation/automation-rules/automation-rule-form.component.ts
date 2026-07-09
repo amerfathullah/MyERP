@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AutomationRuleStore } from '../store/automation-rule.store';
@@ -10,7 +10,7 @@ import { AutomationRuleStore } from '../store/automation-rule.store';
   selector: 'app-automation-rule-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationModule, ReactiveFormsModule],
+    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './automation-rule-form.component.html',
   styleUrls: ['./automation-rule-form.component.scss'],
 })

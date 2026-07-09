@@ -194,6 +194,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/accounts/new',
+    loadComponent: () => import('./accounting/accounts/account-form.component').then(c => c.AccountFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts.Create' },
+  },
+  {
+    path: 'accounting/accounts/:id/edit',
+    loadComponent: () => import('./accounting/accounts/account-form.component').then(c => c.AccountFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts.Edit' },
+  },
+  {
     path: 'accounting/journal-entries/new',
     loadComponent: () => import('./accounting/journal-entries/journal-entry-form.component').then(c => c.JournalEntryFormComponent),
     canActivate: [authGuard, permissionGuard],
@@ -326,6 +338,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
+    path: 'purchasing/receipts/new',
+    loadComponent: () => import('./purchasing/purchase-receipts/purchase-receipt-form.component').then(c => c.PurchaseReceiptFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
+  },
+  {
     path: 'purchasing/receipts/:id',
     loadComponent: () => import('./purchasing/purchase-receipts/purchase-receipt-detail.component').then(c => c.PurchaseReceiptDetailComponent),
     canActivate: [authGuard, permissionGuard],
@@ -357,6 +375,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'workflow/rules',
     loadComponent: () => import('./workflow/approval-rules/approval-rules-list.component').then(c => c.ApprovalRulesListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ApprovalWorkflows' },
+  },
+  {
+    path: 'workflow/rules/new',
+    loadComponent: () => import('./workflow/approval-rules/approval-rule-form.component').then(c => c.ApprovalRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.ApprovalWorkflows' },
   },
@@ -513,6 +537,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/work-orders/new',
+    loadComponent: () => import('./manufacturing/work-orders/work-order-form.component').then(c => c.WorkOrderFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
   },
   {
     path: 'manufacturing/work-orders/:id',

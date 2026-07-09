@@ -3,14 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { OpportunityStore } from '../store/opportunity.store';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 
 @Component({
   selector: 'app-opportunity-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './opportunity-form.component.html',
   styleUrls: ['./opportunity-form.component.scss'],
 })

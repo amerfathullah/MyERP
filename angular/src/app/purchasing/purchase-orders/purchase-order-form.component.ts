@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
@@ -16,7 +16,7 @@ import type { CompanyDto } from '../../proxy/core/models';
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })

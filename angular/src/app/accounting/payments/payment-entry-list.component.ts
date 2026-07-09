@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PaymentEntryStore } from '../store/payment-entry.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
@@ -10,7 +10,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   selector: 'app-payment-entry-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, PageModule, LocalizationModule,
+    CommonModule, RouterModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './payment-entry-list.component.html',
   styleUrls: ['./payment-entry-list.component.scss'],

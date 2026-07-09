@@ -1,0 +1,46 @@
+<abp-page [title]="'::Manufacturing:NewWorkOrder' | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Item' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="itemId"
+              [class.is-invalid]="form.get('itemId')?.invalid && form.get('itemId')?.touched" placeholder="Item ID" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">BOM <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="bomId"
+              [class.is-invalid]="form.get('bomId')?.invalid && form.get('bomId')?.touched" placeholder="BOM ID" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Qty' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" formControlName="quantity"
+              [class.is-invalid]="form.get('quantity')?.invalid && form.get('quantity')?.touched" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PlannedStartDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="plannedStartDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PlannedEndDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="plannedEndDate" />
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="notes" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+      </button>
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+      </button>
+    </div>
+  </form>
+</abp-page>

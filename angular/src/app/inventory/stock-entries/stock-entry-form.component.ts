@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 
 @Component({
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationModule],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })

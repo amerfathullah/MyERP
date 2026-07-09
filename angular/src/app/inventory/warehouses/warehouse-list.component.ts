@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { WarehouseDto } from '../../proxy/inventory/models';
@@ -10,7 +10,7 @@ import type { WarehouseDto } from '../../proxy/inventory/models';
 @Component({
   selector: 'app-warehouse-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationModule, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './warehouse-list.component.html',
   styleUrls: ['./warehouse-list.component.scss'],
 })

@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationModule } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
 
@@ -10,7 +10,7 @@ import { PurchaseOrderStore } from '../store/purchase-order.store';
   selector: 'app-purchase-order-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, PageModule, LocalizationModule,
+    CommonModule, RouterModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './purchase-order-list.component.html',
   styleUrls: ['./purchase-order-list.component.scss'],
