@@ -3,17 +3,17 @@
 # MyERP — Quick Install Script
 # =============================================================================
 # Usage:
-#   curl -sL https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy/install.sh | bash
+#   curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/install.sh | bash
 #
 # Or download and run:
-#   wget -O install.sh https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy/install.sh
+#   wget -O install.sh https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/install.sh
 #   chmod +x install.sh && ./install.sh
 # =============================================================================
 
 set -e
 
 INSTALL_DIR="${MYERP_INSTALL_DIR:-./myerp}"
-REPO_URL="https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy"
+REPO_URL="https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"

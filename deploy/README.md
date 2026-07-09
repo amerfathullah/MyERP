@@ -7,7 +7,7 @@ Deploy MyERP on your own server in minutes. Similar to ERPNext's self-hosted dep
 ## Quick Install (One Command)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy/install.sh | bash
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/install.sh | bash
 ```
 
 This will:
@@ -32,8 +32,8 @@ mkdir myerp && cd myerp
 ### 2. Download the compose file
 
 ```bash
-curl -sL https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy/docker-compose.yml -o docker-compose.yml
-curl -sL https://raw.githubusercontent.com/myerp/myerp/main/MyERP/deploy/.env.example -o .env
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/docker-compose.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/.env.example -o .env
 ```
 
 ### 3. Configure
@@ -95,9 +95,9 @@ docker compose up -d
 **Images (Docker Hub):**
 | Image | Purpose | Size |
 |-------|---------|------|
-| `myerp/api` | .NET 10 API server | ~200MB |
-| `myerp/web` | Angular app on Nginx | ~30MB |
-| `myerp/migrator` | Database migrations & seed | ~180MB |
+| `amerfathullah/myerp-api` | .NET 10 API server | ~200MB |
+| `amerfathullah/myerp-web` | Angular app on Nginx | ~30MB |
+| `amerfathullah/myerp-migrator` | Database migrations & seed | ~180MB |
 
 ---
 

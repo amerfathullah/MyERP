@@ -8,7 +8,7 @@
 #   4. Open http://localhost:80 (or your configured domain)
 #   5. Login: admin / 1q2w3E*
 #
-# Images are pulled from Docker Hub: myerp/api, myerp/web, myerp/migrator
+# Images are pulled from Docker Hub: amerfathullah/myerp-api, amerfathullah/myerp-web, amerfathullah/myerp-migrator
 # =============================================================================
 
 services:

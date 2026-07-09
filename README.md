@@ -67,7 +67,7 @@ Deploy MyERP on any server with Docker — no build tools required.
 
 ```bash
 mkdir myerp && cd myerp
-curl -sL https://raw.githubusercontent.com/amerfathullah/erp/main/MyERP/deploy/docker-compose.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/docker-compose.yml -o docker-compose.yml
 docker compose up -d
 ```
 
@@ -87,8 +87,8 @@ That's it. Open http://localhost — login with `admin` / `1q2w3E*`
 
 ```bash
 # Download compose + env template
-curl -sL https://raw.githubusercontent.com/amerfathullah/erp/main/MyERP/deploy/docker-compose.yml -o docker-compose.yml
-curl -sL https://raw.githubusercontent.com/amerfathullah/erp/main/MyERP/deploy/.env.example -o .env
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/docker-compose.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/.env.example -o .env
 
 # Edit settings (database password, URLs, ports)
 nano .env
@@ -111,7 +111,7 @@ Key `.env` settings:
 
 ```bash
 # Also download the HTTPS overlay
-curl -sL https://raw.githubusercontent.com/amerfathullah/erp/main/MyERP/deploy/docker-compose.https.yml -o docker-compose.https.yml
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/docker-compose.https.yml -o docker-compose.https.yml
 
 # Set in .env:
 # DOMAIN=myerp.yourdomain.com
