@@ -136,6 +136,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         automationPermission.AddChild(MyERPPermissions.AutomationRules.Edit, L("Permission:AutomationRules.Edit"));
         automationPermission.AddChild(MyERPPermissions.AutomationRules.Delete, L("Permission:AutomationRules.Delete"));
 
+        var employeesPermission = myGroup.AddPermission(MyERPPermissions.Employees.Default, L("Permission:Employees"));
+        employeesPermission.AddChild(MyERPPermissions.Employees.Create, L("Permission:Employees.Create"));
+        employeesPermission.AddChild(MyERPPermissions.Employees.Edit, L("Permission:Employees.Edit"));
+        employeesPermission.AddChild(MyERPPermissions.Employees.Delete, L("Permission:Employees.Delete"));
+
         var leadsPermission = myGroup.AddPermission(MyERPPermissions.Leads.Default, L("Permission:Leads"));
         leadsPermission.AddChild(MyERPPermissions.Leads.Create, L("Permission:Leads.Create"));
         leadsPermission.AddChild(MyERPPermissions.Leads.Edit, L("Permission:Leads.Edit"));

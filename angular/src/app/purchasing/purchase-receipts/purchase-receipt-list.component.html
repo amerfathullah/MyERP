@@ -5,52 +5,59 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="small text-muted">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</h5>
-    <button class="btn btn-primary" routerLink="new">
-      <i class="fa fa-plus"></i> {{ '::NewPurchaseReceipt' | abpLocalization }}
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i> {{ '::NewPurchaseReceipt' | abpLocalization }}
     </button>
   </div>
 
   <div class="card">
     <div class="card-body">
-      <div class="table-responsive">
+      @if (store.entities().length === 0 && !store.isLoading()) {
+        <div class="text-center py-5">
+          <i class="fa fa-box-open fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoPurchaseReceiptsYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" routerLink="new">
+            <i class="fa fa-plus me-1"></i>{{ '::NewPurchaseReceipt' | abpLocalization }}
+          </button>
+        </div>
+      } @else if (!store.isLoading()) {
+        <div class="table-responsive">
                 <table class="table table-hover w-100">
           <thead>
             <tr>
               <th>{{ '::ReceiptNumber' | abpLocalization }}</th>
-              <th>{{ '::PostingDate' | abpLocalization }}</th>
-              <th>{{ '::GrandTotal' | abpLocalization }}</th>
-              <th>{{ '::Status' | abpLocalization }}</th>
-              <th></th>
+              <th style="width: 110px;">{{ '::PostingDate' | abpLocalization }}</th>
+              <th class="text-end" style="width: 130px;">{{ '::GrandTotal' | abpLocalization }}</th>
+              <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 100px;"></th>
             </tr>
           </thead>
           <tbody>
-            @for (row of store.entities(); track $index ?? $index) {
+            @for (row of store.entities(); track row.id ?? $index) {
               <tr>
                 <td class="fw-medium">{{ row.receiptNumber }}</td>
-                <td>{{ row.postingDate | date:'mediumDate' }}</td>
+                <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                 <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                 <td><app-status-badge [status]="row.status ?? ''" /></td>
-                <td>
-                  <button class="btn btn-sm btn-link p-1" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="fa fa-ellipsis-vertical"></i>
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                  @if (row.status === 'Draft') {
-                  <li><button class="dropdown-item" (click)="store.submitReceipt(row.id)">
-                  <i class="fa fa-paper-plane me-2"></i> {{ '::Submit' | abpLocalization }}
-                  </button>
-                  }
-                  </ul>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id]"
+                      title="View" aria-label="View">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                    @if (row.status === 'Draft') {
+                      <button class="btn btn-outline-primary" (click)="store.submitReceipt(row.id)"
+                        title="Submit" aria-label="Submit">
+                        <i class="fa fa-paper-plane"></i>
+                      </button>
+                    }
+                  </div>
                 </td>
               </tr>
             }
           </tbody>
         </table>
-      </div>
-      @if (store.entities().length === 0 && !store.isLoading()) {
-        <div class="text-center py-5">
-          <i class="fa fa-box-open fa-3x text-muted mb-3 d-block"></i>
-          <h6 class="text-muted">No purchase receipts yet</h6>
         </div>
       }
     </div>

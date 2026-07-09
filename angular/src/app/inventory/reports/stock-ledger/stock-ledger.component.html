@@ -76,7 +76,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (row of rows(); track $index ?? $index) {
+            @for (row of rows(); track $index) {
               <tr>
                 <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                 <td class="fw-medium">{{ row.itemName }}</td>

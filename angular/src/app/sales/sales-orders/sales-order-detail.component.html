@@ -16,11 +16,11 @@
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::OrderDate' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ order.orderDate | date:'mediumDate' }}</span>
+            <span class="fw-semibold">{{ order.orderDate | date:'dd/MM/yyyy' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::DeliveryDate' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ order.deliveryDate | date:'mediumDate' }}</span>
+            <span class="fw-semibold">{{ order.deliveryDate | date:'dd/MM/yyyy' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>

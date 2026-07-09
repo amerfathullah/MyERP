@@ -71,15 +71,15 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th>File</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Results</th>
-                <th>Date</th>
+                <th>{{ '::FileName' | abpLocalization }}</th>
+                <th>{{ '::EntityType' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::Results' | abpLocalization }}</th>
+                <th>{{ '::CreatedDate' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
-              @for (row of importHistory(); track $index ?? $index) {
+              @for (row of importHistory(); track row.id ?? $index) {
                 <tr>
                   <td>{{ row.fileName }}</td>
                   <td>{{ row.entityType }}</td>

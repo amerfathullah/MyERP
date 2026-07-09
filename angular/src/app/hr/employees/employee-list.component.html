@@ -14,6 +14,15 @@
             <span class="visually-hidden">Loading...</span>
           </div>
         </div>
+      } @else if (store.entities().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-id-badge fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoEmployeesYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" routerLink="new">
+            <i class="fa fa-user-plus me-1"></i>{{ '::NewEmployee' | abpLocalization }}
+          </button>
+        </div>
       } @else {
         <div class="table-responsive">
                     <table class="table table-hover w-100">
@@ -24,41 +33,34 @@
                 <th>{{ '::Department' | abpLocalization }}</th>
                 <th>{{ '::Designation' | abpLocalization }}</th>
                 <th>{{ '::Status' | abpLocalization }}</th>
-                <th></th>
+                <th class="text-end" style="width: 100px;"></th>
               </tr>
             </thead>
             <tbody>
-              @for (row of store.entities(); track $index ?? $index) {
+              @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
                   <td class="font-monospace small">{{ row.id }}</td>
                   <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="(row.firstName ?? '') + ' ' + (row.lastName ?? '')">{{ (row.firstName ?? '') + ' ' + (row.lastName ?? '') }}</td>
                   <td>{{ row.department ?? '—' }}</td>
                   <td>{{ row.designation ?? '—' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
-                  <td>
-                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-ellipsis-v"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                    <li><button class="dropdown-item" [routerLink]="[row.id, 'edit']">
-                    <i class="fa fa-pencil me-2"></i> {{ '::Edit' | abpLocalization }}
-                    </button>
-                    <li><button class="dropdown-item" (click)="delete(row.id)">
-                    <i class="fa fa-trash me-2"></i> {{ '::Delete' | abpLocalization }}
-                    </button>
-                    </ul>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" [routerLink]="[row.id, 'edit']"
+                        title="Edit" aria-label="Edit">
+                        <i class="fa fa-pencil"></i>
+                      </button>
+                      <button class="btn btn-outline-danger" (click)="delete(row.id)"
+                        title="Delete" aria-label="Delete">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-      @if (store.entities().length === 0 && !store.isLoading()) {
-        <div class="text-center py-5">
-          <i class="fa fa-id-badge fa-3x text-muted mb-3 d-block"></i>
-          <h6 class="text-muted">No employees yet</h6>
-        </div>
-      }
       }
     </div>
   </div>

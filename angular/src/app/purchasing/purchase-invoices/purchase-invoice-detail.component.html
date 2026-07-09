@@ -16,11 +16,11 @@
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::IssueDate' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ invoice.issueDate | date:'mediumDate' }}</span>
+            <span class="fw-semibold">{{ invoice.issueDate | date:'dd/MM/yyyy' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::DueDate' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ invoice.dueDate | date:'mediumDate' }}</span>
+            <span class="fw-semibold">{{ invoice.dueDate | date:'dd/MM/yyyy' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::EInvoiceStatus' | abpLocalization }}</small>

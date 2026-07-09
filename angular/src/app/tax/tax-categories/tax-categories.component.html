@@ -107,8 +107,8 @@
                 @for (r of rulesMap()[cat.id!]; track $index) {
                   <tr>
                     <td class="fw-bold">{{ r.rate }}%</td>
-                    <td>{{ r.effectiveFrom | date:'mediumDate' }}</td>
-                    <td>{{ r.effectiveTo ? (r.effectiveTo | date:'mediumDate') : '—' }}</td>
+                    <td>{{ r.effectiveFrom | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ r.effectiveTo ? (r.effectiveTo | date:'dd/MM/yyyy') : '—' }}</td>
                     <td>{{ r.regionFilter ?? 'All' }}</td>
                     <td>
                       <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteRule(r.id!, cat.id!)">

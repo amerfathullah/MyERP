@@ -8,35 +8,39 @@
 </button>
 
 <ul class="dropdown-menu dropdown-menu-end">
-  <div class="px-3 py-2 d-flex justify-content-between align-items-center border-bottom">
-    <span class="fw-medium small">Notifications</span>
+  <li class="px-3 py-2 d-flex justify-content-between align-items-center border-bottom">
+    <span class="fw-medium small">{{ '::Notifications' | abpLocalization }}</span>
     @if (unreadCount() > 0) {
-      <button class="btn btn-link btn-sm p-0 small" (click)="markAllAsRead(); $event.stopPropagation()"><i class="fa fa-check-double me-1"></i>Mark all read</button>
+      <button class="btn btn-link btn-sm p-0 small" (click)="markAllAsRead(); $event.stopPropagation()"><i class="fa fa-check-double me-1"></i>{{ '::MarkAllRead' | abpLocalization }}</button>
     }
-  </div>
+  </li>
 
   @if (notifications().length === 0) {
-    <div class="px-3 py-3 text-center text-muted small">
-      No notifications
-    </div>
+    <li class="px-3 py-3 text-center text-muted small">
+      {{ '::NoNotifications' | abpLocalization }}
+    </li>
   } @else {
     @for (notif of notifications(); track notif.id) {
-      <li><button class="dropdown-item" class="h-auto py-2"
-        [class.bg-light]="!notif.isRead"
-        (click)="markAsRead(notif.id!)">
-        <div class="d-flex align-items-start gap-2">
-          <i class="fa" [class]="getSeverityColor(notif.severity!) + ' ' + getSeverityIcon(notif.severity!)"></i>
-          <div class="flex-grow-1 overflow-hidden">
-            <p class="small fw-medium text-truncate" [class.fw-bold]="!notif.isRead">{{ notif.subject }}</p>
-            <p class="small text-muted">{{ notif.creationTime | date:'short' }}</p>
+      <li>
+        <button class="dropdown-item h-auto py-2"
+          [class.bg-light]="!notif.isRead"
+          (click)="markAsRead(notif.id!)">
+          <div class="d-flex align-items-start gap-2">
+            <i class="fa" [class]="getSeverityColor(notif.severity!) + ' ' + getSeverityIcon(notif.severity!)"></i>
+            <div class="flex-grow-1 overflow-hidden">
+              <p class="small fw-medium text-truncate mb-0" [class.fw-bold]="!notif.isRead">{{ notif.subject }}</p>
+              <p class="small text-muted mb-0">{{ notif.creationTime | date:'short' }}</p>
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      </li>
     }
   }
 
-  <hr class="my-3" />
-  <li><button class="dropdown-item" routerLink="/notifications" class="text-center">
-    <span class="small text-primary">View all</span>
-  </button>
+  <li><hr class="dropdown-divider" /></li>
+  <li>
+    <a class="dropdown-item text-center" routerLink="/notifications">
+      <span class="small text-primary">{{ '::ViewAll' | abpLocalization }}</span>
+    </a>
+  </li>
 </ul>

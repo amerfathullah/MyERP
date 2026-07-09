@@ -8,6 +8,20 @@
 
   <div class="card">
     <div class="card-body">
+      <!-- Filter row -->
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ companies.length }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization" />
+          </div>
+        </div>
+      </div>
+
       @if (isLoading) {
         <div class="d-flex justify-content-center py-5">
           <div class="spinner-border text-primary" role="status">
@@ -18,7 +32,7 @@
         <div class="text-center py-5">
           <i class="fa fa-building fa-3x text-muted mb-3 d-block"></i>
           <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-          <p class="text-muted small mb-3">No companies yet. Click "New Company" to get started.</p>
+          <p class="text-muted small mb-3">{{ '::NoCompaniesYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" (click)="createCompany()">
             <i class="fa fa-plus me-1"></i>{{ '::NewCompany' | abpLocalization }}
           </button>
@@ -28,11 +42,11 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 180px;">Name</th>
-                <th style="width: 140px;">TIN</th>
-                <th class="d-none d-md-table-cell" style="width: 140px;">SST Reg.</th>
-                <th style="width: 90px;">Currency</th>
-                <th style="width: 100px;">Status</th>
+                <th style="min-width: 180px;">{{ '::Name' | abpLocalization }}</th>
+                <th style="width: 140px;">{{ '::TIN' | abpLocalization }}</th>
+                <th class="d-none d-md-table-cell" style="width: 140px;">{{ '::SSTRegistration' | abpLocalization }}</th>
+                <th style="width: 90px;">{{ '::Currency' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
                 <th class="text-end" style="width: 80px;"></th>
               </tr>
             </thead>

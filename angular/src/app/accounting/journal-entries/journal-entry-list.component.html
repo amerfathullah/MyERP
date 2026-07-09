@@ -14,58 +14,55 @@
             <span class="visually-hidden">Loading...</span>
           </div>
         </div>
+      } @else if (store.entities().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-book fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoJournalEntriesYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" routerLink="new">
+            <i class="fa fa-plus me-1"></i>{{ '::NewJournalEntry' | abpLocalization }}
+          </button>
+        </div>
       } @else {
         <div class="table-responsive">
                     <table class="table table-hover w-100">
             <thead>
               <tr>
                 <th style="min-width: 150px;">{{ '::EntryNumber' | abpLocalization }}</th>
-                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th style="width: 110px;">{{ '::PostingDate' | abpLocalization }}</th>
                 <th>{{ '::ReferenceType' | abpLocalization }}</th>
-                <th>{{ '::TotalDebit' | abpLocalization }}</th>
-                <th>{{ '::Status' | abpLocalization }}</th>
-                <th></th>
+                <th class="text-end" style="width: 130px;">{{ '::TotalDebit' | abpLocalization }}</th>
+                <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end" style="width: 100px;"></th>
               </tr>
             </thead>
             <tbody>
-              @for (row of store.entities(); track $index ?? $index) {
+              @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
-                  <td>{{ row.entryNumber ?? '—' }}</td>
-                  <td>{{ row.postingDate | date:'mediumDate' }}</td>
-                  <td>{{ row.referenceType ?? 'Manual' }}</td>
+                  <td class="fw-medium">{{ row.entryNumber ?? '—' }}</td>
+                  <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ row.referenceType ?? '::Manual' | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ row.totalDebit | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
-                  <td>
-                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-ellipsis-v"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                    <li><button class="dropdown-item" [routerLink]="[row.id]">
-                    <i class="fa fa-eye me-2"></i> {{ '::View' | abpLocalization }}
-                    </button>
-                    @if (row.status === 'Draft') {
-                    <li><button class="dropdown-item" (click)="store.postEntry(row.id)">
-                    <i class="fa fa-check-circle me-2"></i> {{ '::Post' | abpLocalization }}
-                    </button>
-                    }
-                    @if (row.status === 'Posted') {
-                    <li><button class="dropdown-item" (click)="store.cancelEntry(row.id)">
-                    <i class="fa fa-ban me-2"></i> {{ '::Cancel' | abpLocalization }}
-                    </button>
-                    }
-                    </ul>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" [routerLink]="[row.id]"
+                        title="View" aria-label="View">
+                        <i class="fa fa-eye"></i>
+                      </button>
+                      @if (row.status === 'Draft') {
+                        <button class="btn btn-outline-success" (click)="store.postEntry(row.id)"
+                          title="Post" aria-label="Post">
+                          <i class="fa fa-check-circle"></i>
+                        </button>
+                      }
+                    </div>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-      @if (store.entities().length === 0 && !store.isLoading()) {
-        <div class="text-center py-5">
-          <i class="fa fa-book fa-3x text-muted mb-3 d-block"></i>
-          <h6 class="text-muted">No journal entries yet</h6>
-        </div>
-      }
       }
     </div>
   </div>

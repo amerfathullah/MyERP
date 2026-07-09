@@ -26,7 +26,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (row of store.entities(); track $index ?? $index) {
+            @for (row of store.entities(); track row.id ?? $index) {
               <tr>
                 <td>{{ row.name }}</td>
                 <td><span class="badge bg-light text-dark">{{ row.documentType }}</span></td>
@@ -39,14 +39,12 @@
                   </span>
                 </td>
                 <td>
-                  <button class="btn btn-sm btn-link p-1" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="fa fa-ellipsis-vertical"></i>
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                  <li><button class="dropdown-item" [routerLink]="[row.id, 'edit']">
-                  <i class="fa fa-pencil me-2"></i> {{ '::Edit' | abpLocalization }}
-                  </button>
-                  </ul>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id, 'edit']"
+                      title="Edit" aria-label="Edit">
+                      <i class="fa fa-pencil"></i>
+                    </button>
+                  </div>
                 </td>
               </tr>
             }
@@ -56,7 +54,8 @@
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-shield-halved fa-3x text-muted mb-3 d-block"></i>
-          <h6 class="text-muted">No approval rules yet</h6>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoApprovalRulesYet' | abpLocalization }}</p>
         </div>
       }
     </div>

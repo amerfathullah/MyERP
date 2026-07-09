@@ -38,15 +38,15 @@
               </tr>
             </thead>
             <tbody>
-              @for (row of data(); track $index ?? $index) {
+              @for (row of data(); track $index) {
                 <tr>
                   <td class="font-monospace small">{{ row.accountCode }}</td>
                   <td>{{ row.accountName }}</td>
                   <td class="small text-muted">{{ row.accountType }}</td>
-                  <td class="text-end font-monospace">{{ row.debit > 0 ? (row.debit | number:'1.2-2') : '' }}</td>
-                  <td class="text-end font-monospace">{{ row.credit > 0 ? (row.credit | number:'1.2-2') : '' }}</td>
-                  <td class="text-end font-monospace">{{ row.closingDebit > 0 ? (row.closingDebit | number:'1.2-2') : '' }}</td>
-                  <td class="text-end font-monospace">{{ row.closingCredit > 0 ? (row.closingCredit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ (row.debit ?? 0) > 0 ? (row.debit! | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ (row.credit ?? 0) > 0 ? (row.credit! | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ (row.closingDebit ?? 0) > 0 ? (row.closingDebit! | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ (row.closingCredit ?? 0) > 0 ? (row.closingCredit! | number:'1.2-2') : '' }}</td>
                 </tr>
               }
             </tbody>

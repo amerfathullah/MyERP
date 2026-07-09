@@ -51,7 +51,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (row of store.entities(); track $index ?? $index) {
+              @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
                   <td class="font-monospace small"><a [routerLink]="[row.id]" class="text-primary text-decoration-none">{{ row.payrollNumber }}</a></td>
                   <td>{{ row.periodLabel }}</td>
@@ -74,7 +74,8 @@
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-money-check fa-3x text-muted mb-3 d-block"></i>
-          <h6 class="text-muted">No payroll entries yet</h6>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoPayrollEntriesYet' | abpLocalization }}</p>
         </div>
       }
       }

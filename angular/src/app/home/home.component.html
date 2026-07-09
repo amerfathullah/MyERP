@@ -9,7 +9,15 @@
   </div>
 } @else {
   <div class="container-fluid">
-    <h4 class="fw-semibold mb-4">Dashboard</h4>
+    <h4 class="fw-semibold mb-4">{{ '::Dashboard' | abpLocalization }}</h4>
+
+    @if (isLoading()) {
+      <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    }
 
     <!-- Summary cards -->
     @if (summary()) {
@@ -19,7 +27,7 @@
             <div class="card-body d-flex align-items-center gap-2">
               <i class="fa fa-chart-line fa-2x text-success"></i>
               <div>
-                <small class="text-muted d-block">Revenue (MTD)</small>
+                <small class="text-muted d-block">{{ '::Revenue' | abpLocalization }} (MTD)</small>
                 <span class="fs-5 fw-bold text-success font-monospace">MYR {{ summary()!.monthlyRevenue | number:'1.0-0' }}</span>
               </div>
             </div>
@@ -30,7 +38,7 @@
             <div class="card-body d-flex align-items-center gap-2">
               <i class="fa fa-file-invoice fa-2x text-primary"></i>
               <div>
-                <small class="text-muted d-block">Outstanding Invoices</small>
+                <small class="text-muted d-block">{{ '::OutstandingInvoices' | abpLocalization }}</small>
                 <span class="fs-5 fw-bold text-primary">{{ summary()!.outstandingInvoices }}</span>
               </div>
             </div>
@@ -41,7 +49,7 @@
             <div class="card-body d-flex align-items-center gap-2">
               <i class="fa fa-cart-shopping fa-2x text-warning"></i>
               <div>
-                <small class="text-muted d-block">Pending POs</small>
+                <small class="text-muted d-block">{{ '::PendingPOs' | abpLocalization }}</small>
                 <span class="fs-5 fw-bold text-warning">{{ summary()!.pendingPurchaseOrders }}</span>
               </div>
             </div>
@@ -52,7 +60,7 @@
             <div class="card-body d-flex align-items-center gap-2">
               <i class="fa fa-cloud-arrow-up fa-2x text-info"></i>
               <div>
-                <small class="text-muted d-block">e-Invoices Submitted</small>
+                <small class="text-muted d-block">{{ '::EInvoicesSubmitted' | abpLocalization }}</small>
                 <span class="fs-5 fw-bold text-info">{{ summary()!.submittedEInvoices }}</span>
               </div>
             </div>
@@ -62,13 +70,13 @@
     }
 
     <!-- Quick actions -->
-    <h5 class="fw-semibold mb-3"><i class="fa fa-bolt me-2"></i>Quick Actions</h5>
+    <h5 class="fw-semibold mb-3"><i class="fa fa-bolt me-2"></i>{{ '::QuickActions' | abpLocalization }}</h5>
     <div class="row g-3 mb-4">
       @for (link of quickLinks; track link.route) {
         <div class="col-6 col-md-4 col-lg-2">
           <button class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center gap-1"
             [routerLink]="link.route">
-            <i class="fa" [ngClass]="link.icon"></i>
+            <i class="fa" [class]="'fa ' + link.icon"></i>
             <small>{{ link.label }}</small>
           </button>
         </div>
@@ -82,7 +90,7 @@
           <div class="card">
             <div class="card-body text-center py-3">
               <span class="fs-4 fw-bold d-block">{{ summary()!.totalCustomers }}</span>
-              <small class="text-muted">Customers</small>
+              <small class="text-muted">{{ '::Customers' | abpLocalization }}</small>
             </div>
           </div>
         </div>
@@ -90,7 +98,7 @@
           <div class="card">
             <div class="card-body text-center py-3">
               <span class="fs-4 fw-bold d-block">{{ summary()!.totalSuppliers }}</span>
-              <small class="text-muted">Suppliers</small>
+              <small class="text-muted">{{ '::Suppliers' | abpLocalization }}</small>
             </div>
           </div>
         </div>
@@ -98,7 +106,7 @@
           <div class="card">
             <div class="card-body text-center py-3">
               <span class="fs-4 fw-bold d-block">{{ summary()!.totalItems }}</span>
-              <small class="text-muted">Items</small>
+              <small class="text-muted">{{ '::Items' | abpLocalization }}</small>
             </div>
           </div>
         </div>
@@ -106,7 +114,7 @@
           <div class="card">
             <div class="card-body text-center py-3">
               <span class="fs-4 fw-bold text-warning d-block">{{ summary()!.pendingApprovals }}</span>
-              <small class="text-muted">Pending Approvals</small>
+              <small class="text-muted">{{ '::PendingApprovals' | abpLocalization }}</small>
             </div>
           </div>
         </div>

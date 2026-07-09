@@ -16,7 +16,11 @@
       } @else if (!store.hasItems()) {
         <div class="text-center py-5">
           <i class="fa fa-inbox fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ '::NoItemsYet' | abpLocalization }}</p>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoItemsYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" (click)="createItem()">
+            <i class="fa fa-plus me-1"></i>{{ '::NewItem' | abpLocalization }}
+          </button>
         </div>
       } @else {
         <div class="table-responsive">
@@ -27,9 +31,9 @@
                 <th style="min-width: 150px;">{{ '::ItemName' | abpLocalization }}</th>
                 <th>{{ '::Group' | abpLocalization }}</th>
                 <th>{{ '::UoM' | abpLocalization }}</th>
-                <th>{{ '::StockQty' | abpLocalization }}</th>
-                <th>{{ '::Rate' | abpLocalization }} (MYR)</th>
+                <th class="text-end">{{ '::SellingPrice' | abpLocalization }}</th>
                 <th>{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end" style="width: 90px;"></th>
               </tr>
             </thead>
             <tbody>
@@ -39,9 +43,16 @@
                   <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="item.description">{{ item.description }}</td>
                   <td>{{ item.itemGroup }}</td>
                   <td>{{ item.uom }}</td>
-                  <td class="font-monospace text-end">{{ item.standardSellingPrice | number:'1.0-2' }}</td>
                   <td class="font-monospace text-end">{{ item.standardSellingPrice | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'" /></td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" [routerLink]="[item.id, 'edit']"
+                        title="Edit" aria-label="Edit">
+                        <i class="fa fa-pencil"></i>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               }
             </tbody>

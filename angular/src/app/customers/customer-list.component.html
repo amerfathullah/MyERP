@@ -32,7 +32,7 @@
         <div class="text-center py-5">
           <i class="fa fa-user fa-3x text-muted mb-3 d-block"></i>
           <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-          <p class="text-muted small mb-3">No customers yet. Click "New Customer" to add one.</p>
+          <p class="text-muted small mb-3">{{ '::NoCustomersYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" (click)="createCustomer()">
             <i class="fa fa-plus me-1"></i>{{ '::NewCustomer' | abpLocalization }}
           </button>
@@ -42,11 +42,11 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 150px;">Name</th>
-                <th style="width: 100px;">Code</th>
-                <th style="width: 140px;">TIN</th>
-                <th class="d-none d-md-table-cell" style="width: 130px;">Phone</th>
-                <th class="d-none d-lg-table-cell" style="min-width: 180px;">Email</th>
+                <th style="min-width: 150px;">{{ '::Name' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::Code' | abpLocalization }}</th>
+                <th style="width: 140px;">{{ '::TIN' | abpLocalization }}</th>
+                <th class="d-none d-md-table-cell" style="width: 130px;">{{ '::Phone' | abpLocalization }}</th>
+                <th class="d-none d-lg-table-cell" style="min-width: 180px;">{{ '::Email' | abpLocalization }}</th>
                 <th class="text-end" style="width: 90px;"></th>
               </tr>
             </thead>

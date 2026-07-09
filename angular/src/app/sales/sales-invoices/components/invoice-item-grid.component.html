@@ -11,7 +11,7 @@
       </tr>
     </thead>
     <tbody>
-      @for (row of dataSource; track $index ?? $index) {
+      @for (row of dataSource; track $index) {
         <tr>
           <td [formGroup]="row"><input class="form-control form-control-sm" formControlName="itemName" placeholder="Item name" /></td>
           <td></td>
@@ -26,4 +26,4 @@
 </div>
 
 <button class="btn btn-outline-primary btn-sm mt-3" type="button" (click)="addRow()">
-  <i class="fa fa-plus me-1"></i><i class="fa fa-plus me-1"></i>Add Item</button>
+  <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>

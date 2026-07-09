@@ -21,17 +21,17 @@
             </tr>
           </thead>
           <tbody>
-            @for (row of store.pendingApprovals(); track $index ?? $index) {
+            @for (row of store.pendingApprovals(); track $index) {
               <tr>
                 <td><span class="badge bg-primary-subtle text-primary">{{ row.documentType }}</span></td>
                 <td>Level {{ row.level }}</td>
                 <td>{{ row.requestedByUserId }}</td>
                 <td>{{ row.creationTime | date:'medium' }}</td>
                 <td>
-                  <button class="btn btn-sm btn-primary me-2" (click)="approve(row.id)">
+                  <button class="btn btn-sm btn-primary me-2" (click)="approve(row.id!)">
                   <i class="fa fa-check"></i> {{ '::Approve' | abpLocalization }}
                   </button>
-                  <button class="btn btn-sm btn-outline-danger" (click)="reject(row.id)">
+                  <button class="btn btn-sm btn-outline-danger" (click)="reject(row.id!)">
                   <i class="fa fa-times"></i> {{ '::Reject' | abpLocalization }}
                   </button>
                 </td>
