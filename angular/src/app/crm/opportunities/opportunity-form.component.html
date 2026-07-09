@@ -1,0 +1,141 @@
+<abp-page [title]="(isEditMode ? '::CRM:EditOpportunity' : '::CRM:NewOpportunity') | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-lightbulb me-2"></i>{{ '::CRM:OpportunityDetails' | abpLocalization }}
+        </h5>
+        <div class="row">
+          <div class="col-12 col-md-8 mb-3">
+            <label class="form-label">{{ '::CRM:Title' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="title"
+              [class.is-invalid]="form.get('title')?.invalid && form.get('title')?.touched" />
+            @if (form.get('title')?.errors?.['required'] && form.get('title')?.touched) {
+              <div class="invalid-feedback">Required</div>
+            }
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Type' | abpLocalization }}</label>
+            <select class="form-select" formControlName="opportunityType">
+              <option [value]="0">Sales</option>
+              <option [value]="1">Support</option>
+              <option [value]="2">Maintenance</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:Stage' | abpLocalization }}</label>
+            <select class="form-select" formControlName="salesStage">
+              <option value="Prospecting">Prospecting</option>
+              <option value="Qualification">Qualification</option>
+              <option value="Proposal">Proposal</option>
+              <option value="Negotiation">Negotiation</option>
+              <option value="Closing">Closing</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:Probability' | abpLocalization }} (%)</label>
+            <input type="number" class="form-control" formControlName="probability" min="0" max="100" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:ExpectedClosing' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="expectedClosingDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:Amount' | abpLocalization }}</label>
+            <div class="input-group">
+              <select class="form-select" formControlName="currencyCode" style="max-width: 90px;">
+                <option value="MYR">MYR</option>
+                <option value="USD">USD</option>
+                <option value="SGD">SGD</option>
+              </select>
+              <input type="number" class="form-control" formControlName="opportunityAmount" min="0" step="0.01" />
+            </div>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:Territory' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="territory" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-user me-2"></i>{{ '::CRM:Contact' | abpLocalization }}
+        </h5>
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="contactName" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Email' | abpLocalization }}</label>
+            <input type="email" class="form-control" formControlName="contactEmail" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
+            <input type="tel" class="form-control" formControlName="contactPhone" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-list me-2"></i>{{ '::CRM:Items' | abpLocalization }}
+        </h5>
+        <div class="table-responsive">
+          <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::Quantity' | abpLocalization }}</th>
+                <th style="width: 130px;">{{ '::UnitPrice' | abpLocalization }}</th>
+                <th style="width: 80px;">UOM</th>
+                <th style="width: 50px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of items.controls; track $index; let i = $index) {
+                <tr [formGroup]="$any(row)">
+                  <td><input type="text" class="form-control form-control-sm" formControlName="description" /></td>
+                  <td><input type="number" class="form-control form-control-sm" formControlName="quantity" min="0.01" step="0.01" /></td>
+                  <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" min="0" step="0.01" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" title="Remove">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="addItemRow()">
+          <i class="fa fa-plus me-1"></i>{{ '::CRM:AddItem' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
+        <textarea class="form-control" formControlName="notes" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" routerLink="/crm/opportunities">
+          <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+          <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  </form>
+</abp-page>

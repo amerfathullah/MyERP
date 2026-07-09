@@ -11,7 +11,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Purchasing;
 
-[Authorize(MyERPPermissions.Suppliers.Default)]
+[Authorize(MyERPPermissions.PurchaseOrders.Default)]
 public class PurchaseOrderAppService : ApplicationService
 {
     private readonly IRepository<PurchaseOrder, Guid> _repository;

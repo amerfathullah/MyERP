@@ -1,0 +1,89 @@
+<abp-page [title]="'::Assets:FixedAssets' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i>{{ '::Assets:NewAsset' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              (input)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::Assets:AssetNumber' | abpLocalization }}</th>
+              <th>{{ '::Assets:AssetName' | abpLocalization }}</th>
+              <th class="d-none d-md-table-cell">{{ '::Assets:Location' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Assets:PurchaseAmount' | abpLocalization }}</th>
+              <th class="text-end d-none d-lg-table-cell">{{ '::Assets:BookValue' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.entities(); track row.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="[row.id]" class="text-decoration-none fw-semibold">
+                    {{ row.assetNumber }}
+                  </a>
+                </td>
+                <td>
+                  <span class="d-inline-block text-truncate" style="max-width: 180px;" [title]="row.assetName ?? ''">
+                    {{ row.assetName }}
+                  </span>
+                </td>
+                <td class="d-none d-md-table-cell">{{ row.location ?? '—' }}</td>
+                <td class="text-end font-monospace">{{ row.purchaseAmount | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace d-none d-lg-table-cell">{{ row.valueAfterDepreciation | number:'1.2-2' }}</td>
+                <td><app-status-badge [status]="getStatusLabel(row.status ?? 0)" /></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id]" title="View">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" (click)="delete(row.id)" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+
+            @if (store.entities().length === 0 && !store.isLoading()) {
+              <tr>
+                <td colspan="7">
+                  <div class="text-center py-5">
+                    <i class="fa fa-building fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                    <button class="btn btn-primary btn-sm mt-2" routerLink="new">
+                      <i class="fa fa-plus me-1"></i>{{ '::Assets:RegisterFirstAsset' | abpLocalization }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</abp-page>

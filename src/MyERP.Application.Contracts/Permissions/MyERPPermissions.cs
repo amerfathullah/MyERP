@@ -202,4 +202,55 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";
     }
+
+    public static class Leads
+    {
+        public const string Default = GroupName + ".Leads";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Convert = Default + ".Convert";
+    }
+
+    public static class Opportunities
+    {
+        public const string Default = GroupName + ".Opportunities";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Convert = Default + ".Convert";
+    }
+
+    public static class Payroll
+    {
+        public const string Default = GroupName + ".Payroll";
+        public const string Create = Default + ".Create";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class Projects
+    {
+        public const string Default = GroupName + ".Projects";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Assets
+    {
+        public const string Default = GroupName + ".Assets";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
+    public static class Manufacturing
+    {
+        public const string Default = GroupName + ".Manufacturing";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
 }

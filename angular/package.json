@@ -8,6 +8,8 @@
     "build:prod": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
+    "test:e2e:ui": "playwright test --config=e2e/playwright.config.ts --ui",
     "lint": "ng lint",
     "symlinks:setup": "cd scripts && pwsh ./setup-symlinks.ps1",
     "symlinks:remove": "cd scripts && pwsh ./remove-symlinks.ps1"
@@ -55,6 +57,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.0.0",
     "jsdom": "^27.1.0",
+    "@playwright/test": "^1.52.0",
     "typescript": "~5.9.0",
     "vitest": "^4.0.0"
   }

@@ -58,24 +58,26 @@
               <tr>
                 <td>{{ t.transactionDate | date:'dd/MM/yyyy' }}</td>
                 <td>{{ t.description }}</td>
-                <td class="font-monospace" [class.text-success]="t.amount>
-                  0" [class.text-danger]="t.amount < 0">
+                <td class="font-monospace"
+                  [class.text-success]="(t.amount ?? 0) > 0"
+                  [class.text-danger]="(t.amount ?? 0) < 0">
                   MYR {{ t.amount | number:'1.2-2' }}
                 </td>
                 <td>{{ t.matchedDocumentRef ?? '—' }}</td>
                 <td>
                   <span class="badge" [class]="t.isReconciled ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
-                  {{ t.isReconciled ? 'Reconciled' : 'Pending' }}
+                    {{ t.isReconciled ? 'Reconciled' : 'Pending' }}
                   </span>
                 </td>
                 <td>
                   @if (!t.isReconciled) {
-                  <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id)">
-                  <i class="fa fa-check"></i><i class="fa fa-check me-1"></i>Reconcile</button>
+                    <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id!)">
+                      <i class="fa fa-check me-1"></i>Reconcile
+                    </button>
                   } @else {
-                  <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id)">
-                  <i class="fa fa-undo"></i> Undo
-                  </button>
+                    <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id!)">
+                      <i class="fa fa-undo me-1"></i>Undo
+                    </button>
                   }
                 </td>
               </tr>

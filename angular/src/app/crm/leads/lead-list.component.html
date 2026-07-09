@@ -1,0 +1,100 @@
+<abp-page [title]="'::CRM:Leads' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i>{{ '::CRM:NewLead' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              (input)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::CRM:LeadNumber' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th class="d-none d-md-table-cell">{{ '::CRM:Company' | abpLocalization }}</th>
+              <th class="d-none d-lg-table-cell">{{ '::Email' | abpLocalization }}</th>
+              <th>{{ '::CRM:Source' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (lead of store.entities(); track lead.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="[lead.id]" class="text-decoration-none fw-semibold">
+                    {{ lead.leadNumber }}
+                  </a>
+                </td>
+                <td>
+                  <span class="d-inline-block text-truncate" style="max-width: 180px;" [title]="lead.fullName">
+                    {{ lead.fullName }}
+                  </span>
+                </td>
+                <td class="d-none d-md-table-cell">
+                  <span class="d-inline-block text-truncate" style="max-width: 150px;" [title]="lead.companyName ?? ''">
+                    {{ lead.companyName ?? '—' }}
+                  </span>
+                </td>
+                <td class="d-none d-lg-table-cell">
+                  <span class="d-inline-block text-truncate" style="max-width: 180px;" [title]="lead.email ?? ''">
+                    {{ lead.email ?? '—' }}
+                  </span>
+                </td>
+                <td><span class="badge bg-light text-dark">{{ lead.source }}</span></td>
+                <td><app-status-badge [status]="lead.status?.toString() ?? 'New'" /></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[lead.id]" title="View">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" [routerLink]="[lead.id, 'edit']" title="Edit">
+                      <i class="fa fa-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" (click)="delete(lead.id)" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+
+            @if (store.entities().length === 0 && !store.isLoading()) {
+              <tr>
+                <td colspan="7">
+                  <div class="text-center py-5">
+                    <i class="fa fa-user-plus fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                    <button class="btn btn-primary btn-sm mt-2" routerLink="new">
+                      <i class="fa fa-plus me-1"></i>{{ '::CRM:CreateFirstLead' | abpLocalization }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</abp-page>

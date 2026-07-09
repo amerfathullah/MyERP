@@ -15,7 +15,7 @@ namespace MyERP.Purchasing;
 /// Implements document-to-document conversion along the purchase pipeline.
 /// Mirrors ERPNext's "Make Purchase Receipt", "Make Purchase Invoice" buttons.
 /// </summary>
-[Authorize]
+[Authorize(MyERPPermissions.PurchaseOrders.Default)]
 public class PurchaseConversionAppService : ApplicationService, IPurchaseConversionAppService
 {
     private readonly IRepository<PurchaseOrder, Guid> _purchaseOrderRepository;

@@ -21,6 +21,14 @@ using MyERP.Notification.Entities;
 using MyERP.ImportExport.Entities;
 using MyERP.Automation;
 using MyERP.Automation.Entities;
+using MyERP.CRM;
+using MyERP.CRM.Entities;
+using MyERP.Projects;
+using MyERP.Projects.Entities;
+using MyERP.Assets;
+using MyERP.Assets.Entities;
+using MyERP.Manufacturing;
+using MyERP.Manufacturing.Entities;
 using MyERP.Workflow;
 using MyERP.Notification;
 using MyERP.ImportExport;
@@ -117,6 +125,27 @@ public class MyERPDbContext :
     // Automation
     public DbSet<AutomationRule> AutomationRules { get; set; }
     public DbSet<AutomationExecutionLog> AutomationExecutionLogs { get; set; }
+
+    // CRM
+    public DbSet<Lead> Leads { get; set; }
+    public DbSet<Opportunity> Opportunities { get; set; }
+    public DbSet<OpportunityItem> OpportunityItems { get; set; }
+
+    // Projects
+    public DbSet<Project> Projects { get; set; }
+    public DbSet<ProjectTask> ProjectTasks { get; set; }
+    public DbSet<TaskDependency> TaskDependencies { get; set; }
+
+    // Assets
+    public DbSet<Asset> Assets { get; set; }
+    public DbSet<AssetCategory> AssetCategories { get; set; }
+    public DbSet<DepreciationScheduleEntry> DepreciationScheduleEntries { get; set; }
+
+    // Manufacturing
+    public DbSet<BillOfMaterials> BillOfMaterials { get; set; }
+    public DbSet<BomItem> BomItems { get; set; }
+    public DbSet<WorkOrder> WorkOrders { get; set; }
+    public DbSet<WorkOrderItem> WorkOrderItems { get; set; }
 
     #region Entities from the modules
 
@@ -846,6 +875,192 @@ public class MyERPDbContext :
             b.Property(x => x.ErrorMessage).HasMaxLength(1024);
             b.HasOne<AutomationRule>().WithMany().HasForeignKey(x => x.AutomationRuleId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.AutomationRuleId, x.CreationTime });
+        });
+
+        // CRM
+        builder.Entity<Lead>(b =>
+        {
+            b.ToTable("CRM_Leads", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LeadNumber).IsRequired().HasMaxLength(LeadConsts.MaxLeadNumberLength);
+            b.Property(x => x.FirstName).IsRequired().HasMaxLength(LeadConsts.MaxFirstNameLength);
+            b.Property(x => x.LastName).HasMaxLength(LeadConsts.MaxLastNameLength);
+            b.Property(x => x.CompanyName).HasMaxLength(LeadConsts.MaxCompanyNameLength);
+            b.Property(x => x.Email).HasMaxLength(LeadConsts.MaxEmailLength);
+            b.Property(x => x.Phone).HasMaxLength(LeadConsts.MaxPhoneLength);
+            b.Property(x => x.MobileNo).HasMaxLength(LeadConsts.MaxPhoneLength);
+            b.Property(x => x.JobTitle).HasMaxLength(LeadConsts.MaxJobTitleLength);
+            b.Property(x => x.Website).HasMaxLength(LeadConsts.MaxWebsiteLength);
+            b.Property(x => x.City).HasMaxLength(LeadConsts.MaxCityLength);
+            b.Property(x => x.State).HasMaxLength(LeadConsts.MaxStateLength);
+            b.Property(x => x.Country).HasMaxLength(LeadConsts.MaxCountryLength);
+            b.Property(x => x.Industry).HasMaxLength(LeadConsts.MaxIndustryLength);
+            b.Property(x => x.Notes).HasMaxLength(LeadConsts.MaxNoteLength);
+            b.Property(x => x.AnnualRevenue).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.LeadNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.Email });
+        });
+
+        builder.Entity<Opportunity>(b =>
+        {
+            b.ToTable("CRM_Opportunities", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.OpportunityNumber).IsRequired().HasMaxLength(OpportunityConsts.MaxOpportunityNumberLength);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(OpportunityConsts.MaxTitleLength);
+            b.Property(x => x.SalesStage).HasMaxLength(OpportunityConsts.MaxSalesStageLength);
+            b.Property(x => x.CurrencyCode).HasMaxLength(OpportunityConsts.MaxCurrencyCodeLength);
+            b.Property(x => x.LostReason).HasMaxLength(OpportunityConsts.MaxLostReasonLength);
+            b.Property(x => x.Notes).HasMaxLength(OpportunityConsts.MaxNoteLength);
+            b.Property(x => x.ContactName).HasMaxLength(200);
+            b.Property(x => x.ContactEmail).HasMaxLength(256);
+            b.Property(x => x.ContactPhone).HasMaxLength(30);
+            b.Property(x => x.Territory).HasMaxLength(100);
+            b.Property(x => x.OpportunityAmount).HasColumnType("decimal(18,2)");
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.OpportunityId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.OpportunityNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<OpportunityItem>(b =>
+        {
+            b.ToTable("CRM_OpportunityItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Uom).HasMaxLength(20);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        });
+
+        // Projects
+        builder.Entity<Project>(b =>
+        {
+            b.ToTable("Prj_Projects", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ProjectNumber).IsRequired().HasMaxLength(ProjectConsts.MaxProjectNumberLength);
+            b.Property(x => x.ProjectName).IsRequired().HasMaxLength(ProjectConsts.MaxProjectNameLength);
+            b.Property(x => x.Notes).HasMaxLength(ProjectConsts.MaxNoteLength);
+            b.Property(x => x.CostCenter).HasMaxLength(ProjectConsts.MaxCostCenterLength);
+            b.Property(x => x.EstimatedCost).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalCostingAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalBillingAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.TotalBilledAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.PercentComplete).HasColumnType("decimal(5,1)");
+            b.HasMany(x => x.Tasks).WithOne().HasForeignKey(x => x.ProjectId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.ProjectNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<ProjectTask>(b =>
+        {
+            b.ToTable("Prj_Tasks", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TaskNumber).IsRequired().HasMaxLength(ProjectTaskConsts.MaxTaskNumberLength);
+            b.Property(x => x.Subject).IsRequired().HasMaxLength(ProjectTaskConsts.MaxSubjectLength);
+            b.Property(x => x.Description).HasMaxLength(ProjectTaskConsts.MaxDescriptionLength);
+            b.Property(x => x.TaskWeight).HasColumnType("decimal(5,2)");
+            b.Property(x => x.Progress).HasColumnType("decimal(5,1)");
+            b.Property(x => x.ExpectedHours).HasColumnType("decimal(8,2)");
+            b.Property(x => x.ActualHours).HasColumnType("decimal(8,2)");
+            b.HasMany(x => x.Dependencies).WithOne().HasForeignKey(x => x.TaskId).IsRequired();
+            b.HasIndex(x => new { x.ProjectId, x.Status });
+        });
+
+        builder.Entity<TaskDependency>(b =>
+        {
+            b.ToTable("Prj_TaskDependencies", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TaskId, x.DependsOnTaskId }).IsUnique();
+        });
+
+        // Assets
+        builder.Entity<AssetCategory>(b =>
+        {
+            b.ToTable("Ast_Categories", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CategoryName).IsRequired().HasMaxLength(AssetCategoryConsts.MaxCategoryNameLength);
+            b.Property(x => x.DefaultDepreciationRate).HasColumnType("decimal(5,2)");
+            b.HasIndex(x => new { x.TenantId, x.CategoryName }).IsUnique();
+        });
+
+        builder.Entity<Asset>(b =>
+        {
+            b.ToTable("Ast_Assets", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.AssetNumber).IsRequired().HasMaxLength(AssetConsts.MaxAssetNumberLength);
+            b.Property(x => x.AssetName).IsRequired().HasMaxLength(AssetConsts.MaxAssetNameLength);
+            b.Property(x => x.Location).HasMaxLength(AssetConsts.MaxLocationLength);
+            b.Property(x => x.Notes).HasMaxLength(AssetConsts.MaxNoteLength);
+            b.Property(x => x.PurchaseAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AdditionalCost).HasColumnType("decimal(18,2)");
+            b.Property(x => x.OpeningAccumulatedDepreciation).HasColumnType("decimal(18,2)");
+            b.Property(x => x.ValueAfterDepreciation).HasColumnType("decimal(18,2)");
+            b.Property(x => x.DisposalAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.DepreciationRate).HasColumnType("decimal(5,2)");
+            b.HasMany(x => x.DepreciationSchedule).WithOne().HasForeignKey(x => x.AssetId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.AssetNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<DepreciationScheduleEntry>(b =>
+        {
+            b.ToTable("Ast_DepreciationSchedule", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DepreciationAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccumulatedDepreciation).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.AssetId, x.ScheduleDate });
+        });
+
+        // Manufacturing
+        builder.Entity<BillOfMaterials>(b =>
+        {
+            b.ToTable("Mfg_BOM", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.BomNumber).IsRequired().HasMaxLength(BomConsts.MaxBomNumberLength);
+            b.Property(x => x.Uom).HasMaxLength(20);
+            b.Property(x => x.Notes).HasMaxLength(BomConsts.MaxNoteLength);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TotalMaterialCost).HasColumnType("decimal(18,2)");
+            b.Property(x => x.OperatingCost).HasColumnType("decimal(18,2)");
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.BomId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.BomNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ItemId, x.IsDefault });
+        });
+
+        builder.Entity<BomItem>(b =>
+        {
+            b.ToTable("Mfg_BOMItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Uom).HasMaxLength(20);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Rate).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        });
+
+        builder.Entity<WorkOrder>(b =>
+        {
+            b.ToTable("Mfg_WorkOrders", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.WorkOrderNumber).IsRequired().HasMaxLength(WorkOrderConsts.MaxWorkOrderNumberLength);
+            b.Property(x => x.Notes).HasMaxLength(WorkOrderConsts.MaxNoteLength);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ProducedQuantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.MaterialTransferred).HasColumnType("decimal(18,4)");
+            b.HasMany(x => x.RequiredItems).WithOne().HasForeignKey(x => x.WorkOrderId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.WorkOrderNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<WorkOrderItem>(b =>
+        {
+            b.ToTable("Mfg_WorkOrderItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.RequiredQuantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TransferredQuantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ConsumedQuantity).HasColumnType("decimal(18,4)");
         });
     }
 }

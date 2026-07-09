@@ -1,0 +1,71 @@
+<abp-page [title]="'::Manufacturing:WorkOrders' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="card">
+    <div class="card-body">
+      <div class="mb-3">
+        <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::Manufacturing:WONumber' | abpLocalization }}</th>
+              <th>{{ '::Manufacturing:Item' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+              <th class="d-none d-md-table-cell">{{ '::Manufacturing:Progress' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.entities(); track row.id) {
+              <tr>
+                <td class="fw-semibold">{{ row.workOrderNumber }}</td>
+                <td>
+                  <span class="d-inline-block text-truncate" style="max-width: 180px;">
+                    {{ row.itemName ?? row.itemId }}
+                  </span>
+                </td>
+                <td class="text-end font-monospace">{{ row.producedQuantity ?? 0 }} / {{ row.quantity }}</td>
+                <td class="d-none d-md-table-cell">
+                  <div class="progress" style="height: 6px; width: 80px;">
+                    <div class="progress-bar" [style.width.%]="row.percentComplete ?? 0"
+                      [class.bg-success]="(row.percentComplete ?? 0) >= 100">
+                    </div>
+                  </div>
+                </td>
+                <td><app-status-badge [status]="getStatusLabel(row.status ?? 0)" /></td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-primary" [routerLink]="[row.id]" title="View">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+
+            @if (store.entities().length === 0 && !store.isLoading()) {
+              <tr>
+                <td colspan="6">
+                  <div class="text-center py-5">
+                    <i class="fa fa-industry fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</abp-page>

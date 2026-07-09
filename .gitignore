@@ -275,6 +275,16 @@ src/MyERP.DbMigrator/Logs/*
 src/MyERP.Blazor.Server/Logs/*
 src/MyERP.Blazor.Server.Tiered/Logs/*
 
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# Playwright
+e2e/.auth/
+e2e/test-results/
+e2e/playwright-report/
+
 # Use abp install-libs to restore.
 **/wwwroot/libs/*
 

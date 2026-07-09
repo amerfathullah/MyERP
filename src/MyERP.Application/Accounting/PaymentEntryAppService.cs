@@ -12,7 +12,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-[Authorize(MyERPPermissions.JournalEntries.Default)]
+[Authorize(MyERPPermissions.PaymentEntries.Default)]
 public class PaymentEntryAppService : ApplicationService
 {
     private readonly IRepository<PaymentEntry, Guid> _repository;

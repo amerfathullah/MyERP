@@ -135,6 +135,39 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         automationPermission.AddChild(MyERPPermissions.AutomationRules.Create, L("Permission:AutomationRules.Create"));
         automationPermission.AddChild(MyERPPermissions.AutomationRules.Edit, L("Permission:AutomationRules.Edit"));
         automationPermission.AddChild(MyERPPermissions.AutomationRules.Delete, L("Permission:AutomationRules.Delete"));
+
+        var leadsPermission = myGroup.AddPermission(MyERPPermissions.Leads.Default, L("Permission:Leads"));
+        leadsPermission.AddChild(MyERPPermissions.Leads.Create, L("Permission:Leads.Create"));
+        leadsPermission.AddChild(MyERPPermissions.Leads.Edit, L("Permission:Leads.Edit"));
+        leadsPermission.AddChild(MyERPPermissions.Leads.Delete, L("Permission:Leads.Delete"));
+        leadsPermission.AddChild(MyERPPermissions.Leads.Convert, L("Permission:Leads.Convert"));
+
+        var opportunitiesPermission = myGroup.AddPermission(MyERPPermissions.Opportunities.Default, L("Permission:Opportunities"));
+        opportunitiesPermission.AddChild(MyERPPermissions.Opportunities.Create, L("Permission:Opportunities.Create"));
+        opportunitiesPermission.AddChild(MyERPPermissions.Opportunities.Edit, L("Permission:Opportunities.Edit"));
+        opportunitiesPermission.AddChild(MyERPPermissions.Opportunities.Delete, L("Permission:Opportunities.Delete"));
+        opportunitiesPermission.AddChild(MyERPPermissions.Opportunities.Convert, L("Permission:Opportunities.Convert"));
+
+        var payrollPermission = myGroup.AddPermission(MyERPPermissions.Payroll.Default, L("Permission:Payroll"));
+        payrollPermission.AddChild(MyERPPermissions.Payroll.Create, L("Permission:Payroll.Create"));
+        payrollPermission.AddChild(MyERPPermissions.Payroll.Submit, L("Permission:Payroll.Submit"));
+        payrollPermission.AddChild(MyERPPermissions.Payroll.Cancel, L("Permission:Payroll.Cancel"));
+
+        var projectsPermission = myGroup.AddPermission(MyERPPermissions.Projects.Default, L("Permission:Projects"));
+        projectsPermission.AddChild(MyERPPermissions.Projects.Create, L("Permission:Projects.Create"));
+        projectsPermission.AddChild(MyERPPermissions.Projects.Edit, L("Permission:Projects.Edit"));
+        projectsPermission.AddChild(MyERPPermissions.Projects.Delete, L("Permission:Projects.Delete"));
+
+        var assetsPermission = myGroup.AddPermission(MyERPPermissions.Assets.Default, L("Permission:Assets"));
+        assetsPermission.AddChild(MyERPPermissions.Assets.Create, L("Permission:Assets.Create"));
+        assetsPermission.AddChild(MyERPPermissions.Assets.Edit, L("Permission:Assets.Edit"));
+        assetsPermission.AddChild(MyERPPermissions.Assets.Delete, L("Permission:Assets.Delete"));
+        assetsPermission.AddChild(MyERPPermissions.Assets.Submit, L("Permission:Assets.Submit"));
+
+        var mfgPermission = myGroup.AddPermission(MyERPPermissions.Manufacturing.Default, L("Permission:Manufacturing"));
+        mfgPermission.AddChild(MyERPPermissions.Manufacturing.Create, L("Permission:Manufacturing.Create"));
+        mfgPermission.AddChild(MyERPPermissions.Manufacturing.Edit, L("Permission:Manufacturing.Edit"));
+        mfgPermission.AddChild(MyERPPermissions.Manufacturing.Delete, L("Permission:Manufacturing.Delete"));
     }
 
     private static LocalizableString L(string name)

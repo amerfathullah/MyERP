@@ -18,7 +18,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.ImportExport;
 
-[Authorize]
+[Authorize(MyERPPermissions.ImportExport.Default)]
 public class ImportExportAppService : ApplicationService, IImportExportAppService
 {
     private readonly IRepository<ImportJob, Guid> _importJobRepository;

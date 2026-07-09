@@ -1,19 +1,45 @@
 <div class="table-responsive">
-    <table class="table table-hover w-100">
+  <table class="table table-hover w-100">
     <thead>
       <tr>
+        @for (col of columns; track col.field) {
+          <th [style.width]="col.width ?? 'auto'">{{ col.label }}</th>
+        }
         <th style="width: 50px;"></th>
       </tr>
     </thead>
     <tbody>
-      @for (row of dataSource; track $index ?? $index) {
-        <tr>
-          <td></td>
+      @for (row of dataSource; track $index; let i = $index) {
+        <tr [formGroup]="row">
+          @for (col of columns; track col.field) {
+            <td>
+              @switch (col.type) {
+                @case ('number') {
+                  <input type="number" class="form-control form-control-sm"
+                    [formControlName]="col.field" step="any" />
+                }
+                @case ('date') {
+                  <input type="date" class="form-control form-control-sm"
+                    [formControlName]="col.field" />
+                }
+                @default {
+                  <input type="text" class="form-control form-control-sm"
+                    [formControlName]="col.field" />
+                }
+              }
+            </td>
+          }
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRow(i)" title="Remove">
+              <i class="fa fa-trash"></i>
+            </button>
+          </td>
         </tr>
       }
     </tbody>
   </table>
 </div>
 
-<button class="btn btn-outline-primary btn-sm mt-3" type="button" (click)="addRow()">
-  <i class="fa fa-plus me-1"></i><i class="fa fa-plus me-1"></i>Add Row</button>
+<button class="btn btn-outline-primary btn-sm mt-2" type="button" (click)="addRow()">
+  <i class="fa fa-plus me-1"></i>Add Row
+</button>

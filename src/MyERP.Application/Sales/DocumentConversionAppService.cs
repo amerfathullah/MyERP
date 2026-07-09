@@ -15,7 +15,7 @@ namespace MyERP.Sales;
 /// Implements document-to-document conversion along the sales pipeline.
 /// Mirrors ERPNext's "Make Sales Order", "Make Delivery Note", "Make Invoice" buttons.
 /// </summary>
-[Authorize]
+[Authorize(MyERPPermissions.SalesOrders.Default)]
 public class DocumentConversionAppService : ApplicationService, IDocumentConversionAppService
 {
     private readonly IRepository<Quotation, Guid> _quotationRepository;

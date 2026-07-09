@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.HumanResources;
 
-[Authorize(MyERPPermissions.Employees.Default)]
+[Authorize(MyERPPermissions.Payroll.Default)]
 public class PayrollAppService : ApplicationService, IPayrollAppService
 {
     private readonly IRepository<PayrollEntry, Guid> _repository;
@@ -47,7 +47,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         return new PagedResultDto<PayrollEntryDto>(totalCount, entries.Select(MapToDto).ToList());
     }
 
-    [Authorize(MyERPPermissions.Employees.Create)]
+    [Authorize(MyERPPermissions.Payroll.Create)]
     public async Task<PayrollEntryDto> CreateAsync(CreatePayrollEntryDto input)
     {
         var payrollNumber = await _numberGenerator.GenerateAsync("Payroll", input.CompanyId);
@@ -90,7 +90,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         return MapToDto(entry);
     }
 
-    [Authorize(MyERPPermissions.Employees.Create)]
+    [Authorize(MyERPPermissions.Payroll.Submit)]
     public async Task<PayrollEntryDto> SubmitAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
@@ -99,7 +99,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         return MapToDto(entry);
     }
 
-    [Authorize(MyERPPermissions.Employees.Create)]
+    [Authorize(MyERPPermissions.Payroll.Cancel)]
     public async Task<PayrollEntryDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);

@@ -1,0 +1,57 @@
+# =============================================================================
+# MyERP — Self-Hosted with HTTPS (Traefik + Let's Encrypt)
+# =============================================================================
+# Usage:
+#   1. Set DOMAIN, ACME_EMAIL in .env
+#   2. docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+# =============================================================================
+
+services:
+  traefik:
+    image: traefik:v3
+    container_name: myerp-proxy
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=myerp-network"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - myerp_letsencrypt:/letsencrypt
+    networks:
+      - myerp-network
+
+  api:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.api.tls.certresolver=le"
+      - "traefik.http.services.api.loadbalancer.server.port=5000"
+    environment:
+      App__SelfUrl: "https://api.${DOMAIN}"
+      App__CorsOrigins: "https://${DOMAIN}"
+      AuthServer__Authority: "https://api.${DOMAIN}"
+      AuthServer__RequireHttpsMetadata: "true"
+
+  web:
+    ports: []  # Remove direct port mapping; Traefik handles it
+    environment:
+      API_URL: "https://api.${DOMAIN}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.web.tls.certresolver=le"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+
+volumes:
+  myerp_letsencrypt:
+    driver: local

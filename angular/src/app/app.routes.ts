@@ -413,4 +413,110 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./tax/tax-categories/tax-categories.component').then(c => c.TaxCategoriesComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
+  // CRM
+  {
+    path: 'crm/leads',
+    loadComponent: () => import('./crm/leads/lead-list.component').then(c => c.LeadListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/leads/new',
+    loadComponent: () => import('./crm/leads/lead-form.component').then(c => c.LeadFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Create' },
+  },
+  {
+    path: 'crm/leads/:id/edit',
+    loadComponent: () => import('./crm/leads/lead-form.component').then(c => c.LeadFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Edit' },
+  },
+  {
+    path: 'crm/leads/:id',
+    loadComponent: () => import('./crm/leads/lead-detail.component').then(c => c.LeadDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/opportunities',
+    loadComponent: () => import('./crm/opportunities/opportunity-list.component').then(c => c.OpportunityListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/opportunities/new',
+    loadComponent: () => import('./crm/opportunities/opportunity-form.component').then(c => c.OpportunityFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities.Create' },
+  },
+  {
+    path: 'crm/opportunities/:id',
+    loadComponent: () => import('./crm/opportunities/opportunity-list.component').then(c => c.OpportunityListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/opportunities/:id/edit',
+    loadComponent: () => import('./crm/opportunities/opportunity-form.component').then(c => c.OpportunityFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities.Edit' },
+  },
+  // Projects
+  {
+    path: 'projects',
+    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/new',
+    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Create' },
+  },
+  {
+    path: 'projects/:id',
+    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/:id/edit',
+    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Edit' },
+  },
+  // Assets
+  {
+    path: 'assets',
+    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  {
+    path: 'assets/new',
+    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets.Create' },
+  },
+  {
+    path: 'assets/:id',
+    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  // Manufacturing
+  {
+    path: 'manufacturing/work-orders',
+    loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/work-orders/:id',
+    loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
   }];

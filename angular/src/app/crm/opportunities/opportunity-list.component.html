@@ -1,0 +1,111 @@
+<abp-page [title]="'::CRM:Opportunities' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i>{{ '::CRM:NewOpportunity' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-primary mb-0">{{ store.totalCount() }}</p>
+          <small class="text-muted">{{ '::CRM:TotalOpportunities' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-success mb-0 font-monospace">{{ store.totalPipelineValue() | number:'1.0-0' }}</p>
+          <small class="text-muted">{{ '::CRM:PipelineValue' | abpLocalization }} (MYR)</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              (input)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::CRM:OpportunityNumber' | abpLocalization }}</th>
+              <th>{{ '::CRM:Title' | abpLocalization }}</th>
+              <th class="d-none d-md-table-cell">{{ '::CRM:Contact' | abpLocalization }}</th>
+              <th>{{ '::CRM:Stage' | abpLocalization }}</th>
+              <th class="text-end">{{ '::CRM:Amount' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (opp of store.entities(); track opp.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="[opp.id]" class="text-decoration-none fw-semibold">
+                    {{ opp.opportunityNumber }}
+                  </a>
+                </td>
+                <td>
+                  <span class="d-inline-block text-truncate" style="max-width: 200px;" [title]="opp.title">
+                    {{ opp.title }}
+                  </span>
+                </td>
+                <td class="d-none d-md-table-cell">{{ opp.contactName ?? '—' }}</td>
+                <td><span class="badge bg-info-subtle text-info">{{ opp.salesStage ?? '—' }}</span></td>
+                <td class="text-end font-monospace">{{ opp.opportunityAmount | number:'1.2-2' }}</td>
+                <td><app-status-badge [status]="opp.status?.toString() ?? 'Open'" /></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[opp.id]" title="View">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" [routerLink]="[opp.id, 'edit']" title="Edit">
+                      <i class="fa fa-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" (click)="delete(opp.id)" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+
+            @if (store.entities().length === 0 && !store.isLoading()) {
+              <tr>
+                <td colspan="7">
+                  <div class="text-center py-5">
+                    <i class="fa fa-handshake fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                    <button class="btn btn-primary btn-sm mt-2" routerLink="new">
+                      <i class="fa fa-plus me-1"></i>{{ '::CRM:CreateFirstOpportunity' | abpLocalization }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</abp-page>

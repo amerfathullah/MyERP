@@ -1,0 +1,98 @@
+<abp-page [title]="'::Projects:Projects' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="new">
+      <i class="fa fa-plus me-1"></i>{{ '::Projects:NewProject' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  <div class="card">
+    <div class="card-body">
+      <div class="row mb-3 align-items-center">
+        <div class="col">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              (input)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover w-100">
+          <thead>
+            <tr>
+              <th>{{ '::Projects:ProjectNumber' | abpLocalization }}</th>
+              <th>{{ '::Projects:ProjectName' | abpLocalization }}</th>
+              <th class="d-none d-md-table-cell">{{ '::Projects:Progress' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="d-none d-lg-table-cell">{{ '::Projects:Tasks' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.entities(); track row.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="[row.id]" class="text-decoration-none fw-semibold">
+                    {{ row.projectNumber }}
+                  </a>
+                </td>
+                <td>
+                  <span class="d-inline-block text-truncate" style="max-width: 200px;" [title]="row.projectName ?? ''">
+                    {{ row.projectName }}
+                  </span>
+                </td>
+                <td class="d-none d-md-table-cell">
+                  <div class="progress" style="height: 6px; width: 100px;">
+                    <div class="progress-bar" [style.width.%]="row.percentComplete ?? 0"
+                      [class.bg-success]="(row.percentComplete ?? 0) >= 100"
+                      [class.bg-primary]="(row.percentComplete ?? 0) < 100">
+                    </div>
+                  </div>
+                  <small class="text-muted">{{ row.percentComplete ?? 0 }}%</small>
+                </td>
+                <td><app-status-badge [status]="getStatusLabel(row.status ?? 0)" /></td>
+                <td class="d-none d-lg-table-cell">{{ row.taskCount ?? 0 }}</td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id]" title="View">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id, 'edit']" title="Edit">
+                      <i class="fa fa-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" (click)="delete(row.id)" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+
+            @if (store.entities().length === 0 && !store.isLoading()) {
+              <tr>
+                <td colspan="6">
+                  <div class="text-center py-5">
+                    <i class="fa fa-project-diagram fa-3x text-muted mb-3 d-block"></i>
+                    <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+                    <button class="btn btn-primary btn-sm mt-2" routerLink="new">
+                      <i class="fa fa-plus me-1"></i>{{ '::Projects:CreateFirstProject' | abpLocalization }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</abp-page>

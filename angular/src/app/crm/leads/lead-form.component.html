@@ -1,0 +1,112 @@
+<abp-page [title]="(isEditMode ? '::CRM:EditLead' : '::CRM:NewLead') | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-user me-2"></i>{{ '::CRM:ContactInfo' | abpLocalization }}
+        </h5>
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::FirstName' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="firstName"
+              [class.is-invalid]="form.get('firstName')?.invalid && form.get('firstName')?.touched" />
+            @if (form.get('firstName')?.errors?.['required'] && form.get('firstName')?.touched) {
+              <div class="invalid-feedback">Required</div>
+            }
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::LastName' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="lastName" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:Company' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="companyName" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:JobTitle' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="jobTitle" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Email' | abpLocalization }}</label>
+            <input type="email" class="form-control" formControlName="email"
+              [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
+            <input type="tel" class="form-control" formControlName="phone" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:MobileNo' | abpLocalization }}</label>
+            <input type="tel" class="form-control" formControlName="mobileNo" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:Website' | abpLocalization }}</label>
+            <input type="url" class="form-control" formControlName="website" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-info-circle me-2"></i>{{ '::CRM:LeadDetails' | abpLocalization }}
+        </h5>
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:Source' | abpLocalization }}</label>
+            <select class="form-select" formControlName="source">
+              <option [value]="0">Website</option>
+              <option [value]="1">Referral</option>
+              <option [value]="2">Campaign</option>
+              <option [value]="3">Cold Call</option>
+              <option [value]="4">Advertisement</option>
+              <option [value]="5">Social Media</option>
+              <option [value]="6">Trade Show</option>
+              <option [value]="7">Partner</option>
+              <option [value]="8">Other</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:Industry' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="industry" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:City' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="city" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:State' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="state" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::CRM:Country' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="country" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::CRM:AnnualRevenue' | abpLocalization }}</label>
+            <div class="input-group">
+              <span class="input-group-text">MYR</span>
+              <input type="number" class="form-control" formControlName="annualRevenue" />
+            </div>
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="notes" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" routerLink="/crm/leads">
+          <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+          <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  </form>
+</abp-page>
