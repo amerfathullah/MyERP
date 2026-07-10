@@ -1,0 +1,63 @@
+<abp-page [title]="'::Assets:NewAsset' | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }} <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Name' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="assetName"
+              [class.is-invalid]="form.get('assetName')?.invalid && form.get('assetName')?.touched" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Location' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="location" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Assets:PurchaseDate' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" formControlName="purchaseDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Assets:PurchaseAmount' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" formControlName="purchaseAmount" min="0" step="0.01" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::AdditionalCost' | abpLocalization }}</label>
+            <input type="number" class="form-control" formControlName="additionalCost" min="0" step="0.01" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::UsefulLife' | abpLocalization }}</label>
+            <div class="input-group">
+              <input type="number" class="form-control" formControlName="usefulLifeMonths" min="1" />
+              <span class="input-group-text">months</span>
+            </div>
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="notes" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+          <i class="fa fa-times me-1"></i> {{ '::Cancel' | abpLocalization }}
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+          <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  </form>
+</abp-page>

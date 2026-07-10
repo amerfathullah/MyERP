@@ -57,11 +57,6 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Customers.Edit' },
   },
   {
-    path: 'invoices',
-    loadComponent: () => import('./invoices/invoice-list.component').then(c => c.InvoiceListComponent),
-    canActivate: [authGuard, permissionGuard],
-  },
-  {
     path: 'sales/invoices',
     loadComponent: () => import('./sales/sales-invoices/sales-invoice-list.component').then(c => c.SalesInvoiceListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -496,21 +491,9 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'projects/new',
-    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
+    loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Projects.Create' },
-  },
-  {
-    path: 'projects/:id',
-    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Projects' },
-  },
-  {
-    path: 'projects/:id/edit',
-    loadComponent: () => import('./projects/project-list/project-list.component').then(c => c.ProjectListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Projects.Edit' },
   },
   // Assets
   {
@@ -521,15 +504,9 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'assets/new',
-    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
+    loadComponent: () => import('./assets/asset-form/asset-form.component').then(c => c.AssetFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Assets.Create' },
-  },
-  {
-    path: 'assets/:id',
-    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
   },
   // Manufacturing
   {

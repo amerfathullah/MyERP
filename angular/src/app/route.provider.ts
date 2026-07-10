@@ -31,14 +31,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
-        path: '/invoices',
-        name: 'Sales Invoices',
-        iconClass: 'fas fa-file-invoice',
-        order: 4,
-        layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.SalesInvoices',
-      },
-      {
         path: '/sales',
         name: '::Menu:Sales',
         iconClass: 'fas fa-shopping-cart',

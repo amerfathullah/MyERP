@@ -1,6 +1,6 @@
 <abp-page [title]="'::Projects:Projects' | abpLocalization">
   <div class="d-flex justify-content-end gap-2 mb-3">
-    <button class="btn btn-primary btn-sm" routerLink="new">
+    <button class="btn btn-primary btn-sm" routerLink="/projects/new">
       <i class="fa fa-plus me-1"></i>{{ '::Projects:NewProject' | abpLocalization }}
     </button>
   </div>
@@ -84,7 +84,7 @@
                     <i class="fa fa-project-diagram fa-3x text-muted mb-3 d-block"></i>
                     <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
                     <p class="text-muted small mb-3">{{ '::NoProjectsYet' | abpLocalization }}</p>
-                    <button class="btn btn-primary btn-sm mt-2" routerLink="new">
+                    <button class="btn btn-primary btn-sm mt-2" routerLink="/projects/new">
                       <i class="fa fa-plus me-1"></i>{{ '::Projects:CreateFirstProject' | abpLocalization }}
                     </button>
                   </div>
