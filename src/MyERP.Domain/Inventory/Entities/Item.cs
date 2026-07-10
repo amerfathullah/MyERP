@@ -41,6 +41,9 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Track stock for this item (false for services).</summary>
     public bool MaintainStock { get; set; } = true;
 
+    /// <summary>Allow negative stock for this specific item (overrides global setting).</summary>
+    public bool AllowNegativeStock { get; set; }
+
     /// <summary>Default income account for sales.</summary>
     public Guid? DefaultIncomeAccountId { get; set; }
 

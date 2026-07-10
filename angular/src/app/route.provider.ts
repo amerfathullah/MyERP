@@ -167,6 +167,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseReceipts',
       },
       {
+        path: '/purchasing/material-requests',
+        name: '::Menu:MaterialRequests',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-clipboard-list',
+        order: 4,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.MaterialRequests',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

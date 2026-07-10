@@ -189,3 +189,60 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   defaultPayableAccountId?: string | null;
   isActive?: boolean;
 }
+
+// Material Request
+export interface MaterialRequestDto {
+  id?: string;
+  requestNumber?: string;
+  requestType?: number;
+  status?: number;
+  requestDate?: string;
+  requiredByDate?: string | null;
+  companyId?: string;
+  workOrderId?: string | null;
+  sourceWarehouseId?: string | null;
+  targetWarehouseId?: string | null;
+  notes?: string | null;
+  creationTime?: string;
+  items?: MaterialRequestItemDto[];
+}
+
+export interface MaterialRequestItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  quantity?: number;
+  orderedQuantity?: number;
+  receivedQuantity?: number;
+  uom?: string;
+  warehouseId?: string | null;
+}
+
+export interface CreateMaterialRequestDto {
+  companyId: string;
+  requestType: number;
+  requestDate: string;
+  requiredByDate?: string | null;
+  workOrderId?: string | null;
+  sourceWarehouseId?: string | null;
+  targetWarehouseId?: string | null;
+  notes?: string | null;
+  items: CreateMaterialRequestItemDto[];
+}
+
+export interface CreateMaterialRequestItemDto {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  uom?: string;
+  warehouseId?: string | null;
+}
+
+export interface GetMaterialRequestListDto {
+  requestType?: number | null;
+  companyId?: string | null;
+  filter?: string | null;
+  skipCount?: number;
+  maxResultCount?: number;
+  sorting?: string;
+}

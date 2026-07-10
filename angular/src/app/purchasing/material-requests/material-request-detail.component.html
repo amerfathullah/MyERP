@@ -1,0 +1,94 @@
+<abp-page [title]="entity?.requestNumber ?? ''">
+  @if (!entity) {
+    <app-loading-overlay />
+  } @else {
+    <!-- Status + Actions bar -->
+    <div class="card mb-3">
+      <div class="card-body py-2 d-flex align-items-center justify-content-between">
+        <app-status-badge [status]="getStatusLabel(entity.status)" />
+        <div class="d-flex gap-2">
+          @if (entity.status === 0) {
+            <button class="btn btn-primary btn-sm" (click)="submit()">
+              <i class="fa fa-paper-plane me-1"></i> {{ '::Submit' | abpLocalization }}
+            </button>
+          }
+          @if (entity.status === 1) {
+            <button class="btn btn-outline-danger btn-sm" (click)="cancel()">
+              <i class="fa fa-ban me-1"></i> {{ '::Cancel' | abpLocalization }}
+            </button>
+          }
+          <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
+            <i class="fa fa-arrow-left me-1"></i> {{ '::Back' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header fields -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::RequestNumber' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ entity.requestNumber }}</span>
+          </div>
+          <div class="col-12 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::RequestType' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ getTypeLabel(entity.requestType) }}</span>
+          </div>
+          <div class="col-12 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::RequestDate' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ entity.requestDate | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="col-12 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::RequiredByDate' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ entity.requiredByDate ? (entity.requiredByDate | date:'dd/MM/yyyy') : '—' }}</span>
+          </div>
+        </div>
+        @if (entity.notes) {
+          <div class="mt-2">
+            <small class="text-muted d-block">{{ '::Notes' | abpLocalization }}</small>
+            <span>{{ entity.notes }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Items table -->
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">
+          <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
+        </h5>
+        <div class="table-responsive">
+          <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::ItemName' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                <th>{{ '::UOM' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Ordered' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Received' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of entity.items; track item.id ?? $index) {
+                <tr>
+                  <td>
+                    <span class="d-inline-block text-truncate" style="max-width: 200px;" [title]="item.itemName">
+                      {{ item.itemName }}
+                    </span>
+                  </td>
+                  <td class="text-end font-monospace">{{ item.quantity | number:'1.2-2' }}</td>
+                  <td>{{ item.uom }}</td>
+                  <td class="text-end font-monospace">{{ (item.orderedQuantity ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.receivedQuantity ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

@@ -32,4 +32,12 @@ public static class MyERPDomainErrorCodes
     // Document Conversion
     public const string DocumentMustBeSubmittedForConversion = "MyERP:07001";
     public const string DocumentAlreadyConverted = "MyERP:07002";
+
+    // Manufacturing
+    public const string PlannedEndDateBeforeStartDate = "MyERP:10001";
+    public const string ActualEndDateBeforeStartDate = "MyERP:10002";
+    public const string MaterialRequestAlreadyExists = "MyERP:10003";
+
+    // Inventory
+    public const string InsufficientStock = "MyERP:05002";
 }

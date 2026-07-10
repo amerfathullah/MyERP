@@ -139,6 +139,36 @@ public class WorkOrderTests
         wo.Status.ShouldBe(WorkOrderStatus.NotStarted);
     }
 
+    [Fact]
+    public void SetPlannedDates_ValidDates_ShouldSucceed()
+    {
+        var wo = CreateWorkOrder();
+
+        wo.SetPlannedDates(new DateTime(2026, 7, 1), new DateTime(2026, 7, 31));
+
+        wo.PlannedStartDate.ShouldBe(new DateTime(2026, 7, 1));
+        wo.PlannedEndDate.ShouldBe(new DateTime(2026, 7, 31));
+    }
+
+    [Fact]
+    public void SetPlannedDates_EndBeforeStart_ShouldThrow()
+    {
+        var wo = CreateWorkOrder();
+
+        Assert.Throws<BusinessException>(() =>
+            wo.SetPlannedDates(new DateTime(2026, 7, 31), new DateTime(2026, 7, 1)));
+    }
+
+    [Fact]
+    public void Submit_WithInvalidDates_ShouldThrow()
+    {
+        var wo = CreateWorkOrder();
+        wo.PlannedStartDate = new DateTime(2026, 7, 31);
+        wo.PlannedEndDate = new DateTime(2026, 7, 1);
+
+        Assert.Throws<BusinessException>(() => wo.Submit());
+    }
+
     private static WorkOrder CreateWorkOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "WO-0001", Guid.NewGuid(), Guid.NewGuid(), 10, Guid.NewGuid());
 }

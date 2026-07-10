@@ -1,0 +1,85 @@
+<abp-page [title]="'::NewMaterialRequest' | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="card">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }} <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::RequestType' | abpLocalization }} <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="requestType">
+              <option [value]="0">{{ '::Purchase' | abpLocalization }}</option>
+              <option [value]="1">{{ '::MaterialTransfer' | abpLocalization }}</option>
+              <option [value]="2">{{ '::MaterialIssue' | abpLocalization }}</option>
+              <option [value]="3">{{ '::Manufacture' | abpLocalization }}</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::RequestDate' | abpLocalization }} <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" formControlName="requestDate" />
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::RequiredByDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="requiredByDate" />
+          </div>
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
+            <textarea class="form-control" formControlName="notes" rows="2"></textarea>
+          </div>
+        </div>
+
+        <h5 class="card-title mt-3">
+          <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
+        </h5>
+        <div class="table-responsive">
+          <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::ItemName' | abpLocalization }}</th>
+                <th style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::UOM' | abpLocalization }}</th>
+                <th style="width: 60px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of items.controls; track $index; let i = $index) {
+                <tr [formGroup]="$any(row)">
+                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName" /></td>
+                  <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItemRow(i)" aria-label="Remove">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm mt-2" (click)="addItemRow()">
+          <i class="fa fa-plus me-1"></i> {{ '::AddItem' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+          <i class="fa fa-times me-1"></i> {{ '::Cancel' | abpLocalization }}
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+          <i class="fa fa-save me-1"></i> {{ '::Save' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  </form>
+</abp-page>

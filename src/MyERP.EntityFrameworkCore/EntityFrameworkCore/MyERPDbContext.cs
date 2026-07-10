@@ -92,6 +92,8 @@ public class MyERPDbContext :
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems { get; set; }
     public DbSet<PurchaseReceipt> PurchaseReceipts { get; set; }
     public DbSet<PurchaseReceiptItem> PurchaseReceiptItems { get; set; }
+    public DbSet<MaterialRequest> MaterialRequests { get; set; }
+    public DbSet<MaterialRequestItem> MaterialRequestItems { get; set; }
 
     // Inventory
     public DbSet<Item> Items { get; set; }
@@ -636,6 +638,30 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+        });
+
+        // Material Requests
+        builder.Entity<MaterialRequest>(b =>
+        {
+            b.ToTable("Pur_MaterialRequests", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.RequestNumber).IsRequired().HasMaxLength(MaterialRequestConsts.MaxRequestNumberLength);
+            b.Property(x => x.Notes).HasMaxLength(MaterialRequestConsts.MaxNotesLength);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.MaterialRequestId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.RequestNumber }).IsUnique();
+        });
+
+        builder.Entity<MaterialRequestItem>(b =>
+        {
+            b.ToTable("Pur_MaterialRequestItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Uom).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.OrderedQuantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ReceivedQuantity).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 

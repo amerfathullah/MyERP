@@ -549,4 +549,24 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
-  }];
+  },
+  // Material Requests
+  {
+    path: 'purchasing/material-requests',
+    loadComponent: () => import('./purchasing/material-requests/material-request-list.component').then(c => c.MaterialRequestListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MaterialRequests' },
+  },
+  {
+    path: 'purchasing/material-requests/new',
+    loadComponent: () => import('./purchasing/material-requests/material-request-form.component').then(c => c.MaterialRequestFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MaterialRequests.Create' },
+  },
+  {
+    path: 'purchasing/material-requests/:id',
+    loadComponent: () => import('./purchasing/material-requests/material-request-detail.component').then(c => c.MaterialRequestDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MaterialRequests' },
+  },
+];

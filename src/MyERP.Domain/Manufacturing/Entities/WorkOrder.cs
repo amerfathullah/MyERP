@@ -51,10 +51,27 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    public void SetPlannedDates(DateTime? startDate, DateTime? endDate)
+    {
+        if (startDate.HasValue && endDate.HasValue && endDate.Value < startDate.Value)
+            throw new BusinessException(MyERPDomainErrorCodes.PlannedEndDateBeforeStartDate);
+        PlannedStartDate = startDate;
+        PlannedEndDate = endDate;
+    }
+
+    public void ValidateDates()
+    {
+        if (PlannedStartDate.HasValue && PlannedEndDate.HasValue && PlannedEndDate.Value < PlannedStartDate.Value)
+            throw new BusinessException(MyERPDomainErrorCodes.PlannedEndDateBeforeStartDate);
+        if (ActualStartDate.HasValue && ActualEndDate.HasValue && ActualEndDate.Value < ActualStartDate.Value)
+            throw new BusinessException(MyERPDomainErrorCodes.ActualEndDateBeforeStartDate);
+    }
+
     public void Submit()
     {
         if (Status != WorkOrderStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ValidateDates();
         Status = WorkOrderStatus.Submitted;
     }
 

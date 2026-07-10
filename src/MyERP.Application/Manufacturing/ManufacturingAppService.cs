@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
+using MyERP.Purchasing;
+using MyERP.Purchasing.DTOs;
+using MyERP.Purchasing.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -18,15 +21,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 {
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
     private readonly IRepository<WorkOrder, Guid> _workOrderRepository;
+    private readonly IRepository<MaterialRequest, Guid> _materialRequestRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public ManufacturingAppService(
         IRepository<BillOfMaterials, Guid> bomRepository,
         IRepository<WorkOrder, Guid> workOrderRepository,
+        IRepository<MaterialRequest, Guid> materialRequestRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _bomRepository = bomRepository;
         _workOrderRepository = workOrderRepository;
+        _materialRequestRepository = materialRequestRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -115,10 +121,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             SourceWarehouseId = input.SourceWarehouseId,
             WipWarehouseId = input.WipWarehouseId,
             FgWarehouseId = input.FgWarehouseId,
-            PlannedStartDate = input.PlannedStartDate,
-            PlannedEndDate = input.PlannedEndDate,
             Notes = input.Notes,
         };
+        wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);
 
         // Populate required items from BOM
         var bom = await _bomRepository.GetAsync(input.BomId, includeDetails: true);
@@ -183,6 +188,62 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
         return MapWoToDto(wo);
+    }
+
+    /// <summary>
+    /// Creates a Material Request for raw materials not yet transferred to the work order.
+    /// Maps to ERPNext's "Create Material Request" button on Work Order.
+    /// </summary>
+    [Authorize(MyERPPermissions.MaterialRequests.Create)]
+    public async Task<MaterialRequestDto> CreateMaterialRequestFromWorkOrderAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+
+        if (wo.Status is not (WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted or WorkOrderStatus.InProcess))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Only include items with outstanding quantity
+        var pendingItems = wo.RequiredItems
+            .Where(i => i.RequiredQuantity - i.TransferredQuantity > 0)
+            .ToList();
+
+        if (!pendingItems.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.MaterialRequestAlreadyExists);
+
+        var number = await _numberGenerator.GenerateAsync("MR", wo.CompanyId);
+        var mr = new MaterialRequest(
+            GuidGenerator.Create(), wo.CompanyId, number,
+            MaterialRequestType.MaterialTransfer, DateTime.UtcNow, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            SourceWarehouseId = wo.SourceWarehouseId,
+            TargetWarehouseId = wo.WipWarehouseId,
+        };
+
+        foreach (var item in pendingItems)
+        {
+            var pendingQty = item.RequiredQuantity - item.TransferredQuantity;
+            mr.AddItem(item.ItemId, item.ItemName, pendingQty, "Unit", item.SourceWarehouseId);
+        }
+
+        await _materialRequestRepository.InsertAsync(mr);
+
+        return new MaterialRequestDto
+        {
+            Id = mr.Id,
+            RequestNumber = mr.RequestNumber,
+            RequestType = mr.RequestType,
+            Status = mr.Status,
+            RequestDate = mr.RequestDate,
+            CompanyId = mr.CompanyId,
+            WorkOrderId = mr.WorkOrderId,
+            CreationTime = mr.CreationTime,
+            Items = mr.Items.Select(i => new MaterialRequestItemDto
+            {
+                Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
+                Quantity = i.Quantity, Uom = i.Uom, WarehouseId = i.WarehouseId,
+            }).ToList(),
+        };
     }
 
     private static BomDto MapBomToDto(BillOfMaterials b) => new()

@@ -15,11 +15,16 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public Guid SupplierId { get; set; }
     public string? SupplierTin { get; set; }
     public string CurrencyCode { get; set; } = null!;
+    public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
     public decimal OutstandingAmount { get; set; }
+    public decimal BaseNetTotal { get; set; }
+    public decimal BaseTaxAmount { get; set; }
+    public decimal BaseGrandTotal { get; set; }
+    public decimal BaseOutstandingAmount { get; set; }
     public string Status { get; set; } = null!;
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }

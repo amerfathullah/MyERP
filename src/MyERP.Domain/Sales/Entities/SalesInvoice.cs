@@ -35,11 +35,18 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     // Amounts
     public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
     public decimal OutstandingAmount => GrandTotal - AmountPaid;
+
+    // Base (company) currency amounts
+    public decimal BaseNetTotal { get; set; }
+    public decimal BaseTaxAmount { get; set; }
+    public decimal BaseGrandTotal { get; set; }
+    public decimal BaseOutstandingAmount => BaseGrandTotal - (AmountPaid * ExchangeRate);
 
     // Workflow
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
@@ -122,6 +129,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         NetTotal = _items.Sum(i => i.LineTotal);
         TaxAmount = _items.Sum(i => i.TaxAmount);
         GrandTotal = NetTotal + TaxAmount;
+        BaseNetTotal = NetTotal * ExchangeRate;
+        BaseTaxAmount = TaxAmount * ExchangeRate;
+        BaseGrandTotal = GrandTotal * ExchangeRate;
     }
 }
 

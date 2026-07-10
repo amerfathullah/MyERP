@@ -123,7 +123,21 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         for (int i = 0; i < periods; i++)
         {
             var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
-            var amount = CalculateDepreciationAmount(depreciableAmount, bookValue, periods, i);
+            decimal amount;
+
+            if (i == periods - 1)
+            {
+                // Final period absorbs rounding difference so book value reaches zero exactly
+                amount = Math.Max(bookValue, 0);
+            }
+            else
+            {
+                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, periods, i);
+                amount = Math.Min(amount, bookValue); // never exceed remaining book value
+            }
+
+            if (amount <= 0) break;
+
             accumulated += amount;
             bookValue -= amount;
 

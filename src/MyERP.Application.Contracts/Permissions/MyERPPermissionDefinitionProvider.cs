@@ -173,6 +173,13 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         mfgPermission.AddChild(MyERPPermissions.Manufacturing.Create, L("Permission:Manufacturing.Create"));
         mfgPermission.AddChild(MyERPPermissions.Manufacturing.Edit, L("Permission:Manufacturing.Edit"));
         mfgPermission.AddChild(MyERPPermissions.Manufacturing.Delete, L("Permission:Manufacturing.Delete"));
+
+        var materialRequestsPermission = myGroup.AddPermission(MyERPPermissions.MaterialRequests.Default, L("Permission:MaterialRequests"));
+        materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Create, L("Permission:MaterialRequests.Create"));
+        materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Edit, L("Permission:MaterialRequests.Edit"));
+        materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Delete, L("Permission:MaterialRequests.Delete"));
+        materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Submit, L("Permission:MaterialRequests.Submit"));
+        materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Cancel, L("Permission:MaterialRequests.Cancel"));
     }
 
     private static LocalizableString L(string name)

@@ -1,0 +1,69 @@
+<abp-page [title]="'::MaterialRequests' | abpLocalization">
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  } @else if (store.entities().length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-clipboard-list fa-3x text-muted mb-3 d-block"></i>
+      <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+      <p class="text-muted small mb-3">{{ '::NoMaterialRequestsYet' | abpLocalization }}</p>
+      <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
+        <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
+      </button>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+          <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
+            <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover w-100">
+            <thead>
+              <tr>
+                <th>{{ '::RequestNumber' | abpLocalization }}</th>
+                <th>{{ '::RequestType' | abpLocalization }}</th>
+                <th>{{ '::RequestDate' | abpLocalization }}</th>
+                <th>{{ '::RequiredByDate' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of store.entities(); track row.id ?? $index) {
+                <tr>
+                  <td>
+                    <span class="d-inline-block text-truncate" style="max-width: 180px;" [title]="row.requestNumber">
+                      {{ row.requestNumber }}
+                    </span>
+                  </td>
+                  <td>{{ getTypeLabel(row.requestType!) }}</td>
+                  <td>{{ row.requestDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ row.requiredByDate ? (row.requiredByDate | date:'dd/MM/yyyy') : '—' }}</td>
+                  <td><app-status-badge [status]="getStatusLabel(row.status!)" /></td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" [routerLink]="['/purchasing/material-requests', row.id]"
+                        aria-label="View" title="View">
+                        <i class="fa fa-eye"></i>
+                      </button>
+                      @if (row.status === 0) {
+                        <button class="btn btn-outline-danger" (click)="delete(row.id!)"
+                          aria-label="Delete" title="Delete">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>
