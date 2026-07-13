@@ -72,6 +72,39 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Adds a line with party reference. Validates account type compatibility.
+    /// Per DO-NOT: "Allow party on non-Receivable/Payable/Equity accounts in GL entries"
+    /// </summary>
+    public void AddLineWithParty(Guid accountId, decimal amount, bool isDebit,
+        Guid partyId, string partyType, AccountSubType? accountSubType, string? description = null)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        // Validate: party can only be set on Receivable, Payable, or Equity accounts
+        if (accountSubType.HasValue &&
+            accountSubType != AccountSubType.AccountsReceivable &&
+            accountSubType != AccountSubType.AccountsPayable &&
+            accountSubType != AccountSubType.ShareCapital &&
+            accountSubType != AccountSubType.RetainedEarnings)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyNotAllowedOnAccount)
+                .WithData("partyType", partyType)
+                .WithData("accountSubType", accountSubType.ToString());
+        }
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Id, accountId, amount, isDebit, description);
+        line.PartyId = partyId;
+        line.PartyType = partyType;
+        _lines.Add(line);
+
+        RecalculateTotals();
+    }
+
+    /// <summary>
     /// Validates that Total Debit = Total Credit (double-entry requirement).
     /// </summary>
     public void Validate()

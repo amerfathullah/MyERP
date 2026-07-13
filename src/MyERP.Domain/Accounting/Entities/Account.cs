@@ -33,6 +33,13 @@ public class Account : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Frozen accounts cannot receive new journal entries.</summary>
     public bool IsFrozen { get; set; }
 
+    /// <summary>
+    /// Enforces balance direction. Per DO-NOT: "Skip GL balance_must_be enforcement
+    /// (Debit accounts can't go credit, Credit accounts can't go debit)".
+    /// Null = no enforcement. "Debit" = balance must be ≥ 0. "Credit" = balance must be ≤ 0.
+    /// </summary>
+    public BalanceDirection? BalanceMustBe { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     protected Account() { }
@@ -60,5 +67,18 @@ public class Account : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetAccountName(string accountName)
     {
         AccountName = Check.NotNullOrWhiteSpace(accountName, nameof(accountName), AccountConsts.MaxAccountNameLength);
+    }
+
+    /// <summary>
+    /// Sets the parent account ID with self-reference guard.
+    /// Per DO-NOT: circular reference detection on parent chains.
+    /// </summary>
+    public void SetParent(Guid? parentAccountId)
+    {
+        if (parentAccountId.HasValue && parentAccountId.Value == Id)
+            throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                .WithData("message", "Account cannot reference itself as parent.");
+
+        ParentAccountId = parentAccountId;
     }
 }

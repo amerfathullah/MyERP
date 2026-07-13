@@ -1,0 +1,108 @@
+<abp-page [title]="'::ItemSalesSummary' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateTo">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary btn-sm" (click)="loadReport()">
+            <i class="fa fa-chart-bar me-1"></i>{{ '::GenerateReport' | abpLocalization }}
+          </button>
+        </div>
+        <div class="col-md-3 text-end">
+          @if (items().length > 0) {
+            <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (items().length > 0) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalRevenue() | number:'1.2-2' }}</p>
+            <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold text-primary">{{ totalQty() | number:'1.0-0' }}</p>
+            <small class="text-muted">{{ '::TotalQuantitySold' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold">{{ uniqueItems() }}</p>
+            <small class="text-muted">{{ '::UniqueItems' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card">
+    <div class="card-body">
+      @if (isLoading()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        </div>
+      } @else if (items().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-chart-bar fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::ClickGenerateToViewReport' | abpLocalization }}</h6>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end">{{ '::QtySold' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AvgRate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Invoices' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.itemId; let i = $index) {
+                <tr>
+                  <td class="text-muted">{{ i + 1 }}</td>
+                  <td class="fw-medium">{{ item.itemName }}</td>
+                  <td class="text-end">{{ item.totalQty | number:'1.0-2' }}</td>
+                  <td class="text-end font-monospace fw-bold text-success">MYR {{ item.totalRevenue | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ item.averageRate | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ item.invoiceCount }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold border-top-2">
+                <td colspan="2">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end">{{ totalQty() | number:'1.0-2' }}</td>
+                <td class="text-end font-monospace text-success">MYR {{ totalRevenue() | number:'1.2-2' }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

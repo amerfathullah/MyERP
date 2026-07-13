@@ -1,0 +1,93 @@
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe, RestService } from '@abp/ng.core';
+
+@Component({
+  selector: 'app-pricing-rule-form', standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  template: `
+    <abp-page [title]="'NewPricingRule' | abpLocalization">
+      <div class="card"><div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+            <input class="form-control" [(ngModel)]="form.title" placeholder="e.g., 10% Off Bulk Orders" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ 'ApplyOn' | abpLocalization }}</label>
+            <select class="form-select" [(ngModel)]="form.applyOn">
+              <option [ngValue]="0">Item Code</option>
+              <option [ngValue]="1">Item Group</option>
+              <option [ngValue]="2">Brand</option>
+              <option [ngValue]="3">Transaction Total</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ 'Priority' | abpLocalization }}</label>
+            <input type="number" class="form-control" [(ngModel)]="form.priority" min="1" />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Rule Type</label>
+            <select class="form-select" [(ngModel)]="form.ruleType">
+              <option [ngValue]="0">Discount</option>
+              <option [ngValue]="1">Rate</option>
+              <option [ngValue]="2">Free Item</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ 'Discount' | abpLocalization }} %</label>
+            <input type="number" class="form-control" [(ngModel)]="form.discountPercentage" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Min Qty</label>
+            <input type="number" class="form-control" [(ngModel)]="form.minQty" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Max Qty</label>
+            <input type="number" class="form-control" [(ngModel)]="form.maxQty" />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <label class="form-label">{{ 'ValidFrom' | abpLocalization }}</label>
+            <input type="date" class="form-control" [(ngModel)]="form.validFrom" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ 'ValidUntil' | abpLocalization }}</label>
+            <input type="date" class="form-control" [(ngModel)]="form.validUpto" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">For</label>
+            <select class="form-select" [(ngModel)]="form.applicableFor">
+              <option>Selling</option>
+              <option>Buying</option>
+              <option>Both</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <a class="btn btn-secondary" routerLink="/sales/pricing-rules">{{ 'Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+        </div>
+      </div></div>
+    </abp-page>
+  `,
+})
+export class PricingRuleFormComponent {
+  private restService = inject(RestService);
+  private router = inject(Router);
+  saving = false;
+  form: any = { title: '', applyOn: 0, ruleType: 0, priority: 1, discountPercentage: 0, minQty: 0, maxQty: 0, applicableFor: 'Selling' };
+
+  save() {
+    this.saving = true;
+    this.restService.request({ method: 'POST', url: '/api/app/pricing-rule', body: this.form }, { apiName: 'Default' })
+      .subscribe({ next: () => this.router.navigate(['/sales/pricing-rules']), error: () => { this.saving = false; } });
+  }
+}

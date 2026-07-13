@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
+import { HttpClient } from '@angular/common/http';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 
 @Component({
@@ -13,15 +14,26 @@ import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-ba
 })
 export class EinvoiceStatusReportComponent {
   private fb = new FormBuilder();
+  private http = inject(HttpClient);
+
   filters = this.fb.group({ fromDate: [new Date(new Date().getFullYear(), 0, 1)], toDate: [new Date()], status: [''], documentType: ['sales'] });
-  data: any[] = [];
+  data = signal<any[]>([]);
+  isLoading = signal(false);
 
   generate(): void {
-    // TODO: Call reporting API
-    this.data = [
-      { invoiceNumber: 'INV-2026-0001', date: '2026-07-01', party: 'Acme Sdn Bhd', amount: 5300, lhdnStatus: 'Valid', submittedAt: '2026-07-01T10:30:00' },
-      { invoiceNumber: 'INV-2026-0002', date: '2026-07-03', party: 'Beta Corp', amount: 8200, lhdnStatus: 'Submitted', submittedAt: '2026-07-03T14:20:00' },
-      { invoiceNumber: 'INV-2026-0003', date: '2026-07-05', party: 'Gamma LLC', amount: 3100, lhdnStatus: 'Invalid', submittedAt: '2026-07-05T09:00:00' },
-      { invoiceNumber: 'INV-2026-0004', date: '2026-07-06', party: 'Delta Bhd', amount: 15000, lhdnStatus: 'NotSubmitted', submittedAt: null }];
+    this.isLoading.set(true);
+    const { fromDate, toDate, status, documentType } = this.filters.getRawValue();
+    this.http.get<any>('/api/app/e-invoice', {
+      params: {
+        skipCount: '0', maxResultCount: '100',
+        ...(status ? { status } : {}),
+      }
+    }).subscribe({
+      next: (res) => {
+        this.data.set(res.items ?? res ?? []);
+        this.isLoading.set(false);
+      },
+      error: () => this.isLoading.set(false),
+    });
   }
 }

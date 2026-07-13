@@ -15,7 +15,7 @@ export const MaterialRequestStore = signalStore(
   withState({ totalCount: 0, isLoading: false }),
   withEntities<MREntity>(),
   withMethods((store, service = inject(MaterialRequestService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

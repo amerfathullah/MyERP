@@ -5,6 +5,16 @@ using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Sales;
 
+public class PaymentScheduleDto
+{
+    public Guid Id { get; set; }
+    public DateTime DueDate { get; set; }
+    public decimal InvoicePortion { get; set; }
+    public decimal PaymentAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal Outstanding { get; set; }
+}
+
 public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
 {
     public Guid CompanyId { get; set; }
@@ -27,6 +37,10 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public string Status { get; set; } = null!;
     public string? EInvoiceStatus { get; set; }
     public string? LhdnUuid { get; set; }
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstId { get; set; }
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
     public List<SalesInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -59,6 +73,10 @@ public class CreateSalesInvoiceDto
     public string CurrencyCode { get; set; } = "MYR";
 
     public string? Notes { get; set; }
+
+    public Guid? PaymentTermsTemplateId { get; set; }
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstId { get; set; }
 
     [Required]
     [MinLength(1)]

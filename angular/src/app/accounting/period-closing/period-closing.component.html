@@ -1,0 +1,95 @@
+<abp-page [title]="'::PeriodClosing' | abpLocalization">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ '::PeriodClosingVouchers' | abpLocalization }}</h5>
+      <button class="btn btn-primary btn-sm" (click)="toggleCreateForm()">
+        <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
+      </button>
+    </div>
+
+    @if (showCreateForm()) {
+      <div class="card-body border-bottom bg-light">
+        <h6>{{ '::CreatePeriodClosingVoucher' | abpLocalization }}</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
+            <input type="date" class="form-control form-control-sm" [(ngModel)]="form.postingDate" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ '::ClosingAccount' | abpLocalization }}</label>
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="form.closingAccountId"
+                   placeholder="Retained Earnings Account ID" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="form.remarks" />
+          </div>
+          <div class="col-md-4">
+            <button class="btn btn-success btn-sm" (click)="create()">
+              <i class="fa fa-check me-1"></i>{{ '::Create' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm ms-1" (click)="toggleCreateForm()">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="card-body">
+      @if (isLoading()) {
+        <app-loading-overlay />
+      }
+
+      @if (!isLoading() && items().length === 0) {
+        <div class="text-center py-4 text-muted">
+          <i class="fa fa-book fa-2x mb-2"></i>
+          <p>{{ '::NoPeriodClosingVouchersYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" (click)="toggleCreateForm()">
+            <i class="fa fa-plus me-1"></i>{{ '::CreatePeriodClosingVoucher' | abpLocalization }}
+          </button>
+        </div>
+      } @else if (items().length > 0) {
+        <div class="table-responsive">
+          <table class="table table-hover table-sm">
+            <thead>
+              <tr>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::ClosingAccount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TotalAmount' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::Remarks' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.id) {
+                <tr>
+                  <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ item.closingAccountName ?? (item.closingAccountId | slice:0:8) }}</td>
+                  <td class="text-end fw-bold">{{ item.totalClosingAmount | number:'1.2-2' }}</td>
+                  <td><app-status-badge [status]="item.status" /></td>
+                  <td>{{ item.remarks }}</td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      @if (item.status === 'Draft') {
+                        <button class="btn btn-outline-success" (click)="submit(item.id)" title="Submit">
+                          <i class="fa fa-paper-plane"></i>
+                        </button>
+                      }
+                      @if (item.status === 'Submitted') {
+                        <button class="btn btn-outline-danger" (click)="cancel(item.id)" title="Cancel">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

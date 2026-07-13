@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MyERP.Accounting.DomainServices;
 using MyERP.Core;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -14,7 +15,7 @@ namespace MyERP.Purchasing.Entities;
 /// Links to Purchase Order; subsequently linked by Purchase Invoice.
 /// On submit: increases warehouse stock via stock ledger.
 /// </summary>
-public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant
+public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument, IAmendable
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -47,7 +48,16 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
+    // Amendment support
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
+
+    // IAccountableDocument
+    string IAccountableDocument.DocumentType => "PurchaseReceipt";
+    Guid? IAccountableDocument.CustomerId => null;
+    Guid? IAccountableDocument.SupplierId => SupplierId;
 
     private readonly List<PurchaseReceiptItem> _items = new();
     public IReadOnlyList<PurchaseReceiptItem> Items => _items.AsReadOnly();

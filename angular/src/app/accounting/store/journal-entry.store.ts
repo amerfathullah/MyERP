@@ -30,7 +30,7 @@ export const JournalEntryStore = signalStore(
     hasEntries: computed(() => store.ids().length > 0),
   })),
   withMethods((store, service = inject(JournalEntryService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

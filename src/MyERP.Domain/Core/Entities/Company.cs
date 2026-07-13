@@ -48,6 +48,32 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Stock transactions before this date are frozen (blocked for non-admin users).</summary>
+    public DateTime? StockFrozenUpto { get; set; }
+
+    /// <summary>Accounting entries before this date are frozen.</summary>
+    public DateTime? AccountsFrozenTillDate { get; set; }
+
+    // Default Accounts (per ERPNext Company.set_default_accounts pattern)
+    /// <summary>Default Accounts Receivable account for this company.</summary>
+    public Guid? DefaultReceivableAccountId { get; set; }
+    /// <summary>Default Accounts Payable account for this company.</summary>
+    public Guid? DefaultPayableAccountId { get; set; }
+    /// <summary>Default Income/Revenue account.</summary>
+    public Guid? DefaultIncomeAccountId { get; set; }
+    /// <summary>Default Expense account (COGS).</summary>
+    public Guid? DefaultExpenseAccountId { get; set; }
+    /// <summary>Default Bank account.</summary>
+    public Guid? DefaultBankAccountId { get; set; }
+    /// <summary>Default Stock/Inventory account (perpetual inventory).</summary>
+    public Guid? DefaultInventoryAccountId { get; set; }
+    /// <summary>Default depreciation expense account.</summary>
+    public Guid? DepreciationExpenseAccountId { get; set; }
+    /// <summary>Default accumulated depreciation account.</summary>
+    public Guid? AccumulatedDepreciationAccountId { get; set; }
+    /// <summary>Exchange gain/loss account (multi-currency).</summary>
+    public Guid? ExchangeGainLossAccountId { get; set; }
+
     protected Company() { } // EF Core constructor
 
     public Company(Guid id, string name, Guid? tenantId = null) : base(id)
@@ -59,5 +85,22 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetName(string name)
     {
         Name = Check.NotNullOrWhiteSpace(name, nameof(name), CompanyConsts.MaxNameLength);
+    }
+
+    /// <summary>
+    /// Sets the default currency. Must be called BEFORE any transactions are submitted.
+    /// Per DO-NOT: "Change company default_currency after submitted transactions exist (breaks multi-currency)"
+    /// The AppService must validate that no submitted transactions exist before calling this.
+    /// </summary>
+    public void SetCurrency(string currencyCode, bool hasSubmittedTransactions)
+    {
+        if (hasSubmittedTransactions && currencyCode != CurrencyCode)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyCurrencyLocked)
+                .WithData("company", Name)
+                .WithData("currentCurrency", CurrencyCode)
+                .WithData("attemptedCurrency", currencyCode);
+        }
+        CurrencyCode = Check.NotNullOrWhiteSpace(currencyCode, nameof(currencyCode), 3);
     }
 }

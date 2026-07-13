@@ -26,6 +26,7 @@ export const APP_ROUTES: Routes = [
     path: 'companies',
     loadComponent: () => import('./companies/company-list.component').then(c => c.CompanyListComponent),
     canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Companies' },
   },
   {
     path: 'companies/new',
@@ -43,6 +44,7 @@ export const APP_ROUTES: Routes = [
     path: 'customers',
     loadComponent: () => import('./customers/customer-list.component').then(c => c.CustomerListComponent),
     canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Customers' },
   },
   {
     path: 'customers/new',
@@ -102,6 +104,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/invoices/new',
     loadComponent: () => import('./sales/sales-invoices/sales-invoice-form.component').then(c => c.SalesInvoiceFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
   },
   {
@@ -249,6 +252,72 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/aging',
+    loadComponent: () => import('./accounting/reports/aging-report/aging-report.component').then(c => c.AgingReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'accounting/reports/general-ledger',
+    loadComponent: () => import('./accounting/reports/general-ledger/general-ledger.component').then(c => c.GeneralLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/reports/outstanding',
+    loadComponent: () => import('./accounting/outstanding-invoices/outstanding-invoices.component').then(c => c.OutstandingInvoicesComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'accounting/reports/party-ledger',
+    loadComponent: () => import('./accounting/party-ledger/party-ledger.component').then(c => c.PartyLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'sales/reports/gross-profit',
+    loadComponent: () => import('./sales/reports/gross-profit-report/gross-profit-report.component').then(c => c.GrossProfitReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/reports/register',
+    loadComponent: () => import('./sales/reports/sales-register/sales-register.component').then(c => c.SalesRegisterComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/reports/item-sales',
+    loadComponent: () => import('./sales/reports/item-sales-report/item-sales-report.component').then(c => c.ItemSalesReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/reports/customer-revenue',
+    loadComponent: () => import('./sales/reports/customer-revenue-report/customer-revenue-report.component').then(c => c.CustomerRevenueReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'purchasing/reports/register',
+    loadComponent: () => import('./purchasing/reports/purchase-register/purchase-register.component').then(c => c.PurchaseRegisterComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
+  },
+  {
+    path: 'settings/company',
+    loadComponent: () => import('./settings/company-settings/company-settings.component').then(c => c.CompanySettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Companies.Edit' },
+  },
+  {
+    path: 'accounting/budgets',
+    loadComponent: () => import('./accounting/budgets/budget-list.component').then(c => c.BudgetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets' },
+  },
+  {
     path: 'inventory/warehouses',
     loadComponent: () => import('./inventory/warehouses/warehouse-list.component').then(c => c.WarehouseListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -279,8 +348,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/quality-inspections',
+    loadComponent: () => import('./inventory/quality-inspections/quality-inspection-list.component').then(c => c.QualityInspectionListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspections' },
+  },
+  {
+    path: 'inventory/stock-reconciliations',
+    loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-list.component').then(c => c.StockReconciliationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockReconciliations' },
+  },
+  {
+    path: 'inventory/landed-costs',
+    loadComponent: () => import('./inventory/landed-costs/landed-cost-list.component').then(c => c.LandedCostListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.LandedCostVouchers' },
+  },
+  {
     path: 'inventory/reports/stock-ledger',
     loadComponent: () => import('./inventory/reports/stock-ledger/stock-ledger.component').then(c => c.StockLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'inventory/reports/stock-balance',
+    loadComponent: () => import('./inventory/reports/stock-balance.component').then(c => c.StockBalanceComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Items' },
   },
@@ -345,16 +438,22 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
-    path: 'inventory/reports/stock-ledger',
-    loadComponent: () => import('./inventory/reports/stock-ledger/stock-ledger-report.component').then(c => c.StockLedgerReportComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.StockLedger' },
-  },
-  {
     path: 'accounting/bank-reconciliation',
     loadComponent: () => import('./accounting/bank-reconciliation/bank-reconciliation.component').then(c => c.BankReconciliationComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.BankReconciliation' },
+  },
+  {
+    path: 'accounting/payment-reconciliation',
+    loadComponent: () => import('./accounting/payment-reconciliation/payment-reconciliation.component').then(c => c.PaymentReconciliationComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
+  },
+  {
+    path: 'accounting/bank-statement-import',
+    loadComponent: () => import('./accounting/bank-statement-import/bank-statement-import.component').then(c => c.BankStatementImportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
     path: 'e-invoice/reports',
@@ -366,6 +465,7 @@ export const APP_ROUTES: Routes = [
     path: 'workflow/pending',
     loadComponent: () => import('./workflow/pending-approvals/pending-approvals.component').then(c => c.PendingApprovalsComponent),
     canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ApprovalWorkflows' },
   },
   {
     path: 'workflow/rules',
@@ -472,7 +572,7 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'crm/opportunities/:id',
-    loadComponent: () => import('./crm/opportunities/opportunity-list.component').then(c => c.OpportunityListComponent),
+    loadComponent: () => import('./crm/opportunities/opportunity-detail.component').then(c => c.OpportunityDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Opportunities' },
   },
@@ -495,6 +595,18 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Projects.Create' },
   },
+  {
+    path: 'projects/:id',
+    loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/:id/edit',
+    loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Edit' },
+  },
   // Assets
   {
     path: 'assets',
@@ -508,7 +620,31 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Assets.Create' },
   },
+  {
+    path: 'assets/:id',
+    loadComponent: () => import('./assets/asset-form/asset-form.component').then(c => c.AssetFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
   // Manufacturing
+  {
+    path: 'manufacturing/bom',
+    loadComponent: () => import('./manufacturing/bom/bom-list.component').then(c => c.BomListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/bom/new',
+    loadComponent: () => import('./manufacturing/bom/bom-form.component').then(c => c.BomFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/bom/:id',
+    loadComponent: () => import('./manufacturing/bom/bom-form.component').then(c => c.BomFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
   {
     path: 'manufacturing/work-orders',
     loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
@@ -523,9 +659,28 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'manufacturing/work-orders/:id',
-    loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
+    loadComponent: () => import('./manufacturing/work-orders/work-order-detail.component').then(c => c.WorkOrderDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  // Production Plans
+  {
+    path: 'manufacturing/production-plans',
+    loadComponent: () => import('./manufacturing/production-plans/production-plan-list.component').then(c => c.ProductionPlanListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProductionPlans' },
+  },
+  {
+    path: 'manufacturing/production-plans/new',
+    loadComponent: () => import('./manufacturing/production-plans/production-plan-form.component').then(c => c.ProductionPlanFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProductionPlans.Create' },
+  },
+  {
+    path: 'manufacturing/production-plans/:id',
+    loadComponent: () => import('./manufacturing/production-plans/production-plan-detail.component').then(c => c.ProductionPlanDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProductionPlans' },
   },
   // Material Requests
   {
@@ -545,5 +700,344 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./purchasing/material-requests/material-request-detail.component').then(c => c.MaterialRequestDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.MaterialRequests' },
+  },
+  // Support
+  {
+    path: 'support/issues',
+    loadComponent: () => import('./support/issues/issue-list.component').then(c => c.IssueListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+  {
+    path: 'support/issues/new',
+    loadComponent: () => import('./support/issues/issue-form.component').then(c => c.IssueFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues.Create' },
+  },
+  // Timesheets
+  {
+    path: 'projects/timesheets',
+    loadComponent: () => import('./projects/timesheets/timesheet-list.component').then(c => c.TimesheetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/timesheets/new',
+    loadComponent: () => import('./projects/timesheets/timesheet-form.component').then(c => c.TimesheetFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Create' },
+  },
+  {
+    path: 'projects/timesheet-billing',
+    loadComponent: () => import('./projects/timesheet-billing/timesheet-billing.component').then(c => c.TimesheetBillingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  // Leave
+  {
+    path: 'hr/leave',
+    loadComponent: () => import('./hr/leave/leave-list.component').then(c => c.LeaveListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'hr/leave/apply',
+    loadComponent: () => import('./hr/leave/leave-form.component').then(c => c.LeaveFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees.Create' },
+  },
+  {
+    path: 'hr/salary-slips',
+    loadComponent: () => import('./hr/salary-slips/salary-slip-list.component').then(c => c.SalarySlipListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
+    path: 'hr/salary-slips/:id',
+    loadComponent: () => import('./hr/salary-slips/salary-slip-detail.component').then(c => c.SalarySlipDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
+    path: 'hr/holiday-lists',
+    loadComponent: () => import('./hr/holiday-lists/holiday-list-list.component').then(c => c.HolidayListListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'hr/salary-structures',
+    loadComponent: () => import('./hr/salary-structures/salary-structure-list.component').then(c => c.SalaryStructureListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
+    path: 'hr/leave-allocations',
+    loadComponent: () => import('./hr/leave-allocation/leave-allocation-list.component').then(c => c.LeaveAllocationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees.Edit' },
+  },
+  {
+    path: 'manufacturing/workstations',
+    loadComponent: () => import('./manufacturing/workstations/workstation-list.component').then(c => c.WorkstationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/job-cards',
+    loadComponent: () => import('./manufacturing/job-cards/job-card-list.component').then(c => c.JobCardListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'sales/blanket-orders',
+    loadComponent: () => import('./sales/blanket-orders/blanket-order-list.component').then(c => c.BlanketOrderListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
+    path: 'sales/subscriptions',
+    loadComponent: () => import('./sales/subscriptions/subscription-list.component').then(c => c.SubscriptionListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/pricing-rules',
+    loadComponent: () => import('./sales/pricing-rules/pricing-rule-list.component').then(c => c.PricingRuleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'purchasing/supplier-quotations',
+    loadComponent: () => import('./purchasing/supplier-quotations/supplier-quotation-list.component').then(c => c.SupplierQuotationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/subcontracting',
+    loadComponent: () => import('./purchasing/subcontracting/subcontracting-list.component').then(c => c.SubcontractingListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'hr/expense-claims',
+    loadComponent: () => import('./hr/expense-claims/expense-claim-list.component').then(c => c.ExpenseClaimListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'sales/dunnings',
+    loadComponent: () => import('./sales/dunnings/dunning-list.component').then(c => c.DunningListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'inventory/serial-numbers',
+    loadComponent: () => import('./inventory/serial-numbers/serial-no-list.component').then(c => c.SerialNoListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'inventory/batches',
+    loadComponent: () => import('./inventory/batches/batch-list.component').then(c => c.BatchListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'hr/expense-claims/new',
+    loadComponent: () => import('./hr/expense-claims/expense-claim-form.component').then(c => c.ExpenseClaimFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees.Create' },
+  },
+  {
+    path: 'sales/blanket-orders/new',
+    loadComponent: () => import('./sales/blanket-orders/blanket-order-form.component').then(c => c.BlanketOrderFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders.Create' },
+  },
+  {
+    path: 'purchasing/supplier-quotations/new',
+    loadComponent: () => import('./purchasing/supplier-quotations/supplier-quotation-form.component').then(c => c.SupplierQuotationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
+  },
+
+  // Detail routes for recently added modules
+  {
+    path: 'accounting/budgets/:id',
+    loadComponent: () => import('./accounting/budgets/budget-detail.component').then(c => c.BudgetDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets' },
+  },
+  {
+    path: 'hr/expense-claims/:id',
+    loadComponent: () => import('./hr/expense-claims/expense-claim-detail.component').then(c => c.ExpenseClaimDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'hr/holiday-lists/:id',
+    loadComponent: () => import('./hr/holiday-lists/holiday-list-detail.component').then(c => c.HolidayListDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'inventory/landed-costs/:id',
+    loadComponent: () => import('./inventory/landed-costs/landed-cost-detail.component').then(c => c.LandedCostDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.LandedCostVouchers' },
+  },
+  {
+    path: 'inventory/quality-inspections/:id',
+    loadComponent: () => import('./inventory/quality-inspections/quality-inspection-detail.component').then(c => c.QualityInspectionDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspections' },
+  },
+  {
+    path: 'inventory/stock-reconciliations/:id',
+    loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-detail.component').then(c => c.StockReconciliationDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockReconciliations' },
+  },
+  {
+    path: 'support/issues/:id',
+    loadComponent: () => import('./support/issues/issue-detail.component').then(c => c.IssueDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+
+  // Edit routes (reuse form components)
+  {
+    path: 'accounting/journal-entries/:id',
+    loadComponent: () => import('./accounting/journal-entries/journal-entry-form.component').then(c => c.JournalEntryFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.JournalEntries' },
+  },
+  {
+    path: 'automation/:id/edit',
+    loadComponent: () => import('./automation/automation-rules/automation-rule-form.component').then(c => c.AutomationRuleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AutomationRules.Edit' },
+  },
+  {
+    path: 'purchasing/orders/:id/edit',
+    loadComponent: () => import('./purchasing/purchase-orders/purchase-order-form.component').then(c => c.PurchaseOrderFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Edit' },
+  },
+  {
+    path: 'workflow/rules/:id/edit',
+    loadComponent: () => import('./workflow/approval-rules/approval-rule-form.component').then(c => c.ApprovalRuleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ApprovalWorkflows.Edit' },
+  },
+
+  // New/create routes for recently added modules
+  {
+    path: 'accounting/budgets/new',
+    loadComponent: () => import('./accounting/budgets/budget-form.component').then(c => c.BudgetFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets.Create' },
+  },
+  {
+    path: 'hr/holiday-lists/new',
+    loadComponent: () => import('./hr/holiday-lists/holiday-list-form.component').then(c => c.HolidayListFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees.Create' },
+  },
+  {
+    path: 'hr/salary-structures/new',
+    loadComponent: () => import('./hr/salary-structures/salary-structure-form.component').then(c => c.SalaryStructureFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll.Create' },
+  },
+  {
+    path: 'inventory/landed-costs/new',
+    loadComponent: () => import('./inventory/landed-costs/landed-cost-form.component').then(c => c.LandedCostFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.LandedCostVouchers.Create' },
+  },
+  {
+    path: 'inventory/quality-inspections/new',
+    loadComponent: () => import('./inventory/quality-inspections/quality-inspection-form.component').then(c => c.QualityInspectionFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
+  },
+  {
+    path: 'inventory/stock-reconciliations/new',
+    loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-form.component').then(c => c.StockReconciliationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockReconciliations.Create' },
+  },
+  {
+    path: 'manufacturing/workstations/new',
+    loadComponent: () => import('./manufacturing/workstations/workstation-form.component').then(c => c.WorkstationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
+  },
+  {
+    path: 'sales/pricing-rules/new',
+    loadComponent: () => import('./sales/pricing-rules/pricing-rule-form.component').then(c => c.PricingRuleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
+  },
+  {
+    path: 'sales/subscriptions/new',
+    loadComponent: () => import('./sales/subscriptions/subscription-form.component').then(c => c.SubscriptionFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
+  },
+
+  // Detail views for newer modules
+  {
+    path: 'manufacturing/job-cards/:id',
+    loadComponent: () => import('./manufacturing/job-cards/job-card-detail.component').then(c => c.JobCardDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'sales/subscriptions/:id',
+    loadComponent: () => import('./sales/subscriptions/subscription-detail.component').then(c => c.SubscriptionDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/dunnings/:id',
+    loadComponent: () => import('./sales/dunnings/dunning-detail.component').then(c => c.DunningDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'hr/salary-structures/:id',
+    loadComponent: () => import('./hr/salary-structures/salary-structure-form.component').then(c => c.SalaryStructureFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
+    path: 'sales/dunnings/new',
+    loadComponent: () => import('./sales/dunnings/dunning-form.component').then(c => c.DunningFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
+  },
+  {
+    path: 'accounting/currency-exchange',
+    loadComponent: () => import('./accounting/currency-exchange/currency-exchange.component').then(c => c.CurrencyExchangeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/fiscal-years',
+    loadComponent: () => import('./accounting/fiscal-years/fiscal-year-list.component').then(c => c.FiscalYearListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/period-closing',
+    loadComponent: () => import('./accounting/period-closing/period-closing.component').then(c => c.PeriodClosingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: '**',
+    loadComponent: () => import('./shared/components/not-found/not-found.component').then(c => c.NotFoundComponent),
   },
 ];

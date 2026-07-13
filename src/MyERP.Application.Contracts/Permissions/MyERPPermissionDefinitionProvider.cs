@@ -103,6 +103,7 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Edit, L("Permission:PaymentEntries.Edit"));
         paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Delete, L("Permission:PaymentEntries.Delete"));
         paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Submit, L("Permission:PaymentEntries.Submit"));
+        paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Cancel, L("Permission:PaymentEntries.Cancel"));
 
         var deliveryNotesPermission = myGroup.AddPermission(MyERPPermissions.DeliveryNotes.Default, L("Permission:DeliveryNotes"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Create, L("Permission:DeliveryNotes.Create"));
@@ -174,12 +175,51 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         mfgPermission.AddChild(MyERPPermissions.Manufacturing.Edit, L("Permission:Manufacturing.Edit"));
         mfgPermission.AddChild(MyERPPermissions.Manufacturing.Delete, L("Permission:Manufacturing.Delete"));
 
+        var ppPermission = myGroup.AddPermission(MyERPPermissions.ProductionPlans.Default, L("Permission:ProductionPlans"));
+        ppPermission.AddChild(MyERPPermissions.ProductionPlans.Create, L("Permission:ProductionPlans.Create"));
+        ppPermission.AddChild(MyERPPermissions.ProductionPlans.Edit, L("Permission:ProductionPlans.Edit"));
+        ppPermission.AddChild(MyERPPermissions.ProductionPlans.Delete, L("Permission:ProductionPlans.Delete"));
+        ppPermission.AddChild(MyERPPermissions.ProductionPlans.Submit, L("Permission:ProductionPlans.Submit"));
+        ppPermission.AddChild(MyERPPermissions.ProductionPlans.Cancel, L("Permission:ProductionPlans.Cancel"));
+
         var materialRequestsPermission = myGroup.AddPermission(MyERPPermissions.MaterialRequests.Default, L("Permission:MaterialRequests"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Create, L("Permission:MaterialRequests.Create"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Edit, L("Permission:MaterialRequests.Edit"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Delete, L("Permission:MaterialRequests.Delete"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Submit, L("Permission:MaterialRequests.Submit"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Cancel, L("Permission:MaterialRequests.Cancel"));
+
+        var issuesPermission = myGroup.AddPermission(MyERPPermissions.Issues.Default, L("Permission:Issues"));
+        issuesPermission.AddChild(MyERPPermissions.Issues.Create, L("Permission:Issues.Create"));
+        issuesPermission.AddChild(MyERPPermissions.Issues.Edit, L("Permission:Issues.Edit"));
+        issuesPermission.AddChild(MyERPPermissions.Issues.Delete, L("Permission:Issues.Delete"));
+
+        var budgetsPermission = myGroup.AddPermission(MyERPPermissions.Budgets.Default, L("Permission:Budgets"));
+        budgetsPermission.AddChild(MyERPPermissions.Budgets.Create, L("Permission:Budgets.Create"));
+        budgetsPermission.AddChild(MyERPPermissions.Budgets.Edit, L("Permission:Budgets.Edit"));
+        budgetsPermission.AddChild(MyERPPermissions.Budgets.Delete, L("Permission:Budgets.Delete"));
+        budgetsPermission.AddChild(MyERPPermissions.Budgets.Submit, L("Permission:Budgets.Submit"));
+        budgetsPermission.AddChild(MyERPPermissions.Budgets.Cancel, L("Permission:Budgets.Cancel"));
+
+        var qiPermission = myGroup.AddPermission(MyERPPermissions.QualityInspections.Default, L("Permission:QualityInspections"));
+        qiPermission.AddChild(MyERPPermissions.QualityInspections.Create, L("Permission:QualityInspections.Create"));
+        qiPermission.AddChild(MyERPPermissions.QualityInspections.Edit, L("Permission:QualityInspections.Edit"));
+        qiPermission.AddChild(MyERPPermissions.QualityInspections.Delete, L("Permission:QualityInspections.Delete"));
+        qiPermission.AddChild(MyERPPermissions.QualityInspections.Submit, L("Permission:QualityInspections.Submit"));
+
+        var srPermission = myGroup.AddPermission(MyERPPermissions.StockReconciliations.Default, L("Permission:StockReconciliations"));
+        srPermission.AddChild(MyERPPermissions.StockReconciliations.Create, L("Permission:StockReconciliations.Create"));
+        srPermission.AddChild(MyERPPermissions.StockReconciliations.Edit, L("Permission:StockReconciliations.Edit"));
+        srPermission.AddChild(MyERPPermissions.StockReconciliations.Delete, L("Permission:StockReconciliations.Delete"));
+        srPermission.AddChild(MyERPPermissions.StockReconciliations.Submit, L("Permission:StockReconciliations.Submit"));
+        srPermission.AddChild(MyERPPermissions.StockReconciliations.Cancel, L("Permission:StockReconciliations.Cancel"));
+
+        var lcvPermission = myGroup.AddPermission(MyERPPermissions.LandedCostVouchers.Default, L("Permission:LandedCostVouchers"));
+        lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Create, L("Permission:LandedCostVouchers.Create"));
+        lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Edit, L("Permission:LandedCostVouchers.Edit"));
+        lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Delete, L("Permission:LandedCostVouchers.Delete"));
+        lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Submit, L("Permission:LandedCostVouchers.Submit"));
+        lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Cancel, L("Permission:LandedCostVouchers.Cancel"));
     }
 
     private static LocalizableString L(string name)

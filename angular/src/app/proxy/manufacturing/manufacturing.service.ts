@@ -40,4 +40,7 @@ export class ManufacturingService {
 
   recordProduction = (id: string, quantity: number, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderDto>({ method: 'POST', url: `/api/app/manufacturing/work-order/${id}/record-production`, params: { quantity } }, { apiName: this.apiName, ...config });
+
+  stopWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<void, WorkOrderDto>({ method: 'POST', url: `/api/app/manufacturing/work-order/${id}/stop` }, { apiName: this.apiName, ...config });
 }

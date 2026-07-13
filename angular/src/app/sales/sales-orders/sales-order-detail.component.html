@@ -2,6 +2,7 @@
   @if (!order) {
     <app-loading-overlay />
   } @else {
+    <app-breadcrumb />
     <app-document-workflow
       [currentStatus]="order.status!"
       [availableActions]="workflowActions"
@@ -36,6 +37,38 @@
       </div>
     </div>
 
+    <!-- Fulfillment Progress -->
+    @if (order.status !== 'Draft') {
+      <div class="row mt-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-bold">{{ 'DeliveredQty' | abpLocalization }}</small>
+                <small>{{ order.perDelivered ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-info" [style.width.%]="order.perDelivered ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-bold">{{ 'BilledQty' | abpLocalization }}</small>
+                <small>{{ order.perBilled ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-success" [style.width.%]="order.perBilled ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <div class="card mt-4">
       <div class="card-header">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
@@ -46,20 +79,28 @@
             <thead>
               <tr>
                 <th>{{ '::Description' | abpLocalization }}</th>
-                <th>{{ '::Qty' | abpLocalization }}</th>
-                <th>{{ '::UnitPrice' | abpLocalization }}</th>
-                <th>{{ '::Tax' | abpLocalization }}</th>
-                <th>{{ '::Total' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::UnitPrice' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+                @if (order.status !== 'Draft') {
+                  <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'BilledQty' | abpLocalization }}</th>
+                }
               </tr>
             </thead>
             <tbody>
               @for (row of order.items ?? []; track $index) {
                 <tr>
                   <td>{{ row.description }}</td>
-                  <td>{{ row.quantity | number:'1.2-2' }}</td>
-                  <td>{{ row.unitPrice | number:'1.2-2' }}</td>
-                  <td>{{ row.taxAmount | number:'1.2-2' }}</td>
-                  <td>{{ row.lineTotal | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ row.quantity | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ row.unitPrice | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ row.taxAmount | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ row.lineTotal | number:'1.2-2' }}</td>
+                  @if (order.status !== 'Draft') {
+                    <td class="text-end">{{ row.deliveredQty | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ row.billedQty | number:'1.2-2' }}</td>
+                  }
                 </tr>
               }
             </tbody>

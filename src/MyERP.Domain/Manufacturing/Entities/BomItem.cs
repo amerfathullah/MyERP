@@ -14,6 +14,16 @@ public class BomItem : FullAuditedEntity<Guid>
     public decimal Amount { get; set; }
     public Guid? SourceWarehouseId { get; set; }
 
+    /// <summary>
+    /// If this item is a sub-assembly, references its BOM for recursive explosion.
+    /// </summary>
+    public Guid? SubBomId { get; set; }
+
+    /// <summary>
+    /// Phantom items are not produced independently — their components bubble up to the parent BOM.
+    /// </summary>
+    public bool IsPhantom { get; set; }
+
     protected BomItem() { }
 
     public BomItem(Guid id, Guid bomId, Guid itemId, string itemName, decimal quantity, decimal rate)

@@ -1,0 +1,100 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
+using MyERP.Permissions;
+using Microsoft.AspNetCore.Authorization;
+using Volo.Abp.Application.Dtos;
+using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Repositories;
+
+namespace MyERP.Accounting;
+
+public class PaymentRequestDto : EntityDto<Guid>
+{
+    public Guid CompanyId { get; set; }
+    public string PaymentRequestType { get; set; } = null!;
+    public string ReferenceDoctype { get; set; } = null!;
+    public Guid ReferenceId { get; set; }
+    public Guid PartyId { get; set; }
+    public string PartyType { get; set; } = null!;
+    public string? PartyName { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public string Currency { get; set; } = null!;
+    public int Status { get; set; }
+    public Guid? PaymentEntryId { get; set; }
+}
+
+public class CreatePaymentRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public string PaymentRequestType { get; set; } = "Inward";
+    public string ReferenceDoctype { get; set; } = null!;
+    public Guid ReferenceId { get; set; }
+    public Guid PartyId { get; set; }
+    public string PartyType { get; set; } = "Customer";
+    public string? PartyName { get; set; }
+    public decimal GrandTotal { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public string? EmailTo { get; set; }
+    public string? Subject { get; set; }
+    public string? Message { get; set; }
+}
+
+[Authorize(MyERPPermissions.PaymentEntries.Default)]
+public class PaymentRequestAppService : ApplicationService
+{
+    private readonly IRepository<PaymentRequest, Guid> _repository;
+    public PaymentRequestAppService(IRepository<PaymentRequest, Guid> repository) => _repository = repository;
+
+    public async Task<PagedResultDto<PaymentRequestDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = await _repository.GetQueryableAsync();
+        var totalCount = query.Count();
+        var items = query.OrderByDescending(p => p.CreationTime)
+            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+        return new PagedResultDto<PaymentRequestDto>(totalCount, items.Select(MapToDto).ToList());
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Create)]
+    public async Task<PaymentRequestDto> CreateAsync(CreatePaymentRequestDto input)
+    {
+        var pr = new PaymentRequest(GuidGenerator.Create(), input.CompanyId,
+            input.ReferenceDoctype, input.ReferenceId, input.PartyId, input.PartyType,
+            input.GrandTotal, CurrentTenant.Id)
+        {
+            PartyName = input.PartyName, Currency = input.Currency,
+            EmailTo = input.EmailTo, Subject = input.Subject, Message = input.Message,
+        };
+        await _repository.InsertAsync(pr);
+        return MapToDto(pr);
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<PaymentRequestDto> SubmitAsync(Guid id)
+    {
+        var pr = await _repository.GetAsync(id);
+        pr.Submit();
+        await _repository.UpdateAsync(pr);
+        return MapToDto(pr);
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<PaymentRequestDto> CancelAsync(Guid id)
+    {
+        var pr = await _repository.GetAsync(id);
+        pr.Cancel();
+        await _repository.UpdateAsync(pr);
+        return MapToDto(pr);
+    }
+
+    private static PaymentRequestDto MapToDto(PaymentRequest p) => new()
+    {
+        Id = p.Id, CompanyId = p.CompanyId, PaymentRequestType = p.PaymentRequestType,
+        ReferenceDoctype = p.ReferenceDoctype, ReferenceId = p.ReferenceId,
+        PartyId = p.PartyId, PartyType = p.PartyType, PartyName = p.PartyName,
+        GrandTotal = p.GrandTotal, OutstandingAmount = p.OutstandingAmount,
+        Currency = p.Currency, Status = (int)p.Status, PaymentEntryId = p.PaymentEntryId,
+    };
+}

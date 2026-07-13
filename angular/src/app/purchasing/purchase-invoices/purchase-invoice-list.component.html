@@ -1,5 +1,17 @@
 <abp-page [title]="'::PurchaseInvoices' | abpLocalization">
-  <div class="d-flex justify-content-end gap-2 mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 align-items-center">
+      <input type="text" class="form-control form-control-sm" style="width: 200px;"
+        [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
+        <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+        <option value="Draft">Draft</option>
+        <option value="Submitted">Submitted</option>
+        <option value="Posted">Posted</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    </div>
     <button class="btn btn-primary btn-sm" (click)="createInvoice()">
       <i class="fa fa-plus me-1"></i> {{ '::NewPurchaseInvoice' | abpLocalization }}
     </button>
@@ -66,4 +78,9 @@
       }
     </div>
   </div>
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

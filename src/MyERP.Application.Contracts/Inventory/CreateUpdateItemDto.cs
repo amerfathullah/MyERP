@@ -52,4 +52,26 @@ public class CreateUpdateItemDto
     public Guid? DefaultExpenseAccountId { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    // Reorder settings
+    [Range(0, double.MaxValue)]
+    public decimal ReorderLevel { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal ReorderQty { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal SafetyStock { get; set; }
+
+    public Guid? DefaultWarehouseId { get; set; }
+
+    /// <summary>Minimum order quantity for purchasing.</summary>
+    [Range(0, double.MaxValue)]
+    public decimal MinOrderQty { get; set; }
+
+    /// <summary>Require QI before Purchase Receipt submission.</summary>
+    public bool InspectionRequiredBeforePurchase { get; set; }
+
+    /// <summary>Require QI before Delivery Note submission.</summary>
+    public bool InspectionRequiredBeforeDelivery { get; set; }
 }

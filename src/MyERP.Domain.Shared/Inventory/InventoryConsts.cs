@@ -21,3 +21,24 @@ public static class WarehouseConsts
     public const int MaxPostalCodeLength = 10;
     public const int MaxCountryLength = 100;
 }
+
+public static class PriceListConsts
+{
+    public const int MaxNameLength = 200;
+    public const int MaxCurrencyCodeLength = 10;
+}
+
+public static class ItemPriceConsts
+{
+    public const int MaxUomLength = 20;
+    public const int MaxCurrencyCodeLength = 10;
+    public const int MaxBatchNoLength = 50;
+}
+
+public static class BatchConsts
+{
+    public const int MaxBatchNoLength = 100;
+    public const int MaxSupplierBatchNoLength = 100;
+    public const int MaxDescriptionLength = 500;
+    public const int MaxRefDocTypeLength = 50;
+}

@@ -1,5 +1,18 @@
 <abp-page [title]="'::Manufacturing:WorkOrders' | abpLocalization">
-  <div class="d-flex justify-content-end gap-2 mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 align-items-center">
+      <input type="text" class="form-control form-control-sm" style="width: 200px;"
+        [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <select class="form-select form-select-sm" style="width: 150px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
+        <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+        <option value="0">Draft</option>
+        <option value="1">Submitted</option>
+        <option value="3">In Process</option>
+        <option value="4">Completed</option>
+        <option value="5">Stopped</option>
+      </select>
+      <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    </div>
     <button class="btn btn-primary btn-sm" routerLink="/manufacturing/work-orders/new">
       <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
     </button>
@@ -72,4 +85,10 @@
       </div>
     </div>
   </div>
+
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="20"
+    [currentPage]="0"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

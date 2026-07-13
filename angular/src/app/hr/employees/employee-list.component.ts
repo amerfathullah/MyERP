@@ -6,13 +6,14 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { EmployeeStore } from '../store/employee.store';
+import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
   selector: 'app-employee-list',
   standalone: true,
   imports: [
     CommonModule, RouterModule, PageModule, LocalizationPipe,
-    StatusBadgeComponent],
+    StatusBadgeComponent, PaginationComponent],
   templateUrl: './employee-list.component.html',
   styleUrls: ['./employee-list.component.scss'],
 })

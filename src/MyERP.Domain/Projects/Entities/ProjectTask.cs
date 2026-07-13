@@ -45,6 +45,19 @@ public class ProjectTask : FullAuditedEntity<Guid>
         Priority = ProjectPriority.Medium;
     }
 
+    /// <summary>
+    /// Adds a task dependency. Validates self-reference at entity level.
+    /// Full cycle detection requires TaskDependencyValidationService.
+    /// </summary>
+    public void AddDependency(Guid dependsOnTaskId)
+    {
+        if (dependsOnTaskId == Id)
+            throw new BusinessException(MyERPDomainErrorCodes.CircularDependencyDetected)
+                .WithData("taskId", Id);
+
+        Dependencies.Add(new TaskDependency(Guid.NewGuid(), Id, dependsOnTaskId));
+    }
+
     public void Start()
     {
         if (Status is not (ProjectTaskStatus.Open or ProjectTaskStatus.Overdue))

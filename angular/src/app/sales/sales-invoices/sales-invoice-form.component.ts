@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,8 +6,11 @@ import { PageModule } from '@abp/ng.components/page';
 import { InvoiceItemGridComponent } from './components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
 import type { CreateSalesInvoiceDto, SalesInvoiceItemDto } from '../../proxy/sales/models';
+
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
 @Component({
   selector: 'app-sales-invoice-form',
@@ -16,7 +19,8 @@ import type { CreateSalesInvoiceDto, SalesInvoiceItemDto } from '../../proxy/sal
     CommonModule,
     ReactiveFormsModule,
     PageModule,
-    InvoiceItemGridComponent],
+    InvoiceItemGridComponent,
+    AutoValidationDirective],
   templateUrl: './sales-invoice-form.component.html',
   styleUrls: ['./sales-invoice-form.component.scss'],
 })
@@ -26,7 +30,10 @@ export class SalesInvoiceFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private taxCalc = inject(TaxCalculationService);
   private service = inject(SalesInvoiceService);
+  private customerService = inject(CustomerService);
   private store = inject(SalesInvoiceStore);
+
+  customers = signal<any[]>([]);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -59,6 +66,10 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
+    // Load customer list for dropdown
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
+      .subscribe(res => this.customers.set(res.items ?? []));
+
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((invoice) => {
         this.form.patchValue({
@@ -73,6 +84,41 @@ export class SalesInvoiceFormComponent implements OnInit {
         // Rebuild child FormArray from loaded items
         invoice.items?.forEach((item) => this.addItemRow(item));
       });
+    } else {
+      // Check for duplicate-from param
+      const duplicateFrom = this.route.snapshot.queryParams['duplicateFrom'];
+      const returnAgainst = this.route.snapshot.queryParams['returnAgainst'];
+      if (duplicateFrom) {
+        this.service.get(duplicateFrom).subscribe((source) => {
+          this.form.patchValue({
+            companyId: source.companyId,
+            customerId: source.customerId,
+            customerName: source.customerName,
+            issueDate: new Date().toISOString().split('T')[0],
+            currency: source.currencyCode,
+          });
+          source.items?.forEach((item) => this.addItemRow(item));
+          this.recalculate();
+        });
+      } else if (returnAgainst) {
+        this.service.get(returnAgainst).subscribe((source) => {
+          this.form.patchValue({
+            companyId: source.companyId,
+            customerId: source.customerId,
+            customerName: source.customerName,
+            issueDate: new Date().toISOString().split('T')[0],
+            currency: source.currencyCode,
+            notes: `Credit Note against ${source.invoiceNumber}`,
+          });
+          // Return items have negative quantities
+          source.items?.forEach((item) => {
+            if (item) {
+              this.addItemRow({ ...item, quantity: -(item.quantity ?? 0) } as any);
+            }
+          });
+          this.recalculate();
+        });
+      }
     }
   }
 
@@ -95,6 +141,11 @@ export class SalesInvoiceFormComponent implements OnInit {
     }));
 
     this.calcResult = this.taxCalc.calculate(itemValues, []);
+  }
+
+  /** Used by unsaved-changes route guard */
+  hasUnsavedChanges(): boolean {
+    return this.form.dirty;
   }
 
   save(): void {

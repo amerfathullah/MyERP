@@ -2,6 +2,7 @@
   @if (!order) {
     <app-loading-overlay />
   } @else {
+    <app-breadcrumb />
     <app-document-workflow
       [currentStatus]="order.status!"
       [availableActions]="workflowActions"
@@ -27,6 +28,38 @@
       </div>
     </div>
 
+    <!-- Fulfillment Progress -->
+    @if (order.status !== 'Draft') {
+      <div class="row mt-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-bold">{{ 'ReceivedQty' | abpLocalization }}</small>
+                <small>{{ order.perReceived ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-info" [style.width.%]="order.perReceived ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-bold">{{ 'BilledQty' | abpLocalization }}</small>
+                <small>{{ order.perBilled ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-success" [style.width.%]="order.perBilled ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Line items -->
     <div class="card mt-4">
       <div class="card-header">
@@ -42,6 +75,10 @@
                 <th class="text-end">{{ '::UnitPrice' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
+                @if (order.status !== 'Draft') {
+                  <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'BilledQty' | abpLocalization }}</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -52,6 +89,10 @@
                   <td class="text-end font-monospace">{{ row.unitPrice | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.lineTotal | number:'1.2-2' }}</td>
+                  @if (order.status !== 'Draft') {
+                    <td class="text-end">{{ row.receivedQty | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ row.billedQty | number:'1.2-2' }}</td>
+                  }
                 </tr>
               }
             </tbody>

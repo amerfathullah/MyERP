@@ -9,6 +9,8 @@ import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-purchase-invoice-form',
   standalone: true,
@@ -16,7 +18,8 @@ import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
     CommonModule,
     ReactiveFormsModule,
     PageModule,
-    InvoiceItemGridComponent],
+    InvoiceItemGridComponent,
+    AutoValidationDirective],
   templateUrl: './purchase-invoice-form.component.html',
   styleUrls: ['./purchase-invoice-form.component.scss'],
 })
@@ -71,6 +74,24 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         });
         invoice.items?.forEach((item: any) => this.addItemRow(item));
       });
+    } else {
+      const returnAgainst = this.route.snapshot.queryParams['returnAgainst'];
+      if (returnAgainst) {
+        this.service.get(returnAgainst).subscribe((source: any) => {
+          this.form.patchValue({
+            companyId: source.companyId,
+            supplierId: source.supplierId,
+            supplierTin: source.supplierTin,
+            issueDate: new Date().toISOString().split('T')[0],
+            currency: source.currencyCode,
+            notes: `Debit Note against ${source.invoiceNumber}`,
+          });
+          (source.items ?? []).forEach((item: any) => {
+            if (item) this.addItemRow({ ...item, quantity: -(item.quantity ?? 0) });
+          });
+          this.recalculate();
+        });
+      }
     }
   }
 

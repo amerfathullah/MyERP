@@ -1,11 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
@@ -16,7 +18,7 @@ import type { SalesOrderDto } from '../../proxy/sales/models';
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -27,6 +29,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
+  private http = inject(HttpClient);
 
   order: SalesOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -34,13 +37,30 @@ export class SalesOrderDetailComponent implements OnInit {
   get workflowActions(): WorkflowAction[] {
     if (!this.order) return [];
     const actions: WorkflowAction[] = [];
-    if (this.order.status === 'Draft') {
+    const s = this.order.status;
+
+    if (s === 'Draft') {
       actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
     }
-    if (this.order.status === 'Submitted') {
+    if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
       actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'local_shipping', color: 'primary' });
+    }
+    if (s === 'ToDeliverAndBill' || s === 'ToBill') {
       actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'receipt', color: 'accent' });
+    }
+    if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
+      actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'accent' });
+      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'factory', color: 'accent' });
+    }
+    if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
+      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warn' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+    }
+    if (s === 'Closed') {
+      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock_open', color: 'primary' });
+    }
+    if (s === 'Cancelled') {
+      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }
@@ -67,12 +87,33 @@ export class SalesOrderDetailComponent implements OnInit {
           this.router.navigate(['/sales/invoices', inv.id]);
         });
         break;
+      case 'payment':
+        this.router.navigate(['/accounting/payments/new'], {
+          queryParams: { partyType: 'Customer', againstOrderType: 'SalesOrder', againstOrderId: id }
+        });
+        break;
+      case 'work_order':
+        this.router.navigate(['/manufacturing/work-orders/new'], {
+          queryParams: { salesOrderId: id, companyId: this.order!.companyId }
+        });
+        break;
+      case 'close':
+        this.service.close(id).subscribe(() => this.reloadAfterAction());
+        break;
+      case 'reopen':
+        this.service.reopen(id).subscribe(() => this.reloadAfterAction());
+        break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
             this.store.cancelOrder(id);
             this.reloadAfterAction();
           }
+        });
+        break;
+      case 'amend':
+        this.http.post<any>(`/api/app/sales-order-amendment/${id}/amend`, {}).subscribe({
+          next: (amended) => this.router.navigate(['/sales/orders', amended.id]),
         });
         break;
     }

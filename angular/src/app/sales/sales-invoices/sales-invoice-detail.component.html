@@ -1,5 +1,6 @@
 <abp-page [title]="invoice?.invoiceNumber ?? 'Invoice Detail'">
   @if (invoice) {
+    <app-breadcrumb />
     <div class="d-flex justify-content-end gap-2 mb-3">
       @for (action of workflowActions; track action.name) {
         <button class="btn btn-sm" [ngClass]="action.btnClass" (click)="onWorkflowAction(action.name)">
@@ -9,10 +10,31 @@
       }
       <button class="btn btn-outline-primary btn-sm" (click)="edit()" [disabled]="invoice.status !== 'Draft'">
         <i class="fa fa-pencil me-1"></i>Edit</button>
+      @if (invoice.status === 'Cancelled') {
+        <button class="btn btn-outline-success btn-sm" (click)="amend()">
+          <i class="fa fa-file-circle-plus me-1"></i>{{ '::AmendInvoice' | abpLocalization }}</button>
+      }
+      <button class="btn btn-outline-warning btn-sm" (click)="duplicate()">
+        <i class="fa fa-copy me-1"></i>{{ 'Duplicate' | abpLocalization }}</button>
+      <button class="btn btn-outline-info btn-sm" (click)="printInvoice()">
+        <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}</button>
       <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
         <i class="fa fa-arrow-left me-1"></i>Back
       </button>
     </div>
+
+    @if (invoice.amendedFromId) {
+      <div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
+        <i class="fa fa-file-circle-plus"></i>
+        <span>{{ '::AmendedFrom' | abpLocalization }}: Amendment #{{ invoice.amendmentIndex }}</span>
+      </div>
+    }
+    @if (invoice.isReturn && invoice.returnAgainstId) {
+      <div class="alert alert-warning py-2 d-flex align-items-center gap-2 mb-3">
+        <i class="fa fa-rotate-left"></i>
+        <span>Credit Note (Return)</span>
+      </div>
+    }
 
     <!-- Status bar -->
     <div class="card mb-3">
@@ -99,5 +121,52 @@
         </div>
       </div>
     </div>
+
+    <!-- Activity Log -->
+    @if (paymentSchedule().length > 0) {
+      <div class="card mb-3 mt-3">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="fa fa-calendar-check me-2"></i>{{ 'PaymentSchedule' | abpLocalization }}
+          </h5>
+        </div>
+        <div class="card-body">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>{{ 'DueDate' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Portion' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
+                <th class="text-center">{{ 'Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of paymentSchedule(); track entry.id) {
+                <tr>
+                  <td>{{ entry.dueDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ entry.invoicePortion }}%</td>
+                  <td class="text-end font-monospace">{{ entry.paymentAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ entry.paidAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace" [class.text-danger]="entry.outstanding > 0">
+                    {{ entry.outstanding | number:'1.2-2' }}
+                  </td>
+                  <td class="text-center">
+                    @if (entry.outstanding <= 0.01) {
+                      <span class="badge bg-success">{{ 'Paid' | abpLocalization }}</span>
+                    } @else {
+                      <span class="badge bg-warning text-dark">{{ 'Pending' | abpLocalization }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <app-activity-log [documentType]="'SalesInvoice'" [documentId]="invoice.id!"></app-activity-log>
   }
 </abp-page>

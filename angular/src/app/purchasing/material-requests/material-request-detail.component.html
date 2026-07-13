@@ -13,6 +13,12 @@
             </button>
           }
           @if (entity.status === 1) {
+            <button class="btn btn-success btn-sm" (click)="convertToPO()" *ngIf="entity.requestType === 0">
+              <i class="fa fa-file-invoice me-1"></i> {{ '::ConvertToPurchaseOrder' | abpLocalization }}
+            </button>
+            <button class="btn btn-primary btn-sm" (click)="createStockEntry()" *ngIf="entity.requestType === 1 || entity.requestType === 2">
+              <i class="fa fa-truck me-1"></i> {{ '::CreateStockEntry' | abpLocalization }}
+            </button>
             <button class="btn btn-outline-danger btn-sm" (click)="cancel()">
               <i class="fa fa-ban me-1"></i> {{ '::Cancel' | abpLocalization }}
             </button>

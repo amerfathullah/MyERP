@@ -99,4 +99,36 @@
       </button>
     </div>
   </form>
+
+  <!-- Outstanding Payables (edit mode only) -->
+  @if (isEditMode && outstandingInvoices().length > 0) {
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0"><i class="fa fa-file-invoice text-danger me-2"></i>{{ '::OutstandingPayables' | abpLocalization }}</h6>
+        <span class="badge bg-danger fs-6">{{ '::Total' | abpLocalization }}: {{ totalOutstanding() | number:'1.2-2' }}</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th class="ps-3">{{ '::InvoiceNumber' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+              <th class="text-end pe-3">{{ '::Outstanding' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (inv of outstandingInvoices(); track inv.documentId) {
+              <tr>
+                <td class="ps-3">{{ inv.documentNumber }}</td>
+                <td>{{ inv.postingDate | date:'dd/MM/yyyy' }}</td>
+                <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
+                <td class="text-end pe-3 font-monospace text-danger fw-bold">{{ inv.outstandingAmount | number:'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
 </abp-page>

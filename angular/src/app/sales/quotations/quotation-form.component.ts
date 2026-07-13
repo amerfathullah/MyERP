@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
+import { QuotationStore } from '../store/quotation.store';
 
 @Component({
   selector: 'app-quotation-form',
@@ -18,6 +19,7 @@ export class QuotationFormComponent {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private taxCalc = inject(TaxCalculationService);
+  private store = inject(QuotationStore);
 
   form = this.fb.group({
     quotationNumber: [''],
@@ -44,8 +46,9 @@ export class QuotationFormComponent {
   save(): void {
     if (this.form.invalid) return;
     this.recalculate();
-    // TODO: Call QuotationAppService.create()
-    console.log('Saving quotation:', this.form.getRawValue(), this.calcResult);
+    const dto = this.form.getRawValue() as any;
+    this.store.create(dto);
+    this.router.navigate(['/sales/quotations']);
   }
 
   cancel(): void { this.router.navigate(['/sales/quotations']); }

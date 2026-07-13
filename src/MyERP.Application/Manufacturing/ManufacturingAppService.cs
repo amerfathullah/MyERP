@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing;
@@ -23,17 +24,23 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     private readonly IRepository<WorkOrder, Guid> _workOrderRepository;
     private readonly IRepository<MaterialRequest, Guid> _materialRequestRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly StockValuationService _valuationService;
+    private readonly BinService _binService;
 
     public ManufacturingAppService(
         IRepository<BillOfMaterials, Guid> bomRepository,
         IRepository<WorkOrder, Guid> workOrderRepository,
         IRepository<MaterialRequest, Guid> materialRequestRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        StockValuationService valuationService,
+        BinService binService)
     {
         _bomRepository = bomRepository;
         _workOrderRepository = workOrderRepository;
         _materialRequestRepository = materialRequestRepository;
         _numberGenerator = numberGenerator;
+        _valuationService = valuationService;
+        _binService = binService;
     }
 
     // === BOM ===
@@ -81,6 +88,20 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
     public async Task DeleteBomAsync(Guid id)
     {
+        // Guard: cannot delete BOM used by active Work Orders
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var hasActiveWO = woQuery.Any(wo =>
+            wo.BomId == id
+            && wo.Status != WorkOrderStatus.Draft
+            && wo.Status != WorkOrderStatus.Cancelled
+            && wo.Status != WorkOrderStatus.Completed);
+
+        if (hasActiveWO)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:10009")
+                .WithData("reason", "BOM is used by active Work Orders. Cancel or complete them first.");
+        }
+
         await _bomRepository.DeleteAsync(id);
     }
 
@@ -139,6 +160,41 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return MapWoToDto(wo);
     }
 
+    /// <summary>
+    /// Creates a Work Order from a Sales Order (make-to-order manufacturing).
+    /// Auto-resolves the default BOM for the item.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<WorkOrderDto> CreateWorkOrderFromSalesOrderAsync(
+        Guid salesOrderId, Guid itemId, decimal quantity, Guid companyId)
+    {
+        // Find the default active BOM for this item
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var bom = bomQuery.FirstOrDefault(b =>
+            b.ItemId == itemId && b.IsActive && b.IsDefault && b.CompanyId == companyId)
+            ?? bomQuery.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && b.CompanyId == companyId);
+
+        if (bom == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("message", $"No active BOM found for item {itemId}");
+        }
+
+        var input = new CreateWorkOrderDto
+        {
+            ItemId = itemId,
+            BomId = bom.Id,
+            Quantity = quantity,
+            CompanyId = companyId,
+            SalesOrderId = salesOrderId,
+            SourceWarehouseId = bom.SourceWarehouseId,
+            FgWarehouseId = bom.TargetWarehouseId,
+            PlannedStartDate = DateTime.UtcNow,
+        };
+
+        return await CreateWorkOrderAsync(input);
+    }
+
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
     public async Task DeleteWorkOrderAsync(Guid id)
     {
@@ -167,7 +223,69 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> RecordProductionAsync(Guid id, decimal quantity)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
-        wo.RecordProduction(quantity);
+        // Overproduction percentage: default 10% (would come from ManufacturingSettings in production)
+        wo.RecordProduction(quantity, overproductionPercentage: 10m);
+
+        // Validate sufficient stock for raw materials before consuming
+        var productionRatio = quantity / wo.Quantity;
+        foreach (var item in wo.RequiredItems)
+        {
+            var issueQty = Math.Round(item.RequiredQuantity * productionRatio, 4);
+            var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+            if (issueQty > 0 && warehouseId.HasValue)
+            {
+                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, warehouseId.Value);
+                if (balance.Quantity < issueQty)
+                {
+                    throw new Volo.Abp.BusinessException("MyERP:10008")
+                        .WithData("itemId", item.ItemId)
+                        .WithData("warehouseId", warehouseId.Value)
+                        .WithData("required", issueQty)
+                        .WithData("available", balance.Quantity);
+                }
+            }
+        }
+
+        // Issue raw materials from source warehouse (proportional to production qty)
+        foreach (var item in wo.RequiredItems)
+        {
+            var issueQty = Math.Round(item.RequiredQuantity * productionRatio, 4);
+            var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+            if (issueQty > 0 && warehouseId.HasValue)
+            {
+                // Create SLE for raw material consumption (stock-out from source warehouse)
+                await _valuationService.CreateLedgerEntryAsync(
+                    wo.CompanyId, item.ItemId, warehouseId.Value,
+                    DateTime.UtcNow, -issueQty, 0,
+                    voucherType: "WorkOrder", voucherId: wo.Id,
+                    tenantId: wo.TenantId);
+
+                await _binService.ApplyStockMovementAsync(
+                    item.ItemId, warehouseId.Value, -issueQty, 0, wo.TenantId);
+
+                // Release production reservation
+                await _binService.UpdateReservedQtyForProductionAsync(
+                    item.ItemId, warehouseId.Value, -issueQty, wo.TenantId);
+            }
+        }
+
+        // Receive finished goods into FG warehouse
+        if (wo.FgWarehouseId.HasValue)
+        {
+            await _valuationService.CreateLedgerEntryAsync(
+                wo.CompanyId, wo.ItemId, wo.FgWarehouseId.Value,
+                DateTime.UtcNow, quantity, 0,
+                voucherType: "WorkOrder", voucherId: wo.Id,
+                tenantId: wo.TenantId);
+
+            await _binService.ApplyStockMovementAsync(
+                wo.ItemId, wo.FgWarehouseId.Value, quantity, 0, wo.TenantId);
+
+            // Reduce planned qty (FG was planned, now produced)
+            await _binService.UpdatePlannedQtyAsync(
+                wo.ItemId, wo.FgWarehouseId.Value, -quantity, wo.TenantId);
+        }
+
         await _workOrderRepository.UpdateAsync(wo);
         return MapWoToDto(wo);
     }

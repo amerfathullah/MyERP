@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
+using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.DTOs;
 using MyERP.Purchasing.Entities;
@@ -16,14 +20,23 @@ namespace MyERP.Purchasing;
 public class MaterialRequestAppService : ApplicationService, IMaterialRequestAppService
 {
     private readonly IRepository<MaterialRequest, Guid> _repository;
+    private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly BudgetValidationService _budgetValidation;
 
     public MaterialRequestAppService(
         IRepository<MaterialRequest, Guid> repository,
-        IDocumentNumberGenerator numberGenerator)
+        IRepository<Item, Guid> itemRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IDocumentNumberGenerator numberGenerator,
+        BudgetValidationService budgetValidation)
     {
         _repository = repository;
+        _itemRepository = itemRepository;
+        _fiscalYearRepository = fiscalYearRepository;
         _numberGenerator = numberGenerator;
+        _budgetValidation = budgetValidation;
     }
 
     public async Task<MaterialRequestDto> GetAsync(Guid id)
@@ -45,6 +58,8 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             var f = input.Filter.ToLower();
             query = query.Where(x => x.RequestNumber.ToLower().Contains(f));
         }
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(x => x.CreationTime)
@@ -87,6 +102,39 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     public async Task<MaterialRequestDto> SubmitAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id, includeDetails: true);
+
+        // Budget validation (Level 1: MR enforcement) — only for Purchase type
+        if (entity.RequestType == MaterialRequestType.Purchase)
+        {
+            var fiscalYear = (await _fiscalYearRepository.GetQueryableAsync())
+                .FirstOrDefault(fy => fy.CompanyId == entity.CompanyId
+                                   && fy.StartDate <= entity.RequestDate
+                                   && fy.EndDate >= entity.RequestDate);
+
+            if (fiscalYear != null)
+            {
+                var budgetItems = new List<BudgetCheckItem>();
+                foreach (var mrItem in entity.Items)
+                {
+                    var item = await _itemRepository.FindAsync(mrItem.ItemId);
+                    if (item?.DefaultExpenseAccountId != null)
+                    {
+                        // MR items don't have price — use item's standard buying price or qty as estimate
+                        var estimatedAmount = mrItem.Quantity * (item.StandardBuyingPrice ?? 1m);
+                        budgetItems.Add(new BudgetCheckItem(
+                            item.DefaultExpenseAccountId.Value,
+                            estimatedAmount));
+                    }
+                }
+
+                if (budgetItems.Any())
+                {
+                    await _budgetValidation.ValidateForMaterialRequestAsync(
+                        entity.CompanyId, fiscalYear.Id, entity.RequestDate, budgetItems, entity.TenantId);
+                }
+            }
+        }
+
         entity.Submit();
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);

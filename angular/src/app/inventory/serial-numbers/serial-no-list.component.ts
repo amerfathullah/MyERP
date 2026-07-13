@@ -1,0 +1,59 @@
+import { Component, inject, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
+import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { SerialNoProxyService, type SerialNoDto } from '../../proxy/inventory/inventory-additional.service';
+
+@Component({
+  selector: 'app-serial-no-list',
+  standalone: true,
+  imports: [CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  template: `
+    <abp-page [title]="'SerialNumbers' | abpLocalization">
+      @if (isLoading) { <app-loading-overlay /> }
+      @if (!isLoading && items.length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-barcode fa-3x text-muted mb-3 d-block"></i>
+          <p class="text-muted">{{ 'NoSerialNumbersYet' | abpLocalization }}</p>
+        </div>
+      } @else if (!isLoading) {
+        <div class="card"><div class="card-body">
+          <table class="table table-hover mb-0">
+            <thead><tr>
+              <th>{{ 'SerialNumber' | abpLocalization }}</th>
+              <th>{{ 'Item' | abpLocalization }}</th>
+              <th>{{ 'Warehouse' | abpLocalization }}</th>
+              <th>{{ 'MaintenanceStatus' | abpLocalization }}</th>
+              <th>{{ 'Status' | abpLocalization }}</th>
+            </tr></thead>
+            <tbody>
+              @for (sn of items; track sn.id) {
+                <tr>
+                  <td class="font-monospace">{{ sn.serialNumber }}</td>
+                  <td>{{ sn.itemId | slice:0:8 }}…</td>
+                  <td>{{ sn.warehouseId ? (sn.warehouseId | slice:0:8) + '…' : '—' }}</td>
+                  <td>{{ sn.maintenanceStatus }}</td>
+                  <td><span class="badge" [ngClass]="{'bg-success':sn.status===0, 'bg-info':sn.status===1, 'bg-secondary':sn.status===2}">
+                    {{ ['Active','Delivered','Inactive'][sn.status] ?? 'Active' }}
+                  </span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div></div>
+      }
+    </abp-page>
+  `,
+})
+export class SerialNoListComponent implements OnInit {
+  private service = inject(SerialNoProxyService);
+  items: SerialNoDto[] = [];
+  isLoading = false;
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    this.service.getList({ skipCount: 0, maxResultCount: 50 })
+      .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+  }
+}

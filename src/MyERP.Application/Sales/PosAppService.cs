@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
@@ -16,6 +17,7 @@ namespace MyERP.Sales;
 /// <summary>
 /// Point of Sale application service.
 /// Creates a Sales Invoice in Posted status directly (like ERPNext POS Invoice).
+/// Deducts stock from the specified warehouse.
 /// </summary>
 [Authorize(MyERPPermissions.SalesInvoices.Create)]
 public class PosAppService : ApplicationService, IPosAppService
@@ -23,15 +25,21 @@ public class PosAppService : ApplicationService, IPosAppService
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly StockValuationService _stockValuationService;
+    private readonly BinService _binService;
 
     public PosAppService(
         IRepository<SalesInvoice, Guid> invoiceRepository,
         IRepository<Item, Guid> itemRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        StockValuationService stockValuationService,
+        BinService binService)
     {
         _invoiceRepository = invoiceRepository;
         _itemRepository = itemRepository;
         _numberGenerator = numberGenerator;
+        _stockValuationService = stockValuationService;
+        _binService = binService;
     }
 
     public async Task<PosInvoiceDto> CompleteSaleAsync(CreatePosInvoiceDto input)
@@ -46,6 +54,10 @@ public class PosAppService : ApplicationService, IPosAppService
             DateTime.UtcNow,
             CurrentTenant.Id);
 
+        // POS always deducts stock
+        invoice.UpdateStock = true;
+        invoice.WarehouseId = input.WarehouseId;
+
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount);
@@ -54,6 +66,24 @@ public class PosAppService : ApplicationService, IPosAppService
         // POS invoices go straight to Posted status
         invoice.Submit();
         invoice.Post();
+
+        // Deduct stock for stock items
+        if (input.WarehouseId.HasValue)
+        {
+            foreach (var item in input.Items)
+            {
+                var stockItem = await _itemRepository.FindAsync(item.ItemId);
+                if (stockItem?.MaintainStock != true) continue;
+
+                await _stockValuationService.CreateLedgerEntryAsync(
+                    input.CompanyId, item.ItemId, input.WarehouseId.Value,
+                    DateTime.UtcNow, -item.Quantity, item.UnitPrice,
+                    "SalesInvoice", invoice.Id, CurrentTenant.Id);
+
+                await _binService.ApplyStockMovementAsync(
+                    item.ItemId, input.WarehouseId.Value, -item.Quantity, -(item.Quantity * item.UnitPrice));
+            }
+        }
 
         await _invoiceRepository.InsertAsync(invoice, autoSave: true);
 

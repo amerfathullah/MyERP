@@ -1,11 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
@@ -16,7 +18,7 @@ import type { DeliveryNoteDto } from '../../proxy/sales/models';
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
@@ -27,6 +29,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private store = inject(DeliveryNoteStore);
   private confirmation = inject(ConfirmationService);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
@@ -41,6 +44,9 @@ export class DeliveryNoteDetailComponent implements OnInit {
       case 'Submitted':
         actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'primary' });
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+        break;
+      case 'Cancelled':
+        actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
         break;
     }
     return actions;
@@ -71,6 +77,11 @@ export class DeliveryNoteDetailComponent implements OnInit {
             this.store.cancelNote(id);
             this.reloadAfterAction();
           }
+        });
+        break;
+      case 'amend':
+        this.http.post<any>(`/api/app/delivery-note/${id}/amend`, {}).subscribe({
+          next: (amended) => this.router.navigate(['/sales/delivery-notes', amended.id]),
         });
         break;
     }

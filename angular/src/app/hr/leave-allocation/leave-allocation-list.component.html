@@ -1,0 +1,99 @@
+<abp-page [title]="'::LeaveAllocations' | abpLocalization">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ '::LeaveAllocations' | abpLocalization }}</h5>
+      <button class="btn btn-primary btn-sm" (click)="toggleBulkForm()">
+        <i class="fa fa-users me-1"></i>{{ '::BulkAllocate' | abpLocalization }}
+      </button>
+    </div>
+
+    @if (showBulkForm()) {
+      <div class="card-body border-bottom bg-light">
+        <h6>{{ '::BulkAllocate' | abpLocalization }}</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">{{ '::LeaveType' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="bulkForm.leaveTypeId">
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (lt of leaveTypes(); track lt.id) {
+                <option [value]="lt.id">{{ lt.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+            <input type="date" class="form-control form-control-sm" [(ngModel)]="bulkForm.fromDate" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+            <input type="date" class="form-control form-control-sm" [(ngModel)]="bulkForm.toDate" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::DaysPerEmployee' | abpLocalization }}</label>
+            <input type="number" class="form-control form-control-sm" [(ngModel)]="bulkForm.totalLeavesPerEmployee" />
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-success btn-sm" (click)="bulkAllocate()">
+              <i class="fa fa-check me-1"></i>{{ '::Allocate' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm ms-1" (click)="toggleBulkForm()">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="card-body">
+      @if (isLoading()) {
+        <app-loading-overlay />
+      }
+
+      @if (!isLoading() && items().length === 0) {
+        <div class="text-center py-4 text-muted">
+          <i class="fa fa-calendar-check fa-2x mb-2"></i>
+          <p>{{ '::NoLeaveAllocationsYet' | abpLocalization }}</p>
+          <button class="btn btn-primary btn-sm" (click)="toggleBulkForm()">
+            <i class="fa fa-plus me-1"></i>{{ '::BulkAllocate' | abpLocalization }}
+          </button>
+        </div>
+      } @else if (items().length > 0) {
+        <div class="table-responsive">
+          <table class="table table-hover table-sm">
+            <thead>
+              <tr>
+                <th>{{ '::Employee' | abpLocalization }}</th>
+                <th>{{ '::LeaveType' | abpLocalization }}</th>
+                <th>{{ '::Period' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Allocated' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Used' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.id) {
+                <tr>
+                  <td>{{ item.employeeId | slice:0:8 }}...</td>
+                  <td>{{ item.leaveTypeId | slice:0:8 }}...</td>
+                  <td>{{ item.fromDate | date:'dd/MM/yyyy' }} - {{ item.toDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ item.totalLeavesAllocated + item.carryForwardDays }}</td>
+                  <td class="text-end">{{ item.leavesUsed }}</td>
+                  <td class="text-end fw-bold" [class.text-danger]="item.balance <= 0" [class.text-success]="item.balance > 0">
+                    {{ item.balance }}
+                  </td>
+                  <td class="text-end">
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteAllocation(item.id)"
+                            [disabled]="item.leavesUsed > 0" title="Delete">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

@@ -50,6 +50,12 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Credit limit in company currency. 0 = no limit.</summary>
+    public decimal CreditLimit { get; set; }
+
+    /// <summary>For inter-company: the Company this customer represents (bidirectional link).</summary>
+    public Guid? RepresentsCompanyId { get; set; }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

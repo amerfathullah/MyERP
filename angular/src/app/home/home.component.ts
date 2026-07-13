@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService, LocalizationPipe } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
@@ -15,8 +16,12 @@ import type { DashboardSummaryDto } from '../proxy/core/models';
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
   private dashboardService = inject(DashboardService);
+  private http = inject(HttpClient);
 
   summary = signal<DashboardSummaryDto | null>(null);
+  lowStockItems = signal<any[]>([]);
+  revenueTrend = signal<{ month: string; amount: number; heightPct: number }[]>([]);
+  recentActivity = signal<any[]>([]);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -32,6 +37,23 @@ export class HomeComponent implements OnInit {
         },
         error: () => this.isLoading.set(false),
       });
+      this.http.get<any[]>('/api/app/dashboard/low-stock-items')
+        .subscribe({ next: items => this.lowStockItems.set(items ?? []), error: () => {} });
+      this.http.get<any[]>('/api/app/dashboard/revenue-trend')
+        .subscribe({
+          next: data => {
+            if (!data?.length) return;
+            const maxAmount = Math.max(...data.map(d => d.amount), 1);
+            this.revenueTrend.set(data.map(d => ({
+              month: d.month,
+              amount: d.amount,
+              heightPct: (d.amount / maxAmount) * 100,
+            })));
+          },
+          error: () => {},
+        });
+      this.http.get<any[]>('/api/app/document-activity-log/recent', { params: { skip: '0', max: '10' } })
+        .subscribe({ next: items => this.recentActivity.set(items ?? []), error: () => {} });
     }
   }
 

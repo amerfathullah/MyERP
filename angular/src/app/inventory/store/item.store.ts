@@ -29,7 +29,7 @@ export const ItemStore = signalStore(
     hasItems: computed(() => store.ids().length > 0),
   })),
   withMethods((store, itemService = inject(ItemService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => itemService.getList(query)),

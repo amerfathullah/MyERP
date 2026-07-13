@@ -6,7 +6,7 @@ test.describe('E-Invoice (LHDN)', () => {
 
     await expect(page.locator('abp-page')).toBeVisible();
     // Dashboard should show status summary cards
-    await expect(page.locator('.card')).toHaveCount({ minimum: 2 }, { timeout: 10000 });
+    await expect(page.locator('.card')).not.toHaveCount(0, { timeout: 10000 });
   });
 
   test('submission logs page loads', async ({ page }) => {

@@ -2,10 +2,22 @@
   @if (!invoice) {
     <app-loading-overlay />
   } @else {
+    <app-breadcrumb />
     <app-document-workflow
       [currentStatus]="invoice.status!"
       [availableActions]="workflowActions"
       (actionTriggered)="onWorkflowAction($event)" />
+
+    <div class="d-flex justify-content-end mt-2 mb-2 gap-2">
+      @if (invoice.status === 'Cancelled') {
+        <button class="btn btn-outline-success btn-sm" (click)="amend()">
+          <i class="fa fa-file-circle-plus me-1"></i>{{ '::AmendInvoice' | abpLocalization }}
+        </button>
+      }
+      <button class="btn btn-outline-info btn-sm" (click)="printInvoice()">
+        <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
+      </button>
+    </div>
 
     <div class="card mt-4">
       <div class="card-body">
@@ -80,5 +92,45 @@
         }
       </div>
     </div>
+
+    @if (paymentSchedule().length > 0) {
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0"><i class="fa fa-calendar-check me-2"></i>{{ '::PaymentSchedule' | abpLocalization }}</h5>
+        </div>
+        <div class="card-body">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>{{ '::DueDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Portion' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Paid' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of paymentSchedule(); track entry.id) {
+                <tr>
+                  <td>{{ entry.dueDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ entry.invoicePortion }}%</td>
+                  <td class="text-end font-monospace">{{ entry.paymentAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ entry.paidAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace" [class.text-danger]="entry.outstanding > 0">{{ entry.outstanding | number:'1.2-2' }}</td>
+                  <td class="text-center">
+                    @if (entry.outstanding <= 0.01) {
+                      <span class="badge bg-success">{{ '::Paid' | abpLocalization }}</span>
+                    } @else {
+                      <span class="badge bg-warning text-dark">{{ '::Pending' | abpLocalization }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
   }
 </abp-page>

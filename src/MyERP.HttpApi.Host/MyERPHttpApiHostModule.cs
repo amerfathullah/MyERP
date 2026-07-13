@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.RateLimiting;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -127,6 +130,27 @@ public class MyERPHttpApiHostModule : AbpModule
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
+        ConfigureRateLimiting(context);
+    }
+
+    private void ConfigureRateLimiting(ServiceConfigurationContext context)
+    {
+        context.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = 429;
+            options.AddFixedWindowLimiter("fixed", opt =>
+            {
+                opt.PermitLimit = 100;
+                opt.Window = TimeSpan.FromMinutes(1);
+                opt.QueueLimit = 10;
+            });
+            options.AddFixedWindowLimiter("auth", opt =>
+            {
+                opt.PermitLimit = 10;
+                opt.Window = TimeSpan.FromMinutes(1);
+                opt.QueueLimit = 2;
+            });
+        });
     }
 
     private void ConfigureStudio(IHostEnvironment hostingEnvironment)
@@ -288,6 +312,7 @@ public class MyERPHttpApiHostModule : AbpModule
 
         app.UseUnitOfWork();
         app.UseDynamicClaims();
+        app.UseRateLimiter();
         app.UseAuthorization();
 
         app.UseSwagger();
@@ -301,5 +326,12 @@ public class MyERPHttpApiHostModule : AbpModule
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
+    }
+
+    public override async Task OnPostApplicationInitializationAsync(ApplicationInitializationContext context)
+    {
+        await context.ServiceProvider
+            .GetRequiredService<Volo.Abp.BackgroundWorkers.IBackgroundWorkerManager>()
+            .AddAsync(context.ServiceProvider.GetRequiredService<MyERP.BackgroundWorkers.NightlyProcessingWorker>());
     }
 }

@@ -1,0 +1,128 @@
+<abp-page [title]="'GrossProfitReport' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+            <i class="fa fa-chart-line me-1"></i>{{ 'Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h4 class="text-primary">{{ r.totalRevenue | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ 'Revenue' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h4 class="text-danger">{{ r.totalCost | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ 'Cost' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h4 [class.text-success]="r.grossProfit >= 0" [class.text-danger]="r.grossProfit < 0">
+              {{ r.grossProfit | number:'1.2-2' }}
+            </h4>
+            <small class="text-muted">{{ 'GrossProfit' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h4 [class.text-success]="r.grossProfitPercentage >= 0" [class.text-danger]="r.grossProfitPercentage < 0">
+              {{ r.grossProfitPercentage | number:'1.1-1' }}%
+            </h4>
+            <small class="text-muted">{{ 'GrossMargin' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        @if (r.items.length === 0) {
+          <div class="text-center py-4 text-muted">
+            <i class="fa fa-file-invoice fa-2x mb-2"></i>
+            <p>{{ 'NoRecordsFound' | abpLocalization }}</p>
+          </div>
+        } @else {
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ 'Date' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of r.items; track item.invoiceId) {
+                <tr>
+                  <td>{{ item.invoiceNumber }}</td>
+                  <td>{{ item.issueDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                  <td class="text-end" [class.text-success]="item.grossProfit >= 0" [class.text-danger]="item.grossProfit < 0">
+                    {{ item.grossProfit | number:'1.2-2' }}
+                  </td>
+                  <td class="text-end" [class.text-success]="item.grossProfitPercentage >= 0" [class.text-danger]="item.grossProfitPercentage < 0">
+                    {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold">
+                <td colspan="2">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
+                <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
+                <td class="text-end" [class.text-success]="r.grossProfit >= 0" [class.text-danger]="r.grossProfit < 0">
+                  {{ r.grossProfit | number:'1.2-2' }}
+                </td>
+                <td class="text-end" [class.text-success]="r.grossProfitPercentage >= 0" [class.text-danger]="r.grossProfitPercentage < 0">
+                  {{ r.grossProfitPercentage | number:'1.1-1' }}%
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        }
+      </div>
+    </div>
+  }
+</abp-page>

@@ -1,0 +1,134 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Purchasing.Entities;
+using MyERP.Permissions;
+using Microsoft.AspNetCore.Authorization;
+using Volo.Abp.Application.Dtos;
+using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Repositories;
+
+namespace MyERP.Purchasing;
+
+public class SupplierQuotationDto : EntityDto<Guid>
+{
+    public Guid CompanyId { get; set; }
+    public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
+    public string? QuotationNumber { get; set; }
+    public DateTime TransactionDate { get; set; }
+    public DateTime? ValidTill { get; set; }
+    public string Currency { get; set; } = null!;
+    public decimal NetTotal { get; set; }
+    public decimal GrandTotal { get; set; }
+    public int Status { get; set; }
+    public SupplierQuotationItemDto[] Items { get; set; } = [];
+}
+
+public class SupplierQuotationItemDto
+{
+    public Guid Id { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Qty { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Amount { get; set; }
+}
+
+public class CreateSupplierQuotationDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
+    public DateTime TransactionDate { get; set; }
+    public DateTime? ValidTill { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public Guid? RequestForQuotationId { get; set; }
+    public CreateSQItemDto[] Items { get; set; } = [];
+}
+
+public class CreateSQItemDto
+{
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Qty { get; set; }
+    public decimal Rate { get; set; }
+}
+
+[Authorize(MyERPPermissions.PurchaseOrders.Default)]
+public class SupplierQuotationAppService : ApplicationService
+{
+    private readonly IRepository<SupplierQuotation, Guid> _repository;
+    public SupplierQuotationAppService(IRepository<SupplierQuotation, Guid> repository) => _repository = repository;
+
+    public async Task<PagedResultDto<SupplierQuotationDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = (await _repository.WithDetailsAsync()).AsQueryable();
+        var totalCount = query.Count();
+        var items = query.OrderByDescending(s => s.TransactionDate)
+            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+        return new PagedResultDto<SupplierQuotationDto>(totalCount, items.Select(MapToDto).ToList());
+    }
+
+    public async Task<SupplierQuotationDto> GetAsync(Guid id)
+    {
+        var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+        return MapToDto(sq);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<SupplierQuotationDto> CreateAsync(CreateSupplierQuotationDto input)
+    {
+        // Supplier scorecard enforcement: prevent_rfqs blocks RFQ/SQ creation
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var supplier = await supplierRepo.GetAsync(input.SupplierId);
+        if (supplier.PreventRfqs)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:04007")
+                .WithData("supplierName", supplier.Name);
+        }
+
+        var sq = new SupplierQuotation(GuidGenerator.Create(), input.CompanyId,
+            input.SupplierId, input.TransactionDate, CurrentTenant.Id)
+        {
+            SupplierName = input.SupplierName, ValidTill = input.ValidTill,
+            Currency = input.Currency, RequestForQuotationId = input.RequestForQuotationId,
+        };
+        foreach (var item in input.Items)
+            sq.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
+        await _repository.InsertAsync(sq);
+        return MapToDto(sq);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
+    public async Task<SupplierQuotationDto> SubmitAsync(Guid id)
+    {
+        var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+        sq.Submit();
+        await _repository.UpdateAsync(sq);
+        return MapToDto(sq);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
+    public async Task<SupplierQuotationDto> CancelAsync(Guid id)
+    {
+        var sq = await _repository.GetAsync(id);
+        sq.Cancel();
+        await _repository.UpdateAsync(sq);
+        return MapToDto(sq);
+    }
+
+    private static SupplierQuotationDto MapToDto(SupplierQuotation s) => new()
+    {
+        Id = s.Id, CompanyId = s.CompanyId, SupplierId = s.SupplierId,
+        SupplierName = s.SupplierName, QuotationNumber = s.QuotationNumber,
+        TransactionDate = s.TransactionDate, ValidTill = s.ValidTill,
+        Currency = s.Currency, NetTotal = s.NetTotal, GrandTotal = s.GrandTotal,
+        Status = (int)s.Status,
+        Items = s.Items.Select(i => new SupplierQuotationItemDto
+        {
+            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
+            Qty = i.Qty, Rate = i.Rate, Amount = i.Amount,
+        }).ToArray(),
+    };
+}

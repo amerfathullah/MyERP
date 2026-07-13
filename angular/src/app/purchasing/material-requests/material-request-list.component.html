@@ -1,4 +1,20 @@
 <abp-page [title]="'::MaterialRequests' | abpLocalization">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 align-items-center">
+      <input type="text" class="form-control form-control-sm" style="width: 200px;"
+        [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
+        <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+        <option value="Draft">Draft</option>
+        <option value="Submitted">Submitted</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    </div>
+    <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
+      <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
+    </button>
+  </div>
 
   @if (store.isLoading()) {
     <app-loading-overlay />
@@ -66,4 +82,10 @@
       </div>
     </div>
   }
+
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="20"
+    [currentPage]="0"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

@@ -38,3 +38,17 @@ public enum AccountSubType
     DepreciationExpense = 52,
     TaxExpense = 53
 }
+
+/// <summary>
+/// Enforces the direction of an account's balance.
+/// Debit-normal accounts (Assets, Expenses) should always have debit balance.
+/// Credit-normal accounts (Liabilities, Equity, Revenue) should always have credit balance.
+/// </summary>
+public enum BalanceDirection
+{
+    /// <summary>Balance must be debit (positive). Asset and Expense accounts.</summary>
+    Debit = 0,
+
+    /// <summary>Balance must be credit (negative in accounting terms). Liability, Equity, Revenue accounts.</summary>
+    Credit = 1
+}

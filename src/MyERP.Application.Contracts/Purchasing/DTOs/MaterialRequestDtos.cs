@@ -82,4 +82,5 @@ public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto
     public MaterialRequestType? RequestType { get; set; }
     public Guid? CompanyId { get; set; }
     public string? Filter { get; set; }
+    public string? Status { get; set; }
 }

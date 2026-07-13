@@ -1,0 +1,129 @@
+<abp-page [title]="'::PartyLedger' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::PartyType' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="partyType" (change)="onPartyTypeChange()">
+            <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+            <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ partyType }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="selectedPartyId">
+            <option value="">— {{ '::Select' | abpLocalization }} —</option>
+            @for (p of parties(); track p.id) {
+              <option [value]="p.id">{{ p.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateTo">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary btn-sm w-100" (click)="loadLedger()" [disabled]="!selectedPartyId">
+            <i class="fa fa-search me-1"></i>{{ '::GetLedger' | abpLocalization }}
+          </button>
+        </div>
+        <div class="col-md-1">
+          @if (entries().length > 0) {
+            <button class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()" title="Export CSV">
+              <i class="fa fa-download"></i>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (entries().length > 0) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-2">
+            <p class="fs-5 fw-bold text-primary font-monospace mb-0">MYR {{ totalDebit() | number:'1.2-2' }}</p>
+            <small class="text-muted">{{ '::TotalDebit' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-2">
+            <p class="fs-5 fw-bold text-success font-monospace mb-0">MYR {{ totalCredit() | number:'1.2-2' }}</p>
+            <small class="text-muted">{{ '::TotalCredit' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-2">
+            <p class="fs-5 fw-bold font-monospace mb-0" [class.text-danger]="closingBalance() > 0" [class.text-success]="closingBalance() <= 0">
+              MYR {{ closingBalance() | number:'1.2-2' }}
+            </p>
+            <small class="text-muted">{{ '::ClosingBalance' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card">
+    <div class="card-body">
+      @if (isLoading()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        </div>
+      } @else if (entries().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-book fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::SelectPartyToViewLedger' | abpLocalization }}</h6>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover table-sm">
+            <thead>
+              <tr>
+                <th style="width: 100px;">{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::VoucherType' | abpLocalization }}</th>
+                <th>{{ '::VoucherNumber' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">{{ '::Debit' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">{{ '::Credit' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">{{ '::Balance' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of entries(); track $index) {
+                <tr>
+                  <td>{{ entry.date | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <span class="badge" [class]="entry.voucherType.includes('Invoice') ? 'bg-primary-subtle text-primary' : entry.voucherType.includes('Payment') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
+                      {{ entry.voucherType }}
+                    </span>
+                  </td>
+                  <td class="fw-medium">{{ entry.voucherNumber }}</td>
+                  <td class="text-end font-monospace">{{ entry.debit > 0 ? (entry.debit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace">{{ entry.credit > 0 ? (entry.credit | number:'1.2-2') : '' }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ entry.balance | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold border-top-2">
+                <td colspan="3">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ totalDebit() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ totalCredit() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace" [class.text-danger]="closingBalance() > 0">{{ closingBalance() | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { ItemStore } from '../store/item.store';
 
@@ -19,8 +20,11 @@ export class ItemFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
   private store = inject(ItemStore);
   private service = inject(ItemService);
+
+  stockLevels = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -34,6 +38,12 @@ export class ItemFormComponent implements OnInit {
     standardBuyingPrice: [0],
     maintainStock: [true],
     isActive: [true],
+    reorderLevel: [0],
+    reorderQty: [0],
+    safetyStock: [0],
+    minOrderQty: [0],
+    inspectionRequiredBeforePurchase: [false],
+    inspectionRequiredBeforeDelivery: [false],
   });
 
   isEditMode = false;
@@ -51,6 +61,9 @@ export class ItemFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
         this.form.patchValue(item as any);
+        // Load stock levels for this item
+        this.http.get<any[]>(`/api/app/stock-balance/item-stock`, { params: { itemId: this.entityId! } })
+          .subscribe(levels => this.stockLevels.set(levels ?? []));
       });
     }
   }

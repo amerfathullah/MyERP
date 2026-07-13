@@ -10,5 +10,7 @@ public enum ItemType
 public enum ValuationMethod
 {
     FIFO = 0,
-    WeightedAverage = 1
+    WeightedAverage = 1,
+    LIFO = 2,
+    StandardCost = 3
 }

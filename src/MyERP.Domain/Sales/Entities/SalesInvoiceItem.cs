@@ -27,6 +27,29 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Tax category used for this line item.</summary>
     public Guid? TaxCategoryId { get; set; }
 
+    /// <summary>Link to Sales Order item (for billing qty tracking).</summary>
+    public Guid? SalesOrderItemId { get; set; }
+
+    // Deferred Revenue fields
+    /// <summary>Enable deferred revenue recognition for this line item.</summary>
+    public bool EnableDeferredRevenue { get; set; }
+
+    /// <summary>Account to post deferred revenue (liability until recognized).</summary>
+    public Guid? DeferredRevenueAccountId { get; set; }
+
+    /// <summary>Service period start date (for proration).</summary>
+    public DateTime? ServiceStartDate { get; set; }
+
+    /// <summary>Service period end date.</summary>
+    public DateTime? ServiceEndDate { get; set; }
+
+    // Valuation fields (for gross profit)
+    /// <summary>Cost rate at time of billing (from stock valuation or last purchase rate).</summary>
+    public decimal ValuationRate { get; set; }
+
+    /// <summary>Gross profit per unit: UnitPrice - ValuationRate.</summary>
+    public decimal GrossProfit => (UnitPrice - ValuationRate) * Quantity;
+
     protected SalesInvoiceItem() { }
 
     public SalesInvoiceItem(

@@ -62,4 +62,10 @@
       }
     </div>
   </div>
+
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="20"
+    [currentPage]="0"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

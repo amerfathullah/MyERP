@@ -1,0 +1,99 @@
+<abp-page [title]="'::OutstandingInvoices' | abpLocalization">
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-danger font-monospace">MYR {{ totalOutstanding() | number:'1.2-2' }}</p>
+          <small class="text-muted">{{ '::TotalOutstanding' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-warning">{{ overdueCount() }}</p>
+          <small class="text-muted">{{ '::OverdueInvoices' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold">{{ invoices().length }}</p>
+          <small class="text-muted">{{ '::TotalInvoices' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-2 align-items-center">
+        <select class="form-select form-select-sm" style="width: 150px;" [(ngModel)]="partyType" (change)="onPartyTypeChange()">
+          <option value="Customer">{{ '::Receivables' | abpLocalization }}</option>
+          <option value="Supplier">{{ '::Payables' | abpLocalization }}</option>
+        </select>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
+        <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+      </button>
+    </div>
+    <div class="card-body">
+      @if (isLoading()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (invoices().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-check-circle fa-3x text-success mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoOutstandingInvoices' | abpLocalization }}</h6>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ partyType }}</th>
+                <th>{{ '::IssueDate' | abpLocalization }}</th>
+                <th>{{ '::DueDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                <th class="text-end">{{ '::DaysOverdue' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (inv of invoices(); track inv.id) {
+                <tr>
+                  <td>
+                    <a [routerLink]="partyType === 'Customer' ? ['/sales/invoices', inv.id] : ['/purchasing/invoices', inv.id]"
+                      class="fw-medium text-decoration-none">{{ inv.invoiceNumber }}</a>
+                  </td>
+                  <td>{{ inv.partyName }}</td>
+                  <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ inv.dueDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold text-danger">{{ inv.outstandingAmount | number:'1.2-2' }}</td>
+                  <td class="text-end">
+                    <span [class]="inv.daysOverdue > 30 ? 'badge bg-danger' : inv.daysOverdue > 0 ? 'badge bg-warning text-dark' : 'badge bg-success'">
+                      {{ inv.daysOverdue }}d
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold">
+                <td colspan="5">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace text-danger">MYR {{ totalOutstanding() | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

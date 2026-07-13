@@ -1,0 +1,111 @@
+<abp-page [title]="'::CustomerRevenueSummary' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="dateTo">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary btn-sm" (click)="loadReport()">
+            <i class="fa fa-users me-1"></i>{{ '::GenerateReport' | abpLocalization }}
+          </button>
+        </div>
+        <div class="col-md-3 text-end">
+          @if (items().length > 0) {
+            <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (items().length > 0) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalRevenue() | number:'1.2-2' }}</p>
+            <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold text-danger font-monospace">MYR {{ totalOutstanding() | number:'1.2-2' }}</p>
+            <small class="text-muted">{{ '::TotalOutstanding' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body text-center py-3">
+            <p class="fs-3 fw-bold">{{ customerCount() }}</p>
+            <small class="text-muted">{{ '::ActiveCustomers' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card">
+    <div class="card-body">
+      @if (isLoading()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        </div>
+      } @else if (items().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-users fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::ClickGenerateToViewReport' | abpLocalization }}</h6>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>{{ '::Customer' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Invoices' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Paid' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.customerId; let i = $index) {
+                <tr>
+                  <td class="text-muted">{{ i + 1 }}</td>
+                  <td class="fw-medium">
+                    <a [routerLink]="['/customers', item.customerId, 'edit']" class="text-decoration-none">{{ item.customerName }}</a>
+                  </td>
+                  <td class="text-end">{{ item.invoiceCount }}</td>
+                  <td class="text-end font-monospace fw-bold text-success">MYR {{ item.totalRevenue | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">MYR {{ item.totalPaid | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace" [class.text-danger]="item.totalOutstanding > 0">
+                    MYR {{ item.totalOutstanding | number:'1.2-2' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold border-top-2">
+                <td colspan="3">{{ '::Total' | abpLocalization }} ({{ customerCount() }} customers)</td>
+                <td class="text-end font-monospace text-success">MYR {{ totalRevenue() | number:'1.2-2' }}</td>
+                <td></td>
+                <td class="text-end font-monospace text-danger">MYR {{ totalOutstanding() | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

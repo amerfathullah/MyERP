@@ -1,0 +1,60 @@
+<abp-page [title]="'StockReconciliations' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/inventory/stock-reconciliations/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewReconciliation' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (isLoading) {
+    <app-loading-overlay />
+  }
+
+  @if (!isLoading && reconciliations.length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-scale-balanced fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoStockReconciliationsYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/inventory/stock-reconciliations/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewReconciliation' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!isLoading) {
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'ReconciliationNumber' | abpLocalization }}</th>
+              <th>{{ 'PostingDate' | abpLocalization }}</th>
+              <th>{{ 'Purpose' | abpLocalization }}</th>
+              <th>{{ 'Items' | abpLocalization }}</th>
+              <th class="text-end">{{ 'DifferenceAmount' | abpLocalization }}</th>
+              <th>{{ 'Status' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (sr of reconciliations; track sr.id) {
+              <tr>
+                <td>{{ sr.reconciliationNumber ?? '—' }}</td>
+                <td>{{ sr.postingDate | date:'dd/MM/yyyy' }}</td>
+                <td>{{ sr.purpose ?? '—' }}</td>
+                <td>{{ (sr.items ?? []).length }}</td>
+                <td class="text-end" [ngClass]="{'text-danger': (sr.differenceAmount ?? 0) < 0, 'text-success': (sr.differenceAmount ?? 0) > 0}">
+                  {{ sr.differenceAmount | number:'1.2-2' }}
+                </td>
+                <td><app-status-badge [status]="getStatusLabel(sr.status)"></app-status-badge></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" [routerLink]="['/inventory/stock-reconciliations', sr.id]">
+                      <i class="fa fa-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</abp-page>

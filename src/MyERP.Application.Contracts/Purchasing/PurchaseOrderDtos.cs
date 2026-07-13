@@ -16,6 +16,8 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public string Status { get; set; } = null!;
+    public decimal PerReceived { get; set; }
+    public decimal PerBilled { get; set; }
     public List<PurchaseOrderItemDto> Items { get; set; } = new();
 }
 
@@ -29,6 +31,9 @@ public class PurchaseOrderItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal BilledQty { get; set; }
+    public Guid? WarehouseId { get; set; }
 }
 
 public class CreatePurchaseOrderDto

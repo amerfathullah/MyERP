@@ -14,10 +14,21 @@
           <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
         </div>
         <div class="col-auto">
+          <select class="form-select form-select-sm" style="width: 140px;" (change)="onStatusFilter($any($event.target).value)">
+            <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+            <option value="Draft">Draft</option>
+            <option value="Submitted">Submitted</option>
+            <option value="Posted">Posted</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="col-auto">
           <div class="input-group input-group-sm" style="width: 250px;">
             <span class="input-group-text"><i class="fa fa-search"></i></span>
             <input type="text" class="form-control"
-              [placeholder]="'::Search' | abpLocalization" />
+              [placeholder]="'::Search' | abpLocalization"
+              [ngModel]="searchTerm"
+              (ngModelChange)="onSearch($event)" />
           </div>
         </div>
       </div>
@@ -116,4 +127,9 @@
       }
     </div>
   </div>
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

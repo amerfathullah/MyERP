@@ -1,0 +1,52 @@
+<abp-page [title]="'Issues' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/support/issues/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewIssue' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  @if (!store.isLoading() && store.entities().length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-headset fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoIssuesYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/support/issues/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewIssue' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!store.isLoading()) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>{{ 'Subject' | abpLocalization }}</th>
+            <th>{{ 'Priority' | abpLocalization }}</th>
+            <th>{{ 'Status' | abpLocalization }}</th>
+            <th>{{ 'OpeningDate' | abpLocalization }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (issue of store.entities(); track issue.id) {
+            <tr>
+              <td class="text-truncate" style="max-width: 300px;">{{ issue.subject }}</td>
+              <td [class]="getPriorityClass(issue.priority)">{{ issue.priority }}</td>
+              <td><app-status-badge [status]="getStatusLabel(issue.status)" /></td>
+              <td>{{ issue.openingDate | date:'dd/MM/yyyy' }}</td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <a class="btn btn-outline-primary" [routerLink]="'/support/issues/' + issue.id">
+                    <i class="fa fa-eye"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</abp-page>

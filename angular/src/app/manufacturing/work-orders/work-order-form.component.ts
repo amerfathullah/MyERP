@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -18,6 +18,7 @@ import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 export class WorkOrderFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
 
@@ -26,12 +27,22 @@ export class WorkOrderFormComponent implements OnInit {
     itemId: ['', Validators.required],
     bomId: ['', Validators.required],
     quantity: [1, [Validators.required, Validators.min(1)]],
+    salesOrderId: [''],
     plannedStartDate: [new Date().toISOString().split('T')[0]],
     plannedEndDate: [''],
     notes: [''],
   });
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    // Pre-fill from query params (when navigating from SO "Make Work Order")
+    const params = this.route.snapshot.queryParams;
+    if (params['salesOrderId']) {
+      this.form.patchValue({ salesOrderId: params['salesOrderId'] });
+    }
+    if (params['companyId']) {
+      this.form.patchValue({ companyId: params['companyId'] });
+    }
+  }
 
   save(): void {
     if (this.form.invalid) {

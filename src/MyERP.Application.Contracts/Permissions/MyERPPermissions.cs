@@ -143,6 +143,7 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";
         public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
     }
 
     public static class DeliveryNotes
@@ -254,9 +255,66 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class ProductionPlans
+    {
+        public const string Default = GroupName + ".ProductionPlans";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class MaterialRequests
     {
         public const string Default = GroupName + ".MaterialRequests";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class Issues
+    {
+        public const string Default = GroupName + ".Issues";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Budgets
+    {
+        public const string Default = GroupName + ".Budgets";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class QualityInspections
+    {
+        public const string Default = GroupName + ".QualityInspections";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
+    public static class StockReconciliations
+    {
+        public const string Default = GroupName + ".StockReconciliations";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class LandedCostVouchers
+    {
+        public const string Default = GroupName + ".LandedCostVouchers";
         public const string Create = Default + ".Create";
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";

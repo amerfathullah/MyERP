@@ -1,0 +1,81 @@
+<abp-page [title]="'SalesRegister' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+            <i class="fa fa-table me-1"></i>{{ 'Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) { <div class="text-center py-5"><div class="spinner-border text-primary"></div></div> }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.count }} {{ 'Invoices' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">{{ 'InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ 'Date' | abpLocalization }}</th>
+                <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Tax' | abpLocalization }}</th>
+                <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ 'Outstanding' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of r.items; track item.invoiceId) {
+                <tr [class.text-danger]="item.isReturn">
+                  <td class="ps-3">
+                    {{ item.invoiceNumber }}
+                    @if (item.isReturn) { <span class="badge bg-danger ms-1">Return</span> }
+                  </td>
+                  <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end font-monospace">{{ item.netTotal | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ item.taxAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ item.grandTotal | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ item.amountPaid | number:'1.2-2' }}</td>
+                  <td class="text-end pe-3 font-monospace" [class.text-danger]="item.outstanding > 0">{{ item.outstanding | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3" colspan="2">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ r.totalNet | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ r.totalTax | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ r.totalGrand | number:'1.2-2' }}</td>
+                <td></td><td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

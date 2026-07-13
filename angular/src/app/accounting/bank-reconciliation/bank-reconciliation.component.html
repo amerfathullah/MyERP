@@ -39,7 +39,12 @@
   </div>
 
   <div class="card">
-    <div class="card-header"><h5 class="card-title mb-0">{{ '::BankTransactions' | abpLocalization }}</h5></div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">{{ '::BankTransactions' | abpLocalization }}</h5>
+      <button class="btn btn-sm btn-success" (click)="autoMatch()" [disabled]="isMatching()">
+        <i class="fa fa-magic me-1"></i>{{ '::AutoMatch' | abpLocalization }}
+      </button>
+    </div>
     <div class="card-body pt-3">
       <div class="table-responsive">
                 <table class="table table-hover w-100">

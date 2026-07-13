@@ -83,10 +83,21 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ActualStartDate ??= DateTime.UtcNow;
     }
 
-    public void RecordProduction(decimal quantity)
+    public void RecordProduction(decimal quantity, decimal overproductionPercentage = 0)
     {
         if (Status != WorkOrderStatus.InProcess)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Overproduction check: cannot exceed qty × (1 + overproduction_pct/100)
+        var maxAllowed = Quantity * (1 + overproductionPercentage / 100m);
+        if (ProducedQuantity + quantity > maxAllowed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("maxAllowed", maxAllowed)
+                .WithData("produced", ProducedQuantity)
+                .WithData("attempted", quantity);
+        }
+
         ProducedQuantity += quantity;
         if (ProducedQuantity >= Quantity)
         {

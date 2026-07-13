@@ -60,6 +60,97 @@
           </div>
         </div>
 
+        <!-- Reorder Settings -->
+        <div class="card mt-3">
+          <div class="card-header py-2">
+            <h6 class="card-title mb-0"><i class="fa fa-arrows-rotate me-2"></i>{{ '::ReorderSettings' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::ReorderLevel' | abpLocalization }}</label>
+                <input type="number" class="form-control" formControlName="reorderLevel" min="0" step="1" />
+                <small class="form-text text-muted">{{ '::ReorderLevelHelp' | abpLocalization }}</small>
+              </div>
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::ReorderQty' | abpLocalization }}</label>
+                <input type="number" class="form-control" formControlName="reorderQty" min="0" step="1" />
+              </div>
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::SafetyStock' | abpLocalization }}</label>
+                <input type="number" class="form-control" formControlName="safetyStock" min="0" step="1" />
+              </div>
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::MinOrderQty' | abpLocalization }}</label>
+                <input type="number" class="form-control" formControlName="minOrderQty" min="0" step="1" />
+                <small class="form-text text-muted">{{ '::MinOrderQtyHelp' | abpLocalization }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quality Inspection Settings -->
+        <div class="card border mb-3">
+          <div class="card-header py-2">
+            <h6 class="card-title mb-0"><i class="fa fa-clipboard-check me-2"></i>{{ '::QualityInspection' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" formControlName="inspectionRequiredBeforePurchase" id="qiPurchase" />
+                  <label class="form-check-label" for="qiPurchase">{{ '::InspectionRequiredBeforePurchase' | abpLocalization }}</label>
+                </div>
+                <small class="form-text text-muted">{{ '::InspectionRequiredBeforePurchaseHelp' | abpLocalization }}</small>
+              </div>
+              <div class="col-12 col-md-6 mb-3">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" formControlName="inspectionRequiredBeforeDelivery" id="qiDelivery" />
+                  <label class="form-check-label" for="qiDelivery">{{ '::InspectionRequiredBeforeDelivery' | abpLocalization }}</label>
+                </div>
+                <small class="form-text text-muted">{{ '::InspectionRequiredBeforeDeliveryHelp' | abpLocalization }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stock Levels (edit mode only) -->
+        @if (isEditMode && stockLevels().length > 0) {
+          <div class="card border mb-3">
+            <div class="card-header py-2">
+              <h6 class="card-title mb-0"><i class="fa fa-warehouse me-2"></i>{{ '::StockLevels' | abpLocalization }}</h6>
+            </div>
+            <div class="card-body">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{{ '::Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ActualQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReservedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ProjectedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (bin of stockLevels(); track bin.id) {
+                    <tr>
+                      <td>{{ bin.warehouseId }}</td>
+                      <td class="text-end font-monospace">{{ bin.actualQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ bin.reservedQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ bin.orderedQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace" [class.text-danger]="bin.projectedQty < 0" [class.text-success]="bin.projectedQty > 0">
+                        {{ bin.projectedQty | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end font-monospace">{{ bin.valuationRate | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
         <div class="d-flex justify-content-end gap-2 pt-3">
           <button type="button" class="btn btn-outline-secondary" routerLink="/inventory/items"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
           </button>

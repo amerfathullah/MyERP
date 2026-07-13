@@ -13,6 +13,7 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<BankTransactionDto> ReconcileAsync(ReconcileBankTransactionDto input);
     Task<BankTransactionDto> UnreconcileAsync(Guid id);
     Task<BankTransactionDto> ImportTransactionAsync(ImportBankTransactionDto input);
+    Task<AutoMatchResultDto> AutoMatchAsync(Guid bankAccountId, Guid companyId);
     Task<BankReconciliationSummaryDto> GetSummaryAsync(Guid bankAccountId);
 }
 
@@ -79,4 +80,10 @@ public class BankReconciliationSummaryDto
     public decimal TotalDeposits { get; set; }
     public decimal TotalWithdrawals { get; set; }
     public decimal UnreconciledBalance { get; set; }
+}
+
+public class AutoMatchResultDto
+{
+    public int MatchedCount { get; set; }
+    public int UnmatchedCount { get; set; }
 }

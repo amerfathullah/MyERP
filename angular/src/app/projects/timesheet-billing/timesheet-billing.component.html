@@ -1,0 +1,110 @@
+<abp-page [title]="'::TimesheetBilling' | abpLocalization">
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-primary">{{ totalHours() | number:'1.1-1' }}h</p>
+          <small class="text-muted">{{ '::UnbilledHours' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalAmount() | number:'1.2-2' }}</p>
+          <small class="text-muted">{{ '::UnbilledAmount' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center py-3">
+          <p class="fs-3 fw-bold">{{ unbilledItems().length }}</p>
+          <small class="text-muted">{{ '::ActivityTypes' | abpLocalization }}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title mb-0">{{ '::CreateBillingInvoice' | abpLocalization }}</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
+          <select class="form-select" [(ngModel)]="customerId">
+            <option value="">— {{ '::SelectCustomer' | abpLocalization }} —</option>
+            @for (c of customers(); track c.id) {
+              <option [value]="c.id">{{ c.customerName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">{{ '::Project' | abpLocalization }} ({{ '::Optional' | abpLocalization }})</label>
+          <input type="text" class="form-control" [(ngModel)]="projectId"
+            placeholder="Project ID (optional)" (change)="loadUnbilled()">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100" (click)="createInvoice()"
+            [disabled]="isBilling() || !customerId || totalAmount() === 0">
+            <i class="fa fa-file-invoice me-1"></i>
+            {{ '::CreateInvoice' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">{{ '::UnbilledTimeEntries' | abpLocalization }}</h5>
+    </div>
+    <div class="card-body">
+      @if (isLoading()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (unbilledItems().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-check-circle fa-3x text-success mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::AllTimesheetsBilled' | abpLocalization }}</h6>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>{{ '::ActivityType' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Hours' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Entries' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of unbilledItems(); track item.activityType) {
+                <tr>
+                  <td class="fw-medium">{{ item.activityType }}</td>
+                  <td class="text-end">{{ item.totalHours | number:'1.1-1' }}h</td>
+                  <td class="text-end font-monospace">MYR {{ item.totalAmount | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ item.entryCount }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold">
+                <td>{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end">{{ totalHours() | number:'1.1-1' }}h</td>
+                <td class="text-end font-monospace">MYR {{ totalAmount() | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</abp-page>

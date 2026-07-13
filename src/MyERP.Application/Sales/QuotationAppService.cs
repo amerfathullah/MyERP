@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -34,11 +35,28 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         return await MapToDtoAsync(quotation);
     }
 
-    public async Task<PagedResultDto<QuotationDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<QuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
-        var totalCount = await _repository.GetCountAsync();
-        var quotations = await _repository.GetPagedListAsync(
-            input.SkipCount, input.MaxResultCount, input.Sorting ?? "IssueDate DESC");
+        var query = await _repository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter.ToLower();
+            query = query.Where(x => x.QuotationNumber.ToLower().Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
+        var totalCount = query.Count();
+        var quotations = query
+            .OrderByDescending(x => x.IssueDate)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
 
         var dtos = new System.Collections.Generic.List<QuotationDto>();
         foreach (var q in quotations)
@@ -91,6 +109,47 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Cancel();
         await _repository.UpdateAsync(quotation, autoSave: true);
         return await MapToDtoAsync(quotation);
+    }
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task<QuotationDto> MarkLostAsync(Guid id)
+    {
+        var quotation = await _repository.GetAsync(id);
+        quotation.MarkLost();
+        await _repository.UpdateAsync(quotation, autoSave: true);
+        return await MapToDtoAsync(quotation);
+    }
+
+    /// <summary>
+    /// Amend a cancelled or rejected quotation — creates a new draft copy for revision.
+    /// </summary>
+    [Authorize(MyERPPermissions.Quotations.Create)]
+    public async Task<QuotationDto> AmendAsync(Guid id)
+    {
+        var original = await _repository.GetAsync(id);
+        var amendService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.DocumentAmendmentService>();
+
+        amendService.ValidateCanAmend(original.Status);
+        var newNumber = amendService.GenerateAmendedNumber(original.QuotationNumber, original.AmendmentIndex + 1);
+
+        var amended = new Quotation(
+            GuidGenerator.Create(), original.CompanyId, original.CustomerId,
+            newNumber, DateTime.UtcNow.Date);
+
+        amended.AmendedFromId = original.Id;
+        amended.AmendmentIndex = original.AmendmentIndex + 1;
+        amended.CurrencyCode = original.CurrencyCode;
+        amended.ValidUntil = DateTime.UtcNow.Date.AddDays(30); // Fresh validity
+        amended.Terms = original.Terms;
+        amended.Notes = original.Notes;
+
+        foreach (var item in original.Items)
+        {
+            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        await _repository.InsertAsync(amended, autoSave: true);
+        return await MapToDtoAsync(amended);
     }
 
     private async Task<QuotationDto> MapToDtoAsync(Quotation quotation)

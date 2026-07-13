@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -27,6 +28,7 @@ export class QuotationDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(QuotationStore);
   private confirmation = inject(ConfirmationService);
+  private http = inject(HttpClient);
 
   quotation: QuotationDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -39,7 +41,11 @@ export class QuotationDetailComponent implements OnInit {
     }
     if (this.quotation.status === 'Submitted') {
       actions.push({ name: 'convert', label: 'Convert to SO', icon: 'transform', color: 'primary' });
+      actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumb_down', color: 'warn' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+    }
+    if (this.quotation.status === 'Cancelled' || this.quotation.status === 'Rejected') {
+      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }
@@ -61,12 +67,20 @@ export class QuotationDetailComponent implements OnInit {
           this.router.navigate(['/sales/orders', salesOrder.id]);
         });
         break;
+      case 'lost':
+        this.service.markLost(id).subscribe(() => this.reloadAfterAction());
+        break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
             this.store.cancelQuotation(id);
             this.reloadAfterAction();
           }
+        });
+        break;
+      case 'amend':
+        this.http.post<any>(`/api/app/quotation/${id}/amend`, {}).subscribe({
+          next: (amended) => this.router.navigate(['/sales/quotations', amended.id]),
         });
         break;
     }

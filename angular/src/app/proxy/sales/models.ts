@@ -248,6 +248,12 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   status?: string;
   eInvoiceStatus?: string | null;
   lhdnUuid?: string | null;
+  exchangeRate?: number;
+  baseNetTotal?: number;
+  baseGrandTotal?: number;
+  isReturn?: boolean;
+  returnAgainstId?: string | null;
+  paymentTermsTemplateId?: string | null;
   items?: SalesInvoiceItemDto[];
 }
 
@@ -278,6 +284,8 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   notes?: string | null;
   status?: string;
   quotationId?: string | null;
+  perDelivered?: number;
+  perBilled?: number;
   items?: SalesOrderItemDto[];
 }
 
@@ -290,4 +298,7 @@ export interface SalesOrderItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  deliveredQty?: number;
+  billedQty?: number;
+  warehouseId?: string | null;
 }

@@ -5,7 +5,10 @@ import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 import type { AccountDto } from '../../proxy/accounting/models';
+
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
 @Component({
   selector: 'app-journal-entry-form',
@@ -13,7 +16,8 @@ import type { AccountDto } from '../../proxy/accounting/models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    PageModule],
+    PageModule,
+    AutoValidationDirective],
   templateUrl: './journal-entry-form.component.html',
   styleUrls: ['./journal-entry-form.component.scss'],
 })
@@ -21,6 +25,7 @@ export class JournalEntryFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private accountService = inject(AccountService);
+  private journalEntryService = inject(JournalEntryService);
   private toaster = inject(ToasterService);
 
   accounts = signal<AccountDto[]>([]);
@@ -81,10 +86,14 @@ export class JournalEntryFormComponent implements OnInit {
       this.toaster.error('Journal entry must be balanced (Debit = Credit)');
       return;
     }
-    // Journal entry proxy not yet generated — log and show success for now
-    // Replace with: journalEntryService.create(dto) once proxy is available
-    this.toaster.success('Journal entry saved');
-    this.router.navigate(['/accounting/journal-entries']);
+    const dto = this.form.getRawValue() as any;
+    this.journalEntryService.create(dto).subscribe({
+      next: () => {
+        this.toaster.success('Journal entry created');
+        this.router.navigate(['/accounting/journal-entries']);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
+    });
   }
 
   cancel(): void {

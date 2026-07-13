@@ -33,7 +33,7 @@ export const SalesInvoiceStore = signalStore(
     hasInvoices: computed(() => store.ids().length > 0),
   })),
   withMethods((store, invoiceService = inject(SalesInvoiceService), toaster = inject(ToasterService)) => ({
-    loadInvoices: rxMethod<PagedAndSortedResultRequestDto>(
+    loadInvoices: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => invoiceService.getList(query)),

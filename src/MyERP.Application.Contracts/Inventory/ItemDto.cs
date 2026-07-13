@@ -22,4 +22,11 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultIncomeAccountId { get; set; }
     public Guid? DefaultExpenseAccountId { get; set; }
     public bool IsActive { get; set; }
+    public decimal ReorderLevel { get; set; }
+    public decimal ReorderQty { get; set; }
+    public decimal SafetyStock { get; set; }
+    public Guid? DefaultWarehouseId { get; set; }
+    public decimal MinOrderQty { get; set; }
+    public bool InspectionRequiredBeforePurchase { get; set; }
+    public bool InspectionRequiredBeforeDelivery { get; set; }
 }

@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { CustomerService } from '../proxy/sales/customer.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
@@ -19,8 +20,12 @@ export class CustomerFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
   private service = inject(CustomerService);
   private toaster = inject(ToasterService);
+
+  outstandingInvoices = signal<any[]>([]);
+  totalOutstanding = signal(0);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -52,6 +57,14 @@ export class CustomerFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((customer) => {
         this.form.patchValue(customer as any);
+      });
+      // Load outstanding invoices for this customer
+      this.http.get<any>('/api/app/payment-reconciliation/outstanding-invoices', {
+        params: { partyType: 'Customer', partyId: this.entityId! }
+      }).subscribe(invoices => {
+        const items = invoices ?? [];
+        this.outstandingInvoices.set(items);
+        this.totalOutstanding.set(items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0));
       });
     }
   }

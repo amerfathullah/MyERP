@@ -22,6 +22,8 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public Guid? QuotationId { get; set; }
+    public decimal PerDelivered { get; set; }
+    public decimal PerBilled { get; set; }
     public List<SalesOrderItemDto> Items { get; set; } = new();
 }
 
@@ -35,6 +37,9 @@ public class SalesOrderItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal DeliveredQty { get; set; }
+    public decimal BilledQty { get; set; }
+    public Guid? WarehouseId { get; set; }
 }
 
 public class CreateSalesOrderDto

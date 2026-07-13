@@ -22,6 +22,7 @@ export class BankReconciliationComponent implements OnInit {
   summary = signal<BankReconciliationSummaryDto>({});
   totalCount = signal(0);
   isLoading = signal(false);
+  isMatching = signal(false);
   // TODO: In production, this would come from a bank account selector
   bankAccountId = '';
 
@@ -77,5 +78,29 @@ export class BankReconciliationComponent implements OnInit {
 
   onPageChange(event: any): void {
     this.loadTransactions(event.pageIndex * event.pageSize, event.pageSize);
+  }
+
+  autoMatch(): void {
+    if (!this.bankAccountId) {
+      this.toaster.warn('Please select a bank account first');
+      return;
+    }
+    this.isMatching.set(true);
+    this.service.autoMatch(this.bankAccountId, '').subscribe({
+      next: (result: any) => {
+        this.isMatching.set(false);
+        if (result.matchedCount > 0) {
+          this.toaster.success(`Auto-matched ${result.matchedCount} transaction(s)`);
+          this.loadTransactions(0, 20);
+          this.loadSummary();
+        } else {
+          this.toaster.info('No new matches found');
+        }
+      },
+      error: () => {
+        this.isMatching.set(false);
+        this.toaster.error('Auto-match failed');
+      },
+    });
   }
 }

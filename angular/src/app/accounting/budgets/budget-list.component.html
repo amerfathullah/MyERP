@@ -1,0 +1,56 @@
+<abp-page [title]="'Budgets' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/accounting/budgets/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewBudget' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (isLoading) {
+    <app-loading-overlay />
+  }
+
+  @if (!isLoading && budgets.length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-calculator fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoBudgetsYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/accounting/budgets/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewBudget' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!isLoading) {
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'BudgetAgainst' | abpLocalization }}</th>
+              <th>{{ 'Target' | abpLocalization }}</th>
+              <th class="text-end">{{ 'TotalBudget' | abpLocalization }}</th>
+              <th>{{ 'Accounts' | abpLocalization }}</th>
+              <th>{{ 'Status' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (budget of budgets; track budget.id) {
+              <tr>
+                <td>{{ budget.budgetAgainst }}</td>
+                <td>{{ budget.budgetAgainstName }}</td>
+                <td class="text-end fw-bold">{{ getTotalBudget(budget) | number:'1.2-2' }}</td>
+                <td>{{ (budget.accounts ?? []).length }}</td>
+                <td><app-status-badge [status]="getStatusLabel(budget.status)"></app-status-badge></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" [routerLink]="['/accounting/budgets', budget.id]">
+                      <i class="fa fa-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</abp-page>

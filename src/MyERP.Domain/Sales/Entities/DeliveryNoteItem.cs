@@ -23,6 +23,15 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Link back to the Sales Order item being fulfilled.</summary>
     public Guid? SalesOrderItemId { get; set; }
 
+    /// <summary>Batch reference for batch-tracked items.</summary>
+    public Guid? BatchId { get; set; }
+
+    /// <summary>Serial number reference for serialized items.</summary>
+    public Guid? SerialNoId { get; set; }
+
+    /// <summary>Cost rate at time of delivery (from stock valuation). Used for COGS calculation.</summary>
+    public decimal ValuationRate { get; set; }
+
     protected DeliveryNoteItem() { }
 
     public DeliveryNoteItem(

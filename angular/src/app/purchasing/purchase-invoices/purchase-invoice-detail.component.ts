@@ -1,10 +1,12 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
@@ -16,18 +18,21 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationPipe,
-    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent],
+    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],
 })
 export class PurchaseInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private http = inject(HttpClient);
   private service = inject(PurchaseInvoiceService);
   private store = inject(PurchaseInvoiceStore);
   private confirmation = inject(ConfirmationService);
 
   invoice: PurchaseInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+  paymentSchedule = signal<any[]>([]);
 
   get workflowActions(): WorkflowAction[] {
     if (!this.invoice) return [];
@@ -39,6 +44,8 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       actions.push({ name: 'post', label: 'Post', icon: 'verified', color: 'primary' });
     }
     if (this.invoice.status === 'Posted') {
+      actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'primary' });
+      actions.push({ name: 'return', label: 'Create Return', icon: 'undo', color: 'accent' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
     }
     return actions;
@@ -46,7 +53,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => { this.invoice = result; });
+    this.service.get(id).subscribe((result) => {
+      this.invoice = result;
+      this.http.get<any[]>(`/api/app/purchase-invoice/${id}/payment-schedule`)
+        .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
+    });
   }
 
   onWorkflowAction(action: string): void {
@@ -68,6 +79,16 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
           }
         });
         break;
+      case 'payment':
+        this.router.navigate(['/accounting/payments/new'], {
+          queryParams: { partyType: 'Supplier', againstInvoiceType: 'PurchaseInvoice', againstInvoiceId: id }
+        });
+        break;
+      case 'return':
+        this.router.navigate(['/purchasing/invoices/new'], {
+          queryParams: { returnAgainst: id }
+        });
+        break;
     }
   }
 
@@ -75,5 +96,17 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     setTimeout(() => {
       this.service.get(this.invoice!.id!).subscribe((r) => { this.invoice = r; });
     }, 500);
+  }
+
+  printInvoice(): void {
+    window.print();
+  }
+
+  amend(): void {
+    this.http.post<any>(`/api/app/purchase-invoice/${this.invoice!.id}/amend`, {}).subscribe({
+      next: (amended) => {
+        this.router.navigate(['/purchasing/invoices', amended.id]);
+      },
+    });
   }
 }

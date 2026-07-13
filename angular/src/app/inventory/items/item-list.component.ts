@@ -6,6 +6,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ItemStore } from '../store/item.store';
+import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-item-list',
@@ -15,7 +17,8 @@ import { ItemStore } from '../store/item.store';
     RouterModule,
     PageModule,
     LocalizationPipe,
-    StatusBadgeComponent],
+    StatusBadgeComponent,
+    PaginationComponent],
   templateUrl: './item-list.component.html',
   styleUrls: ['./item-list.component.scss'],
 })
@@ -23,8 +26,10 @@ export class ItemListComponent implements OnInit {
   readonly store = inject(ItemStore);
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
+  private companyContext = inject(CompanyContextService);
+
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', companyId: this.companyContext.currentCompanyId() || undefined });
   }
 
   onPageChange(event: any): void {
@@ -32,6 +37,7 @@ export class ItemListComponent implements OnInit {
       skipCount: event.pageIndex * event.pageSize,
       maxResultCount: event.pageSize,
       sorting: '',
+      companyId: this.companyContext.currentCompanyId() || undefined,
     });
   }
 

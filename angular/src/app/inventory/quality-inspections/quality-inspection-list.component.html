@@ -1,0 +1,64 @@
+<abp-page [title]="'QualityInspections' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/inventory/quality-inspections/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewInspection' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (isLoading) {
+    <app-loading-overlay />
+  }
+
+  @if (!isLoading && inspections.length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-clipboard-check fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoQualityInspectionsYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/inventory/quality-inspections/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewInspection' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!isLoading) {
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'Item' | abpLocalization }}</th>
+              <th>{{ 'InspectionType' | abpLocalization }}</th>
+              <th>{{ 'InspectionDate' | abpLocalization }}</th>
+              <th>{{ 'SampleSize' | abpLocalization }}</th>
+              <th>{{ 'Readings' | abpLocalization }}</th>
+              <th>{{ 'Result' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (qi of inspections; track qi.id) {
+              <tr>
+                <td>{{ qi.itemName }}</td>
+                <td><span class="badge bg-info">{{ getTypeLabel(qi.inspectionType) }}</span></td>
+                <td>{{ qi.inspectionDate | date:'dd/MM/yyyy' }}</td>
+                <td>{{ qi.sampleSize }}</td>
+                <td>{{ (qi.readings ?? []).length }}</td>
+                <td>
+                  <span class="badge" [ngClass]="{
+                    'bg-success': qi.status === 1,
+                    'bg-danger': qi.status === 2,
+                    'bg-secondary': qi.status === 0
+                  }">{{ getStatusLabel(qi.status) }}</span>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" [routerLink]="['/inventory/quality-inspections', qi.id]">
+                      <i class="fa fa-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</abp-page>

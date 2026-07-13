@@ -15,3 +15,19 @@ public class DashboardSummaryDto
     public decimal MonthlyRevenue { get; set; }
     public decimal MonthlyExpenses { get; set; }
 }
+
+public class LowStockItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = null!;
+    public string ItemName { get; set; } = null!;
+    public decimal ReorderLevel { get; set; }
+    public decimal CurrentStock { get; set; }
+    public decimal ProjectedQty { get; set; }
+}
+
+public class RevenueTrendDto
+{
+    public string Month { get; set; } = null!;
+    public decimal Amount { get; set; }
+}

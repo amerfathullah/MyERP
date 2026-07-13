@@ -1,6 +1,19 @@
 <abp-page [title]="'::SalesOrders' | abpLocalization">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    <div class="d-flex gap-2 align-items-center">
+      <input type="text" class="form-control form-control-sm" style="width: 200px;"
+        [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <select class="form-select form-select-sm" style="width: 160px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
+        <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+        <option value="Draft">Draft</option>
+        <option value="ToDeliverAndBill">To Deliver & Bill</option>
+        <option value="ToDeliver">To Deliver</option>
+        <option value="ToBill">To Bill</option>
+        <option value="Completed">Completed</option>
+        <option value="Closed">Closed</option>
+      </select>
+      <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+    </div>
     <button class="btn btn-primary btn-sm" routerLink="new">
       <i class="fa fa-plus me-1"></i> {{ '::NewSalesOrder' | abpLocalization }}
     </button>
@@ -66,4 +79,9 @@
       }
     </div>
   </div>
+  <app-pagination
+    [totalCount]="store.totalCount()"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
+    (pageChange)="onPageChange($event)" />
 </abp-page>

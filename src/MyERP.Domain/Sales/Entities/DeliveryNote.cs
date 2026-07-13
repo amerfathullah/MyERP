@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MyERP.Accounting.DomainServices;
 using MyERP.Core;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -13,7 +14,7 @@ namespace MyERP.Sales.Entities;
 /// Maps to ERPNext stock/doctype/delivery_note.
 /// Links to Sales Order and subsequently to Sales Invoice.
 /// </summary>
-public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
+public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument, IAmendable
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -32,6 +33,12 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Shipping address (free text or link).</summary>
     public string? ShippingAddress { get; set; }
+
+    /// <summary>Billing address (auto-resolved from SO or Customer).</summary>
+    public Guid? BillingAddressId { get; set; }
+
+    /// <summary>Shipping address reference (auto-resolved from SO or Customer).</summary>
+    public Guid? ShippingAddressId { get; set; }
 
     /// <summary>Transporter name or reference.</summary>
     public string? Transporter { get; set; }
@@ -52,7 +59,16 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
+    // Amendment support
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
+
+    // IAccountableDocument
+    string IAccountableDocument.DocumentType => "DeliveryNote";
+    Guid? IAccountableDocument.CustomerId => CustomerId;
+    Guid? IAccountableDocument.SupplierId => null;
 
     private readonly List<DeliveryNoteItem> _items = new();
     public IReadOnlyList<DeliveryNoteItem> Items => _items.AsReadOnly();

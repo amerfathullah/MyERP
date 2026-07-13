@@ -14,10 +14,14 @@ namespace MyERP.Accounting;
 public class BankReconciliationAppService : ApplicationService, IBankReconciliationAppService
 {
     private readonly IRepository<BankTransaction, Guid> _repository;
+    private readonly BankAutoMatchService _autoMatchService;
 
-    public BankReconciliationAppService(IRepository<BankTransaction, Guid> repository)
+    public BankReconciliationAppService(
+        IRepository<BankTransaction, Guid> repository,
+        BankAutoMatchService autoMatchService)
     {
         _repository = repository;
+        _autoMatchService = autoMatchService;
     }
 
     public async Task<PagedResultDto<BankTransactionDto>> GetTransactionsAsync(GetBankTransactionsDto input)
@@ -76,6 +80,16 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
         await _repository.InsertAsync(tx);
         return MapToDto(tx);
+    }
+
+    public async Task<AutoMatchResultDto> AutoMatchAsync(Guid bankAccountId, Guid companyId)
+    {
+        var result = await _autoMatchService.AutoMatchAsync(bankAccountId, companyId);
+        return new AutoMatchResultDto
+        {
+            MatchedCount = result.MatchedCount,
+            UnmatchedCount = result.UnmatchedCount,
+        };
     }
 
     public async Task<BankReconciliationSummaryDto> GetSummaryAsync(Guid bankAccountId)

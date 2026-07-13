@@ -140,3 +140,189 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   isGroup?: boolean;
   isActive?: boolean;
 }
+
+// Quality Inspection
+export interface QualityInspectionDto {
+  id?: string;
+  companyId?: string;
+  itemId?: string;
+  itemName?: string;
+  inspectionType?: number;
+  referenceType?: string;
+  referenceId?: string;
+  batchNo?: string;
+  sampleSize?: number;
+  inspectionDate?: string;
+  status?: number;
+  docStatus?: number;
+  remarks?: string;
+  manualInspection?: boolean;
+  readings?: QualityInspectionReadingDto[];
+  creationTime?: string;
+}
+
+export interface QualityInspectionReadingDto {
+  id?: string;
+  specification?: string;
+  expectedValue?: string;
+  minValue?: number;
+  maxValue?: number;
+  readingValue?: string;
+  isNumeric?: boolean;
+  formulaBased?: boolean;
+  status?: number;
+}
+
+export interface CreateQualityInspectionDto {
+  companyId: string;
+  itemId: string;
+  itemName?: string;
+  inspectionType: number;
+  inspectionDate: string;
+  referenceType?: string;
+  referenceId?: string;
+  batchNo?: string;
+  sampleSize: number;
+  manualInspection?: boolean;
+  readings: CreateQualityInspectionReadingDto[];
+}
+
+export interface CreateQualityInspectionReadingDto {
+  specification: string;
+  expectedValue?: string;
+  minValue?: number;
+  maxValue?: number;
+  readingValue?: string;
+  isNumeric?: boolean;
+  formulaBased?: boolean;
+  formula?: string;
+}
+
+export interface GetQualityInspectionListDto {
+  companyId?: string;
+  itemId?: string;
+  status?: number;
+  filter?: string;
+  sorting?: string;
+  skipCount?: number;
+  maxResultCount?: number;
+}
+
+// Stock Reconciliation
+export interface StockReconciliationDto {
+  id?: string;
+  companyId?: string;
+  reconciliationNumber?: string;
+  postingDate?: string;
+  purpose?: string;
+  notes?: string;
+  status?: number;
+  differenceAmount?: number;
+  items?: StockReconciliationItemDto[];
+  creationTime?: string;
+}
+
+export interface StockReconciliationItemDto {
+  id?: string;
+  itemId?: string;
+  warehouseId?: string;
+  currentQuantity?: number;
+  currentValuationRate?: number;
+  newQuantity?: number;
+  newValuationRate?: number;
+  quantityDifference?: number;
+  differenceAmount?: number;
+}
+
+export interface CreateStockReconciliationDto {
+  companyId: string;
+  postingDate: string;
+  purpose?: string;
+  notes?: string;
+  expenseAccountId?: string;
+  costCenterId?: string;
+  items: CreateStockReconciliationItemDto[];
+}
+
+export interface CreateStockReconciliationItemDto {
+  itemId: string;
+  warehouseId: string;
+  newQuantity: number;
+  newValuationRate: number;
+  currentQuantity: number;
+  currentValuationRate: number;
+}
+
+export interface GetStockReconciliationListDto {
+  companyId?: string;
+  filter?: string;
+  sorting?: string;
+  skipCount?: number;
+  maxResultCount?: number;
+}
+
+// Landed Cost Voucher
+export interface LandedCostVoucherDto {
+  id?: string;
+  companyId?: string;
+  voucherNumber?: string;
+  postingDate?: string;
+  distributionMethod?: number;
+  status?: number;
+  totalCharges?: number;
+  totalDistributedAmount?: number;
+  notes?: string;
+  items?: LandedCostItemDto[];
+  charges?: LandedCostChargeDto[];
+  creationTime?: string;
+}
+
+export interface LandedCostItemDto {
+  id?: string;
+  receiptId?: string;
+  receiptType?: string;
+  itemId?: string;
+  description?: string;
+  quantity?: number;
+  amount?: number;
+  applicableCharges?: number;
+}
+
+export interface LandedCostChargeDto {
+  id?: string;
+  description?: string;
+  expenseAccountId?: string;
+  amount?: number;
+}
+
+export interface CreateLandedCostVoucherDto {
+  companyId: string;
+  postingDate: string;
+  distributionMethod?: number;
+  notes?: string;
+  items: CreateLandedCostItemDto[];
+  charges: CreateLandedCostChargeDto[];
+}
+
+export interface CreateLandedCostItemDto {
+  receiptId: string;
+  receiptType: string;
+  itemId: string;
+  description?: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface CreateLandedCostChargeDto {
+  description: string;
+  expenseAccountId: string;
+  amount: number;
+}
+
+export interface GetLandedCostVoucherListDto {
+  companyId?: string;
+  filter?: string;
+  sorting?: string;
+  skipCount?: number;
+  maxResultCount?: number;
+}

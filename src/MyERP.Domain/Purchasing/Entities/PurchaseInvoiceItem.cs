@@ -22,6 +22,12 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
 
     public Guid? TaxCategoryId { get; set; }
 
+    /// <summary>Link to Purchase Order item (for billing qty tracking).</summary>
+    public Guid? PurchaseOrderItemId { get; set; }
+
+    /// <summary>Link to Purchase Receipt item (for receipt-to-bill traceability).</summary>
+    public Guid? PurchaseReceiptItemId { get; set; }
+
     protected PurchaseInvoiceItem() { }
 
     public PurchaseInvoiceItem(

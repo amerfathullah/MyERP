@@ -50,6 +50,24 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Hold type for the supplier. Blocks specific transaction types:
+    /// None = no hold; All = blocks PO/PI/PE; Invoices = blocks PI only; Payments = blocks PE only.
+    /// </summary>
+    public SupplierHoldType HoldType { get; set; } = SupplierHoldType.None;
+
+    /// <summary>Whether transactions with this supplier are on hold.</summary>
+    public bool IsOnHold => HoldType != SupplierHoldType.None;
+
+    /// <summary>Supplier scorecard standing — blocks POs when true (per DO-NOT: prevent_pos flag).</summary>
+    public bool PreventPurchaseOrders { get; set; }
+
+    /// <summary>Supplier scorecard standing — blocks RFQs when true (per DO-NOT: prevent_rfqs flag).</summary>
+    public bool PreventRfqs { get; set; }
+
+    /// <summary>For inter-company: the Company this supplier represents (bidirectional link).</summary>
+    public Guid? RepresentsCompanyId { get; set; }
+
     protected Supplier() { }
 
     public Supplier(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

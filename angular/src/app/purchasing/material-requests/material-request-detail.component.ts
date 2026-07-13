@@ -1,9 +1,10 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
+import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { MaterialRequestStore } from '../store/material-request.store';
 import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -20,9 +21,11 @@ import type { MaterialRequestDto } from '../../proxy/purchasing/models';
 export class MaterialRequestDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private http = inject(HttpClient);
   readonly store = inject(MaterialRequestStore);
   private service = inject(MaterialRequestService);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   entity: MaterialRequestDto | null = null;
 
@@ -51,6 +54,31 @@ export class MaterialRequestDetailComponent implements OnInit {
       if (status === Confirmation.Status.confirm) {
         this.store.cancelRequest(this.entity!.id!);
         this.reloadAfterAction();
+      }
+    });
+  }
+
+  convertToPO(): void {
+    const supplierId = prompt('Enter Supplier ID for the Purchase Order:');
+    if (!supplierId) return;
+    this.http.post<any>(`/api/app/purchase-conversion/convert-material-request-to-purchase-order`, null, {
+      params: { materialRequestId: this.entity!.id!, supplierId }
+    }).subscribe({
+      next: (po) => {
+        this.toaster.success('Purchase Order created: ' + po.orderNumber);
+        this.router.navigate(['/purchasing/orders', po.id]);
+      },
+      error: () => this.toaster.error('Conversion failed'),
+    });
+  }
+
+  createStockEntry(): void {
+    const purpose = this.entity!.requestType === 1 ? 'MaterialTransfer' : 'MaterialIssue';
+    this.router.navigate(['/inventory/stock-entries/new'], {
+      queryParams: {
+        purpose,
+        sourceWarehouse: (this.entity as any).sourceWarehouseId ?? '',
+        targetWarehouse: (this.entity as any).targetWarehouseId ?? '',
       }
     });
   }

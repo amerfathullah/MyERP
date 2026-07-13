@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive';
+export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed';
 
 interface StatusConfig {
   icon: string;
@@ -20,6 +20,11 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   PartiallyPaid: { icon: 'fa fa-clock', badgeClass: 'bg-warning text-dark' },
   Active: { icon: 'fa fa-check-circle', badgeClass: 'bg-success' },
   Inactive: { icon: 'fa fa-minus-circle', badgeClass: 'bg-secondary' },
+  ToDeliverAndBill: { icon: 'fa fa-truck', badgeClass: 'bg-info' },
+  ToDeliver: { icon: 'fa fa-truck', badgeClass: 'bg-warning text-dark' },
+  ToBill: { icon: 'fa fa-file-invoice', badgeClass: 'bg-warning text-dark' },
+  Completed: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
+  Closed: { icon: 'fa fa-lock', badgeClass: 'bg-dark' },
 };
 
 @Component({

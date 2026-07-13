@@ -1,0 +1,65 @@
+import { Component, inject, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
+import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { PricingRuleService, type PricingRuleDto } from '../../proxy/manufacturing/additional-proxies.service';
+
+@Component({
+  selector: 'app-pricing-rule-list',
+  standalone: true,
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  template: `
+    <abp-page [title]="'PricingRules' | abpLocalization">
+      <div class="d-flex justify-content-end gap-2 mb-3">
+        <button class="btn btn-primary btn-sm" routerLink="/sales/pricing-rules/new">
+          <i class="fa fa-plus me-1"></i>{{ 'NewPricingRule' | abpLocalization }}
+        </button>
+      </div>
+      @if (isLoading) { <app-loading-overlay /> }
+      @if (!isLoading && rules.length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-tags fa-3x text-muted mb-3 d-block"></i>
+          <p class="text-muted">{{ 'NoPricingRulesYet' | abpLocalization }}</p>
+        </div>
+      } @else if (!isLoading) {
+        <div class="card"><div class="card-body">
+          <table class="table table-hover mb-0">
+            <thead><tr>
+              <th>{{ 'Title' | abpLocalization }}</th>
+              <th>{{ 'Type' | abpLocalization }}</th>
+              <th>{{ 'ApplyOn' | abpLocalization }}</th>
+              <th>{{ 'Priority' | abpLocalization }}</th>
+              <th>{{ 'Discount' | abpLocalization }}</th>
+              <th>{{ 'Status' | abpLocalization }}</th>
+            </tr></thead>
+            <tbody>
+              @for (r of rules; track r.id) {
+                <tr>
+                  <td>{{ r.title }}</td>
+                  <td><span class="badge bg-info">{{ ['Discount','Rate','Free Item'][r.ruleType] }}</span></td>
+                  <td>{{ ['Item','Group','Brand','Total'][r.applyOn] }}: {{ r.applyOnName ?? '—' }}</td>
+                  <td>{{ r.priority }}</td>
+                  <td>{{ r.discountPercentage ? r.discountPercentage + '%' : (r.rate ? 'RM' + r.rate : '—') }}</td>
+                  <td><span class="badge" [class]="r.isDisabled ? 'bg-secondary' : 'bg-success'">{{ r.isDisabled ? 'Disabled' : 'Active' }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div></div>
+      }
+    </abp-page>
+  `,
+})
+export class PricingRuleListComponent implements OnInit {
+  private service = inject(PricingRuleService);
+  rules: PricingRuleDto[] = [];
+  isLoading = false;
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    this.service.getList({ skipCount: 0, maxResultCount: 50 })
+      .subscribe({ next: (r) => { this.rules = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+  }
+}

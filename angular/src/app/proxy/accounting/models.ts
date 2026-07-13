@@ -225,3 +225,51 @@ export interface TrialBalanceRowDto {
   closingDebit?: number;
   closingCredit?: number;
 }
+
+// Budget
+export interface BudgetDto {
+  id?: string;
+  companyId?: string;
+  fiscalYearId?: string;
+  budgetAgainst?: string;
+  budgetAgainstId?: string;
+  budgetAgainstName?: string;
+  status?: number;
+  actionIfAnnualBudgetExceeded?: number;
+  actionIfAccumulatedMonthlyBudgetExceeded?: number;
+  accounts?: BudgetAccountDto[];
+  creationTime?: string;
+}
+
+export interface BudgetAccountDto {
+  id?: string;
+  accountId?: string;
+  accountName?: string;
+  budgetAmount?: number;
+}
+
+export interface CreateBudgetDto {
+  companyId: string;
+  fiscalYearId: string;
+  budgetAgainst: string;
+  budgetAgainstId: string;
+  budgetAgainstName?: string;
+  actionIfAnnualBudgetExceeded?: number;
+  actionIfAccumulatedMonthlyBudgetExceeded?: number;
+  accounts: CreateBudgetAccountDto[];
+}
+
+export interface CreateBudgetAccountDto {
+  accountId: string;
+  accountName?: string;
+  budgetAmount: number;
+}
+
+export interface GetBudgetListDto {
+  companyId?: string;
+  fiscalYearId?: string;
+  filter?: string;
+  sorting?: string;
+  skipCount?: number;
+  maxResultCount?: number;
+}

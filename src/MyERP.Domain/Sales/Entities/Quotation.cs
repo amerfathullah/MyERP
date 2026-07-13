@@ -13,7 +13,7 @@ namespace MyERP.Sales.Entities;
 /// Maps to ERPNext selling/doctype/quotation.
 /// Flow: Quotation → SalesOrder → SalesInvoice
 /// </summary>
-public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
+public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendable
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -31,6 +31,10 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Terms { get; set; }
     public string? Notes { get; set; }
+
+    // Amendment support
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
@@ -72,6 +76,23 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Whether the quotation has passed its validity date.
+    /// Per ERPNext: expired quotations cannot be converted to SO (unless settings allow).
+    /// </summary>
+    public bool IsExpired => ValidUntil.HasValue && DateTime.UtcNow.Date > ValidUntil.Value.Date
+        && Status == DocumentStatus.Submitted && ConvertedToSalesOrderId == null;
+
+    /// <summary>
+    /// Mark quotation as lost (customer declined / competitor won).
+    /// </summary>
+    public void MarkLost()
+    {
+        if (Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Rejected; // Rejected = Lost in quotation context
     }
 
     private void RecalculateTotals()

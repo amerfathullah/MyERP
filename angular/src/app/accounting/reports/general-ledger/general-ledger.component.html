@@ -1,0 +1,107 @@
+<abp-page [title]="'GeneralLedger' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'Account' | abpLocalization }}</label>
+          <select class="form-select" formControlName="accountId">
+            <option value="">{{ 'AllAccounts' | abpLocalization }}</option>
+            @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-search me-1"></i>{{ 'Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) { <div class="text-center py-5"><div class="spinner-border text-primary"></div></div> }
+
+  @if (report(); as r) {
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <div class="card text-center"><div class="card-body py-2">
+          <small class="text-muted">{{ 'TotalDebit' | abpLocalization }}</small>
+          <div class="fw-bold text-success">{{ r.totalDebit | number:'1.2-2' }}</div>
+        </div></div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-center"><div class="card-body py-2">
+          <small class="text-muted">{{ 'TotalCredit' | abpLocalization }}</small>
+          <div class="fw-bold text-danger">{{ r.totalCredit | number:'1.2-2' }}</div>
+        </div></div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-center"><div class="card-body py-2">
+          <small class="text-muted">{{ 'Balance' | abpLocalization }}</small>
+          <div class="fw-bold" [class.text-success]="r.balance >= 0" [class.text-danger]="r.balance < 0">{{ r.balance | number:'1.2-2' }}</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.count }} {{ 'Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">{{ 'Date' | abpLocalization }}</th>
+                <th>{{ 'Account' | abpLocalization }}</th>
+                <th>{{ 'Voucher' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
+                <th class="pe-3">{{ 'Description' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of r.entries; track entry.id) {
+                <tr>
+                  <td class="ps-3">{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td><span class="text-muted">{{ entry.accountCode }}</span> {{ entry.accountName }}</td>
+                  <td>{{ entry.voucherNumber }}</td>
+                  <td class="text-end font-monospace" [class.fw-bold]="entry.debitAmount > 0">
+                    {{ entry.debitAmount > 0 ? (entry.debitAmount | number:'1.2-2') : '' }}
+                  </td>
+                  <td class="text-end font-monospace" [class.fw-bold]="entry.creditAmount > 0">
+                    {{ entry.creditAmount > 0 ? (entry.creditAmount | number:'1.2-2') : '' }}
+                  </td>
+                  <td class="pe-3 text-truncate" style="max-width: 200px;">{{ entry.description }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3" colspan="3">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ r.totalDebit | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ r.totalCredit | number:'1.2-2' }}</td>
+                <td class="pe-3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

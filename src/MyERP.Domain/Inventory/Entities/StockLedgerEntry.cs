@@ -33,9 +33,18 @@ public class StockLedgerEntry : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Running stock value after this entry.</summary>
     public decimal BalanceValue { get; set; }
 
+    /// <summary>JSON-serialized FIFO/LIFO queue state after this entry. Format: [[qty, rate], ...]</summary>
+    public string? StockQueue { get; set; }
+
     /// <summary>Source document type (e.g., "StockEntry", "SalesInvoice").</summary>
     public string? VoucherType { get; set; }
     public Guid? VoucherId { get; set; }
+
+    /// <summary>Batch reference for batch-tracked items.</summary>
+    public Guid? BatchId { get; set; }
+
+    /// <summary>Serial number reference for serialized items.</summary>
+    public Guid? SerialNoId { get; set; }
 
     protected StockLedgerEntry() { }
 

@@ -12,11 +12,13 @@ import { PurchaseOrderStore } from '../store/purchase-order.store';
 import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })

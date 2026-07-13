@@ -119,6 +119,84 @@
           </div>
         </div>
       </div>
+
+      <!-- Revenue Trend Chart -->
+      @if (revenueTrend().length > 0) {
+        <div class="card mt-4 mb-4">
+          <div class="card-header">
+            <h6 class="card-title mb-0"><i class="fa fa-chart-bar text-primary me-2"></i>{{ '::RevenueTrend' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body">
+            <div class="d-flex align-items-end gap-2" style="height: 160px;">
+              @for (bar of revenueTrend(); track bar.month) {
+                <div class="d-flex flex-column align-items-center flex-fill">
+                  <div class="bg-primary rounded-top w-100" [style.height.%]="bar.heightPct" style="min-height: 4px; transition: height 0.3s;"></div>
+                  <small class="text-muted mt-1">{{ bar.month }}</small>
+                  <small class="fw-bold">{{ bar.amount | number:'1.0-0' }}</small>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Recent Activity -->
+      @if (recentActivity().length > 0) {
+        <div class="card mt-4">
+          <div class="card-header">
+            <h6 class="card-title mb-0"><i class="fa fa-clock-rotate-left text-info me-2"></i>{{ '::RecentActivity' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body p-0">
+            <ul class="list-group list-group-flush">
+              @for (activity of recentActivity(); track activity.id) {
+                <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                  <div>
+                    <span class="badge bg-light text-dark me-2">{{ activity.activityType }}</span>
+                    <span class="fw-semibold">{{ activity.documentNumber }}</span>
+                    <small class="text-muted ms-2">{{ activity.documentType }}</small>
+                  </div>
+                  <small class="text-muted">{{ activity.creationTime | date:'dd/MM HH:mm' }}</small>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+      }
+
+      <!-- Low Stock Alert -->
+      @if (lowStockItems().length > 0) {
+        <div class="card mt-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-triangle-exclamation text-warning me-2"></i>{{ '::LowStockAlerts' | abpLocalization }}</h6>
+            <a routerLink="/inventory/reports/stock-balance" class="btn btn-sm btn-outline-primary">{{ '::ViewAll' | abpLocalization }}</a>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th class="ps-3">{{ '::Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::CurrentStock' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ReorderLevel' | abpLocalization }}</th>
+                  <th class="text-end pe-3">{{ '::ProjectedQty' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of lowStockItems(); track item.itemId) {
+                  <tr>
+                    <td class="ps-3">
+                      <strong>{{ item.itemCode }}</strong>
+                      <small class="text-muted d-block">{{ item.itemName }}</small>
+                    </td>
+                    <td class="text-end font-monospace" [class.text-danger]="item.currentStock <= 0">{{ item.currentStock | number:'1.0-0' }}</td>
+                    <td class="text-end font-monospace">{{ item.reorderLevel | number:'1.0-0' }}</td>
+                    <td class="text-end pe-3 font-monospace" [class.text-danger]="item.projectedQty < 0">{{ item.projectedQty | number:'1.0-0' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
     }
   </div>
 }

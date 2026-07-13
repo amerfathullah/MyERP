@@ -1,10 +1,10 @@
 import { Environment } from '@abp/ng.core';
 
-const baseUrl = 'http://localhost:4200';
+const baseUrl = '';
 
 const oAuthConfig = {
-  issuer: 'https://localhost:44340/',
-  redirectUri: baseUrl,
+  issuer: '//',
+  redirectUri: baseUrl || window.location.origin,
   clientId: 'MyERP_App',
   responseType: 'code',
   scope: 'offline_access MyERP',
@@ -14,13 +14,13 @@ const oAuthConfig = {
 export const environment = {
   production: true,
   application: {
-    baseUrl,
+    baseUrl: baseUrl || window.location.origin,
     name: 'MyERP',
   },
   oAuthConfig,
   apis: {
     default: {
-      url: 'https://localhost:44340',
+      url: '',
       rootNamespace: 'MyERP',
     },
     AbpAccountPublic: {

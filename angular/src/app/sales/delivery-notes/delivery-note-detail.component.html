@@ -2,6 +2,7 @@
   @if (!deliveryNote) {
     <app-loading-overlay />
   } @else {
+    <app-breadcrumb />
     <app-document-workflow
       [currentStatus]="deliveryNote.status!"
       [availableActions]="workflowActions"

@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { StockLedgerRowDto } from '../../../proxy/inventory/models';
 import type { CompanyDto } from '../../../proxy/core/models';
 
@@ -62,5 +63,13 @@ export class StockLedgerComponent {
         this.toaster.error(err?.error?.error?.message ?? 'Failed to load report');
       },
     });
+  }
+
+  exportCsv(): void {
+    const data = this.rows();
+    if (!data.length) return;
+    exportToCsv('stock-ledger.csv', data, [
+      'postingDate', 'itemCode', 'itemName', 'warehouse', 'voucherType', 'quantityChange', 'balanceQty', 'valuationRate'
+    ]);
   }
 }

@@ -13,10 +13,12 @@ import { provideLogo, withEnvironmentOptions } from "@abp/ng.theme.shared";
 import { ApplicationConfig } from '@angular/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { environment } from '../environments/environment';
 import { APP_ROUTES } from './app.routes';
 import { APP_ROUTE_PROVIDER } from './route.provider';
 import { FOOTER_PROVIDER } from './footer/footer.config';
+import { errorInterceptor } from './shared/interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -39,5 +41,6 @@ export const appConfig: ApplicationConfig = {
     provideLogo(withEnvironmentOptions(environment)),
     provideAccountConfig(),
     provideTenantManagementConfig(),
-    provideAbpThemeShared()]
+    provideAbpThemeShared(),
+    provideHttpClient(withInterceptors([errorInterceptor]))]
 };

@@ -60,6 +60,10 @@
 
   <!-- Data table -->
   <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-bold">{{ '::StockLedger' | abpLocalization }}</span>
+      <button class="btn btn-sm btn-outline-success" (click)="exportCsv()" [disabled]="rows().length === 0"><i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}</button>
+    </div>
     <div class="card-body">
       <div class="table-responsive">
                 <table class="table table-hover w-100">

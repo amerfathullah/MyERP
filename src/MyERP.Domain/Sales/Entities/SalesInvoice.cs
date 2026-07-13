@@ -14,7 +14,7 @@ namespace MyERP.Sales.Entities;
 /// Maps to ERPNext accounts/doctype/sales_invoice.
 /// Implements IAccountableDocument for automatic GL posting via AccountingRuleEngine.
 /// </summary>
-public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument
+public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument, IAmendable
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -42,11 +42,47 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal AmountPaid { get; set; }
     public decimal OutstandingAmount => GrandTotal - AmountPaid;
 
+    // Discount on grand total
+    /// <summary>Additional discount percentage applied on net total.</summary>
+    public decimal AdditionalDiscountPercentage { get; set; }
+    /// <summary>Fixed discount amount (mutually exclusive with percentage).</summary>
+    public decimal DiscountAmount { get; set; }
+
     // Base (company) currency amounts
     public decimal BaseNetTotal { get; set; }
     public decimal BaseTaxAmount { get; set; }
     public decimal BaseGrandTotal { get; set; }
     public decimal BaseOutstandingAmount => BaseGrandTotal - (AmountPaid * ExchangeRate);
+
+    /// <summary>If true, this is an opening balance entry (for go-live migration). Bypasses payment terms.</summary>
+    public bool IsOpening { get; set; }
+
+    /// <summary>Payment terms template for auto-generating due dates.</summary>
+    public Guid? PaymentTermsTemplateId { get; set; }
+
+    /// <summary>Billing address (auto-resolved from Customer on create).</summary>
+    public Guid? BillingAddressId { get; set; }
+
+    /// <summary>Shipping address (auto-resolved from Customer on create).</summary>
+    public Guid? ShippingAddressId { get; set; }
+
+    /// <summary>If true, this is a return (credit note).</summary>
+    public bool IsReturn { get; set; }
+
+    /// <summary>If true, stock movements are created on submit (direct sales without DN).</summary>
+    public bool UpdateStock { get; set; }
+
+    /// <summary>Warehouse for stock deduction when UpdateStock=true.</summary>
+    public Guid? WarehouseId { get; set; }
+
+    /// <summary>Original invoice this return is against.</summary>
+    public Guid? ReturnAgainstId { get; set; }
+
+    // Amendment (cancel-and-amend workflow)
+    /// <summary>Reference to the cancelled invoice this was amended from.</summary>
+    public Guid? AmendedFromId { get; set; }
+    /// <summary>Amendment index (0 = original, 1+ = amendments).</summary>
+    public int AmendmentIndex { get; set; }
 
     // Workflow
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
@@ -87,6 +123,10 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
+        if (!IsReturn && quantity <= 0)
+            throw new ArgumentException("Quantity must be positive for non-return invoices.", nameof(quantity));
 
         _items.Add(new SalesInvoiceItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));

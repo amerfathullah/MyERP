@@ -1,0 +1,38 @@
+<div class="card mt-3">
+  <div class="card-header">
+    <h6 class="mb-0">
+      <i class="fa fa-history me-2"></i>{{ '::ActivityLog' | abpLocalization }}
+    </h6>
+  </div>
+  <div class="card-body p-0">
+    @if (loading) {
+      <div class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+      </div>
+    } @else if (logs.length === 0) {
+      <p class="text-muted text-center py-3 mb-0">{{ '::NoActivityYet' | abpLocalization }}</p>
+    } @else {
+      <ul class="list-group list-group-flush">
+        @for (log of logs; track log.id) {
+          <li class="list-group-item d-flex align-items-start gap-3 py-2">
+            <i [class]="getIcon(log.activityType)" class="mt-1"></i>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between">
+                <strong class="small">{{ log.activityType }}</strong>
+                <small class="text-muted">{{ formatTime(log.creationTime) }}</small>
+              </div>
+              @if (log.previousStatus || log.newStatus) {
+                <small class="text-muted">
+                  {{ log.previousStatus }} → {{ log.newStatus }}
+                </small>
+              }
+              @if (log.details) {
+                <small class="d-block text-muted">{{ log.details }}</small>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

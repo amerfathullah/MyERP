@@ -1,0 +1,140 @@
+<abp-page [title]="plan?.planNumber ?? ('ProductionPlans' | abpLocalization)">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    @if (plan?.status === 0) {
+      <button class="btn btn-info btn-sm" (click)="calculateMaterials()">
+        <i class="fa fa-calculator me-1"></i>{{ 'CalculateMaterials' | abpLocalization }}
+      </button>
+      <button class="btn btn-success btn-sm" (click)="submit()">
+        <i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}
+      </button>
+    }
+    @if (plan?.status === 1 || plan?.status === 2) {
+      <button class="btn btn-primary btn-sm" (click)="generateWorkOrders()">
+        <i class="fa fa-industry me-1"></i>{{ 'GenerateWorkOrders' | abpLocalization }}
+      </button>
+      <button class="btn btn-warning btn-sm" (click)="generateMaterialRequests()">
+        <i class="fa fa-boxes-stacked me-1"></i>{{ 'GenerateMaterialRequests' | abpLocalization }}
+      </button>
+      <button class="btn btn-outline-danger btn-sm" (click)="cancel()">
+        <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+      </button>
+    }
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  @if (plan) {
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <small class="text-muted">{{ 'Status' | abpLocalization }}</small>
+              <div class="mt-1"><app-status-badge [status]="getStatusLabel(plan.status)" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <small class="text-muted">{{ 'PostingDate' | abpLocalization }}</small>
+              <div class="fw-bold mt-1">{{ plan.postingDate | date:'dd/MM/yyyy' }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <small class="text-muted">{{ 'PlannedItems' | abpLocalization }}</small>
+              <div class="fw-bold mt-1">{{ plan.plannedItems?.length ?? 0 }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <small class="text-muted">{{ 'MaterialRequirements' | abpLocalization }}</small>
+              <div class="fw-bold mt-1">{{ plan.materialRequirements?.length ?? 0 }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Planned Items -->
+      <div class="card mb-4">
+        <div class="card-header fw-bold">{{ 'PlannedItems' | abpLocalization }}</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>{{ 'Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Manufacturing:Progress' | abpLocalization }}</th>
+                  <th>WO #</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of plan.plannedItems; track item.id) {
+                  <tr>
+                    <td>{{ item.itemName }}</td>
+                    <td class="text-end">{{ item.plannedQty | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ item.producedQty | number:'1.2-2' }}</td>
+                    <td>
+                      @if (item.workOrderId) {
+                        <a [routerLink]="'/manufacturing/work-orders/' + item.workOrderId">
+                          <i class="fa fa-link me-1"></i>View WO
+                        </a>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Material Requirements -->
+      @if (plan.materialRequirements && plan.materialRequirements.length > 0) {
+        <div class="card">
+          <div class="card-header fw-bold">{{ 'MaterialRequirements' | abpLocalization }}</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ 'Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
+                    <th>MR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (mr of plan.materialRequirements; track mr.id) {
+                    <tr>
+                      <td>{{ mr.itemName }}</td>
+                      <td class="text-end">{{ mr.requiredQty | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ mr.availableQty | number:'1.2-2' }}</td>
+                      <td class="text-end fw-bold" [class.text-danger]="(mr.plannedQty ?? 0) > 0">{{ mr.plannedQty | number:'1.2-2' }}</td>
+                      <td>
+                        @if (mr.materialRequestId) {
+                          <i class="fa fa-check text-success"></i>
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      }
+  }
+</abp-page>

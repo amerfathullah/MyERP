@@ -9,10 +9,20 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Entry Type</label>
             <select class="form-select" formControlName="entryType" [class.is-invalid]="form.get('entryType')?.invalid && form.get('entryType')?.touched">
-              <option value="Receipt">Material Receipt</option>
-              <option value="Issue">Material Issue</option>
-              <option value="Transfer">Material Transfer</option>
+              <option value="MaterialReceipt">Material Receipt</option>
+              <option value="MaterialIssue">Material Issue</option>
+              <option value="MaterialTransfer">Material Transfer</option>
+              <option value="MaterialTransferForManufacture">Material Transfer for Manufacture</option>
               <option value="Manufacture">Manufacture</option>
+              <option value="Repack">Repack</option>
+              <option value="SendToSubcontractor">Send to Subcontractor</option>
+              <option value="MaterialConsumptionForManufacture">Material Consumption for Manufacture</option>
+              <option value="Disassemble">Disassemble</option>
+              <option value="SendToWarehouse">Send to Warehouse</option>
+              <option value="ReceiveAtWarehouse">Receive at Warehouse</option>
+              <option value="SubcontractingDelivery">Subcontracting Delivery</option>
+              <option value="SubcontractingReturn">Subcontracting Return</option>
+              <option value="Adjustment">Adjustment</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">

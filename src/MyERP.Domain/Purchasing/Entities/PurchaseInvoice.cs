@@ -15,7 +15,7 @@ namespace MyERP.Purchasing.Entities;
 /// Maps to ERPNext accounts/doctype/purchase_invoice.
 /// Implements IAccountableDocument for automatic GL posting.
 /// </summary>
-public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument
+public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument, IAmendable
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -46,11 +46,43 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public decimal AmountPaid { get; set; }
     public decimal OutstandingAmount => GrandTotal - AmountPaid;
 
+    // Discount on grand total
+    public decimal AdditionalDiscountPercentage { get; set; }
+    public decimal DiscountAmount { get; set; }
+
     // Base (company) currency amounts
     public decimal BaseNetTotal { get; set; }
     public decimal BaseTaxAmount { get; set; }
     public decimal BaseGrandTotal { get; set; }
     public decimal BaseOutstandingAmount => BaseGrandTotal - (AmountPaid * ExchangeRate);
+
+    /// <summary>If true, this is an opening balance entry (for go-live migration).</summary>
+    public bool IsOpening { get; set; }
+
+    /// <summary>Payment terms template for auto-generating due dates.</summary>
+    public Guid? PaymentTermsTemplateId { get; set; }
+
+    /// <summary>Billing address (auto-resolved from Supplier on create).</summary>
+    public Guid? BillingAddressId { get; set; }
+
+    /// <summary>If true, this is a return (debit note).</summary>
+    public bool IsReturn { get; set; }
+
+    /// <summary>If true, stock movements are created on submit (direct purchase without PR).</summary>
+    public bool UpdateStock { get; set; }
+
+    /// <summary>Warehouse for stock receipt when UpdateStock=true.</summary>
+    public Guid? WarehouseId { get; set; }
+
+    /// <summary>Original invoice this return is against.</summary>
+    public Guid? ReturnAgainstId { get; set; }
+
+    /// <summary>Linked Sales Invoice ID from inter-company transaction.</summary>
+    public Guid? InterCompanyInvoiceId { get; set; }
+
+    // Amendment support
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
 
     // Workflow
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
@@ -87,6 +119,10 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
+        if (!IsReturn && quantity <= 0)
+            throw new ArgumentException("Quantity must be positive for non-return invoices.", nameof(quantity));
 
         _items.Add(new PurchaseInvoiceItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));

@@ -1,0 +1,52 @@
+<abp-page [title]="'ProductionPlans' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/manufacturing/production-plans/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewProductionPlan' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (store.isLoading()) {
+    <app-loading-overlay />
+  }
+
+  @if (!store.isLoading() && store.entities().length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-clipboard-list fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoProductionPlansYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/manufacturing/production-plans/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewProductionPlan' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!store.isLoading()) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>{{ 'PlanNumber' | abpLocalization }}</th>
+            <th>{{ 'PostingDate' | abpLocalization }}</th>
+            <th>{{ 'PlannedItems' | abpLocalization }}</th>
+            <th>{{ 'Status' | abpLocalization }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (plan of store.entities(); track plan.id) {
+            <tr>
+              <td class="text-truncate" style="max-width: 200px;">{{ plan.planNumber }}</td>
+              <td>{{ plan.postingDate | date:'dd/MM/yyyy' }}</td>
+              <td>{{ plan.plannedItems?.length ?? 0 }}</td>
+              <td><app-status-badge [status]="getStatusLabel(plan.status)" /></td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <a class="btn btn-outline-primary" [routerLink]="'/manufacturing/production-plans/' + plan.id">
+                    <i class="fa fa-eye"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</abp-page>

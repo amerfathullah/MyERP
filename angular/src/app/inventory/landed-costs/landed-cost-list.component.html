@@ -1,0 +1,58 @@
+<abp-page [title]="'LandedCostVouchers' | abpLocalization">
+  <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" routerLink="/inventory/landed-costs/new">
+      <i class="fa fa-plus me-1"></i>{{ 'NewLandedCostVoucher' | abpLocalization }}
+    </button>
+  </div>
+
+  @if (isLoading) {
+    <app-loading-overlay />
+  }
+
+  @if (!isLoading && vouchers.length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-truck-ramp-box fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ 'NoLandedCostVouchersYet' | abpLocalization }}</p>
+      <button class="btn btn-primary" routerLink="/inventory/landed-costs/new">
+        <i class="fa fa-plus me-1"></i>{{ 'NewLandedCostVoucher' | abpLocalization }}
+      </button>
+    </div>
+  } @else if (!isLoading) {
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'VoucherNumber' | abpLocalization }}</th>
+              <th>{{ 'PostingDate' | abpLocalization }}</th>
+              <th>{{ 'DistributionMethod' | abpLocalization }}</th>
+              <th class="text-end">{{ 'TotalCharges' | abpLocalization }}</th>
+              <th>{{ 'Items' | abpLocalization }}</th>
+              <th>{{ 'Status' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (lcv of vouchers; track lcv.id) {
+              <tr>
+                <td>{{ lcv.voucherNumber ?? '—' }}</td>
+                <td>{{ lcv.postingDate | date:'dd/MM/yyyy' }}</td>
+                <td>{{ getDistMethodLabel(lcv.distributionMethod) }}</td>
+                <td class="text-end fw-bold">{{ lcv.totalCharges | number:'1.2-2' }}</td>
+                <td>{{ (lcv.items ?? []).length }}</td>
+                <td><app-status-badge [status]="getStatusLabel(lcv.status)"></app-status-badge></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" [routerLink]="['/inventory/landed-costs', lcv.id]">
+                      <i class="fa fa-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</abp-page>

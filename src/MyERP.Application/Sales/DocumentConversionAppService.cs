@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -24,6 +25,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly DocumentActivityLogService _activityLog;
 
     public DocumentConversionAppService(
         IRepository<Quotation, Guid> quotationRepository,
@@ -31,7 +33,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         IRepository<DeliveryNote, Guid> deliveryNoteRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<Customer, Guid> customerRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        DocumentActivityLogService activityLog)
     {
         _quotationRepository = quotationRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -39,6 +42,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         _salesInvoiceRepository = salesInvoiceRepository;
         _customerRepository = customerRepository;
         _numberGenerator = numberGenerator;
+        _activityLog = activityLog;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Create)]
@@ -51,6 +55,12 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         if (quotation.ConvertedToSalesOrderId.HasValue)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+
+        // Block conversion of expired quotations
+        if (quotation.IsExpired)
+            throw new BusinessException("MyERP:07003")
+                .WithData("quotationNumber", quotation.QuotationNumber)
+                .WithData("validUntil", quotation.ValidUntil?.ToString("dd/MM/yyyy") ?? "");
 
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", quotation.CompanyId);
 
@@ -77,6 +87,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _salesOrderRepository.InsertAsync(salesOrder, autoSave: true);
         await _quotationRepository.UpdateAsync(quotation, autoSave: true);
 
+        // Audit trail
+        await _activityLog.LogConvertedAsync("Quotation", quotation.Id, quotation.CompanyId,
+            "SalesOrder", salesOrder.Id, quotation.QuotationNumber, quotation.TenantId);
+
         return await MapSalesOrderToDtoAsync(salesOrder);
     }
 
@@ -85,7 +99,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     {
         var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
 
-        if (salesOrder.Status != Core.DocumentStatus.Submitted)
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", salesOrder.CompanyId);
@@ -104,10 +118,19 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in salesOrder.Items)
         {
-            deliveryNote.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            // Only convert pending delivery qty (skip already-delivered items)
+            var pendingQty = item.PendingDeliveryQty;
+            if (pendingQty > 0)
+            {
+                deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+            }
         }
 
         await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
+
+        // Audit trail
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
         return MapDeliveryNoteToDto(deliveryNote);
     }
@@ -117,7 +140,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     {
         var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
 
-        if (salesOrder.Status != Core.DocumentStatus.Submitted)
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", salesOrder.CompanyId);
@@ -135,10 +158,22 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in salesOrder.Items)
         {
-            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            // Only bill pending qty
+            var pendingQty = item.PendingBillingQty;
+            if (pendingQty > 0)
+            {
+                invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+                // Set the SO item link for billing tracking
+                var lastItem = invoice.Items.Last();
+                lastItem.SalesOrderItemId = item.Id;
+            }
         }
 
         await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
+
+        // Audit trail
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "SalesInvoice", invoice.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
         return await MapSalesInvoiceToDtoAsync(invoice);
     }
@@ -166,9 +201,16 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         foreach (var item in deliveryNote.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            // Carry through SO item link from DN item
+            var lastItem = invoice.Items.Last();
+            lastItem.SalesOrderItemId = item.SalesOrderItemId;
         }
 
         await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
+
+        // Audit trail
+        await _activityLog.LogConvertedAsync("DeliveryNote", deliveryNote.Id, deliveryNote.CompanyId,
+            "SalesInvoice", invoice.Id, deliveryNote.DeliveryNumber, deliveryNote.TenantId);
 
         return await MapSalesInvoiceToDtoAsync(invoice);
     }

@@ -1,0 +1,72 @@
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe, RestService } from '@abp/ng.core';
+
+@Component({
+  selector: 'app-salary-structure-form', standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  template: `
+    <abp-page [title]="'NewSalaryStructure' | abpLocalization">
+      <div class="card"><div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-5">
+            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <input class="form-control" [(ngModel)]="form.name" placeholder="e.g., Executive Grade A" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ 'PayrollFrequency' | abpLocalization }}</label>
+            <select class="form-select" [(ngModel)]="form.payrollFrequency">
+              <option>Monthly</option>
+              <option>Bimonthly</option>
+              <option>Weekly</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <div class="form-check mt-4">
+              <input type="checkbox" class="form-check-input" [(ngModel)]="form.isHourlyBased" id="hourly" />
+              <label class="form-check-label" for="hourly">Hourly Based</label>
+            </div>
+          </div>
+        </div>
+
+        <h6 class="mb-2">{{ 'Components' | abpLocalization }}</h6>
+        <table class="table table-sm">
+          <thead><tr><th>Component</th><th>{{ 'Amount' | abpLocalization }}</th><th>Formula</th><th></th></tr></thead>
+          <tbody>
+            @for (d of form.details; track $index) {
+              <tr>
+                <td><input class="form-control form-control-sm" [(ngModel)]="d.componentName" placeholder="e.g., Basic, HRA" /></td>
+                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="d.amount" /></td>
+                <td><input class="form-control form-control-sm" [(ngModel)]="d.formula" placeholder="e.g., B * 0.4" /></td>
+                <td><button class="btn btn-sm btn-outline-danger" (click)="form.details.splice($index,1)"><i class="fa fa-trash"></i></button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.details.push({componentName:'',amount:0,formula:''})">
+          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+        </button>
+
+        <div class="d-flex justify-content-end gap-2">
+          <a class="btn btn-secondary" routerLink="/hr/salary-structures">{{ 'Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+        </div>
+      </div></div>
+    </abp-page>
+  `,
+})
+export class SalaryStructureFormComponent {
+  private restService = inject(RestService);
+  private router = inject(Router);
+  saving = false;
+  form: any = { name: '', payrollFrequency: 'Monthly', isHourlyBased: false, details: [{ componentName: 'Basic', amount: 0, formula: '' }] };
+
+  save() {
+    this.saving = true;
+    this.restService.request({ method: 'POST', url: '/api/app/salary-structure', body: this.form }, { apiName: 'Default' })
+      .subscribe({ next: () => this.router.navigate(['/hr/salary-structures']), error: () => { this.saving = false; } });
+  }
+}

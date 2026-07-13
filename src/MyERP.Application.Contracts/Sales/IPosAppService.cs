@@ -20,6 +20,9 @@ public class CreatePosInvoiceDto
 
     public Guid? CustomerId { get; set; }
 
+    /// <summary>Warehouse from which stock is deducted (required for stock items).</summary>
+    public Guid? WarehouseId { get; set; }
+
     [Required]
     public List<PosLineItemDto> Items { get; set; } = new();
 

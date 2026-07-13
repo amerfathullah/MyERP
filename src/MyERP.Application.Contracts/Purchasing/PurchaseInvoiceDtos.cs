@@ -28,6 +28,10 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstId { get; set; }
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -49,6 +53,7 @@ public class CreatePurchaseInvoiceDto
     [Required] public Guid SupplierId { get; set; }
     [Required] public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
+    public Guid? PaymentTermsTemplateId { get; set; }
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
     [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
     public string? Notes { get; set; }

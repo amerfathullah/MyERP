@@ -15,7 +15,7 @@ export const StockEntryStore = signalStore(
   withState({ totalCount: 0, isLoading: false }),
   withEntities<StockEntryEntity>(),
   withMethods((store, service = inject(StockEntryService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

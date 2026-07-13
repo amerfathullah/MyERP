@@ -124,6 +124,8 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   taxAmount?: number;
   grandTotal?: number;
   status?: string;
+  perReceived?: number;
+  perBilled?: number;
   items?: PurchaseOrderItemDto[];
 }
 
@@ -136,6 +138,9 @@ export interface PurchaseOrderItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  receivedQty?: number;
+  billedQty?: number;
+  warehouseId?: string | null;
 }
 
 export interface PurchaseReceiptDto extends EntityDto<string> {

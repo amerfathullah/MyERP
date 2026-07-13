@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MyERP.Accounting.DomainServices;
 using MyERP.Core;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -12,7 +13,7 @@ namespace MyERP.Inventory.Entities;
 /// Stock Entry — records stock movements (receipt, issue, transfer, adjustment).
 /// Maps to ERPNext stock/doctype/stock_entry.
 /// </summary>
-public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
+public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -20,9 +21,21 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? EntryNumber { get; set; }
     public StockEntryType EntryType { get; set; }
     public DateTime PostingDate { get; set; }
+    DateTime IAccountableDocument.PostingDate => PostingDate;
 
     /// <summary>Source document type (e.g., "SalesInvoice", "PurchaseInvoice").</summary>
     public string? ReferenceType { get; set; }
+
+    /// <summary>Linked Work Order ID (for material transfer/manufacture stock entries).</summary>
+    public Guid? WorkOrderId { get; set; }
+
+    // IAccountableDocument implementation
+    string IAccountableDocument.DocumentType => "StockEntry";
+    decimal IAccountableDocument.NetTotal => _items.Sum(i => i.Quantity * (i.ValuationRate ?? 0));
+    decimal IAccountableDocument.GrandTotal => _items.Sum(i => i.Quantity * (i.ValuationRate ?? 0));
+    decimal IAccountableDocument.TaxAmount => 0;
+    Guid? IAccountableDocument.CustomerId => null;
+    Guid? IAccountableDocument.SupplierId => null;
     public Guid? ReferenceId { get; set; }
 
     public string? Notes { get; set; }
