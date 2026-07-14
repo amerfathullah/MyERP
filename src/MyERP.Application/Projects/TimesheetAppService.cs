@@ -40,6 +40,8 @@ public class TimesheetAppService : ApplicationService
     public async Task<PagedResultDto<TimesheetDto>> GetListAsync(GetTimesheetListDto input)
     {
         var query = await _repository.GetQueryableAsync();
+        if (input.CompanyId.HasValue)
+            query = query.Where(t => t.CompanyId == input.CompanyId.Value);
         if (input.EmployeeId.HasValue)
             query = query.Where(t => t.EmployeeId == input.EmployeeId.Value);
         if (input.Status.HasValue)
@@ -282,6 +284,7 @@ public class CreateTimesheetDetailDto
 
 public class GetTimesheetListDto : PagedAndSortedResultRequestDto
 {
+    public Guid? CompanyId { get; set; }
     public Guid? EmployeeId { get; set; }
     public TimesheetStatus? Status { get; set; }
 }

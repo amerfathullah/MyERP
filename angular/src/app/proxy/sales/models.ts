@@ -302,3 +302,44 @@ export interface SalesOrderItemDto {
   billedQty?: number;
   warehouseId?: string | null;
 }
+
+export interface ApplyPricingRuleDto { [key: string]: any; }
+
+export interface BlanketOrderDto { [key: string]: any; }
+
+export interface CreateDunningDto { [key: string]: any; }
+
+export interface CreateSubscriptionDto { [key: string]: any; }
+
+export interface DunningDto { [key: string]: any; }
+
+export interface PricingRuleDto { [key: string]: any; }
+
+export interface SubscriptionDto { [key: string]: any; }
+
+
+export interface CustomerRevenueReportDto { [key: string]: any; }
+
+export interface RegisterFilterDto { [key: string]: any; }
+
+export interface GrossProfitReportDto { [key: string]: any; }
+
+export interface GrossProfitRequestDto { [key: string]: any; }
+
+export interface ItemSalesReportDto { [key: string]: any; }
+
+export interface CreateProductBundleDto { [key: string]: any; }
+
+export interface ProductBundleDto { [key: string]: any; }
+
+export interface RegisterReportDto<T = any> { items?: T[]; totalAmount?: number; totalTax?: number; [key: string]: any; }
+
+export interface SalesRegisterLineDto { [key: string]: any; }
+
+export interface GeneratedInvoiceDto { [key: string]: any; }
+
+export interface CreateBlanketOrderDto { [key: string]: any; }
+
+export interface CreatePricingRuleDto { [key: string]: any; }
+
+export interface PricingRuleResultDto { [key: string]: any; }

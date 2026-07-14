@@ -1,5 +1,6 @@
 using System;
 using Volo.Abp.Domain.Entities;
+using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Tax.Entities;
 
@@ -9,8 +10,10 @@ namespace MyERP.Tax.Entities;
 /// Each row represents one tax/charge (e.g., "SST 8%", "Shipping", "Customs Duty").
 /// Linked to parent document via ParentType/ParentId (polymorphic).
 /// </summary>
-public class TransactionTaxRow : Entity<Guid>
+public class TransactionTaxRow : Entity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
+
     /// <summary>Parent document type: SalesInvoice, PurchaseInvoice, SalesOrder, etc.</summary>
     public string ParentType { get; set; } = null!;
 

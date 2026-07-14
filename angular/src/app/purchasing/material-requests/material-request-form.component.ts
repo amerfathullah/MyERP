@@ -8,10 +8,12 @@ import { MaterialRequestStore } from '../store/material-request.store';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-material-request-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './material-request-form.component.html',
   styleUrls: ['./material-request-form.component.scss'],
 })
@@ -71,4 +73,6 @@ export class MaterialRequestFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/purchasing/material-requests']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

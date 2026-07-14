@@ -38,6 +38,9 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Shipping/delivery address (auto-resolved from Customer on create).</summary>
     public Guid? ShippingAddressId { get; set; }
 
+    /// <summary>Shipping charge calculated from ShippingRule.</summary>
+    public decimal ShippingCharge { get; set; }
+
     /// <summary>Total advance payment received against this order.</summary>
     public decimal AdvancePaid { get; set; }
 
@@ -156,8 +159,9 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     }
 }
 
-public class SalesOrderItem : CreationAuditedEntity<Guid>
+public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
     public Guid SalesOrderId { get; set; }
     public Guid ItemId { get; set; }
     public string Description { get; set; } = null!;
@@ -181,6 +185,12 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>
 
     /// <summary>Target warehouse for this item (for stock reservation).</summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Whether this item is fulfilled directly by supplier to customer (no warehouse involvement).</summary>
+    public bool DeliveredBySupplier { get; set; }
+
+    /// <summary>Drop-ship supplier for this item (required when DeliveredBySupplier=true).</summary>
+    public Guid? SupplierId { get; set; }
 
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)

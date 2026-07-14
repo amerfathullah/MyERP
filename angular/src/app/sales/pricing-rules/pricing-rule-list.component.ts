@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PricingRuleService, type PricingRuleDto } from '../../proxy/manufacturing/additional-proxies.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-pricing-rule-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'PricingRules' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
@@ -49,7 +51,8 @@ import { PricingRuleService, type PricingRuleDto } from '../../proxy/manufacturi
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class PricingRuleListComponent implements OnInit {
@@ -57,9 +60,14 @@ export class PricingRuleListComponent implements OnInit {
   rules: PricingRuleDto[] = [];
   isLoading = false;
 
+  currentPage = 0;
+  pageSize = 20;
+
   ngOnInit(): void {
     this.isLoading = true;
     this.service.getList({ skipCount: 0, maxResultCount: 50 })
       .subscribe({ next: (r) => { this.rules = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

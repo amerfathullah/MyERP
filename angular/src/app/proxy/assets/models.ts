@@ -70,3 +70,11 @@ export interface CreateUpdateAssetCategoryDto {
   defaultUsefulLifeMonths?: number;
   defaultDepreciationRate?: number;
 }
+
+export interface AssetMovementDto { [key: string]: any; }
+
+export interface CreateAssetMovementDto { [key: string]: any; }
+
+export interface MaintenanceScheduleDto { [key: string]: any; }
+
+export interface CreateMaintenanceScheduleDto { [key: string]: any; }

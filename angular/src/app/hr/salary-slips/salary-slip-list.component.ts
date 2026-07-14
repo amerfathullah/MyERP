@@ -17,10 +17,12 @@ interface SalarySlipDto {
   status: number;
 }
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-salary-slip-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'SalarySlips' | abpLocalization">
       @if (isLoading()) {
@@ -70,13 +72,17 @@ interface SalarySlipDto {
           </div>
         </div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class SalarySlipListComponent implements OnInit {
   private http = inject(HttpClient);
   slips = signal<SalarySlipDto[]>([]);
   isLoading = signal(true);
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.http.get<any>('/api/app/salary-slip', { params: { skipCount: '0', maxResultCount: '100' } })
@@ -85,4 +91,6 @@ export class SalarySlipListComponent implements OnInit {
         error: () => this.isLoading.set(false),
       });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

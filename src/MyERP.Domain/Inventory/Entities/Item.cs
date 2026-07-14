@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MyERP.Inventory;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -69,6 +70,14 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default warehouse for reorder (used in auto-MR creation).</summary>
     public Guid? DefaultWarehouseId { get; set; }
 
+    /// <summary>
+    /// Type of Material Request to create when auto-reorder triggers.
+    /// Per ERPNext: Purchase (buy from supplier), Transfer (move from another warehouse),
+    /// Manufacture (create work order to produce). Default: Purchase.
+    /// </summary>
+    public MyERP.Purchasing.MaterialRequestType DefaultMaterialRequestType { get; set; }
+        = MyERP.Purchasing.MaterialRequestType.Purchase;
+
     /// <summary>Minimum order quantity for purchasing (hard error if PO qty below this).</summary>
     public decimal MinOrderQty { get; set; }
 
@@ -77,6 +86,17 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Require submitted+accepted Quality Inspection before Delivery Note can be submitted.</summary>
     public bool InspectionRequiredBeforeDelivery { get; set; }
+
+    // Variant system
+    /// <summary>True if this is a template item that has variants (cannot be used directly in transactions).</summary>
+    public bool HasVariants { get; set; }
+
+    /// <summary>For variants: the template item this was created from.</summary>
+    public Guid? VariantOfId { get; set; }
+
+    /// <summary>Variant attribute values (only populated for variant items).</summary>
+    public ICollection<ItemVariantAttribute> VariantAttributes { get; private set; }
+        = new List<ItemVariantAttribute>();
 
     protected Item() { }
 

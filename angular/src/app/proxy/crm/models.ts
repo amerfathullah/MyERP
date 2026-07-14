@@ -156,3 +156,5 @@ export interface UpdateOpportunityDto {
   notes?: string;
   items?: { itemId?: string; description: string; quantity: number; unitPrice: number; uom?: string }[];
 }
+
+export interface GetOpportunityListDto { [key: string]: any; }

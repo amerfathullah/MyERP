@@ -1,13 +1,15 @@
 using System;
 using Volo.Abp.Domain.Entities.Auditing;
+using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Inventory.Entities;
 
 /// <summary>
 /// Individual item line in a stock entry.
 /// </summary>
-public class StockEntryItem : CreationAuditedEntity<Guid>
+public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
     public Guid StockEntryId { get; set; }
     public Guid ItemId { get; set; }
     public decimal Quantity { get; set; }

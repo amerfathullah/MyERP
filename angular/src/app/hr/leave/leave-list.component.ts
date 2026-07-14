@@ -7,10 +7,12 @@ import { LeaveService, LeaveApplicationDto } from '../../proxy/hr/leave.service'
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-leave-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'LeaveApplications' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">
@@ -68,13 +70,17 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
           </table>
         </div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class LeaveListComponent implements OnInit {
   private service = inject(LeaveService);
   items = signal<LeaveApplicationDto[]>([]);
   isLoading = signal(false);
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit() {
     this.load();
@@ -99,4 +105,6 @@ export class LeaveListComponent implements OnInit {
   reject(id: string) {
     this.service.reject(id).subscribe(() => this.load());
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

@@ -35,6 +35,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
     private readonly IRepository<HolidayList, Guid> _holidayListRepository;
     private readonly IRepository<AccountingRule, Guid> _accountingRuleRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
+    private readonly IRepository<Manufacturing.Entities.ManufacturingSettings, Guid> _mfgSettingsRepository;
     private readonly MalaysianCoaSeeder _coaSeeder;
     private readonly IGuidGenerator _guidGenerator;
 
@@ -52,6 +53,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         IRepository<HolidayList, Guid> holidayListRepository,
         IRepository<AccountingRule, Guid> accountingRuleRepository,
         IRepository<Account, Guid> accountRepository,
+        IRepository<Manufacturing.Entities.ManufacturingSettings, Guid> mfgSettingsRepository,
         MalaysianCoaSeeder coaSeeder,
         IGuidGenerator guidGenerator)
     {
@@ -68,6 +70,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         _holidayListRepository = holidayListRepository;
         _accountingRuleRepository = accountingRuleRepository;
         _accountRepository = accountRepository;
+        _mfgSettingsRepository = mfgSettingsRepository;
         _coaSeeder = coaSeeder;
         _guidGenerator = guidGenerator;
     }
@@ -232,6 +235,14 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                     _guidGenerator.Create(), company.Id, "Finished Goods") { IsActive = true }, autoSave: true);
                 await _warehouseRepository.InsertAsync(new Warehouse(
                     _guidGenerator.Create(), company.Id, "Work In Progress") { IsActive = true }, autoSave: true);
+            }
+
+            // Seed Manufacturing Settings (per-company singleton)
+            if (!await _mfgSettingsRepository.AnyAsync(s => s.CompanyId == company.Id))
+            {
+                await _mfgSettingsRepository.InsertAsync(
+                    new Manufacturing.Entities.ManufacturingSettings(
+                        _guidGenerator.Create(), company.Id), autoSave: true);
             }
         }
     }

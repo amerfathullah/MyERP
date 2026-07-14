@@ -112,6 +112,23 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 && item.SourceWarehouseId == item.TargetWarehouseId)
                 throw new Volo.Abp.BusinessException("MyERP:05016")
                     .WithData("warehouse", item.SourceWarehouseId.Value.ToString());
+
+            // Group warehouse validation: cannot stock into/from group warehouses (per DO-NOT)
+            var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            if (item.SourceWarehouseId.HasValue)
+            {
+                var srcWh = await warehouseRepo.FindAsync(item.SourceWarehouseId.Value);
+                if (srcWh != null && srcWh.IsGroup)
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                        .WithData("warehouseName", srcWh.Name);
+            }
+            if (item.TargetWarehouseId.HasValue)
+            {
+                var tgtWh = await warehouseRepo.FindAsync(item.TargetWarehouseId.Value);
+                if (tgtWh != null && tgtWh.IsGroup)
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                        .WithData("warehouseName", tgtWh.Name);
+            }
         }
 
         var entryNumber = await _numberGenerator.GenerateAsync("StockEntry", input.CompanyId);
@@ -187,10 +204,19 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     public async Task<StockEntryDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // Validate posting period is not frozen/closed before reversing
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(entry.CompanyId, entry.PostingDate, "StockEntry");
+
         entry.Cancel();
 
         // Reverse SLE entries + Bin balances
         await _stockPostingService.ReverseStockEntryAsync(entry);
+
+        // Reverse GL entries (per ERPNext: stock entries have perpetual inventory GL)
+        await postingOrchestrator.ReversePleForDocumentAsync("StockEntry", entry.Id);
 
         await _repository.UpdateAsync(entry, autoSave: true);
 

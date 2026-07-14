@@ -16,10 +16,12 @@ interface BomDto {
   isDefault: boolean;
 }
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-bom-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'BillOfMaterials' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">
@@ -72,13 +74,17 @@ interface BomDto {
           </div>
         </div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class BomListComponent implements OnInit {
   private http = inject(HttpClient);
   boms = signal<BomDto[]>([]);
   isLoading = signal(true);
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.http.get<any>('/api/app/manufacturing/bom-list', { params: { skipCount: '0', maxResultCount: '100' } })
@@ -87,4 +93,6 @@ export class BomListComponent implements OnInit {
         error: () => this.isLoading.set(false),
       });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

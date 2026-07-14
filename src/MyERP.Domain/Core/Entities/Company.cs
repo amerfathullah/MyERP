@@ -51,6 +51,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Stock transactions before this date are frozen (blocked for non-admin users).</summary>
     public DateTime? StockFrozenUpto { get; set; }
 
+    /// <summary>Alternative to StockFrozenUpto: freeze stock N days before today.</summary>
+    public int StockFrozenUptoDays { get; set; }
+
+    /// <summary>Role that can bypass the stock freeze (post to frozen periods).</summary>
+    public string? StockAuthRole { get; set; }
+
     /// <summary>Accounting entries before this date are frozen.</summary>
     public DateTime? AccountsFrozenTillDate { get; set; }
 

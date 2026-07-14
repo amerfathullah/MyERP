@@ -23,6 +23,12 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Link back to the Purchase Order item being received.</summary>
     public Guid? PurchaseOrderItemId { get; set; }
 
+    /// <summary>Source warehouse for internal transfer receipts. Must differ from target warehouse.</summary>
+    public Guid? FromWarehouseId { get; set; }
+
+    /// <summary>Target warehouse (item-level override). Falls back to receipt-level WarehouseId if null.</summary>
+    public Guid? WarehouseId { get; set; }
+
     protected PurchaseReceiptItem() { }
 
     public PurchaseReceiptItem(

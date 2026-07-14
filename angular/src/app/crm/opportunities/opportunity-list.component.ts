@@ -8,10 +8,12 @@ import { OpportunityStore } from '../store/opportunity.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-opportunity-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './opportunity-list.component.html',
   styleUrls: ['./opportunity-list.component.scss'],
 })
@@ -20,6 +22,9 @@ export class OpportunityListComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
 
   searchTerm = '';
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });

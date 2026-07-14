@@ -14,26 +14,26 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Type' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.workstationType" placeholder="e.g., CNC, Lathe" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationType" placeholder="e.g., CNC, Lathe" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Capacity' | abpLocalization }}</label>
-            <input type="number" class="form-control" [(ngModel)]="form.productionCapacity" min="1" />
+            <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.productionCapacity" min="1" />
           </div>
         </div>
 
-        <h6 class="mb-2">Cost Components</h6>
+        <h6 class="mb-2">{{ 'CostComponents' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>Component</th><th>Cost/Hour</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Component' | abpLocalization }}</th><th>Cost/Hour</th><th></th></tr></thead>
           <tbody>
             @for (c of form.costs; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="c.component" placeholder="e.g., Labor, Electricity" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="c.operatingCost" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="c.component" placeholder="e.g., Labor, Electricity" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="c.operatingCost" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.costs.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -56,6 +56,7 @@ export class WorkstationFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { name: '', workstationType: '', productionCapacity: 1, costs: [{ component: 'Labor', operatingCost: 0 }] };
 
   getHourRate(): number { return this.form.costs.reduce((s: number, c: any) => s + (c.operatingCost || 0), 0); }
@@ -63,6 +64,9 @@ export class WorkstationFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/manufacturing/workstations', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/manufacturing/workstations']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/manufacturing/workstations']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -9,11 +9,13 @@ import { PayrollStore } from '../store/payroll.store';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-payroll-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
+    PaginationComponent, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './payroll-list.component.html',
   styleUrls: ['./payroll-list.component.scss'],
@@ -31,6 +33,9 @@ export class PayrollListComponent implements OnInit {
     year: [new Date().getFullYear(), [Validators.required, Validators.min(2020)]],
     month: [new Date().getMonth() + 1, [Validators.required, Validators.min(1), Validators.max(12)]],
   });
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: 'year DESC, month DESC' });

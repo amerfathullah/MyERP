@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting;
@@ -92,6 +93,8 @@ public class PaymentEntryAppService : ApplicationService
         if (input.PaidAmount <= 0)
             throw new Volo.Abp.BusinessException("MyERP:01008")
                 .WithData("field", "PaidAmount");
+        if (input.PostingDate == default)
+            input.PostingDate = DateTime.UtcNow.Date;
 
         var paymentNumber = await _numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId);
         var pe = new PaymentEntry(
@@ -104,8 +107,33 @@ public class PaymentEntryAppService : ApplicationService
         pe.PartyId = input.PartyId;
         pe.ReferenceNumber = input.ReferenceNumber;
         pe.Notes = input.Notes;
-        pe.AgainstInvoiceId = input.AgainstInvoiceId;
-        pe.AgainstInvoiceType = input.AgainstInvoiceType;
+        pe.ExchangeRate = input.ExchangeRate;
+        pe.AgainstOrderId = input.AgainstOrderId;
+        pe.AgainstOrderType = input.AgainstOrderType;
+
+        // Multi-reference allocation takes precedence over legacy single-invoice field
+        if (input.References != null && input.References.Count > 0)
+        {
+            foreach (var refDto in input.References)
+            {
+                var reference = new PaymentEntryReference(
+                    GuidGenerator.Create(),
+                    pe.Id,
+                    refDto.ReferenceType,
+                    refDto.ReferenceId,
+                    totalAmount: refDto.AllocatedAmount, // will be corrected at PostAsync
+                    outstandingAmount: refDto.AllocatedAmount,
+                    allocatedAmount: refDto.AllocatedAmount);
+                reference.ExchangeRate = refDto.ExchangeRate;
+                pe.References.Add(reference);
+            }
+        }
+        else if (input.AgainstInvoiceId.HasValue)
+        {
+            // Legacy single-invoice backwards compatibility
+            pe.AgainstInvoiceId = input.AgainstInvoiceId;
+            pe.AgainstInvoiceType = input.AgainstInvoiceType;
+        }
 
         await _repository.InsertAsync(pe, autoSave: true);
         return MapToDto(pe);
@@ -150,21 +178,23 @@ public class PaymentEntryAppService : ApplicationService
                 var si = await _salesInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
                 pe.SourceExchangeRate = si.ExchangeRate;
 
-                // Stale outstanding validation: payment cannot exceed current outstanding
-                if (pe.PaidAmount > si.OutstandingAmount)
+                // Stale outstanding validation: hard error only when outstanding > 0 but payment exceeds it
+                if (si.OutstandingAmount > 0 && pe.PaidAmount > si.OutstandingAmount)
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
                         .WithData("outstanding", si.OutstandingAmount)
                         .WithData("allocated", pe.PaidAmount);
                 }
+                // Per ERPNext validate_paid_invoices: outstanding <= 0 on non-return = soft warning only
+                // Do NOT throw — log and allow PE to proceed
             }
             else if (pe.AgainstInvoiceType == "PurchaseInvoice")
             {
                 var pi = await _purchaseInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
                 pe.SourceExchangeRate = pi.ExchangeRate;
 
-                // Stale outstanding validation
-                if (pe.PaidAmount > pi.OutstandingAmount)
+                // Stale outstanding validation: hard error only when outstanding > 0
+                if (pi.OutstandingAmount > 0 && pe.PaidAmount > pi.OutstandingAmount)
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
                         .WithData("outstanding", pi.OutstandingAmount)
@@ -294,23 +324,75 @@ public class PaymentEntryAppService : ApplicationService
             }
         }
 
-        // Multi-reference allocation: when PE has explicit references, allocate per reference
+        // Multi-reference allocation: when PE has explicit references, validate + allocate per reference
         if (pe.References.Any())
         {
+            // Build PLE allocations for multi-ref posting
+            var multiAllocations = new List<PaymentAllocation>();
+
             foreach (var refRow in pe.References)
             {
                 if (refRow.ReferenceType == "SalesInvoice")
                 {
                     var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);
+
+                    // Stale outstanding validation per reference (prevents concurrent over-allocation)
+                    if (si.OutstandingAmount > 0 && refRow.AllocatedAmount > si.OutstandingAmount)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
+                            .WithData("outstanding", si.OutstandingAmount)
+                            .WithData("allocated", refRow.AllocatedAmount);
+                    }
+
                     si.AmountPaid += refRow.AllocatedAmount;
                     await _salesInvoiceRepository.UpdateAsync(si);
+
+                    multiAllocations.Add(new PaymentAllocation
+                    {
+                        VoucherType = "SalesInvoice",
+                        VoucherId = refRow.ReferenceId,
+                        AllocatedAmount = refRow.AllocatedAmount
+                    });
+
+                    // FIFO payment schedule allocation per referenced invoice
+                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
                 }
                 else if (refRow.ReferenceType == "PurchaseInvoice")
                 {
                     var pi = await _purchaseInvoiceRepository.GetAsync(refRow.ReferenceId);
+
+                    if (pi.OutstandingAmount > 0 && refRow.AllocatedAmount > pi.OutstandingAmount)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
+                            .WithData("outstanding", pi.OutstandingAmount)
+                            .WithData("allocated", refRow.AllocatedAmount);
+                    }
+
                     pi.AmountPaid += refRow.AllocatedAmount;
                     await _purchaseInvoiceRepository.UpdateAsync(pi);
+
+                    multiAllocations.Add(new PaymentAllocation
+                    {
+                        VoucherType = "PurchaseInvoice",
+                        VoucherId = refRow.ReferenceId,
+                        AllocatedAmount = refRow.AllocatedAmount
+                    });
+
+                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
                 }
+            }
+
+            // Create PLE entries for multi-ref allocations (was missing — payment ledger was incomplete)
+            if (multiAllocations.Any() && pe.PartyType != null && pe.PartyId.HasValue)
+            {
+                await _postingOrchestrator.PostPaymentEntryAsync(
+                    pe,
+                    partyAccountId: pe.PaidToAccountId,
+                    partyType: pe.PartyType,
+                    partyId: pe.PartyId.Value,
+                    accountCurrency: pe.CurrencyCode,
+                    exchangeRate: pe.ExchangeRate,
+                    allocations: multiAllocations.ToArray());
             }
         }
 
@@ -334,6 +416,9 @@ public class PaymentEntryAppService : ApplicationService
     public async Task<PaymentEntryDto> CancelAsync(Guid id)
     {
         var pe = await _repository.GetAsync(id);
+
+        // Validate posting period is not frozen/closed (reversals can't post to locked periods)
+        await _postingOrchestrator.ValidatePostingPeriodAsync(pe.CompanyId, pe.PostingDate, "PaymentEntry");
 
         // Guard: prevent cancel if PE has been used in reconciliation (non-delinked PLE entries)
         var pleQuery = await _pleRepository.GetQueryableAsync();
@@ -444,6 +529,67 @@ public class PaymentEntryAppService : ApplicationService
         return MapToDto(pe);
     }
 
+    /// <summary>
+    /// Gets outstanding invoices for a party (used by PE form to select allocation targets).
+    /// Returns invoices with outstanding > 0 for the given party.
+    /// </summary>
+    public async Task<List<OutstandingInvoiceForPaymentDto>> GetOutstandingForPartyAsync(
+        string partyType, Guid partyId, Guid companyId)
+    {
+        var results = new List<OutstandingInvoiceForPaymentDto>();
+
+        if (partyType == "Customer")
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var siQuery = await siRepo.GetQueryableAsync();
+            var outstanding = siQuery
+                .Where(si => si.CustomerId == partyId
+                    && si.CompanyId == companyId
+                    && si.Status == Core.DocumentStatus.Posted
+                    && (si.GrandTotal - si.AmountPaid) > 0)
+                .Select(si => new { si.Id, si.InvoiceNumber, si.IssueDate, si.DueDate, si.GrandTotal, si.AmountPaid, si.CurrencyCode })
+                .ToList();
+
+            results.AddRange(outstanding.Select(si => new OutstandingInvoiceForPaymentDto
+            {
+                InvoiceId = si.Id,
+                InvoiceNumber = si.InvoiceNumber,
+                IssueDate = si.IssueDate,
+                DueDate = si.DueDate,
+                GrandTotal = si.GrandTotal,
+                Outstanding = si.GrandTotal - si.AmountPaid,
+                CurrencyCode = si.CurrencyCode,
+                InvoiceType = "SalesInvoice"
+            }));
+        }
+        else if (partyType == "Supplier")
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var piQuery = await piRepo.GetQueryableAsync();
+            var outstanding = piQuery
+                .Where(pi => pi.SupplierId == partyId
+                    && pi.CompanyId == companyId
+                    && pi.Status == Core.DocumentStatus.Posted
+                    && (pi.GrandTotal - pi.AmountPaid) > 0)
+                .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.DueDate, pi.GrandTotal, pi.AmountPaid, pi.CurrencyCode })
+                .ToList();
+
+            results.AddRange(outstanding.Select(pi => new OutstandingInvoiceForPaymentDto
+            {
+                InvoiceId = pi.Id,
+                InvoiceNumber = pi.InvoiceNumber,
+                IssueDate = pi.IssueDate,
+                DueDate = pi.DueDate,
+                GrandTotal = pi.GrandTotal,
+                Outstanding = pi.GrandTotal - pi.AmountPaid,
+                CurrencyCode = pi.CurrencyCode,
+                InvoiceType = "PurchaseInvoice"
+            }));
+        }
+
+        return results.OrderBy(r => r.DueDate ?? r.IssueDate).ToList();
+    }
+
     private static PaymentEntryDto MapToDto(PaymentEntry pe) => new()
     {
         Id = pe.Id,
@@ -457,4 +603,28 @@ public class PaymentEntryAppService : ApplicationService
         Status = pe.Status.ToString(),
         ReferenceNumber = pe.ReferenceNumber
     };
+
+    /// <summary>
+    /// Allocates payment to invoice's payment schedule entries in FIFO order (earliest due date first).
+    /// Reused by both legacy single-invoice and multi-reference allocation paths.
+    /// </summary>
+    private async Task AllocateToPaymentScheduleAsync(string invoiceType, Guid invoiceId, decimal amount)
+    {
+        var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
+        var scheduleEntries = scheduleQuery
+            .Where(s => s.ParentType == invoiceType && s.ParentId == invoiceId)
+            .OrderBy(s => s.DueDate)
+            .ToList();
+
+        if (!scheduleEntries.Any()) return;
+
+        var remaining = amount;
+        foreach (var entry in scheduleEntries)
+        {
+            if (remaining <= 0) break;
+            var allocated = entry.RecordPayment(remaining);
+            remaining -= allocated;
+            await _scheduleRepository.UpdateAsync(entry);
+        }
+    }
 }

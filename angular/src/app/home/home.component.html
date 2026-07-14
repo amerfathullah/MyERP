@@ -120,6 +120,66 @@
         </div>
       </div>
 
+      <!-- Financial KPIs -->
+      @if (financialKpis()) {
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-chart-pie text-info me-2"></i>{{ '::FinancialOverview' | abpLocalization }}</h6>
+            <small class="text-muted">{{ financialKpis().periodLabel }}</small>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::Revenue' | abpLocalization }}</small>
+                  <h5 class="text-success mb-0">{{ financialKpis().monthlyRevenue | number:'1.0-0' }}</h5>
+                  <small class="text-muted">{{ financialKpis().invoiceCount }} invoices</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::Expenses' | abpLocalization }}</small>
+                  <h5 class="text-danger mb-0">{{ financialKpis().monthlyExpenses | number:'1.0-0' }}</h5>
+                  <small class="text-muted">{{ financialKpis().billCount }} bills</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::NetProfit' | abpLocalization }}</small>
+                  <h5 [class]="financialKpis().netProfit >= 0 ? 'text-success mb-0' : 'text-danger mb-0'">
+                    {{ financialKpis().netProfit | number:'1.0-0' }}
+                  </h5>
+                  <small class="text-muted">{{ financialKpis().profitMargin }}% margin</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::Receivables' | abpLocalization }}</small>
+                  <h5 class="text-primary mb-0">{{ financialKpis().arOutstanding | number:'1.0-0' }}</h5>
+                  <small class="text-muted">outstanding</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::Payables' | abpLocalization }}</small>
+                  <h5 class="text-warning mb-0">{{ financialKpis().apOutstanding | number:'1.0-0' }}</h5>
+                  <small class="text-muted">outstanding</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <div class="text-center">
+                  <small class="text-muted d-block">{{ '::Growth' | abpLocalization }}</small>
+                  <h5 [class]="financialKpis().revenueGrowth >= 0 ? 'text-success mb-0' : 'text-danger mb-0'">
+                    {{ financialKpis().revenueGrowth > 0 ? '+' : '' }}{{ financialKpis().revenueGrowth }}%
+                  </h5>
+                  <small class="text-muted">vs last month</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Revenue Trend Chart -->
       @if (revenueTrend().length > 0) {
         <div class="card mt-4 mb-4">

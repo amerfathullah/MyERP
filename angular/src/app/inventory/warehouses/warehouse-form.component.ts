@@ -9,11 +9,13 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-warehouse-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './warehouse-form.component.html',
   styleUrls: ['./warehouse-form.component.scss'],
 })
@@ -71,4 +73,6 @@ export class WarehouseFormComponent implements OnInit {
   }
 
   cancel(): void { this.router.navigate(['/inventory/warehouses']); }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

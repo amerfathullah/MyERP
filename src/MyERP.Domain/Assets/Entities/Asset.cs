@@ -26,6 +26,12 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal AdditionalCost { get; set; }
     public decimal TotalAssetCost => PurchaseAmount + AdditionalCost;
 
+    /// <summary>Source Purchase Receipt that created this asset (for return validation).</summary>
+    public Guid? PurchaseReceiptId { get; set; }
+
+    /// <summary>Source Purchase Invoice that created this asset (for return validation).</summary>
+    public Guid? PurchaseInvoiceId { get; set; }
+
     // Depreciation
     public bool CalculateDepreciation { get; set; }
     public DepreciationMethod DepreciationMethod { get; set; }

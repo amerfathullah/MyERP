@@ -251,3 +251,24 @@ export interface GetMaterialRequestListDto {
   maxResultCount?: number;
   sorting?: string;
 }
+
+export interface CreateSupplierQuotationDto { [key: string]: any; }
+
+export interface SubcontractingOrderDto { [key: string]: any; }
+
+export interface SupplierQuotationDto { [key: string]: any; }
+
+
+export interface RegisterFilterDto { [key: string]: any; }
+
+export interface RegisterReportDto<T = any> { items?: T[]; totalAmount?: number; totalTax?: number; [key: string]: any; }
+
+export interface CreateSubcontractingReceiptDto { [key: string]: any; }
+
+export interface GetScoListDto { [key: string]: any; }
+
+export interface CreateSubcontractingOrderDto { [key: string]: any; }
+
+export interface SubcontractingReceiptDto { [key: string]: any; }
+
+export interface PurchaseRegisterLineDto { [key: string]: any; }

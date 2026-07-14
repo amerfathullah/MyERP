@@ -7,10 +7,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SubcontractingService, type SubcontractingOrderDto } from '../../proxy/manufacturing/additional-proxies.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-subcontracting-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent],
   template: `
     <abp-page [title]="'SubcontractingOrders' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
@@ -43,13 +45,17 @@ import { SubcontractingService, type SubcontractingOrderDto } from '../../proxy/
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class SubcontractingListComponent implements OnInit {
   private service = inject(SubcontractingService);
   orders: SubcontractingOrderDto[] = [];
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -58,4 +64,6 @@ export class SubcontractingListComponent implements OnInit {
   }
 
   getStatus(s: number): string { return ['Draft', 'Open', 'Partial', 'Completed', 'Closed', 'Cancelled'][s] ?? 'Draft'; }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

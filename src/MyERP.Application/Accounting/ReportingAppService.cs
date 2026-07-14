@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Permissions;
@@ -17,46 +18,37 @@ public class ReportingAppService : ApplicationService, IReportingAppService
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<JournalEntryLine, Guid> _journalLineRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly AccountBalanceService _balanceService;
 
     public ReportingAppService(
         IRepository<Account, Guid> accountRepository,
         IRepository<JournalEntryLine, Guid> journalLineRepository,
-        IRepository<JournalEntry, Guid> journalEntryRepository)
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        AccountBalanceService balanceService)
     {
         _accountRepository = accountRepository;
         _journalLineRepository = journalLineRepository;
         _journalEntryRepository = journalEntryRepository;
+        _balanceService = balanceService;
     }
 
     public async Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input)
     {
         var accounts = await _accountRepository.GetListAsync(a => a.CompanyId == input.CompanyId && !a.IsGroup);
 
-        // Get all posted journal entries up to the as-of date
-        var journalEntries = await _journalEntryRepository.GetListAsync(
-            je => je.CompanyId == input.CompanyId
-                && je.Status == DocumentStatus.Posted
-                && je.PostingDate <= input.AsOfDate);
-
-        var journalIds = journalEntries.Select(je => je.Id).ToHashSet();
-        var allLines = await _journalLineRepository.GetListAsync(
-            l => journalIds.Contains(l.JournalEntryId));
-
-        // Aggregate by account
-        var linesByAccount = allLines.GroupBy(l => l.AccountId)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        // Use the optimized balance service (leverages closing balance cache + delta GL)
+        var balanceMap = await _balanceService.GetTrialBalanceAsync(input.CompanyId, input.AsOfDate);
 
         var rows = new List<TrialBalanceRowDto>();
         foreach (var account in accounts.OrderBy(a => a.AccountCode))
         {
-            var lines = linesByAccount.GetValueOrDefault(account.Id) ?? new List<JournalEntryLine>();
+            if (!balanceMap.TryGetValue(account.Id, out var balance))
+                continue; // Skip zero-balance accounts
 
-            var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
-            var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+            if (balance.Debit == 0 && balance.Credit == 0)
+                continue;
 
-            if (debit == 0 && credit == 0) continue; // Skip zero-balance accounts
-
-            var netBalance = debit - credit;
+            var netBalance = balance.Balance;
 
             rows.Add(new TrialBalanceRowDto
             {
@@ -66,8 +58,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 AccountType = account.AccountType.ToString(),
                 IsGroup = false,
                 Level = 0,
-                Debit = debit,
-                Credit = credit,
+                Debit = balance.Debit,
+                Credit = balance.Credit,
                 ClosingDebit = netBalance > 0 ? netBalance : 0,
                 ClosingCredit = netBalance < 0 ? Math.Abs(netBalance) : 0,
             });

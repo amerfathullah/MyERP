@@ -8,11 +8,13 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
 import { SalesOrderStore } from '../store/sales-order.store';
 import { CustomerService } from '../../proxy/sales/customer.service';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-sales-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent],
   templateUrl: './sales-order-form.component.html',
   styleUrls: ['./sales-order-form.component.scss'],
 })
@@ -61,4 +63,6 @@ export class SalesOrderFormComponent implements OnInit {
   }
 
   cancel(): void { this.router.navigate(['/sales/orders']); }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

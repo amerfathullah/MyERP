@@ -6,11 +6,14 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LandedCostDetailService, type LandedCostVoucherDetailDto } from '../../proxy/detail-services';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-lcv-detail', standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   template: `
     <abp-page [title]="'LandedCostVouchers' | abpLocalization">
+  <app-breadcrumb />
       @if (d) {
         <div class="card mb-3"><div class="card-body">
           <div class="row">

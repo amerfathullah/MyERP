@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { StockLedgerRowDto } from '../../../proxy/inventory/models';
 import type { CompanyDto } from '../../../proxy/core/models';
@@ -18,10 +19,11 @@ import type { CompanyDto } from '../../../proxy/core/models';
   templateUrl: './stock-ledger.component.html',
   styleUrls: ['./stock-ledger.component.scss'],
 })
-export class StockLedgerComponent {
+export class StockLedgerComponent implements OnInit {
   private fb = inject(FormBuilder);
   private stockLedgerService = inject(StockLedgerService);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
 
   companies = signal<CompanyDto[]>([]);
@@ -35,9 +37,20 @@ export class StockLedgerComponent {
     toDate: [new Date().toISOString().split('T')[0], Validators.required],
   });
 
-  constructor() {
+  constructor() {}
+
+  ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe(r => this.companies.set(r.items ?? []));
+      .subscribe(r => {
+        this.companies.set(r.items ?? []);
+        const defaultId = this.companyContext.currentCompanyId();
+        if (defaultId && !this.filters.get('companyId')?.value) {
+          this.filters.patchValue({ companyId: defaultId });
+        }
+        if (this.filters.get('companyId')?.value) {
+          this.loadReport();
+        }
+      });
   }
 
   loadReport(): void {

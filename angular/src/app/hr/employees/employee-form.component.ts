@@ -9,11 +9,13 @@ import { CompanyService } from '../../proxy/core/company.service';
 import { EmployeeStore } from '../store/employee.store';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-employee-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss'],
 })
@@ -88,4 +90,6 @@ export class EmployeeFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/hr/employees']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

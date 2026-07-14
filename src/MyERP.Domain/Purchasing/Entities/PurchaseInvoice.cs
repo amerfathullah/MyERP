@@ -137,6 +137,11 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        // Per DO-NOT: opening invoices with update_stock=true are blocked (accounting-only)
+        if (IsOpening && UpdateStock)
+            throw new BusinessException(MyERPDomainErrorCodes.OpeningInvoiceCannotUpdateStock)
+                .WithData("documentType", "Purchase Invoice");
+
         Status = DocumentStatus.Submitted;
     }
 

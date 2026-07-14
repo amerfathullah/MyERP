@@ -13,11 +13,13 @@ import { DocumentConversionService } from '../../proxy/sales/document-conversion
 import { QuotationStore } from '../store/quotation.store';
 import type { QuotationDto } from '../../proxy/sales/models';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-quotation-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe],
+    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
 })

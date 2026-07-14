@@ -1,5 +1,6 @@
 using System;
 using Volo.Abp.Domain.Entities.Auditing;
+using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Accounting.Entities;
 
@@ -8,8 +9,9 @@ namespace MyERP.Accounting.Entities;
 /// Enables multi-invoice payment allocation (one PE → multiple SI/PI allocations).
 /// Per ERPNext: payment_entry.references child table.
 /// </summary>
-public class PaymentEntryReference : CreationAuditedEntity<Guid>
+public class PaymentEntryReference : CreationAuditedEntity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
     public Guid PaymentEntryId { get; set; }
 
     /// <summary>Document type: "SalesInvoice", "PurchaseInvoice", "SalesOrder", "PurchaseOrder".</summary>

@@ -1,5 +1,6 @@
 using System;
 using Volo.Abp.Domain.Entities.Auditing;
+using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Accounting.Entities;
 
@@ -9,8 +10,10 @@ namespace MyERP.Accounting.Entities;
 /// Tracks per-term outstanding for partial payment allocation.
 /// Per ERPNext: payment_schedule child table on SI/PI with mutable outstanding.
 /// </summary>
-public class PaymentScheduleEntry : CreationAuditedEntity<Guid>
+public class PaymentScheduleEntry : CreationAuditedEntity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
+
     /// <summary>Parent document type ("SalesInvoice" or "PurchaseInvoice").</summary>
     public string ParentType { get; set; } = null!;
 

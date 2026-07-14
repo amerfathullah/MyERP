@@ -8,6 +8,7 @@ using MyERP.Permissions;
 using MyERP.Purchasing;
 using MyERP.Purchasing.DTOs;
 using MyERP.Purchasing.Entities;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -51,9 +52,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return MapBomToDto(bom);
     }
 
-    public async Task<PagedResultDto<BomDto>> GetBomListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<BomDto>> GetBomListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = await _bomRepository.GetQueryableAsync();
+        if (input.CompanyId.HasValue)
+            query = query.Where(b => b.CompanyId == input.CompanyId.Value);
         var totalCount = query.Count();
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -223,8 +226,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> RecordProductionAsync(Guid id, decimal quantity)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
-        // Overproduction percentage: default 10% (would come from ManufacturingSettings in production)
-        wo.RecordProduction(quantity, overproductionPercentage: 10m);
+
+        // Validate posting period is not frozen/closed before creating SLE entries
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(wo.CompanyId, DateTime.UtcNow, "WorkOrder");
+
+        // Read overproduction percentage from ManufacturingSettings (per-company)
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var settingsQuery = await settingsRepo.GetQueryableAsync();
+        var settings = settingsQuery.FirstOrDefault(s => s.CompanyId == wo.CompanyId);
+        var overproductionPct = settings?.OverproductionPercentage ?? 5m; // Default 5% per ERPNext
+        wo.RecordProduction(quantity, overproductionPercentage: overproductionPct);
 
         // Validate sufficient stock for raw materials before consuming
         var productionRatio = quantity / wo.Quantity;
@@ -303,6 +316,44 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> CancelWorkOrderAsync(Guid id)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
+
+        // Reverse stock entries: return consumed RM and remove produced FG
+        if (wo.ProducedQuantity > 0)
+        {
+            var productionRatio = wo.ProducedQuantity / wo.Quantity;
+
+            // Return raw materials to source warehouse
+            foreach (var item in wo.RequiredItems)
+            {
+                var issueQty = Math.Round(item.RequiredQuantity * productionRatio, 4);
+                var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+                if (issueQty > 0 && warehouseId.HasValue)
+                {
+                    await _valuationService.CreateLedgerEntryAsync(
+                        wo.CompanyId, item.ItemId, warehouseId.Value,
+                        DateTime.UtcNow, issueQty, 0, // Positive = stock back in
+                        voucherType: "WorkOrder", voucherId: wo.Id,
+                        tenantId: wo.TenantId);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, warehouseId.Value, issueQty, 0, wo.TenantId);
+                }
+            }
+
+            // Remove finished goods from FG warehouse
+            if (wo.FgWarehouseId.HasValue)
+            {
+                await _valuationService.CreateLedgerEntryAsync(
+                    wo.CompanyId, wo.ItemId, wo.FgWarehouseId.Value,
+                    DateTime.UtcNow, -wo.ProducedQuantity, 0, // Negative = stock out
+                    voucherType: "WorkOrder", voucherId: wo.Id,
+                    tenantId: wo.TenantId);
+
+                await _binService.ApplyStockMovementAsync(
+                    wo.ItemId, wo.FgWarehouseId.Value, -wo.ProducedQuantity, 0, wo.TenantId);
+            }
+        }
+
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
         return MapWoToDto(wo);

@@ -78,6 +78,11 @@ public class StockReconciliationAppService : ApplicationService
     public async Task<StockReconciliationDto> SubmitAsync(Guid id)
     {
         var sr = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        // Validate posting period is not frozen/closed before creating SLE entries
+        var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(sr.CompanyId, sr.PostingDate, "StockReconciliation");
+
         sr.Submit();
 
         // Create SLE entries for each item adjustment (absolute qty set, not delta)

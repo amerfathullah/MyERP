@@ -8,10 +8,12 @@ import { AssetStore } from '../store/asset.store';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-asset-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './asset-form.component.html',
   styleUrls: ['./asset-form.component.scss'],
 })
@@ -55,4 +57,6 @@ export class AssetFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/assets']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

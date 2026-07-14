@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { OpportunityStore } from '../store/opportunity.store';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-opportunity-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './opportunity-form.component.html',
   styleUrls: ['./opportunity-form.component.scss'],
 })
@@ -85,4 +87,6 @@ export class OpportunityFormComponent implements OnInit {
     }
     this.router.navigate(['/crm/opportunities']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

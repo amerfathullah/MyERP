@@ -273,3 +273,56 @@ export interface GetBudgetListDto {
   skipCount?: number;
   maxResultCount?: number;
 }
+
+export interface AccountingPeriodDto { [key: string]: any; }
+
+export interface AgingReportDto { [key: string]: any; }
+
+export interface AgingReportRequestDto { [key: string]: any; }
+
+export interface AutoMatchResult { [key: string]: any; }
+
+export interface BankStatementImportInput { [key: string]: any; }
+
+export interface BankStatementImportResult { [key: string]: any; }
+
+export interface CostCenterDto { [key: string]: any; }
+
+export interface CreateCostCenterDto { [key: string]: any; }
+
+export interface GetCostCenterListDto { [key: string]: any; }
+
+export interface CreateCurrencyExchangeDto { [key: string]: any; }
+
+export interface CurrencyExchangeDto { [key: string]: any; }
+
+export interface CreateFiscalYearDto { [key: string]: any; }
+
+export interface FiscalYearDto { [key: string]: any; }
+
+export interface GeneralLedgerFilterDto { [key: string]: any; }
+
+export interface GeneralLedgerReportDto { [key: string]: any; }
+
+export interface ModeOfPaymentDto { [key: string]: any; }
+
+export interface OutstandingInvoiceDto { [key: string]: any; }
+
+export interface PartyLedgerFilterDto { [key: string]: any; }
+
+export interface PartyLedgerReportDto { [key: string]: any; }
+
+export interface ReconcileAllocationDto { [key: string]: any; }
+
+export interface ReconcilePaymentDto { [key: string]: any; }
+
+export interface UnreconcileDto { [key: string]: any; }
+
+
+export interface PaymentRequestDto { [key: string]: any; }
+
+export interface UomConversionDto { [key: string]: any; }
+
+export interface CreateMaintenanceScheduleDto { [key: string]: any; }
+
+export interface CreatePaymentRequestDto { [key: string]: any; }

@@ -14,33 +14,33 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-5">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.name" placeholder="e.g., Executive Grade A" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" placeholder="e.g., Executive Grade A" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'PayrollFrequency' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.payrollFrequency">
-              <option>Monthly</option>
-              <option>Bimonthly</option>
-              <option>Weekly</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.payrollFrequency">
+              <option>{{ 'Monthly' | abpLocalization }}</option>
+              <option>{{ 'Bimonthly' | abpLocalization }}</option>
+              <option>{{ 'Weekly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3">
             <div class="form-check mt-4">
-              <input type="checkbox" class="form-check-input" [(ngModel)]="form.isHourlyBased" id="hourly" />
-              <label class="form-check-label" for="hourly">Hourly Based</label>
+              <input type="checkbox" class="form-check-input" (ngModelChange)="isDirty=true" [(ngModel)]="form.isHourlyBased" id="hourly" />
+              <label class="form-check-label" for="hourly">{{ 'HourlyBased' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
         <h6 class="mb-2">{{ 'Components' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>Component</th><th>{{ 'Amount' | abpLocalization }}</th><th>Formula</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Component' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'Formula' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (d of form.details; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="d.componentName" placeholder="e.g., Basic, HRA" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="d.amount" /></td>
-                <td><input class="form-control form-control-sm" [(ngModel)]="d.formula" placeholder="e.g., B * 0.4" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.componentName" placeholder="e.g., Basic, HRA" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.amount" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.formula" placeholder="e.g., B * 0.4" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.details.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -62,11 +62,15 @@ export class SalaryStructureFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { name: '', payrollFrequency: 'Monthly', isHourlyBased: false, details: [{ componentName: 'Basic', amount: 0, formula: '' }] };
 
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/salary-structure', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/hr/salary-structures']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/hr/salary-structures']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

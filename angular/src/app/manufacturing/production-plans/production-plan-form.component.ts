@@ -8,10 +8,12 @@ import { ProductionPlanService } from '../../proxy/manufacturing/production-plan
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { CreateProductionPlanDto } from '../../proxy/manufacturing/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-production-plan-form',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './production-plan-form.component.html',
   styleUrls: ['./production-plan-form.component.scss'],
 })
@@ -80,4 +82,6 @@ export class ProductionPlanFormComponent {
       error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

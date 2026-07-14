@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService, LocalizationPipe } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
+import { CompanyContextService } from '../shared/services/company-context.service';
 
 @Component({
   selector: 'app-home',
@@ -17,11 +18,13 @@ export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
   private dashboardService = inject(DashboardService);
   private http = inject(HttpClient);
+  private companyContext = inject(CompanyContextService);
 
   summary = signal<DashboardSummaryDto | null>(null);
   lowStockItems = signal<any[]>([]);
   revenueTrend = signal<{ month: string; amount: number; heightPct: number }[]>([]);
   recentActivity = signal<any[]>([]);
+  financialKpis = signal<any | null>(null);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -54,6 +57,13 @@ export class HomeComponent implements OnInit {
         });
       this.http.get<any[]>('/api/app/document-activity-log/recent', { params: { skip: '0', max: '10' } })
         .subscribe({ next: items => this.recentActivity.set(items ?? []), error: () => {} });
+
+      // Financial KPIs
+      const companyId = this.companyContext.currentCompanyId();
+      if (companyId) {
+        this.http.get<any>('/api/app/dashboard/financial-kpis', { params: { companyId } })
+          .subscribe({ next: kpis => this.financialKpis.set(kpis), error: () => {} });
+      }
     }
   }
 

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
@@ -185,14 +187,32 @@ public class StockPostingService : DomainService
     /// <summary>
     /// Validates that the posting date is not before the company's stock frozen date.
     /// Blocks stock transactions in frozen periods to protect closed inventory balances.
+    /// Per ERPNext: stock_auth_role setting lets authorized users bypass the freeze.
+    /// Also supports stock_frozen_upto_days as an alternative to absolute date.
     /// </summary>
-    private async Task ValidateStockFrozenDateAsync(Guid companyId, DateTime postingDate)
+    private async Task ValidateStockFrozenDateAsync(Guid companyId, DateTime postingDate, IEnumerable<string>? currentUserRoles = null)
     {
         var company = await _companyRepository.GetAsync(companyId);
-        if (company.StockFrozenUpto.HasValue && postingDate <= company.StockFrozenUpto.Value)
+
+        // Determine effective frozen date (absolute date or N days before today)
+        DateTime? effectiveFrozenDate = company.StockFrozenUpto;
+        if (!effectiveFrozenDate.HasValue && company.StockFrozenUptoDays > 0)
         {
-            throw new BusinessException("MyERP:05007")
-                .WithData("frozenUpto", company.StockFrozenUpto.Value.ToString("yyyy-MM-dd"))
+            effectiveFrozenDate = DateTime.UtcNow.Date.AddDays(-company.StockFrozenUptoDays);
+        }
+
+        if (effectiveFrozenDate.HasValue && postingDate <= effectiveFrozenDate.Value)
+        {
+            // Role bypass: users with stock_auth_role can post to frozen periods
+            if (!string.IsNullOrWhiteSpace(company.StockAuthRole)
+                && currentUserRoles != null
+                && currentUserRoles.Contains(company.StockAuthRole, StringComparer.OrdinalIgnoreCase))
+            {
+                return; // authorized role bypass
+            }
+
+            throw new BusinessException(MyERPDomainErrorCodes.StockFrozenPeriod)
+                .WithData("frozenUpto", effectiveFrozenDate.Value.ToString("yyyy-MM-dd"))
                 .WithData("postingDate", postingDate.ToString("yyyy-MM-dd"));
         }
     }

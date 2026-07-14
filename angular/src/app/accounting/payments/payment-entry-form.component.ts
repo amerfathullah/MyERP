@@ -92,4 +92,6 @@ export class PaymentEntryFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/accounting/payments']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

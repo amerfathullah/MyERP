@@ -77,3 +77,31 @@ export interface CreatePayrollEntryDto {
   period: string;
   basicSalary: number;
 }
+
+export interface BulkLeaveAllocationDto { [key: string]: any; }
+
+export interface CreateLeaveAllocationDto { [key: string]: any; }
+
+export interface CreateLeaveTypeDto { [key: string]: any; }
+
+export interface GetLeaveAllocationListDto { [key: string]: any; }
+
+export interface LeaveAllocationDto { [key: string]: any; }
+
+export interface LeaveTypeDto { [key: string]: any; }
+
+export interface CreateLeaveApplicationDto { [key: string]: any; }
+
+export interface CreateExpenseClaimDto { [key: string]: any; }
+
+export interface CreateHolidayListDto { [key: string]: any; }
+
+export interface CreateSalaryStructureDto { [key: string]: any; }
+
+export interface ExpenseClaimDto { [key: string]: any; }
+
+export interface HolidayListDto { [key: string]: any; }
+
+export interface SalarySlipDto { [key: string]: any; }
+
+export interface SalaryStructureDto { [key: string]: any; }

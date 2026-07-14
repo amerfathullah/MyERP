@@ -17,6 +17,9 @@ public enum AccountSubType
     BankAccount = 12,
     CashAccount = 13,
     AccountsReceivable = 14,
+    Stock = 15,
+    AccumulatedDepreciation = 16,
+    CapitalWorkInProgress = 17,
 
     // Liability
     CurrentLiability = 20,

@@ -5,10 +5,12 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-salary-slip-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'SalarySlip' | abpLocalization">
       @if (slip(); as s) {
@@ -78,6 +80,7 @@ import { HttpClient } from '@angular/common/http';
           </div>
         }
       } @else {
+    <app-breadcrumb />
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
       }
     </abp-page>

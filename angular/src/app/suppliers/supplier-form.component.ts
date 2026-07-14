@@ -8,11 +8,13 @@ import { HttpClient } from '@angular/common/http';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-supplier-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
+    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './supplier-form.component.html',
   styleUrls: ['./supplier-form.component.scss'],
 })
@@ -88,4 +90,6 @@ export class SupplierFormComponent implements OnInit {
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Save failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -9,12 +9,15 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { WorkOrderDto } from '../../proxy/manufacturing/models';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-work-order-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   template: `
     <abp-page [title]="wo()?.workOrderNumber ?? ('Manufacturing:WorkOrders' | abpLocalization)">
+  <app-breadcrumb />
       @if (isLoading()) { <app-loading-overlay /> }
       @if (wo(); as w) {
         <div class="row mb-4">

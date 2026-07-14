@@ -5,12 +5,15 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HolidayListDetailService, type HolidayListDetailDto } from '../../proxy/detail-services';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-holiday-list-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'HolidayLists' | abpLocalization">
+  <app-breadcrumb />
       @if (data) {
         <div class="card mb-3"><div class="card-body">
           <h5>{{ data.name }} ({{ data.year }})</h5>

@@ -8,10 +8,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import type { CreatePurchaseReceiptDto } from '../../proxy/purchasing/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-purchase-receipt-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './purchase-receipt-form.component.html',
   styleUrls: ['./purchase-receipt-form.component.scss'],
 })
@@ -64,4 +66,6 @@ export class PurchaseReceiptFormComponent {
   cancel(): void {
     this.router.navigate(['/purchasing/receipts']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

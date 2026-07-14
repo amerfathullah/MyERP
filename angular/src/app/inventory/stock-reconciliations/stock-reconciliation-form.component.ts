@@ -14,14 +14,14 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.postingDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Purpose' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.purpose">
-              <option>Stock Count</option>
-              <option>Opening Stock</option>
-              <option>Adjustment</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.purpose">
+              <option>{{ 'StockCount' | abpLocalization }}</option>
+              <option>{{ 'OpeningStock' | abpLocalization }}</option>
+              <option>{{ 'Adjustment' | abpLocalization }}</option>
             </select>
           </div>
         </div>
@@ -32,10 +32,10 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="item.itemName" placeholder="Item" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.currentQuantity" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.newQuantity" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.newValuationRate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemName" placeholder="Item" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.currentQuantity" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.newQuantity" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.newValuationRate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -55,6 +55,7 @@ export class StockReconciliationFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { postingDate: new Date().toISOString().split('T')[0], purpose: 'Stock Count', items: [{ itemName: '', currentQuantity: 0, newQuantity: 0, newValuationRate: 0 }] };
 
   addItem() { this.form.items.push({ itemName: '', currentQuantity: 0, newQuantity: 0, newValuationRate: 0 }); }
@@ -62,6 +63,9 @@ export class StockReconciliationFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/stock-reconciliation', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/inventory/stock-reconciliations']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/inventory/stock-reconciliations']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -146,10 +146,10 @@ public class SalesCycleTests
         var cn = new SalesInvoice(Guid.NewGuid(), originalSI.CompanyId, originalSI.CustomerId, "CN-001", DateTime.UtcNow);
         cn.IsReturn = true;
         cn.ReturnAgainstId = originalSI.Id;
-        cn.AddItem(Guid.NewGuid(), "Product (Return)", 2, 100, 0);
+        cn.AddItem(Guid.NewGuid(), "Product (Return)", -2, 100, 0);
 
         cn.IsReturn.ShouldBeTrue();
         cn.ReturnAgainstId.ShouldBe(originalSI.Id);
-        cn.GrandTotal.ShouldBe(200m); // 2 items returned
+        cn.GrandTotal.ShouldBe(-200m); // 2 items returned (negative qty × positive rate)
     }
 }

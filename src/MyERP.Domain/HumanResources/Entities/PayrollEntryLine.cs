@@ -26,7 +26,13 @@ public class PayrollEntryLine : FullAuditedEntity<Guid>
     public decimal SocsoEmployer { get; set; }
     public decimal EisEmployer { get; set; }
 
-    public decimal TotalDeductions => EpfEmployee + SocsoEmployee + EisEmployee + Pcb;
+    /// <summary>Loan EMI deduction for this pay period (auto-deducted from active loans).</summary>
+    public decimal LoanDeduction { get; set; }
+
+    /// <summary>Linked loan ID (if EMI deducted this period).</summary>
+    public Guid? LoanId { get; set; }
+
+    public decimal TotalDeductions => EpfEmployee + SocsoEmployee + EisEmployee + Pcb + LoanDeduction;
     public decimal NetSalary => GrossSalary - TotalDeductions;
 
     protected PayrollEntryLine() { }

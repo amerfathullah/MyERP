@@ -5,11 +5,14 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { QualityInspectionDetailService, type QualityInspectionDetailDto } from '../../proxy/detail-services';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-qi-detail', standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'QualityInspections' | abpLocalization">
+  <app-breadcrumb />
       @if (d) {
         <div class="card mb-3"><div class="card-body">
           <div class="row">

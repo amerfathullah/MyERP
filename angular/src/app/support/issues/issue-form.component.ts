@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { IssueService } from '../../proxy/support/issue.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-issue-form',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'NewIssue' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
@@ -30,30 +32,30 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <div class="col-md-4">
                 <label class="form-label">{{ 'Priority' | abpLocalization }}</label>
                 <select class="form-select" formControlName="priority">
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Urgent">Urgent</option>
+                  <option value="Low">{{ 'Low' | abpLocalization }}</option>
+                  <option value="Medium">{{ 'Medium' | abpLocalization }}</option>
+                  <option value="High">{{ 'High' | abpLocalization }}</option>
+                  <option value="Urgent">{{ 'Urgent' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ 'IssueType' | abpLocalization }}</label>
                 <select class="form-select" formControlName="issueType">
                   <option value="">-- Select --</option>
-                  <option value="Bug">Bug</option>
-                  <option value="Feature Request">Feature Request</option>
-                  <option value="Complaint">Complaint</option>
-                  <option value="Question">Question</option>
-                  <option value="Other">Other</option>
+                  <option value="Bug">{{ 'Bug' | abpLocalization }}</option>
+                  <option value="Feature Request">{{ 'FeatureRequest' | abpLocalization }}</option>
+                  <option value="Complaint">{{ 'Complaint' | abpLocalization }}</option>
+                  <option value="Question">{{ 'Question' | abpLocalization }}</option>
+                  <option value="Other">{{ 'Other' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ 'RaisedVia' | abpLocalization }}</label>
                 <select class="form-select" formControlName="raisedVia">
                   <option value="">-- Select --</option>
-                  <option value="Email">Email</option>
-                  <option value="Phone">Phone</option>
-                  <option value="Website">Website</option>
+                  <option value="Email">{{ 'Email' | abpLocalization }}</option>
+                  <option value="Phone">{{ 'Phone' | abpLocalization }}</option>
+                  <option value="Website">{{ 'Website' | abpLocalization }}</option>
                   <option value="Walk-In">Walk-In</option>
                 </select>
               </div>
@@ -116,4 +118,6 @@ export class IssueFormComponent {
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

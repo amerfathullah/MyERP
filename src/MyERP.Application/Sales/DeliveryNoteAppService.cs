@@ -171,63 +171,35 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await _batchValidation.ValidateForStockOutAsync(batchItems, dn.PostingDate);
         }
 
-        // Over-delivery validation: DN qty cannot exceed SO pending delivery qty
+        // Over-delivery validation + SO status guard (domain service)
         if (!dn.IsReturn && dn.SalesOrderId.HasValue)
         {
             // Credit limit enforcement at DN submit
-            // Per DO-NOT: credit limit must be enforced at DN and SI submit, not just SO
             await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal);
 
-            var so = await _salesOrderRepository.GetAsync(dn.SalesOrderId.Value);
+            // Selling price validation at DN submit (Warn mode)
+            var valuationSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
+            var dnItemData = dn.Items
+                .Select(i => (i.ItemId, i.UnitPrice, i.Description))
+                .ToList().AsReadOnly();
+            SalesInvoiceManager.ValidateSellingPrice(dnItemData,
+                itemId => valuationSvc.GetCurrentBalanceAsync(itemId, dn.WarehouseId)
+                    .GetAwaiter().GetResult().ValuationRate,
+                action: "Warn");
 
-            // Block delivery against Cancelled or Closed Sales Orders
-            if (so.Status == DocumentStatus.Cancelled || so.Status == DocumentStatus.Closed)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                    .WithData("documentType", "Sales Order")
-                    .WithData("status", so.Status.ToString());
-            }
-
-            foreach (var dnItem in dn.Items.Where(i => i.SalesOrderItemId.HasValue))
-            {
-                var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
-                if (soItem != null && dnItem.Quantity > soItem.PendingDeliveryQty)
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverDelivery)
-                        .WithData("item", dnItem.Description)
-                        .WithData("ordered", soItem.Quantity)
-                        .WithData("delivered", soItem.DeliveredQty)
-                        .WithData("attempted", dnItem.Quantity);
-                }
-            }
+            var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
+            await dnManager.ValidateAgainstSalesOrderAsync(dn);
         }
 
         dn.Submit();
 
         if (dn.IsReturn)
         {
-            // Validate return qty does not exceed original delivery qty
-            // Per DO-NOT: "Allow return qty to exceed (original qty - already returned qty)"
+            // Validate return qty does not exceed original delivery qty (domain service)
             if (dn.ReturnAgainstId.HasValue)
             {
-                var originalDn = await _repository.GetAsync(dn.ReturnAgainstId.Value);
-                foreach (var returnItem in dn.Items)
-                {
-                    var originalItem = originalDn.Items
-                        .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-                    if (originalItem != null)
-                    {
-                        var maxReturnQty = originalItem.Quantity; // original qty (positive)
-                        var returnQty = Math.Abs(returnItem.Quantity); // return qty is negative, use absolute
-                        if (returnQty > maxReturnQty)
-                        {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                                .WithData("item", returnItem.Description)
-                                .WithData("originalQty", maxReturnQty)
-                                .WithData("returnQty", returnQty);
-                        }
-                    }
-                }
+                var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
+                await dnManager.ValidateReturnAsync(dn);
             }
 
             // RETURN: Stock comes BACK to warehouse (positive SLE, positive Bin)
@@ -278,31 +250,77 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         else
         {
             // NORMAL DELIVERY: Stock goes OUT (negative SLE, negative Bin)
+            // Product Bundle decomposition: bundle items deliver COMPONENT stock, not parent
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var bundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+
+            // Identify which DN items are bundles
+            var allItemIds = dn.Items.Select(i => i.ItemId).Distinct();
+            var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds);
+
             foreach (var item in dn.Items)
             {
-                // Skip non-stock items (service items don't create SLE)
-                var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                if (itemEntity != null && !itemEntity.MaintainStock)
-                    continue;
+                if (bundleItemIds.Contains(item.ItemId))
+                {
+                    // Bundle item: decompose into components and deliver each component
+                    var components = await bundleService.DecomposeAsync(
+                        item.ItemId, item.Quantity, item.UnitPrice);
 
-                // Capture valuation rate before stock-out (for COGS/gross profit)
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, dn.WarehouseId);
-                item.ValuationRate = balance.ValuationRate;
+                    foreach (var comp in components)
+                    {
+                        // Skip non-stock components
+                        var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                        if (compEntity != null && !compEntity.MaintainStock)
+                            continue;
 
-                await _valuationService.CreateLedgerEntryAsync(
-                    dn.CompanyId, item.ItemId, dn.WarehouseId,
-                    dn.PostingDate, -item.Quantity, item.UnitPrice,
-                    voucherType: "DeliveryNote", voucherId: dn.Id,
-                    tenantId: dn.TenantId);
+                        await _valuationService.CreateLedgerEntryAsync(
+                            dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
+                            dn.PostingDate, -comp.Qty, comp.Rate,
+                            voucherType: "DeliveryNote", voucherId: dn.Id,
+                            tenantId: dn.TenantId);
 
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, dn.WarehouseId,
-                    -item.Quantity, -(item.Quantity * item.UnitPrice), dn.TenantId);
+                        await _binService.ApplyStockMovementAsync(
+                            comp.ComponentItemId, dn.WarehouseId,
+                            -comp.Qty, -(comp.Qty * comp.Rate), dn.TenantId);
 
-                // Release reserved qty (stock was reserved at SO, now delivered)
-                await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, dn.WarehouseId, -item.Quantity, dn.TenantId);
+                        await _binService.UpdateReservedQtyAsync(
+                            comp.ComponentItemId, dn.WarehouseId, -comp.Qty, dn.TenantId);
+                    }
+
+                    // Valuation for bundle = sum of component valuations
+                    decimal bundleValuation = 0;
+                    foreach (var comp in components)
+                    {
+                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
+                        bundleValuation += compBalance.ValuationRate * comp.Qty;
+                    }
+                    item.ValuationRate = item.Quantity > 0 ? bundleValuation / item.Quantity : 0;
+                }
+                else
+                {
+                    // Regular item: stock operations on the item itself
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity != null && !itemEntity.MaintainStock)
+                        continue;
+
+                    // Capture valuation rate before stock-out (for COGS/gross profit)
+                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, dn.WarehouseId);
+                    item.ValuationRate = balance.ValuationRate;
+
+                    await _valuationService.CreateLedgerEntryAsync(
+                        dn.CompanyId, item.ItemId, dn.WarehouseId,
+                        dn.PostingDate, -item.Quantity, item.UnitPrice,
+                        voucherType: "DeliveryNote", voucherId: dn.Id,
+                        tenantId: dn.TenantId);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, dn.WarehouseId,
+                        -item.Quantity, -(item.Quantity * item.UnitPrice), dn.TenantId);
+
+                    // Release reserved qty (stock was reserved at SO, now delivered)
+                    await _binService.UpdateReservedQtyAsync(
+                        item.ItemId, dn.WarehouseId, -item.Quantity, dn.TenantId);
+                }
             }
 
             // GL posting (perpetual inventory): DR COGS, CR Stock
@@ -350,6 +368,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     public async Task<DeliveryNoteDto> CancelAsync(Guid id)
     {
         var dn = await _repository.GetAsync(id);
+
+        // Validate posting period is not frozen/closed
+        await _postingOrchestrator.ValidatePostingPeriodAsync(dn.CompanyId, dn.PostingDate, "DeliveryNote");
 
         // Guard: cannot cancel if submitted Sales Invoices are linked to this DN's items
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();

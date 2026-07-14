@@ -2,6 +2,7 @@
   @if (!entry) {
     <app-loading-overlay />
   } @else {
+    <app-breadcrumb />
     <app-document-workflow
       [currentStatus]="entry.status!"
       [availableActions]="workflowActions"

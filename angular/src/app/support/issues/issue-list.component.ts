@@ -7,15 +7,20 @@ import { IssueStore } from '../store/issue.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-issue-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './issue-list.component.html',
   styleUrls: ['./issue-list.component.scss'],
 })
 export class IssueListComponent implements OnInit {
   readonly store = inject(IssueStore);
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20 });
@@ -34,4 +39,6 @@ export class IssueListComponent implements OnInit {
       default: return '';
     }
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.store.load({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }); }
 }

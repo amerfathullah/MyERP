@@ -99,4 +99,6 @@ export class JournalEntryFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/accounting/journal-entries']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -155,6 +155,16 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
     public async Task<JournalEntryDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // Validate posting period is not frozen/closed (reversals can't post to locked periods)
+        var company = await _companyRepository.GetAsync(entry.CompanyId);
+        if (company.AccountsFrozenTillDate.HasValue && entry.PostingDate <= company.AccountsFrozenTillDate.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AccountingPeriodClosed)
+                .WithData("frozenTill", company.AccountsFrozenTillDate.Value.ToString("yyyy-MM-dd"))
+                .WithData("postingDate", entry.PostingDate.ToString("yyyy-MM-dd"));
+        }
+
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
 

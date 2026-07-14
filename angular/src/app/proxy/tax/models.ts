@@ -40,3 +40,7 @@ export interface TaxRuleDto extends EntityDto<string> {
   description?: string | null;
   isActive?: boolean;
 }
+
+export interface CreateItemTaxTemplateDto { [key: string]: any; }
+
+export interface ItemTaxTemplateDto { [key: string]: any; }

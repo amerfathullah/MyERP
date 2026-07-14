@@ -11,6 +11,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
+using MyERP.Purchasing.DomainServices;
 using MyERP.Shared;
 using MyERP.Workflow.DomainServices;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +38,7 @@ public class PurchaseOrderAppService : ApplicationService
     private readonly TransactionValidationService _transactionValidation;
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly PricingRuleApplicationService _pricingRuleService;
+    private readonly PurchaseOrderManager _purchaseOrderManager;
 
     public PurchaseOrderAppService(
         IRepository<PurchaseOrder, Guid> repository,
@@ -51,7 +53,8 @@ public class PurchaseOrderAppService : ApplicationService
         ApprovalWorkflowManager approvalManager,
         TransactionValidationService transactionValidation,
         ItemTransactionValidationService itemValidation,
-        PricingRuleApplicationService pricingRuleService)
+        PricingRuleApplicationService pricingRuleService,
+        PurchaseOrderManager purchaseOrderManager)
     {
         _repository = repository;
         _materialRequestRepository = materialRequestRepository;
@@ -66,6 +69,7 @@ public class PurchaseOrderAppService : ApplicationService
         _transactionValidation = transactionValidation;
         _itemValidation = itemValidation;
         _pricingRuleService = pricingRuleService;
+        _purchaseOrderManager = purchaseOrderManager;
     }
 
     public async Task<PurchaseOrderDto> GetAsync(Guid id)
@@ -159,21 +163,8 @@ public class PurchaseOrderAppService : ApplicationService
     {
         var po = await _repository.GetAsync(id);
 
-        // Supplier hold enforcement: HoldType.All blocks POs
-        var supplier = await _supplierRepository.GetAsync(po.SupplierId);
-        if (supplier.HoldType == SupplierHoldType.All)
-        {
-            throw new BusinessException(MyERPDomainErrorCodes.SupplierOnHold)
-                .WithData("supplierName", supplier.Name)
-                .WithData("holdType", supplier.HoldType.ToString());
-        }
-
-        // Supplier scorecard enforcement: prevent_pos blocks PO submission
-        if (supplier.PreventPurchaseOrders)
-        {
-            throw new BusinessException("MyERP:04006")
-                .WithData("supplierName", supplier.Name);
-        }
+        // Supplier hold + scorecard enforcement (domain service)
+        await _purchaseOrderManager.ValidateSupplierEligibilityAsync(po.SupplierId);
 
         // Check approval workflow — block submit if approval is pending
         var isFullyApproved = await _approvalManager.IsFullyApprovedAsync("PurchaseOrder", po.Id);
@@ -218,18 +209,8 @@ public class PurchaseOrderAppService : ApplicationService
             }
         }
 
-        // Minimum order quantity validation (hard error per ERPNext rules)
-        foreach (var poItem in po.Items)
-        {
-            var item = await _itemRepository.FindAsync(poItem.ItemId);
-            if (item != null && item.MinOrderQty > 0 && poItem.Quantity < item.MinOrderQty)
-            {
-                throw new BusinessException("MyERP:04005")
-                    .WithData("itemName", item.ItemName)
-                    .WithData("minQty", item.MinOrderQty)
-                    .WithData("orderedQty", poItem.Quantity);
-            }
-        }
+        // Minimum order quantity validation (domain service)
+        await _purchaseOrderManager.ValidateMinimumOrderQtyAsync(po);
 
         po.Submit();
 
@@ -243,32 +224,8 @@ public class PurchaseOrderAppService : ApplicationService
             }
         }
 
-        // Update linked Material Request OrderedQuantity
-        var mrItemIds = po.Items
-            .Where(i => i.MaterialRequestItemId.HasValue)
-            .Select(i => i.MaterialRequestItemId!.Value)
-            .ToList();
-
-        if (mrItemIds.Any())
-        {
-            var mrQuery = await _materialRequestRepository.GetQueryableAsync();
-            var affectedMRs = mrQuery
-                .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
-                .ToList();
-
-            foreach (var mr in affectedMRs)
-            {
-                foreach (var poItem in po.Items.Where(i => i.MaterialRequestItemId.HasValue))
-                {
-                    var mrItem = mr.Items.FirstOrDefault(i => i.Id == poItem.MaterialRequestItemId!.Value);
-                    if (mrItem != null)
-                    {
-                        mrItem.OrderedQuantity += poItem.Quantity;
-                    }
-                }
-                await _materialRequestRepository.UpdateAsync(mr);
-            }
-        }
+        // Update linked Material Request OrderedQuantity (domain service)
+        await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po);
 
         await _repository.UpdateAsync(po, autoSave: true);
 
@@ -285,34 +242,10 @@ public class PurchaseOrderAppService : ApplicationService
     {
         var po = await _repository.GetAsync(id);
 
-        // Guard: cannot cancel if submitted Purchase Receipts exist
+        // Guard: cannot cancel with submitted dependents (domain service)
         var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
-        var prQuery = await prRepo.GetQueryableAsync();
-        var hasSubmittedPR = prQuery.Any(pr =>
-            pr.PurchaseOrderId == id
-            && pr.Status != Core.DocumentStatus.Draft
-            && pr.Status != Core.DocumentStatus.Cancelled);
-        if (hasSubmittedPR)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:01010")
-                .WithData("documentType", "Purchase Order")
-                .WithData("dependent", "Purchase Receipt");
-        }
-
-        // Guard: cannot cancel if submitted Purchase Invoices link to this PO's items
         var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
-        var piQuery = await piRepo.GetQueryableAsync();
-        var hasSubmittedPI = piQuery.Any(pi =>
-            pi.Items.Any(i => i.PurchaseOrderItemId.HasValue
-                && po.Items.Select(oi => oi.Id).Contains(i.PurchaseOrderItemId.Value))
-            && pi.Status != Core.DocumentStatus.Draft
-            && pi.Status != Core.DocumentStatus.Cancelled);
-        if (hasSubmittedPI)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:01010")
-                .WithData("documentType", "Purchase Order")
-                .WithData("dependent", "Purchase Invoice");
-        }
+        await _purchaseOrderManager.ValidateCanCancelAsync(po, prRepo, piRepo);
 
         po.Cancel();
 
@@ -350,23 +283,10 @@ public class PurchaseOrderAppService : ApplicationService
                 await _binService.UpdateOrderedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, -item.PendingReceiptQty, po.TenantId);
             }
-
-            // Reverse MR OrderedQuantity for unreceived items linked to Material Requests
-            if (item.MaterialRequestItemId.HasValue && item.PendingReceiptQty > 0)
-            {
-                var mrQuery = await _materialRequestRepository.GetQueryableAsync();
-                var mr = mrQuery.FirstOrDefault(m => m.Items.Any(i => i.Id == item.MaterialRequestItemId.Value));
-                if (mr != null)
-                {
-                    var mrItem = mr.Items.FirstOrDefault(i => i.Id == item.MaterialRequestItemId.Value);
-                    if (mrItem != null)
-                    {
-                        mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity - item.PendingReceiptQty);
-                        await _materialRequestRepository.UpdateAsync(mr);
-                    }
-                }
-            }
         }
+
+        // Reverse MR OrderedQuantity for unreceived items (domain service)
+        await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po, reverse: true);
 
         await _repository.UpdateAsync(po, autoSave: true);
         return MapToDto(po);

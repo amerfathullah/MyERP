@@ -14,15 +14,15 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.name" placeholder="e.g., Malaysia 2026" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" placeholder="e.g., Malaysia 2026" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Year' | abpLocalization }}</label>
-            <input type="number" class="form-control" [(ngModel)]="form.year" />
+            <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.year" />
           </div>
           <div class="col-md-5">
             <label class="form-label">{{ 'WeeklyOff' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.weeklyOff" placeholder="Saturday,Sunday" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.weeklyOff" placeholder="Saturday,Sunday" />
           </div>
         </div>
 
@@ -32,8 +32,8 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (h of form.holidays; track $index) {
               <tr>
-                <td><input type="date" class="form-control form-control-sm" [(ngModel)]="h.holidayDate" /></td>
-                <td><input class="form-control form-control-sm" [(ngModel)]="h.description" /></td>
+                <td><input type="date" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="h.holidayDate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="h.description" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.holidays.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -55,11 +55,15 @@ export class HolidayListFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { name: '', year: new Date().getFullYear(), weeklyOff: 'Saturday,Sunday', holidays: [{ holidayDate: '', description: '' }] };
 
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/holiday-list', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/hr/holiday-lists']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/hr/holiday-lists']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

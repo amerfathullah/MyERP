@@ -5,10 +5,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SerialNoProxyService, type SerialNoDto } from '../../proxy/inventory/inventory-additional.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-serial-no-list',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'SerialNumbers' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
@@ -43,7 +45,8 @@ import { SerialNoProxyService, type SerialNoDto } from '../../proxy/inventory/in
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class SerialNoListComponent implements OnInit {
@@ -51,9 +54,14 @@ export class SerialNoListComponent implements OnInit {
   items: SerialNoDto[] = [];
   isLoading = false;
 
+  currentPage = 0;
+  pageSize = 20;
+
   ngOnInit(): void {
     this.isLoading = true;
     this.service.getList({ skipCount: 0, maxResultCount: 50 })
       .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

@@ -81,6 +81,11 @@ public class LandedCostVoucherAppService : ApplicationService
     public async Task<LandedCostVoucherDto> SubmitAsync(Guid id)
     {
         var lcv = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
+
+        // Validate posting period is not frozen/closed before creating SLE entries
+        var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(lcv.CompanyId, lcv.PostingDate, "LandedCostVoucher");
+
         lcv.Submit();
 
         // Update stock valuation: create SLE entries for the additional cost per item

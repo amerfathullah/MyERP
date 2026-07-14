@@ -8,10 +8,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/manufacturing/manufacturing.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-work-order-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './work-order-form.component.html',
   styleUrls: ['./work-order-form.component.scss'],
 })
@@ -62,4 +64,6 @@ export class WorkOrderFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/manufacturing/work-orders']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

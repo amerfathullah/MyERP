@@ -14,14 +14,14 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.postingDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'DistributionMethod' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.distributionMethod">
-              <option [ngValue]="0">By Quantity</option>
-              <option [ngValue]="1">By Amount</option>
-              <option [ngValue]="2">Manual</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.distributionMethod">
+              <option [ngValue]="0">{{ 'ByQuantity' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ 'ByAmount' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ 'Manual' | abpLocalization }}</option>
             </select>
           </div>
         </div>
@@ -32,10 +32,10 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><select class="form-select form-select-sm" [(ngModel)]="item.receiptType"><option>PurchaseReceipt</option><option>PurchaseInvoice</option></select></td>
-                <td><input class="form-control form-control-sm" [(ngModel)]="item.description" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.quantity" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.amount" /></td>
+                <td><select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.receiptType"><option>PurchaseReceipt</option><option>PurchaseInvoice</option></select></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.description" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.quantity" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.amount" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -49,8 +49,8 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (ch of form.charges; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="ch.description" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="ch.amount" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.description" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.amount" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.charges.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -73,6 +73,7 @@ export class LandedCostFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { postingDate: new Date().toISOString().split('T')[0], distributionMethod: 1, items: [{ receiptType: 'PurchaseReceipt', description: '', quantity: 0, amount: 0 }], charges: [{ description: '', amount: 0 }] };
 
   addItem() { this.form.items.push({ receiptType: 'PurchaseReceipt', description: '', quantity: 0, amount: 0 }); }
@@ -82,6 +83,9 @@ export class LandedCostFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/landed-cost-voucher', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/inventory/landed-costs']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/inventory/landed-costs']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -5,12 +5,15 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ExpenseClaimService, type ExpenseClaimDto } from '../../proxy/sales/additional-proxies.service';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-expense-claim-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'ExpenseClaims' | abpLocalization">
+  <app-breadcrumb />
       @if (claim) {
         <div class="card mb-3"><div class="card-body">
           <div class="row mb-2">

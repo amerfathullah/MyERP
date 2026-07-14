@@ -31,6 +31,8 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
 
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     decimal IAccountableDocument.NetTotal => _items.Sum(i => i.Quantity * (i.ValuationRate ?? 0));
     decimal IAccountableDocument.GrandTotal => _items.Sum(i => i.Quantity * (i.ValuationRate ?? 0));
     decimal IAccountableDocument.TaxAmount => 0;

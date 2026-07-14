@@ -131,6 +131,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     {
         var receipt = await _repository.GetAsync(id);
 
+        // Buying controller validations via domain manager
+        var prManager = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
+
+        // Temporal ordering + over-receipt + PO status validation
+        await prManager.ValidateAgainstPurchaseOrderAsync(receipt);
+
+        // Asset return blocking (submitted assets on original doc)
+        var assetRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<MyERP.Assets.Entities.Asset, Guid>>();
+        await prManager.ValidateAssetReturnAsync(receipt, assetRepo);
+
+        // From-warehouse validation (same warehouse + subcontracting blocks)
+        prManager.ValidateFromWarehouse(receipt);
+
         // Enforce Quality Inspection requirement (per item flags) — skip for returns
         if (!receipt.IsReturn)
         {
@@ -305,6 +320,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     public async Task<PurchaseReceiptDto> CancelAsync(Guid id)
     {
         var receipt = await _repository.GetAsync(id);
+
+        // Validate posting period is not frozen/closed
+        await _postingOrchestrator.ValidatePostingPeriodAsync(receipt.CompanyId, receipt.PostingDate, "PurchaseReceipt");
 
         // Guard: cannot cancel if submitted Purchase Invoices reference this receipt's items
         var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();

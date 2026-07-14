@@ -1,32 +1,8 @@
 import { Injectable } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
-
-export interface IssueDto {
-  id?: string;
-  subject?: string;
-  description?: string;
-  status?: number;
-  priority?: string;
-  issueType?: string;
-  customerId?: string;
-  assignedToId?: string;
-  raisedVia?: string;
-  openingDate?: string;
-  resolutionDate?: string;
-  resolution?: string;
-  creationTime?: string;
-}
-
-export interface CreateIssueDto {
-  companyId: string;
-  subject: string;
-  description?: string;
-  priority?: string;
-  issueType?: string;
-  customerId?: string;
-  raisedVia?: string;
-}
+import { IssueDto, CreateIssueDto } from './models';
+export { IssueDto, CreateIssueDto };
 
 @Injectable({ providedIn: 'root' })
 export class IssueService {

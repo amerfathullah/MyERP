@@ -56,6 +56,18 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>For inter-company: the Company this customer represents (bidirectional link).</summary>
     public Guid? RepresentsCompanyId { get; set; }
 
+    /// <summary>Customer group for categorization, defaults, and reporting.</summary>
+    public Guid? CustomerGroupId { get; set; }
+
+    /// <summary>Sales territory for this customer.</summary>
+    public Guid? TerritoryId { get; set; }
+
+    /// <summary>Loyalty program for automatic point earning on invoices.</summary>
+    public Guid? LoyaltyProgramId { get; set; }
+
+    /// <summary>Default payment terms template (auto-applied to invoices for this customer).</summary>
+    public Guid? DefaultPaymentTermsTemplateId { get; set; }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

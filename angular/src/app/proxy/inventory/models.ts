@@ -326,3 +326,42 @@ export interface GetLandedCostVoucherListDto {
   skipCount?: number;
   maxResultCount?: number;
 }
+
+export interface BatchDto { [key: string]: any; }
+
+export interface CreateBatchDto { [key: string]: any; }
+
+export interface CreateSerialNoDto { [key: string]: any; }
+
+export interface SerialNoDto { [key: string]: any; }
+
+
+export interface CreateItemGroupDto { [key: string]: any; }
+
+export interface ItemGroupDto { [key: string]: any; }
+
+export interface CreatePickListDto { [key: string]: any; }
+
+export interface PickListDto { [key: string]: any; }
+
+export interface GetItemPriceListDto { [key: string]: any; }
+
+export interface GetItemRateRequestDto { [key: string]: any; }
+
+export interface ItemPriceDto { [key: string]: any; }
+
+export interface ItemRateResultDto { [key: string]: any; }
+
+export interface PriceListDto { [key: string]: any; }
+
+export interface GetSerialNoListDto { [key: string]: any; }
+
+export interface GetJobCardListDto { [key: string]: any; }
+
+export interface UomConversionDto { [key: string]: any; }
+
+export interface CreateUpdateItemPriceDto { [key: string]: any; }
+
+export interface CreateUpdatePriceListDto { [key: string]: any; }
+
+export interface GetBatchListDto { [key: string]: any; }

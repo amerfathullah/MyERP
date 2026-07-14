@@ -129,6 +129,23 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per DO-NOT: "Allow duplicate (doctype, name, payment_term, payment_request) in Payment Entry references"
+        if (References.Count > 1)
+        {
+            var duplicateKeys = References
+                .GroupBy(r => new { r.ReferenceType, r.ReferenceId })
+                .Where(g => g.Count() > 1)
+                .ToList();
+            if (duplicateKeys.Any())
+            {
+                var first = duplicateKeys.First().Key;
+                throw new BusinessException(MyERPDomainErrorCodes.DuplicatePaymentReference)
+                    .WithData("referenceType", first.ReferenceType)
+                    .WithData("referenceId", first.ReferenceId);
+            }
+        }
+
         Status = DocumentStatus.Posted;
     }
 

@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DunningService, type DunningDto } from '../../proxy/sales/sales-advanced.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-dunning-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'Dunnings' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
@@ -46,7 +48,8 @@ import { DunningService, type DunningDto } from '../../proxy/sales/sales-advance
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class DunningListComponent implements OnInit {
@@ -54,9 +57,14 @@ export class DunningListComponent implements OnInit {
   items: DunningDto[] = [];
   isLoading = false;
 
+  currentPage = 0;
+  pageSize = 20;
+
   ngOnInit(): void {
     this.isLoading = true;
     this.service.getList({ skipCount: 0, maxResultCount: 50 })
       .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

@@ -15,15 +15,15 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.supplierName" placeholder="Supplier name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.supplierName" placeholder="Supplier name" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Date' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.transactionDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.transactionDate" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'ValidTill' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.validTill" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.validTill" />
           </div>
         </div>
 
@@ -33,9 +33,9 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="item.itemName" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.qty" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.rate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemName" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -57,11 +57,15 @@ export class SupplierQuotationFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { transactionDate: new Date().toISOString().split('T')[0], supplierName: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
 
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/supplier-quotation', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => { this.router.navigate(['/purchasing/supplier-quotations']); }, error: () => { this.saving = false; } });
+      .subscribe({ next: () => { this.router.navigate(['/purchasing/supplier-quotations']); }, error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

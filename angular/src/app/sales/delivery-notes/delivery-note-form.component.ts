@@ -7,11 +7,13 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-delivery-note-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
+    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
   styleUrls: ['./delivery-note-form.component.scss'],
 })
@@ -76,4 +78,6 @@ export class DeliveryNoteFormComponent implements OnInit {
     this.store.create(value);
     this.router.navigate(['/sales/delivery-notes']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { JobCardService, type JobCardDto } from '../../proxy/sales/sales-advanced.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-job-card-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'JobCards' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
@@ -42,13 +44,17 @@ import { JobCardService, type JobCardDto } from '../../proxy/sales/sales-advance
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class JobCardListComponent implements OnInit {
   private service = inject(JobCardService);
   jobCards: JobCardDto[] = [];
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -63,4 +69,6 @@ export class JobCardListComponent implements OnInit {
   getStatusClass(s: number): string {
     return ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger'][s] ?? 'bg-secondary';
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

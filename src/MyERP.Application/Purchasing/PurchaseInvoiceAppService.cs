@@ -13,6 +13,7 @@ using MyERP.Sales;
 using MyERP.Shared;
 using MyERP.Tax.DomainServices;
 using MyERP.Tax.Entities;
+using MyERP.Accounting.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -37,6 +38,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     private readonly Inventory.DomainServices.BinService _binService;
     private readonly DocumentActivityLogService _activityLog;
     private readonly ItemTransactionValidationService _itemValidation;
+    private readonly TaxWithholdingService _taxWithholdingService;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
 
     public PurchaseInvoiceAppService(
         IRepository<PurchaseInvoice, Guid> repository,
@@ -45,13 +48,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         IRepository<TransactionTaxRow, Guid> taxRowRepository,
         IRepository<PaymentScheduleEntry, Guid> paymentScheduleRepository,
         IRepository<Company, Guid> companyRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
         IDocumentNumberGenerator numberGenerator,
         DocumentPostingOrchestrator postingOrchestrator,
         TaxesAndTotalsService taxService,
         Inventory.DomainServices.StockValuationService valuationService,
         Inventory.DomainServices.BinService binService,
         DocumentActivityLogService activityLog,
-        ItemTransactionValidationService itemValidation)
+        ItemTransactionValidationService itemValidation,
+        TaxWithholdingService taxWithholdingService)
     {
         _repository = repository;
         _purchaseOrderRepository = purchaseOrderRepository;
@@ -59,6 +64,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         _taxRowRepository = taxRowRepository;
         _paymentScheduleRepository = paymentScheduleRepository;
         _companyRepository = companyRepository;
+        _fiscalYearRepository = fiscalYearRepository;
         _numberGenerator = numberGenerator;
         _postingOrchestrator = postingOrchestrator;
         _taxService = taxService;
@@ -66,6 +72,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         _binService = binService;
         _activityLog = activityLog;
         _itemValidation = itemValidation;
+        _taxWithholdingService = taxWithholdingService;
     }
 
     public async Task<PurchaseInvoiceDto> GetAsync(Guid id)
@@ -145,8 +152,29 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
-        invoice.PaymentTermsTemplateId = input.PaymentTermsTemplateId;
         invoice.Notes = input.Notes;
+        invoice.IsOpening = input.IsOpening;
+
+        // Opening invoices: clear payment terms (accounting-only, no schedule)
+        if (invoice.IsOpening)
+        {
+            invoice.PaymentTermsTemplateId = null;
+        }
+
+        // Payment terms resolution: explicit → supplier default → null (skip for opening)
+        if (!invoice.IsOpening && input.PaymentTermsTemplateId.HasValue)
+        {
+            invoice.PaymentTermsTemplateId = input.PaymentTermsTemplateId;
+        }
+        else if (!invoice.IsOpening)
+        {
+            var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var supplier = await supplierRepo.FindAsync(input.SupplierId);
+            if (supplier?.DefaultPaymentTermsTemplateId.HasValue == true)
+            {
+                invoice.PaymentTermsTemplateId = supplier.DefaultPaymentTermsTemplateId;
+            }
+        }
 
         // Auto-fill billing address from supplier
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
@@ -187,6 +215,18 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     public async Task<PurchaseInvoiceDto> SubmitAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
+
+        // Buying controller validations via domain manager
+        var piManager = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+
+        // Temporal ordering: PI date must not precede linked PO dates
+        await piManager.ValidatePostingDateWithPOAsync(invoice);
+
+        // Asset return blocking (submitted assets on original doc)
+        var assetRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<MyERP.Assets.Entities.Asset, Guid>>();
+        await piManager.ValidateAssetReturnAsync(invoice, assetRepo);
 
         // Return (Debit Note) validation
         if (invoice.IsReturn)
@@ -275,6 +315,68 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             invoice.BaseNetTotal = totals.BaseNetTotal;
             invoice.BaseTaxAmount = totals.BaseTotalTax;
             invoice.BaseGrandTotal = totals.BaseGrandTotal;
+        }
+
+        // Tax Withholding — apply TDS if supplier has a tax withholding category
+        if (!invoice.IsReturn)
+        {
+            var supplier = invoice.SupplierId != Guid.Empty
+                ? await _supplierRepository.FindAsync(invoice.SupplierId)
+                : null;
+            if (supplier?.TaxWithholdingCategory != null)
+            {
+                // Resolve fiscal year for cumulative threshold
+                var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
+                var fy = fyQuery
+                    .Where(f => f.CompanyId == invoice.CompanyId
+                        && f.StartDate <= invoice.IssueDate && f.EndDate >= invoice.IssueDate)
+                    .FirstOrDefault();
+
+                if (fy != null)
+                {
+                    var cumulative = await _taxWithholdingService.GetCumulativeInvoicedAsync(
+                        invoice.SupplierId, fy.StartDate, fy.EndDate);
+                    var previouslyDeducted = await _taxWithholdingService.GetPreviouslyDeductedAsync(
+                        invoice.SupplierId, fy.StartDate, fy.EndDate);
+                    var historicalExists = await _taxWithholdingService.HasHistoricalWithholdingAsync(
+                        invoice.SupplierId, supplier.TaxWithholdingCategory, fy.StartDate, fy.EndDate);
+
+                    // Use standard 10% rate as default (configurable via TaxWithholdingCategory in future)
+                    var result = _taxWithholdingService.CalculateWithholding(
+                        currentInvoiceNetTotal: invoice.NetTotal,
+                        cumulativeInvoicedInFY: cumulative,
+                        standardRate: 10m,
+                        singleThreshold: 0m,
+                        cumulativeThreshold: 0m,
+                        taxOnExcessAmount: false,
+                        previouslyDeductedTDS: previouslyDeducted);
+
+                    // "Once deducted, always deducted" — force threshold crossed if historical exists
+                    if (!result.ThresholdCrossed && historicalExists)
+                    {
+                        result = _taxWithholdingService.CalculateWithholding(
+                            currentInvoiceNetTotal: invoice.NetTotal,
+                            cumulativeInvoicedInFY: 0m,
+                            standardRate: 10m,
+                            singleThreshold: 0m,
+                            cumulativeThreshold: 0m,
+                            taxOnExcessAmount: false,
+                            previouslyDeductedTDS: previouslyDeducted);
+                    }
+
+                    if (result.ThresholdCrossed && result.WithheldAmount > 0)
+                    {
+                        // Create withholding entry
+                        var company = await _companyRepository.GetAsync(invoice.CompanyId);
+                        var taxAccountId = company.DefaultExpenseAccountId ?? Guid.Empty;
+                        await _taxWithholdingService.CreateEntryAsync(
+                            invoice.CompanyId, invoice.SupplierId,
+                            "PurchaseInvoice", invoice.Id, taxAccountId,
+                            result, invoice.IssueDate, supplier.TaxWithholdingCategory,
+                            invoice.TenantId);
+                    }
+                }
+            }
         }
 
         invoice.Submit();

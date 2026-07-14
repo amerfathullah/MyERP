@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { TimesheetService } from '../../proxy/projects/timesheet.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-timesheet-form',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'NewTimesheet' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
@@ -26,7 +28,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <input type="text" class="form-control" formControlName="employeeId">
               </div>
               <div class="col-md-4">
-                <label class="form-label">Employee Name</label>
+                <label class="form-label">{{ 'EmployeeName' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="employeeName">
               </div>
             </div>
@@ -45,7 +47,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-bold">Time Entries</span>
+            <span class="fw-bold">{{ 'TimeEntries' | abpLocalization }}</span>
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="addRow()">
               <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
             </button>
@@ -59,7 +61,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                     <th>{{ 'TotalHours' | abpLocalization }}</th>
                     <th>{{ 'Billable' | abpLocalization }}</th>
                     <th>{{ 'BillingRate' | abpLocalization }}</th>
-                    <th>Description</th>
+                    <th>{{ 'Description' | abpLocalization }}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -147,4 +149,6 @@ export class TimesheetFormComponent {
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -9,10 +9,12 @@ import { LeadService } from '../../proxy/crm/lead.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { LeadDto } from '../../proxy/crm/models';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-lead-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './lead-detail.component.html',
   styleUrls: ['./lead-detail.component.scss'],
 })

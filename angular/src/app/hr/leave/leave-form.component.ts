@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LeaveService, LeaveTypeDto } from '../../proxy/hr/leave.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-leave-form',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'ApplyLeave' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
@@ -53,7 +55,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <div class="col-md-3">
                 <div class="form-check mt-4">
                   <input type="checkbox" class="form-check-input" id="halfDay" formControlName="halfDay">
-                  <label class="form-check-label" for="halfDay">Half Day</label>
+                  <label class="form-check-label" for="halfDay">{{ 'HalfDay' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -116,4 +118,6 @@ export class LeaveFormComponent implements OnInit {
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -15,20 +15,20 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">{{ 'Employee' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.employeeName" placeholder="Employee name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.employeeName" placeholder="Employee name" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Date' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.postingDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Type' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.expenseType">
-              <option value="Travel">Travel</option>
-              <option value="Food">Food</option>
-              <option value="Accommodation">Accommodation</option>
-              <option value="Transportation">Transportation</option>
-              <option value="Other">Other</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.expenseType">
+              <option value="Travel">{{ 'Travel' | abpLocalization }}</option>
+              <option value="Food">{{ 'Food' | abpLocalization }}</option>
+              <option value="Accommodation">{{ 'Accommodation' | abpLocalization }}</option>
+              <option value="Transportation">{{ 'Transportation' | abpLocalization }}</option>
+              <option value="Other">{{ 'Other' | abpLocalization }}</option>
             </select>
           </div>
         </div>
@@ -44,9 +44,9 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (exp of form.expenses; track $index) {
               <tr>
-                <td><input type="date" class="form-control form-control-sm" [(ngModel)]="exp.expenseDate" /></td>
-                <td><input class="form-control form-control-sm" [(ngModel)]="exp.description" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="exp.amount" /></td>
+                <td><input type="date" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="exp.expenseDate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="exp.description" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="exp.amount" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="removeExpense($index)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -73,6 +73,7 @@ export class ExpenseClaimFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { postingDate: new Date().toISOString().split('T')[0], expenseType: 'Travel', expenses: [{ expenseDate: '', description: '', amount: 0 }] };
 
   addExpense() { this.form.expenses.push({ expenseDate: '', description: '', amount: 0 }); }
@@ -82,6 +83,9 @@ export class ExpenseClaimFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/expense-claim', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => { this.router.navigate(['/hr/expense-claims']); }, error: () => { this.saving = false; } });
+      .subscribe({ next: () => { this.router.navigate(['/hr/expense-claims']); }, error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -7,11 +7,13 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../proxy/core/company.service';
 
+import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-company-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './company-form.component.html',
   styleUrls: ['./company-form.component.scss'],
 })
@@ -87,4 +89,6 @@ export class CompanyFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/companies']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

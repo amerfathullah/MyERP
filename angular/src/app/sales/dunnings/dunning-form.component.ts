@@ -14,32 +14,32 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Customer' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.customerName" placeholder="Customer name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.customerName" placeholder="Customer name" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Date' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.postingDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ 'Level' | abpLocalization }}</label>
-            <input type="number" class="form-control" [(ngModel)]="form.dunningLevel" min="1" />
+            <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.dunningLevel" min="1" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Fee' | abpLocalization }}</label>
-            <input type="number" class="form-control" [(ngModel)]="form.dunningFee" />
+            <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.dunningFee" />
           </div>
         </div>
 
-        <h6 class="mb-2">Overdue Invoices</h6>
+        <h6 class="mb-2">{{ 'OverdueInvoices' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>Invoice</th><th>{{ 'DueDate' | abpLocalization }}</th><th>{{ 'Outstanding' | abpLocalization }}</th><th>Overdue Days</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Invoice' | abpLocalization }}</th><th>{{ 'DueDate' | abpLocalization }}</th><th>{{ 'Outstanding' | abpLocalization }}</th><th>{{ 'OverdueDays' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (p of form.overduePayments; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="p.invoiceRef" placeholder="INV-xxx" /></td>
-                <td><input type="date" class="form-control form-control-sm" [(ngModel)]="p.dueDate" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="p.outstandingAmount" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="p.overdueDays" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.invoiceRef" placeholder="INV-xxx" /></td>
+                <td><input type="date" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.dueDate" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.outstandingAmount" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.overdueDays" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.overduePayments.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -62,6 +62,7 @@ export class DunningFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = {
     customerName: '', postingDate: new Date().toISOString().split('T')[0],
     dunningLevel: 1, dunningFee: 0,
@@ -74,6 +75,9 @@ export class DunningFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/dunning', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/sales/dunnings']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/sales/dunnings']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -7,11 +7,13 @@ import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-i
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { QuotationStore } from '../store/quotation.store';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-quotation-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent],
   templateUrl: './quotation-form.component.html',
   styleUrls: ['./quotation-form.component.scss'],
 })
@@ -52,4 +54,6 @@ export class QuotationFormComponent {
   }
 
   cancel(): void { this.router.navigate(['/sales/quotations']); }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

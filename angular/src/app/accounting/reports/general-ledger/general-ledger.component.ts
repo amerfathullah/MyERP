@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { AccountService } from '../../../proxy/accounting/account.service';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
 import type { AccountDto } from '../../../proxy/accounting/models';
@@ -43,6 +44,7 @@ export class GeneralLedgerComponent {
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
+  private companyContext = inject(CompanyContextService);
 
   filters = this.fb.group({
     companyId: ['', Validators.required],
@@ -58,7 +60,17 @@ export class GeneralLedgerComponent {
 
   ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe(res => this.companies.set(res.items ?? []));
+      .subscribe(res => {
+        this.companies.set(res.items ?? []);
+        const defaultId = this.companyContext.currentCompanyId();
+        if (defaultId && !this.filters.get('companyId')?.value) {
+          this.filters.patchValue({ companyId: defaultId });
+          this.onCompanyChange();
+        }
+        if (this.filters.get('companyId')?.value) {
+          this.generate();
+        }
+      });
   }
 
   onCompanyChange(): void {

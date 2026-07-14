@@ -8,11 +8,13 @@ import { StatusBadgeComponent } from '../shared/components/status-badge/status-b
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import type { SupplierDto } from '../proxy/purchasing/models';
 
+import { PaginationComponent, type PageEvent } from '../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-supplier-list',
   standalone: true,
   imports: [
-    CommonModule,
+    PaginationComponent, CommonModule,
     RouterModule,
     LocalizationPipe,
     PageModule,
@@ -29,6 +31,9 @@ export class SupplierListComponent implements OnInit {
   totalCount = 0;
   isLoading = false;
   displayedColumns = ['name', 'supplierCode', 'tin', 'phone', 'email', 'actions'];
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.loadSuppliers(0, 20);

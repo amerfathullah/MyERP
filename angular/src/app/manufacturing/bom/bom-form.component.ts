@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-bom-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="isEditMode ? 'EditBOM' : ('NewBOM' | abpLocalization)">
       <form [formGroup]="form" (ngSubmit)="save()">
@@ -33,7 +35,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <label class="form-label">{{ 'IsActive' | abpLocalization }}</label>
                 <div class="form-check mt-2">
                   <input type="checkbox" class="form-check-input" formControlName="isActive" id="bomActive" />
-                  <label class="form-check-label" for="bomActive">Active</label>
+                  <label class="form-check-label" for="bomActive">{{ 'Active' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -147,4 +149,6 @@ export class BomFormComponent implements OnInit {
       error: () => this.toaster.error('Save failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -8,10 +8,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { StockReconciliationService } from '../../proxy/inventory/stock-reconciliation.service';
 import type { StockReconciliationDto } from '../../proxy/inventory/models';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-stock-reconciliation-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './stock-reconciliation-list.component.html',
 })
 export class StockReconciliationListComponent implements OnInit {
@@ -19,6 +21,9 @@ export class StockReconciliationListComponent implements OnInit {
   reconciliations: StockReconciliationDto[] = [];
   totalCount = 0;
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.load();
@@ -39,4 +44,6 @@ export class StockReconciliationListComponent implements OnInit {
   getStatusLabel(status: number | undefined): string {
     return ['Draft', 'Submitted', '', '', 'Cancelled'][status ?? 0] ?? 'Draft';
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

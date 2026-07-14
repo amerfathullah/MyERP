@@ -87,16 +87,17 @@ public class AutoReorderService : DomainService
 
         if (!itemsNeedingReorder.Any()) return createdMRs;
 
-        // Group by warehouse to create one MR per warehouse
-        var grouped = itemsNeedingReorder.GroupBy(x => x.warehouseId);
+        // Group by (MR type, warehouse) — per ERPNext: reorders can be Purchase, Transfer, or Manufacture
+        var grouped = itemsNeedingReorder
+            .GroupBy(x => new { x.item.DefaultMaterialRequestType, x.warehouseId });
 
         foreach (var group in grouped)
         {
             var mr = new MaterialRequest(
                 _guidGenerator.Create(),
                 companyId,
-                $"REORDER-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{group.Key.ToString()[..8]}",
-                MaterialRequestType.Purchase,
+                $"REORDER-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{group.Key.warehouseId.ToString()[..8]}",
+                group.Key.DefaultMaterialRequestType,
                 DateTime.UtcNow,
                 tenantId);
 
@@ -144,7 +145,7 @@ public class AutoReorderService : DomainService
             _guidGenerator.Create(),
             companyId,
             $"REORDER-{item.ItemCode}-{DateTime.UtcNow:yyyyMMddHHmm}",
-            MaterialRequestType.Purchase,
+            item.DefaultMaterialRequestType,
             DateTime.UtcNow,
             tenantId);
 

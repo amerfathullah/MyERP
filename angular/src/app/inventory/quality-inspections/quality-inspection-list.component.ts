@@ -7,10 +7,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
 import type { QualityInspectionDto } from '../../proxy/inventory/models';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-quality-inspection-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   templateUrl: './quality-inspection-list.component.html',
 })
 export class QualityInspectionListComponent implements OnInit {
@@ -18,6 +20,9 @@ export class QualityInspectionListComponent implements OnInit {
   inspections: QualityInspectionDto[] = [];
   totalCount = 0;
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.load();
@@ -42,4 +47,6 @@ export class QualityInspectionListComponent implements OnInit {
   getTypeLabel(type: number | undefined): string {
     return ['Incoming', 'Outgoing', 'In Process'][type ?? 0] ?? 'Incoming';
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

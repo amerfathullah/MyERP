@@ -25,6 +25,7 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly AccountingRuleEngine _ruleEngine;
     private readonly PaymentLedgerService _pleService;
     private readonly BudgetValidationService _budgetValidationService;
+    private readonly AccountingDimensionService _dimensionService;
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
     private readonly IRepository<AccountingPeriod, Guid> _periodRepository;
@@ -35,6 +36,7 @@ public class DocumentPostingOrchestrator : DomainService
         AccountingRuleEngine ruleEngine,
         PaymentLedgerService pleService,
         BudgetValidationService budgetValidationService,
+        AccountingDimensionService dimensionService,
         IRepository<JournalEntry, Guid> journalRepository,
         IRepository<PaymentLedgerEntry, Guid> pleRepository,
         IRepository<AccountingPeriod, Guid> periodRepository,
@@ -44,6 +46,7 @@ public class DocumentPostingOrchestrator : DomainService
         _ruleEngine = ruleEngine;
         _pleService = pleService;
         _budgetValidationService = budgetValidationService;
+        _dimensionService = dimensionService;
         _journalRepository = journalRepository;
         _pleRepository = pleRepository;
         _periodRepository = periodRepository;
@@ -250,8 +253,11 @@ public class DocumentPostingOrchestrator : DomainService
     /// <summary>
     /// Validates that the posting date does not fall in a closed accounting period
     /// or before the company's accounts frozen date.
+    /// Per ERPNext: accounting period closure is per-document-type, not blanket.
+    /// Users with the period's exempted role can bypass.
+    /// Public so cancel paths can also validate before reversing.
     /// </summary>
-    private async Task ValidatePostingPeriodAsync(Guid companyId, DateTime postingDate, string documentType)
+    public async Task ValidatePostingPeriodAsync(Guid companyId, DateTime postingDate, string documentType, IEnumerable<string>? currentUserRoles = null)
     {
         // Check accounts frozen date
         var company = await _companyRepository.GetAsync(companyId);
@@ -283,7 +289,7 @@ public class DocumentPostingOrchestrator : DomainService
                 .WithData("fiscalYear", fiscalYear.Name);
         }
 
-        // Check accounting period closure
+        // Check accounting period closure — per document type
         var periodsQuery = await _periodRepository.GetQueryableAsync();
         var closedPeriod = periodsQuery
             .Where(p => p.IsClosed
@@ -292,8 +298,16 @@ public class DocumentPostingOrchestrator : DomainService
                 && p.CompanyId == companyId)
             .FirstOrDefault();
 
-        if (closedPeriod != null)
+        if (closedPeriod != null && closedPeriod.IsClosedForDocumentType(documentType))
         {
+            // Exempted role bypass: if user has the exempted role, allow through
+            if (!string.IsNullOrWhiteSpace(closedPeriod.ExemptedRole)
+                && currentUserRoles != null
+                && currentUserRoles.Contains(closedPeriod.ExemptedRole, StringComparer.OrdinalIgnoreCase))
+            {
+                return; // bypass — user has the exempted role
+            }
+
             throw new BusinessException(MyERPDomainErrorCodes.AccountingPeriodClosed)
                 .WithData("period", closedPeriod.PeriodName)
                 .WithData("postingDate", postingDate.ToString("yyyy-MM-dd"));

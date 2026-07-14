@@ -88,6 +88,22 @@ public class LeaveAppService : ApplicationService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<LeaveApplicationDto> ApplyAsync(CreateLeaveApplicationDto input)
     {
+        // Per DO-NOT: "Allow leave application with overlapping dates for same employee"
+        var existingQuery = await _leaveRepository.GetQueryableAsync();
+        var hasOverlap = existingQuery.Any(l =>
+            l.EmployeeId == input.EmployeeId
+            && l.Status != HumanResources.Entities.LeaveApplicationStatus.Cancelled
+            && l.Status != HumanResources.Entities.LeaveApplicationStatus.Rejected
+            && l.FromDate <= input.ToDate
+            && l.ToDate >= input.FromDate);
+
+        if (hasOverlap)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:14004")
+                .WithData("fromDate", input.FromDate)
+                .WithData("toDate", input.ToDate);
+        }
+
         var leave = new LeaveApplication(
             GuidGenerator.Create(), input.CompanyId, input.EmployeeId, input.LeaveTypeId,
             input.FromDate, input.ToDate, input.TotalLeaveDays, CurrentTenant.Id)

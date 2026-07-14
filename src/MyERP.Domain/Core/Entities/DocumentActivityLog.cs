@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MyERP.Core;
 using Volo.Abp.Domain.Entities.Auditing;
+using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Core.Entities;
 
@@ -10,7 +11,7 @@ namespace MyERP.Core.Entities;
 /// ABP AuditLog covers technical changes; this captures business-level events
 /// (submitted, posted, cancelled, amended, converted, payment received, etc.)
 /// </summary>
-public class DocumentActivityLog : CreationAuditedEntity<Guid>
+public class DocumentActivityLog : CreationAuditedEntity<Guid>, IMultiTenant
 {
     /// <summary>Document type (e.g., "SalesInvoice", "PurchaseOrder").</summary>
     public string DocumentType { get; set; } = null!;

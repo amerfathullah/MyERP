@@ -39,6 +39,27 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Date when reconciliation was performed.</summary>
     public DateTime? ReconciledAt { get; set; }
 
+    /// <summary>Transaction currency (must match bank account's GL account currency).</summary>
+    public string CurrencyCode { get; set; } = "MYR";
+
+    /// <summary>Deposit amount (money in). Only one of Deposit/Withdrawal should be non-zero.</summary>
+    public decimal Deposit { get; set; }
+
+    /// <summary>Withdrawal amount (money out).</summary>
+    public decimal Withdrawal { get; set; }
+
+    /// <summary>Fee included within the deposit/withdrawal amount.</summary>
+    public decimal IncludedFee { get; set; }
+
+    /// <summary>Fee excluded from the deposit/withdrawal (transformed to IncludedFee on save).</summary>
+    public decimal ExcludedFee { get; set; }
+
+    /// <summary>Whether rule evaluation has been performed on this transaction.</summary>
+    public bool IsRuleEvaluated { get; set; }
+
+    /// <summary>The matched Bank Transaction Rule ID (set during rule evaluation).</summary>
+    public Guid? MatchedTransactionRuleId { get; set; }
+
     protected BankTransaction() { }
 
     public BankTransaction(Guid id, Guid companyId, Guid bankAccountId,
@@ -67,5 +88,67 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
         PaymentEntryId = null;
         MatchedDocumentRef = null;
         ReconciledAt = null;
+    }
+
+    /// <summary>
+    /// Transforms excluded fees into included fees by adjusting the transaction amount.
+    /// Per ERPNext: handle_excluded_fee() runs in before_validate.
+    /// Deposit: fee subtracted from deposit. Withdrawal: fee added to withdrawal.
+    /// After transform, only IncludedFee is non-zero.
+    /// </summary>
+    public void NormalizeFees()
+    {
+        if (ExcludedFee <= 0) return;
+
+        // Cannot have both deposit and withdrawal when fee applies
+        if (Deposit > 0 && Withdrawal > 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.BidirectionalFeeTransaction);
+        }
+
+        // Fee cannot exceed deposit
+        if (Deposit > 0 && (Deposit - ExcludedFee) < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ExcludedFeeExceedsDeposit)
+                .WithData("fee", ExcludedFee)
+                .WithData("deposit", Deposit);
+        }
+
+        if (Deposit > 0)
+            Deposit -= ExcludedFee;
+        else
+            Withdrawal += ExcludedFee;
+
+        IncludedFee += ExcludedFee;
+        ExcludedFee = 0;
+    }
+
+    /// <summary>
+    /// Validates included fee does not exceed withdrawal amount.
+    /// Per ERPNext: included_fee is only meaningful for withdrawals.
+    /// </summary>
+    public void ValidateIncludedFee()
+    {
+        if (IncludedFee > 0 && Withdrawal > 0 && IncludedFee > Withdrawal)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.IncludedFeeExceedsWithdrawal)
+                .WithData("fee", IncludedFee)
+                .WithData("withdrawal", Withdrawal);
+        }
+    }
+
+    /// <summary>
+    /// Validates transaction currency matches bank account GL currency.
+    /// Must be called with the resolved bank account currency.
+    /// </summary>
+    public void ValidateCurrency(string bankAccountCurrency)
+    {
+        if (!string.IsNullOrEmpty(CurrencyCode) && !string.IsNullOrEmpty(bankAccountCurrency)
+            && CurrencyCode != bankAccountCurrency)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.BankTransactionCurrencyMismatch)
+                .WithData("transactionCurrency", CurrencyCode)
+                .WithData("bankAccountCurrency", bankAccountCurrency);
+        }
     }
 }

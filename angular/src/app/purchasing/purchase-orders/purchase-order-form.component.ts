@@ -125,4 +125,6 @@ export class PurchaseOrderFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/purchasing/orders']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

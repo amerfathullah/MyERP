@@ -1,5 +1,6 @@
 using System;
 using MyERP.Core;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Xunit;
@@ -72,11 +73,11 @@ public class QuotationAmendmentTests
     {
         // Complete set: SI, PI, SO, PO, DN, PR, Quotation
         var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-1", DateTime.Today);
-        var pi = new Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-1", DateTime.Today);
+        var pi = new PurchaseInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-1", DateTime.Today);
         var so = new SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-1", DateTime.Today);
-        var po = new Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-1", DateTime.Today);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-1", DateTime.Today);
         var dn = new DeliveryNote(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "DN-1", DateTime.Today);
-        var pr = new Purchasing.Entities.PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PR-1", DateTime.Today);
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PR-1", DateTime.Today);
         var qt = new Quotation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "QT-1", DateTime.Today);
 
         (si is IAmendable).ShouldBeTrue();

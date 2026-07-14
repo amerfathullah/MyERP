@@ -61,4 +61,28 @@ public class DocumentSeries : FullAuditedAggregateRoot<Guid>, IMultiTenant
         CurrentNumber++;
         return $"{Prefix}{CurrentNumber.ToString().PadLeft(NumberPadding, '0')}";
     }
+
+    /// <summary>
+    /// Generates next number with fiscal year awareness.
+    /// When ResetOnFiscalYear is enabled and the year changes, counter resets to 1.
+    /// Prefix is dynamically composed with the fiscal year: e.g., "SI-2026-00001"
+    /// </summary>
+    public string GenerateNextNumberForFiscalYear(int fiscalYear)
+    {
+        if (!ResetOnFiscalYear)
+            return GenerateNextNumber();
+
+        // Check if we need to reset (fiscal year changed since last generation)
+        if (_lastFiscalYear != 0 && _lastFiscalYear != fiscalYear)
+        {
+            CurrentNumber = 0; // Reset on new FY
+        }
+        _lastFiscalYear = fiscalYear;
+
+        CurrentNumber++;
+        // Format: Prefix + FY + separator + padded number (e.g., "SI-2026-00001")
+        return $"{Prefix}{fiscalYear}-{CurrentNumber.ToString().PadLeft(NumberPadding, '0')}";
+    }
+
+    private int _lastFiscalYear;
 }

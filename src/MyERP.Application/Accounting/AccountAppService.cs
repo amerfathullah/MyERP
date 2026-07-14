@@ -8,6 +8,8 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
+using MyERP;
+
 namespace MyERP.Accounting;
 
 public class AccountAppService :
@@ -42,7 +44,7 @@ public class AccountAppService :
 
         if (hasGLEntries)
         {
-            throw new BusinessException("MyERP:02013")
+            throw new BusinessException(MyERPDomainErrorCodes.AccountCannotBeDeleted)
                 .WithData("reason", "Account has been used in Journal Entries. Deactivate instead of deleting.");
         }
 
@@ -54,7 +56,7 @@ public class AccountAppService :
             var hasChildren = childQuery.Any(a => a.ParentAccountId == id);
             if (hasChildren)
             {
-                throw new BusinessException("MyERP:02013")
+                throw new BusinessException(MyERPDomainErrorCodes.AccountCannotBeDeleted)
                     .WithData("reason", "Group account has child accounts. Delete children first.");
             }
         }

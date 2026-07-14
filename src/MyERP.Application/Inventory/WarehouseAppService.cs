@@ -8,6 +8,8 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
+using MyERP;
+
 namespace MyERP.Inventory;
 
 public class WarehouseAppService :
@@ -40,7 +42,7 @@ public class WarehouseAppService :
 
         if (hasStock)
         {
-            throw new BusinessException("MyERP:05019")
+            throw new BusinessException(MyERPDomainErrorCodes.WarehouseCannotBeDeleted)
                 .WithData("reason", "Warehouse has non-zero stock. Transfer or reconcile stock first.");
         }
 
@@ -50,7 +52,7 @@ public class WarehouseAppService :
 
         if (hasHistory)
         {
-            throw new BusinessException("MyERP:05019")
+            throw new BusinessException(MyERPDomainErrorCodes.WarehouseCannotBeDeleted)
                 .WithData("reason", "Warehouse has stock ledger history. Deactivate instead of deleting.");
         }
 

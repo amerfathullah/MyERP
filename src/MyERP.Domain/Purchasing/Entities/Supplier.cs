@@ -68,6 +68,15 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>For inter-company: the Company this supplier represents (bidirectional link).</summary>
     public Guid? RepresentsCompanyId { get; set; }
 
+    /// <summary>Supplier group for categorization and defaults.</summary>
+    public Guid? SupplierGroupId { get; set; }
+
+    /// <summary>Tax withholding category for TDS/WHT calculations on purchase invoices.</summary>
+    public string? TaxWithholdingCategory { get; set; }
+
+    /// <summary>Default payment terms template (auto-applied to purchase invoices from this supplier).</summary>
+    public Guid? DefaultPaymentTermsTemplateId { get; set; }
+
     protected Supplier() { }
 
     public Supplier(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

@@ -131,6 +131,13 @@ public class MyERPHttpApiHostModule : AbpModule
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
         ConfigureRateLimiting(context);
+
+        // Register HttpClient for external API calls (currency exchange rates, etc.)
+        context.Services.AddHttpClient("CurrencyExchange", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
     }
 
     private void ConfigureRateLimiting(ServiceConfigurationContext context)
@@ -315,14 +322,18 @@ public class MyERPHttpApiHostModule : AbpModule
         app.UseRateLimiter();
         app.UseAuthorization();
 
-        app.UseSwagger();
-        app.UseAbpSwaggerUI(options =>
+        if (context.GetEnvironment().IsDevelopment())
         {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "MyERP API");
+            app.UseSwagger();
+            app.UseAbpSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "MyERP API");
 
-            var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
-            options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
-        });
+                var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
+                options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
+            });
+        }
+
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();

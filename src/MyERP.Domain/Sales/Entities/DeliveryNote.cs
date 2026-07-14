@@ -65,6 +65,9 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
+    /// <summary>Exchange rate for multi-currency deliveries (transaction → company currency).</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
+
     // IAccountableDocument
     string IAccountableDocument.DocumentType => "DeliveryNote";
     Guid? IAccountableDocument.CustomerId => CustomerId;
@@ -90,6 +93,12 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per DO-NOT: returns must always have negative qty
+        if (!IsReturn && quantity <= 0)
+            throw new ArgumentException("Quantity must be positive for non-return delivery notes.", nameof(quantity));
+        if (IsReturn && quantity >= 0)
+            throw new ArgumentException("Quantity must be negative for return delivery notes.", nameof(quantity));
 
         _items.Add(new DeliveryNoteItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, salesOrderItemId));

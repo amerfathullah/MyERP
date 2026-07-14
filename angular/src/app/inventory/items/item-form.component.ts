@@ -8,11 +8,13 @@ import { HttpClient } from '@angular/common/http';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { ItemStore } from '../store/item.store';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-item-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
+    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './item-form.component.html',
   styleUrls: ['./item-form.component.scss'],
 })
@@ -82,4 +84,6 @@ export class ItemFormComponent implements OnInit {
     }
     this.router.navigate(['/inventory/items']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

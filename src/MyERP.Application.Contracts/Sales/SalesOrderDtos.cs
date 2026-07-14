@@ -24,6 +24,10 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public Guid? QuotationId { get; set; }
     public decimal PerDelivered { get; set; }
     public decimal PerBilled { get; set; }
+
+    /// <summary>Warning message if customer has overdue invoices (advisory, not blocking).</summary>
+    public string? OverdueWarning { get; set; }
+
     public List<SalesOrderItemDto> Items { get; set; } = new();
 }
 
@@ -69,6 +73,9 @@ public class CreateSalesOrderDto
 
     /// <summary>Source quotation ID when converting from quotation.</summary>
     public Guid? QuotationId { get; set; }
+
+    /// <summary>Shipping destination country code (for shipping rule matching).</summary>
+    public string? ShippingCountry { get; set; }
 
     [Required]
     [MinLength(1)]

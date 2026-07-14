@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ReportingService } from '../../../proxy/accounting/reporting.service';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import type { TrialBalanceRowDto, TrialBalanceReportDto } from '../../../proxy/accounting/models';
 import type { CompanyDto } from '../../../proxy/core/models';
 
@@ -21,6 +22,7 @@ export class TrialBalanceComponent {
   private fb = inject(FormBuilder);
   private reportingService = inject(ReportingService);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
 
   filters = this.fb.group({
@@ -36,7 +38,16 @@ export class TrialBalanceComponent {
 
   ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe(res => this.companies.set(res.items ?? []));
+      .subscribe(res => {
+        this.companies.set(res.items ?? []);
+        const defaultId = this.companyContext.currentCompanyId();
+        if (defaultId && !this.filters.get('companyId')?.value) {
+          this.filters.patchValue({ companyId: defaultId });
+        }
+        if (this.filters.get('companyId')?.value) {
+          this.generate();
+        }
+      });
   }
 
   generate(): void {

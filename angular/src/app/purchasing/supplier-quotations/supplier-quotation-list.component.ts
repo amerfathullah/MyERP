@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SupplierQuotationService, type SupplierQuotationDto } from '../../proxy/sales/additional-proxies.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-supplier-quotation-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'SupplierQuotations' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
@@ -51,7 +53,8 @@ import { SupplierQuotationService, type SupplierQuotationDto } from '../../proxy
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class SupplierQuotationListComponent implements OnInit {
@@ -59,9 +62,14 @@ export class SupplierQuotationListComponent implements OnInit {
   quotations: SupplierQuotationDto[] = [];
   isLoading = false;
 
+  currentPage = 0;
+  pageSize = 20;
+
   ngOnInit(): void {
     this.isLoading = true;
     this.service.getList({ skipCount: 0, maxResultCount: 50 })
       .subscribe({ next: (r) => { this.quotations = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

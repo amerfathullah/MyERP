@@ -155,3 +155,24 @@ export interface CreateProductionPlanItemDto {
   salesOrderId?: string;
   materialRequestId?: string;
 }
+
+export interface AddTimeLogDto { [key: string]: any; }
+
+export interface CreateJobCardDto { [key: string]: any; }
+
+export interface JobCardDto { [key: string]: any; }
+
+
+export interface CreateOperationDto { [key: string]: any; }
+
+export interface OperationDto { [key: string]: any; }
+
+export interface CreateRoutingDto { [key: string]: any; }
+
+export interface RoutingDto { [key: string]: any; }
+
+export interface PurchaseRegisterLineDto { [key: string]: any; }
+
+export interface GetWorkOrderListDto { [key: string]: any; }
+
+export interface GetJobCardListDto { [key: string]: any; }

@@ -6,6 +6,7 @@ using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using MyERP.Sales;
 using MyERP.Shared;
 using MyERP.Workflow.DomainServices;
 using Microsoft.AspNetCore.Authorization;
@@ -155,8 +156,64 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Apply shipping rule if applicable (adds shipping charge to order)
+        var shippingRuleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ShippingRule, Guid>>();
+        var shippingRules = (await shippingRuleRepo.GetListAsync())
+            .Where(r => r.RuleType == ShippingRuleType.Selling && r.IsEnabled)
+            .OrderBy(r => r.Label)
+            .ToList();
+
+        if (shippingRules.Any())
+        {
+            var netTotal = order.Items.Sum(i => i.LineTotal);
+            foreach (var rule in shippingRules)
+            {
+                // Check country restriction (if any)
+                if (!string.IsNullOrEmpty(input.ShippingCountry) && !rule.AppliesToCountry(input.ShippingCountry))
+                    continue;
+
+                var shippingCharge = rule.Calculate(netTotal);
+                if (shippingCharge > 0)
+                {
+                    order.ShippingCharge = shippingCharge;
+                    break; // First matching rule wins
+                }
+            }
+        }
+
         await _repository.InsertAsync(order, autoSave: true);
-        return await MapToDtoAsync(order);
+
+        // Check if customer has overdue invoices (advisory warning, not blocking)
+        var dto = await MapToDtoAsync(order);
+        try
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var siQuery = await siRepo.GetQueryableAsync();
+            var overdueCount = siQuery.Count(si =>
+                si.CustomerId == input.CustomerId
+                && si.CompanyId == input.CompanyId
+                && si.Status == Core.DocumentStatus.Posted
+                && (si.GrandTotal - si.AmountPaid) > 0
+                && si.DueDate.HasValue
+                && si.DueDate.Value < DateTime.UtcNow.Date);
+
+            if (overdueCount > 0)
+            {
+                var totalOverdue = siQuery
+                    .Where(si => si.CustomerId == input.CustomerId
+                        && si.CompanyId == input.CompanyId
+                        && si.Status == Core.DocumentStatus.Posted
+                        && (si.GrandTotal - si.AmountPaid) > 0
+                        && si.DueDate.HasValue
+                        && si.DueDate.Value < DateTime.UtcNow.Date)
+                    .Sum(si => si.GrandTotal - si.AmountPaid);
+
+                dto.OverdueWarning = $"This customer has {overdueCount} overdue invoice(s) totalling {totalOverdue:N2}. Please follow up on outstanding payments.";
+            }
+        }
+        catch { /* Non-critical: don't fail SO creation if warning check fails */ }
+
+        return dto;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Submit)]
@@ -183,14 +240,67 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         order.Submit();
 
+        // Credit limit check — per DO-NOT: "must also enforce at SO, DN and SI submit"
+        var creditLimitService = LazyServiceProvider
+            .LazyGetRequiredService<CreditLimitService>();
+        await creditLimitService.ValidateCreditLimitAsync(order.CustomerId, order.GrandTotal);
+
+        // Selling price validation — selling rate must be >= valuation rate
+        var valuationService = LazyServiceProvider
+            .LazyGetRequiredService<StockValuationService>();
+        var soItemData = order.Items
+            .Select(i => (i.ItemId, i.UnitPrice, i.Description))
+            .ToList()
+            .AsReadOnly();
+        SalesInvoiceManager.ValidateSellingPrice(
+            soItemData,
+            itemId =>
+            {
+                var balance = valuationService
+                    .GetCurrentBalanceAsync(itemId, Guid.Empty)
+                    .GetAwaiter().GetResult();
+                return balance.ValuationRate;
+            },
+            action: "Warn");
+
         // Reserve stock for each SO item (increases Bin.ReservedQty → reduces projected qty)
+        // Product Bundles: reserve COMPONENT items, not the parent bundle item
+        // Drop-ship items: SKIP stock reservation entirely (no warehouse involvement)
+        var bundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+        var soItemIds = order.Items.Select(i => i.ItemId).Distinct();
+        var bundleItemIds = await bundleService.GetBundleItemIdsAsync(soItemIds);
+        var dropShipItemIds = DropShipService.GetDropShipItemIds(order);
+
         foreach (var item in order.Items)
         {
-            if (item.WarehouseId.HasValue)
+            // Skip drop-ship items — they bypass warehouse entirely
+            if (item.DeliveredBySupplier) continue;
+            if (!item.WarehouseId.HasValue) continue;
+
+            if (bundleItemIds.Contains(item.ItemId))
+            {
+                // Bundle item: reserve each component × order qty
+                var components = await bundleService.DecomposeAsync(
+                    item.ItemId, item.Quantity, item.UnitPrice);
+                foreach (var comp in components)
+                {
+                    await _binService.UpdateReservedQtyAsync(
+                        comp.ComponentItemId, item.WarehouseId.Value, comp.Qty, order.TenantId);
+                }
+            }
+            else
             {
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, item.Quantity, order.TenantId);
             }
+        }
+
+        // Auto-create Purchase Orders for drop-ship items
+        if (DropShipService.HasDropShipItems(order))
+        {
+            var dropShipSvc = LazyServiceProvider.LazyGetRequiredService<DropShipService>();
+            await dropShipSvc.CreateDropShipPurchaseOrdersAsync(order,
+                async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId));
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
@@ -202,41 +312,34 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         var order = await _repository.GetAsync(id);
 
-        // Guard: cannot cancel if submitted Delivery Notes exist
+        // Guard: cannot cancel with submitted dependents (domain service)
+        var soManager = LazyServiceProvider.LazyGetRequiredService<SalesOrderManager>();
         var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DeliveryNote, Guid>>();
-        var dnQuery = await dnRepo.GetQueryableAsync();
-        var hasSubmittedDN = dnQuery.Any(dn =>
-            dn.SalesOrderId == id
-            && dn.Status != Core.DocumentStatus.Draft
-            && dn.Status != Core.DocumentStatus.Cancelled);
-        if (hasSubmittedDN)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:01010")
-                .WithData("documentType", "Sales Order")
-                .WithData("dependent", "Delivery Note");
-        }
-
-        // Guard: cannot cancel if submitted Sales Invoices link to this SO's items
-        var siItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
-        var siQuery = await siItemRepo.GetQueryableAsync();
-        var hasSubmittedSI = siQuery.Any(si =>
-            si.Items.Any(i => i.SalesOrderItemId.HasValue
-                && order.Items.Select(oi => oi.Id).Contains(i.SalesOrderItemId.Value))
-            && si.Status != Core.DocumentStatus.Draft
-            && si.Status != Core.DocumentStatus.Cancelled);
-        if (hasSubmittedSI)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:01010")
-                .WithData("documentType", "Sales Order")
-                .WithData("dependent", "Sales Invoice");
-        }
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+        await soManager.ValidateCanCancelAsync(order, dnRepo, siRepo);
 
         order.Cancel();
 
-        // Release reserved stock
+        // Release reserved stock (reverse of submit — bundles release components)
+        var cancelBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+        var cancelItemIds = order.Items.Select(i => i.ItemId).Distinct();
+        var cancelBundleIds = await cancelBundleService.GetBundleItemIdsAsync(cancelItemIds);
+
         foreach (var item in order.Items)
         {
-            if (item.WarehouseId.HasValue)
+            if (!item.WarehouseId.HasValue) continue;
+
+            if (cancelBundleIds.Contains(item.ItemId))
+            {
+                var components = await cancelBundleService.DecomposeAsync(
+                    item.ItemId, item.Quantity, item.UnitPrice);
+                foreach (var comp in components)
+                {
+                    await _binService.UpdateReservedQtyAsync(
+                        comp.ComponentItemId, item.WarehouseId.Value, -comp.Qty, order.TenantId);
+                }
+            }
+            else
             {
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, -item.Quantity, order.TenantId);
@@ -254,10 +357,28 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.Close();
 
         // Release remaining reserved stock for undelivered items (short-close)
+        // Bundle-aware: release component items for bundles, skip drop-ship items
+        var closeBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+        var closeItemIds = order.Items.Select(i => i.ItemId).Distinct();
+        var closeBundleIds = await closeBundleService.GetBundleItemIdsAsync(closeItemIds);
+
         foreach (var item in order.Items)
         {
+            if (item.DeliveredBySupplier) continue; // drop-ship: no stock to release
             var pendingQty = item.PendingDeliveryQty;
-            if (pendingQty > 0 && item.WarehouseId.HasValue)
+            if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
+
+            if (closeBundleIds.Contains(item.ItemId))
+            {
+                var components = await closeBundleService.DecomposeAsync(
+                    item.ItemId, pendingQty, item.UnitPrice);
+                foreach (var comp in components)
+                {
+                    await _binService.UpdateReservedQtyAsync(
+                        comp.ComponentItemId, item.WarehouseId.Value, -comp.Qty, order.TenantId);
+                }
+            }
+            else
             {
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, -pendingQty, order.TenantId);
@@ -274,11 +395,28 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var order = await _repository.GetAsync(id);
         order.Reopen();
 
-        // Re-reserve stock for pending delivery items
+        // Re-reserve stock for pending delivery items (bundle-aware)
+        var reopenBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+        var reopenItemIds = order.Items.Select(i => i.ItemId).Distinct();
+        var reopenBundleIds = await reopenBundleService.GetBundleItemIdsAsync(reopenItemIds);
+
         foreach (var item in order.Items)
         {
+            if (item.DeliveredBySupplier) continue; // drop-ship: no stock to reserve
             var pendingQty = item.PendingDeliveryQty;
-            if (pendingQty > 0 && item.WarehouseId.HasValue)
+            if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
+
+            if (reopenBundleIds.Contains(item.ItemId))
+            {
+                var components = await reopenBundleService.DecomposeAsync(
+                    item.ItemId, pendingQty, item.UnitPrice);
+                foreach (var comp in components)
+                {
+                    await _binService.UpdateReservedQtyAsync(
+                        comp.ComponentItemId, item.WarehouseId.Value, comp.Qty, order.TenantId);
+                }
+            }
+            else
             {
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, pendingQty, order.TenantId);

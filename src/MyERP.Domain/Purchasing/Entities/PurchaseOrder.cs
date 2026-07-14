@@ -143,8 +143,9 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     }
 }
 
-public class PurchaseOrderItem : CreationAuditedEntity<Guid>
+public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 {
+    public Guid? TenantId { get; set; }
     public Guid PurchaseOrderId { get; set; }
     public Guid ItemId { get; set; }
     public string Description { get; set; } = null!;

@@ -10,7 +10,8 @@ public interface IDocumentNumberGenerator : ITransientDependency
 {
     /// <summary>
     /// Gets the next number in the series for the specified document type.
-    /// Must be called inside a unit of work.
+    /// When postingDate is provided, it's used for fiscal year resolution (backdated documents).
+    /// When null, uses today's date.
     /// </summary>
-    Task<string> GenerateAsync(string documentType, System.Guid companyId);
+    Task<string> GenerateAsync(string documentType, System.Guid companyId, System.DateTime? postingDate = null);
 }

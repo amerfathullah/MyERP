@@ -7,15 +7,20 @@ import { ProductionPlanStore } from '../store/production-plan.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-production-plan-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './production-plan-list.component.html',
   styleUrls: ['./production-plan-list.component.scss'],
 })
 export class ProductionPlanListComponent implements OnInit {
   readonly store = inject(ProductionPlanStore);
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20 });
@@ -24,4 +29,6 @@ export class ProductionPlanListComponent implements OnInit {
   getStatusLabel(status: number | undefined): string {
     return ['Draft', 'Submitted', 'In Progress', 'Completed', 'Cancelled'][status ?? 0] ?? 'Draft';
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.store.load({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }); }
 }

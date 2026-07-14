@@ -12,6 +12,13 @@ public class DepreciationScheduleEntry : FullAuditedEntity<Guid>
     public bool IsBooked { get; set; }
     public Guid? JournalEntryId { get; set; }
 
+    /// <summary>
+    /// Finance Book this schedule belongs to (null = default/primary book).
+    /// Enables per-book depreciation: e.g., straight-line for tax, WDV for management.
+    /// Per DO-NOT: "Skip Finance Book separation in GL entries"
+    /// </summary>
+    public Guid? FinanceBookId { get; set; }
+
     protected DepreciationScheduleEntry() { }
 
     public DepreciationScheduleEntry(Guid id, Guid assetId, DateTime scheduleDate,

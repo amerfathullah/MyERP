@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
@@ -15,29 +16,32 @@ namespace MyERP.Accounting;
 
 /// <summary>
 /// Payment Reconciliation AppService — matches unallocated payments to outstanding invoices.
-/// Implements the ERPNext "Payment Reconciliation" tool pattern:
-/// 1. Get outstanding invoices for a party
-/// 2. Reconcile (allocate payment amounts to specific invoices)
-/// 3. Unreconcile (delink a previous allocation)
+/// Delegates to PaymentReconciliationEngine for business logic.
 /// </summary>
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
 public class PaymentReconciliationAppService : ApplicationService
 {
+    private readonly PaymentReconciliationEngine _engine;
     private readonly PaymentLedgerService _pleService;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public PaymentReconciliationAppService(
+        PaymentReconciliationEngine engine,
         PaymentLedgerService pleService,
         IRepository<PaymentLedgerEntry, Guid> pleRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
-        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository)
+        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
+        IRepository<Company, Guid> companyRepository)
     {
+        _engine = engine;
         _pleService = pleService;
         _pleRepository = pleRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -56,36 +60,44 @@ public class PaymentReconciliationAppService : ApplicationService
 
     /// <summary>
     /// Reconcile payments against invoices.
-    /// Creates PLE entries linking each payment to the allocated invoice, reducing outstanding.
-    /// Also updates the invoice entity's AmountPaid.
+    /// Delegates to PaymentReconciliationEngine for stale-outstanding validation
+    /// and batch processing. Resolves currency from company (not hardcoded).
     /// </summary>
     public async Task ReconcileAsync(ReconcilePaymentDto input)
     {
-        // Get default account for the party (simplified — uses first PLE entry's account)
+        // Resolve account currency from company (not hardcoded)
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+        var accountCurrency = company.CurrencyCode;
+
+        // Resolve party account
         var pleQuery = await _pleRepository.GetQueryableAsync();
         var partyAccount = pleQuery
             .Where(p => p.PartyType == input.PartyType && p.PartyId == input.PartyId)
             .Select(p => p.AccountId)
             .FirstOrDefault();
 
+        // Build allocation list for engine
+        var allocations = input.Allocations.Select(a => new ReconciliationAllocation
+        {
+            PaymentVoucherType = a.PaymentVoucherType,
+            PaymentVoucherId = a.PaymentVoucherId,
+            InvoiceVoucherType = a.InvoiceVoucherType,
+            InvoiceVoucherId = a.InvoiceVoucherId,
+            AllocatedAmount = a.AllocatedAmount,
+        }).ToList();
+
+        // Delegate to engine (handles stale-outstanding, batch, error isolation)
+        var result = await _engine.ReconcileBatchAsync(
+            input.CompanyId, input.PartyType, input.PartyId,
+            partyAccount, accountCurrency, allocations);
+
+        // Update invoice AmountPaid for successful allocations
         foreach (var alloc in input.Allocations)
         {
-            // Create PLE reconciliation entry (validates stale outstanding)
-            await _pleService.ReconcileAsync(
-                companyId: input.CompanyId,
-                postingDate: Clock.Now.Date,
-                accountId: partyAccount,
-                partyType: input.PartyType,
-                partyId: input.PartyId,
-                paymentVoucherType: alloc.PaymentVoucherType,
-                paymentVoucherId: alloc.PaymentVoucherId,
-                invoiceVoucherType: alloc.InvoiceVoucherType,
-                invoiceVoucherId: alloc.InvoiceVoucherId,
-                allocatedAmount: alloc.AllocatedAmount,
-                allocatedAmountInAccountCurrency: alloc.AllocatedAmount,
-                accountCurrency: "MYR");
+            // Skip allocations that failed in engine
+            if (result.Errors.Any(e => e.InvoiceVoucherId == alloc.InvoiceVoucherId))
+                continue;
 
-            // Update the invoice's AmountPaid
             if (alloc.InvoiceVoucherType == "SalesInvoice")
             {
                 var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
@@ -103,26 +115,14 @@ public class PaymentReconciliationAppService : ApplicationService
 
     /// <summary>
     /// Unreconcile a previous payment-to-invoice allocation.
-    /// Sets PLE entries as delinked and reduces AmountPaid on the invoice.
+    /// Delegates to PaymentReconciliationEngine which handles delink + amount tracking.
     /// </summary>
     public async Task UnreconcileAsync(UnreconcileDto input)
     {
-        // Get the amount that was allocated (sum of non-delinked PLE for this pair)
-        var pleQuery = await _pleRepository.GetQueryableAsync();
-        var allocatedAmount = pleQuery
-            .Where(p => p.VoucherType == input.PaymentVoucherType
-                && p.VoucherId == input.PaymentVoucherId
-                && p.AgainstVoucherType == input.InvoiceVoucherType
-                && p.AgainstVoucherId == input.InvoiceVoucherId
-                && !p.Delinked)
-            .Sum(p => Math.Abs(p.AmountInAccountCurrency));
-
-        // Delink the PLE entries
-        await _pleService.UnreconcileAsync(
-            input.PaymentVoucherType,
-            input.PaymentVoucherId,
-            input.InvoiceVoucherType,
-            input.InvoiceVoucherId);
+        // Engine returns the allocated amount that was delinked
+        var allocatedAmount = await _engine.UnreconcileAsync(
+            input.PaymentVoucherType, input.PaymentVoucherId,
+            input.InvoiceVoucherType, input.InvoiceVoucherId);
 
         // Reduce the invoice's AmountPaid
         if (allocatedAmount > 0)

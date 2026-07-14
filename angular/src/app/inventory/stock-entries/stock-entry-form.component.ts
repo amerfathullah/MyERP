@@ -8,11 +8,13 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { HttpClient } from '@angular/common/http';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })
@@ -121,4 +123,6 @@ export class StockEntryFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/inventory/stock-entries']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -5,6 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
 
@@ -28,6 +29,7 @@ export class AgingReportComponent {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
 
   filters = this.fb.group({
     companyId: ['', Validators.required],
@@ -43,7 +45,10 @@ export class AgingReportComponent {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => {
         this.companies.set(res.items ?? []);
-        // Auto-load if company is pre-selected
+        const defaultId = this.companyContext.currentCompanyId();
+        if (defaultId && !this.filters.get('companyId')?.value) {
+          this.filters.patchValue({ companyId: defaultId });
+        }
         if (this.filters.get('companyId')?.value) {
           this.generate();
         }

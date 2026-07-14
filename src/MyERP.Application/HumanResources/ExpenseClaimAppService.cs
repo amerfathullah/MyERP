@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -107,6 +109,55 @@ public class ExpenseClaimAppService : ApplicationService
         ec.Reject();
         await _repository.UpdateAsync(ec);
         return MapToDto(ec);
+    }
+
+    /// <summary>
+    /// Creates a Payment Entry to reimburse an approved/submitted expense claim.
+    /// Per ERPNext: validates advance linkage to prevent double-payment.
+    /// Per DO-NOT: "Allow expense claim GL posting without verifying advance linkage"
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Create)]
+    public async Task<Guid> ReimburseAsync(Guid id, Guid paidFromAccountId)
+    {
+        var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
+
+        if (ec.Status != DocumentStatus.Submitted)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "ExpenseClaim")
+                .WithData("status", ec.Status.ToString());
+
+        // Calculate reimbursable amount (claimed minus any advance already paid)
+        var reimbursableAmount = ec.TotalClaimedAmount - ec.AdvanceAmount - ec.TotalAmountReimbursed;
+        if (reimbursableAmount <= 0)
+            throw new Volo.Abp.BusinessException("MyERP:14003")
+                .WithData("reason", "No amount pending reimbursement");
+
+        // Create Payment Entry (company pays employee)
+        var numberGenerator = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentEntry, Guid>>();
+        var paymentNumber = await numberGenerator.GenerateAsync("PaymentEntry", ec.CompanyId);
+
+        var pe = new MyERP.Accounting.Entities.PaymentEntry(
+            GuidGenerator.Create(),
+            ec.CompanyId,
+            MyERP.Accounting.PaymentType.Pay,
+            DateTime.UtcNow.Date,
+            reimbursableAmount,
+            paidFromAccountId,
+            ec.PayableAccountId ?? paidFromAccountId);
+
+        pe.PaymentNumber = paymentNumber;
+        pe.PartyType = "Employee";
+        pe.PartyId = ec.EmployeeId;
+        pe.Notes = $"Reimbursement for expense claim {ec.ExpenseType} (Posted: {ec.PostingDate:yyyy-MM-dd})";
+
+        await peRepo.InsertAsync(pe, autoSave: true);
+
+        // Update expense claim with reimbursement amount
+        ec.TotalAmountReimbursed += reimbursableAmount;
+        await _repository.UpdateAsync(ec, autoSave: true);
+
+        return pe.Id;
     }
 
     private static ExpenseClaimDto MapToDto(ExpenseClaim e) => new()

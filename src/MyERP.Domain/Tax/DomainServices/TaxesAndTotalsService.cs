@@ -16,13 +16,15 @@ public class TaxesAndTotalsService : DomainService
     /// <summary>
     /// Calculate taxes and totals for a transaction.
     /// Mutates the tax rows in-place and returns the calculated totals.
+    /// Supports per-item tax rate overrides via ItemTaxTemplate.
     /// </summary>
     public TransactionTotals Calculate(
         List<TransactionItem> items,
         List<TransactionTaxRow> taxRows,
         decimal exchangeRate = 1m,
         decimal discountAmount = 0m,
-        string applyDiscountOn = "Grand Total")
+        string applyDiscountOn = "Grand Total",
+        List<Guid>? roundOffApplicableAccountIds = null)
     {
         // Step 1: Calculate net total from items
         decimal netTotal = items.Sum(i => i.NetAmount);
@@ -63,7 +65,21 @@ public class TaxesAndTotalsService : DomainService
             for (int i = 0; i < orderedTaxes.Count; i++)
             {
                 var tax = orderedTaxes[i];
-                decimal currentTaxAmount = CalculateTaxForItem(tax, item, orderedTaxes, i, netTotal, perItemGrandTotal);
+
+                // Per-item tax rate override from Item Tax Template
+                // If the item has a specific rate for this tax's account, use it instead
+                decimal effectiveRate = tax.Rate;
+                if (item.ItemTaxRateOverrides != null
+                    && tax.AccountId.HasValue
+                    && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate))
+                {
+                    if (overrideRate == decimal.MinValue)
+                        continue; // N/A sentinel: skip this tax row entirely for this item
+
+                    effectiveRate = overrideRate;
+                }
+
+                decimal currentTaxAmount = CalculateTaxForItem(tax, item, orderedTaxes, i, netTotal, perItemGrandTotal, effectiveRate);
 
                 tax.TaxAmount += currentTaxAmount;
 
@@ -84,6 +100,14 @@ public class TaxesAndTotalsService : DomainService
             tax.TaxAmount = Math.Round(tax.TaxAmount, 2);
             tax.TaxAmountAfterDiscount = tax.TaxAmount;
 
+            // Regional account rounding: specific accounts round to nearest integer
+            if (roundOffApplicableAccountIds != null && tax.AccountId.HasValue
+                && roundOffApplicableAccountIds.Contains(tax.AccountId.Value))
+            {
+                tax.TaxAmount = Math.Round(tax.TaxAmount, 0, MidpointRounding.AwayFromZero);
+                tax.TaxAmountAfterDiscount = Math.Round(tax.TaxAmountAfterDiscount, 0, MidpointRounding.AwayFromZero);
+            }
+
             // Only "Total" and "Valuation and Total" categories add to grand total
             if (tax.TaxCategory is "Total" or "Valuation and Total")
             {
@@ -93,8 +117,13 @@ public class TaxesAndTotalsService : DomainService
 
             tax.Total = runningTotal;
 
-            // Base currency
+            // Base currency — with regional rounding
             tax.BaseTaxAmount = Math.Round(tax.TaxAmount * exchangeRate, 2);
+            if (roundOffApplicableAccountIds != null && tax.AccountId.HasValue
+                && roundOffApplicableAccountIds.Contains(tax.AccountId.Value))
+            {
+                tax.BaseTaxAmount = Math.Round(tax.BaseTaxAmount, 0, MidpointRounding.AwayFromZero);
+            }
             tax.BaseTotal = Math.Round(tax.Total * exchangeRate, 2);
         }
 
@@ -130,18 +159,19 @@ public class TaxesAndTotalsService : DomainService
         List<TransactionTaxRow> allTaxes,
         int taxIndex,
         decimal netTotal,
-        decimal[] perItemGrandTotal)
+        decimal[] perItemGrandTotal,
+        decimal effectiveRate)
     {
         return tax.ChargeType switch
         {
-            "On Net Total" => (tax.Rate / 100m) * item.NetAmount,
+            "On Net Total" => (effectiveRate / 100m) * item.NetAmount,
             "On Previous Row Amount" when tax.ReferenceRowIndex.HasValue =>
-                (tax.Rate / 100m) * GetPreviousRowItemAmount(allTaxes, tax.ReferenceRowIndex.Value - 1),
+                (effectiveRate / 100m) * GetPreviousRowItemAmount(allTaxes, tax.ReferenceRowIndex.Value - 1),
             "On Previous Row Total" when tax.ReferenceRowIndex.HasValue && tax.ReferenceRowIndex.Value - 1 < perItemGrandTotal.Length =>
-                (tax.Rate / 100m) * perItemGrandTotal[tax.ReferenceRowIndex.Value - 1],
-            "On Item Quantity" => tax.Rate * item.Qty,
+                (effectiveRate / 100m) * perItemGrandTotal[tax.ReferenceRowIndex.Value - 1],
+            "On Item Quantity" => effectiveRate * item.Qty,
             "Actual" => netTotal != 0
-                ? (item.NetAmount / netTotal) * tax.Rate
+                ? (item.NetAmount / netTotal) * effectiveRate
                 : 0,
             _ => 0,
         };
@@ -164,6 +194,13 @@ public class TransactionItem
     public decimal Amount => Qty * Rate;
     public decimal NetAmount { get; set; }
     public decimal DiscountAmount { get; set; }
+
+    /// <summary>
+    /// Per-item tax rate overrides from Item Tax Template.
+    /// Key: AccountId of the tax row. Value: override rate (use decimal.MinValue for N/A sentinel).
+    /// When N/A, the tax row is excluded entirely for this item.
+    /// </summary>
+    public Dictionary<Guid, decimal>? ItemTaxRateOverrides { get; set; }
 }
 
 /// <summary>Calculated totals result.</summary>

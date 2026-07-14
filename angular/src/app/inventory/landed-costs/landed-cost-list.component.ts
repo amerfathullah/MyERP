@@ -8,10 +8,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { LandedCostVoucherService } from '../../proxy/inventory/landed-cost-voucher.service';
 import type { LandedCostVoucherDto } from '../../proxy/inventory/models';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-landed-cost-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './landed-cost-list.component.html',
 })
 export class LandedCostListComponent implements OnInit {
@@ -19,6 +21,9 @@ export class LandedCostListComponent implements OnInit {
   vouchers: LandedCostVoucherDto[] = [];
   totalCount = 0;
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.load();
@@ -43,4 +48,6 @@ export class LandedCostListComponent implements OnInit {
   getDistMethodLabel(method: number | undefined): string {
     return ['By Quantity', 'By Amount', 'Manual'][method ?? 1] ?? 'By Amount';
   }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

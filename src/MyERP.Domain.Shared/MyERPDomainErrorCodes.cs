@@ -115,6 +115,9 @@ public static class MyERPDomainErrorCodes
     public const string DocumentMustHaveItems = "MyERP:01007";
     public const string AmountMustBePositive = "MyERP:01008";
 
+    // Payment Entry
+    public const string DuplicatePaymentReference = "MyERP:02021";
+
     // Manufacturing
     public const string WorkOrderOverproduction = "MyERP:10006";
     public const string BomCycleDetected = "MyERP:10007";
@@ -130,13 +133,49 @@ public static class MyERPDomainErrorCodes
     // HR
     public const string InsufficientLeaveBalance = "MyERP:14001";
     public const string CannotDeleteUsedAllocation = "MyERP:14002";
+    public const string LeaveOverlap = "MyERP:14004";
 
     // Supplier Scorecard
     public const string ScorecardBlockedPO = "MyERP:04006";
     public const string ScorecardBlockedRFQ = "MyERP:04007";
     public const string CannotDeleteCustomer = "MyERP:03003";
     public const string CannotDeleteSupplier = "MyERP:04008";
+    public const string DuplicateSupplierInvoice = "MyERP:04009";
+    public const string DuplicateRfqSupplier = "MyERP:04010";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";
+    public const string AssetMissingRequiredField = "MyERP:15002";
+
+    // Accounting — Additional
+    public const string AccountCannotBeDeleted = "MyERP:02013";
+
+    // Inventory — Additional
+    public const string WarehouseCannotBeDeleted = "MyERP:05019";
+
+    // E-Invoice — Additional
+    public const string EInvoiceValidationFailed = "MyERP:EInvoice:00010";
+
+    // Purchasing — Buying Controller Validations
+    public const string PostingDateBeforePODate = "MyERP:04011";
+    public const string AssetExistsOnReturnDocument = "MyERP:04012";
+    public const string FromWarehouseEqualsTargetWarehouse = "MyERP:04013";
+    public const string FromWarehouseOnSubcontractedDocument = "MyERP:04014";
+
+    // Bank Transaction
+    public const string BankTransactionCurrencyMismatch = "MyERP:02022";
+    public const string ExcludedFeeExceedsDeposit = "MyERP:02023";
+    public const string BidirectionalFeeTransaction = "MyERP:02024";
+    public const string IncludedFeeExceedsWithdrawal = "MyERP:02025";
+
+    // Selling Validations
+    public const string SellingPriceBelowCost = "MyERP:03015";
+
+    // Accounting Dimensions
+    public const string MandatoryDimensionMissing = "MyERP:02026";
+    public const string DimensionValueRestricted = "MyERP:02027";
+
+    // Chart of Accounts Import
+    public const string ChartOfAccountsImportBlocked = "MyERP:02028";
+    public const string DuplicateAccountCode = "MyERP:02029";
 }

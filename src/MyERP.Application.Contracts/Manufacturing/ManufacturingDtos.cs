@@ -117,7 +117,7 @@ public interface IManufacturingAppService : IApplicationService
 {
     // BOM
     Task<BomDto> GetBomAsync(Guid id);
-    Task<PagedResultDto<BomDto>> GetBomListAsync(PagedAndSortedResultRequestDto input);
+    Task<PagedResultDto<BomDto>> GetBomListAsync(MyERP.Shared.CompanyFilteredPagedRequestDto input);
     Task<BomDto> CreateBomAsync(CreateBomDto input);
     Task DeleteBomAsync(Guid id);
 

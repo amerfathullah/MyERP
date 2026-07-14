@@ -14,14 +14,14 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'BudgetAgainst' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.budgetAgainst">
-              <option value="CostCenter">Cost Center</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.budgetAgainst">
+              <option value="CostCenter">{{ 'CostCenter' | abpLocalization }}</option>
               <option value="Project">Project</option>
             </select>
           </div>
           <div class="col-md-8">
             <label class="form-label">{{ 'Target' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.budgetAgainstName" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.budgetAgainstName" />
           </div>
         </div>
         <h6>{{ 'Accounts' | abpLocalization }}</h6>
@@ -30,8 +30,8 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (a of form.accounts; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="a.accountName" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="a.budgetAmount" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="a.accountName" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="a.budgetAmount" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.accounts.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -50,10 +50,14 @@ export class BudgetFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { budgetAgainst: 'CostCenter', budgetAgainstName: '', accounts: [{ accountName: '', budgetAmount: 0 }] };
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/budget', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/accounting/budgets']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/accounting/budgets']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

@@ -8,11 +8,13 @@ import { PayrollService } from '../../proxy/hr/payroll.service';
 import { PayrollStore } from '../store/payroll.store';
 import type { PayrollEntryDto } from '../../proxy/hr/models';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-payroll-detail',
   standalone: true,
   imports: [
-    CommonModule, PageModule,
+    BreadcrumbComponent, CommonModule, PageModule,
     DocumentWorkflowComponent, LoadingOverlayComponent],
   templateUrl: './payroll-detail.component.html',
   styleUrls: ['./payroll-detail.component.scss'],

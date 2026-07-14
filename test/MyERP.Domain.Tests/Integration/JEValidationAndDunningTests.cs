@@ -1,5 +1,6 @@
 using System;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Xunit;
@@ -35,7 +36,7 @@ public class JEValidationAndDunningTests
 
         je.Post();
 
-        je.Status.ShouldBe(Core.DocumentStatus.Posted);
+        je.Status.ShouldBe(DocumentStatus.Posted);
     }
 
     [Fact]

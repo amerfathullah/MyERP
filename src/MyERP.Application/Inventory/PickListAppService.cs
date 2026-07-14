@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -60,9 +61,11 @@ public class PickListAppService : ApplicationService
 
     public PickListAppService(IRepository<PickList, Guid> repository) => _repository = repository;
 
-    public async Task<PagedResultDto<PickListDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<PickListDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
+        if (input.CompanyId.HasValue)
+            query = query.Where(p => p.CompanyId == input.CompanyId.Value);
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();

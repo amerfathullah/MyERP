@@ -23,6 +23,12 @@ public interface IAccountableDocument
     Guid? CustomerId { get; }
     Guid? SupplierId { get; }
     DateTime PostingDate { get; }
+
+    /// <summary>Transaction currency code (e.g., "USD"). May differ from company currency.</summary>
+    string CurrencyCode { get; }
+
+    /// <summary>Exchange rate: transaction_currency → company_currency. Default 1.0 for same-currency.</summary>
+    decimal ExchangeRate { get; }
 }
 
 /// <summary>
@@ -44,6 +50,7 @@ public class AccountingRuleEngine : DomainService
 
     /// <summary>
     /// Generate a balanced journal entry from a source document using configured accounting rules.
+    /// Supports multi-currency: amounts are recorded in both company currency and account currency.
     /// </summary>
     public async Task<JournalEntry> PostDocumentAsync(IAccountableDocument document)
     {
@@ -69,13 +76,32 @@ public class AccountingRuleEngine : DomainService
         journal.ReferenceType = document.DocumentType;
         journal.ReferenceId = document.Id;
 
+        var isMultiCurrency = document.ExchangeRate != 1m;
+
         foreach (var rule in rules.OrderBy(r => r.SortOrder))
         {
-            var amount = ResolveAmount(rule.AmountSource, document);
-            if (amount <= 0) continue;
+            var amountInTransactionCurrency = ResolveAmount(rule.AmountSource, document);
+            if (amountInTransactionCurrency <= 0) continue;
 
             var accountId = ResolveAccountId(rule, document);
-            journal.AddLine(accountId, amount, rule.IsDebit);
+
+            if (isMultiCurrency)
+            {
+                // Multi-currency: Amount in company currency, AmountInAccountCurrency in transaction currency
+                var amountInCompanyCurrency = Math.Round(amountInTransactionCurrency * document.ExchangeRate, 4);
+                journal.AddLine(accountId, amountInCompanyCurrency, rule.IsDebit);
+
+                // Set multi-currency fields on the last added line
+                var lastLine = journal.Lines[^1];
+                lastLine.AccountCurrency = document.CurrencyCode;
+                lastLine.AmountInAccountCurrency = amountInTransactionCurrency;
+                lastLine.ExchangeRate = document.ExchangeRate;
+            }
+            else
+            {
+                // Same currency: Amount = AmountInAccountCurrency, ExchangeRate = 1
+                journal.AddLine(accountId, amountInTransactionCurrency, rule.IsDebit);
+            }
         }
 
         // Double-entry validation — will throw if unbalanced

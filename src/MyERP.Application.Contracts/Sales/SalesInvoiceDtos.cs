@@ -78,6 +78,12 @@ public class CreateSalesInvoiceDto
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstId { get; set; }
 
+    /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
+    public bool IsOpening { get; set; }
+
+    /// <summary>Link to project for timesheet-based billing (auto-fetches unbilled timesheets).</summary>
+    public Guid? ProjectId { get; set; }
+
     [Required]
     [MinLength(1)]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();

@@ -7,12 +7,15 @@ import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-opportunity-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   template: `
     <abp-page [title]="opp()?.opportunityName ?? ('Opportunity' | abpLocalization)">
+  <app-breadcrumb />
       @if (isLoading()) { <app-loading-overlay /> }
       @if (opp(); as o) {
         <div class="d-flex justify-content-end gap-2 mb-3">

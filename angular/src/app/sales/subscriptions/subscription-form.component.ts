@@ -14,20 +14,20 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Party' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.partyName" placeholder="Customer name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyName" placeholder="Customer name" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'BillingInterval' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.billingInterval">
-              <option>Monthly</option>
-              <option>Quarterly</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.billingInterval">
+              <option>{{ 'Monthly' | abpLocalization }}</option>
+              <option>{{ 'Quarterly' | abpLocalization }}</option>
               <option>Half-Yearly</option>
-              <option>Yearly</option>
+              <option>{{ 'Yearly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'StartDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.startDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.startDate" />
           </div>
         </div>
 
@@ -37,9 +37,9 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (p of form.plans; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="p.itemName" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="p.qty" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="p.rate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.itemName" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.qty" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="p.rate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.plans.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -62,6 +62,7 @@ export class SubscriptionFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { startDate: new Date().toISOString().split('T')[0], billingInterval: 'Monthly', partyName: '', partyType: 'Customer', plans: [{ itemName: '', qty: 1, rate: 0 }] };
 
   getTotal(): number { return this.form.plans.reduce((s: number, p: any) => s + (p.qty || 0) * (p.rate || 0), 0); }
@@ -69,6 +70,9 @@ export class SubscriptionFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/subscription', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/sales/subscriptions']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/sales/subscriptions']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

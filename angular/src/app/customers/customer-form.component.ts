@@ -8,11 +8,13 @@ import { HttpClient } from '@angular/common/http';
 import { CustomerService } from '../proxy/sales/customer.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
+import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-customer-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
+    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './customer-form.component.html',
   styleUrls: ['./customer-form.component.scss'],
 })
@@ -88,4 +90,6 @@ export class CustomerFormComponent implements OnInit {
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Save failed'),
     });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

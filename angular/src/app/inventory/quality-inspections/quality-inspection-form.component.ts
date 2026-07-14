@@ -14,42 +14,42 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Item' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.itemName" placeholder="Item name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.itemName" placeholder="Item name" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'InspectionType' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.inspectionType">
-              <option [ngValue]="0">Incoming</option>
-              <option [ngValue]="1">Outgoing</option>
-              <option [ngValue]="2">In Process</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.inspectionType">
+              <option [ngValue]="0">{{ 'Incoming' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ 'Outgoing' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ 'InProcess' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'InspectionDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.inspectionDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.inspectionDate" />
           </div>
         </div>
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'SampleSize' | abpLocalization }}</label>
-            <input type="number" class="form-control" [(ngModel)]="form.sampleSize" />
+            <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.sampleSize" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'BatchNo' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.batchNo" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.batchNo" />
           </div>
         </div>
 
         <h6 class="mb-2">{{ 'Readings' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Specification' | abpLocalization }}</th><th>Min</th><th>Max</th><th>{{ 'Reading' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Specification' | abpLocalization }}</th><th>{{ 'Min' | abpLocalization }}</th><th>{{ 'Max' | abpLocalization }}</th><th>{{ 'Reading' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (r of form.readings; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="r.specification" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="r.minValue" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="r.maxValue" /></td>
-                <td><input class="form-control form-control-sm" [(ngModel)]="r.readingValue" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="r.specification" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="r.minValue" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="r.maxValue" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="r.readingValue" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.readings.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -69,6 +69,7 @@ export class QualityInspectionFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { inspectionDate: new Date().toISOString().split('T')[0], inspectionType: 0, sampleSize: 1, itemName: '', readings: [{ specification: '', minValue: null, maxValue: null, readingValue: '', isNumeric: true }] };
 
   addReading() { this.form.readings.push({ specification: '', minValue: null, maxValue: null, readingValue: '', isNumeric: true }); }
@@ -76,6 +77,9 @@ export class QualityInspectionFormComponent {
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/quality-inspection', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => this.router.navigate(['/inventory/quality-inspections']), error: () => { this.saving = false; } });
+      .subscribe({ next: () => this.router.navigate(['/inventory/quality-inspections']), error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

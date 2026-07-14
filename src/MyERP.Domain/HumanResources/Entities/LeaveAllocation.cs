@@ -28,11 +28,24 @@ public class LeaveAllocation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Days carried forward from previous period.</summary>
     public decimal CarryForwardDays { get; set; }
 
+    /// <summary>
+    /// Expiry date for carried-forward days.
+    /// Per DO-NOT: "Skip carry-forward expiry enforcement (expired carry-forward must auto-deduct)"
+    /// After this date, carry-forward balance is no longer available.
+    /// </summary>
+    public DateTime? CarryForwardExpiryDate { get; set; }
+
     /// <summary>Leaves already used (updated on approval/cancellation).</summary>
     public decimal LeavesUsed { get; set; }
 
-    /// <summary>Current balance = allocated + carry_forward - used.</summary>
-    public decimal Balance => TotalLeavesAllocated + CarryForwardDays - LeavesUsed;
+    /// <summary>Current balance = allocated + effective_carry_forward - used.</summary>
+    public decimal Balance => TotalLeavesAllocated + EffectiveCarryForwardDays - LeavesUsed;
+
+    /// <summary>Carry-forward days adjusted for expiry. Returns 0 if expired.</summary>
+    public decimal EffectiveCarryForwardDays =>
+        (CarryForwardExpiryDate.HasValue && DateTime.UtcNow.Date > CarryForwardExpiryDate.Value)
+            ? 0m
+            : CarryForwardDays;
 
     /// <summary>New leaves = allocated - used (excluding carry forward).</summary>
     public decimal NewLeavesAllocated => TotalLeavesAllocated - LeavesUsed;

@@ -13,6 +13,8 @@ using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Settings;
 
+using MyERP;
+
 namespace MyERP.EInvoice;
 
 [Authorize(MyERPPermissions.EInvoice.Default)]
@@ -81,7 +83,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         // Step 4: Get credentials from settings (not hardcoded)
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException("MyERP:EInvoice:00010")
+            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
                 .WithData("reason", "LHDN access token not configured. Please authenticate first.");
 
         var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
@@ -226,7 +228,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     public async Task<EInvoiceSubmissionDto> GetStatusAsync(Guid submissionId)
     {
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException("MyERP:EInvoice:00010");
+            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
 
         var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
         var environment = Enum.Parse<LhdnEnvironment>(envString);
@@ -239,7 +241,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     public async Task<EInvoiceSubmissionDto> CancelAsync(CancelEInvoiceDto input)
     {
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException("MyERP:EInvoice:00010");
+            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
 
         var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
         var environment = Enum.Parse<LhdnEnvironment>(envString);

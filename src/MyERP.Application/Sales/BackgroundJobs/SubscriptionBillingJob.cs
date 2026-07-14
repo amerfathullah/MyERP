@@ -2,11 +2,13 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using Microsoft.Extensions.Logging;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Guids;
 
 namespace MyERP.Sales.BackgroundJobs;
 
@@ -14,25 +16,33 @@ namespace MyERP.Sales.BackgroundJobs;
 /// Background job that processes subscription billing for a company.
 /// Generates invoices for active subscriptions whose current period has ended.
 /// Equivalent to ERPNext's process_all_subscriptions scheduled task.
-/// 
-/// For each active subscription with current_invoice_end &lt; today:
-///   1. Generate Sales Invoice from subscription plans
-///   2. Advance billing period
-///   3. Auto-cancel if past EndDate
+///
+/// Per ERPNext subscription rules:
+/// - Checks late-fire cap (won't generate if &gt; 1 billing cycle past period end)
+/// - Generates Sales Invoice with proper trial period discount (100%)
+/// - Advances billing period after invoice creation
+/// - Auto-cancels subscriptions past their end date
+/// - Per-subscription error isolation (one failure doesn't block others)
 /// </summary>
 public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobArgs>, ITransientDependency
 {
     private readonly IRepository<Subscription, Guid> _subscriptionRepository;
-    private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
+    private readonly SubscriptionBillingEngine _billingEngine;
+    private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<SubscriptionBillingJob> _logger;
 
     public SubscriptionBillingJob(
         IRepository<Subscription, Guid> subscriptionRepository,
-        IRepository<Company, Guid> companyRepository,
+        IRepository<SalesInvoice, Guid> salesInvoiceRepository,
+        SubscriptionBillingEngine billingEngine,
+        IGuidGenerator guidGenerator,
         ILogger<SubscriptionBillingJob> logger)
     {
         _subscriptionRepository = subscriptionRepository;
-        _companyRepository = companyRepository;
+        _salesInvoiceRepository = salesInvoiceRepository;
+        _billingEngine = billingEngine;
+        _guidGenerator = guidGenerator;
         _logger = logger;
     }
 
@@ -40,50 +50,82 @@ public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobA
     {
         _logger.LogInformation("Starting subscription billing for company {CompanyId}", args.CompanyId);
 
-        var query = await _subscriptionRepository.GetQueryableAsync();
-        var dueSubscriptions = query
-            .Where(s => s.CompanyId == args.CompanyId
-                && s.Status == SubscriptionStatus.Active
-                && s.CurrentInvoiceEnd <= args.AsOfDate)
-            .ToList();
+        var subs = await _subscriptionRepository.GetListAsync(
+            s => s.CompanyId == args.CompanyId
+              && s.Status == SubscriptionStatus.Active);
 
-        if (!dueSubscriptions.Any())
-        {
-            _logger.LogInformation("No subscriptions due for billing in company {CompanyId}", args.CompanyId);
-            return;
-        }
-
-        var processed = 0;
+        var invoicesGenerated = 0;
+        var cancelled = 0;
         var errors = 0;
 
-        foreach (var subscription in dueSubscriptions)
+        foreach (var sub in subs)
         {
             try
             {
-                // Check if subscription should auto-cancel (past EndDate)
-                if (subscription.EndDate.HasValue && args.AsOfDate > subscription.EndDate.Value)
+                // Auto-cancel past end date
+                if (sub.EndDate.HasValue && args.AsOfDate > sub.EndDate.Value)
                 {
-                    subscription.Cancel();
-                    await _subscriptionRepository.UpdateAsync(subscription);
-                    _logger.LogInformation("Auto-cancelled subscription {SubId} (past end date)", subscription.Id);
+                    sub.Cancel();
+                    await _subscriptionRepository.UpdateAsync(sub);
+                    cancelled++;
                     continue;
                 }
 
-                // Advance the billing period (this prepares for next invoice)
-                subscription.AdvancePeriod();
-                await _subscriptionRepository.UpdateAsync(subscription);
-                processed++;
+                // Catch-up billing: generate ALL missed invoices, not just one
+                // Per DO-NOT: "Implement subscription without catch-up invoice generation for past periods"
+                var missedPeriods = _billingEngine.GetMissedPeriodsCount(sub, args.AsOfDate);
+                for (int period = 0; period < missedPeriods; period++)
+                {
+                    // Check if invoice is due for the current period
+                    if (!_billingEngine.IsInvoiceDue(sub, args.AsOfDate))
+                        break;
+
+                    // Check late-fire cap (skip if too far past period end)
+                    if (!_billingEngine.IsWithinLateFireCap(sub, args.AsOfDate))
+                    {
+                        _logger.LogWarning("Subscription {SubId} past late-fire cap, skipping", sub.Id);
+                        break;
+                    }
+
+                    // Build invoice items (handles trial period 100% discount)
+                    var items = _billingEngine.BuildInvoiceItems(sub, args.AsOfDate);
+                    if (!items.Any()) break;
+
+                    // Create Sales Invoice
+                    var invoiceRef = _billingEngine.GenerateInvoiceReference(sub);
+                    var invoice = new SalesInvoice(
+                        _guidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
+                        sub.CurrentInvoiceStart ?? args.AsOfDate, args.TenantId);
+                    invoice.Notes = $"Subscription {sub.SubscriptionNumber} — " +
+                        $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
+
+                    foreach (var item in items)
+                        invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
+                            item.Qty, item.Rate, 0m);
+
+                    await _salesInvoiceRepository.InsertAsync(invoice);
+                    invoicesGenerated++;
+
+                    // Advance period and check completion
+                    if (_billingEngine.AdvancePeriodAndCheckCompletion(sub))
+                    {
+                        cancelled++;
+                        break; // Subscription completed, stop generating
+                    }
+                }
+
+                await _subscriptionRepository.UpdateAsync(sub);
             }
             catch (Exception ex)
             {
                 errors++;
-                _logger.LogError(ex, "Error processing subscription {SubId}", subscription.Id);
+                _logger.LogError(ex, "Error processing subscription {SubId}", sub.Id);
             }
         }
 
         _logger.LogInformation(
-            "Subscription billing complete for company {CompanyId}: {Processed} processed, {Errors} errors",
-            args.CompanyId, processed, errors);
+            "Subscription billing complete for company {CompanyId}: {Invoices} invoices, {Cancelled} cancelled, {Errors} errors",
+            args.CompanyId, invoicesGenerated, cancelled, errors);
     }
 }
 

@@ -6,11 +6,13 @@ import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { CustomerStore } from './store/customer.store';
 
+import { PaginationComponent, type PageEvent } from '../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-customer-list',
   standalone: true,
   imports: [
-    CommonModule,
+    PaginationComponent, CommonModule,
     RouterModule,
     LocalizationPipe,
     PageModule],
@@ -21,6 +23,9 @@ export class CustomerListComponent implements OnInit {
   readonly store = inject(CustomerStore);
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
+  currentPage = 0;
+  pageSize = 20;
+
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
   }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -75,13 +76,16 @@ public class SubscriptionAppService : ApplicationService
 {
     private readonly IRepository<Subscription, Guid> _repository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
+    private readonly SubscriptionBillingEngine _billingEngine;
 
     public SubscriptionAppService(
         IRepository<Subscription, Guid> repository,
-        IRepository<SalesInvoice, Guid> salesInvoiceRepository)
+        IRepository<SalesInvoice, Guid> salesInvoiceRepository,
+        SubscriptionBillingEngine billingEngine)
     {
         _repository = repository;
         _salesInvoiceRepository = salesInvoiceRepository;
+        _billingEngine = billingEngine;
     }
 
     public async Task<PagedResultDto<SubscriptionDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -136,8 +140,7 @@ public class SubscriptionAppService : ApplicationService
 
     /// <summary>
     /// Generates a Sales Invoice for the current billing period.
-    /// Advances the subscription period after creation.
-    /// Per ERPNext: supports catch-up billing for missed periods.
+    /// Delegates to SubscriptionBillingEngine for trial/proration/items logic.
     /// </summary>
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<GeneratedInvoiceDto> GenerateInvoiceAsync(Guid id)
@@ -150,42 +153,27 @@ public class SubscriptionAppService : ApplicationService
         if (!sub.Plans.Any())
             throw new BusinessException(MyERPDomainErrorCodes.SubscriptionHasNoPlans);
 
-        // Determine if trial period (100% discount)
-        var isInTrial = sub.TrialEndDate.HasValue && DateTime.UtcNow.Date <= sub.TrialEndDate.Value.Date;
+        // Delegate to engine for items (handles trial period + proration)
+        var items = _billingEngine.BuildInvoiceItems(sub, DateTime.UtcNow.Date);
 
-        // Create invoice via SalesInvoiceAppService
-        var invoiceItems = sub.Plans.Select(p => new Sales.CreateSalesInvoiceItemDto
-        {
-            ItemId = p.ItemId,
-            Description = p.ItemName ?? "Subscription Item",
-            Quantity = p.Qty,
-            UnitPrice = isInTrial ? 0m : p.Rate,
-        }).ToList();
+        // Generate invoice reference via engine
+        var invoiceRef = _billingEngine.GenerateInvoiceReference(sub);
 
-        var invoiceNumber = $"SUB-{sub.SubscriptionNumber}-{sub.CurrentInvoiceStart:yyyyMMdd}";
         var invoice = new SalesInvoice(
-            GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceNumber,
+            GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
             sub.CurrentInvoiceStart ?? DateTime.UtcNow, CurrentTenant.Id);
         invoice.Notes = $"Subscription {sub.SubscriptionNumber} — " +
                         $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
 
-        foreach (var item in invoiceItems)
-            invoice.AddItem(item.ItemId, item.Description,
-                item.Quantity, item.UnitPrice, 0m);
+        foreach (var item in items)
+            invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
+                item.Qty, item.Rate, 0m);
 
         await _salesInvoiceRepository.InsertAsync(invoice);
 
-        // Advance to next period
-        sub.AdvancePeriod();
-
-        // Check if subscription completed (past end date)
-        if (sub.EndDate.HasValue && sub.CurrentInvoiceStart > sub.EndDate.Value)
-            sub.Cancel();
-
+        // Advance period and check completion via engine
+        _billingEngine.AdvancePeriodAndCheckCompletion(sub);
         await _repository.UpdateAsync(sub);
-
-        var previousStart = sub.CurrentInvoiceStart;
-        var previousEnd = sub.CurrentInvoiceEnd;
 
         return new GeneratedInvoiceDto
         {
@@ -193,18 +181,9 @@ public class SubscriptionAppService : ApplicationService
             InvoiceNumber = invoice.InvoiceNumber,
             GrandTotal = invoice.GrandTotal,
             PeriodStart = invoice.IssueDate,
-            PeriodEnd = previousEnd,
+            PeriodEnd = sub.CurrentInvoiceEnd,
         };
     }
-
-    private static int GetIntervalMonths(Subscription sub) => sub.BillingInterval switch
-    {
-        "Monthly" => 1 * sub.BillingIntervalCount,
-        "Quarterly" => 3 * sub.BillingIntervalCount,
-        "Half-Yearly" => 6 * sub.BillingIntervalCount,
-        "Yearly" => 12 * sub.BillingIntervalCount,
-        _ => 1
-    };
 
     private static SubscriptionDto MapToDto(Subscription s) => new()
     {

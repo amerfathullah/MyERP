@@ -8,11 +8,13 @@ import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 import { AccountType } from '../../proxy/accounting/account-type.enum';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-account-form',
   standalone: true,
   imports: [
-    CommonModule,
+    AutoValidationDirective, CommonModule,
     ReactiveFormsModule,
     LocalizationPipe,
     PageModule],
@@ -87,4 +89,6 @@ export class AccountFormComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/accounting/accounts']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

@@ -8,10 +8,12 @@ import { LeadStore } from '../store/lead.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-lead-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './lead-list.component.html',
   styleUrls: ['./lead-list.component.scss'],
 })
@@ -20,6 +22,9 @@ export class LeadListComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
 
   searchTerm = '';
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });

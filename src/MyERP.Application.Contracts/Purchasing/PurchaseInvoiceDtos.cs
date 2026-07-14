@@ -57,6 +57,10 @@ public class CreatePurchaseInvoiceDto
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
     [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
     public string? Notes { get; set; }
+
+    /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
+    public bool IsOpening { get; set; }
+
     [Required][MinLength(1)] public List<CreatePurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 

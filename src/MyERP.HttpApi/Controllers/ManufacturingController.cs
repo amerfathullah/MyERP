@@ -21,7 +21,7 @@ public class ManufacturingController : MyERPController
     public Task<BomDto> GetBomAsync(Guid id) => _service.GetBomAsync(id);
 
     [HttpGet("bom")]
-    public Task<PagedResultDto<BomDto>> GetBomListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _service.GetBomListAsync(input);
+    public Task<PagedResultDto<BomDto>> GetBomListAsync([FromQuery] MyERP.Shared.CompanyFilteredPagedRequestDto input) => _service.GetBomListAsync(input);
 
     [HttpPost("bom")]
     public Task<BomDto> CreateBomAsync(CreateBomDto input) => _service.CreateBomAsync(input);

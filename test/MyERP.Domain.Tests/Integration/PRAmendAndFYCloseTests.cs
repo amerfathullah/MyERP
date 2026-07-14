@@ -1,4 +1,5 @@
 using System;
+using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
@@ -78,7 +79,7 @@ public class PRAmendAndFYCloseTests
     [Fact]
     public void FiscalYear_DefaultOpen_CanBeClosed()
     {
-        var fy = new Accounting.Entities.FiscalYear(Guid.NewGuid(), Guid.NewGuid(),
+        var fy = new FiscalYear(Guid.NewGuid(), Guid.NewGuid(),
             "FY 2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31));
 
         fy.IsClosed.ShouldBeFalse();
@@ -90,7 +91,7 @@ public class PRAmendAndFYCloseTests
     public void FiscalYear_SequentialClose_NoPriorFY_Allowed()
     {
         // When no prior FY exists (first FY), close is always allowed
-        var fy = new Accounting.Entities.FiscalYear(Guid.NewGuid(), Guid.NewGuid(),
+        var fy = new FiscalYear(Guid.NewGuid(), Guid.NewGuid(),
             "FY 2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31));
 
         // No prior FY to check against = no blocker

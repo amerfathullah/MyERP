@@ -44,6 +44,11 @@ public class PosAppService : ApplicationService, IPosAppService
 
     public async Task<PosInvoiceDto> CompleteSaleAsync(CreatePosInvoiceDto input)
     {
+        // Validate posting period is not frozen/closed
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, DateTime.UtcNow, "POS Invoice");
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("POS", input.CompanyId);
 
         var invoice = new SalesInvoice(

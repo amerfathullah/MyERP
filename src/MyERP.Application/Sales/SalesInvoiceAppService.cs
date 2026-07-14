@@ -40,6 +40,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     private readonly BinService _binService;
     private readonly DocumentActivityLogService _activityLog;
     private readonly ItemTransactionValidationService _itemValidation;
+    private readonly SalesInvoiceManager _invoiceManager;
 
     public SalesInvoiceAppService(
         IRepository<SalesInvoice, Guid> repository,
@@ -58,7 +59,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         StockValuationService valuationService,
         BinService binService,
         DocumentActivityLogService activityLog,
-        ItemTransactionValidationService itemValidation)
+        ItemTransactionValidationService itemValidation,
+        SalesInvoiceManager invoiceManager)
     {
         _repository = repository;
         _customerRepository = customerRepository;
@@ -77,6 +79,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         _binService = binService;
         _activityLog = activityLog;
         _itemValidation = itemValidation;
+        _invoiceManager = invoiceManager;
     }
 
     public async Task<SalesInvoiceDto> GetAsync(Guid id)
@@ -136,6 +139,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Input validation
         Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
         Check.NotDefaultOrNull<Guid>(input.CustomerId, nameof(input.CustomerId));
+        if (input.IssueDate == default)
+            input.IssueDate = DateTime.UtcNow.Date;
         if (input.Items == null || input.Items.Count == 0)
             throw new Volo.Abp.BusinessException("MyERP:01007")
                 .WithData("documentType", "Sales Invoice");
@@ -157,7 +162,29 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.CurrencyCode = input.CurrencyCode;
         invoice.IsReturn = input.IsReturn;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
-        invoice.PaymentTermsTemplateId = input.PaymentTermsTemplateId;
+        invoice.IsOpening = input.IsOpening;
+
+        // Opening invoices: clear payment terms (accounting-only, no schedule needed)
+        // Per DO-NOT: "Skip Payment Schedule opening invoice exclusion (is_opening=Yes must clear)"
+        if (invoice.IsOpening)
+        {
+            invoice.PaymentTermsTemplateId = null;
+        }
+
+        // Payment terms resolution: explicit → customer default → null (skip for opening invoices)
+        if (!invoice.IsOpening && input.PaymentTermsTemplateId.HasValue)
+        {
+            invoice.PaymentTermsTemplateId = input.PaymentTermsTemplateId;
+        }
+        else if (!invoice.IsOpening)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId);
+            if (customer?.DefaultPaymentTermsTemplateId.HasValue == true)
+            {
+                invoice.PaymentTermsTemplateId = customer.DefaultPaymentTermsTemplateId;
+            }
+        }
 
         // Auto-fill addresses from customer
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
@@ -180,6 +207,49 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        // Timesheet-in-SI auto-fetch: when project is set, populate unbilled timesheet entries
+        // Per ERPNext Projects Settings.fetch_timesheet_in_sales_invoice
+        invoice.ProjectId = input.ProjectId;
+        if (input.ProjectId.HasValue && !invoice.IsReturn)
+        {
+            var tsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Timesheet, Guid>>();
+            var tsQuery = await tsRepo.GetQueryableAsync();
+            var timesheets = tsQuery
+                .Where(t => t.CompanyId == input.CompanyId
+                    && t.Status == MyERP.Projects.Entities.TimesheetStatus.Submitted)
+                .ToList();
+
+            var unbilledDetails = timesheets
+                .SelectMany(ts => ts.Details.Where(d =>
+                    d.IsBillable && d.SalesInvoiceId == null && d.BillingAmount > 0
+                    && d.ProjectId == input.ProjectId))
+                .ToList();
+
+            if (unbilledDetails.Any())
+            {
+                foreach (var detail in unbilledDetails)
+                {
+                    invoice.AddItem(
+                        detail.Id, // use detail ID for traceability
+                        $"Timesheet: {detail.ActivityType} - {detail.Hours:F1}h",
+                        detail.Hours,
+                        detail.BillingRate,
+                        0,
+                        "Hour");
+                }
+
+                // Mark details as billed
+                foreach (var detail in unbilledDetails)
+                {
+                    detail.SalesInvoiceId = invoice.Id;
+                }
+                foreach (var ts in timesheets.Where(t => t.Details.Any(d => d.SalesInvoiceId == invoice.Id)))
+                {
+                    await tsRepo.UpdateAsync(ts);
+                }
+            }
         }
 
         // Apply pricing rules (auto-discount based on configured rules)
@@ -245,56 +315,30 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     {
         var invoice = await _repository.GetAsync(id);
 
-        // Return document validation
+        // Return document validation (domain service)
         if (invoice.IsReturn)
         {
-            // Returns must have negative quantities
-            foreach (var item in invoice.Items)
-            {
-                if (item.Quantity > 0)
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyMustBeNegative)
-                        .WithData("item", item.Description ?? item.ItemId.ToString());
-                }
-            }
-
-            // Must reference an original invoice
-            if (!invoice.ReturnAgainstId.HasValue)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal);
-            }
-
-            // Exchange rate must match original document
-            var original = await _repository.GetAsync(invoice.ReturnAgainstId.Value);
-            if (invoice.ExchangeRate != original.ExchangeRate)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnExchangeRateMismatch)
-                    .WithData("expected", original.ExchangeRate)
-                    .WithData("actual", invoice.ExchangeRate);
-            }
-
-            // Return qty cannot exceed original qty (absolute value comparison)
-            foreach (var returnItem in invoice.Items)
-            {
-                var matchingOriginal = original.Items
-                    .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-                if (matchingOriginal != null)
-                {
-                    if (Math.Abs(returnItem.Quantity) > matchingOriginal.Quantity)
-                    {
-                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                            .WithData("item", returnItem.Description ?? returnItem.ItemId.ToString())
-                            .WithData("maxQty", matchingOriginal.Quantity)
-                            .WithData("returnQty", Math.Abs(returnItem.Quantity));
-                    }
-                }
-            }
+            await _invoiceManager.ValidateReturnAsync(invoice);
         }
 
         // Credit limit validation (enforced at SI submit per ERPNext rules, skip for returns)
         if (!invoice.IsReturn)
         {
             await _creditLimitService.ValidateCreditLimitAsync(invoice.CustomerId, invoice.GrandTotal);
+
+            // Selling price validation: selling rate must be >= valuation rate
+            // Per ERPNext validate_selling_price (Selling Settings configurable: Stop/Warn)
+            SalesInvoiceManager.ValidateSellingPrice(
+                invoice.Items,
+                itemId =>
+                {
+                    // Resolve valuation rate from latest stock balance
+                    var balance = _valuationService
+                        .GetCurrentBalanceAsync(itemId, invoice.WarehouseId ?? Guid.Empty)
+                        .GetAwaiter().GetResult();
+                    return balance.ValuationRate;
+                },
+                action: "Warn"); // Default to Warn — configurable via Selling Settings
         }
 
         // Server-side tax recalculation: fetch applicable tax rows and run cascade
@@ -333,13 +377,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.Submit();
 
-        // Credit Note: reduce original invoice outstanding
+        // Credit Note: reduce original invoice outstanding (domain service)
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
         {
-            var original = await _repository.GetAsync(invoice.ReturnAgainstId.Value);
-            var returnAmount = Math.Abs(invoice.GrandTotal);
-            original.AmountPaid += returnAmount;
-            await _repository.UpdateAsync(original);
+            await _invoiceManager.ApplyCreditNoteAsync(invoice);
         }
 
         // Update Stock: create SLE entries for direct sales (without DN)
@@ -378,57 +419,37 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
-        // Update linked Sales Order BilledQty + fulfillment status
+        // Over-billing validation + SO BilledQty update (domain service)
         if (!invoice.IsReturn)
         {
-            var soIds = invoice.Items
-                .Where(i => i.SalesOrderItemId.HasValue)
-                .Select(i => i.SalesOrderItemId!.Value)
-                .Distinct()
-                .ToList();
-
-            if (soIds.Any())
-            {
-                var orderQuery = await _salesOrderRepository.GetQueryableAsync();
-                var affectedOrders = orderQuery
-                    .Where(so => so.Items.Any(soi => soIds.Contains(soi.Id)))
-                    .ToList();
-
-                // Over-billing validation: billed qty cannot exceed ordered qty
-                foreach (var so in affectedOrders)
-                {
-                    foreach (var siItem in invoice.Items.Where(i => i.SalesOrderItemId.HasValue))
-                    {
-                        var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
-                        if (soItem != null && (soItem.BilledQty + siItem.Quantity) > soItem.Quantity)
-                        {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
-                                .WithData("item", siItem.Description ?? siItem.ItemId.ToString())
-                                .WithData("ordered", soItem.Quantity)
-                                .WithData("billed", soItem.BilledQty)
-                                .WithData("attempted", siItem.Quantity);
-                        }
-                    }
-                }
-
-                // Update BilledQty
-                foreach (var so in affectedOrders)
-                {
-                    foreach (var siItem in invoice.Items.Where(i => i.SalesOrderItemId.HasValue))
-                    {
-                        var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
-                        if (soItem != null)
-                        {
-                            soItem.BilledQty += siItem.Quantity;
-                        }
-                    }
-                    so.UpdateFulfillmentStatus();
-                    await _salesOrderRepository.UpdateAsync(so);
-                }
-            }
+            await _invoiceManager.ValidateOverBillingAsync(invoice);
+            await _invoiceManager.UpdateLinkedOrderBillingAsync(invoice);
         }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
+
+        // Loyalty Points: earn points on non-return, non-consolidated invoices
+        if (!invoice.IsReturn)
+        {
+            var customer = await _customerRepository.GetAsync(invoice.CustomerId);
+            if (customer.LoyaltyProgramId.HasValue)
+            {
+                var loyaltyService = LazyServiceProvider.LazyGetRequiredService<LoyaltyPointService>();
+                // Eligible amount = grand total (per ERPNext: grand_total - loyalty_amount - returned_amount)
+                await loyaltyService.EarnPointsAsync(
+                    customer.LoyaltyProgramId.Value, customer.Id, invoice.CompanyId,
+                    invoice.GrandTotal, 0m, invoice.IssueDate,
+                    invoiceType: "SalesInvoice", invoiceId: invoice.Id, tenantId: invoice.TenantId);
+            }
+
+            // Inter-Company: create corresponding PI in target company if customer represents another company
+            if (customer.RepresentsCompanyId.HasValue)
+            {
+                var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+                await interCompanyService.CreatePurchaseInvoiceFromSalesInvoiceAsync(
+                    invoice.Id, customer.RepresentsCompanyId.Value, invoice.TenantId);
+            }
+        }
 
         // Audit trail
         await _activityLog.LogSubmittedAsync("SalesInvoice", invoice.Id, invoice.CompanyId,
@@ -486,6 +507,18 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("amountPaid", invoice.AmountPaid);
         }
 
+        // Loyalty cancel guard: can't cancel if earned points have been redeemed
+        var customer = await _customerRepository.GetAsync(invoice.CustomerId);
+        if (customer.LoyaltyProgramId.HasValue)
+        {
+            var loyaltyService = LazyServiceProvider.LazyGetRequiredService<LoyaltyPointService>();
+            if (await loyaltyService.HasPointsBeenRedeemedAsync(invoice.Id, "SalesInvoice"))
+            {
+                throw new Volo.Abp.BusinessException("MyERP:03014")
+                    .WithData("invoiceNumber", invoice.InvoiceNumber);
+            }
+        }
+
         invoice.Cancel();
 
         // Reverse PLE entries (GL reversal handled by cancellation JE)
@@ -513,34 +546,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
-        // Reverse linked Sales Order BilledQty
-        var soItemIds = invoice.Items
-            .Where(i => i.SalesOrderItemId.HasValue)
-            .Select(i => i.SalesOrderItemId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (soItemIds.Any())
-        {
-            var orderQuery = await _salesOrderRepository.GetQueryableAsync();
-            var affectedOrders = orderQuery
-                .Where(so => so.Items.Any(soi => soItemIds.Contains(soi.Id)))
-                .ToList();
-
-            foreach (var so in affectedOrders)
-            {
-                foreach (var siItem in invoice.Items.Where(i => i.SalesOrderItemId.HasValue))
-                {
-                    var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
-                    if (soItem != null)
-                    {
-                        soItem.BilledQty = Math.Max(0, soItem.BilledQty - siItem.Quantity);
-                    }
-                }
-                so.UpdateFulfillmentStatus();
-                await _salesOrderRepository.UpdateAsync(so);
-            }
-        }
+        // Reverse linked Sales Order BilledQty (domain service)
+        await _invoiceManager.UpdateLinkedOrderBillingAsync(invoice, reverse: true);
 
         await _repository.UpdateAsync(invoice, autoSave: true);
 

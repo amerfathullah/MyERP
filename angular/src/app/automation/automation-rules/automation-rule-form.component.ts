@@ -6,11 +6,13 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AutomationRuleStore } from '../store/automation-rule.store';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-automation-rule-form',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
+    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './automation-rule-form.component.html',
   styleUrls: ['./automation-rule-form.component.scss'],
 })
@@ -79,4 +81,6 @@ export class AutomationRuleFormComponent {
     });
     this.router.navigate(['/automation']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

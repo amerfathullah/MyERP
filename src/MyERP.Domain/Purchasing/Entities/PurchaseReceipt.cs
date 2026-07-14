@@ -46,6 +46,9 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>If IsReturn, reference to the original purchase receipt.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
+    /// <summary>Whether this receipt is for a subcontracted purchase order.</summary>
+    public bool IsSubcontracted { get; set; }
+
     public string? Notes { get; set; }
 
     // Amendment support
@@ -53,6 +56,9 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public int AmendmentIndex { get; set; }
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
+
+    /// <summary>Exchange rate for multi-currency receipts (transaction → company currency).</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
 
     // IAccountableDocument
     string IAccountableDocument.DocumentType => "PurchaseReceipt";
@@ -79,6 +85,12 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per DO-NOT: returns must always have negative qty
+        if (!IsReturn && quantity <= 0)
+            throw new ArgumentException("Quantity must be positive for non-return receipts.", nameof(quantity));
+        if (IsReturn && quantity >= 0)
+            throw new ArgumentException("Quantity must be negative for return receipts.", nameof(quantity));
 
         _items.Add(new PurchaseReceiptItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId));

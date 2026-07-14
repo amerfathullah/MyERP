@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { ExpenseClaimService, type ExpenseClaimDto } from '../../proxy/sales/additional-proxies.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-expense-claim-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'ExpenseClaims' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
@@ -49,13 +51,17 @@ import { ExpenseClaimService, type ExpenseClaimDto } from '../../proxy/sales/add
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class ExpenseClaimListComponent implements OnInit {
   private service = inject(ExpenseClaimService);
   items: ExpenseClaimDto[] = [];
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -65,4 +71,6 @@ export class ExpenseClaimListComponent implements OnInit {
 
   statusLabel(s: number): string { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s] ?? 'Draft'; }
   statusClass(s: number): string { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s] ?? 'bg-secondary'; }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

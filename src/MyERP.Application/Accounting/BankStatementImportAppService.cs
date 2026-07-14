@@ -87,6 +87,20 @@ public class BankStatementImportAppService : ApplicationService
                     amount,
                     input.TenantId);
 
+                // Set directional amounts (positive = deposit, negative = withdrawal)
+                if (amount > 0)
+                    transaction.Deposit = amount;
+                else
+                    transaction.Withdrawal = Math.Abs(amount);
+
+                // Set currency from input (for validation against bank account)
+                if (!string.IsNullOrWhiteSpace(input.CurrencyCode))
+                    transaction.CurrencyCode = input.CurrencyCode;
+
+                // Normalize any excluded fees and validate included fees
+                transaction.NormalizeFees();
+                transaction.ValidateIncludedFee();
+
                 // Try to extract reference number from description
                 transaction.ReferenceNumber = ExtractReference(description);
 
@@ -154,6 +168,9 @@ public class BankStatementImportInput
     public Guid BankAccountId { get; set; }
     public string CsvContent { get; set; } = null!;
     public Guid? TenantId { get; set; }
+
+    /// <summary>Optional currency code. When set, validated against bank account GL currency.</summary>
+    public string? CurrencyCode { get; set; }
 }
 
 public class BankStatementImportResult

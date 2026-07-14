@@ -6,10 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SubscriptionService, type SubscriptionDto } from '../../proxy/sales/sales-advanced.service';
 
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+
 @Component({
   selector: 'app-subscription-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   template: `
     <abp-page [title]="'Subscriptions' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
@@ -50,13 +52,17 @@ import { SubscriptionService, type SubscriptionDto } from '../../proxy/sales/sal
           </table>
         </div></div>
       }
-    </abp-page>
+      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+  </abp-page>
   `,
 })
 export class SubscriptionListComponent implements OnInit {
   private service = inject(SubscriptionService);
   subscriptions: SubscriptionDto[] = [];
   isLoading = false;
+
+  currentPage = 0;
+  pageSize = 20;
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -66,4 +72,6 @@ export class SubscriptionListComponent implements OnInit {
 
   getStatusLabel(s: number): string { return ['Active', 'Past Due', 'Unpaid', 'Cancelled', 'Completed'][s] ?? 'Active'; }
   getStatusClass(s: number): string { return ['bg-success', 'bg-warning', 'bg-danger', 'bg-secondary', 'bg-info'][s] ?? 'bg-success'; }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

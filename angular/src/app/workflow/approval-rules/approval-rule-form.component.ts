@@ -8,10 +8,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
 import type { CreateApprovalRuleDto } from '../../proxy/workflow/models';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-approval-rule-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './approval-rule-form.component.html',
   styleUrls: ['./approval-rule-form.component.scss'],
 })
@@ -53,4 +55,6 @@ export class ApprovalRuleFormComponent {
   cancel(): void {
     this.router.navigate(['/workflow/rules']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

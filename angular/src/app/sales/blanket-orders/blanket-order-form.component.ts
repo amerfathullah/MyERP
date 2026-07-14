@@ -15,23 +15,23 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Type' | abpLocalization }}</label>
-            <select class="form-select" [(ngModel)]="form.orderType">
-              <option value="Selling">Selling</option>
-              <option value="Buying">Buying</option>
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.orderType">
+              <option value="Selling">{{ 'Selling' | abpLocalization }}</option>
+              <option value="Buying">{{ 'Buying' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'ValidFrom' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.fromDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.fromDate" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'ValidUntil' | abpLocalization }}</label>
-            <input type="date" class="form-control" [(ngModel)]="form.toDate" />
+            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.toDate" />
           </div>
         </div>
         <div class="mb-3">
           <label class="form-label">{{ 'Party' | abpLocalization }}</label>
-          <input class="form-control" [(ngModel)]="form.partyName" placeholder="Customer / Supplier name" />
+          <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyName" placeholder="Customer / Supplier name" />
         </div>
 
         <h6 class="mb-2">{{ 'Items' | abpLocalization }}</h6>
@@ -40,9 +40,9 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" [(ngModel)]="item.itemName" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.qty" /></td>
-                <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.rate" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemName" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
+                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -64,11 +64,15 @@ export class BlanketOrderFormComponent {
   private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
+  isDirty = false;
   form: any = { orderType: 'Selling', fromDate: '', toDate: '', partyName: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
 
   save() {
     this.saving = true;
     this.restService.request({ method: 'POST', url: '/api/app/blanket-order', body: this.form }, { apiName: 'Default' })
-      .subscribe({ next: () => { this.router.navigate(['/sales/blanket-orders']); }, error: () => { this.saving = false; } });
+      .subscribe({ next: () => { this.router.navigate(['/sales/blanket-orders']); }, error: () => { this.saving = false;
+  this.isDirty = false; } });
   }
+
+  hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }
 }

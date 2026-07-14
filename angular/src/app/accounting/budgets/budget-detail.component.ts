@@ -6,12 +6,15 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BudgetDetailService, type BudgetDto } from '../../proxy/detail-services';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-budget-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   template: `
     <abp-page [title]="'Budgets' | abpLocalization">
+  <app-breadcrumb />
       @if (budget) {
         <div class="card mb-3"><div class="card-body">
           <div class="row">

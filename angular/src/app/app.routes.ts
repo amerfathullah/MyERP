@@ -32,12 +32,14 @@ export const APP_ROUTES: Routes = [
     path: 'companies/new',
     loadComponent: () => import('./companies/company-form.component').then(c => c.CompanyFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Companies.Create' },
   },
   {
     path: 'companies/:id/edit',
     loadComponent: () => import('./companies/company-form.component').then(c => c.CompanyFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Companies.Edit' },
   },
   {
@@ -50,12 +52,14 @@ export const APP_ROUTES: Routes = [
     path: 'customers/new',
     loadComponent: () => import('./customers/customer-form.component').then(c => c.CustomerFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Customers.Create' },
   },
   {
     path: 'customers/:id/edit',
     loadComponent: () => import('./customers/customer-form.component').then(c => c.CustomerFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Customers.Edit' },
   },
   {
@@ -74,6 +78,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/quotations/new',
     loadComponent: () => import('./sales/quotations/quotation-form.component').then(c => c.QuotationFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Quotations.Create' },
   },
   {
@@ -92,6 +97,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/orders/new',
     loadComponent: () => import('./sales/sales-orders/sales-order-form.component').then(c => c.SalesOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesOrders.Create' },
   },
   {
@@ -117,6 +123,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/invoices/:id/edit',
     loadComponent: () => import('./sales/sales-invoices/sales-invoice-form.component').then(c => c.SalesInvoiceFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesInvoices.Edit' },
   },
   {
@@ -129,12 +136,14 @@ export const APP_ROUTES: Routes = [
     path: 'suppliers/new',
     loadComponent: () => import('./suppliers/supplier-form.component').then(c => c.SupplierFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Suppliers.Create' },
   },
   {
     path: 'suppliers/:id/edit',
     loadComponent: () => import('./suppliers/supplier-form.component').then(c => c.SupplierFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Suppliers.Edit' },
   },
   {
@@ -153,6 +162,7 @@ export const APP_ROUTES: Routes = [
     path: 'purchasing/orders/new',
     loadComponent: () => import('./purchasing/purchase-orders/purchase-order-form.component').then(c => c.PurchaseOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
   },
   {
@@ -171,12 +181,14 @@ export const APP_ROUTES: Routes = [
     path: 'purchasing/invoices/new',
     loadComponent: () => import('./purchasing/purchase-invoices/purchase-invoice-form.component').then(c => c.PurchaseInvoiceFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseInvoices.Create' },
   },
   {
     path: 'purchasing/invoices/:id/edit',
     loadComponent: () => import('./purchasing/purchase-invoices/purchase-invoice-form.component').then(c => c.PurchaseInvoiceFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseInvoices.Edit' },
   },
   {
@@ -195,18 +207,21 @@ export const APP_ROUTES: Routes = [
     path: 'accounting/accounts/new',
     loadComponent: () => import('./accounting/accounts/account-form.component').then(c => c.AccountFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Accounts.Create' },
   },
   {
     path: 'accounting/accounts/:id/edit',
     loadComponent: () => import('./accounting/accounts/account-form.component').then(c => c.AccountFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Accounts.Edit' },
   },
   {
     path: 'accounting/journal-entries/new',
     loadComponent: () => import('./accounting/journal-entries/journal-entry-form.component').then(c => c.JournalEntryFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.JournalEntries.Create' },
   },
   {
@@ -243,6 +258,7 @@ export const APP_ROUTES: Routes = [
     path: 'accounting/payments/new',
     loadComponent: () => import('./accounting/payments/payment-entry-form.component').then(c => c.PaymentEntryFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PaymentEntries.Create' },
   },
   {
@@ -272,6 +288,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'accounting/reports/party-ledger',
     loadComponent: () => import('./accounting/party-ledger/party-ledger.component').then(c => c.PartyLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/reports/statement-of-accounts',
+    loadComponent: () => import('./accounting/statement-of-accounts/statement-of-accounts.component').then(c => c.StatementOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
@@ -327,18 +349,21 @@ export const APP_ROUTES: Routes = [
     path: 'inventory/warehouses/new',
     loadComponent: () => import('./inventory/warehouses/warehouse-form.component').then(c => c.WarehouseFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Warehouses.Create' },
   },
   {
     path: 'inventory/warehouses/:id/edit',
     loadComponent: () => import('./inventory/warehouses/warehouse-form.component').then(c => c.WarehouseFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Warehouses.Edit' },
   },
   {
     path: 'inventory/stock-entries/new',
     loadComponent: () => import('./inventory/stock-entries/stock-entry-form.component').then(c => c.StockEntryFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.StockEntries.Create' },
   },
   {
@@ -381,12 +406,14 @@ export const APP_ROUTES: Routes = [
     path: 'inventory/items/new',
     loadComponent: () => import('./inventory/items/item-form.component').then(c => c.ItemFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Items.Create' },
   },
   {
     path: 'inventory/items/:id/edit',
     loadComponent: () => import('./inventory/items/item-form.component').then(c => c.ItemFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Items.Edit' },
   },
   {
@@ -405,6 +432,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/delivery-notes/new',
     loadComponent: () => import('./sales/delivery-notes/delivery-note-form.component').then(c => c.DeliveryNoteFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.DeliveryNotes.Create' },
   },
   {
@@ -429,6 +457,7 @@ export const APP_ROUTES: Routes = [
     path: 'purchasing/receipts/new',
     loadComponent: () => import('./purchasing/purchase-receipts/purchase-receipt-form.component').then(c => c.PurchaseReceiptFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
@@ -477,6 +506,7 @@ export const APP_ROUTES: Routes = [
     path: 'workflow/rules/new',
     loadComponent: () => import('./workflow/approval-rules/approval-rule-form.component').then(c => c.ApprovalRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.ApprovalWorkflows' },
   },
   {
@@ -495,6 +525,7 @@ export const APP_ROUTES: Routes = [
     path: 'automation/new',
     loadComponent: () => import('./automation/automation-rules/automation-rule-form.component').then(c => c.AutomationRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.AutomationRules.Create' },
   },
   {
@@ -507,12 +538,14 @@ export const APP_ROUTES: Routes = [
     path: 'hr/employees/new',
     loadComponent: () => import('./hr/employees/employee-form.component').then(c => c.EmployeeFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Employees.Create' },
   },
   {
     path: 'hr/employees/:id/edit',
     loadComponent: () => import('./hr/employees/employee-form.component').then(c => c.EmployeeFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Employees.Edit' },
   },
   {
@@ -533,6 +566,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
+  {
+    path: 'tax/summary',
+    loadComponent: () => import('./tax/tax-summary-report/tax-summary-report.component').then(c => c.TaxSummaryReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
   // CRM
   {
     path: 'crm/leads',
@@ -544,12 +583,14 @@ export const APP_ROUTES: Routes = [
     path: 'crm/leads/new',
     loadComponent: () => import('./crm/leads/lead-form.component').then(c => c.LeadFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Leads.Create' },
   },
   {
     path: 'crm/leads/:id/edit',
     loadComponent: () => import('./crm/leads/lead-form.component').then(c => c.LeadFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Leads.Edit' },
   },
   {
@@ -568,6 +609,7 @@ export const APP_ROUTES: Routes = [
     path: 'crm/opportunities/new',
     loadComponent: () => import('./crm/opportunities/opportunity-form.component').then(c => c.OpportunityFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Opportunities.Create' },
   },
   {
@@ -580,6 +622,7 @@ export const APP_ROUTES: Routes = [
     path: 'crm/opportunities/:id/edit',
     loadComponent: () => import('./crm/opportunities/opportunity-form.component').then(c => c.OpportunityFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Opportunities.Edit' },
   },
   // Projects
@@ -593,6 +636,7 @@ export const APP_ROUTES: Routes = [
     path: 'projects/new',
     loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Projects.Create' },
   },
   {
@@ -605,6 +649,7 @@ export const APP_ROUTES: Routes = [
     path: 'projects/:id/edit',
     loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Projects.Edit' },
   },
   // Assets
@@ -618,6 +663,7 @@ export const APP_ROUTES: Routes = [
     path: 'assets/new',
     loadComponent: () => import('./assets/asset-form/asset-form.component').then(c => c.AssetFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Assets.Create' },
   },
   {
@@ -637,6 +683,7 @@ export const APP_ROUTES: Routes = [
     path: 'manufacturing/bom/new',
     loadComponent: () => import('./manufacturing/bom/bom-form.component').then(c => c.BomFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
@@ -655,6 +702,7 @@ export const APP_ROUTES: Routes = [
     path: 'manufacturing/work-orders/new',
     loadComponent: () => import('./manufacturing/work-orders/work-order-form.component').then(c => c.WorkOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
   },
   {
@@ -674,6 +722,7 @@ export const APP_ROUTES: Routes = [
     path: 'manufacturing/production-plans/new',
     loadComponent: () => import('./manufacturing/production-plans/production-plan-form.component').then(c => c.ProductionPlanFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.ProductionPlans.Create' },
   },
   {
@@ -693,6 +742,7 @@ export const APP_ROUTES: Routes = [
     path: 'purchasing/material-requests/new',
     loadComponent: () => import('./purchasing/material-requests/material-request-form.component').then(c => c.MaterialRequestFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.MaterialRequests.Create' },
   },
   {
@@ -712,6 +762,7 @@ export const APP_ROUTES: Routes = [
     path: 'support/issues/new',
     loadComponent: () => import('./support/issues/issue-form.component').then(c => c.IssueFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Issues.Create' },
   },
   // Timesheets
@@ -725,6 +776,7 @@ export const APP_ROUTES: Routes = [
     path: 'projects/timesheets/new',
     loadComponent: () => import('./projects/timesheets/timesheet-form.component').then(c => c.TimesheetFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Projects.Create' },
   },
   {
@@ -819,6 +871,25 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/rfq',
+    loadComponent: () => import('./purchasing/rfq/rfq-list.component').then(c => c.RfqListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/rfq/new',
+    loadComponent: () => import('./purchasing/rfq/rfq-form.component').then(c => c.RfqFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
+  },
+  {
+    path: 'sales/pos-closing',
+    loadComponent: () => import('./sales/pos-closing/pos-closing-list.component').then(c => c.PosClosingListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'hr/expense-claims',
     loadComponent: () => import('./hr/expense-claims/expense-claim-list.component').then(c => c.ExpenseClaimListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -846,18 +917,21 @@ export const APP_ROUTES: Routes = [
     path: 'hr/expense-claims/new',
     loadComponent: () => import('./hr/expense-claims/expense-claim-form.component').then(c => c.ExpenseClaimFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Employees.Create' },
   },
   {
     path: 'sales/blanket-orders/new',
     loadComponent: () => import('./sales/blanket-orders/blanket-order-form.component').then(c => c.BlanketOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesOrders.Create' },
   },
   {
     path: 'purchasing/supplier-quotations/new',
     loadComponent: () => import('./purchasing/supplier-quotations/supplier-quotation-form.component').then(c => c.SupplierQuotationFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
   },
 
@@ -916,18 +990,21 @@ export const APP_ROUTES: Routes = [
     path: 'automation/:id/edit',
     loadComponent: () => import('./automation/automation-rules/automation-rule-form.component').then(c => c.AutomationRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.AutomationRules.Edit' },
   },
   {
     path: 'purchasing/orders/:id/edit',
     loadComponent: () => import('./purchasing/purchase-orders/purchase-order-form.component').then(c => c.PurchaseOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.PurchaseOrders.Edit' },
   },
   {
     path: 'workflow/rules/:id/edit',
     loadComponent: () => import('./workflow/approval-rules/approval-rule-form.component').then(c => c.ApprovalRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.ApprovalWorkflows.Edit' },
   },
 
@@ -936,54 +1013,63 @@ export const APP_ROUTES: Routes = [
     path: 'accounting/budgets/new',
     loadComponent: () => import('./accounting/budgets/budget-form.component').then(c => c.BudgetFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Budgets.Create' },
   },
   {
     path: 'hr/holiday-lists/new',
     loadComponent: () => import('./hr/holiday-lists/holiday-list-form.component').then(c => c.HolidayListFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Employees.Create' },
   },
   {
     path: 'hr/salary-structures/new',
     loadComponent: () => import('./hr/salary-structures/salary-structure-form.component').then(c => c.SalaryStructureFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Payroll.Create' },
   },
   {
     path: 'inventory/landed-costs/new',
     loadComponent: () => import('./inventory/landed-costs/landed-cost-form.component').then(c => c.LandedCostFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.LandedCostVouchers.Create' },
   },
   {
     path: 'inventory/quality-inspections/new',
     loadComponent: () => import('./inventory/quality-inspections/quality-inspection-form.component').then(c => c.QualityInspectionFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
   },
   {
     path: 'inventory/stock-reconciliations/new',
     loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-form.component').then(c => c.StockReconciliationFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.StockReconciliations.Create' },
   },
   {
     path: 'manufacturing/workstations/new',
     loadComponent: () => import('./manufacturing/workstations/workstation-form.component').then(c => c.WorkstationFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
   },
   {
     path: 'sales/pricing-rules/new',
     loadComponent: () => import('./sales/pricing-rules/pricing-rule-form.component').then(c => c.PricingRuleFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
   },
   {
     path: 'sales/subscriptions/new',
     loadComponent: () => import('./sales/subscriptions/subscription-form.component').then(c => c.SubscriptionFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
   },
 
@@ -1016,6 +1102,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/dunnings/new',
     loadComponent: () => import('./sales/dunnings/dunning-form.component').then(c => c.DunningFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
   },
   {
@@ -1033,6 +1120,30 @@ export const APP_ROUTES: Routes = [
   {
     path: 'accounting/period-closing',
     loadComponent: () => import('./accounting/period-closing/period-closing.component').then(c => c.PeriodClosingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/dimensions',
+    loadComponent: () => import('./accounting/dimensions/accounting-dimensions.component').then(c => c.AccountingDimensionsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/batch-payment',
+    loadComponent: () => import('./accounting/batch-payment/batch-payment.component').then(c => c.BatchPaymentComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries.Create' },
+  },
+  {
+    path: 'accounting/reports/cash-flow',
+    loadComponent: () => import('./accounting/reports/cash-flow/cash-flow-statement.component').then(c => c.CashFlowStatementComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/reports/budget-variance',
+    loadComponent: () => import('./accounting/reports/budget-variance/budget-variance-report.component').then(c => c.BudgetVarianceReportComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Accounts' },
   },

@@ -97,6 +97,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     public string? Notes { get; set; }
 
+    /// <summary>Link to project for timesheet-based billing.</summary>
+    public Guid? ProjectId { get; set; }
+
     // Line items
     private readonly List<SalesInvoiceItem> _items = new();
     public IReadOnlyList<SalesInvoiceItem> Items => _items.AsReadOnly();
@@ -127,6 +130,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
         if (!IsReturn && quantity <= 0)
             throw new ArgumentException("Quantity must be positive for non-return invoices.", nameof(quantity));
+        if (IsReturn && quantity >= 0)
+            throw new ArgumentException("Quantity must be negative for return invoices (credit notes).", nameof(quantity));
 
         _items.Add(new SalesInvoiceItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
@@ -141,6 +146,11 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per DO-NOT: opening invoices with update_stock=true are blocked (accounting-only)
+        if (IsOpening && UpdateStock)
+            throw new BusinessException(MyERPDomainErrorCodes.OpeningInvoiceCannotUpdateStock)
+                .WithData("documentType", "Sales Invoice");
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new SalesInvoiceSubmittedEvent(this));

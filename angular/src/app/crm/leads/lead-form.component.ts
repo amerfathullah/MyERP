@@ -7,10 +7,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
 
+import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+
 @Component({
   selector: 'app-lead-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './lead-form.component.html',
   styleUrls: ['./lead-form.component.scss'],
 })
@@ -69,4 +71,6 @@ export class LeadFormComponent implements OnInit {
     }
     this.router.navigate(['/crm/leads']);
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
 }

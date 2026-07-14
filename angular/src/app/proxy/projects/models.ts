@@ -108,3 +108,9 @@ export interface GetProjectListDto {
   maxResultCount?: number;
   sorting?: string;
 }
+
+export interface CreateTimesheetDto { [key: string]: any; }
+
+export interface TimesheetDto { [key: string]: any; }
+
+export interface UnbilledTimesheetSummaryDto { [key: string]: any; }

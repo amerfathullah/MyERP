@@ -5,11 +5,14 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { IssueDetailService, type IssueDetailDto } from '../../proxy/detail-services';
 
+import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+
 @Component({
   selector: 'app-issue-detail', standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'Issues' | abpLocalization">
+  <app-breadcrumb />
       @if (d) {
         <div class="card"><div class="card-body">
           <h5>{{ d.subject }}</h5>
