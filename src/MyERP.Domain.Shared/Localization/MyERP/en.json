@@ -286,6 +286,7 @@
     "Permission:Projects.Edit": "Edit projects",
     "Permission:Projects.Delete": "Delete projects",
     "Menu:Projects": "Projects",
+    "Menu:ProjectList": "All Projects",
     "Projects:Projects": "Projects",
     "Projects:NewProject": "New Project",
     "Projects:CreateFirstProject": "Create First Project",
