@@ -710,6 +710,32 @@ export const APP_ROUTES: Routes = [
     canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Projects.Create' },
   },
+  // Timesheets (must be before projects/:id to avoid param capture)
+  {
+    path: 'projects/timesheets',
+    loadComponent: () => import('./projects/timesheets/timesheet-list.component').then(c => c.TimesheetListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/timesheets/new',
+    loadComponent: () => import('./projects/timesheets/timesheet-form.component').then(c => c.TimesheetFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Projects.Create' },
+  },
+  {
+    path: 'projects/timesheets/:id',
+    loadComponent: () => import('./projects/timesheets/timesheet-detail.component').then(c => c.TimesheetDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/timesheet-billing',
+    loadComponent: () => import('./projects/timesheet-billing/timesheet-billing.component').then(c => c.TimesheetBillingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
   {
     path: 'projects/:id',
     loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
@@ -841,32 +867,6 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
     data: { requiredPolicy: 'MyERP.Issues.Create' },
-  },
-  // Timesheets
-  {
-    path: 'projects/timesheets',
-    loadComponent: () => import('./projects/timesheets/timesheet-list.component').then(c => c.TimesheetListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Projects' },
-  },
-  {
-    path: 'projects/timesheets/new',
-    loadComponent: () => import('./projects/timesheets/timesheet-form.component').then(c => c.TimesheetFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.Projects.Create' },
-  },
-  {
-    path: 'projects/timesheets/:id',
-    loadComponent: () => import('./projects/timesheets/timesheet-detail.component').then(c => c.TimesheetDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Projects' },
-  },
-  {
-    path: 'projects/timesheet-billing',
-    loadComponent: () => import('./projects/timesheet-billing/timesheet-billing.component').then(c => c.TimesheetBillingComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Projects' },
   },
   // Leave
   {
