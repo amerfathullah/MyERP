@@ -91,6 +91,32 @@ public class CustomerAppService :
 
         return new PagedResultDto<CustomerDto>(
             totalCount,
-            ObjectMapper.Map<System.Collections.Generic.List<Customer>, System.Collections.Generic.List<CustomerDto>>(items));
+            items.Select(MapToDto).ToList());
     }
+
+    private static CustomerDto MapToDto(Customer c) => new()
+    {
+        Id = c.Id,
+        CompanyId = c.CompanyId,
+        Name = c.Name,
+        CustomerCode = c.CustomerCode,
+        Tin = c.Tin,
+        RegistrationNumber = c.RegistrationNumber,
+        SstRegistrationNumber = c.SstRegistrationNumber,
+        IdType = c.IdType,
+        IdValue = c.IdValue,
+        ContactPerson = c.ContactPerson,
+        Phone = c.Phone,
+        Email = c.Email,
+        Website = c.Website,
+        Address = c.Address,
+        City = c.City,
+        State = c.State,
+        PostalCode = c.PostalCode,
+        Country = c.Country,
+        DefaultReceivableAccountId = c.DefaultReceivableAccountId,
+        IsActive = c.IsActive,
+        CreationTime = c.CreationTime,
+        LastModificationTime = c.LastModificationTime,
+    };
 }

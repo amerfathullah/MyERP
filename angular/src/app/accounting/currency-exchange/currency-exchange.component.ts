@@ -2,8 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe, RestService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 interface CurrencyExchangeDto {
@@ -93,7 +92,7 @@ interface CurrencyExchangeDto {
 })
 export class CurrencyExchangeComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private toaster = inject(ToasterService);
 
   rates = signal<CurrencyExchangeDto[]>([]);
@@ -109,7 +108,7 @@ export class CurrencyExchangeComponent implements OnInit {
   ngOnInit(): void { this.loadRates(); }
 
   loadRates(): void {
-    this.http.get<any>('/api/app/currency-exchange', { params: { skipCount: '0', maxResultCount: '100' } })
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/currency-exchange', params: { skipCount: '0', maxResultCount: '100' } }, { apiName: 'Default' })
       .subscribe({
         next: res => { this.rates.set(res.items ?? res ?? []); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
@@ -118,7 +117,7 @@ export class CurrencyExchangeComponent implements OnInit {
 
   addRate(): void {
     if (this.form.invalid) return;
-    this.http.post<CurrencyExchangeDto>('/api/app/currency-exchange', this.form.getRawValue())
+    this.restService.request<any, CurrencyExchangeDto>({ method: 'POST', url: '/api/app/currency-exchange', body: this.form.getRawValue() }, { apiName: 'Default' })
       .subscribe({
         next: () => { this.toaster.success('Rate added'); this.loadRates(); },
         error: () => this.toaster.error('Failed to add rate'),
@@ -126,7 +125,7 @@ export class CurrencyExchangeComponent implements OnInit {
   }
 
   deleteRate(id: string): void {
-    this.http.delete(`/api/app/currency-exchange/${id}`).subscribe({
+    this.restService.request<any, void>({ method: 'DELETE', url: `/api/app/currency-exchange/${id}` }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Rate deleted'); this.loadRates(); },
       error: () => this.toaster.error('Failed to delete'),
     });

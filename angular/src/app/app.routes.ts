@@ -1126,6 +1126,57 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
 
+  // New/create routes for recently added modules (MUST be before :id routes — Gotcha #50)
+  {
+    path: 'accounting/budgets/new',
+    loadComponent: () => import('./accounting/budgets/budget-form.component').then(c => c.BudgetFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Budgets.Create' },
+  },
+  {
+    path: 'hr/holiday-lists/new',
+    loadComponent: () => import('./hr/holiday-lists/holiday-list-form.component').then(c => c.HolidayListFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Employees.Create' },
+  },
+  {
+    path: 'hr/salary-structures/new',
+    loadComponent: () => import('./hr/salary-structures/salary-structure-form.component').then(c => c.SalaryStructureFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Payroll.Create' },
+  },
+  {
+    path: 'inventory/landed-costs/new',
+    loadComponent: () => import('./inventory/landed-costs/landed-cost-form.component').then(c => c.LandedCostFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.LandedCostVouchers.Create' },
+  },
+  {
+    path: 'inventory/quality-inspections/new',
+    loadComponent: () => import('./inventory/quality-inspections/quality-inspection-form.component').then(c => c.QualityInspectionFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
+  },
+  {
+    path: 'inventory/stock-reconciliations/new',
+    loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-form.component').then(c => c.StockReconciliationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.StockReconciliations.Create' },
+  },
+  {
+    path: 'manufacturing/workstations/new',
+    loadComponent: () => import('./manufacturing/workstations/workstation-form.component').then(c => c.WorkstationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
+  },
+
   // Detail routes for recently added modules
   {
     path: 'accounting/budgets/:id',
@@ -1199,56 +1250,6 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ApprovalWorkflows.Edit' },
   },
 
-  // New/create routes for recently added modules
-  {
-    path: 'accounting/budgets/new',
-    loadComponent: () => import('./accounting/budgets/budget-form.component').then(c => c.BudgetFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.Budgets.Create' },
-  },
-  {
-    path: 'hr/holiday-lists/new',
-    loadComponent: () => import('./hr/holiday-lists/holiday-list-form.component').then(c => c.HolidayListFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.Employees.Create' },
-  },
-  {
-    path: 'hr/salary-structures/new',
-    loadComponent: () => import('./hr/salary-structures/salary-structure-form.component').then(c => c.SalaryStructureFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.Payroll.Create' },
-  },
-  {
-    path: 'inventory/landed-costs/new',
-    loadComponent: () => import('./inventory/landed-costs/landed-cost-form.component').then(c => c.LandedCostFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.LandedCostVouchers.Create' },
-  },
-  {
-    path: 'inventory/quality-inspections/new',
-    loadComponent: () => import('./inventory/quality-inspections/quality-inspection-form.component').then(c => c.QualityInspectionFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
-  },
-  {
-    path: 'inventory/stock-reconciliations/new',
-    loadComponent: () => import('./inventory/stock-reconciliations/stock-reconciliation-form.component').then(c => c.StockReconciliationFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.StockReconciliations.Create' },
-  },
-  {
-    path: 'manufacturing/workstations/new',
-    loadComponent: () => import('./manufacturing/workstations/workstation-form.component').then(c => c.WorkstationFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
-    data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
-  },
   {
     path: 'sales/pricing-rules/new',
     loadComponent: () => import('./sales/pricing-rules/pricing-rule-form.component').then(c => c.PricingRuleFormComponent),

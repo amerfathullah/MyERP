@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using MyERP.Accounting.DomainServices;
 using MyERP.Localization;
 using MyERP.MultiTenancy;
 using System;
@@ -44,6 +45,10 @@ public class MyERPDomainModule : AbpModule
         {
             options.IsEnabled = MultiTenancyConsts.IsEnabled;
         });
+
+        // Explicit registration: ABP convention doesn't auto-expose ICurrencyExchangeProvider
+        // because FrankfurterExchangeProvider's name doesn't match the interface naming pattern.
+        context.Services.AddTransient<ICurrencyExchangeProvider, FrankfurterExchangeProvider>();
 
 
 #if DEBUG

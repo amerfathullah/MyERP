@@ -137,6 +137,37 @@ public class ItemAppService :
 
         return new PagedResultDto<ItemDto>(
             totalCount,
-            ObjectMapper.Map<System.Collections.Generic.List<Item>, System.Collections.Generic.List<ItemDto>>(items));
+            items.Select(MapToDto).ToList());
     }
+
+    private static ItemDto MapToDto(Item i) => new()
+    {
+        Id = i.Id,
+        CompanyId = i.CompanyId,
+        ItemCode = i.ItemCode,
+        ItemName = i.ItemName,
+        Barcode = i.Barcode,
+        Description = i.Description,
+        ItemType = i.ItemType,
+        ItemGroup = i.ItemGroup,
+        Brand = i.Brand,
+        Uom = i.Uom,
+        ValuationMethod = i.ValuationMethod,
+        StandardSellingPrice = i.StandardSellingPrice,
+        StandardBuyingPrice = i.StandardBuyingPrice,
+        TaxCategoryId = i.TaxCategoryId,
+        MaintainStock = i.MaintainStock,
+        DefaultIncomeAccountId = i.DefaultIncomeAccountId,
+        DefaultExpenseAccountId = i.DefaultExpenseAccountId,
+        IsActive = i.IsActive,
+        ReorderLevel = i.ReorderLevel,
+        ReorderQty = i.ReorderQty,
+        SafetyStock = i.SafetyStock,
+        DefaultWarehouseId = i.DefaultWarehouseId,
+        MinOrderQty = i.MinOrderQty,
+        InspectionRequiredBeforePurchase = i.InspectionRequiredBeforePurchase,
+        InspectionRequiredBeforeDelivery = i.InspectionRequiredBeforeDelivery,
+        CreationTime = i.CreationTime,
+        LastModificationTime = i.LastModificationTime,
+    };
 }

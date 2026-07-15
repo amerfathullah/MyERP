@@ -91,6 +91,32 @@ public class SupplierAppService :
 
         return new PagedResultDto<SupplierDto>(
             totalCount,
-            ObjectMapper.Map<System.Collections.Generic.List<Purchasing.Entities.Supplier>, System.Collections.Generic.List<SupplierDto>>(items));
+            items.Select(MapToDto).ToList());
     }
+
+    private static SupplierDto MapToDto(Purchasing.Entities.Supplier s) => new()
+    {
+        Id = s.Id,
+        CompanyId = s.CompanyId,
+        Name = s.Name,
+        SupplierCode = s.SupplierCode,
+        Tin = s.Tin,
+        RegistrationNumber = s.RegistrationNumber,
+        SstRegistrationNumber = s.SstRegistrationNumber,
+        IdType = s.IdType,
+        IdValue = s.IdValue,
+        ContactPerson = s.ContactPerson,
+        Phone = s.Phone,
+        Email = s.Email,
+        Website = s.Website,
+        Address = s.Address,
+        City = s.City,
+        State = s.State,
+        PostalCode = s.PostalCode,
+        Country = s.Country,
+        DefaultPayableAccountId = s.DefaultPayableAccountId,
+        IsActive = s.IsActive,
+        CreationTime = s.CreationTime,
+        LastModificationTime = s.LastModificationTime,
+    };
 }
