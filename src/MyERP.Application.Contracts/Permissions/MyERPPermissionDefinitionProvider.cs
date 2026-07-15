@@ -220,6 +220,26 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Delete, L("Permission:LandedCostVouchers.Delete"));
         lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Submit, L("Permission:LandedCostVouchers.Submit"));
         lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Cancel, L("Permission:LandedCostVouchers.Cancel"));
+
+        var loyaltyPermission = myGroup.AddPermission(MyERPPermissions.LoyaltyPrograms.Default, L("Permission:LoyaltyPrograms"));
+        loyaltyPermission.AddChild(MyERPPermissions.LoyaltyPrograms.Create, L("Permission:LoyaltyPrograms.Create"));
+        loyaltyPermission.AddChild(MyERPPermissions.LoyaltyPrograms.Edit, L("Permission:LoyaltyPrograms.Edit"));
+        loyaltyPermission.AddChild(MyERPPermissions.LoyaltyPrograms.Delete, L("Permission:LoyaltyPrograms.Delete"));
+
+        var scorecardPermission = myGroup.AddPermission(MyERPPermissions.SupplierScorecards.Default, L("Permission:SupplierScorecards"));
+        scorecardPermission.AddChild(MyERPPermissions.SupplierScorecards.Create, L("Permission:SupplierScorecards.Create"));
+        scorecardPermission.AddChild(MyERPPermissions.SupplierScorecards.Edit, L("Permission:SupplierScorecards.Edit"));
+        scorecardPermission.AddChild(MyERPPermissions.SupplierScorecards.Delete, L("Permission:SupplierScorecards.Delete"));
+
+        var shippingPermission = myGroup.AddPermission(MyERPPermissions.ShippingRules.Default, L("Permission:ShippingRules"));
+        shippingPermission.AddChild(MyERPPermissions.ShippingRules.Create, L("Permission:ShippingRules.Create"));
+        shippingPermission.AddChild(MyERPPermissions.ShippingRules.Edit, L("Permission:ShippingRules.Edit"));
+        shippingPermission.AddChild(MyERPPermissions.ShippingRules.Delete, L("Permission:ShippingRules.Delete"));
+
+        var spPermission = myGroup.AddPermission(MyERPPermissions.SalesPersons.Default, L("Permission:SalesPersons"));
+        spPermission.AddChild(MyERPPermissions.SalesPersons.Create, L("Permission:SalesPersons.Create"));
+        spPermission.AddChild(MyERPPermissions.SalesPersons.Edit, L("Permission:SalesPersons.Edit"));
+        spPermission.AddChild(MyERPPermissions.SalesPersons.Delete, L("Permission:SalesPersons.Delete"));
     }
 
     private static LocalizableString L(string name)

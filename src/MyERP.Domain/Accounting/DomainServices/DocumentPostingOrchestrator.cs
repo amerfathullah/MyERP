@@ -69,6 +69,10 @@ public class DocumentPostingOrchestrator : DomainService
 
         // Step 1: Create GL entries via rule engine
         var journal = await _ruleEngine.PostDocumentAsync(invoice);
+
+        // Step 2: Validate mandatory accounting dimensions on GL lines
+        await _dimensionService.ValidateMandatoryDimensionsAsync(invoice.CompanyId, journal.Lines);
+
         await _journalRepository.InsertAsync(journal);
 
         // Step 2: Create PLE entry — DR (increases outstanding for customer)
@@ -108,6 +112,10 @@ public class DocumentPostingOrchestrator : DomainService
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);
 
         var journal = await _ruleEngine.PostDocumentAsync(invoice);
+
+        // Validate mandatory accounting dimensions on GL lines
+        await _dimensionService.ValidateMandatoryDimensionsAsync(invoice.CompanyId, journal.Lines);
+
         await _journalRepository.InsertAsync(journal);
 
         if (invoice.SupplierId.HasValue)
@@ -149,6 +157,10 @@ public class DocumentPostingOrchestrator : DomainService
         await ValidatePostingPeriodAsync(payment.CompanyId, payment.PostingDate, payment.DocumentType);
 
         var journal = await _ruleEngine.PostDocumentAsync(payment);
+
+        // Validate mandatory accounting dimensions on GL lines
+        await _dimensionService.ValidateMandatoryDimensionsAsync(payment.CompanyId, journal.Lines);
+
         await _journalRepository.InsertAsync(journal);
 
         // Create PLE entries for each allocation — reduces outstanding on the target invoice
@@ -196,6 +208,7 @@ public class DocumentPostingOrchestrator : DomainService
         await ValidatePostingPeriodAsync(deliveryNote.CompanyId, deliveryNote.PostingDate, deliveryNote.DocumentType);
 
         var journal = await _ruleEngine.PostDocumentAsync(deliveryNote);
+        await _dimensionService.ValidateMandatoryDimensionsAsync(deliveryNote.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
     }
@@ -209,6 +222,7 @@ public class DocumentPostingOrchestrator : DomainService
         await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
 
         var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt);
+        await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
     }

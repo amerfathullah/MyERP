@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -25,7 +25,7 @@ interface AgingReportDto {
   templateUrl: './aging-report.component.html',
   styleUrls: ['./aging-report.component.scss'],
 })
-export class AgingReportComponent {
+export class AgingReportComponent implements OnInit {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);

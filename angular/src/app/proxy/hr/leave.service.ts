@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 
@@ -28,7 +28,7 @@ export interface LeaveApplicationDto {
 @Injectable({ providedIn: 'root' })
 export class LeaveService {
   apiName = 'Default';
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   getLeaveTypes = (config?: Partial<Rest.Config>) =>
     this.restService.request<void, LeaveTypeDto[]>({ method: 'GET', url: '/api/app/leave/leave-types' }, { apiName: this.apiName, ...config });
@@ -45,3 +45,5 @@ export class LeaveService {
   reject = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, LeaveApplicationDto>({ method: 'POST', url: `/api/app/leave/${id}/reject` }, { apiName: this.apiName, ...config });
 }
+
+

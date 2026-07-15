@@ -12,7 +12,7 @@ import { Subscription } from 'rxjs';
  * Or apply globally via CSS by adding invalid-feedback after is-invalid inputs.
  */
 @Directive({
-  selector: '[formControlName]',
+  selector: '[appAutoValidation],[formControlName]',
   standalone: true,
 })
 export class AutoValidationDirective implements OnInit, OnDestroy {
@@ -59,7 +59,7 @@ export class AutoValidationDirective implements OnInit, OnDestroy {
       this.renderer.addClass(this.feedbackEl, 'invalid-feedback');
       this.renderer.appendChild(this.el.nativeElement.parentNode, this.feedbackEl);
     }
-    this.feedbackEl.textContent = message;
+    this.feedbackEl!.textContent = message;
   }
 
   private removeFeedback(): void {

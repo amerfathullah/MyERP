@@ -1825,6 +1825,9 @@ namespace MyERP.Migrations
                     b.Property<Guid>("PaymentEntryId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PaymentTermId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ReferenceId")
                         .HasColumnType("uuid");
 
@@ -2515,6 +2518,159 @@ namespace MyERP.Migrations
                     b.ToTable("Ast_Assets", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CapitalizationNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<DateTime>("PostingDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TargetAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetAssetName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal>("TotalCapitalizedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetAssetId");
+
+                    b.HasIndex("TenantId", "CompanyId", "Status");
+
+                    b.ToTable("Ast_Capitalizations", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalizationAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssetCapitalizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssetName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("CurrentValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetCapitalizationId");
+
+                    b.ToTable("Ast_CapitalizationAssets", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalizationItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("AssetCapitalizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssetCapitalizationId1")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ExpenseAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetCapitalizationId");
+
+                    b.HasIndex("AssetCapitalizationId1");
+
+                    b.ToTable("Ast_CapitalizationItems", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Assets.Entities.AssetCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2695,6 +2851,97 @@ namespace MyERP.Migrations
                     b.HasIndex("TenantId", "AssetId", "MovementDate");
 
                     b.ToTable("Ast_AssetMovements", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetRepair", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CapitalizeRepairCost")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletionDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<DateTime?>("FailureDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("IncreaseInAssetLife")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<decimal>("RepairCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RepairDescription")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("StockItemConsumedCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("TenantId", "AssetId", "Status");
+
+                    b.ToTable("Ast_Repairs", (string)null);
                 });
 
             modelBuilder.Entity("MyERP.Assets.Entities.DepreciationScheduleEntry", b =>
@@ -6999,6 +7246,99 @@ namespace MyERP.Migrations
                     b.ToTable("Inv_ItemAttributeValues", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Inventory.Entities.ItemDefault", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BuyingCostCenterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<decimal>("DefaultDiscountPercentage")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("DefaultPriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultSupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<Guid?>("ExpenseAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<Guid?>("IncomeAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<Guid?>("SellingCostCenterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TenantId", "ItemId", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("Inv_ItemDefaults", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Inventory.Entities.ItemGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7662,6 +8002,91 @@ namespace MyERP.Migrations
                         .IsUnique();
 
                     b.ToTable("Inv_PriceLists", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Inventory.Entities.PutawayRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ItemGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("StockCapacity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<string>("Uom")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("TenantId", "CompanyId", "ItemId", "WarehouseId");
+
+                    b.ToTable("Inv_PutawayRules", (string)null);
                 });
 
             modelBuilder.Entity("MyERP.Inventory.Entities.QualityInspection", b =>
@@ -8565,6 +8990,80 @@ namespace MyERP.Migrations
                     b.ToTable("Inv_StockReservationEntries", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Inventory.Entities.Uom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<bool>("MustBeWholeNumber")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Inv_Uoms", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Inventory.Entities.UomConversion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8724,6 +9223,10 @@ namespace MyERP.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BackflushBasedOn")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("BomNumber")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -8792,6 +9295,9 @@ namespace MyERP.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("RoutingId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("SourceWarehouseId")
                         .HasColumnType("uuid");
@@ -9537,6 +10043,9 @@ namespace MyERP.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("BatchSize")
+                        .HasColumnType("numeric");
 
                     b.Property<DateTime>("CreationTime")
                         .HasColumnType("timestamp without time zone")
@@ -10732,6 +11241,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("CreatorId")
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
+
+                    b.Property<Guid>("CreditToAccountId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
@@ -12968,6 +13480,117 @@ namespace MyERP.Migrations
                     b.ToTable("Sal_DunningOverduePayments", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.InstallationNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<Guid>("DeliveryNoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<DateTime>("InstallationDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("InstallationNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("DeliveryNoteId");
+
+                    b.HasIndex("TenantId", "CompanyId", "DeliveryNoteId");
+
+                    b.ToTable("Sal_InstallationNotes", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.InstallationNoteItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InstallationNoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SerialNo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstallationNoteId");
+
+                    b.ToTable("Sal_InstallationNoteItems", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.LoyaltyPointEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -13830,6 +14453,9 @@ namespace MyERP.Migrations
                         .HasColumnType("character varying(3)");
 
                     b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DebitToAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("DeleterId")
@@ -17722,6 +18348,34 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalization", b =>
+                {
+                    b.HasOne("MyERP.Assets.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("TargetAssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalizationAsset", b =>
+                {
+                    b.HasOne("MyERP.Assets.Entities.AssetCapitalization", null)
+                        .WithMany("ConsumedAssets")
+                        .HasForeignKey("AssetCapitalizationId");
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalizationItem", b =>
+                {
+                    b.HasOne("MyERP.Assets.Entities.AssetCapitalization", null)
+                        .WithMany("ServiceItems")
+                        .HasForeignKey("AssetCapitalizationId");
+
+                    b.HasOne("MyERP.Assets.Entities.AssetCapitalization", null)
+                        .WithMany("StockItems")
+                        .HasForeignKey("AssetCapitalizationId1")
+                        .HasConstraintName("FK_Ast_CapitalizationItems_Ast_Capitalizations_AssetCapitaliz~1");
+                });
+
             modelBuilder.Entity("MyERP.Assets.Entities.AssetMovement", b =>
                 {
                     b.HasOne("MyERP.Assets.Entities.Asset", null)
@@ -17733,6 +18387,15 @@ namespace MyERP.Migrations
                     b.HasOne("MyERP.Core.Entities.Company", null)
                         .WithMany()
                         .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetRepair", b =>
+                {
+                    b.HasOne("MyERP.Assets.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -18026,6 +18689,21 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Inventory.Entities.ItemDefault", b =>
+                {
+                    b.HasOne("MyERP.Core.Entities.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyERP.Inventory.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyERP.Inventory.Entities.ItemPrice", b =>
                 {
                     b.HasOne("MyERP.Inventory.Entities.Item", null)
@@ -18118,6 +18796,15 @@ namespace MyERP.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MyERP.Inventory.Entities.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Inventory.Entities.PutawayRule", b =>
+                {
                     b.HasOne("MyERP.Inventory.Entities.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("WarehouseId")
@@ -18839,6 +19526,30 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.InstallationNote", b =>
+                {
+                    b.HasOne("MyERP.Sales.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyERP.Sales.Entities.DeliveryNote", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryNoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.InstallationNoteItem", b =>
+                {
+                    b.HasOne("MyERP.Sales.Entities.InstallationNote", null)
+                        .WithMany("Items")
+                        .HasForeignKey("InstallationNoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.LoyaltyPointEntry", b =>
                 {
                     b.HasOne("MyERP.Sales.Entities.Customer", null)
@@ -19379,6 +20090,15 @@ namespace MyERP.Migrations
                     b.Navigation("DepreciationSchedule");
                 });
 
+            modelBuilder.Entity("MyERP.Assets.Entities.AssetCapitalization", b =>
+                {
+                    b.Navigation("ConsumedAssets");
+
+                    b.Navigation("ServiceItems");
+
+                    b.Navigation("StockItems");
+                });
+
             modelBuilder.Entity("MyERP.Assets.Entities.MaintenanceSchedule", b =>
                 {
                     b.Navigation("Details");
@@ -19581,6 +20301,11 @@ namespace MyERP.Migrations
             modelBuilder.Entity("MyERP.Sales.Entities.Dunning", b =>
                 {
                     b.Navigation("OverduePayments");
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.InstallationNote", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("MyERP.Sales.Entities.LoyaltyProgram", b =>

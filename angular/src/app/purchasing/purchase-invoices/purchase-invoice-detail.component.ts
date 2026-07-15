@@ -4,7 +4,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
@@ -29,6 +29,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   private service = inject(PurchaseInvoiceService);
   private store = inject(PurchaseInvoiceStore);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   invoice: PurchaseInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -46,7 +47,13 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     if (this.invoice.status === 'Posted') {
       actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'primary' });
       actions.push({ name: 'return', label: 'Create Return', icon: 'undo', color: 'accent' });
+      if ((this.invoice as any).outstandingAmount > 0) {
+        actions.push({ name: 'writeOff', label: 'Write Off', icon: 'backspace', color: 'accent' });
+      }
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+    }
+    if (this.invoice.status === 'Cancelled') {
+      actions.push({ name: 'amend', label: 'Amend', icon: 'file_copy', color: 'primary' });
     }
     return actions;
   }
@@ -87,6 +94,22 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'return':
         this.router.navigate(['/purchasing/invoices/new'], {
           queryParams: { returnAgainst: id }
+        });
+        break;
+      case 'writeOff':
+        this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.http.post<any>(`/api/app/purchase-invoice/${id}/write-off`, {}).subscribe({
+              next: () => { this.toaster.success('Invoice written off.'); this.reloadAfterAction(); },
+              error: () => {},
+            });
+          }
+        });
+        break;
+      case 'amend':
+        this.http.post<any>(`/api/app/purchase-invoice/${id}/amend`, {}).subscribe({
+          next: (amended) => this.router.navigate(['/purchasing/invoices', amended.id]),
+          error: () => {},
         });
         break;
     }

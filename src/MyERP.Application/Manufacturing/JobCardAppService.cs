@@ -60,6 +60,7 @@ public class GetJobCardListDto : PagedAndSortedResultRequestDto
     public Guid? WorkOrderId { get; set; }
     public Guid? CompanyId { get; set; }
     public JobCardStatus? Status { get; set; }
+    public string? Filter { get; set; }
 }
 
 [Authorize(MyERPPermissions.Manufacturing.Default)]
@@ -78,6 +79,11 @@ public class JobCardAppService : ApplicationService
             query = query.Where(j => j.CompanyId == input.CompanyId.Value);
         if (input.Status.HasValue)
             query = query.Where(j => j.Status == input.Status.Value);
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var f = input.Filter.ToLower();
+            query = query.Where(j => j.WorkstationType != null && j.WorkstationType.ToLower().Contains(f));
+        }
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(j => j.CreationTime)

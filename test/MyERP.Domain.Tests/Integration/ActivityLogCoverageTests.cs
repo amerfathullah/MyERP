@@ -123,8 +123,8 @@ public class ActivityLogCoverageTests
             Guid.NewGuid(), "PO-001",
             details: $"Converted to PurchaseReceipt ({targetId})");
 
-        log.Details.ShouldContain("PurchaseReceipt");
-        log.Details.ShouldContain(targetId.ToString());
+        log.Details!.ShouldContain("PurchaseReceipt");
+        log.Details!.ShouldContain(targetId.ToString());
     }
 
     [Fact]

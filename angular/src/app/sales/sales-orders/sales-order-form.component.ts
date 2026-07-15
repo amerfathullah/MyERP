@@ -6,9 +6,11 @@ import { PageModule } from '@abp/ng.components/page';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesOrderStore } from '../store/sales-order.store';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-sales-order-form',
@@ -23,12 +25,15 @@ export class SalesOrderFormComponent implements OnInit {
   private router = inject(Router);
   private taxCalc = inject(TaxCalculationService);
   private store = inject(SalesOrderStore);
+  private soService = inject(SalesOrderService);
   private customerService = inject(CustomerService);
+  private companyContext = inject(CompanyContextService);
 
   customers = signal<any[]>([]);
 
   form = this.fb.group({
     orderNumber: [''],
+    companyId: ['', Validators.required],
     orderDate: [new Date(), Validators.required],
     deliveryDate: [null as Date | null, Validators.required],
     customerId: ['', Validators.required],
@@ -39,6 +44,9 @@ export class SalesOrderFormComponent implements OnInit {
   calcResult: TaxCalculationResult = { netTotal: 0, taxLines: [], totalTax: 0, grandTotal: 0 };
 
   ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.customers.set(res.items ?? []));
   }
@@ -58,8 +66,10 @@ export class SalesOrderFormComponent implements OnInit {
     if (this.form.invalid) return;
     this.recalculate();
     const dto = this.form.getRawValue() as any;
-    this.store.create(dto);
-    this.router.navigate(['/sales/orders']);
+    this.soService.create(dto).subscribe({
+      next: () => this.router.navigate(['/sales/orders']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void { this.router.navigate(['/sales/orders']); }

@@ -83,6 +83,10 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             Notes = input.Notes,
         };
 
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         foreach (var item in input.Items)
         {
             entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId);
@@ -137,6 +141,13 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         entity.Submit();
         await _repository.UpdateAsync(entity);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaterialRequest", entity.Id, "Submitted",
+            entity.CompanyId, entity.RequestNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: entity.TenantId));
+
         return MapToDto(entity);
     }
 
@@ -146,6 +157,13 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         var entity = await _repository.GetAsync(id, includeDetails: true);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaterialRequest", entity.Id, "Cancelled",
+            entity.CompanyId, entity.RequestNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: entity.TenantId));
+
         return MapToDto(entity);
     }
 

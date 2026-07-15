@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectStore } from '../store/project.store';
 import { CompanyService } from '../../proxy/core/company.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -23,6 +24,7 @@ export class ProjectFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private store = inject(ProjectStore);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
@@ -47,6 +49,12 @@ export class ProjectFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe((res) => this.companies.set(res.items ?? []));
+
+    // Auto-fill companyId from context for new documents
+    if (!this.isEditMode) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) this.form.patchValue({ companyId: cid });
+    }
   }
 
   save(): void {

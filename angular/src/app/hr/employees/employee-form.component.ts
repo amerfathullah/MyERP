@@ -82,8 +82,10 @@ export class EmployeeFormComponent implements OnInit {
         this.router.navigate(['/hr/employees']);
       });
     } else {
-      this.store.create(dto);
-      this.router.navigate(['/hr/employees']);
+      this.service.create(dto).subscribe({
+        next: () => this.router.navigate(['/hr/employees']),
+        error: () => { /* handled by global error interceptor */ },
+      });
     }
   }
 

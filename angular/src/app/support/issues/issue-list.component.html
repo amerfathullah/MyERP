@@ -1,12 +1,14 @@
 <abp-page [title]="'Issues' | abpLocalization">
-  <div class="d-flex justify-content-end gap-2 mb-3">
+  <div class="d-flex justify-content-between gap-2 mb-3">
+    <input type="text" class="form-control form-control-sm" style="width:200px"
+      [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Search...">
     <button class="btn btn-primary btn-sm" routerLink="/support/issues/new">
       <i class="fa fa-plus me-1"></i>{{ 'NewIssue' | abpLocalization }}
     </button>
   </div>
 
   @if (store.isLoading()) {
-    <app-loading-overlay />
+    <div class="text-center py-3"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
   }
 
   @if (!store.isLoading() && store.entities().length === 0) {

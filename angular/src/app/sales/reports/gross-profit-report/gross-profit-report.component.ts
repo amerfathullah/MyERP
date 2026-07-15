@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -35,7 +35,7 @@ interface GrossProfitReportDto {
   templateUrl: './gross-profit-report.component.html',
   styleUrls: ['./gross-profit-report.component.scss'],
 })
-export class GrossProfitReportComponent {
+export class GrossProfitReportComponent implements OnInit {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);

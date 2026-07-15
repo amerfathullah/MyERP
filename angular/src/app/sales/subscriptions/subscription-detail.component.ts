@@ -42,7 +42,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th class="text-end">{{ 'Quantity' | abpLocalization }}</th><th class="text-end">{{ 'Rate' | abpLocalization }}</th><th class="text-end">{{ 'Amount' | abpLocalization }}</th></tr></thead>
               <tbody>
                 @for (p of d.plans; track p.id) {
-                  <tr><td>{{ p.itemName ?? '—' }}</td><td class="text-end">{{ p.qty }}</td><td class="text-end">{{ p.rate | number:'1.2-2' }}</td><td class="text-end fw-bold">{{ (p.qty * p.rate) | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ p.itemName ?? '—' }}</td><td class="text-end">{{ p.qty }}</td><td class="text-end">{{ p.rate | number:'1.2-2' }}</td><td class="text-end fw-bold">{{ ((p.qty ?? 0) * (p.rate ?? 0)) | number:'1.2-2' }}</td></tr>
                 }
               </tbody>
             </table>
@@ -85,6 +85,6 @@ export class SubscriptionDetailComponent implements OnInit {
     });
   }
 
-  statusLabel(s: number) { return ['Active', 'Past Due', 'Unpaid', 'Cancelled', 'Completed'][s]; }
-  statusClass(s: number) { return ['bg-success', 'bg-warning', 'bg-danger', 'bg-secondary', 'bg-info'][s]; }
+  statusLabel(s: number | undefined) { return ['Active', 'Past Due', 'Unpaid', 'Cancelled', 'Completed'][s ?? 0]; }
+  statusClass(s: number | undefined) { return ['bg-success', 'bg-warning', 'bg-danger', 'bg-secondary', 'bg-info'][s ?? 0]; }
 }

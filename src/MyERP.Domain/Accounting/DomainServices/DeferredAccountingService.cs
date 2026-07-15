@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -14,18 +15,28 @@ namespace MyERP.Accounting.DomainServices;
 /// Per ERPNext: revenue is recognized over the service period (monthly proration).
 /// Catch-up logic: if missed periods exist, generates ALL missed JEs.
 /// Final period uses (total - already_booked) for exact match.
+/// 
+/// GL Pattern (per period):
+///   DR Deferred Revenue (reduce liability)   → deferredRevenueAccountId
+///   CR Revenue (recognize income)            → company.DefaultIncomeAccountId
 /// </summary>
 public class DeferredAccountingService : DomainService
 {
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public DeferredAccountingService(
         IRepository<JournalEntry, Guid> journalEntryRepository,
-        IRepository<SalesInvoice, Guid> salesInvoiceRepository)
+        IRepository<SalesInvoice, Guid> salesInvoiceRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _journalEntryRepository = journalEntryRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
+        _fiscalYearRepository = fiscalYearRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -39,6 +50,15 @@ public class DeferredAccountingService : DomainService
             .Where(si => si.CompanyId == companyId
                       && si.Status == Core.DocumentStatus.Posted)
             .ToList();
+
+        // Find existing deferred revenue JEs to avoid double-booking
+        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
+        var existingDeferredJes = jeQuery
+            .Where(je => je.CompanyId == companyId
+                      && je.ReferenceType == "DeferredRevenue"
+                      && je.Status == Core.DocumentStatus.Posted)
+            .Select(je => je.PostingDate)
+            .ToHashSet();
 
         int jeCount = 0;
 
@@ -56,7 +76,9 @@ public class DeferredAccountingService : DomainService
                 var schedule = GenerateSchedule(item, asOfDate);
                 foreach (var entry in schedule)
                 {
-                    if (entry.AlreadyBooked) continue;
+                    // Skip periods already booked (check existing JE dates) or future periods
+                    if (existingDeferredJes.Contains(entry.PostingDate)) continue;
+                    if (entry.PostingDate > asOfDate) continue;
 
                     var je = CreateRecognitionJE(
                         invoice.CompanyId,
@@ -67,6 +89,7 @@ public class DeferredAccountingService : DomainService
                         tenantId);
 
                     await _journalEntryRepository.InsertAsync(je);
+                    existingDeferredJes.Add(entry.PostingDate); // Track so we don't double-book
                     jeCount++;
                 }
             }
@@ -124,12 +147,26 @@ public class DeferredAccountingService : DomainService
         Guid companyId, decimal amount, Guid deferredAccountId,
         DateTime postingDate, string description, Guid? tenantId)
     {
-        // FiscalYearId would be resolved from the posting date in real implementation
-        var je = new JournalEntry(GuidGenerator.Create(), companyId, Guid.Empty, postingDate, tenantId);
-        // DR: Deferred Revenue (reduce liability)
+        // Resolve fiscal year for the posting date
+        var fyQuery = _fiscalYearRepository.GetQueryableAsync().GetAwaiter().GetResult();
+        var fy = fyQuery.FirstOrDefault(f =>
+            f.CompanyId == companyId && f.StartDate <= postingDate && f.EndDate >= postingDate);
+        var fiscalYearId = fy?.Id ?? Guid.Empty;
+
+        // Resolve income account from company defaults
+        var company = _companyRepository.GetAsync(companyId).GetAwaiter().GetResult();
+        var incomeAccountId = company.DefaultIncomeAccountId ?? deferredAccountId;
+
+        var je = new JournalEntry(GuidGenerator.Create(), companyId, fiscalYearId, postingDate, tenantId);
+        je.ReferenceType = "DeferredRevenue";
+
+        // DR: Deferred Revenue (reduce liability — asset being consumed)
         je.AddLine(deferredAccountId, amount, true, description);
-        // CR: Revenue (recognize income) — in production, would use a resolved income account
-        je.AddLine(deferredAccountId, amount, false, description);
+        // CR: Revenue/Income (recognize income for this period)
+        je.AddLine(incomeAccountId, amount, false, description);
+
+        je.Validate();
+        je.Post();
         return je;
     }
 }

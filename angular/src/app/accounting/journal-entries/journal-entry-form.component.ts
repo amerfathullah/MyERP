@@ -9,6 +9,7 @@ import { JournalEntryService } from '../../proxy/accounting/journal-entry.servic
 import type { AccountDto } from '../../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-journal-entry-form',
@@ -27,10 +28,12 @@ export class JournalEntryFormComponent implements OnInit {
   private accountService = inject(AccountService);
   private journalEntryService = inject(JournalEntryService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   accounts = signal<AccountDto[]>([]);
 
   form = this.fb.group({
+    companyId: [''],
     entryDate: [new Date(), Validators.required],
     reference: [''],
     narration: [''],
@@ -53,6 +56,9 @@ export class JournalEntryFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
       .subscribe((res) => this.accounts.set(res.items ?? []));
   }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { ProjectDto, CreateProjectDto, UpdateProjectDto, ProjectTaskDto, CreateProjectTaskDto, UpdateProjectTaskDto } from './models';
@@ -7,7 +7,7 @@ import type { ProjectDto, CreateProjectDto, UpdateProjectDto, ProjectTaskDto, Cr
 export class ProjectService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, ProjectDto>({ method: 'GET', url: `/api/app/project/${id}` }, { apiName: this.apiName, ...config });
@@ -51,3 +51,5 @@ export class ProjectService {
   cancelTask = (taskId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, ProjectTaskDto>({ method: 'POST', url: `/api/app/project/task/${taskId}/cancel` }, { apiName: this.apiName, ...config });
 }
+
+

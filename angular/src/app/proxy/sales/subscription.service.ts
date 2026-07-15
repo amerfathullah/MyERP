@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class SubscriptionService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
+
 
   advancePeriod = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
@@ -17,7 +17,7 @@ export class SubscriptionService {
       url: `/api/app/subscription/${id}/advance-period`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
@@ -25,7 +25,7 @@ export class SubscriptionService {
       url: `/api/app/subscription/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   create = (input: CreateSubscriptionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
@@ -34,7 +34,7 @@ export class SubscriptionService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
 
   generateInvoice = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, GeneratedInvoiceDto>({
@@ -42,7 +42,7 @@ export class SubscriptionService {
       url: `/api/app/subscription/${id}/generate-invoice`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
@@ -50,13 +50,13 @@ export class SubscriptionService {
       url: `/api/app/subscription/${id}`,
     },
     { apiName: this.apiName,...config });
-  
 
-  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+
+  getList = (input: any, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SubscriptionDto>>({
       method: 'GET',
       url: '/api/app/subscription',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount, filter: input.filter },
     },
     { apiName: this.apiName,...config });
 }

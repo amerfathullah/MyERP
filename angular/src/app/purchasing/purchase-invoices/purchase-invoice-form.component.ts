@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,9 +7,11 @@ import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-purchase-invoice-form',
@@ -30,6 +32,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private taxCalc = inject(TaxCalculationService);
   private service = inject(PurchaseInvoiceService);
   private store = inject(PurchaseInvoiceStore);
+  private supplierService = inject(SupplierService);
+  private companyContext = inject(CompanyContextService);
+
+  suppliers = signal<any[]>([]);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -41,6 +47,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     dueDate: [''],
     currency: ['MYR'],
     notes: [''],
+    isReturn: [false],
+    returnAgainstId: [null as string | null],
     items: this.fb.array([]),
   });
 
@@ -59,8 +67,17 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
+      res => this.suppliers.set(res.items ?? [])
+    );
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
+
+    // Auto-set companyId from company context for new documents
+    if (!this.isEditMode && !this.form?.get?.('companyId')?.value) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) this.form.patchValue({ companyId: cid });
+    }
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((invoice) => {
@@ -85,6 +102,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
             issueDate: new Date().toISOString().split('T')[0],
             currency: source.currencyCode,
             notes: `Debit Note against ${source.invoiceNumber}`,
+            isReturn: true,
+            returnAgainstId: returnAgainst,
           });
           (source.items ?? []).forEach((item: any) => {
             if (item) this.addItemRow({ ...item, quantity: -(item.quantity ?? 0) });
@@ -99,7 +118,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     this.items.push(this.fb.group({
       itemId: [item?.itemId ?? '', Validators.required],
       description: [item?.description ?? '', Validators.required],
-      quantity: [item?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+      quantity: [item?.quantity ?? 1, [Validators.required]],
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'EA'],
@@ -122,8 +141,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     }
     this.recalculate();
     const dto: CreatePurchaseInvoiceDto = this.form.getRawValue() as any;
-    this.store.create(dto);
-    this.router.navigate(['/purchasing/invoices']);
+    this.service.create(dto).subscribe({
+      next: () => this.router.navigate(['/purchasing/invoices']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void {

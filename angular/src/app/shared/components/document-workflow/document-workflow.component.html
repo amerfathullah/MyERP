@@ -1,9 +1,11 @@
 <div class="d-flex align-items-center gap-2">
-  <app-status-badge [status]="currentStatus" />
+  @if (currentStatus) {
+    <app-status-badge [status]="currentStatus" />
+  }
 
-  @for (action of availableActions; track action.name) {
-    <button class="btn btn-sm btn-outline-primary"
-      (click)="actionTriggered.emit(action.name)">
+  @for (action of actions; track action.name) {
+    <button class="btn btn-sm" [class]="'btn-outline-' + action.color"
+      (click)="actionClicked.emit(action.name)">
       <i class="me-1" [ngClass]="'fa fa-' + action.icon"></i>
       {{ action.label }}
     </button>

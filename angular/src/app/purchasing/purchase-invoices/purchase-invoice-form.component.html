@@ -25,7 +25,12 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Supplier</label>
-            <input type="text" class="form-control" formControlName="supplierName" [class.is-invalid]="form.get('supplierName')?.invalid && form.get('supplierName')?.touched" placeholder="Search supplier..." />
+            <select class="form-select" formControlName="supplierId" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
+              <option value="">Select supplier...</option>
+              @for (s of suppliers(); track s.id) {
+                <option [value]="s.id">{{ s.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">Supplier TIN</label>

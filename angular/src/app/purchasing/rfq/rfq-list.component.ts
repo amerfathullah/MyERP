@@ -1,19 +1,25 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
   selector: 'app-rfq-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, PaginationComponent, StatusBadgeComponent],
   template: `
     <abp-page [title]="'RequestForQuotations' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span>{{ 'RequestForQuotations' | abpLocalization }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <input type="text" class="form-control form-control-sm" style="width:200px"
+              [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
+          </div>
           <a routerLink="/purchasing/rfq/new" class="btn btn-sm btn-primary">
             <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}
           </a>
@@ -38,7 +44,7 @@ import { HttpClient } from '@angular/common/http';
               <tbody>
                 @for (rfq of rfqs(); track rfq.id) {
                   <tr>
-                    <td>{{ rfq.rfqNumber }}</td>
+                    <td><a [routerLink]="['/purchasing/rfq', rfq.id]">{{ rfq.rfqNumber }}</a></td>
                     <td>{{ rfq.transactionDate | date:'dd/MM/yyyy' }}</td>
                     <td>{{ rfq.suppliers?.length ?? 0 }}</td>
                     <td>{{ rfq.items?.length ?? 0 }}</td>
@@ -50,15 +56,27 @@ import { HttpClient } from '@angular/common/http';
           }
         </div>
       </div>
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage"
+        (pageChange)="onPageChange($event)" />
     </abp-page>
   `,
 })
 export class RfqListComponent implements OnInit {
   private http = inject(HttpClient);
   rfqs = signal<any[]>([]);
+  searchTerm = '';
+  totalCount = 0;
+  pageSize = 20;
+  currentPage = 0;
 
-  ngOnInit() {
-    this.http.get<any>('/api/app/request-for-quotation', { params: { maxResultCount: '50' } })
-      .subscribe({ next: (res) => this.rfqs.set(res.items ?? []), error: () => {} });
+  ngOnInit() { this.loadData(); }
+
+  loadData() {
+    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
+    if (this.searchTerm) params.filter = this.searchTerm;
+    this.http.get<any>('/api/app/request-for-quotation', { params })
+      .subscribe({ next: (res) => { this.rfqs.set(res.items ?? []); this.totalCount = res.totalCount ?? 0; }, error: () => {} });
   }
+
+  onPageChange(e: PageEvent) { this.currentPage = e.pageIndex; this.loadData(); }
 }

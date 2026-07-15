@@ -103,6 +103,22 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Enqueue exchange rate auto-fetch (refreshes stale currency pairs from external API)
+                await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.ExchangeRateAutoFetchJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    MaxStaleDays = 1,
+                });
+
+                // Enqueue invoice status safety-net update (catches missed payment status updates)
+                // Per DO-NOT: "Skip daily invoice status recalculation"
+                await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.InvoiceStatusUpdateJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -111,6 +127,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (9 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (11 jobs).", companies.Count);
     }
 }

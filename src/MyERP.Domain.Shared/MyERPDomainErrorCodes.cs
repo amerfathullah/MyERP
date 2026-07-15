@@ -178,4 +178,41 @@ public static class MyERPDomainErrorCodes
     // Chart of Accounts Import
     public const string ChartOfAccountsImportBlocked = "MyERP:02028";
     public const string DuplicateAccountCode = "MyERP:02029";
+
+    // Opening Balance
+    public const string OpeningBalanceOnlyBSAccounts = "MyERP:02030";
+    public const string OpeningBalanceGroupAccountBlocked = "MyERP:02031";
+    public const string OpeningBalanceNoTempAccount = "MyERP:02032";
+    public const string OpeningBalanceNoEntries = "MyERP:02033";
+
+    // Manufacturing — Extended
+    public const string ItemHasVariants = "MyERP:10010";
+    public const string BomInactive = "MyERP:10011";
+    public const string WorkstationCapacityExceeded = "MyERP:10012";
+
+    // Sales — Extended
+    public const string InstallationDateBeforeDelivery = "MyERP:03016";
+
+    // Stock Entry — Extended
+    public const string ExcessMaterialTransfer = "MyERP:05030";
+
+    // UOM
+    public const string UomMustBeWholeNumber = "MyERP:05029";
+
+    // Inventory — Stock Closing
+    public const string NoBalanceEntries = "MyERP:05028";
+
+    // Stock Reservation
+    public const string InsufficientStockForReservation = "MyERP:05031";
+
+    // HR — Extended
+    public const string AdvanceExceedsPayment = "MyERP:14005";
+
+    // Returns — Extended
+    public const string ReturnAccountMismatch = "MyERP:08008";
+    public const string ReturnWithStockZeroQty = "MyERP:08009";
+
+    // Payment Entry — Term Allocation
+    public const string PaymentTermRequired = "MyERP:02026";
+    public const string PaymentTermOutstandingExceeded = "MyERP:02027";
 }

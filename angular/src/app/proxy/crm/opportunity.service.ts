@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { OpportunityDto, CreateOpportunityDto, UpdateOpportunityDto } from './models';
@@ -7,7 +7,7 @@ import type { OpportunityDto, CreateOpportunityDto, UpdateOpportunityDto } from 
 export class OpportunityService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, OpportunityDto>({ method: 'GET', url: `/api/app/opportunity/${id}` }, { apiName: this.apiName, ...config });
@@ -39,3 +39,5 @@ export class OpportunityService {
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, OpportunityDto>({ method: 'POST', url: `/api/app/opportunity/${id}/reopen` }, { apiName: this.apiName, ...config });
 }
+
+

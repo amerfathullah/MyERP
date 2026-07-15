@@ -84,6 +84,10 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Terms = input.Terms;
         quotation.Notes = input.Notes;
 
+        // Validate all items are active (per DO-NOT: disabled items must not appear in transactions)
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         foreach (var item in input.Items)
         {
             quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
@@ -99,6 +103,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         quotation.Submit();
         await _repository.UpdateAsync(quotation, autoSave: true);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Quotation", quotation.Id, "Submitted",
+            quotation.CompanyId, quotation.QuotationNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: quotation.TenantId));
+
         return await MapToDtoAsync(quotation);
     }
 
@@ -108,6 +119,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         quotation.Cancel();
         await _repository.UpdateAsync(quotation, autoSave: true);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Quotation", quotation.Id, "Cancelled",
+            quotation.CompanyId, quotation.QuotationNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: quotation.TenantId));
+
         return await MapToDtoAsync(quotation);
     }
 

@@ -9,6 +9,7 @@ import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-material-request-form',
@@ -22,6 +23,7 @@ export class MaterialRequestFormComponent implements OnInit {
   private router = inject(Router);
   private store = inject(MaterialRequestStore);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
@@ -42,6 +44,9 @@ export class MaterialRequestFormComponent implements OnInit {
       items: this.fb.array([]),
     });
     this.addItemRow();
+
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe((res) => this.companies.set(res.items ?? []));

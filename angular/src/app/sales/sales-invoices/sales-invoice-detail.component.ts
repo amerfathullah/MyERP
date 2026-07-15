@@ -63,10 +63,16 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'Posted':
         actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
         actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
+        if ((this.invoice as any).outstandingAmount > 0) {
+          actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
+        }
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
         if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
           actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
+        break;
+      case 'Cancelled':
+        actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
         break;
     }
     return actions;
@@ -113,6 +119,22 @@ export class SalesInvoiceDetailComponent implements OnInit {
         break;
       case 'submitLhdn':
         this.submitToLhdn();
+        break;
+      case 'writeOff':
+        this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.http.post<any>(`/api/app/sales-invoice/${id}/write-off`, {}).subscribe({
+              next: () => { this.toaster.success('Invoice written off.'); this.reloadAfterAction(); },
+              error: () => {},
+            });
+          }
+        });
+        break;
+      case 'amend':
+        this.http.post<any>(`/api/app/sales-invoice/${id}/amend`, {}).subscribe({
+          next: (amended) => this.router.navigate(['/sales/invoices', amended.id]),
+          error: () => {},
+        });
         break;
     }
   }

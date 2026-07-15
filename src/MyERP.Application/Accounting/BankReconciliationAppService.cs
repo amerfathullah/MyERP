@@ -56,6 +56,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         return MapToDto(tx);
     }
 
+    [Authorize(MyERPPermissions.PaymentEntries.Default)]
     public async Task<BankTransactionDto> UnreconcileAsync(Guid id)
     {
         var tx = await _repository.GetAsync(id);

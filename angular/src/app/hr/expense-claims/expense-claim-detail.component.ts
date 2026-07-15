@@ -60,6 +60,6 @@ export class ExpenseClaimDetailComponent implements OnInit {
   approve() { this.service.approve(this.id).subscribe(() => this.load()); }
   reject() { this.service.reject(this.id).subscribe(() => this.load()); }
 
-  statusLabel(s: number) { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s] ?? 'Draft'; }
-  statusClass(s: number) { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s] ?? 'bg-secondary'; }
+  statusLabel(s: number | undefined) { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s ?? 0] ?? 'Draft'; }
+  statusClass(s: number | undefined) { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s ?? 0] ?? 'bg-secondary'; }
 }

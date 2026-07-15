@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { AssetDto, CreateAssetDto, UpdateAssetDto, AssetCategoryDto, CreateUpdateAssetCategoryDto } from './models';
@@ -7,7 +7,7 @@ import type { AssetDto, CreateAssetDto, UpdateAssetDto, AssetCategoryDto, Create
 export class AssetService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, AssetDto>({ method: 'GET', url: `/api/app/asset/${id}` }, { apiName: this.apiName, ...config });
@@ -39,3 +39,5 @@ export class AssetService {
   createCategory = (input: CreateUpdateAssetCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<CreateUpdateAssetCategoryDto, AssetCategoryDto>({ method: 'POST', url: '/api/app/asset/category', body: input }, { apiName: this.apiName, ...config });
 }
+
+

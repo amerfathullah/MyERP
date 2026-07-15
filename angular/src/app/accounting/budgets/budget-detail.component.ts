@@ -20,7 +20,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           <div class="row">
             <div class="col-md-4"><strong>{{ 'BudgetAgainst' | abpLocalization }}:</strong> {{ budget.budgetAgainst }}</div>
             <div class="col-md-4"><strong>{{ 'Target' | abpLocalization }}:</strong> {{ budget.budgetAgainstName }}</div>
-            <div class="col-md-4"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][budget.status]"></app-status-badge></div>
+            <div class="col-md-4"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][budget.status ?? 0]"></app-status-badge></div>
           </div>
         </div></div>
         <div class="card"><div class="card-body">

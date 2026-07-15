@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService } from '@abp/ng.core';
 import { Observable } from 'rxjs';
 
@@ -35,7 +35,7 @@ export interface BulkLeaveAllocationDto {
 
 @Injectable({ providedIn: 'root' })
 export class LeaveAllocationService {
-  constructor(private rest: RestService) {}
+  private rest = inject(RestService);
 
   getList(params?: any): Observable<{ totalCount: number; items: LeaveAllocationDto[] }> {
     return this.rest.request({ method: 'GET', url: '/api/app/leave-allocation', params });
@@ -65,3 +65,5 @@ export class LeaveAllocationService {
     return this.rest.request({ method: 'DELETE', url: `/api/app/leave-allocation/${id}` });
   }
 }
+
+

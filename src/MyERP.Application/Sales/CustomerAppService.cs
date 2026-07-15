@@ -64,4 +64,33 @@ public class CustomerAppService :
 
         await base.DeleteAsync(id);
     }
+
+    public override async Task<PagedResultDto<CustomerDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var filter = (input as dynamic)?.filter as string;
+
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return await base.GetListAsync(input);
+        }
+
+        var queryable = await Repository.GetQueryableAsync();
+        var filterLower = filter.ToLower();
+
+        queryable = queryable.Where(c =>
+            c.Name.ToLower().Contains(filterLower)
+            || (c.CustomerCode != null && c.CustomerCode.ToLower().Contains(filterLower))
+            || (c.Tin != null && c.Tin.Contains(filter)));
+
+        var totalCount = queryable.Count();
+        var items = queryable
+            .OrderBy(c => c.Name)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
+
+        return new PagedResultDto<CustomerDto>(
+            totalCount,
+            ObjectMapper.Map<System.Collections.Generic.List<Customer>, System.Collections.Generic.List<CustomerDto>>(items));
+    }
 }

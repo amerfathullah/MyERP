@@ -193,6 +193,11 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectTaskDto> CompleteTaskAsync(Guid taskId)
     {
         var task = await _taskRepository.GetAsync(taskId);
+
+        // Per DO-NOT: "Allow tasks to be marked Completed when dependencies are incomplete"
+        var depValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.TaskDependencyValidationService>();
+        await depValidator.ValidateDependenciesCompletedAsync(taskId);
+
         task.Complete();
         await _taskRepository.UpdateAsync(task);
         await UpdateProjectProgress(task.ProjectId);

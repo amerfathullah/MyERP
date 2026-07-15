@@ -46,6 +46,11 @@ public class TimesheetAppService : ApplicationService
             query = query.Where(t => t.EmployeeId == input.EmployeeId.Value);
         if (input.Status.HasValue)
             query = query.Where(t => t.Status == input.Status.Value);
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var f = input.Filter.ToLower();
+            query = query.Where(t => t.EmployeeName != null && t.EmployeeName.ToLower().Contains(f));
+        }
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(t => t.StartDate)
@@ -63,14 +68,41 @@ public class TimesheetAppService : ApplicationService
 
         foreach (var d in input.Details)
         {
+            // Auto-resolve billing/costing rates if not explicitly provided
+            // Per ERPNext: Employee-specific rate → Activity Type global rate → zero
+            var billingRate = d.BillingRate;
+            var costingRate = d.CostingRate;
+
+            if ((billingRate == 0 || costingRate == 0) && !string.IsNullOrWhiteSpace(d.ActivityType))
+            {
+                try
+                {
+                    var activityCostSvc = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.ActivityCostResolutionService>();
+                    var activityTypeRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ActivityType, Guid>>();
+
+                    // Resolve ActivityType Guid from name
+                    var atQuery = await activityTypeRepo.GetQueryableAsync();
+                    var activityType = atQuery.FirstOrDefault(at => at.Name == d.ActivityType && at.IsEnabled);
+
+                    if (activityType != null)
+                    {
+                        var (resolvedBilling, resolvedCosting) = await activityCostSvc.ResolveRatesAsync(
+                            input.EmployeeId, activityType.Id);
+                        if (billingRate == 0 && resolvedBilling > 0) billingRate = resolvedBilling;
+                        if (costingRate == 0 && resolvedCosting > 0) costingRate = resolvedCosting;
+                    }
+                }
+                catch { /* Non-critical: if resolution fails, keep user-provided or zero rates */ }
+            }
+
             var detail = new TimesheetDetail(GuidGenerator.Create(), ts.Id,
                 d.ActivityType, d.FromTime, d.ToTime, d.Hours)
             {
                 ProjectId = d.ProjectId,
                 TaskId = d.TaskId,
                 IsBillable = d.IsBillable,
-                BillingRate = d.BillingRate,
-                CostingRate = d.CostingRate,
+                BillingRate = billingRate,
+                CostingRate = costingRate,
                 Description = d.Description,
             };
             ts.AddDetail(detail);
@@ -287,6 +319,7 @@ public class GetTimesheetListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public Guid? EmployeeId { get; set; }
     public TimesheetStatus? Status { get; set; }
+    public string? Filter { get; set; }
 }
 
 public class CreateTimesheetInvoiceDto

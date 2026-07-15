@@ -61,6 +61,7 @@ public class MalaysianCoaSeeder : ITransientDependency
         var equity = await CreateGroup(companyId, "3000", "Equity", AccountType.Equity, null, tenantId);
         await CreateAccount(companyId, "3100", "Share Capital", AccountType.Equity, AccountSubType.ShareCapital, equity.Id, tenantId);
         await CreateAccount(companyId, "3200", "Retained Earnings", AccountType.Equity, AccountSubType.RetainedEarnings, equity.Id, tenantId);
+        await CreateAccount(companyId, "3900", "Temporary Opening", AccountType.Equity, AccountSubType.TemporaryOpening, equity.Id, tenantId);
 
         // Revenue
         var revenue = await CreateGroup(companyId, "4000", "Revenue", AccountType.Revenue, null, tenantId);

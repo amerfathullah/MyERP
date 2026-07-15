@@ -91,6 +91,19 @@ public class SubscriptionAppService : ApplicationService
     public async Task<PagedResultDto<SubscriptionDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
+
+        // Support filter param from frontend search
+        if (input is MyERP.Shared.CompanyFilteredPagedRequestDto filtered)
+        {
+            if (filtered.CompanyId.HasValue)
+                query = query.Where(x => x.CompanyId == filtered.CompanyId.Value);
+            if (!string.IsNullOrWhiteSpace(filtered.Filter))
+            {
+                var f = filtered.Filter.ToLower();
+                query = query.Where(x => x.SubscriptionNumber != null && x.SubscriptionNumber.ToLower().Contains(f));
+            }
+        }
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();

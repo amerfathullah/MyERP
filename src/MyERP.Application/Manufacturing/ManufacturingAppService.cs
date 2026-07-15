@@ -57,6 +57,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var query = await _bomRepository.GetQueryableAsync();
         if (input.CompanyId.HasValue)
             query = query.Where(b => b.CompanyId == input.CompanyId.Value);
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var f = input.Filter.ToLower();
+            query = query.Where(b => b.BomNumber.ToLower().Contains(f));
+        }
         var totalCount = query.Count();
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -106,6 +111,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         await _bomRepository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Recalculate BOM cost and propagate to all parent BOMs that use this as a sub-assembly.
+    /// Per ERPNext: when Item Price changes or sub-assembly cost changes, all referencing BOMs
+    /// must update their costs bottom-up (leaf BOMs first, then parents).
+    /// Per DO-NOT: concurrency=1 for BOM Update Log.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<BomDto> UpdateBomCostAsync(Guid bomId)
+    {
+        var bom = await _bomRepository.GetAsync(bomId, includeDetails: true);
+        bom.RecalculateCost();
+        await _bomRepository.UpdateAsync(bom);
+
+        // Propagate cost change to all parent BOMs that reference this BOM
+        var propagationService = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.BomCostPropagationService>();
+        await propagationService.UpdateCostAndPropagateAsync(bomId);
+
+        return MapBomToDto(bom);
     }
 
     // === Work Order ===

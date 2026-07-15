@@ -41,6 +41,7 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? ReturnAgainstId { get; set; }
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
+    public Guid DebitToAccountId { get; set; }
     public List<SalesInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -98,8 +99,8 @@ public class CreateSalesInvoiceItemDto
     [StringLength(500)]
     public string Description { get; set; } = null!;
 
+    /// <summary>Quantity (positive for normal invoices, negative for credit notes/returns).</summary>
     [Required]
-    [Range(0.0001, double.MaxValue)]
     public decimal Quantity { get; set; }
 
     [Required]

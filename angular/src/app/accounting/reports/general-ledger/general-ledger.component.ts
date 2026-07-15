@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -39,7 +39,7 @@ interface GLReport {
   templateUrl: './general-ledger.component.html',
   styleUrls: ['./general-ledger.component.scss'],
 })
-export class GeneralLedgerComponent {
+export class GeneralLedgerComponent implements OnInit {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);

@@ -13,6 +13,7 @@ import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-purchase-order-form',
@@ -31,6 +32,7 @@ export class PurchaseOrderFormComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   companies = signal<CompanyDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
@@ -52,6 +54,12 @@ export class PurchaseOrderFormComponent implements OnInit {
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
+
+    // Auto-set companyId from company context for new documents
+    if (!this.isEditMode && !this.form?.get?.('companyId')?.value) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) this.form.patchValue({ companyId: cid });
+    }
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(r => this.companies.set(r.items ?? []));
@@ -118,8 +126,10 @@ export class PurchaseOrderFormComponent implements OnInit {
       return;
     }
     const dto = this.form.getRawValue() as any;
-    this.store.create(dto);
-    this.router.navigate(['/purchasing/orders']);
+    this.service.create(dto).subscribe({
+      next: () => this.router.navigate(['/purchasing/orders']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void {

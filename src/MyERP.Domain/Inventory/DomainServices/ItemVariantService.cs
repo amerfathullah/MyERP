@@ -134,10 +134,10 @@ public class ItemVariantService : DomainService
                 if (!definition.IsValidNumericValue(numericValue))
                     throw new BusinessException("MyERP:05026")
                         .WithData("attribute", definition.AttributeName)
-                        .WithData("value", attr.Value)
-                        .WithData("from", definition.FromRange)
-                        .WithData("to", definition.ToRange)
-                        .WithData("increment", definition.Increment);
+                        .WithData("value", attr.Value ?? "")
+                        .WithData("from", definition.FromRange ?? 0m)
+                        .WithData("to", definition.ToRange ?? 0m)
+                        .WithData("increment", definition.Increment ?? 0m);
             }
             else
             {

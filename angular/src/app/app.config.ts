@@ -18,6 +18,7 @@ import { environment } from '../environments/environment';
 import { APP_ROUTES } from './app.routes';
 import { APP_ROUTE_PROVIDER } from './route.provider';
 import { FOOTER_PROVIDER } from './footer/footer.config';
+import { TOOLBAR_ITEMS_PROVIDER } from './shared/providers/toolbar-items.provider';
 import { errorInterceptor } from './shared/interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -25,6 +26,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(APP_ROUTES),
     APP_ROUTE_PROVIDER,
     FOOTER_PROVIDER,
+    TOOLBAR_ITEMS_PROVIDER,
     provideAnimations(),
     provideAbpCore(
       withOptions({

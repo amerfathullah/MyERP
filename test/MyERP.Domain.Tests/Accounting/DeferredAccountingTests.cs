@@ -38,7 +38,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_12MonthService_Generates12Entries()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         var item = CreateDeferredItem(
             new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
 
@@ -50,7 +50,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_MonthlyAmount_EvenDistribution()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         var item = CreateDeferredItem(
             new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
 
@@ -64,7 +64,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_FinalPeriod_AbsorbsRounding()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         // 10000 / 3 = 3333.33... → last period absorbs remainder
         var item = CreateDeferredItem(
             new DateTime(2026, 1, 1), new DateTime(2026, 3, 31), 10000m);
@@ -82,7 +82,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_PostingDate_LastDayOfMonth()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         var item = CreateDeferredItem(
             new DateTime(2026, 2, 1), new DateTime(2026, 4, 30), 3000m);
 
@@ -96,7 +96,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_SingleMonth_SingleEntry()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         var item = CreateDeferredItem(
             new DateTime(2026, 6, 1), new DateTime(2026, 6, 30), 5000m);
 
@@ -109,7 +109,7 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_NullDates_EmptySchedule()
     {
-        var service = new DeferredAccountingService(null!, null!);
+        var service = new DeferredAccountingService(null!, null!, null!, null!);
         var item = new SalesInvoiceItem(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "No dates", 1, 1000, 0);

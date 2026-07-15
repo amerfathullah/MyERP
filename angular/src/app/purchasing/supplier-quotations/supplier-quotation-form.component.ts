@@ -1,9 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-supplier-quotation-form',
@@ -15,7 +16,12 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.supplierName" placeholder="Supplier name" />
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.supplierId">
+              <option value="">Select supplier...</option>
+              @for (s of suppliers(); track s.id) {
+                <option [value]="s.id">{{ s.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Date' | abpLocalization }}</label>
@@ -53,12 +59,20 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
     </abp-page>
   `,
 })
-export class SupplierQuotationFormComponent {
+export class SupplierQuotationFormComponent implements OnInit {
   private restService = inject(RestService);
   private router = inject(Router);
+  private http = inject(HttpClient);
   saving = false;
   isDirty = false;
-  form: any = { transactionDate: new Date().toISOString().split('T')[0], supplierName: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
+  suppliers = signal<any[]>([]);
+  form: any = { transactionDate: new Date().toISOString().split('T')[0], supplierId: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
+
+  ngOnInit() {
+    this.http.get<any>('/api/app/supplier?maxResultCount=200').subscribe(
+      res => this.suppliers.set(res.items ?? [])
+    );
+  }
 
   save() {
     this.saving = true;

@@ -46,6 +46,13 @@ public class CreatePaymentEntryDto
 
     /// <summary>Exchange rate for multi-currency payments.</summary>
     public decimal ExchangeRate { get; set; } = 1m;
+
+    /// <summary>
+    /// Payment currency code (e.g., "USD"). When different from company currency,
+    /// the AppService auto-resolves the exchange rate from CurrencyExchangeService.
+    /// Null/empty = same as company currency (no conversion needed).
+    /// </summary>
+    public string? PaymentCurrency { get; set; }
 }
 
 /// <summary>Individual allocation of a payment against an invoice or order.</summary>

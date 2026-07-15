@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
@@ -16,6 +17,7 @@ import { PaginationComponent, type PageEvent } from '../shared/components/pagina
   imports: [
     PaginationComponent, CommonModule,
     RouterModule,
+    FormsModule,
     LocalizationPipe,
     PageModule,
     StatusBadgeComponent],
@@ -34,22 +36,39 @@ export class SupplierListComponent implements OnInit {
 
   currentPage = 0;
   pageSize = 20;
+  searchTerm = '';
+  private searchTimeout: any;
 
   ngOnInit(): void {
-    this.loadSuppliers(0, 20);
+    this.loadData();
   }
 
-  loadSuppliers(skipCount: number, maxResultCount: number): void {
+  loadData(): void {
     this.isLoading = true;
-    this.supplierService.getList({ skipCount, maxResultCount, sorting: '' }).subscribe((res) => {
+    this.supplierService.getList({
+      skipCount: this.currentPage * this.pageSize,
+      maxResultCount: this.pageSize,
+      sorting: '',
+      filter: this.searchTerm || undefined,
+    } as any).subscribe((res) => {
       this.suppliers = res.items ?? [];
       this.totalCount = res.totalCount ?? 0;
       this.isLoading = false;
     });
   }
 
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.currentPage = 0;
+      this.loadData();
+    }, 400);
+  }
+
   onPageChange(event: any): void {
-    this.loadSuppliers(event.pageIndex * event.pageSize, event.pageSize);
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   createSupplier(): void {

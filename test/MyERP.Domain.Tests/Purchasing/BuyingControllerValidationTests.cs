@@ -49,7 +49,8 @@ public class BuyingControllerValidationTests
     {
         var date = new DateTime(2026, 1, 15);
 
-        (date >= date).ShouldBeTrue();
+        var sameDate = new DateTime(2026, 1, 15);
+        (date >= sameDate).ShouldBeTrue();
     }
 
     [Fact]

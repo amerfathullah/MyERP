@@ -107,4 +107,36 @@ public class ItemAppService :
 
         await base.DeleteAsync(id);
     }
+
+    public override async Task<PagedResultDto<ItemDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var filter = (input as dynamic)?.filter as string;
+        var companyId = (input as dynamic)?.companyId as Guid?;
+
+        var queryable = await Repository.GetQueryableAsync();
+
+        if (companyId.HasValue)
+        {
+            queryable = queryable.Where(i => i.CompanyId == companyId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var filterLower = filter.ToLower();
+            queryable = queryable.Where(i =>
+                i.ItemCode.ToLower().Contains(filterLower)
+                || i.ItemName.ToLower().Contains(filterLower));
+        }
+
+        var totalCount = queryable.Count();
+        var items = queryable
+            .OrderBy(i => i.ItemName)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
+
+        return new PagedResultDto<ItemDto>(
+            totalCount,
+            ObjectMapper.Map<System.Collections.Generic.List<Item>, System.Collections.Generic.List<ItemDto>>(items));
+    }
 }

@@ -64,4 +64,33 @@ public class SupplierAppService :
 
         await base.DeleteAsync(id);
     }
+
+    public override async Task<PagedResultDto<SupplierDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var filter = (input as dynamic)?.filter as string;
+
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return await base.GetListAsync(input);
+        }
+
+        var queryable = await Repository.GetQueryableAsync();
+        var filterLower = filter.ToLower();
+
+        queryable = queryable.Where(s =>
+            s.Name.ToLower().Contains(filterLower)
+            || (s.SupplierCode != null && s.SupplierCode.ToLower().Contains(filterLower))
+            || (s.Tin != null && s.Tin.Contains(filter)));
+
+        var totalCount = queryable.Count();
+        var items = queryable
+            .OrderBy(s => s.Name)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
+
+        return new PagedResultDto<SupplierDto>(
+            totalCount,
+            ObjectMapper.Map<System.Collections.Generic.List<Purchasing.Entities.Supplier>, System.Collections.Generic.List<SupplierDto>>(items));
+    }
 }

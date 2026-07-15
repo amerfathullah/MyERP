@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -6,8 +6,11 @@ import { PageModule } from '@abp/ng.components/page';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { QuotationStore } from '../store/quotation.store';
+import { QuotationService } from '../../proxy/sales/quotation.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-quotation-form',
@@ -17,14 +20,20 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   templateUrl: './quotation-form.component.html',
   styleUrls: ['./quotation-form.component.scss'],
 })
-export class QuotationFormComponent {
+export class QuotationFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private taxCalc = inject(TaxCalculationService);
   private store = inject(QuotationStore);
+  private quotationService = inject(QuotationService);
+  private customerService = inject(CustomerService);
+  private companyContext = inject(CompanyContextService);
+
+  customers = signal<any[]>([]);
 
   form = this.fb.group({
     quotationNumber: [''],
+    companyId: ['', Validators.required],
     quotationDate: [new Date(), Validators.required],
     validUntil: [null as Date | null],
     customerId: ['', Validators.required],
@@ -35,6 +44,15 @@ export class QuotationFormComponent {
   calcResult: TaxCalculationResult = { netTotal: 0, taxLines: [], totalTax: 0, grandTotal: 0 };
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
+
+  ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
+      res => this.customers.set(res.items ?? [])
+    );
+  }
 
   recalculate(): void {
     const itemValues = this.items.controls.map(c => ({
@@ -49,8 +67,10 @@ export class QuotationFormComponent {
     if (this.form.invalid) return;
     this.recalculate();
     const dto = this.form.getRawValue() as any;
-    this.store.create(dto);
-    this.router.navigate(['/sales/quotations']);
+    this.quotationService.create(dto).subscribe({
+      next: () => this.router.navigate(['/sales/quotations']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void { this.router.navigate(['/sales/quotations']); }

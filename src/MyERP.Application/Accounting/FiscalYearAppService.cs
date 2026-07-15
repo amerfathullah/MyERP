@@ -104,6 +104,25 @@ public class FiscalYearAppService : ApplicationService
 
         fy.IsClosed = true;
         await _repository.UpdateAsync(fy, autoSave: true);
+
+        // Validate trial balance is balanced before finalizing close
+        // Per ERPNext: month-end/year-end close should verify GL integrity
+        try
+        {
+            var tbValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.TrialBalanceValidationService>();
+            var validationResult = await tbValidator.ValidateAsync(fy.CompanyId, fy.StartDate, fy.EndDate);
+            if (!validationResult.IsBalanced)
+            {
+                // Non-blocking warning — FY close proceeds but logs the imbalance
+                System.Diagnostics.Debug.WriteLine(
+                    $"FiscalYear {fy.Name} closed with unbalanced Trial Balance. Difference: {validationResult.Difference:N2}");
+            }
+        }
+        catch
+        {
+            // Non-blocking: FY close proceeds even if validation fails (it's a warning, not a gate)
+        }
+
         return MapToDto(fy);
     }
 

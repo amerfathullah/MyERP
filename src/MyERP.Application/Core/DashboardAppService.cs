@@ -216,6 +216,58 @@ public class DashboardAppService : ApplicationService
             PeriodLabel = now.ToString("MMMM yyyy")
         };
     }
+
+    /// <summary>
+    /// Operational metrics for system admin — pending items, health indicators, data quality.
+    /// Used by admin dashboard widgets to surface action items.
+    /// </summary>
+    public async Task<OperationalMetricsDto> GetOperationalMetricsAsync(Guid companyId)
+    {
+        var now = DateTime.UtcNow.Date;
+        var metrics = new OperationalMetricsDto();
+
+        // Draft documents needing attention
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+
+        metrics.DraftDocuments =
+            siQuery.Count(x => x.CompanyId == companyId && x.Status == DocumentStatus.Draft) +
+            piQuery.Count(x => x.CompanyId == companyId && x.Status == DocumentStatus.Draft);
+
+        // Overdue invoices (posted, outstanding > 0, past due)
+        metrics.OverdueInvoices = siQuery.Count(x =>
+            x.CompanyId == companyId
+            && x.Status == DocumentStatus.Posted
+            && (x.GrandTotal - x.AmountPaid) > 0
+            && x.DueDate < now);
+
+        // AR/AP outstanding totals
+        metrics.TotalArOutstanding = siQuery
+            .Where(x => x.CompanyId == companyId && x.Status == DocumentStatus.Posted && !x.IsReturn)
+            .Sum(x => x.GrandTotal - x.AmountPaid);
+
+        metrics.TotalApOutstanding = piQuery
+            .Where(x => x.CompanyId == companyId && x.Status == DocumentStatus.Posted && !x.IsReturn)
+            .Sum(x => x.GrandTotal - x.AmountPaid);
+
+        // Oldest unpaid invoice
+        var oldestUnpaid = siQuery
+            .Where(x => x.CompanyId == companyId && x.Status == DocumentStatus.Posted && (x.GrandTotal - x.AmountPaid) > 0)
+            .OrderBy(x => x.DueDate)
+            .FirstOrDefault();
+        if (oldestUnpaid?.DueDate != null)
+            metrics.OldestUnpaidInvoiceDays = (decimal)(now - oldestUnpaid.DueDate.Value).TotalDays;
+
+        // Low stock items (from existing method logic)
+        try
+        {
+            var lowStock = await GetLowStockItemsAsync();
+            metrics.LowStockItems = lowStock?.Count ?? 0;
+        }
+        catch { metrics.LowStockItems = 0; }
+
+        return metrics;
+    }
 }
 
 public class FinancialKpiDto
@@ -231,4 +283,34 @@ public class FinancialKpiDto
     public int InvoiceCount { get; set; }
     public int BillCount { get; set; }
     public string PeriodLabel { get; set; } = null!;
+}
+
+/// <summary>
+/// Operational metrics for admin monitoring.
+/// Shows system health indicators and pending action items.
+/// </summary>
+public class OperationalMetricsDto
+{
+    // Document Counts
+    public int DraftDocuments { get; set; }
+    public int PendingApprovals { get; set; }
+    public int OverdueInvoices { get; set; }
+    public int LowStockItems { get; set; }
+
+    // Financial Health
+    public decimal TotalArOutstanding { get; set; }
+    public decimal TotalApOutstanding { get; set; }
+    public decimal OldestUnpaidInvoiceDays { get; set; }
+
+    // Operations
+    public int ActiveSubscriptions { get; set; }
+    public int OpenWorkOrders { get; set; }
+    public int PendingMaterialRequests { get; set; }
+
+    // Data Quality
+    public int ItemsWithoutPrice { get; set; }
+    public int CustomersWithoutContact { get; set; }
+
+    // Last Processing
+    public DateTime? LastNightlyRunDate { get; set; }
 }

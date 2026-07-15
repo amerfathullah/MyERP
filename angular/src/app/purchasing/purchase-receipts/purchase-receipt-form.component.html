@@ -5,8 +5,13 @@
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Supplier' | abpLocalization }} <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" formControlName="supplierId"
-              [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched" placeholder="Supplier ID" />
+            <select class="form-select" formControlName="supplierId"
+              [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
+              <option value="">Select supplier...</option>
+              @for (s of suppliers(); track s.id) {
+                <option [value]="s.id">{{ s.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Warehouse' | abpLocalization }} <span class="text-danger">*</span></label>

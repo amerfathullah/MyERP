@@ -65,6 +65,12 @@ public class RoutingOperation : FullAuditedEntity<Guid>
 
     public bool IsFixedTime { get; set; }
 
+    /// <summary>
+    /// Batch size for splitting Work Order into multiple Job Cards.
+    /// 0 = no splitting (one JC per operation for full WO qty).
+    /// </summary>
+    public decimal BatchSize { get; set; }
+
     protected RoutingOperation() { }
 
     public RoutingOperation(Guid id, Guid routingId, Guid operationId,

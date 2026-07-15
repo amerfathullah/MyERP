@@ -111,6 +111,13 @@ public class StockReconciliationAppService : ApplicationService
         }
 
         await _repository.UpdateAsync(sr);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "StockReconciliation", sr.Id, "Submitted",
+            sr.CompanyId, sr.ReconciliationNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: sr.TenantId));
+
         return MapToDto(sr);
     }
 
@@ -144,6 +151,13 @@ public class StockReconciliationAppService : ApplicationService
         }
 
         await _repository.UpdateAsync(sr);
+
+        var activityRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo2.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "StockReconciliation", sr.Id, "Cancelled",
+            sr.CompanyId, sr.ReconciliationNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: sr.TenantId));
+
         return MapToDto(sr);
     }
 

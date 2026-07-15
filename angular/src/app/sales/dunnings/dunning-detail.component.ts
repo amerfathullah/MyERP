@@ -22,7 +22,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <div class="col-md-2"><strong>{{ 'Fee' | abpLocalization }}:</strong> {{ d.dunningFee | number:'1.2-2' }}</div>
             <div class="col-md-3">
               <span class="badge" [ngClass]="{'bg-secondary':d.status===0,'bg-primary':d.status===1,'bg-success':d.status===3,'bg-danger':d.status===4}">
-                {{ ['Draft','Submitted','','Resolved','Cancelled'][d.status] }}
+                {{ ['Draft','Submitted','','Resolved','Cancelled'][d.status ?? 0] }}
               </span>
             </div>
           </div>

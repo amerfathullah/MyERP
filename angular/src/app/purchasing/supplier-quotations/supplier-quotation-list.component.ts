@@ -39,13 +39,13 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (sq of quotations; track sq.id) {
                 <tr>
-                  <td>{{ sq.quotationNumber ?? '—' }}</td>
+                  <td><a [routerLink]="['/purchasing/supplier-quotations', sq.id]">{{ sq.quotationNumber ?? '—' }}</a></td>
                   <td>{{ sq.supplierName ?? '—' }}</td>
                   <td>{{ sq.transactionDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ sq.validTill ? (sq.validTill | date:'dd/MM/yyyy') : '—' }}</td>
                   <td class="text-end fw-bold">{{ sq.grandTotal | number:'1.2-2' }}</td>
                   <td><span class="badge" [ngClass]="{'bg-secondary': sq.status===0, 'bg-success': sq.status===1, 'bg-danger': sq.status===4}">
-                    {{ ['Draft','Submitted','','','Cancelled'][sq.status] }}
+                    {{ ['Draft','Submitted','','','Cancelled'][sq.status ?? 0] }}
                   </span></td>
                 </tr>
               }

@@ -1,6 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
@@ -74,5 +77,67 @@ public class CompanyAppService :
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
 
         await Repository.UpdateAsync(company);
+    }
+
+    /// <summary>
+    /// Sets up default data for a newly created company:
+    /// - Default Fiscal Year (current calendar year)
+    /// - Default Cost Centers (root + "Main")
+    /// - Default Warehouses (Stores, Finished Goods, Work In Progress)
+    /// - Manufacturing Settings singleton
+    /// 
+    /// Call this after creating a new company via the API.
+    /// Per ERPNext: company creation auto-generates default accounts, warehouses, and cost centers.
+    /// The Chart of Accounts is seeded separately via the CoA importer or default seeder.
+    /// </summary>
+    [Authorize(MyERPPermissions.Companies.Create)]
+    public async Task SetupNewCompanyAsync(Guid companyId)
+    {
+        var company = await Repository.GetAsync(companyId);
+
+        // Seed Fiscal Year
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var hasFy = (await fyRepo.GetQueryableAsync()).Any(f => f.CompanyId == companyId);
+        if (!hasFy)
+        {
+            var year = DateTime.UtcNow.Year;
+            var startMonth = company.FiscalYearStartMonth > 0 ? company.FiscalYearStartMonth : 1;
+            var fyStart = new DateTime(year, startMonth, 1);
+            var fyEnd = fyStart.AddYears(1).AddDays(-1);
+
+            await fyRepo.InsertAsync(new FiscalYear(
+                GuidGenerator.Create(), companyId,
+                $"FY {fyStart:yyyy}-{fyEnd:yyyy}",
+                fyStart, fyEnd), autoSave: true);
+        }
+
+        // Seed Cost Centers
+        var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+        var hasCc = (await ccRepo.GetQueryableAsync()).Any(c => c.CompanyId == companyId);
+        if (!hasCc)
+        {
+            var root = new CostCenter(GuidGenerator.Create(), companyId, company.Name, isGroup: true);
+            await ccRepo.InsertAsync(root, autoSave: true);
+            await ccRepo.InsertAsync(new CostCenter(GuidGenerator.Create(), companyId, "Main", parentId: root.Id), autoSave: true);
+        }
+
+        // Seed Default Warehouses
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var hasWh = (await whRepo.GetQueryableAsync()).Any(w => w.CompanyId == companyId);
+        if (!hasWh)
+        {
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Stores") { IsActive = true }, autoSave: true);
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Finished Goods") { IsActive = true }, autoSave: true);
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Work In Progress") { IsActive = true }, autoSave: true);
+        }
+
+        // Seed Manufacturing Settings
+        var mfgRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        var hasMfg = (await mfgRepo.GetQueryableAsync()).Any(s => s.CompanyId == companyId);
+        if (!hasMfg)
+        {
+            await mfgRepo.InsertAsync(new Manufacturing.Entities.ManufacturingSettings(
+                GuidGenerator.Create(), companyId), autoSave: true);
+        }
     }
 }

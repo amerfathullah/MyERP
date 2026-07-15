@@ -18,14 +18,14 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           <h5>{{ d.subject }}</h5>
           <div class="row mt-3">
             <div class="col-md-3"><strong>{{ 'Priority' | abpLocalization }}:</strong> {{ d.priority }}</div>
-            <div class="col-md-3"><strong>{{ 'Status' | abpLocalization }}:</strong> <span class="badge bg-info">{{ ['Open','Replied','On Hold','Closed','Cancelled'][d.status] }}</span></div>
+            <div class="col-md-3"><strong>{{ 'Status' | abpLocalization }}:</strong> <span class="badge bg-info">{{ ['Open','Replied','On Hold','Closed','Cancelled'][d.status ?? 0] }}</span></div>
             <div class="col-md-3"><strong>{{ 'Type' | abpLocalization }}:</strong> {{ d.issueType ?? '—' }}</div>
             <div class="col-md-3"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.creationTime | date:'dd/MM/yyyy' }}</div>
           </div>
           @if (d.description) { <div class="mt-3"><strong>{{ 'Description' | abpLocalization }}:</strong><p class="mt-1">{{ d.description }}</p></div> }
           <div class="mt-3 d-flex gap-2">
             @if (d.status === 0) { <button class="btn btn-sm btn-success" (click)="action('reply')"><i class="fa fa-reply me-1"></i>Reply</button> }
-            @if (d.status < 3) { <button class="btn btn-sm btn-primary" (click)="action('resolve')"><i class="fa fa-check me-1"></i>Resolve</button> }
+            @if ((d.status ?? 0) < 3) { <button class="btn btn-sm btn-primary" (click)="action('resolve')"><i class="fa fa-check me-1"></i>Resolve</button> }
           </div>
         </div></div>
       }

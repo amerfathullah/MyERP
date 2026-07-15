@@ -17,7 +17,9 @@
           <div class="input-group input-group-sm" style="width: 250px;">
             <span class="input-group-text"><i class="fa fa-search"></i></span>
             <input type="text" class="form-control"
-              [placeholder]="'::Search' | abpLocalization" />
+              [placeholder]="'::Search' | abpLocalization"
+              [(ngModel)]="searchTerm"
+              (keyup.enter)="onSearch(searchTerm)" />
           </div>
         </div>
       </div>

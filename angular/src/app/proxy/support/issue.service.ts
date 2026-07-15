@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { IssueDto, CreateIssueDto } from './models';
@@ -7,7 +7,7 @@ export { IssueDto, CreateIssueDto };
 @Injectable({ providedIn: 'root' })
 export class IssueService {
   apiName = 'Default';
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, IssueDto>({ method: 'GET', url: `/api/app/issue/${id}` }, { apiName: this.apiName, ...config });
@@ -30,3 +30,5 @@ export class IssueService {
   hold = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, IssueDto>({ method: 'POST', url: `/api/app/issue/${id}/hold` }, { apiName: this.apiName, ...config });
 }
+
+

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -29,6 +30,13 @@ public interface IAccountableDocument
 
     /// <summary>Exchange rate: transaction_currency → company_currency. Default 1.0 for same-currency.</summary>
     decimal ExchangeRate { get; }
+
+    /// <summary>
+    /// Optional finance book for this document's GL entries.
+    /// Null = default book. Named book = entries tagged for multi-book reporting.
+    /// Per ERPNext: asset depreciation uses separate finance books (tax vs management).
+    /// </summary>
+    string? FinanceBook => null;
 }
 
 /// <summary>
@@ -39,13 +47,16 @@ public class AccountingRuleEngine : DomainService
 {
     private readonly IRepository<AccountingRule, Guid> _ruleRepository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public AccountingRuleEngine(
         IRepository<AccountingRule, Guid> ruleRepository,
-        IRepository<FiscalYear, Guid> fiscalYearRepository)
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _ruleRepository = ruleRepository;
         _fiscalYearRepository = fiscalYearRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -96,11 +107,16 @@ public class AccountingRuleEngine : DomainService
                 lastLine.AccountCurrency = document.CurrencyCode;
                 lastLine.AmountInAccountCurrency = amountInTransactionCurrency;
                 lastLine.ExchangeRate = document.ExchangeRate;
+                lastLine.FinanceBook = document.FinanceBook;
             }
             else
             {
                 // Same currency: Amount = AmountInAccountCurrency, ExchangeRate = 1
                 journal.AddLine(accountId, amountInTransactionCurrency, rule.IsDebit);
+
+                // Tag with finance book if specified
+                if (document.FinanceBook != null)
+                    journal.Lines[^1].FinanceBook = document.FinanceBook;
             }
         }
 
@@ -124,14 +140,57 @@ public class AccountingRuleEngine : DomainService
 
     private Guid ResolveAccountId(AccountingRule rule, IAccountableDocument document)
     {
-        // For now, use FixedAccount. Future: resolve from customer/supplier/item defaults.
-        if (rule.FixedAccountId == null)
+        switch (rule.AccountSource)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
-                .WithData("ruleName", rule.Name);
-        }
+            case AccountSource.FixedAccount:
+                if (rule.FixedAccountId == null)
+                    throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name);
+                return rule.FixedAccountId.Value;
 
-        return rule.FixedAccountId.Value;
+            case AccountSource.CustomerReceivable:
+                // Resolve from company's default receivable account
+                var companyForReceivable = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
+                return companyForReceivable.DefaultReceivableAccountId
+                    ?? rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no receivable account configured)");
+
+            case AccountSource.SupplierPayable:
+                // Resolve from company's default payable account
+                var companyForPayable = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
+                return companyForPayable.DefaultPayableAccountId
+                    ?? rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no payable account configured)");
+
+            case AccountSource.ItemIncome:
+                // Resolve from company's default income account
+                var companyForIncome = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
+                return companyForIncome.DefaultIncomeAccountId
+                    ?? rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no income account configured)");
+
+            case AccountSource.ItemExpense:
+                // Resolve from company's default expense account
+                var companyForExpense = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
+                return companyForExpense.DefaultExpenseAccountId
+                    ?? rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no expense account configured)");
+
+            case AccountSource.TaxPayable:
+                // Tax payable uses fixed account (configured per tax rule)
+                return rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no tax account configured)");
+
+            default:
+                return rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name);
+        }
     }
 
     private async Task<FiscalYear> GetFiscalYearAsync(Guid companyId, DateTime date)

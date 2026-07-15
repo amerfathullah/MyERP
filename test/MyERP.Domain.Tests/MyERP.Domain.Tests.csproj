@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MyERP.Domain\MyERP.Domain.csproj" />
+    <ProjectReference Include="..\..\src\MyERP.Application\MyERP.Application.csproj" />
     <ProjectReference Include="..\MyERP.TestBase\MyERP.TestBase.csproj" />
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { LeadDto, CreateLeadDto, UpdateLeadDto, GetLeadListDto, ConvertLeadToOpportunityDto, OpportunityDto } from './models';
@@ -7,7 +7,7 @@ import type { LeadDto, CreateLeadDto, UpdateLeadDto, GetLeadListDto, ConvertLead
 export class LeadService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, LeadDto>({ method: 'GET', url: `/api/app/lead/${id}` }, { apiName: this.apiName, ...config });
@@ -33,3 +33,5 @@ export class LeadService {
   convertToOpportunity = (input: ConvertLeadToOpportunityDto, config?: Partial<Rest.Config>) =>
     this.restService.request<ConvertLeadToOpportunityDto, OpportunityDto>({ method: 'POST', url: '/api/app/lead/convert-to-opportunity', body: input }, { apiName: this.apiName, ...config });
 }
+
+

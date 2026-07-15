@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 
@@ -31,7 +31,7 @@ export interface TimesheetDetailDto {
 @Injectable({ providedIn: 'root' })
 export class TimesheetService {
   apiName = 'Default';
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, TimesheetDto>({ method: 'GET', url: `/api/app/timesheet/${id}` }, { apiName: this.apiName, ...config });
@@ -45,3 +45,5 @@ export class TimesheetService {
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, TimesheetDto>({ method: 'POST', url: `/api/app/timesheet/${id}/submit` }, { apiName: this.apiName, ...config });
 }
+
+

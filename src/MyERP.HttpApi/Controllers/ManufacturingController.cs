@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using MyERP.Manufacturing;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Volo.Abp.Application.Dtos;
 
@@ -10,11 +11,23 @@ namespace MyERP.Controllers;
 public class ManufacturingController : MyERPController
 {
     private readonly IManufacturingAppService _service;
+    private readonly IWorkstationAppService _workstationService;
 
-    public ManufacturingController(IManufacturingAppService service)
+    public ManufacturingController(IManufacturingAppService service, IWorkstationAppService workstationService)
     {
         _service = service;
+        _workstationService = workstationService;
     }
+
+    // Workstations
+    [HttpGet("workstations/{id}")]
+    public Task<WorkstationDto> GetWorkstationAsync(Guid id) => _workstationService.GetAsync(id);
+
+    [HttpGet("workstations")]
+    public Task<PagedResultDto<WorkstationDto>> GetWorkstationListAsync([FromQuery] CompanyFilteredPagedRequestDto input) => _workstationService.GetListAsync(input);
+
+    [HttpPost("workstations")]
+    public Task<WorkstationDto> CreateWorkstationAsync(CreateWorkstationDto input) => _workstationService.CreateAsync(input);
 
     // BOM
     [HttpGet("bom/{id}")]

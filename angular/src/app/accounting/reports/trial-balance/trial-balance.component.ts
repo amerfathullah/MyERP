@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -18,7 +18,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   templateUrl: './trial-balance.component.html',
   styleUrls: ['./trial-balance.component.scss'],
 })
-export class TrialBalanceComponent {
+export class TrialBalanceComponent implements OnInit {
   private fb = inject(FormBuilder);
   private reportingService = inject(ReportingService);
   private companyService = inject(CompanyService);

@@ -17,10 +17,10 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
         <div class="card mb-3"><div class="card-body">
           <div class="row">
             <div class="col-md-3"><strong>{{ 'Item' | abpLocalization }}:</strong> {{ d.itemName }}</div>
-            <div class="col-md-3"><strong>{{ 'InspectionType' | abpLocalization }}:</strong> {{ ['Incoming','Outgoing','In Process'][d.inspectionType] }}</div>
+            <div class="col-md-3"><strong>{{ 'InspectionType' | abpLocalization }}:</strong> {{ ['Incoming','Outgoing','In Process'][d.inspectionType ?? 0] }}</div>
             <div class="col-md-3"><strong>{{ 'InspectionDate' | abpLocalization }}:</strong> {{ d.inspectionDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-3">
-              <span class="badge" [ngClass]="{'bg-success': d.status===1, 'bg-danger': d.status===2, 'bg-secondary': d.status===0}">{{ ['Draft','Accepted','Rejected'][d.status] }}</span>
+              <span class="badge" [ngClass]="{'bg-success': d.status===1, 'bg-danger': d.status===2, 'bg-secondary': d.status===0}">{{ ['Draft','Accepted','Rejected'][d.status ?? 0] }}</span>
             </div>
           </div>
         </div></div>
@@ -34,7 +34,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                   <td>{{ r.specification }}</td>
                   <td>{{ r.isNumeric ? (r.minValue + ' – ' + r.maxValue) : r.expectedValue }}</td>
                   <td>{{ r.readingValue }}</td>
-                  <td><span class="badge" [ngClass]="{'bg-success': r.status===1, 'bg-danger': r.status===2}">{{ ['—','Pass','Fail'][r.status] }}</span></td>
+                  <td><span class="badge" [ngClass]="{'bg-success': r.status===1, 'bg-danger': r.status===2}">{{ ['—','Pass','Fail'][r.status ?? 0] }}</span></td>
                 </tr>
               }
             </tbody>

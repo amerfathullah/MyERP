@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class JobCardService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
+
 
   addTimeLog = (id: string, input: AddTimeLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
@@ -18,7 +18,7 @@ export class JobCardService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
@@ -26,7 +26,7 @@ export class JobCardService {
       url: `/api/app/job-card/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   complete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
@@ -34,7 +34,7 @@ export class JobCardService {
       url: `/api/app/job-card/${id}/complete`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   create = (input: CreateJobCardDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
@@ -43,7 +43,7 @@ export class JobCardService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
@@ -51,16 +51,16 @@ export class JobCardService {
       url: `/api/app/job-card/${id}`,
     },
     { apiName: this.apiName,...config });
-  
 
-  getList = (input: GetJobCardListDto, config?: Partial<Rest.Config>) =>
+
+  getList = (input: any, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<JobCardDto>>({
       method: 'GET',
       url: '/api/app/job-card',
-      params: { workOrderId: input.workOrderId, companyId: input.companyId, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { workOrderId: input.workOrderId, companyId: input.companyId, status: input.status, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-  
+
 
   start = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({

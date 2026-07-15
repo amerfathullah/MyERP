@@ -159,6 +159,7 @@ public class PurchaseOrderAppService : ApplicationService
         return MapToDto(po);
     }
 
+    [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
     public async Task<PurchaseOrderDto> SubmitAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
@@ -238,6 +239,7 @@ public class PurchaseOrderAppService : ApplicationService
         return MapToDto(po);
     }
 
+    [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
     public async Task<PurchaseOrderDto> CancelAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
@@ -270,6 +272,7 @@ public class PurchaseOrderAppService : ApplicationService
         return MapToDto(po);
     }
 
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
     public async Task<PurchaseOrderDto> CloseAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
@@ -292,6 +295,7 @@ public class PurchaseOrderAppService : ApplicationService
         return MapToDto(po);
     }
 
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
     public async Task<PurchaseOrderDto> ReopenAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);

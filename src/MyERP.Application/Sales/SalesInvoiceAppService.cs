@@ -164,6 +164,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
 
+        // Set party account (debit_to):
+        // Returns: inherit from original invoice (ensures account match validation works)
+        // Normal: company default receivable account
+        var companyForAcct = await _companyRepository.GetAsync(input.CompanyId);
+        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
+            invoice.DebitToAccountId = originalInvoice.DebitToAccountId;
+        }
+        else if (companyForAcct.DefaultReceivableAccountId.HasValue)
+        {
+            invoice.DebitToAccountId = companyForAcct.DefaultReceivableAccountId.Value;
+        }
+
         // Opening invoices: clear payment terms (accounting-only, no schedule needed)
         // Per DO-NOT: "Skip Payment Schedule opening invoice exclusion (is_opening=Yes must clear)"
         if (invoice.IsOpening)
@@ -315,16 +329,45 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     {
         var invoice = await _repository.GetAsync(id);
 
+        // Authorization control: high-value transaction approval check
+        // Per ERPNext: Authorization Rules check based on GrandTotal/Discount/Customerwise
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "SalesInvoice", invoice.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, invoice.GrandTotal);
+
         // Return document validation (domain service)
         if (invoice.IsReturn)
         {
             await _invoiceManager.ValidateReturnAsync(invoice);
+            // Block zero-qty items on stock-affecting returns (corrupts FIFO queue)
+            SalesInvoiceManager.ValidateReturnWithStockNoZeroQty(invoice);
         }
 
         // Credit limit validation (enforced at SI submit per ERPNext rules, skip for returns)
         if (!invoice.IsReturn)
         {
             await _creditLimitService.ValidateCreditLimitAsync(invoice.CustomerId, invoice.GrandTotal);
+
+            // Credit utilization warning: notify when approaching limit (80%+)
+            try
+            {
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(invoice.CustomerId);
+                if (customer.CreditLimit > 0)
+                {
+                    var outstanding = customer.CreditLimit > 0 ? invoice.GrandTotal : 0;
+                    var utilization = outstanding / customer.CreditLimit * 100;
+                    if (utilization >= 80 && CurrentUser.Id.HasValue)
+                    {
+                        var notifSvc = LazyServiceProvider.LazyGetRequiredService<Notification.DomainServices.BusinessNotificationService>();
+                        await notifSvc.NotifyCreditLimitWarningAsync(
+                            CurrentUser.Id.Value, customer.Name, customer.CreditLimit, outstanding, invoice.TenantId);
+                    }
+                }
+            }
+            catch { /* Non-critical: don't block invoice submission for notification failure */ }
 
             // Selling price validation: selling rate must be >= valuation rate
             // Per ERPNext validate_selling_price (Selling Settings configurable: Stop/Warn)
@@ -464,9 +507,17 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var invoice = await _repository.GetAsync(id);
         invoice.Post();
 
-        // Resolve receivable account from company defaults
+        // Resolve receivable account: invoice-specific → company default → throw
         var company = await _companyRepository.GetAsync(invoice.CompanyId);
-        var receivableAccountId = company.DefaultReceivableAccountId ?? invoice.CompanyId;
+        var receivableAccountId = invoice.DebitToAccountId != Guid.Empty
+            ? invoice.DebitToAccountId
+            : company.DefaultReceivableAccountId ?? Guid.Empty;
+
+        if (receivableAccountId == Guid.Empty)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02001")
+                .WithData("reason", "No receivable account configured. Set Default Receivable Account in Company settings.");
+        }
 
         // Budget Level 3 validation: validate expense GL amounts against budget
         if (company.DefaultExpenseAccountId.HasValue)
@@ -672,6 +723,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             ReturnAgainstId = invoice.ReturnAgainstId,
             AmendedFromId = invoice.AmendedFromId,
             AmendmentIndex = invoice.AmendmentIndex,
+            DebitToAccountId = invoice.DebitToAccountId,
             Items = invoice.Items.Select(i => new SalesInvoiceItemDto
             {
                 Id = i.Id,

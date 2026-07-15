@@ -348,8 +348,21 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             // Check auto-reorder for items that had stock reduced
             foreach (var item in dn.Items)
             {
-                await _autoReorderService.CheckSingleItemAsync(
+                var mrId = await _autoReorderService.CheckSingleItemAsync(
                     item.ItemId, dn.WarehouseId, dn.CompanyId, dn.TenantId);
+
+                // Notify when auto-reorder creates a Material Request
+                if (mrId.HasValue && CurrentUser.Id.HasValue)
+                {
+                    try
+                    {
+                        var notifSvc = LazyServiceProvider
+                            .LazyGetRequiredService<Notification.DomainServices.BusinessNotificationService>();
+                        await notifSvc.NotifyAutoReorderAsync(
+                            CurrentUser.Id.Value, item.Description, item.Quantity, mrId.Value, dn.TenantId);
+                    }
+                    catch { /* Non-critical */ }
+                }
             }
         }
 

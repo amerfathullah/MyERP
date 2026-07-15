@@ -1,10 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { CreateProductionPlanDto } from '../../proxy/manufacturing/models';
 
@@ -17,11 +18,12 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   templateUrl: './production-plan-form.component.html',
   styleUrls: ['./production-plan-form.component.scss'],
 })
-export class ProductionPlanFormComponent {
+export class ProductionPlanFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private service = inject(ProductionPlanService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -50,6 +52,11 @@ export class ProductionPlanFormComponent {
 
   removeItem(index: number): void {
     this.items.removeAt(index);
+  }
+
+  ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid) this.form.patchValue({ companyId: cid });
   }
 
   save(): void {

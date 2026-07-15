@@ -33,9 +33,25 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
 
     public async Task<PagedResultDto<EmployeeDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
-        var totalCount = await _repository.GetCountAsync();
-        var employees = await _repository.GetPagedListAsync(
-            input.SkipCount, input.MaxResultCount, input.Sorting ?? "FirstName ASC");
+        var filter = (input as dynamic)?.filter as string;
+        var queryable = await _repository.GetQueryableAsync();
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var filterLower = filter.ToLower();
+            queryable = queryable.Where(e =>
+                e.FirstName.ToLower().Contains(filterLower)
+                || (e.LastName != null && e.LastName.ToLower().Contains(filterLower))
+                || e.EmployeeId.ToLower().Contains(filterLower)
+                || (e.Department != null && e.Department.ToLower().Contains(filterLower)));
+        }
+
+        var totalCount = queryable.Count();
+        var employees = queryable
+            .OrderBy(e => e.FirstName)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
 
         return new PagedResultDto<EmployeeDto>(
             totalCount,

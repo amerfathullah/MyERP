@@ -35,6 +35,9 @@ public class PaymentEntryReference : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Exchange rate for this reference (for multi-currency payments).</summary>
     public decimal ExchangeRate { get; set; } = 1m;
 
+    /// <summary>Payment term ID for term-based allocation. Required when invoice uses allocate_payment_based_on_payment_terms.</summary>
+    public Guid? PaymentTermId { get; set; }
+
     protected PaymentEntryReference() { }
 
     public PaymentEntryReference(

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -15,7 +15,7 @@ import type { ImportJobDto } from '../proxy/import-export/models';
   templateUrl: './import-export.component.html',
   styleUrls: ['./import-export.component.scss'],
 })
-export class ImportExportComponent {
+export class ImportExportComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(ImportExportService);
   private toaster = inject(ToasterService);

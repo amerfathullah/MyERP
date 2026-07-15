@@ -60,6 +60,50 @@
     </div>
 
     <!-- Actions -->
+    @if (linkedDocLabel()) {
+      <div class="alert alert-info mb-3">
+        <i class="fa fa-link me-2"></i>{{ linkedDocLabel() }}
+      </div>
+    }
+
+    <!-- Outstanding Invoices -->
+    @if (outstandingInvoices().length > 0) {
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>Outstanding Invoices</h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th class="text-end">Grand Total</th>
+                <th class="text-end">Outstanding</th>
+                <th class="text-center">Select</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (inv of outstandingInvoices(); track inv.invoiceId) {
+                <tr [class.table-active]="form.get('againstInvoiceId')?.value === inv.invoiceId"
+                    (click)="selectInvoice(inv)" style="cursor: pointer;">
+                  <td>{{ inv.invoiceNumber }}</td>
+                  <td>{{ inv.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ inv.grandTotal | number:'1.2-2' }}</td>
+                  <td class="text-end fw-bold text-danger">{{ inv.outstanding | number:'1.2-2' }}</td>
+                  <td class="text-center">
+                    @if (form.get('againstInvoiceId')?.value === inv.invoiceId) {
+                      <i class="fa fa-check-circle text-success"></i>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
         <i class="fa fa-times me-1"></i>Cancel</button>

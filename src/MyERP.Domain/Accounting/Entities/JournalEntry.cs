@@ -93,7 +93,7 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             throw new BusinessException(MyERPDomainErrorCodes.PartyNotAllowedOnAccount)
                 .WithData("partyType", partyType)
-                .WithData("accountSubType", accountSubType.ToString());
+                .WithData("accountSubType", accountSubType.Value.ToString());
         }
 
         var line = new JournalEntryLine(Guid.NewGuid(), Id, accountId, amount, isDebit, description);

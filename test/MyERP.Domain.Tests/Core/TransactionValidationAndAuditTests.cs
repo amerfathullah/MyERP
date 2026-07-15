@@ -96,7 +96,7 @@ public class TransactionValidationAndAuditTests
             details: "RM 5,000 received via PE-001");
 
         log.ActivityType.ShouldBe("PaymentReceived");
-        log.Details.ShouldContain("5,000");
+        log.Details!.ShouldContain("5,000");
     }
 
     [Fact]

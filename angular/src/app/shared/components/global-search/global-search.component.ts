@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -25,13 +25,14 @@ interface SearchResult {
     <div class="position-relative" style="width: 320px;">
       <div class="input-group input-group-sm">
         <span class="input-group-text bg-white border-end-0"><i class="fa fa-search text-muted"></i></span>
-        <input type="text"
+        <input #searchInput type="text"
           class="form-control border-start-0"
           [placeholder]="'SearchDocuments' | abpLocalization"
           [(ngModel)]="searchTerm"
           (ngModelChange)="onSearch($event)"
           (focus)="showResults = true"
-          (blur)="onBlur()" />
+          (blur)="onBlur()"
+          (keydown.escape)="clearSearch()" />
         @if (loading()) {
           <span class="input-group-text bg-white"><i class="fa fa-spinner fa-spin text-muted"></i></span>
         }
@@ -91,12 +92,23 @@ export class GlobalSearchComponent {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
 
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+
   searchTerm = '';
   showResults = false;
   results = signal<SearchResult[]>([]);
   loading = signal(false);
 
   private searchSubject = new Subject<string>();
+
+  /** Ctrl+K / Cmd+K to focus the search bar */
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+      event.preventDefault();
+      this.searchInput?.nativeElement?.focus();
+    }
+  }
 
   constructor() {
     this.searchSubject.pipe(
@@ -138,6 +150,12 @@ export class GlobalSearchComponent {
   onBlur() {
     // Delay to allow click on results
     setTimeout(() => { this.showResults = false; }, 200);
+  }
+
+  clearSearch() {
+    this.searchTerm = '';
+    this.results.set([]);
+    this.showResults = false;
   }
 
   getTypeLabel(type: string): string {

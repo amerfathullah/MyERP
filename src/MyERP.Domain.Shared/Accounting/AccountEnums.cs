@@ -30,6 +30,7 @@ public enum AccountSubType
     // Equity
     ShareCapital = 30,
     RetainedEarnings = 31,
+    TemporaryOpening = 32,
 
     // Revenue
     OperatingRevenue = 40,

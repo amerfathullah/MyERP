@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { BomDto, CreateBomDto, WorkOrderDto, CreateWorkOrderDto } from './models';
@@ -7,7 +7,7 @@ import type { BomDto, CreateBomDto, WorkOrderDto, CreateWorkOrderDto } from './m
 export class ManufacturingService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   // BOM
   getBom = (id: string, config?: Partial<Rest.Config>) =>
@@ -44,3 +44,5 @@ export class ManufacturingService {
   stopWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, WorkOrderDto>({ method: 'POST', url: `/api/app/manufacturing/work-order/${id}/stop` }, { apiName: this.apiName, ...config });
 }
+
+

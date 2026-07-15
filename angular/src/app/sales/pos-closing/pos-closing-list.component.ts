@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
   selector: 'app-pos-closing-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   template: `
     <abp-page [title]="'POSClosing' | abpLocalization">
       <div class="card">

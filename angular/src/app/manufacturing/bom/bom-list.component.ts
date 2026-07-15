@@ -1,9 +1,11 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 interface BomDto {
   id: string;
@@ -16,15 +18,15 @@ interface BomDto {
   isDefault: boolean;
 }
 
-import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
-
 @Component({
   selector: 'app-bom-list',
   standalone: true,
-  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [PaginationComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'BillOfMaterials' | abpLocalization">
-      <div class="d-flex justify-content-end mb-3">
+      <div class="d-flex justify-content-between mb-3">
+        <input type="text" class="form-control form-control-sm" style="width:200px"
+          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
         <a routerLink="/manufacturing/bom/new" class="btn btn-primary">
           <i class="fa fa-plus me-1"></i>{{ 'NewBOM' | abpLocalization }}
         </a>
@@ -74,7 +76,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </div>
         </div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -82,17 +84,23 @@ export class BomListComponent implements OnInit {
   private http = inject(HttpClient);
   boms = signal<BomDto[]>([]);
   isLoading = signal(true);
-
+  searchTerm = '';
+  totalCount = 0;
   currentPage = 0;
   pageSize = 20;
 
-  ngOnInit(): void {
-    this.http.get<any>('/api/app/manufacturing/bom-list', { params: { skipCount: '0', maxResultCount: '100' } })
+  ngOnInit(): void { this.loadData(); }
+
+  loadData() {
+    this.isLoading.set(true);
+    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
+    if (this.searchTerm) params.filter = this.searchTerm;
+    this.http.get<any>('/api/app/manufacturing/bom-list', { params })
       .subscribe({
-        next: res => { this.boms.set(res.items ?? res ?? []); this.isLoading.set(false); },
+        next: res => { this.boms.set(res.items ?? res ?? []); this.totalCount = res.totalCount ?? 0; this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
   }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.loadData(); }
 }

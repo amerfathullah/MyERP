@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-stock-entry-form',
@@ -25,11 +26,13 @@ export class StockEntryFormComponent implements OnInit {
   private service = inject(StockEntryService);
   private http = inject(HttpClient);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   linkedWorkOrderId: string | null = null;
   isLoadingBOM = false;
 
   form = this.fb.group({
+    companyId: [''],
     entryType: ['Receipt', Validators.required],
     entryDate: [new Date(), Validators.required],
     sourceWarehouse: [''],
@@ -42,6 +45,9 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+
     const params = this.route.snapshot.queryParams;
     if (params['purpose']) {
       const purposeMap: Record<string, string> = {

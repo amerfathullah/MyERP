@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 
 export interface AddressDto {
@@ -22,7 +22,7 @@ export interface AddressDto {
 @Injectable({ providedIn: 'root' })
 export class AddressService {
   apiName = 'Default';
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   getAddressesForParty = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, AddressDto[]>({ method: 'GET', url: '/api/app/address/addresses-for-party', params: { partyType, partyId } }, { apiName: this.apiName, ...config });
@@ -36,3 +36,5 @@ export class AddressService {
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, void>({ method: 'DELETE', url: `/api/app/address/${id}` }, { apiName: this.apiName, ...config });
 }
+
+

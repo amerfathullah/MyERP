@@ -38,6 +38,7 @@ public class SalesOrderAmendmentAppService : ApplicationService
     /// Creates an amended Sales Order from a cancelled one.
     /// Copies all items and settings into a new Draft SO with amendment reference.
     /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<Guid> AmendAsync(Guid cancelledOrderId)
     {
         var original = await _repository.GetAsync(cancelledOrderId);

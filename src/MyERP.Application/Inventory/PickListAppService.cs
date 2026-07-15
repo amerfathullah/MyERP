@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -54,6 +56,30 @@ public class CreatePickListItemDto
     public Guid? BatchId { get; set; }
 }
 
+public class PickAllocationResultDto
+{
+    public bool HasShortage { get; set; }
+    public List<PickAllocationDto> Allocations { get; set; } = new();
+}
+
+public class PickAllocationDto
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal RequestedQty { get; set; }
+    public decimal AllocatedQty { get; set; }
+    public decimal ShortageQty { get; set; }
+}
+
+public class PendingTransferDto
+{
+    public Guid PickListItemId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal PendingQty { get; set; }
+    public Guid? BatchId { get; set; }
+}
+
 [Authorize(MyERPPermissions.StockEntries.Default)]
 public class PickListAppService : ApplicationService
 {
@@ -81,6 +107,10 @@ public class PickListAppService : ApplicationService
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<PickListDto> CreateAsync(CreatePickListDto input)
     {
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var pl = new PickList(GuidGenerator.Create(), input.CompanyId, input.Purpose, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
@@ -109,6 +139,52 @@ public class PickListAppService : ApplicationService
         pl.Cancel();
         await _repository.UpdateAsync(pl);
         return MapToDto(pl);
+    }
+
+    /// <summary>
+    /// Allocates stock to pick list items, checking warehouse availability
+    /// and deducting quantities already picked by other active pick lists.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Default)]
+    public async Task<PickAllocationResultDto> AllocateStockAsync(Guid id)
+    {
+        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+        var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
+        var result = await pickListManager.AllocateStockAsync(pl);
+
+        return new PickAllocationResultDto
+        {
+            HasShortage = result.HasShortage,
+            Allocations = result.Allocations.Select(a => new PickAllocationDto
+            {
+                ItemId = a.ItemId,
+                WarehouseId = a.WarehouseId,
+                RequestedQty = a.RequestedQty,
+                AllocatedQty = a.AllocatedQty,
+                ShortageQty = a.ShortageQty,
+            }).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Gets pending transfer quantities for creating Stock Entries from this Pick List.
+    /// Per DO-NOT: partial transfers are supported — map only pending qty per row.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Default)]
+    public async Task<List<PendingTransferDto>> GetPendingTransfersAsync(Guid id)
+    {
+        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+        var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
+        var pending = pickListManager.GetPendingTransfers(pl);
+
+        return pending.Select(pt => new PendingTransferDto
+        {
+            PickListItemId = pt.PickListItemId,
+            ItemId = pt.ItemId,
+            WarehouseId = pt.WarehouseId,
+            PendingQty = pt.PendingQty,
+            BatchId = pt.BatchId,
+        }).ToList();
     }
 
     private static PickListDto MapToDto(PickList p) => new()

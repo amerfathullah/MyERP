@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -17,7 +17,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   templateUrl: './balance-sheet.component.html',
   styleUrls: ['./balance-sheet.component.scss'],
 })
-export class BalanceSheetComponent {
+export class BalanceSheetComponent implements OnInit {
   private fb = inject(FormBuilder);
   private reportingService = inject(ReportingService);
   private companyService = inject(CompanyService);

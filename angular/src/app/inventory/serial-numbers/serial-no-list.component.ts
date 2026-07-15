@@ -37,7 +37,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ sn.warehouseId ? (sn.warehouseId | slice:0:8) + '…' : '—' }}</td>
                   <td>{{ sn.maintenanceStatus }}</td>
                   <td><span class="badge" [ngClass]="{'bg-success':sn.status===0, 'bg-info':sn.status===1, 'bg-secondary':sn.status===2}">
-                    {{ ['Active','Delivered','Inactive'][sn.status] ?? 'Active' }}
+                    {{ ['Active','Delivered','Inactive'][sn.status ?? 0] ?? 'Active' }}
                   </span></td>
                 </tr>
               }

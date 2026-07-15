@@ -41,11 +41,11 @@ export class WorkstationService {
   private restService = inject(RestService);
   apiName = 'Default';
 
-  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+  getList = (input: any, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<WorkstationDto>>({
       method: 'GET',
       url: '/api/app/manufacturing/workstations',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount, filter: input.filter },
     }, { apiName: this.apiName, ...config });
 }
 

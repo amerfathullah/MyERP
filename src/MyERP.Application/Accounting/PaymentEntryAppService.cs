@@ -107,9 +107,32 @@ public class PaymentEntryAppService : ApplicationService
         pe.PartyId = input.PartyId;
         pe.ReferenceNumber = input.ReferenceNumber;
         pe.Notes = input.Notes;
-        pe.ExchangeRate = input.ExchangeRate;
         pe.AgainstOrderId = input.AgainstOrderId;
         pe.AgainstOrderType = input.AgainstOrderType;
+
+        // Multi-currency: auto-resolve exchange rate if not explicitly provided
+        // Per ERPNext: when payment currency ≠ company currency, fetch rate from CurrencyExchange
+        if (input.ExchangeRate > 0 && input.ExchangeRate != 1m)
+        {
+            pe.ExchangeRate = input.ExchangeRate;
+        }
+        else if (!string.IsNullOrWhiteSpace(input.PaymentCurrency))
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            var company = await companyRepo.GetAsync(input.CompanyId);
+            if (!string.IsNullOrWhiteSpace(company.CurrencyCode)
+                && !input.PaymentCurrency.Equals(company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            {
+                var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+                var rate = await exchangeService.GetExchangeRateAsync(
+                    input.PaymentCurrency, company.CurrencyCode, input.PostingDate);
+                pe.ExchangeRate = rate;
+            }
+        }
+        else
+        {
+            pe.ExchangeRate = input.ExchangeRate;
+        }
 
         // Multi-reference allocation takes precedence over legacy single-invoice field
         if (input.References != null && input.References.Count > 0)
@@ -169,6 +192,22 @@ public class PaymentEntryAppService : ApplicationService
         }
 
         pe.Post();
+
+        // Term-based allocation validation: if invoice uses payment terms with
+        // allocate_payment_based_on_payment_terms, each reference must specify PaymentTermId
+        if (pe.References != null && pe.References.Any())
+        {
+            var peManager = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Accounting.DomainServices.PaymentEntryManager>();
+            await peManager.ValidateTermBasedAllocationAsync(pe, async (refId) =>
+            {
+                // Check if the referenced invoice has a payment terms template with term-based allocation
+                var scheduleRepo = LazyServiceProvider
+                    .LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentScheduleEntry, Guid>>();
+                var scheduleQuery = await scheduleRepo.GetQueryableAsync();
+                return scheduleQuery.Any(s => s.ParentId == refId);
+            });
+        }
 
         // Resolve source exchange rate from linked invoice for gain/loss calculation
         if (pe.AgainstInvoiceId.HasValue)
@@ -325,7 +364,7 @@ public class PaymentEntryAppService : ApplicationService
         }
 
         // Multi-reference allocation: when PE has explicit references, validate + allocate per reference
-        if (pe.References.Any())
+        if (pe.References?.Any() == true)
         {
             // Build PLE allocations for multi-ref posting
             var multiAllocations = new List<PaymentAllocation>();
@@ -404,6 +443,24 @@ public class PaymentEntryAppService : ApplicationService
             pe.CompanyId, pe.PaymentNumber, "Submitted", "Posted",
             CurrentUser.Id, tenantId: pe.TenantId));
 
+        // Notify: payment received (for sales team visibility)
+        if (pe.PartyType == "Customer" && pe.PartyId.HasValue && CurrentUser.Id.HasValue)
+        {
+            try
+            {
+                var notifSvc = LazyServiceProvider
+                    .LazyGetRequiredService<Notification.DomainServices.BusinessNotificationService>();
+                await notifSvc.NotifyPaymentReceivedAsync(
+                    CurrentUser.Id.Value,
+                    pe.PartyType ?? "Customer",
+                    pe.PaidAmount,
+                    pe.CurrencyCode ?? "MYR",
+                    pe.Id,
+                    pe.TenantId);
+            }
+            catch { /* Non-critical */ }
+        }
+
         return MapToDto(pe);
     }
 
@@ -433,7 +490,7 @@ public class PaymentEntryAppService : ApplicationService
         if (activeReconciliationEntries > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.PaymentEntryUsedInReconciliation)
-                .WithData("paymentNumber", pe.PaymentNumber)
+                .WithData("paymentNumber", pe.PaymentNumber ?? "")
                 .WithData("reconciliationCount", activeReconciliationEntries);
         }
 
@@ -499,7 +556,7 @@ public class PaymentEntryAppService : ApplicationService
         }
 
         // Reverse multi-reference allocations
-        if (pe.References.Any())
+        if (pe.References?.Any() == true)
         {
             foreach (var refRow in pe.References)
             {

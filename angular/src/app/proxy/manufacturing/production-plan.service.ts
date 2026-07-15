@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import type { ProductionPlanDto, CreateProductionPlanDto } from './models';
@@ -7,7 +7,7 @@ import type { ProductionPlanDto, CreateProductionPlanDto } from './models';
 export class ProductionPlanService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, ProductionPlanDto>({ method: 'GET', url: `/api/app/production-plan/${id}` }, { apiName: this.apiName, ...config });
@@ -36,3 +36,5 @@ export class ProductionPlanService {
   generateMaterialRequests = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, ProductionPlanDto>({ method: 'POST', url: `/api/app/production-plan/${id}/generate-material-requests` }, { apiName: this.apiName, ...config });
 }
+
+

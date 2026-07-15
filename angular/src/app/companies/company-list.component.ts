@@ -22,9 +22,9 @@ import type { CompanyDto } from '../proxy/core/models';
 })
 export class CompanyListComponent implements OnInit {
   private companyService = inject(CompanyService);
+  readonly list = inject(ListService);
   companies: CompanyDto[] = [];
   isLoading = false;
-  constructor(public readonly list: ListService) {}
 
   ngOnInit(): void {
     this.isLoading = true;

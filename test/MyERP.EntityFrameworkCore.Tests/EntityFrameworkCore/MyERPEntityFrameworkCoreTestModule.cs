@@ -68,6 +68,13 @@ public class MyERPEntityFrameworkCoreTestModule : AbpModule
         var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
 
+        // Disable FK enforcement for test isolation — tests focus on business logic, not FK integrity
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA foreign_keys = OFF;";
+            cmd.ExecuteNonQuery();
+        }
+
         var options = new DbContextOptionsBuilder<MyERPDbContext>()
             .UseSqlite(connection)
             .Options;

@@ -57,6 +57,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>If true, this is an opening balance entry (for go-live migration). Bypasses payment terms.</summary>
     public bool IsOpening { get; set; }
 
+    /// <summary>Receivable account (debit_to). Must match original on credit notes.</summary>
+    public Guid DebitToAccountId { get; set; }
+
     /// <summary>Payment terms template for auto-generating due dates.</summary>
     public Guid? PaymentTermsTemplateId { get; set; }
 

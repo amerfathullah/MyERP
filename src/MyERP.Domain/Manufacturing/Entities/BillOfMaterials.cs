@@ -28,6 +28,16 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal OperatingCost { get; set; }
     public decimal TotalCost => TotalMaterialCost + OperatingCost;
 
+    /// <summary>
+    /// Per-BOM override for backflush method. "BOM" or "Material Transferred for Manufacture".
+    /// When set, takes precedence over ManufacturingSettings global value.
+    /// Per DO-NOT: "Skip per-BOM backflush_based_on override"
+    /// </summary>
+    public string? BackflushBasedOn { get; set; }
+
+    /// <summary>Routing reference for operations sequencing.</summary>
+    public Guid? RoutingId { get; set; }
+
     public string? Notes { get; set; }
 
     public List<BomItem> Items { get; set; } = new();

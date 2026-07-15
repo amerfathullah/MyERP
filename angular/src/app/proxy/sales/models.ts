@@ -253,6 +253,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   baseGrandTotal?: number;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  amendedFromId?: string | null;
+  amendmentIndex?: number;
   paymentTermsTemplateId?: string | null;
   items?: SalesInvoiceItemDto[];
 }

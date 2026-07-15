@@ -1,10 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { TimesheetService } from '../../proxy/projects/timesheet.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -92,11 +93,12 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
     </abp-page>
   `,
 })
-export class TimesheetFormComponent {
+export class TimesheetFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private service = inject(TimesheetService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -108,6 +110,11 @@ export class TimesheetFormComponent {
   });
 
   get details(): FormArray { return this.form.get('details') as FormArray; }
+
+  ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid) this.form.patchValue({ companyId: cid });
+  }
 
   addRow(): void {
     const now = new Date().toISOString();

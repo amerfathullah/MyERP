@@ -32,6 +32,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public Guid? ReturnAgainstId { get; set; }
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
+    public Guid CreditToAccountId { get; set; }
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -61,6 +62,12 @@ public class CreatePurchaseInvoiceDto
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
     public bool IsOpening { get; set; }
 
+    /// <summary>Mark as return (debit note). Items must have negative quantities.</summary>
+    public bool IsReturn { get; set; }
+
+    /// <summary>Original invoice this return is against.</summary>
+    public Guid? ReturnAgainstId { get; set; }
+
     [Required][MinLength(1)] public List<CreatePurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -68,7 +75,8 @@ public class CreatePurchaseInvoiceItemDto
 {
     [Required] public Guid ItemId { get; set; }
     [Required][StringLength(500)] public string Description { get; set; } = null!;
-    [Required][Range(0.0001, double.MaxValue)] public decimal Quantity { get; set; }
+    /// <summary>Quantity (positive for normal invoices, negative for debit notes/returns).</summary>
+    [Required] public decimal Quantity { get; set; }
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";

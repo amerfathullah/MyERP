@@ -69,8 +69,8 @@ export class ExpenseClaimListComponent implements OnInit {
       .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
 
-  statusLabel(s: number): string { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s] ?? 'Draft'; }
-  statusClass(s: number): string { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s] ?? 'bg-secondary'; }
+  statusLabel(s: number | undefined): string { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s ?? 0] ?? 'Draft'; }
+  statusClass(s: number | undefined): string { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s ?? 0] ?? 'bg-secondary'; }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

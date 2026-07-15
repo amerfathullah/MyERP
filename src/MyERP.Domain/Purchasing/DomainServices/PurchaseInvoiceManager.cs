@@ -133,6 +133,16 @@ public class PurchaseInvoiceManager : DomainService
         // Load original to validate exchange rate and qty caps
         var original = await _invoiceRepository.GetAsync(returnInvoice.ReturnAgainstId.Value);
 
+        // Party account (credit_to) must match original
+        if (returnInvoice.CreditToAccountId != Guid.Empty &&
+            original.CreditToAccountId != Guid.Empty &&
+            returnInvoice.CreditToAccountId != original.CreditToAccountId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnAccountMismatch)
+                .WithData("documentType", "Purchase Invoice")
+                .WithData("expectedAccount", original.CreditToAccountId);
+        }
+
         if (returnInvoice.ExchangeRate != original.ExchangeRate)
         {
             throw new BusinessException("MyERP:08003")
@@ -189,6 +199,24 @@ public class PurchaseInvoiceManager : DomainService
             throw new BusinessException("MyERP:01002")
                 .WithData("documentType", "Purchase Invoice")
                 .WithData("amountPaid", invoice.AmountPaid);
+        }
+    }
+
+    /// <summary>
+    /// Validates that return invoices with stock effect have no zero-qty items.
+    /// Stock-affecting returns MUST move stock — a zero-qty line would corrupt FIFO queues.
+    /// Source: erpnext/controllers/accounts_controller.py → validate_zero_qty_for_return_invoices_with_stock
+    /// </summary>
+    public static void ValidateReturnWithStockNoZeroQty(PurchaseInvoice invoice)
+    {
+        if (!invoice.IsReturn || !invoice.UpdateStock) return;
+
+        var zeroQtyRows = invoice.Items.Where(i => i.Quantity == 0).ToList();
+        if (zeroQtyRows.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnWithStockZeroQty)
+                .WithData("documentType", "Purchase Invoice")
+                .WithData("affectedRows", string.Join(", ", zeroQtyRows.Select((_, idx) => $"#{idx + 1}")));
         }
     }
 }

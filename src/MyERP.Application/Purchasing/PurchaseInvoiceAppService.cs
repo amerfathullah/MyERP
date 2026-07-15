@@ -13,7 +13,6 @@ using MyERP.Sales;
 using MyERP.Shared;
 using MyERP.Tax.DomainServices;
 using MyERP.Tax.Entities;
-using MyERP.Accounting.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -154,6 +153,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
         invoice.IsOpening = input.IsOpening;
+        invoice.IsReturn = input.IsReturn;
+        invoice.ReturnAgainstId = input.ReturnAgainstId;
+
+        // Set party account (credit_to):
+        // Returns: inherit from original invoice (ensures account match validation works)
+        // Normal: company default payable account
+        var companyForAcct = await _companyRepository.GetAsync(input.CompanyId);
+        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
+            invoice.CreditToAccountId = originalInvoice.CreditToAccountId;
+        }
+        else if (companyForAcct.DefaultPayableAccountId.HasValue)
+        {
+            invoice.CreditToAccountId = companyForAcct.DefaultPayableAccountId.Value;
+        }
 
         // Opening invoices: clear payment terms (accounting-only, no schedule)
         if (invoice.IsOpening)
@@ -228,47 +243,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             .LazyGetRequiredService<IRepository<MyERP.Assets.Entities.Asset, Guid>>();
         await piManager.ValidateAssetReturnAsync(invoice, assetRepo);
 
-        // Return (Debit Note) validation
+        // Return (Debit Note) validation — delegates to domain service (single source of truth)
         if (invoice.IsReturn)
         {
-            // Returns must have negative quantities
-            foreach (var item in invoice.Items)
-            {
-                if (item.Quantity > 0)
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyMustBeNegative)
-                        .WithData("item", item.Description ?? item.ItemId.ToString());
-                }
-            }
-
-            // Must reference an original invoice
-            if (!invoice.ReturnAgainstId.HasValue)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal);
-            }
-
-            // Exchange rate must match original document
-            var original = await _repository.GetAsync(invoice.ReturnAgainstId.Value);
-            if (invoice.ExchangeRate != original.ExchangeRate)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnExchangeRateMismatch)
-                    .WithData("expected", original.ExchangeRate)
-                    .WithData("actual", invoice.ExchangeRate);
-            }
-
-            // Return qty cannot exceed original qty
-            foreach (var returnItem in invoice.Items)
-            {
-                var matchingOriginal = original.Items
-                    .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-                if (matchingOriginal != null && Math.Abs(returnItem.Quantity) > matchingOriginal.Quantity)
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                        .WithData("item", returnItem.Description ?? returnItem.ItemId.ToString())
-                        .WithData("maxQty", matchingOriginal.Quantity)
-                        .WithData("returnQty", Math.Abs(returnItem.Quantity));
-                }
-            }
+            await piManager.ValidateReturnAsync(invoice);
+            // Block zero-qty items on stock-affecting returns (corrupts FIFO queue)
+            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateReturnWithStockNoZeroQty(invoice);
         }
 
         // Supplier hold check — block PI if supplier is on hold for Invoices or All (skip for returns)
@@ -486,9 +466,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var invoice = await _repository.GetAsync(id);
         invoice.Post();
 
-        // Resolve payable account from company defaults
+        // Resolve payable account: invoice-specific → company default → throw
         var company = await _companyRepository.GetAsync(invoice.CompanyId);
-        var payableAccountId = company.DefaultPayableAccountId ?? invoice.CompanyId;
+        var payableAccountId = invoice.CreditToAccountId != Guid.Empty
+            ? invoice.CreditToAccountId
+            : company.DefaultPayableAccountId ?? Guid.Empty;
+
+        if (payableAccountId == Guid.Empty)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02001")
+                .WithData("reason", "No payable account configured. Set Default Payable Account in Company settings.");
+        }
 
         // Budget Level 3 validation: validate expense GL amounts against budget
         if (company.DefaultExpenseAccountId.HasValue)
@@ -678,6 +666,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         ReturnAgainstId = invoice.ReturnAgainstId,
         AmendedFromId = invoice.AmendedFromId,
         AmendmentIndex = invoice.AmendmentIndex,
+        CreditToAccountId = invoice.CreditToAccountId,
         Items = invoice.Items.Select(i => new PurchaseInvoiceItemDto
         {
             Id = i.Id,

@@ -35,7 +35,7 @@ public class CompanySettingsCache : ITransientDependency
     {
         var cacheKey = $"company:{companyId}";
 
-        return await _cache.GetOrAddAsync(
+        return (await _cache.GetOrAddAsync(
             cacheKey,
             async () =>
             {
@@ -53,7 +53,7 @@ public class CompanySettingsCache : ITransientDependency
             () => new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-            });
+            }))!;
     }
 
     /// <summary>

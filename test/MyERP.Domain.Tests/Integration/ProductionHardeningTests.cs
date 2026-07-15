@@ -196,7 +196,7 @@ public class ProductionHardeningTests
             details: "Amount: 5000.00");
 
         log.ActivityType.ShouldBe("PaymentReceived");
-        log.Details.ShouldContain("5000.00");
+        log.Details!.ShouldContain("5000.00");
     }
 
     [Fact]
@@ -213,8 +213,8 @@ public class ProductionHardeningTests
             details: $"Converted to SalesOrder ({targetId})");
 
         log.ActivityType.ShouldBe("Converted");
-        log.Details.ShouldContain("SalesOrder");
-        log.Details.ShouldContain(targetId.ToString());
+        log.Details!.ShouldContain("SalesOrder");
+        log.Details!.ShouldContain(targetId.ToString());
     }
 
     // === Valuation Method Enum ===

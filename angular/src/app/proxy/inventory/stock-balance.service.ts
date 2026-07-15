@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 
@@ -20,7 +20,7 @@ export interface StockBalanceDto {
 export class StockBalanceService {
   apiName = 'Default';
 
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   getStockBalance = (input: any, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<StockBalanceDto>>({ method: 'GET', url: '/api/app/stock-balance/stock-balance', params: { ...input } }, { apiName: this.apiName, ...config });
@@ -28,3 +28,5 @@ export class StockBalanceService {
   getItemStock = (itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<void, StockBalanceDto[]>({ method: 'GET', url: `/api/app/stock-balance/item-stock/${itemId}` }, { apiName: this.apiName, ...config });
 }
+
+

@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +15,7 @@ import { PaginationComponent, type PageEvent } from '../shared/components/pagina
   imports: [
     PaginationComponent, CommonModule,
     RouterModule,
+    FormsModule,
     LocalizationPipe,
     PageModule],
   templateUrl: './customer-list.component.html',
@@ -25,17 +27,34 @@ export class CustomerListComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   currentPage = 0;
   pageSize = 20;
+  searchTerm = '';
+  private searchTimeout: any;
 
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '' });
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.store.load({
+      skipCount: this.currentPage * this.pageSize,
+      maxResultCount: this.pageSize,
+      sorting: '',
+      filter: this.searchTerm || undefined,
+    } as any);
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.currentPage = 0;
+      this.loadData();
+    }, 400);
   }
 
   onPageChange(event: any): void {
-    this.store.load({
-      skipCount: event.pageIndex * event.pageSize,
-      maxResultCount: event.pageSize,
-      sorting: '',
-    });
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   createCustomer(): void {

@@ -167,7 +167,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
                 foreach (var prItem in receipt.Items.Where(i => i.PurchaseOrderItemId.HasValue))
                 {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId!.Value);
                     if (poItem != null && prItem.Quantity > poItem.PendingReceiptQty)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverReceipt)

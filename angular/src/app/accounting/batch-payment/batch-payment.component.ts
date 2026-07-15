@@ -225,12 +225,12 @@ export class BatchPaymentComponent implements OnInit {
     this.processing.set(true);
     const companyId = this.companyContext.currentCompanyId();
 
+    // Account IDs are resolved from company defaults by the backend BatchPaymentAppService
+    // Frontend passes empty GUIDs — backend uses Company.DefaultBankAccountId/DefaultReceivableAccountId
     this.http.post<any>('/api/app/batch-payment/create-batch-payment', {
       companyId,
       partyType: this.partyType,
       paymentType: this.partyType === 'Supplier' ? 1 : 0, // Pay=1, Receive=0
-      paidFromAccountId: '00000000-0000-0000-0000-000000000000', // TODO: from company defaults
-      paidToAccountId: '00000000-0000-0000-0000-000000000000', // TODO: from company defaults
       postingDate: this.postingDate,
       groupByParty: this.groupByParty,
       items: selected.map(inv => ({

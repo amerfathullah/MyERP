@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -38,7 +38,7 @@ interface RegisterReport {
   templateUrl: './sales-register.component.html',
   styleUrls: ['./sales-register.component.scss'],
 })
-export class SalesRegisterComponent {
+export class SalesRegisterComponent implements OnInit {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private companyService = inject(CompanyService);

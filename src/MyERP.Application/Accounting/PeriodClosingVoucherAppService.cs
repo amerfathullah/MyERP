@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -38,7 +39,18 @@ public class CreatePeriodClosingVoucherDto
 public class PeriodClosingVoucherAppService : ApplicationService
 {
     private readonly IRepository<PeriodClosingVoucher, Guid> _repository;
-    public PeriodClosingVoucherAppService(IRepository<PeriodClosingVoucher, Guid> repository) => _repository = repository;
+    private readonly AccountClosingBalanceService _closingBalanceService;
+    private readonly DocumentPostingOrchestrator _postingOrchestrator;
+
+    public PeriodClosingVoucherAppService(
+        IRepository<PeriodClosingVoucher, Guid> repository,
+        AccountClosingBalanceService closingBalanceService,
+        DocumentPostingOrchestrator postingOrchestrator)
+    {
+        _repository = repository;
+        _closingBalanceService = closingBalanceService;
+        _postingOrchestrator = postingOrchestrator;
+    }
 
     public async Task<PagedResultDto<PeriodClosingVoucherDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
@@ -70,8 +82,20 @@ public class PeriodClosingVoucherAppService : ApplicationService
     public async Task<PeriodClosingVoucherDto> SubmitAsync(Guid id)
     {
         var pcv = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+
+        // Validate posting period is not frozen/closed
+        await _postingOrchestrator.ValidatePostingPeriodAsync(
+            pcv.CompanyId, pcv.PostingDate, "PeriodClosingVoucher");
+
         pcv.Submit();
         await _repository.UpdateAsync(pcv);
+
+        // Build Account Closing Balances — enables O(1) Trial Balance queries
+        // Per ERPNext: PCV submit always rebuilds ACB for the closing period
+        var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);
+        await _closingBalanceService.RebuildAsync(
+            pcv.CompanyId, pcv.PostingDate, period, CurrentTenant.Id);
+
         return MapToDto(pcv);
     }
 
@@ -81,6 +105,11 @@ public class PeriodClosingVoucherAppService : ApplicationService
         var pcv = await _repository.GetAsync(id);
         pcv.Cancel();
         await _repository.UpdateAsync(pcv);
+
+        // Delete closing balances for the cancelled period
+        var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);
+        await _closingBalanceService.DeleteForPeriodAsync(pcv.CompanyId, period);
+
         return MapToDto(pcv);
     }
 

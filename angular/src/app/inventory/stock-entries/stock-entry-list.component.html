@@ -38,7 +38,7 @@
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
-                  <td class="fw-medium">{{ row.entryNumber }}</td>
+                  <td class="fw-medium"><a [routerLink]="['/inventory/stock-entries', row.id]" class="text-decoration-none">{{ row.entryNumber }}</a></td>
                   <td>{{ row.entryType }}</td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>

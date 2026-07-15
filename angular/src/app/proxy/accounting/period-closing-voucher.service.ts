@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService } from '@abp/ng.core';
 import { Observable } from 'rxjs';
 
@@ -24,7 +24,7 @@ export interface CreatePeriodClosingVoucherDto {
 
 @Injectable({ providedIn: 'root' })
 export class PeriodClosingVoucherService {
-  constructor(private rest: RestService) {}
+  private rest = inject(RestService);
 
   getList(params?: any): Observable<{ totalCount: number; items: PeriodClosingVoucherDto[] }> {
     return this.rest.request({ method: 'GET', url: '/api/app/period-closing-voucher', params });
@@ -46,3 +46,5 @@ export class PeriodClosingVoucherService {
     return this.rest.request({ method: 'POST', url: `/api/app/period-closing-voucher/${id}/cancel` });
   }
 }
+
+

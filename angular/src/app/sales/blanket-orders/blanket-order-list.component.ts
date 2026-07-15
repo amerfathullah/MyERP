@@ -41,14 +41,14 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (bo of orders; track bo.id) {
                 <tr>
-                  <td>{{ bo.orderNumber }}</td>
+                  <td><a [routerLink]="['/sales/blanket-orders', bo.id]">{{ bo.orderNumber }}</a></td>
                   <td>{{ bo.partyName ?? '—' }}</td>
                   <td><span class="badge bg-info">{{ bo.orderType }}</span></td>
                   <td>{{ bo.fromDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ bo.toDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ (bo.items ?? []).length }}</td>
                   <td><span class="badge" [ngClass]="{'bg-secondary': bo.status===0, 'bg-success': bo.status===1, 'bg-danger': bo.status===4}">
-                    {{ ['Draft','Active','','','Cancelled'][bo.status] }}
+                    {{ ['Draft','Active','','','Cancelled'][bo.status ?? 0] }}
                   </span></td>
                 </tr>
               }

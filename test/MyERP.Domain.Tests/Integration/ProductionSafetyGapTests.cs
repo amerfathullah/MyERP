@@ -201,8 +201,8 @@ public class ProductionSafetyGapTests
             Guid.NewGuid(), "SO-001",
             details: $"Converted to DeliveryNote ({targetId})");
 
-        log.Details.ShouldContain("DeliveryNote");
-        log.Details.ShouldContain(targetId.ToString());
+        log.Details!.ShouldContain("DeliveryNote");
+        log.Details!.ShouldContain(targetId.ToString());
     }
 
     // === Credit Limit — Customer Entity ===

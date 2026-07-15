@@ -19,5 +19,6 @@
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false
-  }
+  },
+  "exclude": ["src/**/*.spec.ts", "e2e/**/*.ts"]
 }

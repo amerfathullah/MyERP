@@ -17,7 +17,11 @@ export interface WorkflowAction {
   styleUrls: ['./document-workflow.component.scss'],
 })
 export class DocumentWorkflowComponent {
-  @Input({ required: true }) currentStatus!: string;
-  @Input() availableActions: WorkflowAction[] = [];
-  @Output() actionTriggered = new EventEmitter<string>();
+  @Input() currentStatus: string = '';
+  @Input() actions: WorkflowAction[] = [];
+  /** @deprecated Use actions instead */
+  @Input() set availableActions(v: WorkflowAction[]) { this.actions = v; }
+  @Output() actionClicked = new EventEmitter<string>();
+  /** @deprecated Use actionClicked instead */
+  @Output() actionTriggered = this.actionClicked;
 }

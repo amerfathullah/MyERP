@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
 
 export interface ItemGroupLookupDto {
@@ -29,7 +29,7 @@ export interface PaymentTermsLookupDto {
 @Injectable({ providedIn: 'root' })
 export class MasterDataService {
   apiName = 'Default';
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
 
   getItemGroups = (config?: Partial<Rest.Config>) =>
     this.restService.request<void, ItemGroupLookupDto[]>({ method: 'GET', url: '/api/app/master-data/item-groups' }, { apiName: this.apiName, ...config });
@@ -43,3 +43,5 @@ export class MasterDataService {
   getPaymentTerms = (config?: Partial<Rest.Config>) =>
     this.restService.request<void, PaymentTermsLookupDto[]>({ method: 'GET', url: '/api/app/master-data/payment-terms' }, { apiName: this.apiName, ...config });
 }
+
+

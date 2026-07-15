@@ -71,6 +71,13 @@ public class BudgetAppService : ApplicationService
         var budget = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
         budget.Submit();
         await _repository.UpdateAsync(budget);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Budget", budget.Id, "Submitted",
+            budget.CompanyId, budget.BudgetAgainstName ?? budget.Id.ToString(), "Draft", "Submitted",
+            CurrentUser.Id, tenantId: budget.TenantId));
+
         return MapToDto(budget);
     }
 
@@ -80,6 +87,13 @@ public class BudgetAppService : ApplicationService
         var budget = await _repository.GetAsync(id);
         budget.Cancel();
         await _repository.UpdateAsync(budget);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Budget", budget.Id, "Cancelled",
+            budget.CompanyId, budget.BudgetAgainstName ?? budget.Id.ToString(), "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: budget.TenantId));
+
         return MapToDto(budget);
     }
 

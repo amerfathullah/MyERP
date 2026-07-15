@@ -59,6 +59,9 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>If true, this is an opening balance entry (for go-live migration).</summary>
     public bool IsOpening { get; set; }
 
+    /// <summary>Payable account (credit_to). Must match original on debit notes.</summary>
+    public Guid CreditToAccountId { get; set; }
+
     /// <summary>Payment terms template for auto-generating due dates.</summary>
     public Guid? PaymentTermsTemplateId { get; set; }
 

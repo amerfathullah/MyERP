@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -156,7 +156,7 @@ interface StatementResult {
     </div>
   `
 })
-export class StatementOfAccountsComponent {
+export class StatementOfAccountsComponent implements OnInit {
   private http = inject(HttpClient);
   private companyContext = inject(CompanyContextService);
   private customerService = inject(CustomerService);

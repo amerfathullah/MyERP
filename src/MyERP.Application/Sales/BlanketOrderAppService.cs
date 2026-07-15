@@ -79,6 +79,10 @@ public class BlanketOrderAppService : ApplicationService
     [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<BlanketOrderDto> CreateAsync(CreateBlanketOrderDto input)
     {
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var bo = new BlanketOrder(GuidGenerator.Create(), input.CompanyId,
             $"BO-{DateTime.UtcNow:yyyyMMdd-HHmmss}", input.OrderType,
             input.PartyId, input.FromDate, input.ToDate, CurrentTenant.Id)
@@ -95,6 +99,13 @@ public class BlanketOrderAppService : ApplicationService
         var bo = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
         bo.Submit();
         await _repository.UpdateAsync(bo);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BlanketOrder", bo.Id, "Submitted",
+            bo.CompanyId, bo.OrderNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: bo.TenantId));
+
         return MapToDto(bo);
     }
 
@@ -104,6 +115,13 @@ public class BlanketOrderAppService : ApplicationService
         var bo = await _repository.GetAsync(id);
         bo.Cancel();
         await _repository.UpdateAsync(bo);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BlanketOrder", bo.Id, "Cancelled",
+            bo.CompanyId, bo.OrderNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: bo.TenantId));
+
         return MapToDto(bo);
     }
 

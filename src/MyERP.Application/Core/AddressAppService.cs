@@ -70,6 +70,7 @@ public class AddressAppService : ApplicationService
         return MapToDto(address);
     }
 
+    [Authorize]
     public async Task DeleteAsync(Guid id)
     {
         await _addressRepository.DeleteAsync(id);

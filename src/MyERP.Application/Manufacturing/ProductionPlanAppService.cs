@@ -85,6 +85,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             Notes = input.Notes,
         };
 
+        // Validate all planned items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         foreach (var item in input.Items)
         {
             plan.AddPlannedItem(new ProductionPlanItem(

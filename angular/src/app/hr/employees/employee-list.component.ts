@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -12,7 +13,7 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
   selector: 'app-employee-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, PageModule, LocalizationPipe,
+    CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent, PaginationComponent],
   templateUrl: './employee-list.component.html',
   styleUrls: ['./employee-list.component.scss'],
@@ -20,16 +21,36 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
 export class EmployeeListComponent implements OnInit {
   readonly store = inject(EmployeeStore);
   private confirmation = inject(ConfirmationService);
+  currentPage = 0;
+  pageSize = 20;
+  searchTerm = '';
+  private searchTimeout: any;
+
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: 'firstName ASC' });
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.store.load({
+      skipCount: this.currentPage * this.pageSize,
+      maxResultCount: this.pageSize,
+      sorting: 'firstName ASC',
+      filter: this.searchTerm || undefined,
+    } as any);
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.currentPage = 0;
+      this.loadData();
+    }, 400);
   }
 
   onPageChange(event: any): void {
-    this.store.load({
-      skipCount: event.pageIndex * event.pageSize,
-      maxResultCount: event.pageSize,
-      sorting: 'firstName ASC',
-    });
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   delete(id: string): void {

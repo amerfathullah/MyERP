@@ -40,7 +40,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td class="text-end">{{ d.totalOutstanding | number:'1.2-2' }}</td>
                   <td class="text-end fw-bold">{{ d.grandTotal | number:'1.2-2' }}</td>
                   <td><span class="badge" [ngClass]="{'bg-secondary':d.status===0, 'bg-primary':d.status===1, 'bg-success':d.status===3, 'bg-danger':d.status===4}">
-                    {{ ['Draft','Submitted','','Resolved','Cancelled'][d.status] }}
+                    {{ ['Draft','Submitted','','Resolved','Cancelled'][d.status ?? 0] }}
                   </span></td>
                 </tr>
               }

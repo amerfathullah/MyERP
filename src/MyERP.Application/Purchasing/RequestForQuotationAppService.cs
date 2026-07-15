@@ -63,6 +63,10 @@ public class RequestForQuotationAppService : ApplicationService
         rfq.CurrencyCode = input.CurrencyCode ?? "MYR";
         rfq.MessageForSupplier = input.MessageForSupplier;
 
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         foreach (var item in input.Items)
             rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom);
 

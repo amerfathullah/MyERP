@@ -1,4 +1,6 @@
-﻿using Volo.Abp.Modularity;
+﻿using Microsoft.Extensions.DependencyInjection;
+using MyERP.Accounting.DomainServices;
+using Volo.Abp.Modularity;
 
 namespace MyERP;
 
@@ -8,5 +10,8 @@ namespace MyERP;
 )]
 public class MyERPApplicationTestModule : AbpModule
 {
-
+    public override void ConfigureServices(ServiceConfigurationContext context)
+    {
+        context.Services.AddTransient<ICurrencyExchangeProvider, TestCurrencyExchangeProvider>();
+    }
 }

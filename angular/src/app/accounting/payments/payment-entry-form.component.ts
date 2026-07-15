@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
@@ -9,6 +10,7 @@ import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto, CreatePaymentEntryDto } from '../../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-payment-entry-form',
@@ -25,9 +27,12 @@ export class PaymentEntryFormComponent implements OnInit {
   private paymentService = inject(PaymentEntryService);
   private accountService = inject(AccountService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
+  private companyContext = inject(CompanyContextService);
 
   accounts = signal<AccountDto[]>([]);
   linkedDocLabel = signal('');
+  outstandingInvoices = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -47,6 +52,9 @@ export class PaymentEntryFormComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
       .subscribe((res) => this.accounts.set(res.items ?? []));
 
@@ -69,6 +77,33 @@ export class PaymentEntryFormComponent implements OnInit {
       });
       this.linkedDocLabel.set(`Advance against ${params['againstOrderType'] ?? 'Order'}`);
     }
+
+    // Fetch outstanding invoices when party info is available
+    if (params['partyType'] && params['partyType'] !== 'InternalTransfer') {
+      this.loadOutstandingInvoices(params['partyType']);
+    }
+  }
+
+  loadOutstandingInvoices(partyType: string): void {
+    const companyId = this.form.get('companyId')?.value;
+    this.http.get<any[]>(`/api/app/payment-entry/outstanding-for-party`, {
+      params: { partyType, companyId: companyId || '' }
+    }).subscribe({
+      next: (invoices) => this.outstandingInvoices.set(invoices ?? []),
+      error: () => {},
+    });
+  }
+
+  selectInvoice(inv: any): void {
+    this.form.patchValue({
+      againstInvoiceId: inv.invoiceId,
+      amount: inv.outstanding,
+    });
+    this.linkedDocLabel.set(`Against ${inv.invoiceType}: ${inv.invoiceNumber}`);
+  }
+
+  cancel(): void {
+    this.router.navigate(['/accounting/payments']);
   }
 
   save(): void {
@@ -87,10 +122,6 @@ export class PaymentEntryFormComponent implements OnInit {
         this.toaster.error(err?.error?.error?.message ?? 'Failed to create payment');
       },
     });
-  }
-
-  cancel(): void {
-    this.router.navigate(['/accounting/payments']);
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

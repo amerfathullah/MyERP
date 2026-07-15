@@ -39,9 +39,9 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (r of rules; track r.id) {
                 <tr>
-                  <td>{{ r.title }}</td>
-                  <td><span class="badge bg-info">{{ ['Discount','Rate','Free Item'][r.ruleType] }}</span></td>
-                  <td>{{ ['Item','Group','Brand','Total'][r.applyOn] }}: {{ r.applyOnName ?? '—' }}</td>
+                  <td><a [routerLink]="['/sales/pricing-rules', r.id]">{{ r.title }}</a></td>
+                  <td><span class="badge bg-info">{{ ['Discount','Rate','Free Item'][r.ruleType ?? 0] }}</span></td>
+                  <td>{{ ['Item','Group','Brand','Total'][r.applyOn ?? 0] }}: {{ r.applyOnName ?? '—' }}</td>
                   <td>{{ r.priority }}</td>
                   <td>{{ r.discountPercentage ? r.discountPercentage + '%' : (r.rate ? 'RM' + r.rate : '—') }}</td>
                   <td><span class="badge" [class]="r.isDisabled ? 'bg-secondary' : 'bg-success'">{{ r.isDisabled ? 'Disabled' : 'Active' }}</span></td>

@@ -63,7 +63,7 @@ export class SubcontractingListComponent implements OnInit {
       .subscribe({ next: (r) => { this.orders = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
 
-  getStatus(s: number): string { return ['Draft', 'Open', 'Partial', 'Completed', 'Closed', 'Cancelled'][s] ?? 'Draft'; }
+  getStatus(s: number | undefined): string { return ['Draft', 'Open', 'Partial', 'Completed', 'Closed', 'Cancelled'][s ?? 0] ?? 'Draft'; }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
 }

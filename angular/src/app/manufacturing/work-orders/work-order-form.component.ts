@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/manufacturing/manufacturing.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -23,6 +24,7 @@ export class WorkOrderFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -43,6 +45,11 @@ export class WorkOrderFormComponent implements OnInit {
     }
     if (params['companyId']) {
       this.form.patchValue({ companyId: params['companyId'] });
+    }
+    // Fallback: auto-fill from company context if not set from query params
+    if (!this.form.get('companyId')?.value) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) this.form.patchValue({ companyId: cid });
     }
   }
 

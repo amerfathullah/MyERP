@@ -321,4 +321,36 @@ public static class MyERPPermissions
         public const string Submit = Default + ".Submit";
         public const string Cancel = Default + ".Cancel";
     }
+
+    public static class LoyaltyPrograms
+    {
+        public const string Default = GroupName + ".LoyaltyPrograms";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class SupplierScorecards
+    {
+        public const string Default = GroupName + ".SupplierScorecards";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class ShippingRules
+    {
+        public const string Default = GroupName + ".ShippingRules";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class SalesPersons
+    {
+        public const string Default = GroupName + ".SalesPersons";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
 }

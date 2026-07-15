@@ -82,6 +82,6 @@ export class JobCardDetailComponent implements OnInit {
     (actions[type]?.(id) ?? this.service.get(id)).subscribe(() => this.load());
   }
 
-  statusLabel(s: number) { return ['Open', 'Work In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][s]; }
-  statusClass(s: number) { return ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger'][s]; }
+  statusLabel(s: number | undefined) { return ['Open', 'Work In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][s ?? 0]; }
+  statusClass(s: number | undefined) { return ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger'][s ?? 0]; }
 }

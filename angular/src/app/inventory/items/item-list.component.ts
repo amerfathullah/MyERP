@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -15,6 +16,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     PageModule,
     LocalizationPipe,
     StatusBadgeComponent,
@@ -27,18 +29,37 @@ export class ItemListComponent implements OnInit {
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
+  currentPage = 0;
+  pageSize = 20;
+  searchTerm = '';
+  private searchTimeout: any;
 
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', companyId: this.companyContext.currentCompanyId() || undefined });
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.store.load({
+      skipCount: this.currentPage * this.pageSize,
+      maxResultCount: this.pageSize,
+      sorting: '',
+      filter: this.searchTerm || undefined,
+      companyId: this.companyContext.currentCompanyId() || undefined,
+    } as any);
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.currentPage = 0;
+      this.loadData();
+    }, 400);
   }
 
   onPageChange(event: any): void {
-    this.store.load({
-      skipCount: event.pageIndex * event.pageSize,
-      maxResultCount: event.pageSize,
-      sorting: '',
-      companyId: this.companyContext.currentCompanyId() || undefined,
-    });
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   createItem(): void {

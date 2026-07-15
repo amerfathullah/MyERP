@@ -8,6 +8,7 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CreateSalesInvoiceDto, SalesInvoiceItemDto } from '../../proxy/sales/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -35,6 +36,8 @@ export class SalesInvoiceFormComponent implements OnInit {
 
   customers = signal<any[]>([]);
 
+  private companyContext = inject(CompanyContextService);
+
   form = this.fb.group({
     invoiceNumber: [''],
     companyId: ['', Validators.required],
@@ -45,6 +48,8 @@ export class SalesInvoiceFormComponent implements OnInit {
     dueDate: [''],
     currency: ['MYR'],
     notes: [''],
+    isReturn: [false],
+    returnAgainstId: [null as string | null],
     items: this.fb.array([]),
   });
 
@@ -65,6 +70,12 @@ export class SalesInvoiceFormComponent implements OnInit {
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
+
+    // Auto-set companyId from context for new documents
+    if (!this.isEditMode) {
+      const companyId = this.companyContext.currentCompanyId();
+      if (companyId) this.form.patchValue({ companyId });
+    }
 
     // Load customer list for dropdown
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
@@ -109,6 +120,8 @@ export class SalesInvoiceFormComponent implements OnInit {
             issueDate: new Date().toISOString().split('T')[0],
             currency: source.currencyCode,
             notes: `Credit Note against ${source.invoiceNumber}`,
+            isReturn: true,
+            returnAgainstId: returnAgainst,
           });
           // Return items have negative quantities
           source.items?.forEach((item) => {
@@ -126,7 +139,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.items.push(this.fb.group({
       itemId: [item?.itemId ?? '', Validators.required],
       description: [item?.description ?? '', Validators.required],
-      quantity: [item?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+      quantity: [item?.quantity ?? 1, [Validators.required]],
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'EA'],
@@ -157,12 +170,10 @@ export class SalesInvoiceFormComponent implements OnInit {
 
     const dto: CreateSalesInvoiceDto = this.form.getRawValue() as any;
 
-    if (this.isEditMode) {
-      this.store.update({ id: this.entityId!, input: dto });
-    } else {
-      this.store.create(dto);
-    }
-    this.router.navigate(['/sales/invoices']);
+    this.service.create(dto).subscribe({
+      next: () => this.router.navigate(['/sales/invoices']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void {

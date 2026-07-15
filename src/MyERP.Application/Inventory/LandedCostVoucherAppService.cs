@@ -134,6 +134,13 @@ public class LandedCostVoucherAppService : ApplicationService
         }
 
         await _repository.UpdateAsync(lcv);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LandedCostVoucher", lcv.Id, "Submitted",
+            lcv.CompanyId, lcv.VoucherNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: lcv.TenantId));
+
         return MapToDto(lcv);
     }
 
@@ -163,6 +170,13 @@ public class LandedCostVoucherAppService : ApplicationService
         }
 
         await _repository.UpdateAsync(lcv);
+
+        var activityRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo2.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LandedCostVoucher", lcv.Id, "Cancelled",
+            lcv.CompanyId, lcv.VoucherNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: lcv.TenantId));
+
         return MapToDto(lcv);
     }
 

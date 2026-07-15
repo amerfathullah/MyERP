@@ -49,7 +49,7 @@
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
-                  <td class="fw-medium">{{ row.paymentNumber }}</td>
+                  <td class="fw-medium"><a [routerLink]="['/accounting/payments', row.id]" class="text-decoration-none">{{ row.paymentNumber }}</a></td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ row.paymentType }}</td>
                   <td class="text-end font-monospace">{{ row.paidAmount | number:'1.2-2' }}</td>

@@ -19,25 +19,30 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 
 | Module | Capabilities |
 |--------|-------------|
-| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, Trial Balance / P&L / Balance Sheet reports |
-| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, with auto-conversion flow |
-| **Purchasing** | Purchase Orders → Purchase Receipts → Purchase Invoices, with auto-conversion flow |
-| **Inventory** | Items, warehouses, stock entries, stock ledger, weighted-average valuation |
-| **Tax** | Configurable tax categories & rules, SST support, date-range effective rates |
-| **HR & Payroll** | Employee management, automated payroll (EPF/SOCSO/EIS/PCB), PDPA field-level security |
+| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, Trial Balance / P&L / Balance Sheet reports |
+| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS invoicing, POS closing entries, blanket orders, pricing rules, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, sales commissions |
+| **Purchasing** | Material Requests → RFQ → Supplier Quotations → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders & receipts), supplier scorecards |
+| **Inventory** | Items, item attributes, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation, stock reservation, pick lists, putaway rules, landed cost vouchers, quality inspections, batch management, serial numbers, UOM conversions, stock closing |
+| **Tax** | Configurable tax categories & rules, SST support, date-range effective rates, SST-02 filing |
+| **HR & Payroll** | Employee management, leave management, leave allocation, holiday lists, expense claims, salary structures, salary slips, payroll entry (EPF/SOCSO/EIS/PCB), PDPA field-level security |
 | **CRM** | Lead lifecycle management, opportunity pipeline, conversion to customer |
-| **Projects** | Project & task management, dependencies, 4 progress calculation methods |
-| **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), sale/scrap lifecycle |
-| **Manufacturing** | Bills of Material, work orders, production tracking, material consumption |
-| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard |
+| **Support** | Issue tracking with SLA enforcement |
+| **Projects** | Project & task management, dependencies, 4 progress calculation methods, timesheets, timesheet billing |
+| **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), asset repairs, capitalizations, sale/scrap lifecycle |
+| **Manufacturing** | Bills of Material (explosion, phantom items, cycle detection), work orders, job cards, operations, routings, workstations, production plans (MRP), manufacturing settings |
+| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, submission logs, reports |
 
 ### Enterprise Features
-- **Approval Workflows** — configurable multi-level approvals with amount thresholds
+- **Approval Workflows** — configurable multi-level approvals with amount thresholds and authorization rules
 - **Automation Rules** — event-triggered actions (email, field updates, status changes)
-- **Notifications** — in-app notification system with bell widget
-- **Import/Export** — CSV import (customers, items) and export
-- **POS** — Point of Sale interface for quick invoicing
+- **Notifications** — in-app notification system with bell widget and email templates
+- **Import/Export** — CSV import (customers, items, suppliers) and export
+- **POS** — Point of Sale interface with closing entries and consolidation
 - **Audit Logging** — full audit trail on all entities (ABP built-in)
+- **Bank Statement Import** — automated bank transaction matching with configurable rules
+- **Payment Reconciliation** — batch payment reconciliation with outstanding invoice matching
+- **Statement of Accounts** — customer/supplier statement generation
+- **Opening Balances** — streamlined opening balance entry for go-live
 
 ---
 
@@ -50,9 +55,11 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | Database | PostgreSQL 16 + Entity Framework Core |
 | Cache | Redis 7 |
 | Auth | OpenIddict (OAuth 2.0 / OIDC) |
-| Frontend | Angular 21, NgRx SignalStore, Bootstrap 5 (LeptonX Lite) |
-| Charts | Chart.js |
+| Frontend | Angular 21.2, NgRx SignalStore 21, Bootstrap 5 (LeptonX Lite) |
+| Unit Tests | xUnit (backend), Vitest 4 (frontend) |
 | E2E Tests | Playwright |
+| Charts | Chart.js 4 |
+| TypeScript | 5.9 |
 | CI/CD | GitHub Actions |
 | Deployment | Docker Compose + Traefik (TLS) |
 | Container Registry | Docker Hub (`amerfathullah/myerp-api`, `amerfathullah/myerp-web`, `amerfathullah/myerp-migrator`) |
@@ -214,7 +221,7 @@ Starts PostgreSQL, Redis, API, and Angular at `http://localhost:4200`.
 
 ```
 src/
-├── MyERP.Domain.Shared        → Constants, enums, error codes, localization (21 languages)
+├── MyERP.Domain.Shared        → Constants, enums, error codes, localization
 ├── MyERP.Domain               → Entities, domain services, repository interfaces, events
 ├── MyERP.Application.Contracts → DTOs, application service interfaces, permissions
 ├── MyERP.Application          → Application service implementations, AutoMapper profiles
@@ -226,21 +233,34 @@ src/
 
 angular/                       → Angular 21 SPA (standalone components, NgRx SignalStore)
 ├── src/app/
-│   ├── accounting/            → Chart of Accounts, Journal Entries, Payments, Reports
-│   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices
-│   ├── purchasing/            → Purchase Orders, Receipts, Invoices
-│   ├── inventory/             → Items, Warehouses, Stock Entries, Stock Ledger
-│   ├── e-invoice/             → LHDN Dashboard, Submission Logs
-│   ├── hr/                    → Employees, Payroll
+│   ├── accounting/            → Chart of Accounts, Journal Entries, Payments, Bank Reconciliation,
+│   │                            Budgets, Period Closing, Dimensions, Reports
+│   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices, POS,
+│   │                            Pricing Rules, Blanket Orders, Dunnings, Subscriptions
+│   ├── purchasing/            → Material Requests, RFQ, Supplier Quotations, Purchase Orders,
+│   │                            Receipts, Invoices, Subcontracting, Scorecards
+│   ├── inventory/             → Items, Warehouses, Stock Entries, Stock Reconciliation,
+│   │                            Stock Reservations, Landed Costs, Quality Inspections, Batches, Serials
+│   ├── manufacturing/         → BOMs, Work Orders, Job Cards, Production Plans, Workstations
+│   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports
+│   ├── hr/                    → Employees, Leave, Expense Claims, Payroll, Salary Structures
 │   ├── crm/                   → Leads, Opportunities
-│   ├── manufacturing/         → Work Orders
-│   ├── projects/              → Projects & Tasks
-│   ├── assets/                → Fixed Assets
-│   └── shared/                → Shared components (status badges, workflow, child table)
+│   ├── support/               → Issues (with SLA)
+│   ├── projects/              → Projects, Timesheets, Timesheet Billing
+│   ├── assets/                → Fixed Assets, Repairs, Capitalizations
+│   ├── tax/                   → Tax Categories, SST-02 Filing, Tax Summary Report
+│   ├── workflow/              → Approval Rules, Pending Approvals
+│   ├── automation/            → Automation Rules
+│   ├── settings/              → Company Settings, Authorization Rules, Email Templates, Notifications
+│   ├── import-export/         → CSV Import/Export
+│   ├── companies/             → Company management
+│   ├── customers/             → Customer management
+│   ├── suppliers/             → Supplier management
+│   └── shared/                → Shared components, directives, pipes, guards, services, store
 ├── e2e/                       → Playwright E2E tests
 
 test/
-├── MyERP.Domain.Tests         → 115+ unit tests (entities, domain services)
+├── MyERP.Domain.Tests         → 2,900+ unit tests (entities, domain services, business rules)
 ├── MyERP.Application.Tests    → Integration tests (app services, conversion flows)
 └── MyERP.EntityFrameworkCore.Tests → Repository/query tests
 
@@ -262,6 +282,8 @@ docs/
 dotnet test
 ```
 
+Runs 2,900+ unit tests covering domain entities, value objects, domain services, and business rule validation.
+
 ### Frontend Unit Tests
 
 ```bash
@@ -273,7 +295,7 @@ cd angular && pnpm test
 ```bash
 cd angular
 npx playwright install --with-deps
-npx playwright test --config=e2e/playwright.config.ts
+pnpm test:e2e
 ```
 
 ---
@@ -307,13 +329,13 @@ GitHub Actions workflows:
 
 | Feature | Status |
 |---------|--------|
-| LHDN e-Invoice (MyInvois) | ✅ Submit, validate, cancel, dashboard |
+| LHDN e-Invoice (MyInvois) | ✅ Submit, validate, cancel, dashboard, reports |
 | XAdES Digital Signing | ✅ RSA-SHA256, UBL Extension |
-| SST Tax Engine | ✅ Configurable rates & rules |
+| SST Tax Engine | ✅ Configurable rates & rules, SST-02 filing |
 | EPF Contribution | ✅ Data-driven (age/citizenship filters) |
 | SOCSO Contribution | ✅ Data-driven (salary ceiling) |
 | EIS Contribution | ✅ Data-driven |
-| PCB/MTD | ✅ Graduated schedule |
+| PCB/MTD | ✅ Graduated schedule (annual cumulative method) |
 | PDPA Compliance | ✅ Field-level security, audit logging |
 | Malaysian CoA Template | ✅ Seeded |
 

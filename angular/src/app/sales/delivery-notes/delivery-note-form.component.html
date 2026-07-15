@@ -12,7 +12,12 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched" />
+            <select class="form-select" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched">
+              <option value="">Select customer...</option>
+              @for (c of customers(); track c.id) {
+                <option [value]="c.id">{{ c.customerName ?? c.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>

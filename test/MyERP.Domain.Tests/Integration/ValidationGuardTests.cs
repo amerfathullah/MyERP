@@ -93,9 +93,6 @@ public class ValidationGuardTests
         customer.CreditLimit = 0; // No limit
 
         // Even with huge outstanding, zero limit = unlimited
-        var outstanding = 999999m;
-        var newAmount = 500000m;
-
         // CreditLimitService skips validation when limit <= 0
         var shouldSkip = customer.CreditLimit <= 0;
         shouldSkip.ShouldBeTrue();
