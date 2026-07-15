@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { SubscriptionService, type SubscriptionDto } from '../../proxy/sales/sales-advanced.service';
+import { SubscriptionService } from '../../proxy/sales/subscription.service';
+import type { SubscriptionDto } from '../../proxy/sales/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({

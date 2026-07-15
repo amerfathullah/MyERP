@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { LeaveService, LeaveApplicationDto } from '../../proxy/hr/leave.service';
+import { LeaveService } from '../../proxy/human-resources/leave.service';
+import type { LeaveApplicationDto } from '../../proxy/human-resources/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 

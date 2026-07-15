@@ -4,7 +4,8 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { IssueService, IssueDto } from '../../proxy/support/issue.service';
+import { IssueService } from '../../proxy/support/issue.service';
+import type { IssueDto, GetIssueListDto } from '../../proxy/support/models';
 
 type IssueEntity = IssueDto & { id: string };
 
@@ -13,7 +14,7 @@ export const IssueStore = signalStore(
   withState({ totalCount: 0, isLoading: false }),
   withEntities<IssueEntity>(),
   withMethods((store, service = inject(IssueService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<any>(
+    load: rxMethod<GetIssueListDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

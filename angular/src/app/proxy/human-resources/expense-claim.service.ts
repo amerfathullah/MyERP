@@ -45,6 +45,15 @@ export class ExpenseClaimService {
     { apiName: this.apiName,...config });
   
 
+  reimburse = (id: string, paidFromAccountId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      responseType: 'text',
+      url: `/api/app/expense-claim/${id}/reimburse/${paidFromAccountId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   reject = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',

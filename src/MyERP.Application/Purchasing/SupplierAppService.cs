@@ -16,7 +16,7 @@ public class SupplierAppService :
         Supplier,
         SupplierDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetSupplierListDto,
         CreateUpdateSupplierDto>,
     ISupplierAppService
 {
@@ -65,9 +65,9 @@ public class SupplierAppService :
         await base.DeleteAsync(id);
     }
 
-    public override async Task<PagedResultDto<SupplierDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public override async Task<PagedResultDto<SupplierDto>> GetListAsync(GetSupplierListDto input)
     {
-        var filter = (input as dynamic)?.filter as string;
+        var filter = input.Filter;
 
         if (string.IsNullOrWhiteSpace(filter))
         {

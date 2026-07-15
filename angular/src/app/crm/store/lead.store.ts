@@ -6,11 +6,13 @@ import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LeadService } from '../../proxy/crm/lead.service';
 import type { LeadDto } from '../../proxy/crm/models';
+import type { LeadStatus } from '../../proxy/crm/lead-status.enum';
+import type { LeadSource } from '../../proxy/crm/lead-source.enum';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 export interface LeadFilter {
-  status?: string;
-  source?: string;
+  status?: LeadStatus;
+  source?: LeadSource;
   filter?: string;
 }
 

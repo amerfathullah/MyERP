@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { BatchProxyService, type BatchDto } from '../../proxy/inventory/inventory-additional.service';
+import { BatchService } from '../../proxy/inventory/batch.service';
+import type { BatchDto } from '../../proxy/inventory/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -46,7 +47,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `,
 })
 export class BatchListComponent implements OnInit {
-  private service = inject(BatchProxyService);
+  private service = inject(BatchService);
   items: BatchDto[] = [];
   isLoading = false;
 

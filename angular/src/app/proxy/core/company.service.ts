@@ -1,4 +1,4 @@
-import type { CompanyDto, CreateUpdateCompanyDto } from './models';
+import type { CompanyDto, CreateUpdateCompanyDto, UpdateCompanySettingsDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -45,10 +45,27 @@ export class CompanyService {
     { apiName: this.apiName,...config });
   
 
+  setupNewCompany = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: `/api/app/company/setup-new-company/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   update = (id: string, input: CreateUpdateCompanyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompanyDto>({
       method: 'PUT',
       url: `/api/app/company/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateSettings = (id: string, input: UpdateCompanySettingsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'PUT',
+      url: `/api/app/company/${id}/settings`,
       body: input,
     },
     { apiName: this.apiName,...config });

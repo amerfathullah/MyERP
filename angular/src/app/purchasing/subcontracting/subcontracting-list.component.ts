@@ -5,7 +5,8 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { SubcontractingService, type SubcontractingOrderDto } from '../../proxy/manufacturing/additional-proxies.service';
+import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
+import type { SubcontractingOrderDto } from '../../proxy/purchasing/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

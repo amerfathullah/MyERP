@@ -30,4 +30,3 @@ export interface IssueDto extends AuditedEntityDto<string> {
   resolutionDate?: string | null;
   resolution?: string | null;
 }
-

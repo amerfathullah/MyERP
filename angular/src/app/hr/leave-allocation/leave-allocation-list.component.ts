@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { LeaveAllocationService, LeaveAllocationDto, BulkLeaveAllocationDto } from '../../proxy/hr/leave-allocation.service';
-import { LeaveService } from '../../proxy/hr/leave.service';
+import { LeaveAllocationService } from '../../proxy/human-resources/leave-allocation.service';
+import type { LeaveAllocationDto, BulkLeaveAllocationDto } from '../../proxy/human-resources/models';
+import { LeaveService } from '../../proxy/human-resources/leave.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({

@@ -31,9 +31,9 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         return MapToDto(employee);
     }
 
-    public async Task<PagedResultDto<EmployeeDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<EmployeeDto>> GetListAsync(GetEmployeeListDto input)
     {
-        var filter = (input as dynamic)?.filter as string;
+        var filter = input.Filter;
         var queryable = await _repository.GetQueryableAsync();
 
         if (!string.IsNullOrWhiteSpace(filter))

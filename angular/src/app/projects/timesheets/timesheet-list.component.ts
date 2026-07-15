@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { TimesheetService, TimesheetDto } from '../../proxy/projects/timesheet.service';
+import { TimesheetService } from '../../proxy/projects/timesheet.service';
+import type { TimesheetDto } from '../../proxy/projects/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

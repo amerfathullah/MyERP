@@ -28,7 +28,7 @@ export class ProjectListComponent implements OnInit {
   onSearch(event: Event): void {
     const filter = (event.target as HTMLInputElement).value;
     this.currentPage = 0;
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', filter } as any);
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', filter });
   }
 
   onPageChange(e: PageEvent): void {

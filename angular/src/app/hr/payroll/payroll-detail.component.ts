@@ -4,9 +4,9 @@ import { PageModule } from '@abp/ng.components/page';
 import { ActivatedRoute } from '@angular/router';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { PayrollService } from '../../proxy/hr/payroll.service';
+import { PayrollService } from '../../proxy/human-resources/payroll.service';
 import { PayrollStore } from '../store/payroll.store';
-import type { PayrollEntryDto } from '../../proxy/hr/models';
+import type { PayrollEntryDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

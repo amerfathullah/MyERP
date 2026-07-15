@@ -1,4 +1,4 @@
-import type { PurchaseInvoiceDto, PurchaseReceiptDto } from './models';
+import type { PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,6 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class PurchaseConversionService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  convertMaterialRequestToPurchaseOrder = (materialRequestId: string, supplierId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: '/api/app/purchase-conversion/convert-material-request-to-purchase-order',
+      params: { materialRequestId, supplierId },
+    },
+    { apiName: this.apiName,...config });
   
 
   convertPurchaseOrderToInvoice = (purchaseOrderId: string, config?: Partial<Rest.Config>) =>

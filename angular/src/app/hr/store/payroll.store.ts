@@ -4,8 +4,8 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { PayrollService } from '../../proxy/hr/payroll.service';
-import type { PayrollEntryDto, CreatePayrollEntryDto } from '../../proxy/hr/models';
+import { PayrollService } from '../../proxy/human-resources/payroll.service';
+import type { PayrollEntryDto, CreatePayrollEntryDto } from '../../proxy/human-resources/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 type PayrollEntity = PayrollEntryDto & { id: EntityId };

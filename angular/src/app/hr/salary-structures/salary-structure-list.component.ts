@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { SalaryStructureService, type SalaryStructureDto } from '../../proxy/human-resources/hr-config.service';
+import { SalaryStructureService } from '../../proxy/human-resources/salary-structure.service';
+import type { SalaryStructureDto } from '../../proxy/human-resources/models';
 
 @Component({
   selector: 'app-salary-structure-list',

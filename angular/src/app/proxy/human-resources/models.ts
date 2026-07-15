@@ -1,9 +1,108 @@
-import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { LeaveApplicationStatus } from './entities/leave-application-status.enum';
+
+export interface BulkLeaveAllocationDto {
+  companyId: string;
+  leaveTypeId: string;
+  fromDate: string;
+  toDate: string;
+  totalLeavesPerEmployee: number;
+}
+
+export interface CreateExpenseClaimDto {
+  companyId?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  postingDate?: string;
+  expenseType?: string | null;
+  expenses?: CreateExpenseDetailDto[];
+}
+
+export interface CreateExpenseDetailDto {
+  expenseDate?: string;
+  description?: string;
+  amount?: number;
+}
+
+export interface CreateHolidayDto {
+  holidayDate?: string;
+  description?: string;
+  isWeeklyOff?: boolean;
+}
+
+export interface CreateHolidayListDto {
+  companyId?: string;
+  name?: string;
+  year?: number;
+  weeklyOff?: string | null;
+  isDefault?: boolean;
+  holidays?: CreateHolidayDto[];
+}
+
+export interface CreateLeaveAllocationDto {
+  companyId: string;
+  employeeId: string;
+  leaveTypeId: string;
+  fromDate: string;
+  toDate: string;
+  totalLeavesAllocated: number;
+  carryForwardDays?: number;
+}
+
+export interface CreateLeaveApplicationDto {
+  companyId: string;
+  employeeId: string;
+  employeeName?: string | null;
+  leaveTypeId: string;
+  leaveTypeName?: string | null;
+  fromDate: string;
+  toDate: string;
+  totalLeaveDays: number;
+  halfDay?: boolean;
+  reason?: string | null;
+  leaveApproverId?: string | null;
+}
+
+export interface CreateLeaveTypeDto {
+  name: string;
+  maxDaysAllowed: number;
+  isPaidLeave?: boolean;
+  requiresApproval?: boolean;
+  allowCarryForward?: boolean;
+  maxCarryForwardDays?: number;
+}
+
+export interface CreateLoanDto {
+  companyId?: string;
+  employeeId?: string;
+  loanType?: number;
+  interestMethod?: number;
+  loanAmount?: number;
+  annualInterestRate?: number;
+  tenureMonths?: number;
+  gracePeriodMonths?: number;
+}
 
 export interface CreatePayrollEntryDto {
   companyId: string;
   year: number;
   month: number;
+}
+
+export interface CreateSalaryStructureDetailDto {
+  salaryComponentId?: string;
+  componentName?: string;
+  amount?: number;
+  formula?: string | null;
+}
+
+export interface CreateSalaryStructureDto {
+  companyId?: string;
+  name?: string;
+  isHourlyBased?: boolean;
+  payrollFrequency?: string;
+  description?: string | null;
+  details?: CreateSalaryStructureDetailDto[];
 }
 
 export interface CreateUpdateEmployeeDto {
@@ -21,6 +120,11 @@ export interface CreateUpdateEmployeeDto {
   taxNumber?: string | null;
 }
 
+export interface DisburseLoanDto {
+  disbursementDate?: string;
+  repaymentStartDate?: string;
+}
+
 export interface EmployeeDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   employeeId?: string;
@@ -36,6 +140,126 @@ export interface EmployeeDto extends FullAuditedEntityDto<string> {
   designation?: string | null;
   department?: string | null;
   status?: string | null;
+}
+
+export interface ExpenseClaimDetailDto {
+  id?: string;
+  expenseDate?: string;
+  description?: string;
+  amount?: number;
+}
+
+export interface ExpenseClaimDto extends EntityDto<string> {
+  companyId?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  postingDate?: string;
+  expenseType?: string | null;
+  totalClaimedAmount?: number;
+  totalSanctionedAmount?: number;
+  totalAmountReimbursed?: number;
+  status?: number;
+  expenses?: ExpenseClaimDetailDto[];
+}
+
+export interface GetEmployeeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
+export interface GetLeaveAllocationListDto extends PagedAndSortedResultRequestDto {
+  employeeId?: string | null;
+  companyId?: string | null;
+  leaveTypeId?: string | null;
+}
+
+export interface GetLeaveListDto extends PagedAndSortedResultRequestDto {
+  employeeId?: string | null;
+  status?: LeaveApplicationStatus | null;
+}
+
+export interface GetPayrollListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+}
+
+export interface HolidayDto {
+  id?: string;
+  holidayDate?: string;
+  description?: string;
+  isWeeklyOff?: boolean;
+}
+
+export interface HolidayListDto extends EntityDto<string> {
+  companyId?: string;
+  name?: string;
+  year?: number;
+  weeklyOff?: string | null;
+  isDefault?: boolean;
+  holidays?: HolidayDto[];
+  creationTime?: string;
+}
+
+export interface LeaveAllocationDto {
+  id?: string;
+  companyId?: string;
+  employeeId?: string;
+  leaveTypeId?: string;
+  fromDate?: string;
+  toDate?: string;
+  totalLeavesAllocated?: number;
+  carryForwardDays?: number;
+  leavesUsed?: number;
+  balance?: number;
+}
+
+export interface LeaveApplicationDto extends AuditedEntityDto<string> {
+  companyId?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  leaveTypeId?: string;
+  leaveTypeName?: string | null;
+  fromDate?: string;
+  toDate?: string;
+  totalLeaveDays?: number;
+  halfDay?: boolean;
+  reason?: string | null;
+  status?: LeaveApplicationStatus;
+}
+
+export interface LeaveTypeDto {
+  id?: string;
+  name?: string;
+  maxDaysAllowed?: number;
+  isPaidLeave?: boolean;
+  allowCarryForward?: boolean;
+  requiresApproval?: boolean;
+}
+
+export interface LoanDto extends EntityDto<string> {
+  companyId?: string;
+  employeeId?: string;
+  loanNumber?: string;
+  loanType?: number;
+  interestMethod?: number;
+  status?: number;
+  loanAmount?: number;
+  annualInterestRate?: number;
+  tenureMonths?: number;
+  gracePeriodMonths?: number;
+  emi?: number;
+  totalAmountRepaid?: number;
+  outstandingBalance?: number;
+  disbursementDate?: string | null;
+  repaymentStartDate?: string | null;
+  schedule?: LoanRepaymentScheduleDto[];
+}
+
+export interface LoanRepaymentScheduleDto {
+  paymentDate?: string;
+  principalAmount?: number;
+  interestAmount?: number;
+  totalPayment?: number;
+  outstandingBalance?: number;
+  isPaid?: boolean;
 }
 
 export interface PayrollEntryDto extends EntityDto<string> {
@@ -69,37 +293,38 @@ export interface PayrollEntryLineDto {
   netSalary?: number;
 }
 
+export interface RecordRepaymentDto {
+  principalAmount?: number;
+  interestAmount?: number;
+}
 
-export interface ExpenseClaimDto { [key: string]: any; }
+export interface SalarySlipDto extends EntityDto<string> {
+  companyId?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  postingDate?: string;
+  startDate?: string;
+  endDate?: string;
+  grossAmount?: number;
+  totalDeductions?: number;
+  netAmount?: number;
+  status?: number;
+}
 
-export interface CreateHolidayListDto { [key: string]: any; }
+export interface SalaryStructureDetailDto {
+  id?: string;
+  salaryComponentId?: string;
+  componentName?: string;
+  amount?: number;
+  formula?: string | null;
+}
 
-export interface HolidayListDto { [key: string]: any; }
-
-export interface BulkLeaveAllocationDto { [key: string]: any; }
-
-export interface CreateLeaveAllocationDto { [key: string]: any; }
-
-export interface GetLeaveAllocationListDto { [key: string]: any; }
-
-export interface LeaveAllocationDto { [key: string]: any; }
-
-export interface CreateLeaveApplicationDto { [key: string]: any; }
-
-export interface CreateLeaveTypeDto { [key: string]: any; }
-
-export interface GetLeaveListDto { [key: string]: any; }
-
-export interface LeaveApplicationDto { [key: string]: any; }
-
-export interface LeaveTypeDto { [key: string]: any; }
-
-export interface SalarySlipDto { [key: string]: any; }
-
-export interface CreateSalaryStructureDto { [key: string]: any; }
-
-export interface SalaryStructureDto { [key: string]: any; }
-
-export interface GetBatchListDto { [key: string]: any; }
-
-export interface CreateExpenseClaimDto { [key: string]: any; }
+export interface SalaryStructureDto extends EntityDto<string> {
+  companyId?: string;
+  name?: string;
+  isHourlyBased?: boolean;
+  payrollFrequency?: string;
+  isActive?: boolean;
+  description?: string | null;
+  details?: SalaryStructureDetailDto[];
+}

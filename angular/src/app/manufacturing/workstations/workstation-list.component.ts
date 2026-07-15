@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { WorkstationService, type WorkstationDto } from '../../proxy/manufacturing/manufacturing-config.service';
+import { WorkstationService } from './workstation.service';
+import type { WorkstationDto } from '../../proxy/manufacturing/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
@@ -72,7 +73,7 @@ export class WorkstationListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize } as any).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '' }).subscribe({
       next: (r) => { this.workstations = r.items ?? []; this.totalCount = r.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; },
     });

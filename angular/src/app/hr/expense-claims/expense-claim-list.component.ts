@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { ExpenseClaimService, type ExpenseClaimDto } from '../../proxy/sales/additional-proxies.service';
+import { ExpenseClaimService } from '../../proxy/human-resources/expense-claim.service';
+import type { ExpenseClaimDto } from '../../proxy/human-resources/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

@@ -30,7 +30,7 @@ export class AssetListComponent implements OnInit {
 
   onSearch(event: Event): void {
     const filter = (event.target as HTMLInputElement).value;
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', filter } as any);
+    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: '', filter });
   }
 
   delete(id: string): void {

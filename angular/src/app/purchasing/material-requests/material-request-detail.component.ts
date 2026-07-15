@@ -9,7 +9,7 @@ import { MaterialRequestStore } from '../store/material-request.store';
 import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import type { MaterialRequestDto } from '../../proxy/purchasing/models';
+import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

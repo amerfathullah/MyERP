@@ -4,7 +4,8 @@ import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { LeaveService, LeaveTypeDto } from '../../proxy/hr/leave.service';
+import { LeaveService } from '../../proxy/human-resources/leave.service';
+import type { LeaveTypeDto } from '../../proxy/human-resources/models';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';

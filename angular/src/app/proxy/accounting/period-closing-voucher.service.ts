@@ -1,50 +1,54 @@
+import type { CreatePeriodClosingVoucherDto, PeriodClosingVoucherDto } from './models';
+import { RestService, Rest } from '@abp/ng.core';
+import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import { RestService } from '@abp/ng.core';
-import { Observable } from 'rxjs';
 
-export interface PeriodClosingVoucherDto {
-  id: string;
-  companyId: string;
-  postingDate: string;
-  closingAccountId: string;
-  closingAccountName?: string;
-  fiscalYearId: string;
-  totalClosingAmount: number;
-  status: string;
-  remarks?: string;
-}
-
-export interface CreatePeriodClosingVoucherDto {
-  companyId: string;
-  postingDate: string;
-  closingAccountId: string;
-  fiscalYearId: string;
-  remarks?: string;
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class PeriodClosingVoucherService {
-  private rest = inject(RestService);
+  private restService = inject(RestService);
+  apiName = 'Default';
+  
 
-  getList(params?: any): Observable<{ totalCount: number; items: PeriodClosingVoucherDto[] }> {
-    return this.rest.request({ method: 'GET', url: '/api/app/period-closing-voucher', params });
-  }
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingVoucherDto>({
+      method: 'POST',
+      url: `/api/app/period-closing-voucher/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
 
-  get(id: string): Observable<PeriodClosingVoucherDto> {
-    return this.rest.request({ method: 'GET', url: `/api/app/period-closing-voucher/${id}` });
-  }
+  create = (input: CreatePeriodClosingVoucherDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingVoucherDto>({
+      method: 'POST',
+      url: '/api/app/period-closing-voucher',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
 
-  create(input: CreatePeriodClosingVoucherDto): Observable<PeriodClosingVoucherDto> {
-    return this.rest.request({ method: 'POST', url: '/api/app/period-closing-voucher', body: input });
-  }
+  get = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingVoucherDto>({
+      method: 'GET',
+      url: `/api/app/period-closing-voucher/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
 
-  submit(id: string): Observable<PeriodClosingVoucherDto> {
-    return this.rest.request({ method: 'POST', url: `/api/app/period-closing-voucher/${id}/submit` });
-  }
+  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<PeriodClosingVoucherDto>>({
+      method: 'GET',
+      url: '/api/app/period-closing-voucher',
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
 
-  cancel(id: string): Observable<PeriodClosingVoucherDto> {
-    return this.rest.request({ method: 'POST', url: `/api/app/period-closing-voucher/${id}/cancel` });
-  }
+  submit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingVoucherDto>({
+      method: 'POST',
+      url: `/api/app/period-closing-voucher/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
 }
-
-

@@ -16,7 +16,7 @@ public class CustomerAppService :
         Customer,
         CustomerDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetCustomerListDto,
         CreateUpdateCustomerDto>,
     ICustomerAppService
 {
@@ -65,9 +65,9 @@ public class CustomerAppService :
         await base.DeleteAsync(id);
     }
 
-    public override async Task<PagedResultDto<CustomerDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public override async Task<PagedResultDto<CustomerDto>> GetListAsync(GetCustomerListDto input)
     {
-        var filter = (input as dynamic)?.filter as string;
+        var filter = input.Filter;
 
         if (string.IsNullOrWhiteSpace(filter))
         {

@@ -4,7 +4,7 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { ManufacturingService } from '../../proxy/manufacturing/manufacturing.service';
+import { ManufacturingService } from '../work-orders/manufacturing.service';
 import type { WorkOrderDto } from '../../proxy/manufacturing/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 

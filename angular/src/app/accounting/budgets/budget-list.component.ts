@@ -6,7 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { BudgetService } from '../../proxy/accounting/budget.service';
-import type { BudgetDto } from '../../proxy/accounting/models';
+import type { BudgetDto } from '../../proxy/dtos/models';
 
 @Component({
   selector: 'app-budget-list',

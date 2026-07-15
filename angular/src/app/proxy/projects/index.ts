@@ -1,2 +1,10 @@
-export * from './project.service';
+import * as Entities from './entities';
+export * from './activity-type.service';
 export * from './models';
+export * from './percent-complete-method.enum';
+export * from './project-priority.enum';
+export * from './project-status.enum';
+export * from './project-task-status.enum';
+export * from './project.service';
+export * from './timesheet.service';
+export { Entities };

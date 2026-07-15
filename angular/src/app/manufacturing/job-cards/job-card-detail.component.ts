@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { JobCardService, type JobCardDto } from '../../proxy/sales/sales-advanced.service';
+import { JobCardService } from '../../proxy/manufacturing/job-card.service';
+import type { JobCardDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

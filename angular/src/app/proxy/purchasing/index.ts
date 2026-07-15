@@ -1,6 +1,17 @@
+import * as Dtos from './dtos';
+import * as Entities from './entities';
+export * from './material-request-type.enum';
+export * from './material-request.service';
 export * from './models';
 export * from './purchase-conversion.service';
 export * from './purchase-invoice.service';
 export * from './purchase-order.service';
 export * from './purchase-receipt.service';
+export * from './purchase-register.service';
+export * from './request-for-quotation.service';
+export * from './scorecard-period-type.enum';
+export * from './subcontracting.service';
+export * from './supplier-quotation.service';
+export * from './supplier-scorecard.service';
 export * from './supplier.service';
+export { Dtos, Entities };

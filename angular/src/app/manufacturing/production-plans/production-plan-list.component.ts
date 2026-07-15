@@ -28,7 +28,7 @@ export class ProductionPlanListComponent implements OnInit {
 
   onSearch(): void {
     this.currentPage = 0;
-    this.store.load({ skipCount: 0, maxResultCount: this.pageSize, filter: this.searchTerm } as any);
+    this.store.load({ skipCount: 0, maxResultCount: this.pageSize, sorting: '', filter: this.searchTerm });
   }
 
   getStatusLabel(status: number | undefined): string {

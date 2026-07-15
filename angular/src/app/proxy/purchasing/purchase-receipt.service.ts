@@ -1,7 +1,8 @@
 import type { CreatePurchaseReceiptDto, PurchaseReceiptDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
-import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
+import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -9,6 +10,14 @@ import { Injectable, inject } from '@angular/core';
 export class PurchaseReceiptService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  amend = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/${id}/amend`,
+    },
+    { apiName: this.apiName,...config });
   
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
@@ -36,11 +45,11 @@ export class PurchaseReceiptService {
     { apiName: this.apiName,...config });
   
 
-  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+  getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PurchaseReceiptDto>>({
       method: 'GET',
       url: '/api/app/purchase-receipt',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

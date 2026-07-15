@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { HolidayListService, type HolidayListDto } from '../../proxy/human-resources/hr-config.service';
+import { HolidayListService } from '../../proxy/human-resources/holiday-list.service';
+import type { HolidayListDto } from '../../proxy/human-resources/models';
 
 @Component({
   selector: 'app-holiday-list',

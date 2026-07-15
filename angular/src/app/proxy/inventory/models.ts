@@ -1,7 +1,68 @@
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
-import type { FullAuditedEntityDto } from '@abp/ng.core';
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
+
+export interface BatchDto extends AuditedEntityDto<string> {
+  batchNo?: string;
+  itemId?: string;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  shelfLifeInDays?: number | null;
+  supplierBatchNo?: string | null;
+  isDisabled?: boolean;
+  isExpired?: boolean;
+  description?: string | null;
+}
+
+export interface CreateBatchDto {
+  itemId: string;
+  batchNo: string;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  shelfLifeInDays?: number | null;
+  supplierBatchNo?: string | null;
+  description?: string | null;
+}
+
+export interface CreateItemAttributeDto {
+  name?: string;
+  isNumeric?: boolean;
+  fromRange?: number;
+  toRange?: number;
+  increment?: number;
+  values?: ItemAttributeValueDto[];
+}
+
+export interface CreateItemGroupDto {
+  name?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  defaultWarehouseId?: string | null;
+}
+
+export interface CreatePickListDto {
+  companyId?: string;
+  purpose?: string;
+  salesOrderId?: string | null;
+  materialRequestId?: string | null;
+  workOrderId?: string | null;
+  items?: CreatePickListItemDto[];
+}
+
+export interface CreatePickListItemDto {
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string;
+  qty?: number;
+  batchId?: string | null;
+}
+
+export interface CreateStockClosingDto {
+  companyId?: string;
+  toDate?: string;
+}
 
 export interface CreateStockEntryDto {
   companyId: string;
@@ -19,6 +80,17 @@ export interface CreateStockEntryItemDto {
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   valuationRate?: number | null;
+}
+
+export interface CreateStockReservationDto {
+  companyId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  voucherType?: string;
+  voucherId?: string;
+  voucherDetailId?: string | null;
+  reservedQty?: number;
+  batchId?: string | null;
 }
 
 export interface CreateUpdateItemDto {
@@ -39,6 +111,36 @@ export interface CreateUpdateItemDto {
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
   isActive?: boolean;
+  reorderLevel?: number;
+  reorderQty?: number;
+  safetyStock?: number;
+  defaultWarehouseId?: string | null;
+  minOrderQty?: number;
+  inspectionRequiredBeforePurchase?: boolean;
+  inspectionRequiredBeforeDelivery?: boolean;
+}
+
+export interface CreateUpdateItemPriceDto {
+  itemId: string;
+  priceListId: string;
+  priceListRate: number;
+  uom?: string;
+  currencyCode?: string;
+  minQty?: number;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+  batchNo?: string | null;
+}
+
+export interface CreateUpdatePriceListDto {
+  name: string;
+  currencyCode: string;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDefault?: boolean;
+  companyId?: string | null;
 }
 
 export interface CreateUpdateWarehouseDto {
@@ -54,6 +156,67 @@ export interface CreateUpdateWarehouseDto {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+}
+
+export interface GetBatchListDto extends PagedAndSortedResultRequestDto {
+  itemId?: string | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
+}
+
+export interface GetItemListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  companyId?: string | null;
+}
+
+export interface GetItemPriceListDto extends PagedAndSortedResultRequestDto {
+  itemId?: string | null;
+  priceListId?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+}
+
+export interface GetItemRateRequestDto {
+  itemId: string;
+  priceListId: string;
+  qty?: number;
+  transactionDate?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+  batchNo?: string | null;
+}
+
+export interface GetSerialNoListDto extends PagedAndSortedResultRequestDto {
+  itemId?: string | null;
+  warehouseId?: string | null;
+  filter?: string | null;
+}
+
+export interface GetStockBalanceRequestDto extends PagedAndSortedResultRequestDto {
+  itemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface GetStockReservationListDto extends CompanyFilteredPagedRequestDto {
+  itemId?: string | null;
+  warehouseId?: string | null;
+  voucherId?: string | null;
+  status?: string | null;
+}
+
+export interface ItemAttributeDto {
+  id?: string;
+  name?: string;
+  isNumeric?: boolean;
+  fromRange?: number;
+  toRange?: number;
+  increment?: number;
+  values?: ItemAttributeValueDto[];
+}
+
+export interface ItemAttributeValueDto {
+  value?: string;
+  abbreviation?: string;
 }
 
 export interface ItemDto extends FullAuditedEntityDto<string> {
@@ -74,6 +237,155 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
   isActive?: boolean;
+  reorderLevel?: number;
+  reorderQty?: number;
+  safetyStock?: number;
+  defaultWarehouseId?: string | null;
+  minOrderQty?: number;
+  inspectionRequiredBeforePurchase?: boolean;
+  inspectionRequiredBeforeDelivery?: boolean;
+}
+
+export interface ItemGroupDto extends EntityDto<string> {
+  name?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  defaultWarehouseId?: string | null;
+}
+
+export interface ItemPriceDto extends AuditedEntityDto<string> {
+  itemId?: string;
+  itemName?: string | null;
+  priceListId?: string;
+  priceListName?: string | null;
+  priceListRate?: number;
+  uom?: string;
+  currencyCode?: string;
+  minQty?: number;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+  batchNo?: string | null;
+}
+
+export interface ItemRateResultDto {
+  rate?: number;
+  itemPriceId?: string | null;
+  source?: string | null;
+}
+
+export interface ManufactureItemLineDto {
+  itemId?: string;
+  itemName?: string;
+  requiredQty?: number;
+  rate?: number;
+  sourceWarehouseId?: string | null;
+  targetWarehouseId?: string | null;
+  isRawMaterial?: boolean;
+}
+
+export interface ManufactureItemsDto {
+  workOrderId?: string;
+  bomId?: string;
+  produceQty?: number;
+  fgItemId?: string;
+  fgWarehouseId?: string | null;
+  sourceWarehouseId?: string | null;
+  items?: ManufactureItemLineDto[];
+}
+
+export interface PendingTransferDto {
+  pickListItemId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  pendingQty?: number;
+  batchId?: string | null;
+}
+
+export interface PickAllocationDto {
+  itemId?: string;
+  warehouseId?: string;
+  requestedQty?: number;
+  allocatedQty?: number;
+  shortageQty?: number;
+}
+
+export interface PickAllocationResultDto {
+  hasShortage?: boolean;
+  allocations?: PickAllocationDto[];
+}
+
+export interface PickListDto extends EntityDto<string> {
+  companyId?: string;
+  pickListNumber?: string | null;
+  purpose?: string;
+  salesOrderId?: string | null;
+  status?: number;
+  isFullyTransferred?: boolean;
+  isPartiallyTransferred?: boolean;
+  items?: PickListItemDto[];
+  creationTime?: string;
+}
+
+export interface PickListItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string;
+  qty?: number;
+  transferredQty?: number;
+  pendingQty?: number;
+}
+
+export interface PriceListDto extends AuditedEntityDto<string> {
+  name?: string;
+  currencyCode?: string;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDefault?: boolean;
+  isActive?: boolean;
+  companyId?: string | null;
+}
+
+export interface SerialNoDto extends EntityDto<string> {
+  serialNumber?: string;
+  itemId?: string;
+  warehouseId?: string | null;
+  companyId?: string;
+  batchId?: string | null;
+  customerId?: string | null;
+  purchaseRate?: number;
+  warrantyExpiryDate?: string | null;
+  amcExpiryDate?: string | null;
+  maintenanceStatus?: string;
+  status?: number;
+  creationTime?: string;
+}
+
+export interface StockBalanceDto {
+  id?: string;
+  itemId?: string;
+  warehouseId?: string;
+  actualQty?: number;
+  orderedQty?: number;
+  plannedQty?: number;
+  reservedQty?: number;
+  indentedQty?: number;
+  projectedQty?: number;
+  stockValue?: number;
+  valuationRate?: number;
+}
+
+export interface StockClosingEntryDto extends EntityDto<string> {
+  companyId?: string;
+  toDate?: string;
+  status?: number;
+  totalEntries?: number;
+  totalStockValue?: number;
+  previousClosingEntryId?: string | null;
+  scannedFromDate?: string | null;
+  creationTime?: string;
 }
 
 export interface StockEntryDto extends FullAuditedEntityDto<string> {
@@ -126,6 +438,40 @@ export interface StockLedgerRowDto {
   voucherId?: string | null;
 }
 
+export interface StockReservationEntryDto extends EntityDto<string> {
+  companyId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  voucherType?: string;
+  voucherId?: string;
+  voucherDetailId?: string | null;
+  reservedQty?: number;
+  deliveredQty?: number;
+  availableQty?: number;
+  status?: number;
+  creationTime?: string;
+}
+
+export interface StockValuationRowDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  quantity?: number;
+  valuationRate?: number;
+  stockValue?: number;
+}
+
+export interface StockValuationSummaryDto {
+  companyId?: string;
+  totalStockValue?: number;
+  totalItems?: number;
+  totalWarehouses?: number;
+  rows?: StockValuationRowDto[];
+}
+
 export interface WarehouseDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   branchId?: string | null;
@@ -140,228 +486,3 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   isGroup?: boolean;
   isActive?: boolean;
 }
-
-// Quality Inspection
-export interface QualityInspectionDto {
-  id?: string;
-  companyId?: string;
-  itemId?: string;
-  itemName?: string;
-  inspectionType?: number;
-  referenceType?: string;
-  referenceId?: string;
-  batchNo?: string;
-  sampleSize?: number;
-  inspectionDate?: string;
-  status?: number;
-  docStatus?: number;
-  remarks?: string;
-  manualInspection?: boolean;
-  readings?: QualityInspectionReadingDto[];
-  creationTime?: string;
-}
-
-export interface QualityInspectionReadingDto {
-  id?: string;
-  specification?: string;
-  expectedValue?: string;
-  minValue?: number;
-  maxValue?: number;
-  readingValue?: string;
-  isNumeric?: boolean;
-  formulaBased?: boolean;
-  status?: number;
-}
-
-export interface CreateQualityInspectionDto {
-  companyId: string;
-  itemId: string;
-  itemName?: string;
-  inspectionType: number;
-  inspectionDate: string;
-  referenceType?: string;
-  referenceId?: string;
-  batchNo?: string;
-  sampleSize: number;
-  manualInspection?: boolean;
-  readings: CreateQualityInspectionReadingDto[];
-}
-
-export interface CreateQualityInspectionReadingDto {
-  specification: string;
-  expectedValue?: string;
-  minValue?: number;
-  maxValue?: number;
-  readingValue?: string;
-  isNumeric?: boolean;
-  formulaBased?: boolean;
-  formula?: string;
-}
-
-export interface GetQualityInspectionListDto {
-  companyId?: string;
-  itemId?: string;
-  status?: number;
-  filter?: string;
-  sorting?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-}
-
-// Stock Reconciliation
-export interface StockReconciliationDto {
-  id?: string;
-  companyId?: string;
-  reconciliationNumber?: string;
-  postingDate?: string;
-  purpose?: string;
-  notes?: string;
-  status?: number;
-  differenceAmount?: number;
-  items?: StockReconciliationItemDto[];
-  creationTime?: string;
-}
-
-export interface StockReconciliationItemDto {
-  id?: string;
-  itemId?: string;
-  warehouseId?: string;
-  currentQuantity?: number;
-  currentValuationRate?: number;
-  newQuantity?: number;
-  newValuationRate?: number;
-  quantityDifference?: number;
-  differenceAmount?: number;
-}
-
-export interface CreateStockReconciliationDto {
-  companyId: string;
-  postingDate: string;
-  purpose?: string;
-  notes?: string;
-  expenseAccountId?: string;
-  costCenterId?: string;
-  items: CreateStockReconciliationItemDto[];
-}
-
-export interface CreateStockReconciliationItemDto {
-  itemId: string;
-  warehouseId: string;
-  newQuantity: number;
-  newValuationRate: number;
-  currentQuantity: number;
-  currentValuationRate: number;
-}
-
-export interface GetStockReconciliationListDto {
-  companyId?: string;
-  filter?: string;
-  sorting?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-}
-
-// Landed Cost Voucher
-export interface LandedCostVoucherDto {
-  id?: string;
-  companyId?: string;
-  voucherNumber?: string;
-  postingDate?: string;
-  distributionMethod?: number;
-  status?: number;
-  totalCharges?: number;
-  totalDistributedAmount?: number;
-  notes?: string;
-  items?: LandedCostItemDto[];
-  charges?: LandedCostChargeDto[];
-  creationTime?: string;
-}
-
-export interface LandedCostItemDto {
-  id?: string;
-  receiptId?: string;
-  receiptType?: string;
-  itemId?: string;
-  description?: string;
-  quantity?: number;
-  amount?: number;
-  applicableCharges?: number;
-}
-
-export interface LandedCostChargeDto {
-  id?: string;
-  description?: string;
-  expenseAccountId?: string;
-  amount?: number;
-}
-
-export interface CreateLandedCostVoucherDto {
-  companyId: string;
-  postingDate: string;
-  distributionMethod?: number;
-  notes?: string;
-  items: CreateLandedCostItemDto[];
-  charges: CreateLandedCostChargeDto[];
-}
-
-export interface CreateLandedCostItemDto {
-  receiptId: string;
-  receiptType: string;
-  itemId: string;
-  description?: string;
-  quantity: number;
-  amount: number;
-}
-
-export interface CreateLandedCostChargeDto {
-  description: string;
-  expenseAccountId: string;
-  amount: number;
-}
-
-export interface GetLandedCostVoucherListDto {
-  companyId?: string;
-  filter?: string;
-  sorting?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-}
-
-export interface BatchDto { [key: string]: any; }
-
-export interface CreateBatchDto { [key: string]: any; }
-
-export interface CreateSerialNoDto { [key: string]: any; }
-
-export interface SerialNoDto { [key: string]: any; }
-
-
-export interface CreateItemGroupDto { [key: string]: any; }
-
-export interface ItemGroupDto { [key: string]: any; }
-
-export interface CreatePickListDto { [key: string]: any; }
-
-export interface PickListDto { [key: string]: any; }
-
-export interface GetItemPriceListDto { [key: string]: any; }
-
-export interface GetItemRateRequestDto { [key: string]: any; }
-
-export interface ItemPriceDto { [key: string]: any; }
-
-export interface ItemRateResultDto { [key: string]: any; }
-
-export interface PriceListDto { [key: string]: any; }
-
-export interface GetSerialNoListDto { [key: string]: any; }
-
-export interface GetJobCardListDto { [key: string]: any; }
-
-export interface UomConversionDto { [key: string]: any; }
-
-export interface CreateUpdateItemPriceDto { [key: string]: any; }
-
-export interface CreateUpdatePriceListDto { [key: string]: any; }
-
-export interface GetBatchListDto { [key: string]: any; }

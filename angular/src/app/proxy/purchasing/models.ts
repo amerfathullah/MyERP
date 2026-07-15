@@ -1,13 +1,27 @@
-import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+import type { ScorecardPeriodType } from './scorecard-period-type.enum';
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { SubcontractingOrderStatus } from './entities/subcontracting-order-status.enum';
+import type { SubcontractingReceiptStatus } from './entities/subcontracting-receipt-status.enum';
+
+export interface CreateCriterionDto {
+  name?: string;
+  weight?: number;
+  maxScore?: number;
+  formula?: string | null;
+}
 
 export interface CreatePurchaseInvoiceDto {
   companyId: string;
   supplierId: string;
   issueDate: string;
   dueDate?: string | null;
+  paymentTermsTemplateId?: string | null;
   supplierInvoiceNumber?: string | null;
   currencyCode?: string;
   notes?: string | null;
+  isOpening?: boolean;
+  isReturn?: boolean;
+  returnAgainstId?: string | null;
   items: CreatePurchaseInvoiceItemDto[];
 }
 
@@ -61,6 +75,105 @@ export interface CreatePurchaseReceiptItemDto {
   purchaseOrderItemId?: string | null;
 }
 
+export interface CreateRfqDto {
+  companyId?: string;
+  transactionDate?: string;
+  currencyCode?: string | null;
+  messageForSupplier?: string | null;
+  items?: CreateRfqItemDto[];
+  suppliers?: CreateRfqSupplierDto[];
+}
+
+export interface CreateRfqItemDto {
+  itemId?: string;
+  description?: string;
+  qty?: number;
+  uom?: string;
+}
+
+export interface CreateRfqSupplierDto {
+  supplierId?: string;
+  email?: string | null;
+}
+
+export interface CreateSQItemDto {
+  itemId?: string;
+  itemName?: string | null;
+  qty?: number;
+  rate?: number;
+}
+
+export interface CreateScoItemDto {
+  itemId: string;
+  itemName: string;
+  qty?: number;
+  rate?: number;
+  bomId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface CreateScorecardDto {
+  supplierId?: string;
+  companyId?: string;
+  periodType?: ScorecardPeriodType;
+  weightingFunction?: string | null;
+  standings?: CreateStandingDto[];
+  criteria?: CreateCriterionDto[];
+}
+
+export interface CreateScorecardPeriodDto {
+  startDate?: string;
+  endDate?: string;
+  score?: number;
+}
+
+export interface CreateScrItemDto {
+  itemId: string;
+  itemName: string;
+  qty?: number;
+  rate?: number;
+  warehouseId?: string | null;
+}
+
+export interface CreateStandingDto {
+  name?: string;
+  minScore?: number;
+  maxScore?: number;
+  preventPos?: boolean;
+  preventRfqs?: boolean;
+  warnPos?: boolean;
+  warnRfqs?: boolean;
+}
+
+export interface CreateSubcontractingOrderDto {
+  companyId: string;
+  supplierId: string;
+  orderDate: string;
+  purchaseOrderId?: string | null;
+  notes?: string | null;
+  items?: CreateScoItemDto[];
+}
+
+export interface CreateSubcontractingReceiptDto {
+  companyId: string;
+  supplierId: string;
+  subcontractingOrderId: string;
+  postingDate: string;
+  warehouseId?: string | null;
+  items?: CreateScrItemDto[];
+}
+
+export interface CreateSupplierQuotationDto {
+  companyId?: string;
+  supplierId?: string;
+  supplierName?: string | null;
+  transactionDate?: string;
+  validTill?: string | null;
+  currency?: string;
+  requestForQuotationId?: string | null;
+  items?: CreateSQItemDto[];
+}
+
 export interface CreateUpdateSupplierDto {
   companyId: string;
   name: string;
@@ -83,6 +196,15 @@ export interface CreateUpdateSupplierDto {
   isActive?: boolean;
 }
 
+export interface GetScoListDto extends PagedAndSortedResultRequestDto {
+  status?: SubcontractingOrderStatus | null;
+  companyId?: string | null;
+}
+
+export interface GetSupplierListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface PurchaseInvoiceDto extends EntityDto<string> {
   companyId?: string;
   invoiceNumber?: string;
@@ -92,14 +214,24 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   supplierId?: string;
   supplierTin?: string | null;
   currencyCode?: string;
+  exchangeRate?: number;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
   amountPaid?: number;
   outstandingAmount?: number;
+  baseNetTotal?: number;
+  baseTaxAmount?: number;
+  baseGrandTotal?: number;
+  baseOutstandingAmount?: number;
   status?: string;
   eInvoiceStatus?: string;
   lhdnUuid?: string | null;
+  isReturn?: boolean;
+  returnAgainstId?: string | null;
+  amendedFromId?: string | null;
+  amendmentIndex?: number;
+  creditToAccountId?: string;
   items?: PurchaseInvoiceItemDto[];
 }
 
@@ -173,6 +305,106 @@ export interface PurchaseReceiptItemDto {
   purchaseOrderItemId?: string | null;
 }
 
+export interface PurchaseRegisterLineDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  postingDate?: string;
+  supplierId?: string;
+  supplierName?: string | null;
+  netTotal?: number;
+  taxAmount?: number;
+  grandTotal?: number;
+  amountPaid?: number;
+  outstanding?: number;
+  isReturn?: boolean;
+}
+
+export interface RfqDto {
+  id?: string;
+  companyId?: string;
+  rfqNumber?: string;
+  transactionDate?: string;
+  currencyCode?: string;
+  messageForSupplier?: string | null;
+  status?: string;
+  items?: RfqItemDto[];
+  suppliers?: RfqSupplierDto[];
+}
+
+export interface RfqItemDto {
+  id?: string;
+  itemId?: string;
+  description?: string;
+  qty?: number;
+  uom?: string;
+}
+
+export interface RfqSupplierDto {
+  id?: string;
+  supplierId?: string;
+  supplierName?: string;
+  email?: string | null;
+  emailSent?: boolean;
+  quoteStatus?: string;
+}
+
+export interface ScoItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  qty?: number;
+  rate?: number;
+  receivedQty?: number;
+}
+
+export interface ScorecardCriterionDto {
+  name?: string;
+  weight?: number;
+  maxScore?: number;
+  formula?: string | null;
+}
+
+export interface ScorecardDto {
+  id?: string;
+  supplierId?: string;
+  companyId?: string;
+  periodType?: string;
+  score?: number;
+  currentStanding?: string | null;
+  weightingFunction?: string | null;
+  standings?: ScorecardStandingDto[];
+  criteria?: ScorecardCriterionDto[];
+}
+
+export interface ScorecardStandingDto {
+  name?: string;
+  minScore?: number;
+  maxScore?: number;
+  preventPos?: boolean;
+  preventRfqs?: boolean;
+}
+
+export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
+  orderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  companyId?: string;
+  netTotal?: number;
+  grandTotal?: number;
+  status?: SubcontractingOrderStatus;
+  perReceived?: number;
+  items?: ScoItemDto[];
+}
+
+export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
+  receiptNumber?: string;
+  postingDate?: string;
+  supplierId?: string;
+  subcontractingOrderId?: string;
+  netTotal?: number;
+  status?: SubcontractingReceiptStatus;
+}
+
 export interface SupplierDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   name?: string;
@@ -195,80 +427,25 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
-// Material Request
-export interface MaterialRequestDto {
-  id?: string;
-  requestNumber?: string;
-  requestType?: number;
-  status?: number;
-  requestDate?: string;
-  requiredByDate?: string | null;
+export interface SupplierQuotationDto extends EntityDto<string> {
   companyId?: string;
-  workOrderId?: string | null;
-  sourceWarehouseId?: string | null;
-  targetWarehouseId?: string | null;
-  notes?: string | null;
-  creationTime?: string;
-  items?: MaterialRequestItemDto[];
+  supplierId?: string;
+  supplierName?: string | null;
+  quotationNumber?: string | null;
+  transactionDate?: string;
+  validTill?: string | null;
+  currency?: string;
+  netTotal?: number;
+  grandTotal?: number;
+  status?: number;
+  items?: SupplierQuotationItemDto[];
 }
 
-export interface MaterialRequestItemDto {
+export interface SupplierQuotationItemDto {
   id?: string;
   itemId?: string;
-  itemName?: string;
-  quantity?: number;
-  orderedQuantity?: number;
-  receivedQuantity?: number;
-  uom?: string;
-  warehouseId?: string | null;
+  itemName?: string | null;
+  qty?: number;
+  rate?: number;
+  amount?: number;
 }
-
-export interface CreateMaterialRequestDto {
-  companyId: string;
-  requestType: number;
-  requestDate: string;
-  requiredByDate?: string | null;
-  workOrderId?: string | null;
-  sourceWarehouseId?: string | null;
-  targetWarehouseId?: string | null;
-  notes?: string | null;
-  items: CreateMaterialRequestItemDto[];
-}
-
-export interface CreateMaterialRequestItemDto {
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  uom?: string;
-  warehouseId?: string | null;
-}
-
-export interface GetMaterialRequestListDto {
-  requestType?: number | null;
-  companyId?: string | null;
-  filter?: string | null;
-  skipCount?: number;
-  maxResultCount?: number;
-  sorting?: string;
-}
-
-export interface CreateSupplierQuotationDto { [key: string]: any; }
-
-export interface SubcontractingOrderDto { [key: string]: any; }
-
-export interface SupplierQuotationDto { [key: string]: any; }
-
-
-export interface RegisterFilterDto { [key: string]: any; }
-
-export interface RegisterReportDto<T = any> { items?: T[]; totalAmount?: number; totalTax?: number; [key: string]: any; }
-
-export interface CreateSubcontractingReceiptDto { [key: string]: any; }
-
-export interface GetScoListDto { [key: string]: any; }
-
-export interface CreateSubcontractingOrderDto { [key: string]: any; }
-
-export interface SubcontractingReceiptDto { [key: string]: any; }
-
-export interface PurchaseRegisterLineDto { [key: string]: any; }

@@ -169,7 +169,7 @@ export class StatementOfAccountsComponent implements OnInit {
   toDate = new Date().toISOString().substring(0, 10); // today
 
   ngOnInit() {
-    this.customerService.getList({ maxResultCount: 200 } as any).subscribe(r => {
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(r => {
       this.customers.set(r.items ?? []);
     });
   }

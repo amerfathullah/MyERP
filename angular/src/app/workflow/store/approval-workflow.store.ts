@@ -5,7 +5,7 @@ import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
-import type { ApprovalRuleDto, ApprovalRequestDto } from '../../proxy/workflow/models';
+import type { ApprovalRuleDto, ApprovalRequestDto } from '../../proxy/workflow/dtos/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 type ApprovalRuleEntity = ApprovalRuleDto & { id: string };

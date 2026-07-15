@@ -6,7 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
-import type { CreateApprovalRuleDto } from '../../proxy/workflow/models';
+import type { CreateApprovalRuleDto } from '../../proxy/workflow/dtos/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 

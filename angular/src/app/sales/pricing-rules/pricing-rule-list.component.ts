@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { PricingRuleService, type PricingRuleDto } from '../../proxy/manufacturing/additional-proxies.service';
+import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
+import type { PricingRuleDto } from '../../proxy/sales/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

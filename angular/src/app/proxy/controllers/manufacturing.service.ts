@@ -1,7 +1,8 @@
 import { RestService, Rest } from '@abp/ng.core';
-import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
+import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BomDto, CreateBomDto, CreateWorkOrderDto, GetWorkOrderListDto, WorkOrderDto } from '../manufacturing/models';
+import type { BomDto, CreateBomDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, WorkOrderDto, WorkstationDto } from '../manufacturing/models';
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -37,6 +38,15 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  createWorkstation = (input: CreateWorkstationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkstationDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/workstations',
+      params: { companyId: input.companyId, name: input.name, workstationType: input.workstationType, productionCapacity: input.productionCapacity, description: input.description },
+    },
+    { apiName: this.apiName,...config });
+  
+
   deleteBom = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
@@ -61,11 +71,11 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
-  getBomList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+  getBomList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<BomDto>>({
       method: 'GET',
       url: '/api/app/manufacturing/bom',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -83,6 +93,23 @@ export class ManufacturingService {
       method: 'GET',
       url: '/api/app/manufacturing/work-order',
       params: { status: input.status, filter: input.filter, companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getWorkstation = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkstationDto>({
+      method: 'GET',
+      url: `/api/app/manufacturing/workstations/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getWorkstationList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<WorkstationDto>>({
+      method: 'GET',
+      url: '/api/app/manufacturing/workstations',
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

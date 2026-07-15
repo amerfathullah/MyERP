@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { JobCardService, type JobCardDto } from '../../proxy/sales/sales-advanced.service';
+import { JobCardService } from '../../proxy/manufacturing/job-card.service';
+import type { JobCardDto } from '../../proxy/manufacturing/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({

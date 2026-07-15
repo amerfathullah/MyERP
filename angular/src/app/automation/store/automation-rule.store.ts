@@ -5,7 +5,7 @@ import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AutomationRuleService } from '../../proxy/automation/automation-rule.service';
-import type { AutomationRuleDto, CreateAutomationRuleDto, UpdateAutomationRuleDto } from '../../proxy/automation/models';
+import type { AutomationRuleDto, CreateAutomationRuleDto, UpdateAutomationRuleDto } from '../../proxy/automation/dtos/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 type AutomationRuleEntity = AutomationRuleDto & { id: string };

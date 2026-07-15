@@ -1,160 +1,171 @@
-export interface LeadDto {
-  id?: string;
-  leadNumber?: string;
-  firstName?: string;
-  lastName?: string;
-  companyName?: string;
-  email?: string;
-  phone?: string;
-  mobileNo?: string;
-  jobTitle?: string;
-  website?: string;
-  status?: number;
-  source?: number;
-  city?: string;
-  state?: string;
-  country?: string;
-  industry?: string;
-  annualRevenue?: number;
-  assignedUserId?: string;
-  convertedCustomerId?: string;
-  convertedOpportunityId?: string;
-  companyId?: string;
-  notes?: string;
-  fullName?: string;
-  creationTime?: string;
-  lastModificationTime?: string;
-}
-
-export interface CreateLeadDto {
-  firstName: string;
-  lastName?: string;
-  companyName?: string;
-  email?: string;
-  phone?: string;
-  mobileNo?: string;
-  jobTitle?: string;
-  website?: string;
-  source?: number;
-  city?: string;
-  state?: string;
-  country?: string;
-  industry?: string;
-  annualRevenue?: number;
-  assignedUserId?: string;
-  companyId: string;
-  notes?: string;
-}
-
-export interface UpdateLeadDto {
-  firstName: string;
-  lastName?: string;
-  companyName?: string;
-  email?: string;
-  phone?: string;
-  mobileNo?: string;
-  jobTitle?: string;
-  website?: string;
-  source?: number;
-  city?: string;
-  state?: string;
-  country?: string;
-  industry?: string;
-  annualRevenue?: number;
-  assignedUserId?: string;
-  notes?: string;
-}
-
-export interface GetLeadListDto {
-  status?: number;
-  source?: number;
-  filter?: string;
-  companyId?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-  sorting?: string;
-}
+import type { OpportunityType } from './opportunity-type.enum';
+import type { LeadSource } from './lead-source.enum';
+import type { AuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { LeadStatus } from './lead-status.enum';
+import type { OpportunityStatus } from './opportunity-status.enum';
 
 export interface ConvertLeadToOpportunityDto {
   leadId: string;
   title: string;
-  opportunityType?: number;
+  opportunityType?: OpportunityType;
   opportunityAmount?: number;
-  salesStage?: string;
-  expectedClosingDate?: string;
+  salesStage?: string | null;
+  expectedClosingDate?: string | null;
 }
 
-export interface OpportunityDto {
-  id?: string;
-  opportunityNumber?: string;
-  title?: string;
-  status?: number;
-  opportunityType?: number;
-  leadId?: string;
-  customerId?: string;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  salesStage?: string;
-  probability?: number;
-  expectedClosingDate?: string;
-  opportunityAmount?: number;
-  currencyCode?: string;
-  companyId?: string;
-  assignedUserId?: string;
-  territory?: string;
-  lostReason?: string;
-  notes?: string;
-  items?: OpportunityItemDto[];
-  creationTime?: string;
-  lastModificationTime?: string;
-}
-
-export interface OpportunityItemDto {
-  id?: string;
-  itemId?: string;
-  description?: string;
-  quantity?: number;
-  unitPrice?: number;
-  amount?: number;
-  uom?: string;
+export interface CreateLeadDto {
+  firstName: string;
+  lastName?: string | null;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobileNo?: string | null;
+  jobTitle?: string | null;
+  website?: string | null;
+  source?: LeadSource;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  annualRevenue?: number | null;
+  assignedUserId?: string | null;
+  companyId: string;
+  notes?: string | null;
 }
 
 export interface CreateOpportunityDto {
   title: string;
-  opportunityType?: number;
-  leadId?: string;
-  customerId?: string;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  salesStage?: string;
+  opportunityType?: OpportunityType;
+  leadId?: string | null;
+  customerId?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  salesStage?: string | null;
   probability?: number;
-  expectedClosingDate?: string;
+  expectedClosingDate?: string | null;
   opportunityAmount?: number;
   currencyCode?: string;
   companyId: string;
-  assignedUserId?: string;
-  territory?: string;
-  notes?: string;
-  items?: { itemId?: string; description: string; quantity: number; unitPrice: number; uom?: string }[];
+  assignedUserId?: string | null;
+  territory?: string | null;
+  notes?: string | null;
+  items?: CreateOpportunityItemDto[];
+}
+
+export interface CreateOpportunityItemDto {
+  itemId?: string | null;
+  description: string;
+  quantity?: number;
+  unitPrice?: number;
+  uom?: string | null;
+}
+
+export interface GetLeadListDto extends PagedAndSortedResultRequestDto {
+  status?: LeadStatus | null;
+  source?: LeadSource | null;
+  filter?: string | null;
+  companyId?: string | null;
+}
+
+export interface GetOpportunityListDto extends PagedAndSortedResultRequestDto {
+  status?: OpportunityStatus | null;
+  opportunityType?: OpportunityType | null;
+  filter?: string | null;
+  companyId?: string | null;
+  leadId?: string | null;
+}
+
+export interface LeadDto extends AuditedEntityDto<string> {
+  leadNumber?: string;
+  firstName?: string;
+  lastName?: string | null;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobileNo?: string | null;
+  jobTitle?: string | null;
+  website?: string | null;
+  status?: LeadStatus;
+  source?: LeadSource;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  annualRevenue?: number | null;
+  assignedUserId?: string | null;
+  convertedCustomerId?: string | null;
+  convertedOpportunityId?: string | null;
+  companyId?: string;
+  notes?: string | null;
+  fullName?: string | null;
+}
+
+export interface OpportunityDto extends AuditedEntityDto<string> {
+  opportunityNumber?: string;
+  title?: string;
+  status?: OpportunityStatus;
+  opportunityType?: OpportunityType;
+  leadId?: string | null;
+  customerId?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  salesStage?: string | null;
+  probability?: number;
+  expectedClosingDate?: string | null;
+  opportunityAmount?: number;
+  currencyCode?: string;
+  companyId?: string;
+  assignedUserId?: string | null;
+  territory?: string | null;
+  lostReason?: string | null;
+  notes?: string | null;
+  items?: OpportunityItemDto[];
+}
+
+export interface OpportunityItemDto {
+  id?: string;
+  itemId?: string | null;
+  description?: string;
+  quantity?: number;
+  unitPrice?: number;
+  amount?: number;
+  uom?: string | null;
+}
+
+export interface UpdateLeadDto {
+  firstName: string;
+  lastName?: string | null;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobileNo?: string | null;
+  jobTitle?: string | null;
+  website?: string | null;
+  source?: LeadSource;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  annualRevenue?: number | null;
+  assignedUserId?: string | null;
+  notes?: string | null;
 }
 
 export interface UpdateOpportunityDto {
   title: string;
-  opportunityType?: number;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  salesStage?: string;
+  opportunityType?: OpportunityType;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  salesStage?: string | null;
   probability?: number;
-  expectedClosingDate?: string;
+  expectedClosingDate?: string | null;
   opportunityAmount?: number;
   currencyCode?: string;
-  assignedUserId?: string;
-  territory?: string;
-  notes?: string;
-  items?: { itemId?: string; description: string; quantity: number; unitPrice: number; uom?: string }[];
+  assignedUserId?: string | null;
+  territory?: string | null;
+  notes?: string | null;
+  items?: CreateOpportunityItemDto[];
 }
-
-export interface GetOpportunityListDto { [key: string]: any; }

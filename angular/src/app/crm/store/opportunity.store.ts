@@ -6,10 +6,11 @@ import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import type { OpportunityDto } from '../../proxy/crm/models';
+import type { OpportunityStatus } from '../../proxy/crm/opportunity-status.enum';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 export interface OpportunityFilter {
-  status?: string;
+  status?: OpportunityStatus;
   filter?: string;
 }
 

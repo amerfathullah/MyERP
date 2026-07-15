@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { SupplierQuotationService, type SupplierQuotationDto } from '../../proxy/sales/additional-proxies.service';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
+import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

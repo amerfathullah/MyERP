@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { DunningService, type DunningDto } from '../../proxy/sales/sales-advanced.service';
+import { DunningService } from '../../proxy/sales/dunning.service';
+import type { DunningDto } from '../../proxy/sales/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

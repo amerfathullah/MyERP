@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { ManufacturingService } from '../../proxy/manufacturing/manufacturing.service';
+import { ManufacturingService } from './manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 

@@ -5,7 +5,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ImportExportService } from '../proxy/import-export/import-export.service';
-import type { ImportJobDto } from '../proxy/import-export/models';
+import type { ImportJobDto } from '../proxy/import-export/dtos/models';
 
 @Component({
   selector: 'app-import-export',

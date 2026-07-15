@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { StockBalanceService, StockBalanceDto } from '../../proxy/inventory/stock-balance.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import type { StockBalanceDto } from '../../proxy/inventory/models';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 @Component({

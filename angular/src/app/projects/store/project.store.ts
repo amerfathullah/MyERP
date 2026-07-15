@@ -5,8 +5,7 @@ import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ProjectService } from '../../proxy/projects/project.service';
-import type { ProjectDto } from '../../proxy/projects/models';
-import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { ProjectDto, GetProjectListDto } from '../../proxy/projects/models';
 
 type ProjectEntity = ProjectDto & { id: string };
 
@@ -23,7 +22,7 @@ export const ProjectStore = signalStore(
   })),
   withMethods((store, service = inject(ProjectService), toaster = inject(ToasterService)) => ({
 
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<GetProjectListDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

@@ -5,7 +5,7 @@ import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
-import type { ProductionPlanDto } from '../../proxy/manufacturing/models';
+import type { ProductionPlanDto, GetProductionPlanListDto } from '../../proxy/manufacturing/models';
 
 type PPEntity = ProductionPlanDto & { id: string };
 
@@ -14,7 +14,7 @@ export const ProductionPlanStore = signalStore(
   withState({ totalCount: 0, isLoading: false, selectedPlan: null as ProductionPlanDto | null }),
   withEntities<PPEntity>(),
   withMethods((store, service = inject(ProductionPlanService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<any>(
+    load: rxMethod<GetProductionPlanListDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),
@@ -53,7 +53,7 @@ export const ProductionPlanStore = signalStore(
     ),
     calculateMaterials: rxMethod<string>(
       pipe(
-        switchMap((id) => service.calculateMaterials(id)),
+        switchMap((id) => service.calculateMaterialRequirements(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });

@@ -5,7 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
-import type { QualityInspectionDto } from '../../proxy/inventory/models';
+import type { QualityInspectionDto } from '../../proxy/dtos/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

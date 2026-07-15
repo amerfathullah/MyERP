@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ExpenseClaimService, type ExpenseClaimDto } from '../../proxy/sales/additional-proxies.service';
+import { ExpenseClaimService } from '../../proxy/human-resources/expense-claim.service';
+import type { ExpenseClaimDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

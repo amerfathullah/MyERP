@@ -18,7 +18,7 @@ public class ItemAppService :
         Item,
         ItemDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetItemListDto,
         CreateUpdateItemDto>,
     IItemAppService
 {
@@ -108,10 +108,10 @@ public class ItemAppService :
         await base.DeleteAsync(id);
     }
 
-    public override async Task<PagedResultDto<ItemDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public override async Task<PagedResultDto<ItemDto>> GetListAsync(GetItemListDto input)
     {
-        var filter = (input as dynamic)?.filter as string;
-        var companyId = (input as dynamic)?.companyId as Guid?;
+        var filter = input.Filter;
+        var companyId = input.CompanyId;
 
         var queryable = await Repository.GetQueryableAsync();
 

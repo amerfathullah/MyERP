@@ -1,32 +1,29 @@
-import { Injectable, inject } from '@angular/core';
+import type { GetStockBalanceRequestDto, StockBalanceDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
+import { Injectable, inject } from '@angular/core';
 
-export interface StockBalanceDto {
-  id?: string;
-  itemId?: string;
-  warehouseId?: string;
-  actualQty?: number;
-  orderedQty?: number;
-  plannedQty?: number;
-  reservedQty?: number;
-  indentedQty?: number;
-  projectedQty?: number;
-  stockValue?: number;
-  valuationRate?: number;
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class StockBalanceService {
-  apiName = 'Default';
-
   private restService = inject(RestService);
-
-  getStockBalance = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<StockBalanceDto>>({ method: 'GET', url: '/api/app/stock-balance/stock-balance', params: { ...input } }, { apiName: this.apiName, ...config });
+  apiName = 'Default';
+  
 
   getItemStock = (itemId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<void, StockBalanceDto[]>({ method: 'GET', url: `/api/app/stock-balance/item-stock/${itemId}` }, { apiName: this.apiName, ...config });
+    this.restService.request<any, StockBalanceDto[]>({
+      method: 'GET',
+      url: `/api/app/stock-balance/item-stock/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getStockBalance = (input: GetStockBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<StockBalanceDto>>({
+      method: 'GET',
+      url: '/api/app/stock-balance/stock-balance',
+      params: { itemId: input.itemId, warehouseId: input.warehouseId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
 }
-
-

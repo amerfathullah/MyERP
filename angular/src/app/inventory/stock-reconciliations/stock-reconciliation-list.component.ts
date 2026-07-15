@@ -6,7 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { StockReconciliationService } from '../../proxy/inventory/stock-reconciliation.service';
-import type { StockReconciliationDto } from '../../proxy/inventory/models';
+import type { StockReconciliationDto } from '../../proxy/dtos/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

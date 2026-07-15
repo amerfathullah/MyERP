@@ -1,6 +1,6 @@
-import type { CreateUpdateEmployeeDto, EmployeeDto } from './models';
+import type { CreateUpdateEmployeeDto, EmployeeDto, GetEmployeeListDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
-import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
+import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
 @Injectable({
@@ -36,11 +36,11 @@ export class EmployeeService {
     { apiName: this.apiName,...config });
   
 
-  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+  getList = (input: GetEmployeeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<EmployeeDto>>({
       method: 'GET',
       url: '/api/app/employee',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

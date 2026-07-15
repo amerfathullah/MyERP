@@ -5,8 +5,7 @@ import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetService } from '../../proxy/assets/asset.service';
-import type { AssetDto } from '../../proxy/assets/models';
-import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AssetDto, GetAssetListDto } from '../../proxy/assets/models';
 
 type AssetEntity = AssetDto & { id: string };
 
@@ -15,7 +14,7 @@ export const AssetStore = signalStore(
   withState({ totalCount: 0, isLoading: false }),
   withEntities<AssetEntity>(),
   withMethods((store, service = inject(AssetService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<GetAssetListDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

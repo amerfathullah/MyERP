@@ -1,4 +1,53 @@
-import type { FullAuditedEntityDto } from '@abp/ng.core';
+import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AuthorizationBasedOn } from './authorization-based-on.enum';
+import type { RepeatFrequency } from './repeat-frequency.enum';
+import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
+
+export interface AddressDto extends EntityDto<string> {
+  title?: string;
+  addressType?: string;
+  addressLine1?: string;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string;
+  phone?: string | null;
+  email?: string | null;
+  partyType?: string;
+  partyId?: string;
+  isPrimaryAddress?: boolean;
+  isShippingAddress?: boolean;
+}
+
+export interface AuthorizationRuleDto {
+  id?: string;
+  companyId?: string | null;
+  transactionType?: string;
+  basedOn?: string;
+  thresholdValue?: number;
+  systemUserId?: string | null;
+  systemRole?: string | null;
+  approvingRole?: string | null;
+  approvingUserId?: string | null;
+  customerId?: string | null;
+}
+
+export interface AutoRepeatDto {
+  id?: string;
+  companyId?: string;
+  referenceDocumentType?: string;
+  referenceDocumentId?: string;
+  referenceDocumentNumber?: string | null;
+  frequency?: string;
+  startDate?: string;
+  endDate?: string | null;
+  nextScheduleDate?: string;
+  isEnabled?: boolean;
+  generatedCount?: number;
+  lastGeneratedDate?: string | null;
+  notifyByEmail?: boolean;
+}
 
 export interface BranchDto extends FullAuditedEntityDto<string> {
   companyId?: string;
@@ -33,6 +82,100 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   currencyCode?: string;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+}
+
+export interface ContactDto extends EntityDto<string> {
+  partyType?: string;
+  partyId?: string;
+  fullName?: string;
+  email?: string | null;
+  phone?: string | null;
+  designation?: string | null;
+  isPrimaryContact?: boolean;
+  isBillingContact?: boolean;
+}
+
+export interface CostCenterLookupDto {
+  id?: string;
+  name?: string;
+  isGroup?: boolean;
+  parentId?: string | null;
+}
+
+export interface CreateAuthorizationRuleDto {
+  companyId?: string | null;
+  transactionType?: string;
+  basedOn?: AuthorizationBasedOn;
+  thresholdValue?: number;
+  systemUserId?: string | null;
+  systemRole?: string | null;
+  approvingRole?: string | null;
+  approvingUserId?: string | null;
+  customerId?: string | null;
+}
+
+export interface CreateAutoRepeatDto {
+  companyId?: string;
+  referenceDocumentType?: string;
+  referenceDocumentId?: string;
+  referenceDocumentNumber?: string | null;
+  frequency?: RepeatFrequency;
+  dayOfWeek?: RepeatDayOfWeek | null;
+  dayOfMonth?: number | null;
+  startDate?: string;
+  endDate?: string | null;
+  notifyByEmail?: boolean;
+  notifyRecipients?: string | null;
+}
+
+export interface CreateContactDto {
+  partyType?: string;
+  partyId?: string;
+  fullName?: string;
+  email?: string | null;
+  phone?: string | null;
+  designation?: string | null;
+  isPrimaryContact?: boolean;
+  isBillingContact?: boolean;
+}
+
+export interface CreateDocumentSeriesDto {
+  companyId?: string;
+  name?: string;
+  documentType?: string;
+  prefix?: string;
+  numberPadding?: number;
+}
+
+export interface CreateEmailTemplateDto {
+  name?: string;
+  subject?: string;
+  body?: string;
+  documentType?: string | null;
+}
+
+export interface CreateHierarchyNodeDto {
+  name?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  managerId?: string | null;
+}
+
+export interface CreateUpdateAddressDto {
+  title: string;
+  addressType?: string | null;
+  addressLine1: string;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country: string;
+  phone?: string | null;
+  email?: string | null;
+  partyType: string;
+  partyId: string;
+  isPrimaryAddress?: boolean;
+  isShippingAddress?: boolean;
 }
 
 export interface CreateUpdateBranchDto {
@@ -83,103 +226,175 @@ export interface DashboardSummaryDto {
   monthlyExpenses?: number;
 }
 
-export interface CreateDocumentSeriesDto { [key: string]: any; }
+export interface DocumentActivityLogDto {
+  id?: string;
+  documentType?: string;
+  documentId?: string;
+  documentNumber?: string | null;
+  activityType?: string;
+  previousStatus?: string | null;
+  newStatus?: string | null;
+  performedByUserId?: string | null;
+  details?: string | null;
+  creationTime?: string;
+}
 
-export interface DocumentSeriesDto { [key: string]: any; }
+export interface DocumentSeriesDto extends EntityDto<string> {
+  companyId?: string;
+  documentType?: string;
+  prefix?: string;
+  currentNumber?: number;
+  numberPadding?: number;
+}
 
+export interface EmailTemplateDto {
+  id?: string;
+  name?: string;
+  subject?: string;
+  body?: string;
+  documentType?: string | null;
+}
 
-export interface CreateContactDto { [key: string]: any; }
+export interface FinancialKpiDto {
+  monthlyRevenue?: number;
+  monthlyExpenses?: number;
+  netProfit?: number;
+  profitMargin?: number;
+  arOutstanding?: number;
+  apOutstanding?: number;
+  netCashPosition?: number;
+  revenueGrowth?: number;
+  invoiceCount?: number;
+  billCount?: number;
+  periodLabel?: string;
+}
 
-export interface DocumentActivityLogDto { [key: string]: any; }
+export interface GetNotificationLogListDto extends PagedAndSortedResultRequestDto {
+  channel?: string | null;
+  status?: string | null;
+  documentType?: string | null;
+}
 
-export interface CreateExpenseClaimDto { [key: string]: any; }
+export interface GlobalSearchInput {
+  query?: string;
+  companyId?: string;
+  maxResults?: number;
+}
 
-export interface ExpenseClaimDto { [key: string]: any; }
+export interface HierarchyNodeDto {
+  id?: string;
+  name?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+}
 
-export interface CreateHolidayListDto { [key: string]: any; }
+export interface ItemGroupLookupDto {
+  id?: string;
+  name?: string;
+  isGroup?: boolean;
+  parentId?: string | null;
+}
 
-export interface HolidayListDto { [key: string]: any; }
+export interface LowStockItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  reorderLevel?: number;
+  currentStock?: number;
+  projectedQty?: number;
+}
 
-export interface BulkLeaveAllocationDto { [key: string]: any; }
+export interface ModeOfPaymentLookupDto {
+  id?: string;
+  name?: string;
+  type?: string;
+}
 
-export interface CreateLeaveAllocationDto { [key: string]: any; }
+export interface NotificationLogDto {
+  id?: string;
+  recipient?: string;
+  subject?: string | null;
+  channel?: string;
+  status?: string;
+  documentType?: string | null;
+  documentId?: string | null;
+  errorMessage?: string | null;
+  retryCount?: number;
+  sentAt?: string | null;
+  createdAt?: string;
+}
 
-export interface GetLeaveAllocationListDto { [key: string]: any; }
+export interface OperationalMetricsDto {
+  draftDocuments?: number;
+  pendingApprovals?: number;
+  overdueInvoices?: number;
+  lowStockItems?: number;
+  totalArOutstanding?: number;
+  totalApOutstanding?: number;
+  oldestUnpaidInvoiceDays?: number;
+  activeSubscriptions?: number;
+  openWorkOrders?: number;
+  pendingMaterialRequests?: number;
+  itemsWithoutPrice?: number;
+  customersWithoutContact?: number;
+  lastNightlyRunDate?: string | null;
+}
 
-export interface LeaveAllocationDto { [key: string]: any; }
+export interface PaymentTermsLookupDto {
+  id?: string;
+  name?: string;
+}
 
-export interface CreateLeaveApplicationDto { [key: string]: any; }
+export interface RenderedTemplateDto {
+  subject?: string;
+  body?: string;
+}
 
-export interface CreateLeaveTypeDto { [key: string]: any; }
+export interface RevenueTrendDto {
+  month?: string;
+  amount?: number;
+}
 
-export interface GetLeaveListDto { [key: string]: any; }
+export interface SearchResultDto {
+  id?: string;
+  documentType?: string;
+  documentNumber?: string;
+  date?: string;
+  amount?: number;
+  status?: string;
+  route?: string;
+}
 
-export interface LeaveApplicationDto { [key: string]: any; }
+export interface UpdateAuthorizationRuleDto {
+  thresholdValue?: number;
+  systemUserId?: string | null;
+  systemRole?: string | null;
+  approvingRole?: string | null;
+  approvingUserId?: string | null;
+  customerId?: string | null;
+}
 
-export interface LeaveTypeDto { [key: string]: any; }
+export interface UpdateCompanySettingsDto {
+  defaultCurrency?: string | null;
+  fiscalYearStartMonth?: number | null;
+  stockFrozenUpto?: string | null;
+  accountsFrozenTillDate?: string | null;
+  defaultValuationMethod?: string | null;
+  overDeliveryAllowance?: number;
+  overBillingAllowance?: number;
+  defaultReceivableAccountId?: string | null;
+  defaultPayableAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  defaultBankAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
+  depreciationExpenseAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
+  exchangeGainLossAccountId?: string | null;
+}
 
-export interface SalarySlipDto { [key: string]: any; }
-
-export interface CreateSalaryStructureDto { [key: string]: any; }
-
-export interface SalaryStructureDto { [key: string]: any; }
-
-export interface GetBatchListDto { [key: string]: any; }
-
-export interface CreateItemGroupDto { [key: string]: any; }
-
-export interface ItemGroupDto { [key: string]: any; }
-
-export interface CreatePickListDto { [key: string]: any; }
-
-export interface PickListDto { [key: string]: any; }
-
-export interface GetItemPriceListDto { [key: string]: any; }
-
-export interface GetItemRateRequestDto { [key: string]: any; }
-
-export interface ItemPriceDto { [key: string]: any; }
-
-export interface ItemRateResultDto { [key: string]: any; }
-
-export interface PriceListDto { [key: string]: any; }
-
-export interface GetSerialNoListDto { [key: string]: any; }
-
-export interface GetJobCardListDto { [key: string]: any; }
-
-export interface CreateOperationDto { [key: string]: any; }
-
-export interface OperationDto { [key: string]: any; }
-
-export interface CreateRoutingDto { [key: string]: any; }
-
-export interface RoutingDto { [key: string]: any; }
-
-export interface PurchaseRegisterLineDto { [key: string]: any; }
-
-export interface RegisterFilterDto { [key: string]: any; }
-
-export interface RegisterReportDto { [key: string]: any; }
-
-export interface CreateSubcontractingReceiptDto { [key: string]: any; }
-
-export interface GetScoListDto { [key: string]: any; }
-
-export interface CustomerRevenueReportDto { [key: string]: any; }
-
-export interface GrossProfitReportDto { [key: string]: any; }
-
-export interface GrossProfitRequestDto { [key: string]: any; }
-
-export interface ItemSalesReportDto { [key: string]: any; }
-
-export interface CreateProductBundleDto { [key: string]: any; }
-
-export interface ProductBundleDto { [key: string]: any; }
-
-export interface SalesRegisterLineDto { [key: string]: any; }
-
-export interface GeneratedInvoiceDto { [key: string]: any; }
-
-export interface ContactDto { [key: string]: any; }
+export interface UpdateEmailTemplateDto {
+  subject?: string;
+  body?: string;
+  documentType?: string | null;
+}

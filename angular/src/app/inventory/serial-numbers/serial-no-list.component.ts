@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { SerialNoProxyService, type SerialNoDto } from '../../proxy/inventory/inventory-additional.service';
+import { SerialNoService } from '../../proxy/inventory/serial-no.service';
+import type { SerialNoDto } from '../../proxy/inventory/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -50,7 +51,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `,
 })
 export class SerialNoListComponent implements OnInit {
-  private service = inject(SerialNoProxyService);
+  private service = inject(SerialNoService);
   items: SerialNoDto[] = [];
   isLoading = false;
 

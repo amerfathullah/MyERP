@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { PeriodClosingVoucherService, PeriodClosingVoucherDto, CreatePeriodClosingVoucherDto } from '../../proxy/accounting/period-closing-voucher.service';
+import { PeriodClosingVoucherService } from '../../proxy/accounting/period-closing-voucher.service';
+import type { PeriodClosingVoucherDto, CreatePeriodClosingVoucherDto } from '../../proxy/accounting/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 

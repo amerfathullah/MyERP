@@ -4,7 +4,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { BlanketOrderService, type BlanketOrderDto } from '../../proxy/sales/additional-proxies.service';
+import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
+import type { BlanketOrderDto } from '../../proxy/sales/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 

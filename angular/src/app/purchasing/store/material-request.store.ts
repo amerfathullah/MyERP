@@ -5,7 +5,7 @@ import { inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
-import type { MaterialRequestDto } from '../../proxy/purchasing/models';
+import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 type MREntity = MaterialRequestDto & { id: string };

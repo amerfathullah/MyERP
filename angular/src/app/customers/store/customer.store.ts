@@ -5,8 +5,7 @@ import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CustomerService } from '../../proxy/sales/customer.service';
-import type { CustomerDto, CreateUpdateCustomerDto } from '../../proxy/sales/models';
-import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { CustomerDto, CreateUpdateCustomerDto, GetCustomerListDto } from '../../proxy/sales/models';
 
 type CustomerEntity = CustomerDto & { id: EntityId };
 
@@ -29,7 +28,7 @@ export const CustomerStore = signalStore(
     hasCustomers: computed(() => store.ids().length > 0),
   })),
   withMethods((store, customerService = inject(CustomerService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<GetCustomerListDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => customerService.getList(query)),

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { NotificationService } from '../../../proxy/notification/notification.service';
-import type { AppNotificationDto } from '../../../proxy/notification/models';
+import type { AppNotificationDto } from '../../../proxy/notification/dtos/models';
 
 @Component({
   selector: 'app-notification-bell',

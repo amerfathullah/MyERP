@@ -40,7 +40,7 @@ export class CustomerListComponent implements OnInit {
       maxResultCount: this.pageSize,
       sorting: '',
       filter: this.searchTerm || undefined,
-    } as any);
+    });
   }
 
   onSearch(term: string): void {

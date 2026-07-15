@@ -1,49 +1,72 @@
-import { Injectable, inject } from '@angular/core';
+import type { CreateTimesheetDto, CreateTimesheetInvoiceDto, GetTimesheetListDto, TimesheetBillingResultDto, TimesheetDto, UnbilledTimesheetSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
+import { Injectable, inject } from '@angular/core';
 
-export interface TimesheetDto {
-  id?: string;
-  employeeId?: string;
-  employeeName?: string;
-  status?: number;
-  startDate?: string;
-  endDate?: string;
-  totalHours?: number;
-  totalBillableHours?: number;
-  totalBillingAmount?: number;
-  totalCostingAmount?: number;
-  note?: string;
-  creationTime?: string;
-  details?: TimesheetDetailDto[];
-}
-
-export interface TimesheetDetailDto {
-  id?: string;
-  activityType?: string;
-  hours?: number;
-  isBillable?: boolean;
-  billingRate?: number;
-  billingAmount?: number;
-  description?: string;
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class TimesheetService {
-  apiName = 'Default';
   private restService = inject(RestService);
+  apiName = 'Default';
+  
+
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TimesheetDto>({
+      method: 'POST',
+      url: `/api/app/timesheet/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  create = (input: CreateTimesheetDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TimesheetDto>({
+      method: 'POST',
+      url: '/api/app/timesheet',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createInvoiceFromTimesheets = (input: CreateTimesheetInvoiceDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TimesheetBillingResultDto>({
+      method: 'POST',
+      url: '/api/app/timesheet/invoice-from-timesheets',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<void, TimesheetDto>({ method: 'GET', url: `/api/app/timesheet/${id}` }, { apiName: this.apiName, ...config });
+    this.restService.request<any, TimesheetDto>({
+      method: 'GET',
+      url: `/api/app/timesheet/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
 
-  getList = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<TimesheetDto>>({ method: 'GET', url: '/api/app/timesheet', params: { ...input } }, { apiName: this.apiName, ...config });
+  getList = (input: GetTimesheetListDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<TimesheetDto>>({
+      method: 'GET',
+      url: '/api/app/timesheet',
+      params: { companyId: input.companyId, employeeId: input.employeeId, status: input.status, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
 
-  create = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, TimesheetDto>({ method: 'POST', url: '/api/app/timesheet', body: input }, { apiName: this.apiName, ...config });
+  getUnbilledSummary = (companyId: string, projectId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UnbilledTimesheetSummaryDto[]>({
+      method: 'GET',
+      url: '/api/app/timesheet/unbilled-summary',
+      params: { companyId, projectId },
+    },
+    { apiName: this.apiName,...config });
+  
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<void, TimesheetDto>({ method: 'POST', url: `/api/app/timesheet/${id}/submit` }, { apiName: this.apiName, ...config });
+    this.restService.request<any, TimesheetDto>({
+      method: 'POST',
+      url: `/api/app/timesheet/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
 }
-
-
