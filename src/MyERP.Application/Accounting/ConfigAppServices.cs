@@ -32,7 +32,7 @@ public class AccountingPeriodAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(a => a.StartDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AccountingPeriodDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<AccountingPeriodDto>(totalCount, items.Select(ObjectMapper.Map<AccountingPeriod, AccountingPeriodDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -41,14 +41,10 @@ public class AccountingPeriodAppService : ApplicationService
         var ap = await _repository.GetAsync(id);
         ap.Close();
         await _repository.UpdateAsync(ap);
-        return MapToDto(ap);
+        return ObjectMapper.Map<AccountingPeriod, AccountingPeriodDto>(ap);
     }
 
-    private static AccountingPeriodDto MapToDto(AccountingPeriod a) => new()
-    {
-        Id = a.Id, CompanyId = a.CompanyId, PeriodName = a.PeriodName,
-        StartDate = a.StartDate, EndDate = a.EndDate, IsClosed = a.IsClosed,
-    };
+
 }
 
 // --- Mode of Payment ---
@@ -70,10 +66,7 @@ public class ModeOfPaymentAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(m => m.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<ModeOfPaymentDto>(totalCount, items.Select(m => new ModeOfPaymentDto
-        {
-            Id = m.Id, Name = m.Name, Type = m.Type,
-        }).ToList());
+        return new PagedResultDto<ModeOfPaymentDto>(totalCount, items.Select(ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>).ToList());
     }
 }
 
@@ -98,10 +91,6 @@ public class UomConversionAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(u => u.FromUom).ThenBy(u => u.ToUom)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<UomConversionDto>(totalCount, items.Select(u => new UomConversionDto
-        {
-            Id = u.Id, FromUom = u.FromUom, ToUom = u.ToUom,
-            ConversionFactor = u.ConversionFactor, ItemId = u.ItemId,
-        }).ToList());
+        return new PagedResultDto<UomConversionDto>(totalCount, items.Select(ObjectMapper.Map<Inventory.Entities.UomConversion, UomConversionDto>).ToList());
     }
 }

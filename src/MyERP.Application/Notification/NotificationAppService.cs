@@ -36,7 +36,7 @@ public class NotificationAppService : ApplicationService, INotificationAppServic
         return new NotificationSummaryDto
         {
             TotalUnread = unreadCount,
-            RecentNotifications = recent.Select(MapToDto).ToArray()
+            RecentNotifications = recent.Select(ObjectMapper.Map<AppNotification, AppNotificationDto>).ToArray()
         };
     }
 
@@ -55,7 +55,7 @@ public class NotificationAppService : ApplicationService, INotificationAppServic
 
         return new PagedResultDto<AppNotificationDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<AppNotification, AppNotificationDto>).ToList());
     }
 
     public async Task MarkAsReadAsync(Guid id)
@@ -76,17 +76,4 @@ public class NotificationAppService : ApplicationService, INotificationAppServic
         await _repository.UpdateManyAsync(unread);
     }
 
-    private AppNotificationDto MapToDto(AppNotification entity) => new()
-    {
-        Id = entity.Id,
-        Subject = entity.Subject,
-        Body = entity.Body,
-        Severity = entity.Severity,
-        IsRead = entity.IsRead,
-        ReadAt = entity.ReadAt,
-        ActionUrl = entity.ActionUrl,
-        SourceDocumentType = entity.SourceDocumentType,
-        SourceDocumentId = entity.SourceDocumentId,
-        CreationTime = entity.CreationTime
-    };
 }

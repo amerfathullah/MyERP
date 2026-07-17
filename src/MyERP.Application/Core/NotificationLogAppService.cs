@@ -41,13 +41,13 @@ public class NotificationLogAppService : ApplicationService
         var list = query.OrderByDescending(n => n.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<NotificationLogDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<NotificationLogDto>(count, list.Select(ObjectMapper.Map<NotificationLog, NotificationLogDto>).ToList());
     }
 
     public async Task<NotificationLogDto> GetAsync(Guid id)
     {
         var log = await _repository.GetAsync(id);
-        return MapToDto(log);
+        return ObjectMapper.Map<NotificationLog, NotificationLogDto>(log);
     }
 
     /// <summary>
@@ -58,21 +58,6 @@ public class NotificationLogAppService : ApplicationService
         var query = await _repository.GetQueryableAsync();
         return query.Count(n => n.Status == NotificationStatus.Failed || n.Status == NotificationStatus.PermanentlyFailed);
     }
-
-    private static NotificationLogDto MapToDto(NotificationLog n) => new()
-    {
-        Id = n.Id,
-        Recipient = n.Recipient,
-        Subject = n.Subject,
-        Channel = n.Channel.ToString(),
-        Status = n.Status.ToString(),
-        DocumentType = n.DocumentType,
-        DocumentId = n.DocumentId,
-        ErrorMessage = n.ErrorMessage,
-        RetryCount = n.RetryCount,
-        SentAt = n.SentAt,
-        CreatedAt = n.CreationTime
-    };
 }
 
 #region DTOs

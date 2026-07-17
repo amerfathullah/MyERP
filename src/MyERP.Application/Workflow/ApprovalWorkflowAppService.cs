@@ -50,7 +50,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         };
 
         await _ruleRepository.InsertAsync(rule);
-        return MapRuleToDto(rule);
+        return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Edit)]
@@ -68,7 +68,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         rule.Description = input.Description;
 
         await _ruleRepository.UpdateAsync(rule);
-        return MapRuleToDto(rule);
+        return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Delete)]
@@ -86,21 +86,21 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
 
         return new PagedResultDto<ApprovalRuleDto>(
             totalCount,
-            rules.Select(MapRuleToDto).ToList());
+            rules.Select(ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Default)]
     public async Task<ApprovalRuleDto> GetRuleAsync(Guid id)
     {
         var rule = await _ruleRepository.GetAsync(id);
-        return MapRuleToDto(rule);
+        return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 
     public async Task<ApprovalRequestDto> ApproveAsync(ReviewApprovalDto input)
     {
         await _workflowManager.ApproveAndAdvanceAsync(input.RequestId, CurrentUser.GetId(), input.Remarks);
         var request = await _requestRepository.GetAsync(input.RequestId);
-        return MapRequestToDto(request);
+        return ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>(request);
     }
 
     public async Task<ApprovalRequestDto> RejectAsync(ReviewApprovalDto input)
@@ -108,7 +108,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         var request = await _requestRepository.GetAsync(input.RequestId);
         request.Reject(CurrentUser.GetId(), input.Remarks);
         await _requestRepository.UpdateAsync(request);
-        return MapRequestToDto(request);
+        return ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>(request);
     }
 
     public async Task<PagedResultDto<ApprovalRequestDto>> GetPendingApprovalsAsync(PagedAndSortedResultRequestDto input)
@@ -125,7 +125,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
 
         return new PagedResultDto<ApprovalRequestDto>(
             totalCount,
-            items.Select(MapRequestToDto).ToList());
+            items.Select(ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>).ToList());
     }
 
     public async Task<PagedResultDto<ApprovalRequestDto>> GetDocumentApprovalsAsync(string documentType, Guid documentId)
@@ -135,42 +135,6 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
 
         return new PagedResultDto<ApprovalRequestDto>(
             requests.Count,
-            requests.Select(MapRequestToDto).ToList());
-    }
-
-    private ApprovalRequestDto MapRequestToDto(ApprovalRequest request)
-    {
-        return new ApprovalRequestDto
-        {
-            Id = request.Id,
-            ApprovalRuleId = request.ApprovalRuleId,
-            DocumentType = request.DocumentType,
-            DocumentId = request.DocumentId,
-            Level = request.Level,
-            Status = request.Status,
-            ReviewedByUserId = request.ReviewedByUserId,
-            ReviewedAt = request.ReviewedAt,
-            Remarks = request.Remarks,
-            RequestedByUserId = request.RequestedByUserId,
-            CreationTime = request.CreationTime
-        };
-    }
-
-    private static ApprovalRuleDto MapRuleToDto(ApprovalRule rule)
-    {
-        return new ApprovalRuleDto
-        {
-            Id = rule.Id,
-            DocumentType = rule.DocumentType,
-            Name = rule.Name,
-            Level = rule.Level,
-            ApproverRoleName = rule.ApproverRoleName,
-            ApproverUserId = rule.ApproverUserId,
-            ConditionExpression = rule.ConditionExpression,
-            MinimumAmount = rule.MinimumAmount,
-            CompanyId = rule.CompanyId,
-            IsActive = rule.IsActive,
-            Description = rule.Description
-        };
+            requests.Select(ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>).ToList());
     }
 }

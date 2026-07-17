@@ -28,7 +28,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     public async Task<EmployeeDto> GetAsync(Guid id)
     {
         var employee = await _repository.GetAsync(id);
-        return MapToDto(employee);
+        return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 
     public async Task<PagedResultDto<EmployeeDto>> GetListAsync(GetEmployeeListDto input)
@@ -55,7 +55,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
 
         return new PagedResultDto<EmployeeDto>(
             totalCount,
-            employees.Select(MapToDto).ToList());
+            employees.Select(x => ObjectMapper.Map<Employee, EmployeeDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -81,7 +81,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.TaxNumber = input.TaxNumber;
 
         await _repository.InsertAsync(employee, autoSave: true);
-        return MapToDto(employee);
+        return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -102,7 +102,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.TaxNumber = input.TaxNumber;
 
         await _repository.UpdateAsync(employee, autoSave: true);
-        return MapToDto(employee);
+        return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 
     [Authorize(MyERPPermissions.Employees.Delete)]
@@ -110,25 +110,4 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static EmployeeDto MapToDto(Employee e) => new()
-    {
-        Id = e.Id,
-        CompanyId = e.CompanyId,
-        EmployeeId = e.EmployeeId,
-        FirstName = e.FirstName,
-        LastName = e.LastName,
-        FullName = e.FullName,
-        DateOfBirth = e.DateOfBirth,
-        DateOfJoining = e.DateOfJoining,
-        DateOfResignation = e.DateOfResignation,
-        Citizenship = e.Citizenship.ToString(),
-        Phone = e.Phone,
-        Email = e.Email,
-        Designation = e.Designation,
-        Department = e.Department,
-        Status = e.Status.ToString(),
-        CreationTime = e.CreationTime,
-        LastModificationTime = e.LastModificationTime,
-    };
 }

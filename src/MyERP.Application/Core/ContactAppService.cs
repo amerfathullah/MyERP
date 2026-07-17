@@ -45,7 +45,7 @@ public class ContactAppService : ApplicationService
         var query = await _repository.GetQueryableAsync();
         var items = query.Where(c => c.PartyType == partyType && c.PartyId == partyId)
             .OrderByDescending(c => c.IsPrimaryContact).ThenBy(c => c.FullName).ToList();
-        return new PagedResultDto<ContactDto>(items.Count, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ContactDto>(items.Count, items.Select(ObjectMapper.Map<Contact, ContactDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Customers.Create)]
@@ -58,17 +58,11 @@ public class ContactAppService : ApplicationService
             IsPrimaryContact = input.IsPrimaryContact, IsBillingContact = input.IsBillingContact,
         };
         await _repository.InsertAsync(contact);
-        return MapToDto(contact);
+        return ObjectMapper.Map<Contact, ContactDto>(contact);
     }
 
     [Authorize(MyERPPermissions.Customers.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 
-    private static ContactDto MapToDto(Contact c) => new()
-    {
-        Id = c.Id, PartyType = c.PartyType, PartyId = c.PartyId,
-        FullName = c.FullName, Email = c.Email, Phone = c.Phone,
-        Designation = c.Designation, IsPrimaryContact = c.IsPrimaryContact,
-        IsBillingContact = c.IsBillingContact,
-    };
+
 }

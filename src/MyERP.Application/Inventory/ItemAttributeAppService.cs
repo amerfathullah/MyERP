@@ -30,14 +30,14 @@ public class ItemAttributeAppService : ApplicationService
     public async Task<ItemAttributeDto> GetAsync(Guid id)
     {
         var attr = await _repository.GetAsync(id);
-        return MapToDto(attr);
+        return ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(attr);
     }
 
     public async Task<List<ItemAttributeDto>> GetListAsync()
     {
         var query = await _repository.GetQueryableAsync();
         var list = query.OrderBy(a => a.AttributeName).ToList();
-        return list.Select(MapToDto).ToList();
+        return list.Select(x => ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(x)).ToList();
     }
 
     [Authorize(MyERPPermissions.Items.Create)]
@@ -58,7 +58,7 @@ public class ItemAttributeAppService : ApplicationService
         }
 
         await _repository.InsertAsync(attr);
-        return MapToDto(attr);
+        return ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(attr);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
@@ -67,7 +67,7 @@ public class ItemAttributeAppService : ApplicationService
         var attr = await _repository.GetAsync(id);
         attr.AddValue(input.Value, input.Abbreviation);
         await _repository.UpdateAsync(attr);
-        return MapToDto(attr);
+        return ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(attr);
     }
 
     [Authorize(MyERPPermissions.Items.Delete)]
@@ -75,21 +75,6 @@ public class ItemAttributeAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static ItemAttributeDto MapToDto(ItemAttribute a) => new()
-    {
-        Id = a.Id,
-        Name = a.AttributeName,
-        IsNumeric = a.IsNumeric,
-        FromRange = a.FromRange ?? 0,
-        ToRange = a.ToRange ?? 0,
-        Increment = a.Increment ?? 0,
-        Values = a.Values.Select(v => new ItemAttributeValueDto
-        {
-            Value = v.AttributeValue,
-            Abbreviation = v.Abbreviation
-        }).ToList()
-    };
 }
 
 #region DTOs

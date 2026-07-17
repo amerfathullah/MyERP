@@ -36,7 +36,7 @@ public class PricingAppService : ApplicationService
         var lists = await _priceListRepository.GetListAsync();
         return lists.Where(p => p.IsActive)
             .OrderBy(p => p.Name)
-            .Select(MapPriceListToDto)
+            .Select(ObjectMapper.Map<PriceList, PriceListDto>)
             .ToList();
     }
 
@@ -51,7 +51,7 @@ public class PricingAppService : ApplicationService
             CompanyId = input.CompanyId,
         };
         await _priceListRepository.InsertAsync(priceList);
-        return MapPriceListToDto(priceList);
+        return ObjectMapper.Map<PriceList, PriceListDto>(priceList);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
@@ -65,7 +65,7 @@ public class PricingAppService : ApplicationService
         priceList.IsDefault = input.IsDefault;
         priceList.CompanyId = input.CompanyId;
         await _priceListRepository.UpdateAsync(priceList);
-        return MapPriceListToDto(priceList);
+        return ObjectMapper.Map<PriceList, PriceListDto>(priceList);
     }
 
     // === Item Price CRUD ===
@@ -88,7 +88,7 @@ public class PricingAppService : ApplicationService
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
         return new PagedResultDto<ItemPriceDto>(
-            totalCount, items.Select(MapItemPriceToDto).ToList());
+            totalCount, items.Select(ObjectMapper.Map<ItemPrice, ItemPriceDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Items.Create)]
@@ -106,7 +106,7 @@ public class PricingAppService : ApplicationService
             BatchNo = input.BatchNo,
         };
         await _itemPriceRepository.InsertAsync(price);
-        return MapItemPriceToDto(price);
+        return ObjectMapper.Map<ItemPrice, ItemPriceDto>(price);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
@@ -122,7 +122,7 @@ public class PricingAppService : ApplicationService
         price.SupplierId = input.SupplierId;
         price.BatchNo = input.BatchNo;
         await _itemPriceRepository.UpdateAsync(price);
-        return MapItemPriceToDto(price);
+        return ObjectMapper.Map<ItemPrice, ItemPriceDto>(price);
     }
 
     [Authorize(MyERPPermissions.Items.Delete)]
@@ -189,21 +189,4 @@ public class PricingAppService : ApplicationService
 
         return new ItemRateResultDto { Rate = 0, Source = "None" };
     }
-
-    private static PriceListDto MapPriceListToDto(PriceList p) => new()
-    {
-        Id = p.Id, Name = p.Name, CurrencyCode = p.CurrencyCode,
-        IsSelling = p.IsSelling, IsBuying = p.IsBuying,
-        IsDefault = p.IsDefault, IsActive = p.IsActive,
-        CompanyId = p.CompanyId, CreationTime = p.CreationTime,
-    };
-
-    private static ItemPriceDto MapItemPriceToDto(ItemPrice p) => new()
-    {
-        Id = p.Id, ItemId = p.ItemId, PriceListId = p.PriceListId,
-        PriceListRate = p.PriceListRate, Uom = p.Uom, CurrencyCode = p.CurrencyCode,
-        MinQty = p.MinQty, ValidFrom = p.ValidFrom, ValidUpto = p.ValidUpto,
-        CustomerId = p.CustomerId, SupplierId = p.SupplierId, BatchNo = p.BatchNo,
-        CreationTime = p.CreationTime,
-    };
 }

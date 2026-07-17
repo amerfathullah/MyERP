@@ -33,7 +33,7 @@ public class AccountingDimensionAppService : ApplicationService
     public async Task<List<AccountingDimensionDto>> GetEnabledDimensionsAsync(Guid? companyId = null)
     {
         var dimensions = await _dimensionService.GetEnabledDimensionsAsync(companyId);
-        return dimensions.Select(MapToDto).ToList();
+        return dimensions.Select(ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>).ToList();
     }
 
     public async Task<PagedResultDto<AccountingDimensionDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -42,13 +42,13 @@ public class AccountingDimensionAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(d => d.DocumentType)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AccountingDimensionDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<AccountingDimensionDto>(totalCount, items.Select(ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>).ToList());
     }
 
     public async Task<AccountingDimensionDto> GetAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        return MapToDto(entity);
+        return ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>(entity);
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -64,7 +64,7 @@ public class AccountingDimensionAppService : ApplicationService
         dimension.CompanyId = input.CompanyId;
 
         await _repository.InsertAsync(dimension);
-        return MapToDto(dimension);
+        return ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>(dimension);
     }
 
     [Authorize(MyERPPermissions.Accounts.Edit)]
@@ -76,7 +76,7 @@ public class AccountingDimensionAppService : ApplicationService
         dimension.CompanyId = input.CompanyId;
         dimension.HideDisabledValues = input.HideDisabledValues;
         await _repository.UpdateAsync(dimension);
-        return MapToDto(dimension);
+        return ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>(dimension);
     }
 
     [Authorize(MyERPPermissions.Accounts.Edit)]
@@ -107,7 +107,7 @@ public class AccountingDimensionAppService : ApplicationService
     {
         var filters = await _filterRepository.GetListAsync(f =>
             f.AccountingDimensionId == dimensionId && f.CompanyId == companyId);
-        return filters.Select(MapFilterToDto).ToList();
+        return filters.Select(ObjectMapper.Map<AccountingDimensionFilter, AccountingDimensionFilterDto>).ToList();
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -123,7 +123,7 @@ public class AccountingDimensionAppService : ApplicationService
         filter.TenantId = CurrentTenant.Id;
 
         await _filterRepository.InsertAsync(filter);
-        return MapFilterToDto(filter);
+        return ObjectMapper.Map<AccountingDimensionFilter, AccountingDimensionFilterDto>(filter);
     }
 
     [Authorize(MyERPPermissions.Accounts.Delete)]
@@ -133,27 +133,6 @@ public class AccountingDimensionAppService : ApplicationService
     }
 
     #endregion
-
-    private static AccountingDimensionDto MapToDto(AccountingDimension entity) => new()
-    {
-        Id = entity.Id,
-        DocumentType = entity.DocumentType,
-        Label = entity.Label,
-        FieldName = entity.FieldName,
-        IsEnabled = entity.IsEnabled,
-        IsMandatory = entity.IsMandatory,
-        CompanyId = entity.CompanyId
-    };
-
-    private static AccountingDimensionFilterDto MapFilterToDto(AccountingDimensionFilter entity) => new()
-    {
-        Id = entity.Id,
-        AccountingDimensionId = entity.AccountingDimensionId,
-        AccountId = entity.AccountId,
-        CompanyId = entity.CompanyId,
-        IsAllowList = entity.IsAllowList,
-        DimensionValueIds = entity.DimensionValueIds
-    };
 }
 
 #region DTOs

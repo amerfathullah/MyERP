@@ -54,13 +54,13 @@ public class StockClosingAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(c => c.ToDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<StockClosingEntryDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<StockClosingEntryDto>(totalCount, items.Select(x => ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(x)).ToList());
     }
 
     public async Task<StockClosingEntryDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
     }
 
     /// <summary>
@@ -78,7 +78,7 @@ public class StockClosingAppService : ApplicationService
 
         var closing = await _closingService.GenerateClosingAsync(
             input.CompanyId, input.ToDate, CurrentTenant.Id);
-        return MapToDto(closing);
+        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(closing);
     }
 
     /// <summary>
@@ -90,7 +90,7 @@ public class StockClosingAppService : ApplicationService
         var entry = await _repository.GetAsync(id);
         entry.Submit();
         await _repository.UpdateAsync(entry);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
     }
 
     /// <summary>
@@ -102,19 +102,6 @@ public class StockClosingAppService : ApplicationService
         var entry = await _repository.GetAsync(id);
         entry.Cancel();
         await _repository.UpdateAsync(entry);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
     }
-
-    private static StockClosingEntryDto MapToDto(StockClosingEntry e) => new()
-    {
-        Id = e.Id,
-        CompanyId = e.CompanyId,
-        ToDate = e.ToDate,
-        Status = (int)e.Status,
-        TotalEntries = e.TotalEntries,
-        TotalStockValue = e.TotalStockValue,
-        PreviousClosingEntryId = e.PreviousClosingEntryId,
-        ScannedFromDate = e.ScannedFromDate,
-        CreationTime = e.CreationTime,
-    };
 }

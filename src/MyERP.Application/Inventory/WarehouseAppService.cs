@@ -31,6 +31,38 @@ public class WarehouseAppService :
         DeletePolicyName = MyERPPermissions.Warehouses.Delete;
     }
 
+    protected override Warehouse MapToEntity(CreateUpdateWarehouseDto input)
+    {
+        var entity = new Warehouse(
+            GuidGenerator.Create(),
+            input.CompanyId,
+            input.Name,
+            CurrentTenant.Id);
+        MapUpdateFields(input, entity);
+        return entity;
+    }
+
+    protected override void MapToEntity(CreateUpdateWarehouseDto input, Warehouse entity)
+    {
+        entity.SetName(input.Name);
+        entity.CompanyId = input.CompanyId;
+        MapUpdateFields(input, entity);
+    }
+
+    private static void MapUpdateFields(CreateUpdateWarehouseDto input, Warehouse entity)
+    {
+        entity.BranchId = input.BranchId;
+        entity.WarehouseCode = input.WarehouseCode;
+        entity.Address = input.Address;
+        entity.City = input.City;
+        entity.State = input.State;
+        entity.PostalCode = input.PostalCode;
+        entity.Country = input.Country;
+        entity.ParentWarehouseId = input.ParentWarehouseId;
+        entity.IsGroup = input.IsGroup;
+        entity.IsActive = input.IsActive;
+    }
+
     /// <summary>
     /// Prevent deletion of warehouses with stock (Bin entries exist).
     /// </summary>

@@ -30,7 +30,7 @@ public class AuthorizationRuleAppService : ApplicationService
     public async Task<AuthorizationRuleDto> GetAsync(Guid id)
     {
         var rule = await _repository.GetAsync(id);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AuthorizationRule, AuthorizationRuleDto>(rule);
     }
 
     public async Task<PagedResultDto<AuthorizationRuleDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -44,7 +44,7 @@ public class AuthorizationRuleAppService : ApplicationService
         var list = query.OrderBy(r => r.TransactionType).ThenBy(r => r.ThresholdValue)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<AuthorizationRuleDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<AuthorizationRuleDto>(count, list.Select(x => ObjectMapper.Map<AuthorizationRule, AuthorizationRuleDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Create)]
@@ -66,7 +66,7 @@ public class AuthorizationRuleAppService : ApplicationService
 
         rule.Validate();
         await _repository.InsertAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AuthorizationRule, AuthorizationRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Edit)]
@@ -81,25 +81,11 @@ public class AuthorizationRuleAppService : ApplicationService
         rule.CustomerId = input.CustomerId;
         rule.Validate();
         await _repository.UpdateAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AuthorizationRule, AuthorizationRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ApprovalWorkflows.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
-
-    private static AuthorizationRuleDto MapToDto(AuthorizationRule r) => new()
-    {
-        Id = r.Id,
-        CompanyId = r.CompanyId,
-        TransactionType = r.TransactionType,
-        BasedOn = r.BasedOn.ToString(),
-        ThresholdValue = r.ThresholdValue,
-        SystemUserId = r.SystemUserId,
-        SystemRole = r.SystemRole,
-        ApprovingRole = r.ApprovingRole,
-        ApprovingUserId = r.ApprovingUserId,
-        CustomerId = r.CustomerId
-    };
 }
 
 #region DTOs

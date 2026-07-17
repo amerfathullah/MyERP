@@ -49,7 +49,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     public async Task<SalesOrderDto> GetAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
-        return await MapToDtoAsync(order);
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { dto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        return dto;
     }
 
     public async Task<PagedResultDto<SalesOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -78,7 +80,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var dtos = new System.Collections.Generic.List<SalesOrderDto>();
         foreach (var o in orders)
         {
-            dtos.Add(await MapToDtoAsync(o));
+            var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(o);
+            try { dto.CustomerName = (await _customerRepository.GetAsync(o.CustomerId)).Name; } catch { }
+            dtos.Add(dto);
         }
 
         return new PagedResultDto<SalesOrderDto>(totalCount, dtos);
@@ -184,7 +188,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await _repository.InsertAsync(order, autoSave: true);
 
         // Check if customer has overdue invoices (advisory warning, not blocking)
-        var dto = await MapToDtoAsync(order);
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { dto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
         try
         {
             var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
@@ -304,7 +309,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
-        return await MapToDtoAsync(order);
+        var submitDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { submitDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        return submitDto;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Cancel)]
@@ -347,7 +354,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
-        return await MapToDtoAsync(order);
+        var cancelDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { cancelDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        return cancelDto;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Edit)]
@@ -386,7 +395,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
-        return await MapToDtoAsync(order);
+        var closeDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { closeDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        return closeDto;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Edit)]
@@ -424,55 +435,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
-        return await MapToDtoAsync(order);
-    }
-
-    private async Task<SalesOrderDto> MapToDtoAsync(SalesOrder order)
-    {
-        string? customerName = null;
-        try
-        {
-            var customer = await _customerRepository.GetAsync(order.CustomerId);
-            customerName = customer.Name;
-        }
-        catch { /* customer may not exist */ }
-
-        return new SalesOrderDto
-        {
-            Id = order.Id,
-            CompanyId = order.CompanyId,
-            OrderNumber = order.OrderNumber,
-            OrderDate = order.OrderDate,
-            DeliveryDate = order.DeliveryDate,
-            CustomerId = order.CustomerId,
-            CustomerName = customerName,
-            CustomerPoNumber = order.CustomerPoNumber,
-            CurrencyCode = order.CurrencyCode,
-            NetTotal = order.NetTotal,
-            TaxAmount = order.TaxAmount,
-            GrandTotal = order.GrandTotal,
-            Terms = order.Terms,
-            Notes = order.Notes,
-            Status = order.Status.ToString(),
-            QuotationId = order.QuotationId,
-            PerDelivered = order.PerDelivered,
-            PerBilled = order.PerBilled,
-            CreationTime = order.CreationTime,
-            LastModificationTime = order.LastModificationTime,
-            Items = order.Items.Select(i => new SalesOrderItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-                DeliveredQty = i.DeliveredQty,
-                BilledQty = i.BilledQty,
-                WarehouseId = i.WarehouseId,
-            }).ToList(),
-        };
+        var reopenDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        try { reopenDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        return reopenDto;
     }
 }

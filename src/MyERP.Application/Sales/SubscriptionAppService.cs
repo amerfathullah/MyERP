@@ -107,13 +107,13 @@ public class SubscriptionAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<SubscriptionDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<SubscriptionDto>(totalCount, items.Select(x => ObjectMapper.Map<Subscription, SubscriptionDto>(x)).ToList());
     }
 
     public async Task<SubscriptionDto> GetAsync(Guid id)
     {
         var sub = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
-        return MapToDto(sub);
+        return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -131,7 +131,7 @@ public class SubscriptionAppService : ApplicationService
             sub.AddPlan(p.ItemId, p.Qty, p.Rate, p.ItemName);
         sub.AdvancePeriod(); // Set initial billing period
         await _repository.InsertAsync(sub);
-        return MapToDto(sub);
+        return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Cancel)]
@@ -140,7 +140,7 @@ public class SubscriptionAppService : ApplicationService
         var sub = await _repository.GetAsync(id);
         sub.Cancel();
         await _repository.UpdateAsync(sub);
-        return MapToDto(sub);
+        return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
     public async Task<SubscriptionDto> AdvancePeriodAsync(Guid id)
@@ -148,7 +148,7 @@ public class SubscriptionAppService : ApplicationService
         var sub = await _repository.GetAsync(id);
         sub.AdvancePeriod();
         await _repository.UpdateAsync(sub);
-        return MapToDto(sub);
+        return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
     /// <summary>
@@ -197,19 +197,4 @@ public class SubscriptionAppService : ApplicationService
             PeriodEnd = sub.CurrentInvoiceEnd,
         };
     }
-
-    private static SubscriptionDto MapToDto(Subscription s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, PartyId = s.PartyId,
-        PartyType = s.PartyType, PartyName = s.PartyName,
-        SubscriptionNumber = s.SubscriptionNumber, BillingInterval = s.BillingInterval,
-        BillingIntervalCount = s.BillingIntervalCount, StartDate = s.StartDate,
-        EndDate = s.EndDate, CurrentInvoiceStart = s.CurrentInvoiceStart,
-        CurrentInvoiceEnd = s.CurrentInvoiceEnd, TotalPerInterval = s.TotalPerInterval,
-        Status = (int)s.Status,
-        Plans = s.Plans.Select(p => new SubscriptionPlanDto
-        {
-            Id = p.Id, ItemId = p.ItemId, ItemName = p.ItemName, Qty = p.Qty, Rate = p.Rate,
-        }).ToArray(),
-    };
 }

@@ -24,7 +24,7 @@ public class IssueAppService : ApplicationService
     public async Task<IssueDto> GetAsync(Guid id)
     {
         var issue = await _issueRepository.GetAsync(id);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
     public async Task<PagedResultDto<IssueDto>> GetListAsync(GetIssueListDto input)
@@ -44,7 +44,7 @@ public class IssueAppService : ApplicationService
         var items = query.OrderByDescending(i => i.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<IssueDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<IssueDto>(totalCount, items.Select(ObjectMapper.Map<Issue, IssueDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Issues.Create)]
@@ -59,7 +59,7 @@ public class IssueAppService : ApplicationService
             RaisedVia = input.RaisedVia,
         };
         await _issueRepository.InsertAsync(issue);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]
@@ -68,7 +68,7 @@ public class IssueAppService : ApplicationService
         var issue = await _issueRepository.GetAsync(id);
         issue.Reply();
         await _issueRepository.UpdateAsync(issue);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]
@@ -77,7 +77,7 @@ public class IssueAppService : ApplicationService
         var issue = await _issueRepository.GetAsync(id);
         issue.Resolve(resolution);
         await _issueRepository.UpdateAsync(issue);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]
@@ -86,7 +86,7 @@ public class IssueAppService : ApplicationService
         var issue = await _issueRepository.GetAsync(id);
         issue.Reopen();
         await _issueRepository.UpdateAsync(issue);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]
@@ -95,25 +95,10 @@ public class IssueAppService : ApplicationService
         var issue = await _issueRepository.GetAsync(id);
         issue.Hold();
         await _issueRepository.UpdateAsync(issue);
-        return MapToDto(issue);
+        return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
-    private static IssueDto MapToDto(Issue i) => new()
-    {
-        Id = i.Id,
-        Subject = i.Subject,
-        Description = i.Description,
-        Status = i.Status,
-        Priority = i.Priority,
-        IssueType = i.IssueType,
-        CustomerId = i.CustomerId,
-        AssignedToId = i.AssignedToId,
-        RaisedVia = i.RaisedVia,
-        OpeningDate = i.OpeningDate,
-        ResolutionDate = i.ResolutionDate,
-        Resolution = i.Resolution,
-        CreationTime = i.CreationTime,
-    };
+
 }
 
 public class IssueDto : AuditedEntityDto<Guid>

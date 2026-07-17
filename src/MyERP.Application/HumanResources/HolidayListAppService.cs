@@ -59,13 +59,13 @@ public class HolidayListAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(h => h.Year).ThenBy(h => h.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<HolidayListDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<HolidayListDto>(totalCount, items.Select(x => ObjectMapper.Map<HolidayList, HolidayListDto>(x)).ToList());
     }
 
     public async Task<HolidayListDto> GetAsync(Guid id)
     {
         var hl = (await _repository.WithDetailsAsync()).First(h => h.Id == id);
-        return MapToDto(hl);
+        return ObjectMapper.Map<HolidayList, HolidayListDto>(hl);
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -79,19 +79,9 @@ public class HolidayListAppService : ApplicationService
         foreach (var h in input.Holidays)
             hl.AddHoliday(new Holiday(Guid.NewGuid(), hl.Id, h.HolidayDate, h.Description, h.IsWeeklyOff));
         await _repository.InsertAsync(hl);
-        return MapToDto(hl);
+        return ObjectMapper.Map<HolidayList, HolidayListDto>(hl);
     }
 
     [Authorize(MyERPPermissions.Employees.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
-
-    private static HolidayListDto MapToDto(HolidayList h) => new()
-    {
-        Id = h.Id, CompanyId = h.CompanyId, Name = h.Name, Year = h.Year,
-        WeeklyOff = h.WeeklyOff, IsDefault = h.IsDefault, CreationTime = h.CreationTime,
-        Holidays = h.Holidays.Select(x => new HolidayDto
-        {
-            Id = x.Id, HolidayDate = x.HolidayDate, Description = x.Description, IsWeeklyOff = x.IsWeeklyOff,
-        }).ToArray(),
-    };
 }

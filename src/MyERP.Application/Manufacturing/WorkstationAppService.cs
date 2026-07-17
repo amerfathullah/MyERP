@@ -26,7 +26,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
     public async Task<WorkstationDto> GetAsync(Guid id)
     {
         var ws = await _repository.GetAsync(id);
-        return MapToDto(ws);
+        return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }
 
     public async Task<PagedResultDto<WorkstationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -46,7 +46,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         var items = query.OrderBy(x => x.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<WorkstationDto>(count, items.Select(MapToDto).ToList());
+        return new PagedResultDto<WorkstationDto>(count, items.Select(ObjectMapper.Map<Workstation, WorkstationDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -59,24 +59,6 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
             Description = input.Description,
         };
         await _repository.InsertAsync(ws);
-        return MapToDto(ws);
+        return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }
-
-    private static WorkstationDto MapToDto(Workstation ws) => new()
-    {
-        Id = ws.Id,
-        Name = ws.Name,
-        WorkstationType = ws.WorkstationType,
-        ProductionCapacity = ws.ProductionCapacity,
-        HourRate = ws.HourRate,
-        Description = ws.Description,
-        IsActive = ws.IsActive,
-        Costs = ws.Costs.Select(c => new WorkstationCostDto { Name = c.OperatingComponent, Amount = c.OperatingCost }).ToArray(),
-        WorkingHours = ws.WorkingHours.Select(h => new WorkstationWorkingHourDto
-        {
-            DayOfWeek = h.Day,
-            StartTime = h.StartTime.ToString(@"hh\:mm"),
-            EndTime = h.EndTime.ToString(@"hh\:mm"),
-        }).ToArray(),
-    };
 }

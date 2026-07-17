@@ -54,7 +54,7 @@ public class PaymentRequestAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<PaymentRequestDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<PaymentRequestDto>(totalCount, items.Select(x => ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
@@ -68,7 +68,7 @@ public class PaymentRequestAppService : ApplicationService
             EmailTo = input.EmailTo, Subject = input.Subject, Message = input.Message,
         };
         await _repository.InsertAsync(pr);
-        return MapToDto(pr);
+        return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
@@ -77,7 +77,7 @@ public class PaymentRequestAppService : ApplicationService
         var pr = await _repository.GetAsync(id);
         pr.Submit();
         await _repository.UpdateAsync(pr);
-        return MapToDto(pr);
+        return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
@@ -86,15 +86,6 @@ public class PaymentRequestAppService : ApplicationService
         var pr = await _repository.GetAsync(id);
         pr.Cancel();
         await _repository.UpdateAsync(pr);
-        return MapToDto(pr);
+        return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
-
-    private static PaymentRequestDto MapToDto(PaymentRequest p) => new()
-    {
-        Id = p.Id, CompanyId = p.CompanyId, PaymentRequestType = p.PaymentRequestType,
-        ReferenceDoctype = p.ReferenceDoctype, ReferenceId = p.ReferenceId,
-        PartyId = p.PartyId, PartyType = p.PartyType, PartyName = p.PartyName,
-        GrandTotal = p.GrandTotal, OutstandingAmount = p.OutstandingAmount,
-        Currency = p.Currency, Status = (int)p.Status, PaymentEntryId = p.PaymentEntryId,
-    };
 }

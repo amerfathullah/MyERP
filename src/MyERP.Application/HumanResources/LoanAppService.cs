@@ -92,13 +92,13 @@ public class LoanAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(l => l.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<LoanDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<LoanDto>(totalCount, items.Select(ObjectMapper.Map<Loan, LoanDto>).ToList());
     }
 
     public async Task<LoanDto> GetAsync(Guid id)
     {
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -116,7 +116,7 @@ public class LoanAppService : ApplicationService
         };
 
         await _repository.InsertAsync(loan);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
     /// <summary>Approve the loan for disbursement.</summary>
@@ -126,7 +126,7 @@ public class LoanAppService : ApplicationService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.Sanction();
         await _repository.UpdateAsync(loan);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
     /// <summary>Disburse the loan and generate the repayment schedule.</summary>
@@ -136,7 +136,7 @@ public class LoanAppService : ApplicationService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.Disburse(input.DisbursementDate, input.RepaymentStartDate);
         await _repository.UpdateAsync(loan);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
     /// <summary>Record a repayment against the loan.</summary>
@@ -146,7 +146,7 @@ public class LoanAppService : ApplicationService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.RecordRepayment(input.PrincipalAmount, input.InterestAmount);
         await _repository.UpdateAsync(loan);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
     /// <summary>Cancel the loan.</summary>
@@ -158,35 +158,6 @@ public class LoanAppService : ApplicationService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         loan.Status = LoanStatus.Cancelled;
         await _repository.UpdateAsync(loan);
-        return MapToDto(loan);
+        return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
-
-    private static LoanDto MapToDto(Loan l) => new()
-    {
-        Id = l.Id,
-        CompanyId = l.CompanyId,
-        EmployeeId = l.EmployeeId,
-        LoanNumber = l.LoanNumber,
-        LoanType = (int)l.LoanType,
-        InterestMethod = (int)l.InterestMethod,
-        Status = (int)l.Status,
-        LoanAmount = l.LoanAmount,
-        AnnualInterestRate = l.AnnualInterestRate,
-        TenureMonths = l.TenureMonths,
-        GracePeriodMonths = l.GracePeriodMonths,
-        Emi = l.Emi,
-        TotalAmountRepaid = l.TotalAmountRepaid,
-        OutstandingBalance = l.OutstandingBalance,
-        DisbursementDate = l.DisbursementDate,
-        RepaymentStartDate = l.RepaymentStartDate,
-        Schedule = l.RepaymentSchedule.OrderBy(s => s.PaymentDate).Select(s => new LoanRepaymentScheduleDto
-        {
-            PaymentDate = s.PaymentDate,
-            PrincipalAmount = s.PrincipalAmount,
-            InterestAmount = s.InterestAmount,
-            TotalPayment = s.TotalPayment,
-            OutstandingBalance = s.OutstandingAfterPayment,
-            IsPaid = s.IsPaid,
-        }).ToArray(),
-    };
 }

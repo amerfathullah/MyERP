@@ -44,7 +44,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     public async Task<ProductionPlanDto> GetAsync(Guid id)
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     public async Task<PagedResultDto<ProductionPlanDto>> GetListAsync(GetProductionPlanListDto input)
@@ -65,7 +65,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var items = query.OrderByDescending(p => p.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<ProductionPlanDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ProductionPlanDto>(totalCount, items.Select(x => ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Create)]
@@ -103,7 +103,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         }
 
         await _planRepository.InsertAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Delete)]
@@ -118,7 +118,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
         plan.Submit();
         await _planRepository.UpdateAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Cancel)]
@@ -127,7 +127,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
         plan.Cancel();
         await _planRepository.UpdateAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Edit)]
@@ -181,7 +181,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         }
 
         await _planRepository.UpdateAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Edit)]
@@ -227,7 +227,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             plan.MarkInProgress();
 
         await _planRepository.UpdateAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     [Authorize(MyERPPermissions.MaterialRequests.Create)]
@@ -244,7 +244,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             .ToList();
 
         if (!itemsNeedingMr.Any())
-            return MapToDto(plan);
+            return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
 
         var mrNumber = await _numberGenerator.GenerateAsync("MR", plan.CompanyId);
         var mr = new MaterialRequest(
@@ -266,7 +266,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             plan.MarkInProgress();
 
         await _planRepository.UpdateAsync(plan);
-        return MapToDto(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
     private static decimal CalculatePlannedQty(ProductionPlanMrItem item, ProductionPlan plan)
@@ -288,52 +288,4 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         return qty;
     }
-
-    private static ProductionPlanDto MapToDto(ProductionPlan plan) => new()
-    {
-        Id = plan.Id,
-        PlanNumber = plan.PlanNumber,
-        Status = plan.Status,
-        CompanyId = plan.CompanyId,
-        PostingDate = plan.PostingDate,
-        CombineItems = plan.CombineItems,
-        IgnoreExistingOrderedQty = plan.IgnoreExistingOrderedQty,
-        ConsiderMinimumOrderQty = plan.ConsiderMinimumOrderQty,
-        IncludeSafetyStock = plan.IncludeSafetyStock,
-        SkipAvailableSubAssemblyItem = plan.SkipAvailableSubAssemblyItem,
-        RawMaterialGroupWarehouseId = plan.RawMaterialGroupWarehouseId,
-        ForWarehouseId = plan.ForWarehouseId,
-        Notes = plan.Notes,
-        CreationTime = plan.CreationTime,
-        PlannedItems = plan.PlannedItems.Select(i => new ProductionPlanItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            ItemName = i.ItemName,
-            BomId = i.BomId,
-            PlannedQty = i.PlannedQty,
-            ProducedQty = i.ProducedQty,
-            WarehouseId = i.WarehouseId,
-            PlannedStartDate = i.PlannedStartDate,
-            SalesOrderId = i.SalesOrderId,
-            MaterialRequestId = i.MaterialRequestId,
-            WorkOrderId = i.WorkOrderId,
-        }).ToList(),
-        MaterialRequirements = plan.MaterialRequirements.Select(m => new ProductionPlanMrItemDto
-        {
-            Id = m.Id,
-            ItemId = m.ItemId,
-            ItemName = m.ItemName,
-            RequiredQty = m.RequiredQty,
-            OrderedQty = m.OrderedQty,
-            AvailableQty = m.AvailableQty,
-            PlannedQty = m.PlannedQty,
-            MinOrderQty = m.MinOrderQty,
-            SafetyStock = m.SafetyStock,
-            Uom = m.Uom,
-            WarehouseId = m.WarehouseId,
-            MaterialRequestId = m.MaterialRequestId,
-            ProcurementType = m.ProcurementType,
-        }).ToList(),
-    };
 }

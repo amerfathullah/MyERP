@@ -24,7 +24,7 @@ public class BatchAppService : ApplicationService
     public async Task<BatchDto> GetAsync(Guid id)
     {
         var batch = await _repository.GetAsync(id);
-        return MapToDto(batch);
+        return ObjectMapper.Map<Batch, BatchDto>(batch);
     }
 
     public async Task<PagedResultDto<BatchDto>> GetListAsync(GetBatchListDto input)
@@ -44,7 +44,7 @@ public class BatchAppService : ApplicationService
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<BatchDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<BatchDto>(totalCount, items.Select(ObjectMapper.Map<Batch, BatchDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Items.Create)]
@@ -63,7 +63,7 @@ public class BatchAppService : ApplicationService
             batch.SetExpiryFromShelfLife();
 
         await _repository.InsertAsync(batch);
-        return MapToDto(batch);
+        return ObjectMapper.Map<Batch, BatchDto>(batch);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
@@ -73,15 +73,6 @@ public class BatchAppService : ApplicationService
         batch.IsDisabled = true;
         await _repository.UpdateAsync(batch);
     }
-
-    private static BatchDto MapToDto(Batch b) => new()
-    {
-        Id = b.Id, BatchNo = b.BatchNo, ItemId = b.ItemId,
-        ManufacturingDate = b.ManufacturingDate, ExpiryDate = b.ExpiryDate,
-        ShelfLifeInDays = b.ShelfLifeInDays, SupplierBatchNo = b.SupplierBatchNo,
-        IsDisabled = b.IsDisabled, IsExpired = b.IsExpired(),
-        Description = b.Description, CreationTime = b.CreationTime,
-    };
 }
 
 public class BatchDto : AuditedEntityDto<Guid>

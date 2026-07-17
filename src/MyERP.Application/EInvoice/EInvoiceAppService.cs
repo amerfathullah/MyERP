@@ -102,7 +102,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         // Update source document e-Invoice status
         await UpdateSourceDocumentStatusAsync(input.SourceDocumentType, input.SourceDocumentId, submission);
 
-        return MapToDto(submission);
+        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
 
     private async Task<EInvoiceDocumentData> BuildDocumentDataAsync(Guid companyId, string sourceDocType, Guid sourceDocId)
@@ -234,7 +234,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var environment = Enum.Parse<LhdnEnvironment>(envString);
 
         var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
-        return MapToDto(submission);
+        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
 
     [Authorize(MyERPPermissions.EInvoice.Cancel)]
@@ -249,7 +249,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var submission = await _eInvoiceService.CancelAsync(
             input.SubmissionId, input.Reason, accessToken, environment);
 
-        return MapToDto(submission);
+        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
 
     public async Task<PagedResultDto<EInvoiceSubmissionDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -260,24 +260,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         return new PagedResultDto<EInvoiceSubmissionDto>(
             totalCount,
-            submissions.Select(MapToDto).ToList());
+            submissions.Select(ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>).ToList());
     }
 
-    private static EInvoiceSubmissionDto MapToDto(EInvoiceSubmission s) => new()
-    {
-        Id = s.Id,
-        CompanyId = s.CompanyId,
-        SubmissionUid = s.SubmissionUid,
-        DocumentUuid = s.DocumentUuid,
-        LongId = s.LongId,
-        SourceDocumentType = s.SourceDocumentType,
-        SourceDocumentId = s.SourceDocumentId,
-        DocumentTypeCode = s.DocumentTypeCode,
-        Status = s.Status,
-        Reason = s.Reason,
-        QrCodeUrl = s.QrCodeUrl,
-        SubmittedAt = s.SubmittedAt,
-        ValidatedAt = s.ValidatedAt,
-        CancelledAt = s.CancelledAt
-    };
+
 }

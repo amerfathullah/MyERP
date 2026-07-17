@@ -24,7 +24,7 @@ public class ShippingRuleAppService : ApplicationService
     public async Task<ShippingRuleDto> GetAsync(Guid id)
     {
         var rule = await _repository.GetAsync(id);
-        return MapToDto(rule);
+        return ObjectMapper.Map<ShippingRule, ShippingRuleDto>(rule);
     }
 
     public async Task<PagedResultDto<ShippingRuleDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -34,7 +34,7 @@ public class ShippingRuleAppService : ApplicationService
         var list = query.OrderBy(x => x.Label)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<ShippingRuleDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<ShippingRuleDto>(count, list.Select(ObjectMapper.Map<ShippingRule, ShippingRuleDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.ShippingRules.Create)]
@@ -64,7 +64,7 @@ public class ShippingRuleAppService : ApplicationService
 
         rule.Validate();
         await _repository.InsertAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<ShippingRule, ShippingRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ShippingRules.Edit)]
@@ -73,7 +73,7 @@ public class ShippingRuleAppService : ApplicationService
         var rule = await _repository.GetAsync(id);
         rule.IsEnabled = isEnabled;
         await _repository.UpdateAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<ShippingRule, ShippingRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.ShippingRules.Delete)]
@@ -94,24 +94,6 @@ public class ShippingRuleAppService : ApplicationService
 
         return rule.Calculate(value);
     }
-
-    private static ShippingRuleDto MapToDto(ShippingRule r) => new()
-    {
-        Id = r.Id,
-        Label = r.Label,
-        CompanyId = r.CompanyId ?? Guid.Empty,
-        CalculationMode = r.CalculationMode.ToString(),
-        RuleType = r.RuleType.ToString(),
-        ShippingAmount = r.FixedAmount,
-        IsEnabled = r.IsEnabled,
-        Conditions = r.Conditions.OrderBy(c => c.FromValue).Select(c => new ShippingConditionDto
-        {
-            FromValue = c.FromValue,
-            ToValue = c.ToValue,
-            ShippingAmount = c.ShippingAmount
-        }).ToList(),
-        Countries = r.Countries.Select(c => c.CountryCode).ToList()
-    };
 }
 
 #region DTOs

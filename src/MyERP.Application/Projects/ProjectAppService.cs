@@ -31,7 +31,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectDto> GetAsync(Guid id)
     {
         var project = await _projectRepository.GetAsync(id, includeDetails: true);
-        return MapToDto(project);
+        return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
     public async Task<PagedResultDto<ProjectDto>> GetListAsync(GetProjectListDto input)
@@ -54,7 +54,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         query = query.OrderByDescending(p => p.CreationTime);
         var items = query.Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<ProjectDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ProjectDto>(totalCount, items.Select(ObjectMapper.Map<Project, ProjectDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Projects.Create)]
@@ -74,7 +74,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         };
 
         await _projectRepository.InsertAsync(project);
-        return MapToDto(project);
+        return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -91,7 +91,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         project.Notes = input.Notes;
 
         await _projectRepository.UpdateAsync(project);
-        return MapToDto(project);
+        return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
     [Authorize(MyERPPermissions.Projects.Delete)]
@@ -106,7 +106,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var project = await _projectRepository.GetAsync(id, includeDetails: true);
         project.Complete();
         await _projectRepository.UpdateAsync(project);
-        return MapToDto(project);
+        return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -115,7 +115,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var project = await _projectRepository.GetAsync(id);
         project.Cancel();
         await _projectRepository.UpdateAsync(project);
-        return MapToDto(project);
+        return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
     // --- Tasks ---
@@ -123,7 +123,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectTaskDto[]> GetTasksAsync(Guid projectId)
     {
         var tasks = await _taskRepository.GetListAsync(t => t.ProjectId == projectId);
-        return tasks.OrderBy(t => t.CreationTime).Select(MapTaskToDto).ToArray();
+        return tasks.OrderBy(t => t.CreationTime).Select(ObjectMapper.Map<ProjectTask, ProjectTaskDto>).ToArray();
     }
 
     [Authorize(MyERPPermissions.Projects.Create)]
@@ -146,7 +146,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
 
         await _taskRepository.InsertAsync(task);
         await UpdateProjectProgress(input.ProjectId);
-        return MapTaskToDto(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -168,7 +168,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
 
         await _taskRepository.UpdateAsync(task);
         await UpdateProjectProgress(task.ProjectId);
-        return MapTaskToDto(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
     [Authorize(MyERPPermissions.Projects.Delete)]
@@ -186,7 +186,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var task = await _taskRepository.GetAsync(taskId);
         task.Start();
         await _taskRepository.UpdateAsync(task);
-        return MapTaskToDto(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -201,7 +201,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         task.Complete();
         await _taskRepository.UpdateAsync(task);
         await UpdateProjectProgress(task.ProjectId);
-        return MapTaskToDto(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -211,7 +211,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         task.Cancel();
         await _taskRepository.UpdateAsync(task);
         await UpdateProjectProgress(task.ProjectId);
-        return MapTaskToDto(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
     private async Task UpdateProjectProgress(Guid projectId)
@@ -220,54 +220,4 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         project.UpdateProgress();
         await _projectRepository.UpdateAsync(project);
     }
-
-    private static ProjectDto MapToDto(Project p) => new()
-    {
-        Id = p.Id,
-        ProjectNumber = p.ProjectNumber,
-        ProjectName = p.ProjectName,
-        Status = p.Status,
-        Priority = p.Priority,
-        PercentCompleteMethod = p.PercentCompleteMethod,
-        PercentComplete = p.PercentComplete,
-        CompanyId = p.CompanyId,
-        CustomerId = p.CustomerId,
-        SalesOrderId = p.SalesOrderId,
-        ExpectedStartDate = p.ExpectedStartDate,
-        ExpectedEndDate = p.ExpectedEndDate,
-        ActualStartDate = p.ActualStartDate,
-        ActualEndDate = p.ActualEndDate,
-        EstimatedCost = p.EstimatedCost,
-        TotalCostingAmount = p.TotalCostingAmount,
-        TotalBillingAmount = p.TotalBillingAmount,
-        TotalBilledAmount = p.TotalBilledAmount,
-        GrossMargin = p.GrossMargin,
-        Notes = p.Notes,
-        TaskCount = p.Tasks.Count,
-        CreationTime = p.CreationTime,
-        LastModificationTime = p.LastModificationTime,
-    };
-
-    private static ProjectTaskDto MapTaskToDto(ProjectTask t) => new()
-    {
-        Id = t.Id,
-        ProjectId = t.ProjectId,
-        TaskNumber = t.TaskNumber,
-        Subject = t.Subject,
-        Status = t.Status,
-        Priority = t.Priority,
-        ParentTaskId = t.ParentTaskId,
-        IsGroup = t.IsGroup,
-        IsMilestone = t.IsMilestone,
-        TaskWeight = t.TaskWeight,
-        Progress = t.Progress,
-        ExpectedStartDate = t.ExpectedStartDate,
-        ExpectedEndDate = t.ExpectedEndDate,
-        ActualStartDate = t.ActualStartDate,
-        ActualEndDate = t.ActualEndDate,
-        ExpectedHours = t.ExpectedHours,
-        ActualHours = t.ActualHours,
-        AssignedUserId = t.AssignedUserId,
-        Description = t.Description,
-    };
 }

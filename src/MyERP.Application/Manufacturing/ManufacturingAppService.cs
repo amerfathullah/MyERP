@@ -49,7 +49,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<BomDto> GetBomAsync(Guid id)
     {
         var bom = await _bomRepository.GetAsync(id, includeDetails: true);
-        return MapBomToDto(bom);
+        return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
     }
 
     public async Task<PagedResultDto<BomDto>> GetBomListAsync(CompanyFilteredPagedRequestDto input)
@@ -65,7 +65,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var totalCount = query.Count();
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<BomDto>(totalCount, items.Select(MapBomToDto).ToList());
+        return new PagedResultDto<BomDto>(totalCount, items.Select(ObjectMapper.Map<BillOfMaterials, BomDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -90,7 +90,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         bom.RecalculateCost();
 
         await _bomRepository.InsertAsync(bom);
-        return MapBomToDto(bom);
+        return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
@@ -130,7 +130,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var propagationService = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.BomCostPropagationService>();
         await propagationService.UpdateCostAndPropagateAsync(bomId);
 
-        return MapBomToDto(bom);
+        return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
     }
 
     // === Work Order ===
@@ -138,7 +138,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> GetWorkOrderAsync(Guid id)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     public async Task<PagedResultDto<WorkOrderDto>> GetWorkOrderListAsync(GetWorkOrderListDto input)
@@ -157,7 +157,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var totalCount = query.Count();
         var items = query.OrderByDescending(w => w.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<WorkOrderDto>(totalCount, items.Select(MapWoToDto).ToList());
+        return new PagedResultDto<WorkOrderDto>(totalCount, items.Select(ObjectMapper.Map<WorkOrder, WorkOrderDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -185,7 +185,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         await _workOrderRepository.InsertAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     /// <summary>
@@ -235,7 +235,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -244,7 +244,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Start();
         await _workOrderRepository.UpdateAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -325,7 +325,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         await _workOrderRepository.UpdateAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -334,7 +334,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Stop();
         await _workOrderRepository.UpdateAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -381,7 +381,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
-        return MapWoToDto(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
     /// <summary>
@@ -422,69 +422,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await _materialRequestRepository.InsertAsync(mr);
 
-        return new MaterialRequestDto
-        {
-            Id = mr.Id,
-            RequestNumber = mr.RequestNumber,
-            RequestType = mr.RequestType,
-            Status = mr.Status,
-            RequestDate = mr.RequestDate,
-            CompanyId = mr.CompanyId,
-            WorkOrderId = mr.WorkOrderId,
-            CreationTime = mr.CreationTime,
-            Items = mr.Items.Select(i => new MaterialRequestItemDto
-            {
-                Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-                Quantity = i.Quantity, Uom = i.Uom, WarehouseId = i.WarehouseId,
-            }).ToList(),
-        };
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(mr);
     }
-
-    private static BomDto MapBomToDto(BillOfMaterials b) => new()
-    {
-        Id = b.Id,
-        BomNumber = b.BomNumber,
-        ItemId = b.ItemId,
-        Quantity = b.Quantity,
-        Uom = b.Uom,
-        CompanyId = b.CompanyId,
-        IsActive = b.IsActive,
-        IsDefault = b.IsDefault,
-        TotalMaterialCost = b.TotalMaterialCost,
-        TotalCost = b.TotalCost,
-        CreationTime = b.CreationTime,
-        Items = b.Items.Select(i => new BomItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            Quantity = i.Quantity, Uom = i.Uom, Rate = i.Rate, Amount = i.Amount,
-        }).ToList(),
-    };
-
-    private static WorkOrderDto MapWoToDto(WorkOrder w) => new()
-    {
-        Id = w.Id,
-        WorkOrderNumber = w.WorkOrderNumber,
-        Status = w.Status,
-        ItemId = w.ItemId,
-        BomId = w.BomId,
-        Quantity = w.Quantity,
-        ProducedQuantity = w.ProducedQuantity,
-        MaterialTransferred = w.MaterialTransferred,
-        PercentComplete = w.PercentComplete,
-        CompanyId = w.CompanyId,
-        SalesOrderId = w.SalesOrderId,
-        PlannedStartDate = w.PlannedStartDate,
-        PlannedEndDate = w.PlannedEndDate,
-        ActualStartDate = w.ActualStartDate,
-        ActualEndDate = w.ActualEndDate,
-        Notes = w.Notes,
-        CreationTime = w.CreationTime,
-        RequiredItems = w.RequiredItems.Select(i => new WorkOrderItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            RequiredQuantity = i.RequiredQuantity,
-            TransferredQuantity = i.TransferredQuantity,
-            ConsumedQuantity = i.ConsumedQuantity,
-        }).ToList(),
-    };
 }

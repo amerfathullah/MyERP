@@ -45,20 +45,7 @@ public class StockBalanceAppService : ApplicationService
 
         return new PagedResultDto<StockBalanceDto>(
             totalCount,
-            items.Select(b => new StockBalanceDto
-            {
-                Id = b.Id,
-                ItemId = b.ItemId,
-                WarehouseId = b.WarehouseId,
-                ActualQty = b.ActualQty,
-                OrderedQty = b.OrderedQty,
-                PlannedQty = b.PlannedQty,
-                ReservedQty = b.ReservedQty,
-                IndentedQty = b.IndentedQty,
-                ProjectedQty = b.ProjectedQty,
-                StockValue = b.StockValue,
-                ValuationRate = b.ValuationRate,
-            }).ToList());
+            items.Select(ObjectMapper.Map<Bin, StockBalanceDto>).ToList());
     }
 
     /// <summary>
@@ -69,20 +56,7 @@ public class StockBalanceAppService : ApplicationService
         var query = await _binRepository.GetQueryableAsync();
         var bins = query.Where(b => b.ItemId == itemId && b.ActualQty != 0).ToList();
 
-        return bins.Select(b => new StockBalanceDto
-        {
-            Id = b.Id,
-            ItemId = b.ItemId,
-            WarehouseId = b.WarehouseId,
-            ActualQty = b.ActualQty,
-            OrderedQty = b.OrderedQty,
-            PlannedQty = b.PlannedQty,
-            ReservedQty = b.ReservedQty,
-            IndentedQty = b.IndentedQty,
-            ProjectedQty = b.ProjectedQty,
-            StockValue = b.StockValue,
-            ValuationRate = b.ValuationRate,
-        }).ToList();
+        return bins.Select(ObjectMapper.Map<Bin, StockBalanceDto>).ToList();
     }
 }
 

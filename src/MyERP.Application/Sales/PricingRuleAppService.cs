@@ -90,7 +90,7 @@ public class PricingRuleAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(r => r.Priority).ThenBy(r => r.Title)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<PricingRuleDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<PricingRuleDto>(totalCount, items.Select(ObjectMapper.Map<PricingRule, PricingRuleDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -114,7 +114,7 @@ public class PricingRuleAppService : ApplicationService
             ValidUpto = input.ValidUpto,
         };
         await _repository.InsertAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<PricingRule, PricingRuleDto>(rule);
     }
 
     /// <summary>
@@ -155,15 +155,5 @@ public class PricingRuleAppService : ApplicationService
     [Authorize(MyERPPermissions.SalesInvoices.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 
-    private static PricingRuleDto MapToDto(PricingRule r) => new()
-    {
-        Id = r.Id, Title = r.Title, ApplicableFor = r.ApplicableFor,
-        ApplyOn = (int)r.ApplyOn, ApplyOnId = r.ApplyOnId, ApplyOnName = r.ApplyOnName,
-        RuleType = (int)r.RuleType, DiscountPercentage = r.DiscountPercentage,
-        DiscountAmount = r.DiscountAmount, Rate = r.Rate,
-        MinQty = r.MinQty, MaxQty = r.MaxQty,
-        MinAmount = r.MinAmount, MaxAmount = r.MaxAmount,
-        Priority = r.Priority, ValidFrom = r.ValidFrom, ValidUpto = r.ValidUpto,
-        IsDisabled = r.IsDisabled,
-    };
+
 }

@@ -36,7 +36,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
     public async Task<PayrollEntryDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 
     public async Task<PagedResultDto<PayrollEntryDto>> GetListAsync(GetPayrollListDto input)
@@ -51,7 +51,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
                 .Skip(input.SkipCount)
                 .Take(input.MaxResultCount));
 
-        return new PagedResultDto<PayrollEntryDto>(totalCount, entries.Select(MapToDto).ToList());
+        return new PagedResultDto<PayrollEntryDto>(totalCount, entries.Select(x => ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Payroll.Create)]
@@ -127,7 +127,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         }
 
         await _repository.InsertAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.Payroll.Submit)]
@@ -158,7 +158,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.Payroll.Cancel)]
@@ -186,38 +186,6 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
 
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
-
-    private static PayrollEntryDto MapToDto(PayrollEntry e) => new()
-    {
-        Id = e.Id,
-        CompanyId = e.CompanyId,
-        PayrollNumber = e.PayrollNumber,
-        Year = e.Year,
-        Month = e.Month,
-        PeriodLabel = e.PeriodLabel,
-        PostingDate = e.PostingDate,
-        TotalGrossSalary = e.TotalGrossSalary,
-        TotalDeductions = e.TotalDeductions,
-        TotalNetSalary = e.TotalNetSalary,
-        TotalEmployerContributions = e.TotalEmployerContributions,
-        Status = e.Status.ToString(),
-        Lines = e.Lines.Select(l => new PayrollEntryLineDto
-        {
-            Id = l.Id,
-            EmployeeId = l.EmployeeId,
-            EmployeeName = l.EmployeeName,
-            GrossSalary = l.GrossSalary,
-            EpfEmployee = l.EpfEmployee,
-            EpfEmployer = l.EpfEmployer,
-            SocsoEmployee = l.SocsoEmployee,
-            SocsoEmployer = l.SocsoEmployer,
-            EisEmployee = l.EisEmployee,
-            EisEmployer = l.EisEmployer,
-            Pcb = l.Pcb,
-            TotalDeductions = l.TotalDeductions,
-            NetSalary = l.NetSalary,
-        }).ToList(),
-    };
 }

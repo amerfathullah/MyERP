@@ -32,7 +32,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     public async Task<QuotationDto> GetAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
-        return await MapToDtoAsync(quotation);
+        var dto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        try { dto.CustomerName = (await _customerRepository.GetAsync(quotation.CustomerId)).Name; } catch { }
+        return dto;
     }
 
     public async Task<PagedResultDto<QuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -61,7 +63,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var dtos = new System.Collections.Generic.List<QuotationDto>();
         foreach (var q in quotations)
         {
-            dtos.Add(await MapToDtoAsync(q));
+            var dto = ObjectMapper.Map<Quotation, QuotationDto>(q);
+            try { dto.CustomerName = (await _customerRepository.GetAsync(q.CustomerId)).Name; } catch { }
+            dtos.Add(dto);
         }
 
         return new PagedResultDto<QuotationDto>(totalCount, dtos);
@@ -94,7 +98,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         }
 
         await _repository.InsertAsync(quotation, autoSave: true);
-        return await MapToDtoAsync(quotation);
+        var createDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        try { createDto.CustomerName = (await _customerRepository.GetAsync(quotation.CustomerId)).Name; } catch { }
+        return createDto;
     }
 
     [Authorize(MyERPPermissions.Quotations.Submit)]
@@ -110,10 +116,10 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             quotation.CompanyId, quotation.QuotationNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: quotation.TenantId));
 
-        return await MapToDtoAsync(quotation);
+        var submitDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        try { submitDto.CustomerName = (await _customerRepository.GetAsync(quotation.CustomerId)).Name; } catch { }
+        return submitDto;
     }
-
-    [Authorize(MyERPPermissions.Quotations.Cancel)]
     public async Task<QuotationDto> CancelAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
@@ -126,19 +132,19 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             quotation.CompanyId, quotation.QuotationNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: quotation.TenantId));
 
-        return await MapToDtoAsync(quotation);
+        var cancelDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        try { cancelDto.CustomerName = (await _customerRepository.GetAsync(quotation.CustomerId)).Name; } catch { }
+        return cancelDto;
     }
-
-    [Authorize(MyERPPermissions.Quotations.Edit)]
     public async Task<QuotationDto> MarkLostAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
         quotation.MarkLost();
         await _repository.UpdateAsync(quotation, autoSave: true);
-        return await MapToDtoAsync(quotation);
+        var lostDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        try { lostDto.CustomerName = (await _customerRepository.GetAsync(quotation.CustomerId)).Name; } catch { }
+        return lostDto;
     }
-
-    /// <summary>
     /// Amend a cancelled or rejected quotation — creates a new draft copy for revision.
     /// </summary>
     [Authorize(MyERPPermissions.Quotations.Create)]
@@ -167,49 +173,8 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return await MapToDtoAsync(amended);
-    }
-
-    private async Task<QuotationDto> MapToDtoAsync(Quotation quotation)
-    {
-        string? customerName = null;
-        try
-        {
-            var customer = await _customerRepository.GetAsync(quotation.CustomerId);
-            customerName = customer.Name;
-        }
-        catch { /* customer may not exist */ }
-
-        return new QuotationDto
-        {
-            Id = quotation.Id,
-            CompanyId = quotation.CompanyId,
-            QuotationNumber = quotation.QuotationNumber,
-            IssueDate = quotation.IssueDate,
-            ValidUntil = quotation.ValidUntil,
-            CustomerId = quotation.CustomerId,
-            CustomerName = customerName,
-            CurrencyCode = quotation.CurrencyCode,
-            NetTotal = quotation.NetTotal,
-            TaxAmount = quotation.TaxAmount,
-            GrandTotal = quotation.GrandTotal,
-            Terms = quotation.Terms,
-            Notes = quotation.Notes,
-            Status = quotation.Status.ToString(),
-            ConvertedToSalesOrderId = quotation.ConvertedToSalesOrderId,
-            CreationTime = quotation.CreationTime,
-            LastModificationTime = quotation.LastModificationTime,
-            Items = quotation.Items.Select(i => new QuotationItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
+        var amendDto = ObjectMapper.Map<Quotation, QuotationDto>(amended);
+        try { amendDto.CustomerName = (await _customerRepository.GetAsync(amended.CustomerId)).Name; } catch { }
+        return amendDto;
     }
 }

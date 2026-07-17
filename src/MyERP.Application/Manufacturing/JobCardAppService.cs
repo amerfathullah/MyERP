@@ -88,13 +88,13 @@ public class JobCardAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(j => j.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<JobCardDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<JobCardDto>(totalCount, items.Select(x => ObjectMapper.Map<JobCard, JobCardDto>(x)).ToList());
     }
 
     public async Task<JobCardDto> GetAsync(Guid id)
     {
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -107,7 +107,7 @@ public class JobCardAppService : ApplicationService
             PlannedTimeInMins = input.PlannedTimeInMins,
         };
         await _repository.InsertAsync(jc);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -116,7 +116,7 @@ public class JobCardAppService : ApplicationService
         var jc = await _repository.GetAsync(id);
         jc.Start();
         await _repository.UpdateAsync(jc);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -125,7 +125,7 @@ public class JobCardAppService : ApplicationService
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
         jc.AddTimeLog(input.FromTime, input.ToTime, input.CompletedQty);
         await _repository.UpdateAsync(jc);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -134,7 +134,7 @@ public class JobCardAppService : ApplicationService
         var jc = await _repository.GetAsync(id);
         jc.Complete();
         await _repository.UpdateAsync(jc);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
@@ -143,21 +143,6 @@ public class JobCardAppService : ApplicationService
         var jc = await _repository.GetAsync(id);
         jc.Cancel();
         await _repository.UpdateAsync(jc);
-        return MapToDto(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
-
-    private static JobCardDto MapToDto(JobCard j) => new()
-    {
-        Id = j.Id, CompanyId = j.CompanyId, WorkOrderId = j.WorkOrderId,
-        OperationId = j.OperationId, WorkstationId = j.WorkstationId,
-        ForQuantity = j.ForQuantity, CompletedQty = j.CompletedQty,
-        TotalTimeInMins = j.TotalTimeInMins, PlannedTimeInMins = j.PlannedTimeInMins,
-        SequenceId = j.SequenceId, Status = (int)j.Status,
-        StartedAt = j.StartedAt, CompletedAt = j.CompletedAt, CreationTime = j.CreationTime,
-        TimeLogs = j.TimeLogs.Select(t => new JobCardTimeLogDto
-        {
-            Id = t.Id, FromTime = t.FromTime, ToTime = t.ToTime,
-            TimeInMins = t.TimeInMins, CompletedQty = t.CompletedQty,
-        }).ToArray(),
-    };
 }

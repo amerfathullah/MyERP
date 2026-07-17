@@ -31,7 +31,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> GetAsync(Guid id)
     {
         var asset = await _assetRepository.GetAsync(id, includeDetails: true);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     public async Task<PagedResultDto<AssetDto>> GetListAsync(GetAssetListDto input)
@@ -56,7 +56,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var items = query.OrderByDescending(a => a.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<AssetDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<AssetDto>(totalCount, items.Select(x => ObjectMapper.Map<Asset, AssetDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -83,7 +83,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             asset.GenerateDepreciationSchedule();
 
         await _assetRepository.InsertAsync(asset);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     [Authorize(MyERPPermissions.Assets.Edit)]
@@ -96,7 +96,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.AdditionalCost = input.AdditionalCost;
         asset.Notes = input.Notes;
         await _assetRepository.UpdateAsync(asset);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     [Authorize(MyERPPermissions.Assets.Delete)]
@@ -111,7 +111,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var asset = await _assetRepository.GetAsync(id, includeDetails: true);
         asset.Submit();
         await _assetRepository.UpdateAsync(asset);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     [Authorize(MyERPPermissions.Assets.Edit)]
@@ -120,7 +120,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var asset = await _assetRepository.GetAsync(id);
         asset.Sell(disposalDate, amount);
         await _assetRepository.UpdateAsync(asset);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     [Authorize(MyERPPermissions.Assets.Edit)]
@@ -129,20 +129,13 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var asset = await _assetRepository.GetAsync(id);
         asset.Scrap(disposalDate);
         await _assetRepository.UpdateAsync(asset);
-        return MapToDto(asset);
+        return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
     public async Task<AssetCategoryDto[]> GetCategoriesAsync()
     {
         var categories = await _categoryRepository.GetListAsync();
-        return categories.Select(c => new AssetCategoryDto
-        {
-            Id = c.Id,
-            CategoryName = c.CategoryName,
-            IsDepreciable = c.IsDepreciable,
-            DefaultDepreciationMethod = c.DefaultDepreciationMethod,
-            DefaultUsefulLifeMonths = c.DefaultUsefulLifeMonths,
-        }).ToArray();
+        return categories.Select(ObjectMapper.Map<AssetCategory, AssetCategoryDto>).ToArray();
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -156,46 +149,6 @@ public class AssetAppService : ApplicationService, IAssetAppService
             DefaultDepreciationRate = input.DefaultDepreciationRate,
         };
         await _categoryRepository.InsertAsync(category);
-        return new AssetCategoryDto
-        {
-            Id = category.Id,
-            CategoryName = category.CategoryName,
-            IsDepreciable = category.IsDepreciable,
-            DefaultDepreciationMethod = category.DefaultDepreciationMethod,
-            DefaultUsefulLifeMonths = category.DefaultUsefulLifeMonths,
-        };
+        return ObjectMapper.Map<AssetCategory, AssetCategoryDto>(category);
     }
-
-    private static AssetDto MapToDto(Asset a) => new()
-    {
-        Id = a.Id,
-        AssetNumber = a.AssetNumber,
-        AssetName = a.AssetName,
-        Status = a.Status,
-        CompanyId = a.CompanyId,
-        AssetCategoryId = a.AssetCategoryId,
-        Location = a.Location,
-        PurchaseDate = a.PurchaseDate,
-        PurchaseAmount = a.PurchaseAmount,
-        AdditionalCost = a.AdditionalCost,
-        TotalAssetCost = a.TotalAssetCost,
-        CalculateDepreciation = a.CalculateDepreciation,
-        DepreciationMethod = a.DepreciationMethod,
-        UsefulLifeMonths = a.UsefulLifeMonths,
-        ValueAfterDepreciation = a.ValueAfterDepreciation,
-        IsFullyDepreciated = a.IsFullyDepreciated,
-        DisposalDate = a.DisposalDate,
-        DisposalAmount = a.DisposalAmount,
-        Notes = a.Notes,
-        CreationTime = a.CreationTime,
-        LastModificationTime = a.LastModificationTime,
-        Schedule = a.DepreciationSchedule.OrderBy(s => s.ScheduleDate).Select(s => new DepreciationScheduleDto
-        {
-            Id = s.Id,
-            ScheduleDate = s.ScheduleDate,
-            DepreciationAmount = s.DepreciationAmount,
-            AccumulatedDepreciation = s.AccumulatedDepreciation,
-            IsBooked = s.IsBooked,
-        }).ToList(),
-    };
 }

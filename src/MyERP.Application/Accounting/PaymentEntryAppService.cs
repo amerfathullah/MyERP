@@ -54,7 +54,7 @@ public class PaymentEntryAppService : ApplicationService
     public async Task<PaymentEntryDto> GetAsync(Guid id)
     {
         var pe = await _repository.GetAsync(id);
-        return MapToDto(pe);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
 
     public async Task<PagedResultDto<PaymentEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -80,7 +80,7 @@ public class PaymentEntryAppService : ApplicationService
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<PaymentEntryDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<PaymentEntryDto>(count, list.Select(ObjectMapper.Map<PaymentEntry, PaymentEntryDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
@@ -159,7 +159,7 @@ public class PaymentEntryAppService : ApplicationService
         }
 
         await _repository.InsertAsync(pe, autoSave: true);
-        return MapToDto(pe);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
@@ -168,7 +168,7 @@ public class PaymentEntryAppService : ApplicationService
         var pe = await _repository.GetAsync(id);
         pe.Submit();
         await _repository.UpdateAsync(pe, autoSave: true);
-        return MapToDto(pe);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
@@ -461,7 +461,7 @@ public class PaymentEntryAppService : ApplicationService
             catch { /* Non-critical */ }
         }
 
-        return MapToDto(pe);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
 
     /// <summary>
@@ -583,7 +583,7 @@ public class PaymentEntryAppService : ApplicationService
             pe.CompanyId, pe.PaymentNumber, "Posted", "Cancelled",
             CurrentUser.Id, tenantId: pe.TenantId));
 
-        return MapToDto(pe);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
 
     /// <summary>
@@ -646,20 +646,6 @@ public class PaymentEntryAppService : ApplicationService
 
         return results.OrderBy(r => r.DueDate ?? r.IssueDate).ToList();
     }
-
-    private static PaymentEntryDto MapToDto(PaymentEntry pe) => new()
-    {
-        Id = pe.Id,
-        CompanyId = pe.CompanyId,
-        PaymentNumber = pe.PaymentNumber,
-        PaymentType = pe.PaymentType.ToString(),
-        PostingDate = pe.PostingDate,
-        ModeOfPayment = pe.ModeOfPayment,
-        PaidAmount = pe.PaidAmount,
-        CurrencyCode = pe.CurrencyCode,
-        Status = pe.Status.ToString(),
-        ReferenceNumber = pe.ReferenceNumber
-    };
 
     /// <summary>
     /// Allocates payment to invoice's payment schedule entries in FIFO order (earliest due date first).

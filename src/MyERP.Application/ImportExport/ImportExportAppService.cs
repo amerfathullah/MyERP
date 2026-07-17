@@ -60,14 +60,14 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
         }
 
         await _importJobRepository.UpdateAsync(job);
-        return MapJobToDto(job);
+        return ObjectMapper.Map<ImportJob, ImportJobDto>(job);
     }
 
     [Authorize(MyERPPermissions.ImportExport.Import)]
     public async Task<ImportJobDto> GetImportStatusAsync(Guid jobId)
     {
         var job = await _importJobRepository.GetAsync(jobId);
-        return MapJobToDto(job);
+        return ObjectMapper.Map<ImportJob, ImportJobDto>(job);
     }
 
     [Authorize(MyERPPermissions.ImportExport.Import)]
@@ -79,7 +79,7 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
 
         return new PagedResultDto<ImportJobDto>(
             totalCount,
-            jobs.Select(MapJobToDto).ToList());
+            jobs.Select(ObjectMapper.Map<ImportJob, ImportJobDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.ImportExport.Export)]
@@ -242,20 +242,4 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
     }
 
     private static string Escape(string? value) => value?.Replace("\"", "\"\"") ?? "";
-
-    private static ImportJobDto MapJobToDto(ImportJob job) => new()
-    {
-        Id = job.Id,
-        FileName = job.FileName,
-        EntityType = job.EntityType,
-        Status = job.Status,
-        TotalRows = job.TotalRows,
-        SuccessCount = job.SuccessCount,
-        FailureCount = job.FailureCount,
-        ErrorDetails = job.ErrorDetails,
-        CompanyId = job.CompanyId,
-        StartedAt = job.StartedAt,
-        CompletedAt = job.CompletedAt,
-        CreationTime = job.CreationTime
-    };
 }

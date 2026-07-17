@@ -91,32 +91,36 @@ public class CustomerAppService :
 
         return new PagedResultDto<CustomerDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<Customer, CustomerDto>).ToList());
     }
 
-    private static CustomerDto MapToDto(Customer c) => new()
+    protected override Customer MapToEntity(CreateUpdateCustomerDto input)
     {
-        Id = c.Id,
-        CompanyId = c.CompanyId,
-        Name = c.Name,
-        CustomerCode = c.CustomerCode,
-        Tin = c.Tin,
-        RegistrationNumber = c.RegistrationNumber,
-        SstRegistrationNumber = c.SstRegistrationNumber,
-        IdType = c.IdType,
-        IdValue = c.IdValue,
-        ContactPerson = c.ContactPerson,
-        Phone = c.Phone,
-        Email = c.Email,
-        Website = c.Website,
-        Address = c.Address,
-        City = c.City,
-        State = c.State,
-        PostalCode = c.PostalCode,
-        Country = c.Country,
-        DefaultReceivableAccountId = c.DefaultReceivableAccountId,
-        IsActive = c.IsActive,
-        CreationTime = c.CreationTime,
-        LastModificationTime = c.LastModificationTime,
-    };
+        var customer = new Customer(
+            GuidGenerator.Create(), input.CompanyId, input.Name, CurrentTenant.Id);
+        MapToEntity(input, customer);
+        return customer;
+    }
+
+    protected override void MapToEntity(CreateUpdateCustomerDto input, Customer entity)
+    {
+        entity.SetName(input.Name);
+        entity.CustomerCode = input.CustomerCode;
+        entity.Tin = input.Tin;
+        entity.RegistrationNumber = input.RegistrationNumber;
+        entity.SstRegistrationNumber = input.SstRegistrationNumber;
+        entity.IdType = input.IdType;
+        entity.IdValue = input.IdValue;
+        entity.ContactPerson = input.ContactPerson;
+        entity.Phone = input.Phone;
+        entity.Email = input.Email;
+        entity.Website = input.Website;
+        entity.Address = input.Address;
+        entity.City = input.City;
+        entity.State = input.State;
+        entity.PostalCode = input.PostalCode;
+        entity.Country = input.Country;
+        entity.DefaultReceivableAccountId = input.DefaultReceivableAccountId;
+        entity.IsActive = input.IsActive;
+    }
 }

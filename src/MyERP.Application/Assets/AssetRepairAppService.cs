@@ -59,13 +59,13 @@ public class AssetRepairAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(r => r.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AssetRepairDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<AssetRepairDto>(totalCount, items.Select(x => ObjectMapper.Map<AssetRepair, AssetRepairDto>(x)).ToList());
     }
 
     public async Task<AssetRepairDto> GetAsync(Guid id)
     {
         var repair = await _repairRepository.GetAsync(id);
-        return MapToDto(repair);
+        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -89,7 +89,7 @@ public class AssetRepairAppService : ApplicationService
             asset.IsFullyDepreciated || asset.Status == AssetStatus.FullyDepreciated);
 
         await _repairRepository.InsertAsync(repair);
-        return MapToDto(repair);
+        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -114,7 +114,7 @@ public class AssetRepairAppService : ApplicationService
         }
 
         await _repairRepository.UpdateAsync(repair);
-        return MapToDto(repair);
+        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -123,17 +123,6 @@ public class AssetRepairAppService : ApplicationService
         var repair = await _repairRepository.GetAsync(id);
         repair.Cancel();
         await _repairRepository.UpdateAsync(repair);
-        return MapToDto(repair);
+        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
     }
-
-    private static AssetRepairDto MapToDto(AssetRepair r) => new()
-    {
-        Id = r.Id, CompanyId = r.CompanyId, AssetId = r.AssetId,
-        RepairDescription = r.RepairDescription,
-        FailureDate = r.FailureDate, CompletionDate = r.CompletionDate,
-        RepairCost = r.RepairCost, CapitalizeRepairCost = r.CapitalizeRepairCost,
-        IncreaseInAssetLife = r.IncreaseInAssetLife,
-        StockItemConsumedCost = r.StockItemConsumedCost,
-        Status = (int)r.Status, CreationTime = r.CreationTime,
-    };
 }

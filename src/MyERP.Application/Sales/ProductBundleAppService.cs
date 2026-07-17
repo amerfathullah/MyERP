@@ -54,7 +54,7 @@ public class ProductBundleAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(b => b.ItemName)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<ProductBundleDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ProductBundleDto>(totalCount, items.Select(x => ObjectMapper.Map<ProductBundle, ProductBundleDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Items.Create)]
@@ -65,7 +65,7 @@ public class ProductBundleAppService : ApplicationService
         foreach (var item in input.Items)
             bundle.AddItem(item.ComponentItemId, item.Qty, item.ItemName);
         await _repository.InsertAsync(bundle);
-        return MapToDto(bundle);
+        return ObjectMapper.Map<ProductBundle, ProductBundleDto>(bundle);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
@@ -74,16 +74,6 @@ public class ProductBundleAppService : ApplicationService
         var bundle = await _repository.GetAsync(id);
         bundle.Deactivate();
         await _repository.UpdateAsync(bundle);
-        return MapToDto(bundle);
+        return ObjectMapper.Map<ProductBundle, ProductBundleDto>(bundle);
     }
-
-    private static ProductBundleDto MapToDto(ProductBundle b) => new()
-    {
-        Id = b.Id, ItemId = b.ItemId, ItemName = b.ItemName,
-        Description = b.Description, IsActive = b.IsActive,
-        Items = b.Items.Select(i => new ProductBundleItemDto
-        {
-            Id = i.Id, ComponentItemId = i.ComponentItemId, ItemName = i.ItemName, Qty = i.Qty,
-        }).ToArray(),
-    };
 }

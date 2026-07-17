@@ -35,7 +35,7 @@ public class InstallationNoteAppService : ApplicationService
     public async Task<InstallationNoteDto> GetAsync(Guid id)
     {
         var note = await _repository.GetAsync(id);
-        return MapToDto(note);
+        return ObjectMapper.Map<InstallationNote, InstallationNoteDto>(note);
     }
 
     public async Task<PagedResultDto<InstallationNoteDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -49,7 +49,7 @@ public class InstallationNoteAppService : ApplicationService
         var list = query.OrderByDescending(x => x.InstallationDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<InstallationNoteDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<InstallationNoteDto>(count, list.Select(x => ObjectMapper.Map<InstallationNote, InstallationNoteDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
@@ -71,7 +71,7 @@ public class InstallationNoteAppService : ApplicationService
         }
 
         await _repository.InsertAsync(note);
-        return MapToDto(note);
+        return ObjectMapper.Map<InstallationNote, InstallationNoteDto>(note);
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
@@ -89,23 +89,6 @@ public class InstallationNoteAppService : ApplicationService
         note.Cancel();
         await _repository.UpdateAsync(note);
     }
-
-    private static InstallationNoteDto MapToDto(InstallationNote n) => new()
-    {
-        Id = n.Id,
-        InstallationNumber = n.InstallationNumber,
-        CompanyId = n.CompanyId,
-        CustomerId = n.CustomerId,
-        DeliveryNoteId = n.DeliveryNoteId,
-        InstallationDate = n.InstallationDate,
-        Status = n.Status.ToString(),
-        Items = n.Items.Select(i => new InstallationNoteItemDto
-        {
-            ItemId = i.ItemId,
-            Qty = i.Qty,
-            SerialNo = i.SerialNo
-        }).ToList()
-    };
 }
 
 #region DTOs

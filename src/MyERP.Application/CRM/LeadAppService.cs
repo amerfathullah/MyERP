@@ -28,7 +28,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
     public async Task<LeadDto> GetAsync(Guid id)
     {
         var lead = await _leadRepository.GetAsync(id);
-        return MapLeadToDto(lead);
+        return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
     public async Task<PagedResultDto<LeadDto>> GetListAsync(GetLeadListDto input)
@@ -60,7 +60,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
 
         var items = query.Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<LeadDto>(totalCount, items.Select(MapLeadToDto).ToList());
+        return new PagedResultDto<LeadDto>(totalCount, items.Select(ObjectMapper.Map<Lead, LeadDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Leads.Create)]
@@ -92,7 +92,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         };
 
         await _leadRepository.InsertAsync(lead);
-        return MapLeadToDto(lead);
+        return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
     [Authorize(MyERPPermissions.Leads.Edit)]
@@ -118,7 +118,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         lead.Notes = input.Notes;
 
         await _leadRepository.UpdateAsync(lead);
-        return MapLeadToDto(lead);
+        return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
     [Authorize(MyERPPermissions.Leads.Delete)]
@@ -133,7 +133,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.Qualify();
         await _leadRepository.UpdateAsync(lead);
-        return MapLeadToDto(lead);
+        return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
     [Authorize(MyERPPermissions.Leads.Edit)]
@@ -142,7 +142,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.MarkLost();
         await _leadRepository.UpdateAsync(lead);
-        return MapLeadToDto(lead);
+        return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
     [Authorize(MyERPPermissions.Leads.Convert)]
@@ -174,73 +174,8 @@ public class LeadAppService : ApplicationService, ILeadAppService
         lead.ConvertToOpportunity(opportunity.Id);
         await _leadRepository.UpdateAsync(lead);
 
-        return MapOpportunityToDto(opportunity);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opportunity);
     }
-
-    private static LeadDto MapLeadToDto(Lead lead) => new()
-    {
-        Id = lead.Id,
-        LeadNumber = lead.LeadNumber,
-        FirstName = lead.FirstName,
-        LastName = lead.LastName,
-        CompanyName = lead.CompanyName,
-        Email = lead.Email,
-        Phone = lead.Phone,
-        MobileNo = lead.MobileNo,
-        JobTitle = lead.JobTitle,
-        Website = lead.Website,
-        Status = lead.Status,
-        Source = lead.Source,
-        City = lead.City,
-        State = lead.State,
-        Country = lead.Country,
-        Industry = lead.Industry,
-        AnnualRevenue = lead.AnnualRevenue,
-        AssignedUserId = lead.AssignedUserId,
-        ConvertedCustomerId = lead.ConvertedCustomerId,
-        ConvertedOpportunityId = lead.ConvertedOpportunityId,
-        CompanyId = lead.CompanyId,
-        Notes = lead.Notes,
-        FullName = lead.GetFullName(),
-        CreationTime = lead.CreationTime,
-        LastModificationTime = lead.LastModificationTime,
-    };
-
-    private static OpportunityDto MapOpportunityToDto(Opportunity opp) => new()
-    {
-        Id = opp.Id,
-        OpportunityNumber = opp.OpportunityNumber,
-        Title = opp.Title,
-        Status = opp.Status,
-        OpportunityType = opp.OpportunityType,
-        LeadId = opp.LeadId,
-        CustomerId = opp.CustomerId,
-        ContactName = opp.ContactName,
-        ContactEmail = opp.ContactEmail,
-        ContactPhone = opp.ContactPhone,
-        SalesStage = opp.SalesStage,
-        Probability = opp.Probability,
-        ExpectedClosingDate = opp.ExpectedClosingDate,
-        OpportunityAmount = opp.OpportunityAmount,
-        CurrencyCode = opp.CurrencyCode,
-        CompanyId = opp.CompanyId,
-        AssignedUserId = opp.AssignedUserId,
-        Territory = opp.Territory,
-        LostReason = opp.LostReason,
-        Notes = opp.Notes,
-        CreationTime = opp.CreationTime,
-        LastModificationTime = opp.LastModificationTime,
-        Items = opp.Items.Select(i => new OpportunityItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            Description = i.Description,
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            Amount = i.Amount,
-            Uom = i.Uom,
-        }).ToList(),
-    };
 
     private static IQueryable<Lead> ApplySorting(IQueryable<Lead> query, string sorting)
     {

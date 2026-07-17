@@ -91,32 +91,36 @@ public class SupplierAppService :
 
         return new PagedResultDto<SupplierDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<Supplier, SupplierDto>).ToList());
     }
 
-    private static SupplierDto MapToDto(Purchasing.Entities.Supplier s) => new()
+    protected override Supplier MapToEntity(CreateUpdateSupplierDto input)
     {
-        Id = s.Id,
-        CompanyId = s.CompanyId,
-        Name = s.Name,
-        SupplierCode = s.SupplierCode,
-        Tin = s.Tin,
-        RegistrationNumber = s.RegistrationNumber,
-        SstRegistrationNumber = s.SstRegistrationNumber,
-        IdType = s.IdType,
-        IdValue = s.IdValue,
-        ContactPerson = s.ContactPerson,
-        Phone = s.Phone,
-        Email = s.Email,
-        Website = s.Website,
-        Address = s.Address,
-        City = s.City,
-        State = s.State,
-        PostalCode = s.PostalCode,
-        Country = s.Country,
-        DefaultPayableAccountId = s.DefaultPayableAccountId,
-        IsActive = s.IsActive,
-        CreationTime = s.CreationTime,
-        LastModificationTime = s.LastModificationTime,
-    };
+        var supplier = new Supplier(
+            GuidGenerator.Create(), input.CompanyId, input.Name, CurrentTenant.Id);
+        MapToEntity(input, supplier);
+        return supplier;
+    }
+
+    protected override void MapToEntity(CreateUpdateSupplierDto input, Supplier entity)
+    {
+        entity.SetName(input.Name);
+        entity.SupplierCode = input.SupplierCode;
+        entity.Tin = input.Tin;
+        entity.RegistrationNumber = input.RegistrationNumber;
+        entity.SstRegistrationNumber = input.SstRegistrationNumber;
+        entity.IdType = input.IdType;
+        entity.IdValue = input.IdValue;
+        entity.ContactPerson = input.ContactPerson;
+        entity.Phone = input.Phone;
+        entity.Email = input.Email;
+        entity.Website = input.Website;
+        entity.Address = input.Address;
+        entity.City = input.City;
+        entity.State = input.State;
+        entity.PostalCode = input.PostalCode;
+        entity.Country = input.Country;
+        entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
+        entity.IsActive = input.IsActive;
+    }
 }

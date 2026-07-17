@@ -39,17 +39,17 @@ public class FiscalYearAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(f => f.StartDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<FiscalYearDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<FiscalYearDto>(totalCount, items.Select(ObjectMapper.Map<FiscalYear, FiscalYearDto>).ToList());
     }
 
-    public async Task<FiscalYearDto> GetAsync(Guid id) => MapToDto(await _repository.GetAsync(id));
+    public async Task<FiscalYearDto> GetAsync(Guid id) => ObjectMapper.Map<FiscalYear, FiscalYearDto>(await _repository.GetAsync(id));
 
     public async Task<FiscalYearDto> GetCurrentAsync(Guid companyId)
     {
         var query = await _repository.GetQueryableAsync();
         var now = DateTime.UtcNow.Date;
         var fy = query.FirstOrDefault(f => f.CompanyId == companyId && f.StartDate <= now && f.EndDate >= now);
-        return fy != null ? MapToDto(fy) : null!;
+        return fy != null ? ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy) : null!;
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -73,7 +73,7 @@ public class FiscalYearAppService : ApplicationService
         var fy = new FiscalYear(GuidGenerator.Create(), input.CompanyId, input.Name,
             input.StartDate, input.EndDate, CurrentTenant.Id);
         await _repository.InsertAsync(fy);
-        return MapToDto(fy);
+        return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public class FiscalYearAppService : ApplicationService
         var fy = await _repository.GetAsync(id);
 
         if (fy.IsClosed)
-            return MapToDto(fy); // Already closed, idempotent
+            return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy); // Already closed, idempotent
 
         // Sequential closure enforcement: check if any prior FY for same company is still open
         var query = await _repository.GetQueryableAsync();
@@ -123,12 +123,8 @@ public class FiscalYearAppService : ApplicationService
             // Non-blocking: FY close proceeds even if validation fails (it's a warning, not a gate)
         }
 
-        return MapToDto(fy);
+        return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);
     }
 
-    private static FiscalYearDto MapToDto(FiscalYear f) => new()
-    {
-        Id = f.Id, CompanyId = f.CompanyId, Name = f.Name,
-        StartDate = f.StartDate, EndDate = f.EndDate, IsClosed = f.IsClosed,
-    };
+
 }

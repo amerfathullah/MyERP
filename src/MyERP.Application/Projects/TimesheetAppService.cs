@@ -34,7 +34,7 @@ public class TimesheetAppService : ApplicationService
     public async Task<TimesheetDto> GetAsync(Guid id)
     {
         var ts = await _repository.GetAsync(id, includeDetails: true);
-        return MapToDto(ts);
+        return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 
     public async Task<PagedResultDto<TimesheetDto>> GetListAsync(GetTimesheetListDto input)
@@ -56,7 +56,7 @@ public class TimesheetAppService : ApplicationService
         var items = query.OrderByDescending(t => t.StartDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<TimesheetDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<TimesheetDto>(totalCount, items.Select(x => ObjectMapper.Map<Timesheet, TimesheetDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Projects.Create)]
@@ -109,7 +109,7 @@ public class TimesheetAppService : ApplicationService
         }
 
         await _repository.InsertAsync(ts);
-        return MapToDto(ts);
+        return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -118,7 +118,7 @@ public class TimesheetAppService : ApplicationService
         var ts = await _repository.GetAsync(id, includeDetails: true);
         ts.Submit();
         await _repository.UpdateAsync(ts);
-        return MapToDto(ts);
+        return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -127,7 +127,7 @@ public class TimesheetAppService : ApplicationService
         var ts = await _repository.GetAsync(id, includeDetails: true);
         ts.Cancel();
         await _repository.UpdateAsync(ts);
-        return MapToDto(ts);
+        return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 
     /// <summary>
@@ -219,39 +219,6 @@ public class TimesheetAppService : ApplicationService
 
         return unbilled;
     }
-
-    private static TimesheetDto MapToDto(Timesheet ts) => new()
-    {
-        Id = ts.Id,
-        CompanyId = ts.CompanyId,
-        EmployeeId = ts.EmployeeId,
-        EmployeeName = ts.EmployeeName,
-        Status = ts.Status,
-        StartDate = ts.StartDate,
-        EndDate = ts.EndDate,
-        TotalHours = ts.TotalHours,
-        TotalBillableHours = ts.TotalBillableHours,
-        TotalBillingAmount = ts.TotalBillingAmount,
-        TotalCostingAmount = ts.TotalCostingAmount,
-        Note = ts.Note,
-        CreationTime = ts.CreationTime,
-        Details = ts.Details.Select(d => new TimesheetDetailDto
-        {
-            Id = d.Id,
-            ActivityType = d.ActivityType,
-            FromTime = d.FromTime,
-            ToTime = d.ToTime,
-            Hours = d.Hours,
-            ProjectId = d.ProjectId,
-            TaskId = d.TaskId,
-            IsBillable = d.IsBillable,
-            BillingRate = d.BillingRate,
-            BillingAmount = d.BillingAmount,
-            CostingRate = d.CostingRate,
-            CostingAmount = d.CostingAmount,
-            Description = d.Description,
-        }).ToList(),
-    };
 }
 
 // DTOs

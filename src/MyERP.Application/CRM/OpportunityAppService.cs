@@ -23,7 +23,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     public async Task<OpportunityDto> GetAsync(Guid id)
     {
         var opp = await _repository.GetAsync(id, includeDetails: true);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     public async Task<PagedResultDto<OpportunityDto>> GetListAsync(GetOpportunityListDto input)
@@ -56,7 +56,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
 
         var items = query.Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<OpportunityDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<OpportunityDto>(totalCount, items.Select(x => ObjectMapper.Map<Opportunity, OpportunityDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Opportunities.Create)]
@@ -102,7 +102,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         opp.RecalculateAmount();
 
         await _repository.InsertAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Edit)]
@@ -141,7 +141,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         opp.RecalculateAmount();
 
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Delete)]
@@ -156,7 +156,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.MarkQuotation();
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Convert)]
@@ -165,7 +165,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Convert();
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Edit)]
@@ -174,7 +174,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.DeclareLost(reason);
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Edit)]
@@ -183,7 +183,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Close();
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Edit)]
@@ -192,44 +192,8 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Reopen();
         await _repository.UpdateAsync(opp);
-        return MapToDto(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
-
-    private static OpportunityDto MapToDto(Opportunity opp) => new()
-    {
-        Id = opp.Id,
-        OpportunityNumber = opp.OpportunityNumber,
-        Title = opp.Title,
-        Status = opp.Status,
-        OpportunityType = opp.OpportunityType,
-        LeadId = opp.LeadId,
-        CustomerId = opp.CustomerId,
-        ContactName = opp.ContactName,
-        ContactEmail = opp.ContactEmail,
-        ContactPhone = opp.ContactPhone,
-        SalesStage = opp.SalesStage,
-        Probability = opp.Probability,
-        ExpectedClosingDate = opp.ExpectedClosingDate,
-        OpportunityAmount = opp.OpportunityAmount,
-        CurrencyCode = opp.CurrencyCode,
-        CompanyId = opp.CompanyId,
-        AssignedUserId = opp.AssignedUserId,
-        Territory = opp.Territory,
-        LostReason = opp.LostReason,
-        Notes = opp.Notes,
-        CreationTime = opp.CreationTime,
-        LastModificationTime = opp.LastModificationTime,
-        Items = opp.Items.Select(i => new OpportunityItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            Description = i.Description,
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            Amount = i.Amount,
-            Uom = i.Uom,
-        }).ToList(),
-    };
 
     private static IQueryable<Opportunity> ApplySorting(IQueryable<Opportunity> query, string sorting)
     {

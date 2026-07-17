@@ -41,7 +41,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
     public async Task<JournalEntryDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return MapToDto(entry);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 
     public async Task<PagedResultDto<JournalEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -69,7 +69,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         return new PagedResultDto<JournalEntryDto>(
             totalCount,
-            entries.Select(MapToDto).ToList());
+            entries.Select(x => ObjectMapper.Map<JournalEntry, JournalEntryDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.JournalEntries.Create)]
@@ -98,7 +98,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         entry.Validate();
 
         await _repository.InsertAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.JournalEntries.Post)]
@@ -148,7 +148,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             entry.CompanyId, entry.EntryNumber, "Draft", "Posted",
             CurrentUser.Id, tenantId: entry.TenantId));
 
-        return MapToDto(entry);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.JournalEntries.Post)]
@@ -175,30 +175,6 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             entry.CompanyId, entry.EntryNumber, "Posted", "Cancelled",
             CurrentUser.Id, tenantId: entry.TenantId));
 
-        return MapToDto(entry);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
-
-    private static JournalEntryDto MapToDto(JournalEntry entry) => new()
-    {
-        Id = entry.Id,
-        CompanyId = entry.CompanyId,
-        FiscalYearId = entry.FiscalYearId,
-        EntryNumber = entry.EntryNumber,
-        PostingDate = entry.PostingDate,
-        ReferenceType = entry.ReferenceType,
-        ReferenceId = entry.ReferenceId,
-        ReferenceNumber = entry.ReferenceNumber,
-        Narration = entry.Narration,
-        Status = entry.Status.ToString(),
-        TotalDebit = entry.TotalDebit,
-        TotalCredit = entry.TotalCredit,
-        Lines = entry.Lines.Select(l => new JournalEntryLineDto
-        {
-            Id = l.Id,
-            AccountId = l.AccountId,
-            Amount = l.Amount,
-            IsDebit = l.IsDebit,
-            Description = l.Description
-        }).ToList()
-    };
 }

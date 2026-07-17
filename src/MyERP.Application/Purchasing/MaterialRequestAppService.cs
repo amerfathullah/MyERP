@@ -42,7 +42,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     public async Task<MaterialRequestDto> GetAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id, includeDetails: true);
-        return MapToDto(entity);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 
     public async Task<PagedResultDto<MaterialRequestDto>> GetListAsync(GetMaterialRequestListDto input)
@@ -65,7 +65,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         var items = query.OrderByDescending(x => x.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<MaterialRequestDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<MaterialRequestDto>(totalCount, items.Select(x => ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.MaterialRequests.Create)]
@@ -93,7 +93,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         }
 
         await _repository.InsertAsync(entity);
-        return MapToDto(entity);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 
     [Authorize(MyERPPermissions.MaterialRequests.Delete)]
@@ -148,7 +148,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             entity.CompanyId, entity.RequestNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: entity.TenantId));
 
-        return MapToDto(entity);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 
     [Authorize(MyERPPermissions.MaterialRequests.Cancel)]
@@ -164,33 +164,6 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             entity.CompanyId, entity.RequestNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: entity.TenantId));
 
-        return MapToDto(entity);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
-
-    private static MaterialRequestDto MapToDto(MaterialRequest e) => new()
-    {
-        Id = e.Id,
-        RequestNumber = e.RequestNumber,
-        RequestType = e.RequestType,
-        Status = e.Status,
-        RequestDate = e.RequestDate,
-        RequiredByDate = e.RequiredByDate,
-        CompanyId = e.CompanyId,
-        WorkOrderId = e.WorkOrderId,
-        SourceWarehouseId = e.SourceWarehouseId,
-        TargetWarehouseId = e.TargetWarehouseId,
-        Notes = e.Notes,
-        CreationTime = e.CreationTime,
-        Items = e.Items.Select(i => new MaterialRequestItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            ItemName = i.ItemName,
-            Quantity = i.Quantity,
-            OrderedQuantity = i.OrderedQuantity,
-            ReceivedQuantity = i.ReceivedQuantity,
-            Uom = i.Uom,
-            WarehouseId = i.WarehouseId,
-        }).ToList(),
-    };
 }

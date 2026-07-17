@@ -29,7 +29,7 @@ public class EmailTemplateAppService : ApplicationService
     public async Task<EmailTemplateDto> GetAsync(Guid id)
     {
         var t = await _repository.GetAsync(id);
-        return MapToDto(t);
+        return ObjectMapper.Map<EmailTemplate, EmailTemplateDto>(t);
     }
 
     public async Task<List<EmailTemplateDto>> GetListAsync(string? documentType = null)
@@ -37,7 +37,7 @@ public class EmailTemplateAppService : ApplicationService
         var query = await _repository.GetQueryableAsync();
         if (!string.IsNullOrEmpty(documentType))
             query = query.Where(t => t.DocumentType == documentType);
-        return query.OrderBy(t => t.Name).ToList().Select(MapToDto).ToList();
+        return query.OrderBy(t => t.Name).ToList().Select(ObjectMapper.Map<EmailTemplate, EmailTemplateDto>).ToList();
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Create)]
@@ -52,7 +52,7 @@ public class EmailTemplateAppService : ApplicationService
 
         template.DocumentType = input.DocumentType;
         await _repository.InsertAsync(template);
-        return MapToDto(template);
+        return ObjectMapper.Map<EmailTemplate, EmailTemplateDto>(template);
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Edit)]
@@ -63,7 +63,7 @@ public class EmailTemplateAppService : ApplicationService
         template.Body = input.Body;
         template.DocumentType = input.DocumentType;
         await _repository.UpdateAsync(template);
-        return MapToDto(template);
+        return ObjectMapper.Map<EmailTemplate, EmailTemplateDto>(template);
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Delete)]
@@ -82,14 +82,7 @@ public class EmailTemplateAppService : ApplicationService
         };
     }
 
-    private static EmailTemplateDto MapToDto(EmailTemplate t) => new()
-    {
-        Id = t.Id,
-        Name = t.Name,
-        Subject = t.Subject,
-        Body = t.Body,
-        DocumentType = t.DocumentType
-    };
+
 }
 
 #region DTOs

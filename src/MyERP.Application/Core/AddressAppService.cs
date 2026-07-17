@@ -27,7 +27,7 @@ public class AddressAppService : ApplicationService
         return query.Where(a => a.PartyType == partyType && a.PartyId == partyId && !a.IsDisabled)
             .OrderByDescending(a => a.IsPrimaryAddress)
             .ThenByDescending(a => a.CreationTime)
-            .Select(a => MapToDto(a))
+            .Select(a => ObjectMapper.Map<Address, AddressDto>(a))
             .ToList();
     }
 
@@ -48,7 +48,7 @@ public class AddressAppService : ApplicationService
             IsShippingAddress = input.IsShippingAddress,
         };
         await _addressRepository.InsertAsync(address);
-        return MapToDto(address);
+        return ObjectMapper.Map<Address, AddressDto>(address);
     }
 
     public async Task<AddressDto> UpdateAsync(Guid id, CreateUpdateAddressDto input)
@@ -67,7 +67,7 @@ public class AddressAppService : ApplicationService
         address.IsPrimaryAddress = input.IsPrimaryAddress;
         address.IsShippingAddress = input.IsShippingAddress;
         await _addressRepository.UpdateAsync(address);
-        return MapToDto(address);
+        return ObjectMapper.Map<Address, AddressDto>(address);
     }
 
     [Authorize]
@@ -76,24 +76,7 @@ public class AddressAppService : ApplicationService
         await _addressRepository.DeleteAsync(id);
     }
 
-    private static AddressDto MapToDto(Address a) => new()
-    {
-        Id = a.Id,
-        Title = a.Title,
-        AddressType = a.AddressType,
-        AddressLine1 = a.AddressLine1,
-        AddressLine2 = a.AddressLine2,
-        City = a.City,
-        State = a.State,
-        PostalCode = a.PostalCode,
-        Country = a.Country,
-        Phone = a.Phone,
-        Email = a.Email,
-        PartyType = a.PartyType,
-        PartyId = a.PartyId,
-        IsPrimaryAddress = a.IsPrimaryAddress,
-        IsShippingAddress = a.IsShippingAddress,
-    };
+
 }
 
 public class AddressDto : EntityDto<Guid>

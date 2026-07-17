@@ -50,13 +50,13 @@ public class LeaveAllocationAppService : ApplicationService
 
         return new PagedResultDto<LeaveAllocationDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<LeaveAllocation, LeaveAllocationDto>).ToList());
     }
 
     public async Task<LeaveAllocationDto> GetAsync(Guid id)
     {
         var alloc = await _repository.GetAsync(id);
-        return MapToDto(alloc);
+        return ObjectMapper.Map<LeaveAllocation, LeaveAllocationDto>(alloc);
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public class LeaveAllocationAppService : ApplicationService
         };
 
         await _repository.InsertAsync(alloc, autoSave: true);
-        return MapToDto(alloc);
+        return ObjectMapper.Map<LeaveAllocation, LeaveAllocationDto>(alloc);
     }
 
     /// <summary>
@@ -150,19 +150,7 @@ public class LeaveAllocationAppService : ApplicationService
         await _repository.DeleteAsync(id);
     }
 
-    private static LeaveAllocationDto MapToDto(LeaveAllocation a) => new()
-    {
-        Id = a.Id,
-        CompanyId = a.CompanyId,
-        EmployeeId = a.EmployeeId,
-        LeaveTypeId = a.LeaveTypeId,
-        FromDate = a.FromDate,
-        ToDate = a.ToDate,
-        TotalLeavesAllocated = a.TotalLeavesAllocated,
-        CarryForwardDays = a.CarryForwardDays,
-        LeavesUsed = a.LeavesUsed,
-        Balance = a.Balance,
-    };
+
 }
 
 // DTOs

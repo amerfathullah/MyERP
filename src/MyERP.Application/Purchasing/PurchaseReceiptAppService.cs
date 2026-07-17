@@ -54,7 +54,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     public async Task<PurchaseReceiptDto> GetAsync(Guid id)
     {
         var receipt = await _repository.GetAsync(id);
-        return MapToDto(receipt);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
     public async Task<PagedResultDto<PurchaseReceiptDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -82,7 +82,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         return new PagedResultDto<PurchaseReceiptDto>(
             totalCount,
-            list.Select(MapToDto).ToList());
+            list.Select(x => ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
@@ -123,7 +123,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
 
         await _repository.InsertAsync(receipt, autoSave: true);
-        return MapToDto(receipt);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Submit)]
@@ -313,7 +313,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             receipt.CompanyId, receipt.ReceiptNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: receipt.TenantId));
 
-        return MapToDto(receipt);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Cancel)]
@@ -386,7 +386,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             receipt.CompanyId, receipt.ReceiptNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: receipt.TenantId));
 
-        return MapToDto(receipt);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
     /// <summary>
@@ -417,37 +417,6 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return MapToDto(amended);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(amended);
     }
-
-    private static PurchaseReceiptDto MapToDto(PurchaseReceipt r) => new()
-    {
-        Id = r.Id,
-        CompanyId = r.CompanyId,
-        ReceiptNumber = r.ReceiptNumber,
-        PostingDate = r.PostingDate,
-        SupplierId = r.SupplierId,
-        PurchaseOrderId = r.PurchaseOrderId,
-        WarehouseId = r.WarehouseId,
-        SupplierDeliveryNote = r.SupplierDeliveryNote,
-        CurrencyCode = r.CurrencyCode,
-        NetTotal = r.NetTotal,
-        TaxAmount = r.TaxAmount,
-        GrandTotal = r.GrandTotal,
-        IsReturn = r.IsReturn,
-        ReturnAgainstId = r.ReturnAgainstId,
-        Status = r.Status.ToString(),
-        Items = r.Items.Select(i => new PurchaseReceiptItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            Description = i.Description,
-            Uom = i.Uom,
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            TaxAmount = i.TaxAmount,
-            LineTotal = i.LineTotal,
-            PurchaseOrderItemId = i.PurchaseOrderItemId
-        }).ToList()
-    };
 }

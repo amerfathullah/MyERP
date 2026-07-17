@@ -61,13 +61,13 @@ public class SalaryStructureAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(s => s.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<SalaryStructureDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<SalaryStructureDto>(totalCount, items.Select(x => ObjectMapper.Map<SalaryStructure, SalaryStructureDto>(x)).ToList());
     }
 
     public async Task<SalaryStructureDto> GetAsync(Guid id)
     {
         var ss = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
-        return MapToDto(ss);
+        return ObjectMapper.Map<SalaryStructure, SalaryStructureDto>(ss);
     }
 
     [Authorize(MyERPPermissions.Payroll.Create)]
@@ -87,7 +87,7 @@ public class SalaryStructureAppService : ApplicationService
                 Formula = d.Formula,
             });
         await _repository.InsertAsync(ss);
-        return MapToDto(ss);
+        return ObjectMapper.Map<SalaryStructure, SalaryStructureDto>(ss);
     }
 
     [Authorize(MyERPPermissions.Payroll.Default)]
@@ -100,18 +100,6 @@ public class SalaryStructureAppService : ApplicationService
         ss.Description = input.Description;
         ss.IsActive = true;
         await _repository.UpdateAsync(ss);
-        return MapToDto(ss);
+        return ObjectMapper.Map<SalaryStructure, SalaryStructureDto>(ss);
     }
-
-    private static SalaryStructureDto MapToDto(SalaryStructure s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, Name = s.Name,
-        IsHourlyBased = s.IsHourlyBased, PayrollFrequency = s.PayrollFrequency,
-        IsActive = s.IsActive, Description = s.Description,
-        Details = s.Details.Select(d => new SalaryStructureDetailDto
-        {
-            Id = d.Id, SalaryComponentId = d.SalaryComponentId,
-            ComponentName = d.ComponentName, Amount = d.Amount, Formula = d.Formula,
-        }).ToArray(),
-    };
 }

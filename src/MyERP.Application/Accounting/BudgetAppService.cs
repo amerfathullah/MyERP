@@ -38,13 +38,13 @@ public class BudgetAppService : ApplicationService
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<BudgetDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<BudgetDto>(totalCount, items.Select(x => ObjectMapper.Map<Budget, BudgetDto>(x)).ToList());
     }
 
     public async Task<BudgetDto> GetAsync(Guid id)
     {
         var budget = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
-        return MapToDto(budget);
+        return ObjectMapper.Map<Budget, BudgetDto>(budget);
     }
 
     [Authorize(MyERPPermissions.Budgets.Create)]
@@ -62,7 +62,7 @@ public class BudgetAppService : ApplicationService
             budget.AddAccount(acc.AccountId, acc.BudgetAmount, acc.AccountName);
 
         await _repository.InsertAsync(budget);
-        return MapToDto(budget);
+        return ObjectMapper.Map<Budget, BudgetDto>(budget);
     }
 
     [Authorize(MyERPPermissions.Budgets.Submit)]
@@ -78,7 +78,7 @@ public class BudgetAppService : ApplicationService
             budget.CompanyId, budget.BudgetAgainstName ?? budget.Id.ToString(), "Draft", "Submitted",
             CurrentUser.Id, tenantId: budget.TenantId));
 
-        return MapToDto(budget);
+        return ObjectMapper.Map<Budget, BudgetDto>(budget);
     }
 
     [Authorize(MyERPPermissions.Budgets.Cancel)]
@@ -94,25 +94,6 @@ public class BudgetAppService : ApplicationService
             budget.CompanyId, budget.BudgetAgainstName ?? budget.Id.ToString(), "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: budget.TenantId));
 
-        return MapToDto(budget);
+        return ObjectMapper.Map<Budget, BudgetDto>(budget);
     }
-
-    private static BudgetDto MapToDto(Budget b) => new()
-    {
-        Id = b.Id,
-        CompanyId = b.CompanyId,
-        FiscalYearId = b.FiscalYearId,
-        BudgetAgainst = b.BudgetAgainst,
-        BudgetAgainstId = b.BudgetAgainstId,
-        BudgetAgainstName = b.BudgetAgainstName,
-        Status = b.Status,
-        ActionIfAnnualBudgetExceeded = b.ActionIfAnnualBudgetExceeded,
-        ActionIfAccumulatedMonthlyBudgetExceeded = b.ActionIfAccumulatedMonthlyBudgetExceeded,
-        Accounts = b.Accounts.Select(a => new BudgetAccountDto
-        {
-            Id = a.Id, AccountId = a.AccountId,
-            AccountName = a.AccountName, BudgetAmount = a.BudgetAmount,
-        }).ToArray(),
-        CreationTime = b.CreationTime,
-    };
 }

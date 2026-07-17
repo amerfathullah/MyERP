@@ -30,7 +30,7 @@ public class AssetCapitalizationAppService : ApplicationService
     public async Task<AssetCapitalizationDto> GetAsync(Guid id)
     {
         var cap = await _repository.GetAsync(id);
-        return MapToDto(cap);
+        return ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>(cap);
     }
 
     public async Task<PagedResultDto<AssetCapitalizationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -44,7 +44,7 @@ public class AssetCapitalizationAppService : ApplicationService
         var list = query.OrderByDescending(x => x.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<AssetCapitalizationDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<AssetCapitalizationDto>(count, list.Select(ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -76,7 +76,7 @@ public class AssetCapitalizationAppService : ApplicationService
         }
 
         await _repository.InsertAsync(cap);
-        return MapToDto(cap);
+        return ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>(cap);
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -94,17 +94,6 @@ public class AssetCapitalizationAppService : ApplicationService
         cap.Cancel();
         await _repository.UpdateAsync(cap);
     }
-
-    private static AssetCapitalizationDto MapToDto(AssetCapitalization c) => new()
-    {
-        Id = c.Id,
-        CompanyId = c.CompanyId,
-        TargetAssetName = c.TargetAssetName,
-        TargetAssetId = c.TargetAssetId,
-        PostingDate = c.PostingDate,
-        TotalAssetValue = c.TotalCapitalizedAmount,
-        Status = c.Status.ToString()
-    };
 }
 
 #region DTOs

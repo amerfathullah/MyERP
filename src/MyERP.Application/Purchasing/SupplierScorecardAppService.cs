@@ -31,14 +31,14 @@ public class SupplierScorecardAppService : ApplicationService
     public async Task<ScorecardDto> GetAsync(Guid id)
     {
         var scorecard = await _repository.GetAsync(id);
-        return MapToDto(scorecard);
+        return ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard);
     }
 
     public async Task<ScorecardDto> GetBySupplierId(Guid supplierId)
     {
         var query = await _repository.GetQueryableAsync();
         var scorecard = query.FirstOrDefault(x => x.SupplierId == supplierId);
-        return scorecard != null ? MapToDto(scorecard) : null!;
+        return scorecard != null ? ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard) : null!;
     }
 
     public async Task<PagedResultDto<ScorecardDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -48,7 +48,7 @@ public class SupplierScorecardAppService : ApplicationService
         var list = query.OrderByDescending(x => x.Score)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<ScorecardDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<ScorecardDto>(count, list.Select(ObjectMapper.Map<SupplierScorecard, ScorecardDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.SupplierScorecards.Create)]
@@ -80,7 +80,7 @@ public class SupplierScorecardAppService : ApplicationService
         // Sync enforcement flags to supplier
         await SyncEnforcementFlagsAsync(scorecard);
 
-        return MapToDto(scorecard);
+        return ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard);
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ public class SupplierScorecardAppService : ApplicationService
         // Sync enforcement flags to supplier
         await SyncEnforcementFlagsAsync(scorecard);
 
-        return MapToDto(scorecard);
+        return ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard);
     }
 
     /// <summary>
@@ -141,32 +141,6 @@ public class SupplierScorecardAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static ScorecardDto MapToDto(SupplierScorecard s) => new()
-    {
-        Id = s.Id,
-        SupplierId = s.SupplierId,
-        CompanyId = s.CompanyId,
-        PeriodType = s.PeriodType.ToString(),
-        Score = s.Score,
-        CurrentStanding = s.CurrentStanding,
-        WeightingFunction = s.WeightingFunction,
-        Standings = s.Standings.OrderBy(x => x.MinGrade).Select(x => new ScorecardStandingDto
-        {
-            Name = x.Name,
-            MinScore = x.MinGrade,
-            MaxScore = x.MaxGrade,
-            PreventPos = x.PreventPos,
-            PreventRfqs = x.PreventRfqs
-        }).ToList(),
-        Criteria = s.Criteria.Select(x => new ScorecardCriterionDto
-        {
-            Name = x.Name,
-            Weight = x.Weight,
-            MaxScore = x.MaxScore,
-            Formula = x.Formula
-        }).ToList()
-    };
 }
 
 #region DTOs

@@ -43206,10 +43206,6 @@
                 {
                   "policy": "MyERP.Quotations",
                   "roles": null
-                },
-                {
-                  "policy": "MyERP.Quotations.Cancel",
-                  "roles": null
                 }
               ],
               "implementFrom": "MyERP.Sales.IQuotationAppService",
@@ -43263,10 +43259,6 @@
               "authorizeDatas": [
                 {
                   "policy": "MyERP.Quotations",
-                  "roles": null
-                },
-                {
-                  "policy": "MyERP.Quotations.Edit",
                   "roles": null
                 }
               ],

@@ -25,7 +25,7 @@ public class SalesPersonAppService : ApplicationService
     public async Task<SalesPersonDto> GetAsync(Guid id)
     {
         var sp = await _repository.GetAsync(id);
-        return MapToDto(sp);
+        return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
     }
 
     public async Task<PagedResultDto<SalesPersonDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -35,7 +35,7 @@ public class SalesPersonAppService : ApplicationService
         var list = query.OrderBy(x => x.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<SalesPersonDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<SalesPersonDto>(count, list.Select(x => ObjectMapper.Map<SalesPerson, SalesPersonDto>(x)).ToList());
     }
 
     /// <summary>
@@ -45,7 +45,7 @@ public class SalesPersonAppService : ApplicationService
     {
         var query = await _repository.GetQueryableAsync();
         var all = query.OrderBy(x => x.Name).ToList();
-        return all.Select(MapToDto).ToList();
+        return all.Select(x => ObjectMapper.Map<SalesPerson, SalesPersonDto>(x)).ToList();
     }
 
     [Authorize(MyERPPermissions.SalesPersons.Create)]
@@ -62,7 +62,7 @@ public class SalesPersonAppService : ApplicationService
         sp.SetCommissionRate(input.CommissionRate);
 
         await _repository.InsertAsync(sp);
-        return MapToDto(sp);
+        return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
     }
 
     [Authorize(MyERPPermissions.SalesPersons.Edit)]
@@ -74,7 +74,7 @@ public class SalesPersonAppService : ApplicationService
         sp.EmployeeId = input.EmployeeId;
         sp.ParentSalesPersonId = input.ParentSalesPersonId;
         await _repository.UpdateAsync(sp);
-        return MapToDto(sp);
+        return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
     }
 
     /// <summary>
@@ -104,23 +104,6 @@ public class SalesPersonAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static SalesPersonDto MapToDto(SalesPerson sp) => new()
-    {
-        Id = sp.Id,
-        Name = sp.Name,
-        ParentSalesPersonId = sp.ParentSalesPersonId,
-        IsGroup = sp.IsGroup,
-        EmployeeId = sp.EmployeeId,
-        CommissionRate = sp.CommissionRate,
-        IsEnabled = sp.IsEnabled,
-        Targets = sp.Targets.Select(t => new SalesTargetDto
-        {
-            FiscalYearId = t.FiscalYearId,
-            TargetQty = t.TargetQty,
-            TargetAmount = t.TargetAmount
-        }).ToList()
-    };
 }
 
 #region DTOs

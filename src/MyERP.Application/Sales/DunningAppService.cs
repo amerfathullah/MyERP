@@ -57,13 +57,13 @@ public class DunningAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(d => d.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<DunningDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<DunningDto>(totalCount, items.Select(ObjectMapper.Map<Dunning, DunningDto>).ToList());
     }
 
     public async Task<DunningDto> GetAsync(Guid id)
     {
         var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
-        return MapToDto(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -75,7 +75,7 @@ public class DunningAppService : ApplicationService
         foreach (var p in input.OverduePayments)
             d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
         await _repository.InsertAsync(d);
-        return MapToDto(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -84,7 +84,7 @@ public class DunningAppService : ApplicationService
         var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
         d.Submit();
         await _repository.UpdateAsync(d);
-        return MapToDto(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -93,16 +93,6 @@ public class DunningAppService : ApplicationService
         var d = await _repository.GetAsync(id);
         d.Resolve();
         await _repository.UpdateAsync(d);
-        return MapToDto(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
-
-    private static DunningDto MapToDto(Dunning d) => new()
-    {
-        Id = d.Id, CompanyId = d.CompanyId, CustomerId = d.CustomerId,
-        CustomerName = d.CustomerName, PostingDate = d.PostingDate,
-        DunningLevel = d.DunningLevel, TotalOutstanding = d.TotalOutstanding,
-        DunningFee = d.DunningFee, InterestAmount = d.InterestAmount,
-        GrandTotal = d.GrandTotal, Status = (int)d.Status,
-        OverduePaymentCount = d.OverduePayments.Count,
-    };
 }

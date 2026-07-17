@@ -41,7 +41,7 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
         };
 
         await _ruleRepository.InsertAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Edit)]
@@ -58,7 +58,7 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
         rule.Priority = input.Priority;
 
         await _ruleRepository.UpdateAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Delete)]
@@ -70,7 +70,7 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
     public async Task<AutomationRuleDto> GetAsync(Guid id)
     {
         var rule = await _ruleRepository.GetAsync(id);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
 
     public async Task<PagedResultDto<AutomationRuleDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -84,7 +84,7 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
 
         return new PagedResultDto<AutomationRuleDto>(
             totalCount,
-            rules.Select(MapToDto).ToList());
+            rules.Select(x => ObjectMapper.Map<AutomationRule, AutomationRuleDto>(x)).ToList());
     }
 
     public async Task<PagedResultDto<AutomationExecutionLogDto>> GetExecutionLogsAsync(
@@ -102,17 +102,7 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
 
         return new PagedResultDto<AutomationExecutionLogDto>(
             totalCount,
-            logs.Select(l => new AutomationExecutionLogDto
-            {
-                Id = l.Id,
-                AutomationRuleId = l.AutomationRuleId,
-                SourceDocumentId = l.SourceDocumentId,
-                SourceDocumentType = l.SourceDocumentType,
-                IsSuccess = l.IsSuccess,
-                ErrorMessage = l.ErrorMessage,
-                ExecutionDurationMs = l.ExecutionDurationMs,
-                CreationTime = l.CreationTime,
-            }).ToList());
+            logs.Select(ObjectMapper.Map<AutomationExecutionLog, AutomationExecutionLogDto>).ToList());
     }
 
     public async Task<AutomationRuleDto> ToggleActiveAsync(Guid id)
@@ -120,21 +110,6 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
         var rule = await _ruleRepository.GetAsync(id);
         rule.IsActive = !rule.IsActive;
         await _ruleRepository.UpdateAsync(rule);
-        return MapToDto(rule);
+        return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
-
-    private static AutomationRuleDto MapToDto(AutomationRule rule) => new()
-    {
-        Id = rule.Id,
-        Name = rule.Name,
-        Description = rule.Description,
-        Trigger = rule.Trigger,
-        DocumentType = rule.DocumentType,
-        ConditionExpression = rule.ConditionExpression,
-        Action = rule.Action,
-        ActionConfig = rule.ActionConfig,
-        CompanyId = rule.CompanyId,
-        IsActive = rule.IsActive,
-        Priority = rule.Priority,
-    };
 }

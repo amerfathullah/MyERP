@@ -28,7 +28,7 @@ public class AutoRepeatAppService : ApplicationService
     public async Task<AutoRepeatDto> GetAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        return MapToDto(entity);
+        return ObjectMapper.Map<AutoRepeat, AutoRepeatDto>(entity);
     }
 
     public async Task<PagedResultDto<AutoRepeatDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -42,7 +42,7 @@ public class AutoRepeatAppService : ApplicationService
         var list = query.OrderByDescending(x => x.NextScheduleDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<AutoRepeatDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<AutoRepeatDto>(count, list.Select(x => ObjectMapper.Map<AutoRepeat, AutoRepeatDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Create)]
@@ -65,7 +65,7 @@ public class AutoRepeatAppService : ApplicationService
         entity.ReferenceDocumentNumber = input.ReferenceDocumentNumber;
 
         await _repository.InsertAsync(entity);
-        return MapToDto(entity);
+        return ObjectMapper.Map<AutoRepeat, AutoRepeatDto>(entity);
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Edit)]
@@ -89,23 +89,6 @@ public class AutoRepeatAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static AutoRepeatDto MapToDto(AutoRepeat e) => new()
-    {
-        Id = e.Id,
-        CompanyId = e.CompanyId,
-        ReferenceDocumentType = e.ReferenceDocumentType,
-        ReferenceDocumentId = e.ReferenceDocumentId,
-        ReferenceDocumentNumber = e.ReferenceDocumentNumber,
-        Frequency = e.Frequency.ToString(),
-        StartDate = e.StartDate,
-        EndDate = e.EndDate,
-        NextScheduleDate = e.NextScheduleDate,
-        IsEnabled = e.IsEnabled,
-        GeneratedCount = e.GeneratedCount,
-        LastGeneratedDate = e.LastGeneratedDate,
-        NotifyByEmail = e.NotifyByEmail
-    };
 }
 
 #region DTOs

@@ -95,13 +95,13 @@ public class PickListAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<PickListDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<PickListDto>(totalCount, items.Select(x => ObjectMapper.Map<PickList, PickListDto>(x)).ToList());
     }
 
     public async Task<PickListDto> GetAsync(Guid id)
     {
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
-        return MapToDto(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Create)]
@@ -120,7 +120,7 @@ public class PickListAppService : ApplicationService
         foreach (var item in input.Items)
             pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId);
         await _repository.InsertAsync(pl);
-        return MapToDto(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Submit)]
@@ -129,7 +129,7 @@ public class PickListAppService : ApplicationService
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         pl.Submit();
         await _repository.UpdateAsync(pl);
-        return MapToDto(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Cancel)]
@@ -138,7 +138,7 @@ public class PickListAppService : ApplicationService
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         pl.Cancel();
         await _repository.UpdateAsync(pl);
-        return MapToDto(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
     /// <summary>
@@ -186,18 +186,4 @@ public class PickListAppService : ApplicationService
             BatchId = pt.BatchId,
         }).ToList();
     }
-
-    private static PickListDto MapToDto(PickList p) => new()
-    {
-        Id = p.Id, CompanyId = p.CompanyId, PickListNumber = p.PickListNumber,
-        Purpose = p.Purpose, SalesOrderId = p.SalesOrderId, Status = (int)p.Status,
-        IsFullyTransferred = p.IsFullyTransferred, IsPartiallyTransferred = p.IsPartiallyTransferred,
-        CreationTime = p.CreationTime,
-        Items = p.Items.Select(i => new PickListItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            WarehouseId = i.WarehouseId, Qty = i.Qty,
-            TransferredQty = i.TransferredQty, PendingQty = i.PendingQty,
-        }).ToArray(),
-    };
 }

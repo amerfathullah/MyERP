@@ -42,7 +42,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     public async Task<StockEntryDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
 
     public async Task<PagedResultDto<StockEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -70,7 +70,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         return new PagedResultDto<StockEntryDto>(
             totalCount,
-            entries.Select(MapToDto).ToList());
+            entries.Select(ObjectMapper.Map<StockEntry, StockEntryDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.StockEntries.Create)]
@@ -150,7 +150,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         await _repository.InsertAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Submit)]
@@ -159,7 +159,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var entry = await _repository.GetAsync(id);
         entry.Submit();
         await _repository.UpdateAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Post)]
@@ -197,7 +197,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             entry.CompanyId, entry.EntryNumber, "Submitted", "Posted",
             CurrentUser.Id, tenantId: entry.TenantId));
 
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Cancel)]
@@ -226,7 +226,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             entry.CompanyId, entry.EntryNumber, "Posted", "Cancelled",
             CurrentUser.Id, tenantId: entry.TenantId));
 
-        return MapToDto(entry);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
 
     /// <summary>
@@ -285,30 +285,4 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         return result;
     }
 
-    private StockEntryDto MapToDto(StockEntry entry)
-    {
-        return new StockEntryDto
-        {
-            Id = entry.Id,
-            CompanyId = entry.CompanyId,
-            EntryNumber = entry.EntryNumber,
-            EntryType = entry.EntryType,
-            PostingDate = entry.PostingDate,
-            ReferenceType = entry.ReferenceType,
-            ReferenceId = entry.ReferenceId,
-            Notes = entry.Notes,
-            Status = entry.Status.ToString(),
-            CreationTime = entry.CreationTime,
-            LastModificationTime = entry.LastModificationTime,
-            Items = entry.Items.Select(i => new StockEntryItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Quantity = i.Quantity,
-                SourceWarehouseId = i.SourceWarehouseId,
-                TargetWarehouseId = i.TargetWarehouseId,
-                ValuationRate = i.ValuationRate,
-            }).ToList(),
-        };
-    }
 }

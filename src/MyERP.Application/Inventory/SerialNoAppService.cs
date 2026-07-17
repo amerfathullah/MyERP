@@ -55,22 +55,12 @@ public class SerialNoAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<SerialNoDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<SerialNoDto>(totalCount, items.Select(x => ObjectMapper.Map<SerialNo, SerialNoDto>(x)).ToList());
     }
 
     public async Task<SerialNoDto> GetAsync(Guid id)
     {
         var sn = await _repository.GetAsync(id);
-        return MapToDto(sn);
+        return ObjectMapper.Map<SerialNo, SerialNoDto>(sn);
     }
-
-    private static SerialNoDto MapToDto(SerialNo s) => new()
-    {
-        Id = s.Id, SerialNumber = s.SerialNumber, ItemId = s.ItemId,
-        WarehouseId = s.WarehouseId, CompanyId = s.CompanyId, BatchId = s.BatchId,
-        CustomerId = s.CustomerId, PurchaseRate = s.PurchaseRate,
-        WarrantyExpiryDate = s.WarrantyExpiryDate, AmcExpiryDate = s.AmcExpiryDate,
-        MaintenanceStatus = s.MaintenanceStatus, Status = (int)s.Status,
-        CreationTime = s.CreationTime,
-    };
 }

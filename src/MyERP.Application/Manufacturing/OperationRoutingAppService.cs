@@ -75,7 +75,7 @@ public class OperationAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(o => o.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<OperationDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<OperationDto>(totalCount, items.Select(x => ObjectMapper.Map<Operation, OperationDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -89,17 +89,8 @@ public class OperationAppService : ApplicationService
             BatchSize = input.BatchSize,
         };
         await _repository.InsertAsync(op);
-        return MapToDto(op);
+        return ObjectMapper.Map<Operation, OperationDto>(op);
     }
-
-    private static OperationDto MapToDto(Operation o) => new()
-    {
-        Id = o.Id, Name = o.Name, Description = o.Description,
-        WorkstationId = o.WorkstationId, WorkstationType = o.WorkstationType,
-        CreateJobCardBasedOnBatchSize = o.CreateJobCardBasedOnBatchSize,
-        BatchSize = o.BatchSize, IsCorrectiveOperation = o.IsCorrectiveOperation,
-        IsActive = o.IsActive,
-    };
 }
 
 [Authorize(MyERPPermissions.Manufacturing.Default)]
@@ -114,7 +105,7 @@ public class RoutingAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(r => r.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<RoutingDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<RoutingDto>(totalCount, items.Select(x => ObjectMapper.Map<Routing, RoutingDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -124,17 +115,6 @@ public class RoutingAppService : ApplicationService
         foreach (var op in input.Operations)
             routing.AddOperation(op.OperationId, op.SequenceId, op.TimeInMins, op.WorkstationId);
         await _repository.InsertAsync(routing);
-        return MapToDto(routing);
+        return ObjectMapper.Map<Routing, RoutingDto>(routing);
     }
-
-    private static RoutingDto MapToDto(Routing r) => new()
-    {
-        Id = r.Id, Name = r.Name, IsDisabled = r.IsDisabled,
-        Operations = r.Operations.Select(o => new RoutingOperationDto
-        {
-            Id = o.Id, OperationId = o.OperationId, SequenceId = o.SequenceId,
-            TimeInMins = o.TimeInMins, WorkstationId = o.WorkstationId,
-            OperatingCost = o.OperatingCost,
-        }).ToArray(),
-    };
 }

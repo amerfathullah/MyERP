@@ -40,13 +40,13 @@ public class QualityInspectionAppService : ApplicationService
         var items = query.OrderByDescending(q => q.InspectionDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<QualityInspectionDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<QualityInspectionDto>(totalCount, items.Select(x => ObjectMapper.Map<QualityInspection, QualityInspectionDto>(x)).ToList());
     }
 
     public async Task<QualityInspectionDto> GetAsync(Guid id)
     {
         var qi = (await _repository.WithDetailsAsync()).First(q => q.Id == id);
-        return MapToDto(qi);
+        return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
 
     [Authorize(MyERPPermissions.QualityInspections.Create)]
@@ -68,7 +68,7 @@ public class QualityInspectionAppService : ApplicationService
                 r.ReadingValue, r.IsNumeric, r.FormulaBased, r.Formula);
 
         await _repository.InsertAsync(qi);
-        return MapToDto(qi);
+        return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
 
     [Authorize(MyERPPermissions.QualityInspections.Submit)]
@@ -77,37 +77,6 @@ public class QualityInspectionAppService : ApplicationService
         var qi = (await _repository.WithDetailsAsync()).First(q => q.Id == id);
         qi.Submit();
         await _repository.UpdateAsync(qi);
-        return MapToDto(qi);
+        return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
-
-    private static QualityInspectionDto MapToDto(QualityInspection q) => new()
-    {
-        Id = q.Id,
-        CompanyId = q.CompanyId,
-        ItemId = q.ItemId,
-        ItemName = q.ItemName,
-        InspectionType = q.InspectionType,
-        ReferenceType = q.ReferenceType,
-        ReferenceId = q.ReferenceId,
-        BatchNo = q.BatchNo,
-        SampleSize = q.SampleSize,
-        InspectionDate = q.InspectionDate,
-        Status = q.Status,
-        DocStatus = q.DocStatus,
-        Remarks = q.Remarks,
-        ManualInspection = q.ManualInspection,
-        Readings = q.Readings.Select(r => new QualityInspectionReadingDto
-        {
-            Id = r.Id,
-            Specification = r.Specification,
-            ExpectedValue = r.ExpectedValue,
-            MinValue = r.MinValue,
-            MaxValue = r.MaxValue,
-            ReadingValue = r.ReadingValue,
-            IsNumeric = r.IsNumeric,
-            FormulaBased = r.FormulaBased,
-            Status = r.Status,
-        }).ToArray(),
-        CreationTime = q.CreationTime,
-    };
 }

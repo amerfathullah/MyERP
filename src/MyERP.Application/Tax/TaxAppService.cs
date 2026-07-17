@@ -23,14 +23,14 @@ public class TaxCategoryAppService : ApplicationService, ITaxCategoryAppService
     public async Task<TaxCategoryDto> GetAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        return MapToDto(entity);
+        return ObjectMapper.Map<TaxCategory, TaxCategoryDto>(entity);
     }
 
     public async Task<PagedResultDto<TaxCategoryDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
         var totalCount = await _repository.GetCountAsync();
         var items = await _repository.GetPagedListAsync(input.SkipCount, input.MaxResultCount, input.Sorting ?? "Code ASC");
-        return new PagedResultDto<TaxCategoryDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<TaxCategoryDto>(totalCount, items.Select(x => ObjectMapper.Map<TaxCategory, TaxCategoryDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Create)]
@@ -40,7 +40,7 @@ public class TaxCategoryAppService : ApplicationService, ITaxCategoryAppService
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
         await _repository.InsertAsync(entity, autoSave: true);
-        return MapToDto(entity);
+        return ObjectMapper.Map<TaxCategory, TaxCategoryDto>(entity);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Edit)]
@@ -53,7 +53,7 @@ public class TaxCategoryAppService : ApplicationService, ITaxCategoryAppService
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
         await _repository.UpdateAsync(entity, autoSave: true);
-        return MapToDto(entity);
+        return ObjectMapper.Map<TaxCategory, TaxCategoryDto>(entity);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Delete)]
@@ -61,18 +61,6 @@ public class TaxCategoryAppService : ApplicationService, ITaxCategoryAppService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static TaxCategoryDto MapToDto(TaxCategory e) => new()
-    {
-        Id = e.Id,
-        Code = e.Code,
-        Name = e.Name,
-        Description = e.Description,
-        TaxType = e.TaxType.ToString(),
-        IsActive = e.IsActive,
-        CreationTime = e.CreationTime,
-        LastModificationTime = e.LastModificationTime,
-    };
 }
 
 [Authorize(MyERPPermissions.TaxCategories.Default)]
@@ -92,7 +80,7 @@ public class TaxRuleAppService : ApplicationService, ITaxRuleAppService
         var totalCount = query.Count();
         var items = query.OrderByDescending(r => r.EffectiveFrom)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<TaxRuleDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<TaxRuleDto>(totalCount, items.Select(x => ObjectMapper.Map<TaxRule, TaxRuleDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Create)]
@@ -106,7 +94,7 @@ public class TaxRuleAppService : ApplicationService, ITaxRuleAppService
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
         await _repository.InsertAsync(entity, autoSave: true);
-        return MapToDto(entity);
+        return ObjectMapper.Map<TaxRule, TaxRuleDto>(entity);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Edit)]
@@ -122,7 +110,7 @@ public class TaxRuleAppService : ApplicationService, ITaxRuleAppService
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
         await _repository.UpdateAsync(entity, autoSave: true);
-        return MapToDto(entity);
+        return ObjectMapper.Map<TaxRule, TaxRuleDto>(entity);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Delete)]
@@ -130,18 +118,4 @@ public class TaxRuleAppService : ApplicationService, ITaxRuleAppService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static TaxRuleDto MapToDto(TaxRule e) => new()
-    {
-        Id = e.Id,
-        TaxCategoryId = e.TaxCategoryId,
-        Rate = e.Rate,
-        EffectiveFrom = e.EffectiveFrom,
-        EffectiveTo = e.EffectiveTo,
-        ItemGroupFilter = e.ItemGroupFilter,
-        RegionFilter = e.RegionFilter,
-        Priority = e.Priority,
-        Description = e.Description,
-        IsActive = e.IsActive,
-    };
 }

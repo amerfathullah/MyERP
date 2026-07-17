@@ -65,7 +65,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     public async Task<DeliveryNoteDto> GetAsync(Guid id)
     {
         var dn = await _repository.GetAsync(id);
-        return MapToDto(dn);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
     public async Task<PagedResultDto<DeliveryNoteDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -93,7 +93,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         return new PagedResultDto<DeliveryNoteDto>(
             totalCount,
-            list.Select(MapToDto).ToList());
+            list.Select(x => ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
@@ -149,7 +149,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var billing = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
         if (billing != null) dn.BillingAddressId = billing.Id;
     }
-        return MapToDto(dn);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
@@ -374,7 +374,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             dn.CompanyId, dn.DeliveryNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: dn.TenantId));
 
-        return MapToDto(dn);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Cancel)]
@@ -447,7 +447,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             dn.CompanyId, dn.DeliveryNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: dn.TenantId));
 
-        return MapToDto(dn);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
     /// <summary>
@@ -477,39 +477,6 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return MapToDto(amended);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(amended);
     }
-
-    private static DeliveryNoteDto MapToDto(DeliveryNote dn) => new()
-    {
-        Id = dn.Id,
-        CompanyId = dn.CompanyId,
-        DeliveryNumber = dn.DeliveryNumber,
-        PostingDate = dn.PostingDate,
-        CustomerId = dn.CustomerId,
-        SalesOrderId = dn.SalesOrderId,
-        WarehouseId = dn.WarehouseId,
-        ShippingAddress = dn.ShippingAddress,
-        Transporter = dn.Transporter,
-        TrackingNumber = dn.TrackingNumber,
-        CurrencyCode = dn.CurrencyCode,
-        NetTotal = dn.NetTotal,
-        TaxAmount = dn.TaxAmount,
-        GrandTotal = dn.GrandTotal,
-        IsReturn = dn.IsReturn,
-        ReturnAgainstId = dn.ReturnAgainstId,
-        Status = dn.Status.ToString(),
-        Items = dn.Items.Select(i => new DeliveryNoteItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            Description = i.Description,
-            Uom = i.Uom,
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            TaxAmount = i.TaxAmount,
-            LineTotal = i.LineTotal,
-            SalesOrderItemId = i.SalesOrderItemId
-        }).ToList()
-    };
 }

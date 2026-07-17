@@ -10,6 +10,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.ObjectMapping;
 
 namespace MyERP.Inventory;
 
@@ -137,37 +138,42 @@ public class ItemAppService :
 
         return new PagedResultDto<ItemDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<Item, ItemDto>).ToList());
     }
 
-    private static ItemDto MapToDto(Item i) => new()
+    protected override Item MapToEntity(CreateUpdateItemDto input)
     {
-        Id = i.Id,
-        CompanyId = i.CompanyId,
-        ItemCode = i.ItemCode,
-        ItemName = i.ItemName,
-        Barcode = i.Barcode,
-        Description = i.Description,
-        ItemType = i.ItemType,
-        ItemGroup = i.ItemGroup,
-        Brand = i.Brand,
-        Uom = i.Uom,
-        ValuationMethod = i.ValuationMethod,
-        StandardSellingPrice = i.StandardSellingPrice,
-        StandardBuyingPrice = i.StandardBuyingPrice,
-        TaxCategoryId = i.TaxCategoryId,
-        MaintainStock = i.MaintainStock,
-        DefaultIncomeAccountId = i.DefaultIncomeAccountId,
-        DefaultExpenseAccountId = i.DefaultExpenseAccountId,
-        IsActive = i.IsActive,
-        ReorderLevel = i.ReorderLevel,
-        ReorderQty = i.ReorderQty,
-        SafetyStock = i.SafetyStock,
-        DefaultWarehouseId = i.DefaultWarehouseId,
-        MinOrderQty = i.MinOrderQty,
-        InspectionRequiredBeforePurchase = i.InspectionRequiredBeforePurchase,
-        InspectionRequiredBeforeDelivery = i.InspectionRequiredBeforeDelivery,
-        CreationTime = i.CreationTime,
-        LastModificationTime = i.LastModificationTime,
-    };
+        var item = new Item(
+            GuidGenerator.Create(), input.CompanyId,
+            input.ItemCode, input.ItemName, input.ItemType, CurrentTenant.Id);
+        MapToEntity(input, item);
+        return item;
+    }
+
+    protected override void MapToEntity(CreateUpdateItemDto input, Item entity)
+    {
+        entity.SetItemCode(input.ItemCode);
+        entity.SetItemName(input.ItemName);
+        entity.Barcode = input.Barcode;
+        entity.Description = input.Description;
+        entity.ItemType = input.ItemType;
+        entity.ItemGroup = input.ItemGroup;
+        entity.Brand = input.Brand;
+        entity.Uom = input.Uom;
+        entity.ValuationMethod = input.ValuationMethod;
+        entity.StandardSellingPrice = input.StandardSellingPrice;
+        entity.StandardBuyingPrice = input.StandardBuyingPrice;
+        entity.TaxCategoryId = input.TaxCategoryId;
+        entity.MaintainStock = input.MaintainStock;
+        entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
+        entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        entity.IsActive = input.IsActive;
+        entity.ReorderLevel = input.ReorderLevel;
+        entity.ReorderQty = input.ReorderQty;
+        entity.SafetyStock = input.SafetyStock;
+        entity.DefaultWarehouseId = input.DefaultWarehouseId;
+        entity.MinOrderQty = input.MinOrderQty;
+        entity.InspectionRequiredBeforePurchase = input.InspectionRequiredBeforePurchase;
+        entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
+    }
 }

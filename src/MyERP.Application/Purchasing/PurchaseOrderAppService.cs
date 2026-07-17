@@ -75,7 +75,7 @@ public class PurchaseOrderAppService : ApplicationService
     public async Task<PurchaseOrderDto> GetAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     public async Task<PagedResultDto<PurchaseOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -101,7 +101,7 @@ public class PurchaseOrderAppService : ApplicationService
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<PurchaseOrderDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<PurchaseOrderDto>(count, list.Select(x => ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(x)).ToList());
     }
 
     public async Task<PurchaseOrderDto> CreateAsync(CreatePurchaseOrderDto input)
@@ -156,7 +156,7 @@ public class PurchaseOrderAppService : ApplicationService
         }
 
         await _repository.InsertAsync(po, autoSave: true);
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
@@ -236,7 +236,7 @@ public class PurchaseOrderAppService : ApplicationService
             po.CompanyId, po.OrderNumber, "Draft", "ToDeliverAndBill",
             CurrentUser.Id, tenantId: po.TenantId));
 
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
@@ -269,7 +269,7 @@ public class PurchaseOrderAppService : ApplicationService
             po.CompanyId, po.OrderNumber, "ToDeliverAndBill", "Cancelled",
             CurrentUser.Id, tenantId: po.TenantId));
 
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
@@ -292,7 +292,7 @@ public class PurchaseOrderAppService : ApplicationService
         await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po, reverse: true);
 
         await _repository.UpdateAsync(po, autoSave: true);
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
@@ -312,7 +312,7 @@ public class PurchaseOrderAppService : ApplicationService
         }
 
         await _repository.UpdateAsync(po, autoSave: true);
-        return MapToDto(po);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
     /// <summary>
@@ -343,30 +343,6 @@ public class PurchaseOrderAppService : ApplicationService
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return MapToDto(amended);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(amended);
     }
-
-    private static PurchaseOrderDto MapToDto(PurchaseOrder po) => new()
-    {
-        Id = po.Id,
-        CompanyId = po.CompanyId,
-        OrderNumber = po.OrderNumber,
-        OrderDate = po.OrderDate,
-        ExpectedDeliveryDate = po.ExpectedDeliveryDate,
-        SupplierId = po.SupplierId,
-        NetTotal = po.NetTotal,
-        TaxAmount = po.TaxAmount,
-        GrandTotal = po.GrandTotal,
-        Status = po.Status.ToString(),
-        PerReceived = po.PerReceived,
-        PerBilled = po.PerBilled,
-        Items = po.Items.Select(i => new PurchaseOrderItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, Description = i.Description,
-            Uom = i.Uom, Quantity = i.Quantity, UnitPrice = i.UnitPrice,
-            TaxAmount = i.TaxAmount, LineTotal = i.LineTotal,
-            ReceivedQty = i.ReceivedQty, BilledQty = i.BilledQty,
-            WarehouseId = i.WarehouseId,
-        }).ToList()
-    };
 }

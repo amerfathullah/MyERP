@@ -67,13 +67,13 @@ public class SupplierQuotationAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.TransactionDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<SupplierQuotationDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<SupplierQuotationDto>(totalCount, items.Select(x => ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(x)).ToList());
     }
 
     public async Task<SupplierQuotationDto> GetAsync(Guid id)
     {
         var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
-        return MapToDto(sq);
+        return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
@@ -97,7 +97,7 @@ public class SupplierQuotationAppService : ApplicationService
         foreach (var item in input.Items)
             sq.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
         await _repository.InsertAsync(sq);
-        return MapToDto(sq);
+        return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
@@ -106,7 +106,7 @@ public class SupplierQuotationAppService : ApplicationService
         var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
         sq.Submit();
         await _repository.UpdateAsync(sq);
-        return MapToDto(sq);
+        return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
@@ -115,20 +115,6 @@ public class SupplierQuotationAppService : ApplicationService
         var sq = await _repository.GetAsync(id);
         sq.Cancel();
         await _repository.UpdateAsync(sq);
-        return MapToDto(sq);
+        return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
-
-    private static SupplierQuotationDto MapToDto(SupplierQuotation s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, SupplierId = s.SupplierId,
-        SupplierName = s.SupplierName, QuotationNumber = s.QuotationNumber,
-        TransactionDate = s.TransactionDate, ValidTill = s.ValidTill,
-        Currency = s.Currency, NetTotal = s.NetTotal, GrandTotal = s.GrandTotal,
-        Status = (int)s.Status,
-        Items = s.Items.Select(i => new SupplierQuotationItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            Qty = i.Qty, Rate = i.Rate, Amount = i.Amount,
-        }).ToArray(),
-    };
 }

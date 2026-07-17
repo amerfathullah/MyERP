@@ -58,13 +58,13 @@ public class PeriodClosingVoucherAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<PeriodClosingVoucherDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<PeriodClosingVoucherDto>(totalCount, items.Select(ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>).ToList());
     }
 
     public async Task<PeriodClosingVoucherDto> GetAsync(Guid id)
     {
         var pcv = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
-        return MapToDto(pcv);
+        return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -75,7 +75,7 @@ public class PeriodClosingVoucherAppService : ApplicationService
             input.ClosingAccountId, CurrentTenant.Id)
         { Remarks = input.Remarks };
         await _repository.InsertAsync(pcv);
-        return MapToDto(pcv);
+        return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -96,7 +96,7 @@ public class PeriodClosingVoucherAppService : ApplicationService
         await _closingBalanceService.RebuildAsync(
             pcv.CompanyId, pcv.PostingDate, period, CurrentTenant.Id);
 
-        return MapToDto(pcv);
+        return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
 
     [Authorize(MyERPPermissions.Accounts.Delete)]
@@ -110,15 +110,6 @@ public class PeriodClosingVoucherAppService : ApplicationService
         var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);
         await _closingBalanceService.DeleteForPeriodAsync(pcv.CompanyId, period);
 
-        return MapToDto(pcv);
+        return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
-
-    private static PeriodClosingVoucherDto MapToDto(PeriodClosingVoucher p) => new()
-    {
-        Id = p.Id, CompanyId = p.CompanyId, FiscalYearId = p.FiscalYearId,
-        VoucherNumber = p.VoucherNumber, PostingDate = p.PostingDate,
-        TransactionDate = p.TransactionDate, ClosingAccountId = p.ClosingAccountId,
-        TotalClosingAmount = p.TotalClosingAmount, Status = (int)p.Status,
-        Remarks = p.Remarks, EntryCount = p.Entries.Count,
-    };
 }

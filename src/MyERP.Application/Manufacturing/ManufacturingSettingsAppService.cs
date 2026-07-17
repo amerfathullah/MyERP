@@ -31,7 +31,7 @@ public class ManufacturingSettingsAppService : ApplicationService
     {
         var query = await _repository.GetQueryableAsync();
         var settings = query.FirstOrDefault(s => s.CompanyId == companyId);
-        return settings != null ? MapToDto(settings) : null;
+        return settings != null ? ObjectMapper.Map<ManufacturingSettings, ManufacturingSettingsDto>(settings) : null;
     }
 
     /// <summary>
@@ -70,29 +70,10 @@ public class ManufacturingSettingsAppService : ApplicationService
         existing.EnforceMutualExclusions();
 
         await _repository.UpdateAsync(existing);
-        return MapToDto(existing);
+        return ObjectMapper.Map<ManufacturingSettings, ManufacturingSettingsDto>(existing);
     }
 
-    private static ManufacturingSettingsDto MapToDto(ManufacturingSettings s) => new()
-    {
-        Id = s.Id,
-        CompanyId = s.CompanyId,
-        OverproductionPercentage = s.OverproductionPercentage,
-        BackflushRawMaterialsBasedOn = s.BackflushRawMaterialsBasedOn,
-        MaterialConsumption = s.MaterialConsumption,
-        TransferExtraMaterialsPercentage = s.TransferExtraMaterialsPercentage,
-        MinsBetweenOperations = s.MinsBetweenOperations,
-        CapacityPlanningForDays = s.CapacityPlanningForDays,
-        MakeSerialNoBatchFromWorkOrder = s.MakeSerialNoBatchFromWorkOrder,
-        UpdateBomCostsAutomatically = s.UpdateBomCostsAutomatically,
-        AllowOvertime = s.AllowOvertime,
-        AllowProductionOnHolidays = s.AllowProductionOnHolidays,
-        DisableCapacityPlanning = s.DisableCapacityPlanning,
-        JobCardExcessTransfer = s.JobCardExcessTransfer,
-        EnforceTimeLogs = s.EnforceTimeLogs,
-        AddCorrectiveOpCostInFGValuation = s.AddCorrectiveOpCostInFGValuation,
-        ValidateComponentsQuantitiesPerBom = s.ValidateComponentsQuantitiesPerBom
-    };
+
 }
 
 public class ManufacturingSettingsDto

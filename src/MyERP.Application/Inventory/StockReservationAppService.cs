@@ -81,13 +81,13 @@ public class StockReservationAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<StockReservationEntryDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<StockReservationEntryDto>(totalCount, items.Select(x => ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(x)).ToList());
     }
 
     public async Task<StockReservationEntryDto> GetAsync(Guid id)
     {
         var sre = await _repository.GetAsync(id);
-        return MapToDto(sre);
+        return ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(sre);
     }
 
     /// <summary>
@@ -116,7 +116,7 @@ public class StockReservationAppService : ApplicationService
         var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
         await binService.UpdateReservedQtyAsync(input.ItemId, input.WarehouseId, input.ReservedQty);
 
-        return MapToDto(sre);
+        return ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(sre);
     }
 
     /// <summary>
@@ -138,7 +138,7 @@ public class StockReservationAppService : ApplicationService
             await binService.UpdateReservedQtyAsync(sre.ItemId, sre.WarehouseId, -remainingReserved);
         }
 
-        return MapToDto(sre);
+        return ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(sre);
     }
 
     /// <summary>
@@ -160,14 +160,4 @@ public class StockReservationAppService : ApplicationService
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         await reservationManager.CancelReservationsForOrderAsync(salesOrderId);
     }
-
-    private static StockReservationEntryDto MapToDto(StockReservationEntry s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, ItemId = s.ItemId,
-        WarehouseId = s.WarehouseId, VoucherType = s.VoucherType,
-        VoucherId = s.VoucherId, VoucherDetailId = s.VoucherDetailId,
-        ReservedQty = s.ReservedQty, DeliveredQty = s.DeliveredQty,
-        AvailableQty = s.AvailableQty, Status = (int)s.Status,
-        CreationTime = s.CreationTime,
-    };
 }

@@ -45,7 +45,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
         return new PagedResultDto<BankTransactionDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<BankTransaction, BankTransactionDto>).ToList());
     }
 
     public async Task<BankTransactionDto> ReconcileAsync(ReconcileBankTransactionDto input)
@@ -53,7 +53,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var tx = await _repository.GetAsync(input.TransactionId);
         tx.Reconcile(input.PaymentEntryId, input.MatchedDocumentRef);
         await _repository.UpdateAsync(tx);
-        return MapToDto(tx);
+        return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Default)]
@@ -62,7 +62,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var tx = await _repository.GetAsync(id);
         tx.Unreconcile();
         await _repository.UpdateAsync(tx);
-        return MapToDto(tx);
+        return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
     public async Task<BankTransactionDto> ImportTransactionAsync(ImportBankTransactionDto input)
@@ -80,7 +80,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         };
 
         await _repository.InsertAsync(tx);
-        return MapToDto(tx);
+        return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
     public async Task<AutoMatchResultDto> AutoMatchAsync(Guid bankAccountId, Guid companyId)
@@ -109,18 +109,5 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         };
     }
 
-    private static BankTransactionDto MapToDto(BankTransaction tx) => new()
-    {
-        Id = tx.Id,
-        CompanyId = tx.CompanyId,
-        BankAccountId = tx.BankAccountId,
-        TransactionDate = tx.TransactionDate,
-        Description = tx.Description,
-        Amount = tx.Amount,
-        ReferenceNumber = tx.ReferenceNumber,
-        IsReconciled = tx.IsReconciled,
-        PaymentEntryId = tx.PaymentEntryId,
-        MatchedDocumentRef = tx.MatchedDocumentRef,
-        ReconciledAt = tx.ReconciledAt,
-    };
+
 }

@@ -35,12 +35,7 @@ public class LeaveAppService : ApplicationService
     {
         var types = await _leaveTypeRepository.GetListAsync();
         return types.Where(t => t.IsActive).OrderBy(t => t.Name)
-            .Select(t => new LeaveTypeDto
-            {
-                Id = t.Id, Name = t.Name, MaxDaysAllowed = t.MaxDaysAllowed,
-                IsPaidLeave = t.IsPaidLeave, AllowCarryForward = t.AllowCarryForward,
-                RequiresApproval = t.RequiresApproval,
-            }).ToList();
+            .Select(ObjectMapper.Map<LeaveType, LeaveTypeDto>).ToList();
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -54,12 +49,7 @@ public class LeaveAppService : ApplicationService
             MaxCarryForwardDays = input.MaxCarryForwardDays,
         };
         await _leaveTypeRepository.InsertAsync(type);
-        return new LeaveTypeDto
-        {
-            Id = type.Id, Name = type.Name, MaxDaysAllowed = type.MaxDaysAllowed,
-            IsPaidLeave = type.IsPaidLeave, AllowCarryForward = type.AllowCarryForward,
-            RequiresApproval = type.RequiresApproval,
-        };
+        return ObjectMapper.Map<LeaveType, LeaveTypeDto>(type);
     }
 
     // Leave Applications
@@ -67,7 +57,7 @@ public class LeaveAppService : ApplicationService
     public async Task<LeaveApplicationDto> GetAsync(Guid id)
     {
         var leave = await _leaveRepository.GetAsync(id);
-        return MapToDto(leave);
+        return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
     public async Task<PagedResultDto<LeaveApplicationDto>> GetListAsync(GetLeaveListDto input)
@@ -82,7 +72,7 @@ public class LeaveAppService : ApplicationService
         var items = query.OrderByDescending(l => l.FromDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<LeaveApplicationDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<LeaveApplicationDto>(totalCount, items.Select(ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -115,7 +105,7 @@ public class LeaveAppService : ApplicationService
             LeaveApproverId = input.LeaveApproverId,
         };
         await _leaveRepository.InsertAsync(leave);
-        return MapToDto(leave);
+        return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -149,7 +139,7 @@ public class LeaveAppService : ApplicationService
         }
 
         await _leaveRepository.UpdateAsync(leave);
-        return MapToDto(leave);
+        return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -158,7 +148,7 @@ public class LeaveAppService : ApplicationService
         var leave = await _leaveRepository.GetAsync(id);
         leave.Reject();
         await _leaveRepository.UpdateAsync(leave);
-        return MapToDto(leave);
+        return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -186,17 +176,10 @@ public class LeaveAppService : ApplicationService
         }
 
         await _leaveRepository.UpdateAsync(leave);
-        return MapToDto(leave);
+        return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
-    private static LeaveApplicationDto MapToDto(LeaveApplication l) => new()
-    {
-        Id = l.Id, CompanyId = l.CompanyId, EmployeeId = l.EmployeeId,
-        EmployeeName = l.EmployeeName, LeaveTypeId = l.LeaveTypeId,
-        LeaveTypeName = l.LeaveTypeName, FromDate = l.FromDate, ToDate = l.ToDate,
-        TotalLeaveDays = l.TotalLeaveDays, HalfDay = l.HalfDay,
-        Reason = l.Reason, Status = l.Status, CreationTime = l.CreationTime,
-    };
+
 }
 
 // DTOs

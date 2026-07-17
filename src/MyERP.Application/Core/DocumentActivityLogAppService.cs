@@ -33,7 +33,7 @@ public class DocumentActivityLogAppService : ApplicationService
             .Take(50)
             .ToList();
 
-        return logs.Select(MapToDto).ToList();
+        return logs.Select(ObjectMapper.Map<DocumentActivityLog, DocumentActivityLogDto>).ToList();
     }
 
     /// <summary>
@@ -54,24 +54,7 @@ public class DocumentActivityLogAppService : ApplicationService
 
         return new PagedResultDto<DocumentActivityLogDto>(
             totalCount,
-            logs.Select(MapToDto).ToList());
-    }
-
-    private static DocumentActivityLogDto MapToDto(DocumentActivityLog log)
-    {
-        return new DocumentActivityLogDto
-        {
-            Id = log.Id,
-            DocumentType = log.DocumentType,
-            DocumentId = log.DocumentId,
-            DocumentNumber = log.DocumentNumber,
-            ActivityType = log.ActivityType,
-            PreviousStatus = log.PreviousStatus,
-            NewStatus = log.NewStatus,
-            PerformedByUserId = log.PerformedByUserId,
-            Details = log.Details,
-            CreationTime = log.CreationTime,
-        };
+            logs.Select(ObjectMapper.Map<DocumentActivityLog, DocumentActivityLogDto>).ToList());
     }
 }
 

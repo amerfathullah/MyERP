@@ -30,7 +30,7 @@ public class PosClosingAppService : ApplicationService
     public async Task<PosClosingDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }
 
     public async Task<PagedResultDto<PosClosingDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -43,7 +43,7 @@ public class PosClosingAppService : ApplicationService
         var list = query.OrderByDescending(x => x.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<PosClosingDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<PosClosingDto>(count, list.Select(x => ObjectMapper.Map<PosClosingEntry, PosClosingDto>(x)).ToList());
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public class PosClosingAppService : ApplicationService
             entry.AddPayment(pay.ModeOfPaymentId, pay.ModeName, pay.ExpectedAmount, pay.ClosingAmount);
 
         await _repository.InsertAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -73,7 +73,7 @@ public class PosClosingAppService : ApplicationService
         var entry = await _repository.GetAsync(id);
         entry.Submit();
         await _repository.UpdateAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -82,34 +82,8 @@ public class PosClosingAppService : ApplicationService
         var entry = await _repository.GetAsync(id);
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
-        return MapToDto(entry);
+        return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }
-
-    private static PosClosingDto MapToDto(PosClosingEntry e) => new()
-    {
-        Id = e.Id,
-        CompanyId = e.CompanyId,
-        PosProfileId = e.PosProfileId,
-        PostingDate = e.PostingDate,
-        Status = e.Status.ToString(),
-        GrandTotal = e.GrandTotal,
-        NetTotal = e.NetTotal,
-        TotalDifference = e.TotalDifference,
-        ConsolidatedSalesInvoiceId = e.ConsolidatedSalesInvoiceId,
-        Payments = e.Payments.Select(p => new PosClosingPaymentDto
-        {
-            ModeName = p.ModeName,
-            ExpectedAmount = p.ExpectedAmount,
-            ClosingAmount = p.ClosingAmount,
-            Difference = p.Difference,
-        }).ToList(),
-        Invoices = e.Invoices.Select(i => new PosClosingInvoiceDto
-        {
-            PosInvoiceId = i.PosInvoiceId,
-            InvoiceNumber = i.InvoiceNumber,
-            GrandTotal = i.GrandTotal,
-        }).ToList(),
-    };
 }
 
 public class PosClosingDto

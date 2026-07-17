@@ -40,11 +40,7 @@ public class DocumentSeriesAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(d => d.DocumentType).ThenBy(d => d.Prefix)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<DocumentSeriesDto>(totalCount, items.Select(d => new DocumentSeriesDto
-        {
-            Id = d.Id, CompanyId = d.CompanyId, DocumentType = d.DocumentType,
-            Prefix = d.Prefix, CurrentNumber = d.CurrentNumber, NumberPadding = d.NumberPadding,
-        }).ToList());
+        return new PagedResultDto<DocumentSeriesDto>(totalCount, items.Select(ObjectMapper.Map<DocumentSeries, DocumentSeriesDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Companies.Create)]
@@ -54,10 +50,6 @@ public class DocumentSeriesAppService : ApplicationService
             input.Name, input.DocumentType, input.Prefix, CurrentTenant.Id)
         { NumberPadding = input.NumberPadding };
         await _repository.InsertAsync(ds);
-        return new DocumentSeriesDto
-        {
-            Id = ds.Id, CompanyId = ds.CompanyId, DocumentType = ds.DocumentType,
-            Prefix = ds.Prefix, CurrentNumber = ds.CurrentNumber, NumberPadding = ds.NumberPadding,
-        };
+        return ObjectMapper.Map<DocumentSeries, DocumentSeriesDto>(ds);
     }
 }

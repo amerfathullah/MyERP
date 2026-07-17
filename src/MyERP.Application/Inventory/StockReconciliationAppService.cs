@@ -45,13 +45,13 @@ public class StockReconciliationAppService : ApplicationService
         var items = query.OrderByDescending(s => s.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<StockReconciliationDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<StockReconciliationDto>(totalCount, items.Select(x => ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(x)).ToList());
     }
 
     public async Task<StockReconciliationDto> GetAsync(Guid id)
     {
         var sr = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
-        return MapToDto(sr);
+        return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
     }
 
     [Authorize(MyERPPermissions.StockReconciliations.Create)]
@@ -71,7 +71,7 @@ public class StockReconciliationAppService : ApplicationService
                 item.CurrentQuantity, item.CurrentValuationRate);
 
         await _repository.InsertAsync(sr);
-        return MapToDto(sr);
+        return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
     }
 
     [Authorize(MyERPPermissions.StockReconciliations.Submit)]
@@ -118,7 +118,7 @@ public class StockReconciliationAppService : ApplicationService
             sr.CompanyId, sr.ReconciliationNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: sr.TenantId));
 
-        return MapToDto(sr);
+        return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
     }
 
     [Authorize(MyERPPermissions.StockReconciliations.Cancel)]
@@ -158,26 +158,6 @@ public class StockReconciliationAppService : ApplicationService
             sr.CompanyId, sr.ReconciliationNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: sr.TenantId));
 
-        return MapToDto(sr);
+        return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
     }
-
-    private static StockReconciliationDto MapToDto(StockReconciliation s) => new()
-    {
-        Id = s.Id,
-        CompanyId = s.CompanyId,
-        ReconciliationNumber = s.ReconciliationNumber,
-        PostingDate = s.PostingDate,
-        Purpose = s.Purpose,
-        Notes = s.Notes,
-        Status = s.Status,
-        DifferenceAmount = s.DifferenceAmount,
-        Items = s.Items.Select(i => new StockReconciliationItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, WarehouseId = i.WarehouseId,
-            CurrentQuantity = i.CurrentQuantity, CurrentValuationRate = i.CurrentValuationRate,
-            NewQuantity = i.NewQuantity, NewValuationRate = i.NewValuationRate,
-            QuantityDifference = i.QuantityDifference, DifferenceAmount = i.DifferenceAmount,
-        }).ToArray(),
-        CreationTime = s.CreationTime,
-    };
 }

@@ -47,13 +47,13 @@ public class LandedCostVoucherAppService : ApplicationService
         var items = query.OrderByDescending(l => l.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<LandedCostVoucherDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<LandedCostVoucherDto>(totalCount, items.Select(x => ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(x)).ToList());
     }
 
     public async Task<LandedCostVoucherDto> GetAsync(Guid id)
     {
         var lcv = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
-        return MapToDto(lcv);
+        return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
 
     [Authorize(MyERPPermissions.LandedCostVouchers.Create)]
@@ -74,7 +74,7 @@ public class LandedCostVoucherAppService : ApplicationService
             lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount);
 
         await _repository.InsertAsync(lcv);
-        return MapToDto(lcv);
+        return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
 
     [Authorize(MyERPPermissions.LandedCostVouchers.Submit)]
@@ -141,7 +141,7 @@ public class LandedCostVoucherAppService : ApplicationService
             lcv.CompanyId, lcv.VoucherNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: lcv.TenantId));
 
-        return MapToDto(lcv);
+        return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
 
     [Authorize(MyERPPermissions.LandedCostVouchers.Cancel)]
@@ -177,31 +177,6 @@ public class LandedCostVoucherAppService : ApplicationService
             lcv.CompanyId, lcv.VoucherNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: lcv.TenantId));
 
-        return MapToDto(lcv);
+        return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
-
-    private static LandedCostVoucherDto MapToDto(LandedCostVoucher l) => new()
-    {
-        Id = l.Id,
-        CompanyId = l.CompanyId,
-        VoucherNumber = l.VoucherNumber,
-        PostingDate = l.PostingDate,
-        DistributionMethod = l.DistributionMethod,
-        Status = l.Status,
-        TotalCharges = l.TotalCharges,
-        TotalDistributedAmount = l.TotalDistributedAmount,
-        Notes = l.Notes,
-        Items = l.Items.Select(i => new LandedCostItemDto
-        {
-            Id = i.Id, ReceiptId = i.ReceiptId, ReceiptType = i.ReceiptType,
-            ItemId = i.ItemId, Description = i.Description,
-            Quantity = i.Quantity, Amount = i.Amount, ApplicableCharges = i.ApplicableCharges,
-        }).ToArray(),
-        Charges = l.Charges.Select(c => new LandedCostChargeDto
-        {
-            Id = c.Id, Description = c.Description,
-            ExpenseAccountId = c.ExpenseAccountId, Amount = c.Amount,
-        }).ToArray(),
-        CreationTime = l.CreationTime,
-    };
 }

@@ -47,7 +47,7 @@ public class AssetMovementAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(a => a.MovementDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AssetMovementDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<AssetMovementDto>(totalCount, items.Select(x => ObjectMapper.Map<AssetMovement, AssetMovementDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -61,7 +61,7 @@ public class AssetMovementAppService : ApplicationService
             Purpose = input.Purpose,
         };
         await _repository.InsertAsync(am);
-        return MapToDto(am);
+        return ObjectMapper.Map<AssetMovement, AssetMovementDto>(am);
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -70,14 +70,6 @@ public class AssetMovementAppService : ApplicationService
         var am = await _repository.GetAsync(id);
         am.Submit();
         await _repository.UpdateAsync(am);
-        return MapToDto(am);
+        return ObjectMapper.Map<AssetMovement, AssetMovementDto>(am);
     }
-
-    private static AssetMovementDto MapToDto(AssetMovement a) => new()
-    {
-        Id = a.Id, CompanyId = a.CompanyId, AssetId = a.AssetId,
-        MovementType = a.MovementType, MovementDate = a.MovementDate,
-        SourceLocation = a.SourceLocation, TargetLocation = a.TargetLocation,
-        Purpose = a.Purpose, Status = (int)a.Status,
-    };
 }

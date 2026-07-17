@@ -84,7 +84,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         await _activityLog.LogConvertedAsync("PurchaseOrder", po.Id, po.CompanyId,
             "PurchaseReceipt", receipt.Id, po.OrderNumber, po.TenantId);
 
-        return MapReceiptToDto(receipt);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
@@ -127,7 +127,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         await _activityLog.LogConvertedAsync("PurchaseOrder", po.Id, po.CompanyId,
             "PurchaseInvoice", invoice.Id, po.OrderNumber, po.TenantId);
 
-        return MapInvoiceToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
@@ -166,7 +166,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         await _activityLog.LogConvertedAsync("PurchaseReceipt", receipt.Id, receipt.CompanyId,
             "PurchaseInvoice", invoice.Id, receipt.ReceiptNumber, receipt.TenantId);
 
-        return MapInvoiceToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     /// <summary>
@@ -216,91 +216,6 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         await _activityLog.LogConvertedAsync("MaterialRequest", mr.Id, mr.CompanyId,
             "PurchaseOrder", po.Id, mr.RequestNumber, mr.TenantId);
 
-        return MapOrderToDto(po);
-    }
-
-    private PurchaseOrderDto MapOrderToDto(PurchaseOrder po) => new()
-    {
-        Id = po.Id,
-        CompanyId = po.CompanyId,
-        SupplierId = po.SupplierId,
-        OrderNumber = po.OrderNumber,
-        OrderDate = po.OrderDate,
-        Status = po.Status.ToString(),
-        NetTotal = po.NetTotal,
-        TaxAmount = po.TaxAmount,
-        GrandTotal = po.GrandTotal,
-        Items = po.Items.Select(i => new PurchaseOrderItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, Description = i.Description,
-            Quantity = i.Quantity, UnitPrice = i.UnitPrice, TaxAmount = i.TaxAmount,
-            LineTotal = i.LineTotal, Uom = i.Uom,
-        }).ToList(),
-    };
-
-    private PurchaseReceiptDto MapReceiptToDto(PurchaseReceipt receipt)
-    {
-        return new PurchaseReceiptDto
-        {
-            Id = receipt.Id,
-            CompanyId = receipt.CompanyId,
-            ReceiptNumber = receipt.ReceiptNumber,
-            PostingDate = receipt.PostingDate,
-            SupplierId = receipt.SupplierId,
-            PurchaseOrderId = receipt.PurchaseOrderId,
-            WarehouseId = receipt.WarehouseId,
-            SupplierDeliveryNote = receipt.SupplierDeliveryNote,
-            CurrencyCode = receipt.CurrencyCode,
-            NetTotal = receipt.NetTotal,
-            TaxAmount = receipt.TaxAmount,
-            GrandTotal = receipt.GrandTotal,
-            IsReturn = receipt.IsReturn,
-            Status = receipt.Status.ToString(),
-            Items = receipt.Items.Select(i => new PurchaseReceiptItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
-    }
-
-    private PurchaseInvoiceDto MapInvoiceToDto(PurchaseInvoice invoice)
-    {
-        return new PurchaseInvoiceDto
-        {
-            Id = invoice.Id,
-            CompanyId = invoice.CompanyId,
-            InvoiceNumber = invoice.InvoiceNumber,
-            IssueDate = invoice.IssueDate,
-            DueDate = invoice.DueDate,
-            SupplierId = invoice.SupplierId,
-            SupplierTin = invoice.SupplierTin,
-            CurrencyCode = invoice.CurrencyCode,
-            NetTotal = invoice.NetTotal,
-            TaxAmount = invoice.TaxAmount,
-            GrandTotal = invoice.GrandTotal,
-            AmountPaid = invoice.AmountPaid,
-            OutstandingAmount = invoice.OutstandingAmount,
-            Status = invoice.Status.ToString(),
-            EInvoiceStatus = invoice.EInvoiceStatus.ToString(),
-            LhdnUuid = invoice.LhdnUuid,
-            Items = invoice.Items.Select(i => new PurchaseInvoiceItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 }

@@ -63,13 +63,13 @@ public class ExpenseClaimAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(e => e.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<ExpenseClaimDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ExpenseClaimDto>(totalCount, items.Select(x => ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(x)).ToList());
     }
 
     public async Task<ExpenseClaimDto> GetAsync(Guid id)
     {
         var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
-        return MapToDto(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
     [Authorize(MyERPPermissions.Employees.Create)]
@@ -81,7 +81,7 @@ public class ExpenseClaimAppService : ApplicationService
         foreach (var e in input.Expenses)
             ec.AddExpense(e.ExpenseDate, e.Description, e.Amount);
         await _repository.InsertAsync(ec);
-        return MapToDto(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -90,7 +90,7 @@ public class ExpenseClaimAppService : ApplicationService
         var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
         ec.Approve();
         await _repository.UpdateAsync(ec);
-        return MapToDto(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -99,7 +99,7 @@ public class ExpenseClaimAppService : ApplicationService
         var ec = await _repository.GetAsync(id);
         ec.Submit();
         await _repository.UpdateAsync(ec);
-        return MapToDto(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
@@ -108,7 +108,7 @@ public class ExpenseClaimAppService : ApplicationService
         var ec = await _repository.GetAsync(id);
         ec.Reject();
         await _repository.UpdateAsync(ec);
-        return MapToDto(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
     /// <summary>
@@ -159,17 +159,4 @@ public class ExpenseClaimAppService : ApplicationService
 
         return pe.Id;
     }
-
-    private static ExpenseClaimDto MapToDto(ExpenseClaim e) => new()
-    {
-        Id = e.Id, CompanyId = e.CompanyId, EmployeeId = e.EmployeeId,
-        EmployeeName = e.EmployeeName, PostingDate = e.PostingDate,
-        ExpenseType = e.ExpenseType, TotalClaimedAmount = e.TotalClaimedAmount,
-        TotalSanctionedAmount = e.TotalSanctionedAmount,
-        TotalAmountReimbursed = e.TotalAmountReimbursed, Status = (int)e.Status,
-        Expenses = e.Expenses.Select(d => new ExpenseClaimDetailDto
-        {
-            Id = d.Id, ExpenseDate = d.ExpenseDate, Description = d.Description, Amount = d.Amount,
-        }).ToArray(),
-    };
 }

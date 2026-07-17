@@ -77,7 +77,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     public async Task<PurchaseInvoiceDto> GetAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)
@@ -86,15 +86,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         return query
             .Where(e => e.ParentId == invoiceId && e.ParentType == "PurchaseInvoice")
             .OrderBy(e => e.DueDate)
-            .Select(e => new PaymentScheduleDto
-            {
-                Id = e.Id,
-                DueDate = e.DueDate,
-                InvoicePortion = e.InvoicePortion,
-                PaymentAmount = e.PaymentAmount,
-                PaidAmount = e.PaidAmount,
-                Outstanding = e.Outstanding,
-            }).ToList();
+            .Select(ObjectMapper.Map<Accounting.Entities.PaymentScheduleEntry, Sales.PaymentScheduleDto>).ToList();
     }
 
     public async Task<PagedResultDto<PurchaseInvoiceDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -122,7 +114,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         return new PagedResultDto<PurchaseInvoiceDto>(
             totalCount,
-            invoices.Select(MapToDto).ToList());
+            invoices.Select(x => ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
@@ -223,7 +215,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             await _repository.UpdateAsync(invoice);
         }
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Submit)]
@@ -457,7 +449,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await _activityLog.LogSubmittedAsync("PurchaseInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Submit)]
@@ -501,7 +493,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await _activityLog.LogPostedAsync("PurchaseInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Cancel)]
@@ -579,7 +571,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await _activityLog.LogCancelledAsync("PurchaseInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, "Posted", invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     /// <summary>
@@ -599,7 +591,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.AmountPaid = invoice.GrandTotal;
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
         await _repository.UpdateAsync(invoice, autoSave: true);
-        return MapToDto(invoice);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
     /// <summary>
@@ -635,48 +627,6 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return MapToDto(amended);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(amended);
     }
-
-    private static PurchaseInvoiceDto MapToDto(PurchaseInvoice invoice) => new()
-    {
-        Id = invoice.Id,
-        CompanyId = invoice.CompanyId,
-        InvoiceNumber = invoice.InvoiceNumber,
-        SupplierInvoiceNumber = invoice.SupplierInvoiceNumber,
-        IssueDate = invoice.IssueDate,
-        DueDate = invoice.DueDate,
-        SupplierId = invoice.SupplierId,
-        SupplierTin = invoice.SupplierTin,
-        CurrencyCode = invoice.CurrencyCode,
-        ExchangeRate = invoice.ExchangeRate,
-        NetTotal = invoice.NetTotal,
-        TaxAmount = invoice.TaxAmount,
-        GrandTotal = invoice.GrandTotal,
-        AmountPaid = invoice.AmountPaid,
-        OutstandingAmount = invoice.OutstandingAmount,
-        BaseNetTotal = invoice.BaseNetTotal,
-        BaseTaxAmount = invoice.BaseTaxAmount,
-        BaseGrandTotal = invoice.BaseGrandTotal,
-        BaseOutstandingAmount = invoice.BaseOutstandingAmount,
-        Status = invoice.Status.ToString(),
-        EInvoiceStatus = invoice.EInvoiceStatus.ToString(),
-        LhdnUuid = invoice.LhdnUuid,
-        IsReturn = invoice.IsReturn,
-        ReturnAgainstId = invoice.ReturnAgainstId,
-        AmendedFromId = invoice.AmendedFromId,
-        AmendmentIndex = invoice.AmendmentIndex,
-        CreditToAccountId = invoice.CreditToAccountId,
-        Items = invoice.Items.Select(i => new PurchaseInvoiceItemDto
-        {
-            Id = i.Id,
-            ItemId = i.ItemId,
-            Description = i.Description,
-            Uom = i.Uom,
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            TaxAmount = i.TaxAmount,
-            LineTotal = i.LineTotal
-        }).ToList()
-    };
 }

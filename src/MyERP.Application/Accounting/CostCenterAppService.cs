@@ -37,7 +37,7 @@ public class CostCenterAppService : ApplicationService
             .OrderBy(c => c.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<CostCenterDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<CostCenterDto>(totalCount, items.Select(ObjectMapper.Map<CostCenter, CostCenterDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -47,7 +47,7 @@ public class CostCenterAppService : ApplicationService
             input.IsGroup, input.ParentId, CurrentTenant.Id)
         { CostCenterNumber = input.CostCenterNumber };
         await _repository.InsertAsync(cc);
-        return MapToDto(cc);
+        return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
 
     [Authorize(MyERPPermissions.Accounts.Edit)]
@@ -59,15 +59,10 @@ public class CostCenterAppService : ApplicationService
         cc.IsGroup = input.IsGroup;
         cc.ParentId = input.ParentId;
         await _repository.UpdateAsync(cc);
-        return MapToDto(cc);
+        return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
 
-    private static CostCenterDto MapToDto(CostCenter c) => new()
-    {
-        Id = c.Id, Name = c.Name, CostCenterNumber = c.CostCenterNumber,
-        CompanyId = c.CompanyId, IsGroup = c.IsGroup, ParentId = c.ParentId,
-        IsActive = c.IsActive, CreationTime = c.CreationTime,
-    };
+
 }
 
 public class CostCenterDto : AuditedEntityDto<Guid>

@@ -43,7 +43,7 @@ public class SubcontractingAppService : ApplicationService
     public async Task<SubcontractingOrderDto> GetOrderAsync(Guid id)
     {
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
-        return MapOrderToDto(sco);
+        return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
     public async Task<PagedResultDto<SubcontractingOrderDto>> GetOrderListAsync(GetScoListDto input)
@@ -58,7 +58,7 @@ public class SubcontractingAppService : ApplicationService
         var items = query.OrderByDescending(s => s.OrderDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<SubcontractingOrderDto>(totalCount, items.Select(MapOrderToDto).ToList());
+        return new PagedResultDto<SubcontractingOrderDto>(totalCount, items.Select(ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
@@ -77,7 +77,7 @@ public class SubcontractingAppService : ApplicationService
         }
 
         await _scoRepository.InsertAsync(sco);
-        return MapOrderToDto(sco);
+        return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
@@ -86,7 +86,7 @@ public class SubcontractingAppService : ApplicationService
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Submit();
         await _scoRepository.UpdateAsync(sco);
-        return MapOrderToDto(sco);
+        return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
@@ -95,7 +95,7 @@ public class SubcontractingAppService : ApplicationService
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Cancel();
         await _scoRepository.UpdateAsync(sco);
-        return MapOrderToDto(sco);
+        return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
     // === Subcontracting Receipt ===
@@ -116,7 +116,7 @@ public class SubcontractingAppService : ApplicationService
         }
 
         await _scrRepository.InsertAsync(scr);
-        return MapReceiptToDto(scr);
+        return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Submit)]
@@ -159,7 +159,7 @@ public class SubcontractingAppService : ApplicationService
 
         await _scoRepository.UpdateAsync(sco);
         await _scrRepository.UpdateAsync(scr);
-        return MapReceiptToDto(scr);
+        return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Cancel)]
@@ -195,29 +195,8 @@ public class SubcontractingAppService : ApplicationService
 
         await _scoRepository.UpdateAsync(sco);
         await _scrRepository.UpdateAsync(scr);
-        return MapReceiptToDto(scr);
+        return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
-
-    private static SubcontractingOrderDto MapOrderToDto(SubcontractingOrder s) => new()
-    {
-        Id = s.Id, OrderNumber = s.OrderNumber, OrderDate = s.OrderDate,
-        SupplierId = s.SupplierId, CompanyId = s.CompanyId,
-        NetTotal = s.NetTotal, GrandTotal = s.GrandTotal,
-        Status = s.Status, PerReceived = s.PerReceived,
-        CreationTime = s.CreationTime,
-        Items = s.Items.Select(i => new ScoItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            Qty = i.Qty, Rate = i.Rate, ReceivedQty = i.ReceivedQty,
-        }).ToList(),
-    };
-
-    private static SubcontractingReceiptDto MapReceiptToDto(SubcontractingReceipt r) => new()
-    {
-        Id = r.Id, ReceiptNumber = r.ReceiptNumber, PostingDate = r.PostingDate,
-        SupplierId = r.SupplierId, SubcontractingOrderId = r.SubcontractingOrderId,
-        NetTotal = r.NetTotal, Status = r.Status, CreationTime = r.CreationTime,
-    };
 }
 
 // DTOs

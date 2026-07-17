@@ -67,13 +67,13 @@ public class BlanketOrderAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<BlanketOrderDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<BlanketOrderDto>(totalCount, items.Select(x => ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(x)).ToList());
     }
 
     public async Task<BlanketOrderDto> GetAsync(Guid id)
     {
         var bo = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
-        return MapToDto(bo);
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Create)]
@@ -90,7 +90,7 @@ public class BlanketOrderAppService : ApplicationService
         foreach (var item in input.Items)
             bo.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
         await _repository.InsertAsync(bo);
-        return MapToDto(bo);
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Submit)]
@@ -106,7 +106,7 @@ public class BlanketOrderAppService : ApplicationService
             bo.CompanyId, bo.OrderNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: bo.TenantId));
 
-        return MapToDto(bo);
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Cancel)]
@@ -122,20 +122,6 @@ public class BlanketOrderAppService : ApplicationService
             bo.CompanyId, bo.OrderNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: bo.TenantId));
 
-        return MapToDto(bo);
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
-
-    private static BlanketOrderDto MapToDto(BlanketOrder b) => new()
-    {
-        Id = b.Id, CompanyId = b.CompanyId, OrderNumber = b.OrderNumber,
-        OrderType = b.OrderType, PartyId = b.PartyId, PartyName = b.PartyName,
-        FromDate = b.FromDate, ToDate = b.ToDate, Status = (int)b.Status,
-        CreationTime = b.CreationTime,
-        Items = b.Items.Select(i => new BlanketOrderItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, ItemName = i.ItemName,
-            Qty = i.Qty, Rate = i.Rate, OrderedQty = i.OrderedQty,
-            RemainingQty = i.RemainingQty,
-        }).ToArray(),
-    };
 }

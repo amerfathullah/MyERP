@@ -91,7 +91,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _activityLog.LogConvertedAsync("Quotation", quotation.Id, quotation.CompanyId,
             "SalesOrder", salesOrder.Id, quotation.QuotationNumber, quotation.TenantId);
 
-        return await MapSalesOrderToDtoAsync(salesOrder);
+        var soDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(salesOrder);
+        try { soDto.CustomerName = (await _customerRepository.GetAsync(salesOrder.CustomerId)).Name; } catch { }
+        return soDto;
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
@@ -132,7 +134,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
             "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
-        return MapDeliveryNoteToDto(deliveryNote);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(deliveryNote);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -175,7 +177,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
             "SalesInvoice", invoice.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
-        return await MapSalesInvoiceToDtoAsync(invoice);
+        var siDto1 = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        try { siDto1.CustomerName = (await _customerRepository.GetAsync(invoice.CustomerId)).Name; } catch { }
+        return siDto1;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -212,111 +216,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _activityLog.LogConvertedAsync("DeliveryNote", deliveryNote.Id, deliveryNote.CompanyId,
             "SalesInvoice", invoice.Id, deliveryNote.DeliveryNumber, deliveryNote.TenantId);
 
-        return await MapSalesInvoiceToDtoAsync(invoice);
-    }
-
-    private async Task<SalesOrderDto> MapSalesOrderToDtoAsync(SalesOrder order)
-    {
-        string? customerName = null;
-        try { customerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
-
-        return new SalesOrderDto
-        {
-            Id = order.Id,
-            CompanyId = order.CompanyId,
-            OrderNumber = order.OrderNumber,
-            OrderDate = order.OrderDate,
-            DeliveryDate = order.DeliveryDate,
-            CustomerId = order.CustomerId,
-            CustomerName = customerName,
-            CustomerPoNumber = order.CustomerPoNumber,
-            CurrencyCode = order.CurrencyCode,
-            NetTotal = order.NetTotal,
-            TaxAmount = order.TaxAmount,
-            GrandTotal = order.GrandTotal,
-            Terms = order.Terms,
-            Notes = order.Notes,
-            Status = order.Status.ToString(),
-            QuotationId = order.QuotationId,
-            Items = order.Items.Select(i => new SalesOrderItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
-    }
-
-    private DeliveryNoteDto MapDeliveryNoteToDto(DeliveryNote dn)
-    {
-        return new DeliveryNoteDto
-        {
-            Id = dn.Id,
-            CompanyId = dn.CompanyId,
-            DeliveryNumber = dn.DeliveryNumber,
-            PostingDate = dn.PostingDate,
-            CustomerId = dn.CustomerId,
-            SalesOrderId = dn.SalesOrderId,
-            WarehouseId = dn.WarehouseId,
-            CurrencyCode = dn.CurrencyCode,
-            NetTotal = dn.NetTotal,
-            TaxAmount = dn.TaxAmount,
-            GrandTotal = dn.GrandTotal,
-            IsReturn = dn.IsReturn,
-            Status = dn.Status.ToString(),
-            Items = dn.Items.Select(i => new DeliveryNoteItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
-    }
-
-    private async Task<SalesInvoiceDto> MapSalesInvoiceToDtoAsync(SalesInvoice invoice)
-    {
-        string? customerName = null;
-        try { customerName = (await _customerRepository.GetAsync(invoice.CustomerId)).Name; } catch { }
-
-        return new SalesInvoiceDto
-        {
-            Id = invoice.Id,
-            CompanyId = invoice.CompanyId,
-            InvoiceNumber = invoice.InvoiceNumber,
-            IssueDate = invoice.IssueDate,
-            DueDate = invoice.DueDate,
-            CustomerId = invoice.CustomerId,
-            CustomerName = customerName,
-            CurrencyCode = invoice.CurrencyCode,
-            NetTotal = invoice.NetTotal,
-            TaxAmount = invoice.TaxAmount,
-            GrandTotal = invoice.GrandTotal,
-            AmountPaid = invoice.AmountPaid,
-            OutstandingAmount = invoice.OutstandingAmount,
-            Status = invoice.Status.ToString(),
-            EInvoiceStatus = invoice.EInvoiceStatus.ToString(),
-            LhdnUuid = invoice.LhdnUuid,
-            Items = invoice.Items.Select(i => new SalesInvoiceItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal,
-            }).ToList(),
-        };
+        var siDto2 = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        try { siDto2.CustomerName = (await _customerRepository.GetAsync(invoice.CustomerId)).Name; } catch { }
+        return siDto2;
     }
 }

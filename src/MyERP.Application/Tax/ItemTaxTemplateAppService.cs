@@ -53,13 +53,13 @@ public class ItemTaxTemplateAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(t => t.Title)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<ItemTaxTemplateDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ItemTaxTemplateDto>(totalCount, items.Select(x => ObjectMapper.Map<ItemTaxTemplate, ItemTaxTemplateDto>(x)).ToList());
     }
 
     public async Task<ItemTaxTemplateDto> GetAsync(Guid id)
     {
         var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
-        return MapToDto(t);
+        return ObjectMapper.Map<ItemTaxTemplate, ItemTaxTemplateDto>(t);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Create)]
@@ -69,18 +69,9 @@ public class ItemTaxTemplateAppService : ApplicationService
         foreach (var d in input.Details)
             t.AddDetail(d.TaxAccountId, d.TaxRate, d.NotApplicable);
         await _repository.InsertAsync(t);
-        return MapToDto(t);
+        return ObjectMapper.Map<ItemTaxTemplate, ItemTaxTemplateDto>(t);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
-
-    private static ItemTaxTemplateDto MapToDto(ItemTaxTemplate t) => new()
-    {
-        Id = t.Id, CompanyId = t.CompanyId, Title = t.Title, IsDisabled = t.IsDisabled,
-        Details = t.Details.Select(d => new ItemTaxTemplateDetailDto
-        {
-            Id = d.Id, TaxAccountId = d.TaxAccountId, TaxRate = d.TaxRate, NotApplicable = d.NotApplicable,
-        }).ToArray(),
-    };
 }

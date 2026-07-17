@@ -36,17 +36,8 @@ public class SalarySlipAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<SalarySlipDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<SalarySlipDto>(totalCount, items.Select(x => ObjectMapper.Map<SalarySlip, SalarySlipDto>(x)).ToList());
     }
 
-    public async Task<SalarySlipDto> GetAsync(Guid id) => MapToDto(await _repository.GetAsync(id));
-
-    private static SalarySlipDto MapToDto(SalarySlip s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, EmployeeId = s.EmployeeId,
-        EmployeeName = s.EmployeeName, PostingDate = s.PostingDate,
-        StartDate = s.StartDate, EndDate = s.EndDate,
-        GrossAmount = s.GrossAmount, TotalDeductions = s.TotalDeductions,
-        NetAmount = s.NetAmount, Status = (int)s.Status,
-    };
+    public async Task<SalarySlipDto> GetAsync(Guid id) => ObjectMapper.Map<SalarySlip, SalarySlipDto>(await _repository.GetAsync(id));
 }

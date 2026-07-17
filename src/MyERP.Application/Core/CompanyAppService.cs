@@ -51,6 +51,42 @@ public class CompanyAppService :
         DeletePolicyName = MyERPPermissions.Companies.Delete;
     }
 
+    protected override Company MapToEntity(CreateUpdateCompanyDto input)
+    {
+        var entity = new Company(
+            GuidGenerator.Create(),
+            input.Name,
+            CurrentTenant.Id);
+        MapUpdateFields(input, entity);
+        return entity;
+    }
+
+    protected override void MapToEntity(CreateUpdateCompanyDto input, Company entity)
+    {
+        entity.SetName(input.Name);
+        MapUpdateFields(input, entity);
+    }
+
+    private static void MapUpdateFields(CreateUpdateCompanyDto input, Company entity)
+    {
+        entity.ShortName = input.ShortName;
+        entity.TaxId = input.TaxId;
+        entity.RegistrationNumber = input.RegistrationNumber;
+        entity.SstRegistrationNumber = input.SstRegistrationNumber;
+        entity.MsicCode = input.MsicCode;
+        entity.Phone = input.Phone;
+        entity.Email = input.Email;
+        entity.Website = input.Website;
+        entity.Address = input.Address;
+        entity.City = input.City;
+        entity.State = input.State;
+        entity.PostalCode = input.PostalCode;
+        entity.Country = input.Country;
+        entity.CurrencyCode = input.CurrencyCode;
+        entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
+        entity.IsActive = input.IsActive;
+    }
+
     [Authorize(MyERPPermissions.Companies.Edit)]
     public async Task UpdateSettingsAsync(Guid id, UpdateCompanySettingsDto input)
     {

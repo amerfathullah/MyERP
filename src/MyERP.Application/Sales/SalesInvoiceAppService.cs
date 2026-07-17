@@ -85,7 +85,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     public async Task<SalesInvoiceDto> GetAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)
@@ -94,15 +94,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         return query
             .Where(e => e.ParentId == invoiceId && e.ParentType == "SalesInvoice")
             .OrderBy(e => e.DueDate)
-            .Select(e => new PaymentScheduleDto
-            {
-                Id = e.Id,
-                DueDate = e.DueDate,
-                InvoicePortion = e.InvoicePortion,
-                PaymentAmount = e.PaymentAmount,
-                PaidAmount = e.PaidAmount,
-                Outstanding = e.Outstanding,
-            }).ToList();
+            .Select(ObjectMapper.Map<Accounting.Entities.PaymentScheduleEntry, PaymentScheduleDto>).ToList();
     }
 
     public async Task<PagedResultDto<SalesInvoiceDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -130,7 +122,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         return new PagedResultDto<SalesInvoiceDto>(
             totalCount,
-            invoices.Select(MapToDto).ToList());
+            invoices.Select(ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -321,7 +313,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -498,7 +490,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _activityLog.LogSubmittedAsync("SalesInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -542,7 +534,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _activityLog.LogPostedAsync("SalesInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Cancel)]
@@ -606,7 +598,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _activityLog.LogCancelledAsync("SalesInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, "Posted", invoice.TenantId);
 
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     /// <summary>
@@ -658,7 +650,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
 
         await _repository.UpdateAsync(invoice, autoSave: true);
-        return MapToDto(invoice);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
     /// <summary>
@@ -692,49 +684,6 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
-        return MapToDto(amended);
-    }
-
-    private SalesInvoiceDto MapToDto(SalesInvoice invoice)
-    {
-        return new SalesInvoiceDto
-        {
-            Id = invoice.Id,
-            CompanyId = invoice.CompanyId,
-            InvoiceNumber = invoice.InvoiceNumber,
-            IssueDate = invoice.IssueDate,
-            DueDate = invoice.DueDate,
-            CustomerId = invoice.CustomerId,
-            CurrencyCode = invoice.CurrencyCode,
-            ExchangeRate = invoice.ExchangeRate,
-            NetTotal = invoice.NetTotal,
-            TaxAmount = invoice.TaxAmount,
-            GrandTotal = invoice.GrandTotal,
-            AmountPaid = invoice.AmountPaid,
-            OutstandingAmount = invoice.OutstandingAmount,
-            BaseNetTotal = invoice.BaseNetTotal,
-            BaseTaxAmount = invoice.BaseTaxAmount,
-            BaseGrandTotal = invoice.BaseGrandTotal,
-            BaseOutstandingAmount = invoice.BaseOutstandingAmount,
-            Status = invoice.Status.ToString(),
-            EInvoiceStatus = invoice.EInvoiceStatus.ToString(),
-            LhdnUuid = invoice.LhdnUuid,
-            IsReturn = invoice.IsReturn,
-            ReturnAgainstId = invoice.ReturnAgainstId,
-            AmendedFromId = invoice.AmendedFromId,
-            AmendmentIndex = invoice.AmendmentIndex,
-            DebitToAccountId = invoice.DebitToAccountId,
-            Items = invoice.Items.Select(i => new SalesInvoiceItemDto
-            {
-                Id = i.Id,
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Uom = i.Uom,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TaxAmount = i.TaxAmount,
-                LineTotal = i.LineTotal
-            }).ToList()
-        };
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(amended);
     }
 }

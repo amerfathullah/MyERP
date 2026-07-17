@@ -39,7 +39,7 @@ public class ItemGroupAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderBy(g => g.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<ItemGroupDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<ItemGroupDto>(totalCount, items.Select(ObjectMapper.Map<ItemGroup, ItemGroupDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Items.Create)]
@@ -51,12 +51,8 @@ public class ItemGroupAppService : ApplicationService
             DefaultWarehouseId = input.DefaultWarehouseId,
         };
         await _repository.InsertAsync(ig);
-        return MapToDto(ig);
+        return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
     }
 
-    private static ItemGroupDto MapToDto(ItemGroup g) => new()
-    {
-        Id = g.Id, Name = g.Name, ParentId = g.ParentId,
-        IsGroup = g.IsGroup, DefaultWarehouseId = g.DefaultWarehouseId,
-    };
+
 }

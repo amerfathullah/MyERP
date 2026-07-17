@@ -33,7 +33,7 @@ public class RequestForQuotationAppService : ApplicationService
     public async Task<RfqDto> GetAsync(Guid id)
     {
         var rfq = await _repository.GetAsync(id);
-        return MapToDto(rfq);
+        return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
 
     public async Task<PagedResultDto<RfqDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -52,7 +52,7 @@ public class RequestForQuotationAppService : ApplicationService
         var list = query.OrderByDescending(x => x.TransactionDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<RfqDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<RfqDto>(count, list.Select(x => ObjectMapper.Map<RequestForQuotation, RfqDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
@@ -82,7 +82,7 @@ public class RequestForQuotationAppService : ApplicationService
         }
 
         await _repository.InsertAsync(rfq, autoSave: true);
-        return MapToDto(rfq);
+        return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
@@ -91,7 +91,7 @@ public class RequestForQuotationAppService : ApplicationService
         var rfq = await _repository.GetAsync(id);
         rfq.Submit();
         await _repository.UpdateAsync(rfq, autoSave: true);
-        return MapToDto(rfq);
+        return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
@@ -100,29 +100,8 @@ public class RequestForQuotationAppService : ApplicationService
         var rfq = await _repository.GetAsync(id);
         rfq.Cancel();
         await _repository.UpdateAsync(rfq, autoSave: true);
-        return MapToDto(rfq);
+        return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
-
-    private static RfqDto MapToDto(RequestForQuotation rfq) => new()
-    {
-        Id = rfq.Id,
-        CompanyId = rfq.CompanyId,
-        RfqNumber = rfq.RfqNumber,
-        TransactionDate = rfq.TransactionDate,
-        CurrencyCode = rfq.CurrencyCode,
-        MessageForSupplier = rfq.MessageForSupplier,
-        Status = rfq.Status.ToString(),
-        Items = rfq.Items.Select(i => new RfqItemDto
-        {
-            Id = i.Id, ItemId = i.ItemId, Description = i.Description,
-            Qty = i.Qty, Uom = i.Uom,
-        }).ToList(),
-        Suppliers = rfq.Suppliers.Select(s => new RfqSupplierDto
-        {
-            Id = s.Id, SupplierId = s.SupplierId, SupplierName = s.SupplierName,
-            Email = s.Email, EmailSent = s.EmailSent, QuoteStatus = s.QuoteStatus,
-        }).ToList(),
-    };
 }
 
 public class RfqDto

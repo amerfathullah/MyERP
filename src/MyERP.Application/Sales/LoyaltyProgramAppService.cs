@@ -32,7 +32,7 @@ public class LoyaltyProgramAppService : ApplicationService
     public async Task<LoyaltyProgramDto> GetAsync(Guid id)
     {
         var program = await _repository.GetAsync(id);
-        return MapToDto(program);
+        return ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(program);
     }
 
     public async Task<PagedResultDto<LoyaltyProgramDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -42,7 +42,7 @@ public class LoyaltyProgramAppService : ApplicationService
         var list = query.OrderBy(x => x.Name)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
-        return new PagedResultDto<LoyaltyProgramDto>(count, list.Select(MapToDto).ToList());
+        return new PagedResultDto<LoyaltyProgramDto>(count, list.Select(x => ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(x)).ToList());
     }
 
     [Authorize(MyERPPermissions.LoyaltyPrograms.Create)]
@@ -66,7 +66,7 @@ public class LoyaltyProgramAppService : ApplicationService
 
         program.Validate();
         await _repository.InsertAsync(program);
-        return MapToDto(program);
+        return ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(program);
     }
 
     [Authorize(MyERPPermissions.LoyaltyPrograms.Edit)]
@@ -80,7 +80,7 @@ public class LoyaltyProgramAppService : ApplicationService
         program.ExpenseAccountId = input.ExpenseAccountId;
         program.CostCenterId = input.CostCenterId;
         await _repository.UpdateAsync(program);
-        return MapToDto(program);
+        return ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(program);
     }
 
     [Authorize(MyERPPermissions.LoyaltyPrograms.Delete)]
@@ -149,25 +149,6 @@ public class LoyaltyProgramAppService : ApplicationService
             programId, customerId, pointsToRedeem, DateTime.UtcNow, companyId);
         return result.RedemptionValue;
     }
-
-    private static LoyaltyProgramDto MapToDto(LoyaltyProgram p) => new()
-    {
-        Id = p.Id,
-        CompanyId = p.CompanyId,
-        Name = p.Name,
-        ConversionFactor = p.ConversionFactor,
-        ExpiryDurationDays = p.ExpiryDurationDays,
-        IsEnabled = p.IsEnabled,
-        ExpenseAccountId = p.ExpenseAccountId,
-        CostCenterId = p.CostCenterId,
-        Tiers = p.Tiers.OrderBy(t => t.MinSpent).Select(t => new LoyaltyProgramTierDto
-        {
-            TierName = t.TierName,
-            MinSpent = t.MinSpent,
-            CollectionFactor = t.CollectionFactor,
-            RedemptionFactor = t.RedemptionFactor
-        }).ToList()
-    };
 }
 
 #region DTOs

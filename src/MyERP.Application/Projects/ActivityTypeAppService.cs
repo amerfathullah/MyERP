@@ -32,14 +32,8 @@ public class ActivityTypeAppService : ApplicationService
     public async Task<List<ActivityTypeDto>> GetListAsync()
     {
         var query = await _repository.GetQueryableAsync();
-        return query.OrderBy(a => a.Name).ToList().Select(a => new ActivityTypeDto
-        {
-            Id = a.Id,
-            Name = a.Name,
-            DefaultBillingRate = a.DefaultBillingRate,
-            DefaultCostingRate = a.DefaultCostingRate,
-            IsEnabled = a.IsEnabled
-        }).ToList();
+        return query.OrderBy(a => a.Name).ToList()
+            .Select(ObjectMapper.Map<ActivityType, ActivityTypeDto>).ToList();
     }
 
     [Authorize(MyERPPermissions.Projects.Create)]
@@ -53,14 +47,7 @@ public class ActivityTypeAppService : ApplicationService
             CurrentTenant.Id);
 
         await _repository.InsertAsync(entity);
-        return new ActivityTypeDto
-        {
-            Id = entity.Id,
-            Name = entity.Name,
-            DefaultBillingRate = entity.DefaultBillingRate,
-            DefaultCostingRate = entity.DefaultCostingRate,
-            IsEnabled = entity.IsEnabled
-        };
+        return ObjectMapper.Map<ActivityType, ActivityTypeDto>(entity);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
@@ -71,14 +58,7 @@ public class ActivityTypeAppService : ApplicationService
         entity.DefaultCostingRate = input.DefaultCostingRate;
         entity.IsEnabled = input.IsEnabled;
         await _repository.UpdateAsync(entity);
-        return new ActivityTypeDto
-        {
-            Id = entity.Id,
-            Name = entity.Name,
-            DefaultBillingRate = entity.DefaultBillingRate,
-            DefaultCostingRate = entity.DefaultCostingRate,
-            IsEnabled = entity.IsEnabled
-        };
+        return ObjectMapper.Map<ActivityType, ActivityTypeDto>(entity);
     }
 
     [Authorize(MyERPPermissions.Projects.Delete)]
@@ -93,14 +73,7 @@ public class ActivityTypeAppService : ApplicationService
     {
         var query = await _costRepository.GetQueryableAsync();
         return query.Where(c => c.ActivityTypeId == activityTypeId).ToList()
-            .Select(c => new ActivityCostDto
-            {
-                Id = c.Id,
-                EmployeeId = c.EmployeeId,
-                ActivityTypeId = c.ActivityTypeId,
-                BillingRate = c.BillingRate,
-                CostingRate = c.CostingRate
-            }).ToList();
+            .Select(ObjectMapper.Map<ActivityCost, ActivityCostDto>).ToList();
     }
 
     /// <summary>
@@ -118,7 +91,7 @@ public class ActivityTypeAppService : ApplicationService
             existing.BillingRate = input.BillingRate;
             existing.CostingRate = input.CostingRate;
             await _costRepository.UpdateAsync(existing);
-            return MapCostToDto(existing);
+            return ObjectMapper.Map<ActivityCost, ActivityCostDto>(existing);
         }
 
         var cost = new ActivityCost(
@@ -130,20 +103,11 @@ public class ActivityTypeAppService : ApplicationService
             CurrentTenant.Id);
 
         await _costRepository.InsertAsync(cost);
-        return MapCostToDto(cost);
+        return ObjectMapper.Map<ActivityCost, ActivityCostDto>(cost);
     }
 
     [Authorize(MyERPPermissions.Projects.Delete)]
     public async Task DeleteCostAsync(Guid id) => await _costRepository.DeleteAsync(id);
-
-    private static ActivityCostDto MapCostToDto(ActivityCost c) => new()
-    {
-        Id = c.Id,
-        EmployeeId = c.EmployeeId,
-        ActivityTypeId = c.ActivityTypeId,
-        BillingRate = c.BillingRate,
-        CostingRate = c.CostingRate
-    };
 }
 
 #region DTOs

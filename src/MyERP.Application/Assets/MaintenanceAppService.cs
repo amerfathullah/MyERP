@@ -62,13 +62,13 @@ public class MaintenanceAppService : ApplicationService
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.StartDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<MaintenanceScheduleDto>(totalCount, items.Select(MapToDto).ToList());
+        return new PagedResultDto<MaintenanceScheduleDto>(totalCount, items.Select(x => ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(x)).ToList());
     }
 
     public async Task<MaintenanceScheduleDto> GetScheduleAsync(Guid id)
     {
         var ms = (await _scheduleRepo.WithDetailsAsync()).First(s => s.Id == id);
-        return MapToDto(ms);
+        return ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(ms);
     }
 
     [Authorize(MyERPPermissions.Assets.Create)]
@@ -83,7 +83,7 @@ public class MaintenanceAppService : ApplicationService
         };
         GenerateScheduleDetails(ms);
         await _scheduleRepo.InsertAsync(ms);
-        return MapToDto(ms);
+        return ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(ms);
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -92,7 +92,7 @@ public class MaintenanceAppService : ApplicationService
         var ms = (await _scheduleRepo.WithDetailsAsync()).First(s => s.Id == id);
         ms.Submit();
         await _scheduleRepo.UpdateAsync(ms);
-        return MapToDto(ms);
+        return ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(ms);
     }
 
     private void GenerateScheduleDetails(MaintenanceSchedule schedule)
@@ -108,15 +108,4 @@ public class MaintenanceAppService : ApplicationService
             date = date.AddMonths(months);
         }
     }
-
-    private static MaintenanceScheduleDto MapToDto(MaintenanceSchedule s) => new()
-    {
-        Id = s.Id, CompanyId = s.CompanyId, AssetId = s.AssetId, ItemId = s.ItemId,
-        CustomerId = s.CustomerId, StartDate = s.StartDate, EndDate = s.EndDate,
-        Periodicity = s.Periodicity, Status = (int)s.Status,
-        Details = s.Details.Select(d => new MaintenanceScheduleDetailDto
-        {
-            Id = d.Id, ScheduledDate = d.ScheduledDate, ActualDate = d.ActualDate, IsCompleted = d.IsCompleted,
-        }).ToArray(),
-    };
 }
