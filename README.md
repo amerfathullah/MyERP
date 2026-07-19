@@ -2,7 +2,7 @@
 
 A full-featured, modular Enterprise Resource Planning system built with [ABP Framework](https://abp.io/) 10.5, .NET 10, Angular 21, and PostgreSQL. Designed for Malaysian businesses with built-in LHDN e-Invoice (MyInvois) integration, SST tax engine, and payroll compliance (EPF, SOCSO, EIS, PCB).
 
-[![CI](https://github.com/your-org/myerp/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/myerp/actions/workflows/ci.yml)
+[![CI](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml/badge.svg)](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml)
 
 ---
 
