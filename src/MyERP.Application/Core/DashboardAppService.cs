@@ -60,6 +60,14 @@ public class DashboardAppService : ApplicationService
         var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
         var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
 
+        var monthlyRevenue = siQuery
+            .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
+            .Sum(i => i.GrandTotal);
+
+        var monthlyExpenses = piQuery
+            .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
+            .Sum(i => i.GrandTotal);
+
         return new DashboardSummaryDto
         {
             TotalCustomers = (int)await _customerRepo.GetCountAsync(),
@@ -71,12 +79,8 @@ public class DashboardAppService : ApplicationService
                 po.Status == DocumentStatus.ToDeliverAndBill || po.Status == DocumentStatus.ToDeliver || po.Status == DocumentStatus.ToBill),
             SubmittedEInvoices = (int)await _eInvoiceRepo.GetCountAsync(),
             PendingApprovals = (int)await _approvalRepo.CountAsync(a => a.Status == ApprovalStatus.Pending),
-            MonthlyRevenue = siQuery
-                .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
-                .Select(i => i.GrandTotal).DefaultIfEmpty(0).Sum(),
-            MonthlyExpenses = piQuery
-                .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
-                .Select(i => i.GrandTotal).DefaultIfEmpty(0).Sum(),
+            MonthlyRevenue = monthlyRevenue,
+            MonthlyExpenses = monthlyExpenses,
         };
     }
 

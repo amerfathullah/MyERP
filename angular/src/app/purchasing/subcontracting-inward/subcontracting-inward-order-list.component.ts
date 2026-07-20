@@ -3,24 +3,12 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcontracting-inward-order.service';
 import { FormsModule } from '@angular/forms';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface ScioEntry {
-  id: string;
-  orderNumber: string;
-  orderDate: string;
-  supplierId: string;
-  salesOrderId: string | null;
-  netTotal: number;
-  grandTotal: number;
-  status: number;
-  perReceived: number;
-  perBilled: number;
-}
+import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models';
 
 @Component({
   selector: 'app-subcontracting-inward-order-list',
@@ -129,10 +117,10 @@ interface ScioEntry {
   `
 })
 export class SubcontractingInwardOrderListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private scioService = inject(SubcontractingInwardOrderService);
   private companyContext = inject(CompanyContextService);
 
-  entries = signal<ScioEntry[]>([]);
+  entries = signal<SubcontractingInwardOrderDto[]>([]);
   loading = signal(false);
   totalCount = signal(0);
   currentPage = 0;
@@ -148,7 +136,7 @@ export class SubcontractingInwardOrderListComponent implements OnInit {
     if (companyId) params.companyId = companyId;
     if (this.searchTerm) params.filter = this.searchTerm;
     if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/subcontracting-inward-order', { params }).subscribe({
+    this.scioService.getList({ skipCount: this.currentPage * 10, maxResultCount: 10, companyId: companyId || undefined, filter: this.searchTerm || undefined, status: this.statusFilter || undefined, sorting: '' } as any).subscribe({
       next: res => {
         this.entries.set(res.items ?? []);
         this.totalCount.set(res.totalCount ?? 0);
@@ -159,15 +147,15 @@ export class SubcontractingInwardOrderListComponent implements OnInit {
   }
 
   submit(id: string) {
-    this.http.post(`/api/app/subcontracting-inward-order/${id}/submit`, {}).subscribe({ next: () => this.loadData() });
+    this.scioService.submit(id).subscribe({ next: () => this.loadData() });
   }
 
   close(id: string) {
-    this.http.post(`/api/app/subcontracting-inward-order/${id}/close`, {}).subscribe({ next: () => this.loadData() });
+    this.scioService.close(id).subscribe({ next: () => this.loadData() });
   }
 
   cancelEntry(id: string) {
-    this.http.post(`/api/app/subcontracting-inward-order/${id}/cancel`, {}).subscribe({ next: () => this.loadData() });
+    this.scioService.cancel(id).subscribe({ next: () => this.loadData() });
   }
 
   getStatusLabel(status: number): string {

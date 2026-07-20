@@ -4,8 +4,9 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { CustomerService } from '../proxy/sales/customer.service';
+import { CompanyService } from '../proxy/core/company.service';
+import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
@@ -22,7 +23,8 @@ export class CustomerFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
+  private reconciliationService = inject(PaymentReconciliationService);
   private service = inject(CustomerService);
   private toaster = inject(ToasterService);
 
@@ -57,7 +59,7 @@ export class CustomerFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
@@ -65,13 +67,12 @@ export class CustomerFormComponent implements OnInit {
         this.form.patchValue(customer as any);
       });
       // Load outstanding invoices for this customer
-      this.http.get<any>('/api/app/payment-reconciliation/outstanding-invoices', {
-        params: { partyType: 'Customer', partyId: this.entityId! }
-      }).subscribe(invoices => {
-        const items = invoices ?? [];
-        this.outstandingInvoices.set(items);
-        this.totalOutstanding.set(items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0));
-      });
+      this.reconciliationService.getOutstandingInvoices('Customer', this.entityId!)
+        .subscribe(invoices => {
+          const items = invoices ?? [];
+          this.outstandingInvoices.set(items);
+          this.totalOutstanding.set(items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0));
+        });
     }
   }
 

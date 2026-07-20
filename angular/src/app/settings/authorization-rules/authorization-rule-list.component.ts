@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { AuthorizationRuleService } from '../../proxy/core/authorization-rule.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -60,7 +60,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class AuthorizationRuleListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private authRuleService = inject(AuthorizationRuleService);
   private companyContext = inject(CompanyContextService);
   rules: any[] = [];
   isLoading = false;
@@ -75,7 +75,7 @@ export class AuthorizationRuleListComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
     if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/authorization-rule', { params }).subscribe({
+    this.authRuleService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId: companyId || undefined, sorting: '' } as any).subscribe({
       next: res => { this.rules = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });

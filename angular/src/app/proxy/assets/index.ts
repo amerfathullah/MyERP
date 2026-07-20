@@ -1,4 +1,5 @@
 export * from './asset-capitalization.service';
+export * from './asset-category.service';
 export * from './asset-movement.service';
 export * from './asset-repair.service';
 export * from './asset-status.enum';

@@ -2,22 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ItemStandardCostService } from '../../proxy/inventory/item-standard-cost.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import { FormsModule } from '@angular/forms';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface ItemStandardCostEntry {
-  id: string;
-  companyId: string;
-  itemId: string;
-  standardRate: number;
-  effectiveDate: string;
-  previousRate: number | null;
-  status: number;
-  creationTime: string;
-}
+import type { ItemStandardCostDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-item-standard-cost-list',
@@ -129,10 +120,11 @@ interface ItemStandardCostEntry {
   `
 })
 export class ItemStandardCostListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(ItemStandardCostService);
+  private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
 
-  entries = signal<ItemStandardCostEntry[]>([]);
+  entries = signal<ItemStandardCostDto[]>([]);
   items = signal<{ id: string; itemCode: string }[]>([]);
   loading = signal(false);
   totalCount = signal(0);
@@ -148,9 +140,7 @@ export class ItemStandardCostListComponent implements OnInit {
   loadData() {
     this.loading.set(true);
     const companyId = this.companyContext.currentCompanyId();
-    const params: any = { skipCount: this.currentPage * 10, maxResultCount: 10 };
-    if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/item-standard-cost', { params }).subscribe({
+    this.service.getList({ skipCount: this.currentPage * 10, maxResultCount: 10, companyId: companyId ?? undefined } as any).subscribe({
       next: res => {
         this.entries.set(res.items ?? []);
         this.totalCount.set(res.totalCount ?? 0);
@@ -161,28 +151,28 @@ export class ItemStandardCostListComponent implements OnInit {
   }
 
   loadItems() {
-    this.http.get<any>('/api/app/item', { params: { maxResultCount: 500 } }).subscribe({
+    this.itemService.getList({ maxResultCount: 500 } as any).subscribe({
       next: res => this.items.set((res.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode ?? i.itemName })))
     });
   }
 
   create() {
     const companyId = this.companyContext.currentCompanyId();
-    this.http.post('/api/app/item-standard-cost', {
+    this.service.create({
       ...this.newEntry, companyId
-    }).subscribe({
+    } as any).subscribe({
       next: () => { this.showCreateForm = false; this.loadData(); },
     });
   }
 
   submit(id: string) {
-    this.http.post(`/api/app/item-standard-cost/${id}/submit`, {}).subscribe({
+    this.service.submit(id).subscribe({
       next: () => this.loadData()
     });
   }
 
   cancel(id: string) {
-    this.http.post(`/api/app/item-standard-cost/${id}/cancel`, {}).subscribe({
+    this.service.cancel(id).subscribe({
       next: () => this.loadData()
     });
   }

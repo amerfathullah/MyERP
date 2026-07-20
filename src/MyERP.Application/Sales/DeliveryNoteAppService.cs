@@ -184,6 +184,30 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
+    [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> UpdateAsync(Guid id, CreateDeliveryNoteDto input)
+    {
+        var dn = await _repository.GetAsync(id);
+        if (dn.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft delivery notes can be edited");
+
+        dn.PostingDate = input.PostingDate;
+        dn.ShippingAddress = input.ShippingAddress;
+        dn.Transporter = input.Transporter;
+        dn.TrackingNumber = input.TrackingNumber;
+        dn.Notes = input.Notes;
+
+        dn.ClearItems();
+        foreach (var item in input.Items)
+        {
+            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId);
+        }
+
+        await _repository.UpdateAsync(dn, autoSave: true);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+    }
+
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
     public async Task<DeliveryNoteDto> SubmitAsync(Guid id)
     {

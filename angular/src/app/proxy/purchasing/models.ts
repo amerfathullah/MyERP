@@ -52,6 +52,7 @@ export interface CreatePurchaseOrderItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  warehouseId?: string | null;
 }
 
 export interface CreatePurchaseReceiptDto {
@@ -105,6 +106,15 @@ export interface CreateSQItemDto {
   rate?: number;
 }
 
+export interface CreateScioItemDto {
+  itemId?: string;
+  bomId?: string | null;
+  quantity?: number;
+  rate?: number;
+  warehouseId?: string | null;
+  serviceCostPerQty?: number;
+}
+
 export interface CreateScoItemDto {
   itemId: string;
   itemName: string;
@@ -145,6 +155,16 @@ export interface CreateStandingDto {
   preventRfqs?: boolean;
   warnPos?: boolean;
   warnRfqs?: boolean;
+}
+
+export interface CreateSubcontractingInwardOrderDto {
+  companyId?: string;
+  supplierId?: string;
+  orderDate?: string;
+  salesOrderId?: string | null;
+  subcontractingOrderId?: string | null;
+  currencyCode?: string;
+  items?: CreateScioItemDto[];
 }
 
 export interface CreateSubcontractingOrderDto {
@@ -214,6 +234,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   issueDate?: string;
   dueDate?: string | null;
   supplierId?: string;
+  supplierName?: string | null;
   supplierTin?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
@@ -234,7 +255,6 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   creditToAccountId?: string;
-  supplierName?: string | null;
   items?: PurchaseInvoiceItemDto[];
 }
 
@@ -385,6 +405,35 @@ export interface ScorecardStandingDto {
   maxScore?: number;
   preventPos?: boolean;
   preventRfqs?: boolean;
+}
+
+export interface SubcontractingInwardOrderDto extends EntityDto<string> {
+  companyId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  salesOrderId?: string | null;
+  subcontractingOrderId?: string | null;
+  currencyCode?: string;
+  netTotal?: number;
+  grandTotal?: number;
+  status?: number;
+  perReceived?: number;
+  perBilled?: number;
+  items?: SubcontractingInwardOrderItemDto[];
+}
+
+export interface SubcontractingInwardOrderItemDto extends EntityDto<string> {
+  itemId?: string;
+  bomId?: string | null;
+  quantity?: number;
+  rate?: number;
+  amount?: number;
+  receivedQty?: number;
+  billedQty?: number;
+  pendingReceiptQty?: number;
+  warehouseId?: string | null;
+  serviceCostPerQty?: number;
 }
 
 export interface SubcontractingOrderDto extends AuditedEntityDto<string> {

@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { ManufacturingSettingsService } from '../../proxy/manufacturing/manufacturing-settings.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
@@ -106,7 +106,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `
 })
 export class ManufacturingSettingsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private settingsService = inject(ManufacturingSettingsService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -120,7 +120,7 @@ export class ManufacturingSettingsComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
     this.isLoading = true;
-    this.http.get<any>(`/api/app/manufacturing-settings/for-company/${companyId}`).subscribe({
+    this.settingsService.getForCompany(companyId).subscribe({
       next: res => { if (res) this.settings = { ...res }; else this.settings = { ...this.getDefaults(), companyId }; this.isLoading = false; },
       error: () => { this.settings = { ...this.getDefaults(), companyId }; this.isLoading = false; }
     });
@@ -130,7 +130,7 @@ export class ManufacturingSettingsComponent implements OnInit {
     this.saving = true;
     const companyId = this.companyContext.currentCompanyId();
     this.settings.companyId = companyId;
-    this.http.post('/api/app/manufacturing-settings/save', this.settings).subscribe({
+    this.settingsService.save(this.settings).subscribe({
       next: () => { this.toaster.success('Manufacturing settings saved'); this.saving = false; },
       error: () => { this.saving = false; }
     });

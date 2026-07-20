@@ -2,24 +2,12 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import { FormsModule } from '@angular/forms';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface StockReservationEntry {
-  id: string;
-  itemId: string;
-  warehouseId: string;
-  voucherType: string;
-  voucherId: string;
-  reservedQty: number;
-  deliveredQty: number;
-  availableQty: number;
-  status: number;
-  creationTime: string;
-}
+import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-stock-reservation-list',
@@ -102,10 +90,10 @@ interface StockReservationEntry {
   `,
 })
 export class StockReservationListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(StockReservationService);
   private companyContext = inject(CompanyContextService);
 
-  items = signal<StockReservationEntry[]>([]);
+  items = signal<StockReservationEntryDto[]>([]);
   totalCount = signal(0);
   isLoading = signal(false);
   searchTerm = '';
@@ -117,22 +105,17 @@ export class StockReservationListComponent implements OnInit {
 
   loadData(): void {
     this.isLoading.set(true);
-    const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     const cid = this.companyContext.currentCompanyId();
-    if (cid) params.companyId = cid;
-    if (this.statusFilter) params.status = this.statusFilter;
 
-    this.http.get<{ items: StockReservationEntry[]; totalCount: number }>(
-      '/api/app/stock-reservation', { params }
-    ).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId: cid ?? undefined, status: this.statusFilter || undefined } as any).subscribe({
       next: r => { this.items.set(r.items ?? []); this.totalCount.set(r.totalCount); this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });
   }
 
-  cancelReservation(sre: StockReservationEntry): void {
+  cancelReservation(sre: StockReservationEntryDto): void {
     if (!confirm('Cancel this reservation?')) return;
-    this.http.post(`/api/app/stock-reservation/${sre.id}/cancel`, {}).subscribe({
+    this.service.cancel(sre.id).subscribe({
       next: () => this.loadData(),
     });
   }

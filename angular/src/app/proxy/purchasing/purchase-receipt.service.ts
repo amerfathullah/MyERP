@@ -49,7 +49,7 @@ export class PurchaseReceiptService {
     this.restService.request<any, PagedResultDto<PurchaseReceiptDto>>({
       method: 'GET',
       url: '/api/app/purchase-receipt',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -60,19 +60,13 @@ export class PurchaseReceiptService {
       url: `/api/app/purchase-receipt/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreatePurchaseReceiptDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'PUT',
       url: `/api/app/purchase-receipt/${id}`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  delete = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/purchase-receipt/${id}`,
     },
     { apiName: this.apiName,...config });
 }

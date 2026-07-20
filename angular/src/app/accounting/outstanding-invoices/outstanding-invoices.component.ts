@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 interface OutstandingInvoice {
@@ -27,7 +28,8 @@ interface OutstandingInvoice {
   styleUrls: ['./outstanding-invoices.component.scss'],
 })
 export class OutstandingInvoicesComponent implements OnInit {
-  private http = inject(HttpClient);
+  private salesInvoiceService = inject(SalesInvoiceService);
+  private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private companyContext = inject(CompanyContextService);
 
   invoices = signal<OutstandingInvoice[]>([]);
@@ -45,13 +47,11 @@ export class OutstandingInvoicesComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    const endpoint = this.partyType === 'Customer'
-      ? '/api/app/sales-invoice'
-      : '/api/app/purchase-invoice';
+    const service$: any = this.partyType === 'Customer'
+      ? this.salesInvoiceService.getList({ companyId, maxResultCount: 500, skipCount: 0 } as any)
+      : this.purchaseInvoiceService.getList({ companyId, maxResultCount: 500, skipCount: 0 } as any);
 
-    this.http.get<any>(endpoint, {
-      params: { companyId, maxResultCount: '500', skipCount: '0' },
-    }).subscribe({
+    service$.subscribe({
       next: (result) => {
         const today = new Date();
         const outstanding = (result.items ?? [])

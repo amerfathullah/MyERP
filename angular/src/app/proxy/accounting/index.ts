@@ -26,6 +26,7 @@ export * from './opening-balance.service';
 export * from './payment-entry.service';
 export * from './payment-reconciliation.service';
 export * from './payment-request.service';
+export * from './payment-terms-template.service';
 export * from './payment-type.enum';
 export * from './period-closing-voucher.service';
 export * from './profit-loss-by-cost-center.service';

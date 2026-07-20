@@ -2,13 +2,14 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { BankTransactionRuleService } from '../../proxy/accounting/bank-transaction-rule.service';
+import { RestService } from '@abp/ng.core';
 
 @Component({
   selector: 'app-bank-transaction-rule-list',
@@ -118,7 +119,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `
 })
 export class BankTransactionRuleListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
+  private bankTransactionRuleService = inject(BankTransactionRuleService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -137,7 +139,7 @@ export class BankTransactionRuleListComponent implements OnInit {
     const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     const cid = this.companyContext.currentCompanyId();
     if (cid) params.companyId = cid;
-    this.http.get<any>('/api/app/bank-transaction-rule', { params }).subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/bank-transaction-rule', params }, { apiName: 'Default' }).subscribe({
       next: res => { this.items = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -147,7 +149,7 @@ export class BankTransactionRuleListComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) { this.toaster.warn('Select a company first'); return; }
     const dto = { ...this.newRule, companyId: cid, transactionType: Number(this.newRule.transactionType), classifyAs: Number(this.newRule.classifyAs) };
-    this.http.post('/api/app/bank-transaction-rule', dto).subscribe({
+    this.restService.request<any, any>({ method: 'POST', url: '/api/app/bank-transaction-rule', body: dto }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Rule created'); this.showCreateForm = false; this.loadData(); },
       error: () => {}
     });
@@ -155,7 +157,7 @@ export class BankTransactionRuleListComponent implements OnInit {
 
   toggleRule(rule: any) {
     const endpoint = rule.isEnabled ? 'disable' : 'enable';
-    this.http.post(`/api/app/bank-transaction-rule/${rule.id}/${endpoint}`, {}).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: `/api/app/bank-transaction-rule/${rule.id}/${endpoint}` }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success(rule.isEnabled ? 'Rule disabled' : 'Rule enabled'); this.loadData(); },
       error: () => {}
     });
@@ -164,7 +166,7 @@ export class BankTransactionRuleListComponent implements OnInit {
   evaluateRules() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) { this.toaster.warn('Select a company first'); return; }
-    this.http.post('/api/app/bank-transaction-rule/evaluate', { companyId: cid }).subscribe({
+    this.bankTransactionRuleService.evaluateRules({ companyId: cid } as any).subscribe({
       next: (res: any) => { this.toaster.success(`Matched ${res?.matchedCount ?? 0} transactions`); },
       error: () => {}
     });

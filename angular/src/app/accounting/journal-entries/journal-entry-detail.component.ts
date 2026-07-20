@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -9,6 +8,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 
 @Component({
   selector: 'app-journal-entry-detail',
@@ -119,7 +119,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class JournalEntryDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private journalEntryService = inject(JournalEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
@@ -150,7 +150,7 @@ export class JournalEntryDetailComponent implements OnInit {
     const id = this.je()!.id;
     switch (action) {
       case 'post':
-        this.http.post(`/api/app/journal-entry/${id}/post`, {}).subscribe({
+        this.journalEntryService.post(id).subscribe({
           next: () => { this.toaster.success('Journal entry posted.'); this.reload(); },
           error: () => {},
         });
@@ -158,7 +158,7 @@ export class JournalEntryDetailComponent implements OnInit {
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {
           if (s === Confirmation.Status.confirm) {
-            this.http.post(`/api/app/journal-entry/${id}/cancel`, {}).subscribe({
+            this.journalEntryService.cancel(id).subscribe({
               next: () => this.reload(),
               error: () => {},
             });
@@ -169,9 +169,9 @@ export class JournalEntryDetailComponent implements OnInit {
   }
 
   private loadEntry(id: string): void {
-    this.http.get<any>(`/api/app/journal-entry/${id}`).subscribe(data => {
+    this.journalEntryService.get(id).subscribe(data => {
       this.je.set(data);
-      const lines = data.lines || [];
+      const lines = (data as any).lines || [];
       const dr = lines.filter((l: any) => l.isDebit).reduce((s: number, l: any) => s + l.amount, 0);
       const cr = lines.filter((l: any) => !l.isDebit).reduce((s: number, l: any) => s + l.amount, 0);
       this.totalDebit.set(dr);

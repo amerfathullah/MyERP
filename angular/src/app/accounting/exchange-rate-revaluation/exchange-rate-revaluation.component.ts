@@ -1,12 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-rate-revaluation.service';
+import { RestService } from '@abp/ng.core';
 
 @Component({
   selector: 'app-exchange-rate-revaluation',
@@ -105,7 +106,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `
 })
 export class ExchangeRateRevaluationComponent implements OnInit {
-  private http = inject(HttpClient);
+  private revaluationService = inject(ExchangeRateRevaluationService);
+  private restService = inject(RestService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -122,7 +124,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
   loadHistory() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) return;
-    this.http.get<any>('/api/app/exchange-rate-revaluation', { params: { companyId: cid, maxResultCount: '20' } }).subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/exchange-rate-revaluation', params: { companyId: cid, maxResultCount: '20' } }, { apiName: 'Default' }).subscribe({
       next: res => { this.revaluations = res.items ?? []; }
     });
   }
@@ -131,9 +133,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) { this.toaster.warn('Select a company first'); return; }
     this.isLoading = true;
-    this.http.get<any>('/api/app/exchange-rate-revaluation/eligible-accounts', {
-      params: { companyId: cid, postingDate: this.postingDate }
-    }).subscribe({
+    this.revaluationService.getEligibleAccounts(cid, '', this.postingDate).subscribe({
       next: accounts => {
         this.eligibleAccounts = accounts ?? [];
         this.totalGainLoss = this.eligibleAccounts.reduce((sum: number, a: any) => sum + (a.gainLoss ?? 0), 0);
@@ -147,9 +147,9 @@ export class ExchangeRateRevaluationComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) return;
     this.isCreating = true;
-    this.http.post('/api/app/exchange-rate-revaluation', {
+    this.revaluationService.createRevaluation({
       companyId: cid, postingDate: this.postingDate, roundingLossAllowance: this.roundingAllowance
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('Revaluation entry created');
         this.isCreating = false;

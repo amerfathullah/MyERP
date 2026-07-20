@@ -3,18 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ItemSalesService } from '../../../proxy/sales/item-sales.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface ItemSalesLine {
-  itemId: string;
-  itemName: string;
-  totalQty: number;
-  totalRevenue: number;
-  averageRate: number;
-  invoiceCount: number;
-}
+import type { ItemSalesLineDto } from '../../../proxy/sales/models';
 
 @Component({
   selector: 'app-item-sales-report',
@@ -24,10 +16,10 @@ interface ItemSalesLine {
   styleUrls: ['./item-sales-report.component.scss'],
 })
 export class ItemSalesReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private itemSalesService = inject(ItemSalesService);
   private companyContext = inject(CompanyContextService);
 
-  items = signal<ItemSalesLine[]>([]);
+  items = signal<ItemSalesLineDto[]>([]);
   isLoading = signal(false);
   totalRevenue = signal(0);
   totalQty = signal(0);
@@ -45,9 +37,7 @@ export class ItemSalesReportComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<any>('/api/app/item-sales/report', {
-      params: { companyId, fromDate: this.dateFrom, toDate: this.dateTo },
-    }).subscribe({
+    this.itemSalesService.getReport({ companyId, fromDate: this.dateFrom, toDate: this.dateTo } as any).subscribe({
       next: (result) => {
         this.items.set(result.items ?? []);
         this.totalRevenue.set(result.totalRevenue ?? 0);

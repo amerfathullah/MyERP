@@ -265,6 +265,30 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 
+    [Authorize(MyERPPermissions.PurchaseInvoices.Edit)]
+    public async Task<PurchaseInvoiceDto> UpdateAsync(Guid id, CreatePurchaseInvoiceDto input)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft purchase invoices can be edited");
+
+        invoice.IssueDate = input.IssueDate;
+        invoice.DueDate = input.DueDate;
+        invoice.CurrencyCode = input.CurrencyCode;
+        invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
+        invoice.Notes = input.Notes;
+
+        invoice.ClearItems();
+        foreach (var item in input.Items)
+        {
+            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        await _repository.UpdateAsync(invoice, autoSave: true);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+    }
+
     [Authorize(MyERPPermissions.PurchaseInvoices.Submit)]
     public async Task<PurchaseInvoiceDto> SubmitAsync(Guid id)
     {

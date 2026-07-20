@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { SalarySlipService } from '../../proxy/human-resources/salary-slip.service';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -88,7 +88,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 })
 export class SalarySlipDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private salarySlipService = inject(SalarySlipService);
 
   slip = signal<any>(null);
   components = signal<any[]>([]);
@@ -98,9 +98,9 @@ export class SalarySlipDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.http.get<any>(`/api/app/salary-slip/${id}`).subscribe(s => {
+    this.salarySlipService.get(id).subscribe(s => {
       this.slip.set(s);
-      if (s.components) this.components.set(s.components);
+      if ((s as any).components) this.components.set((s as any).components);
     });
   }
 }

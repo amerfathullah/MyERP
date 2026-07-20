@@ -57,7 +57,7 @@ export class AutoRepeatService {
     this.restService.request<any, PagedResultDto<AutoRepeatDto>>({
       method: 'GET',
       url: '/api/app/auto-repeat',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
 }

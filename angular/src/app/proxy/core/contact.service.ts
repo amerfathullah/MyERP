@@ -28,11 +28,11 @@ export class ContactService {
     { apiName: this.apiName,...config });
   
 
-  getList = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
+  getList = (partyType: string, partyId: string, skipCount?: number, maxResultCount: number = 50, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ContactDto>>({
       method: 'GET',
       url: '/api/app/contact',
-      params: { partyType, partyId },
+      params: { partyType, partyId, skipCount, maxResultCount },
     },
     { apiName: this.apiName,...config });
 }

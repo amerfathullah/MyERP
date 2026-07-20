@@ -49,7 +49,7 @@ export class QuotationService {
     this.restService.request<any, PagedResultDto<QuotationDto>>({
       method: 'GET',
       url: '/api/app/quotation',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

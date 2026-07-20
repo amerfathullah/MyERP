@@ -244,6 +244,7 @@ export interface CreateSalesOrderItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  warehouseId?: string | null;
 }
 
 export interface CreateSalesPersonDto {

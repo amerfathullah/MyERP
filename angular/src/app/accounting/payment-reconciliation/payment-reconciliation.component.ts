@@ -1,9 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
 
 interface OutstandingInvoice {
   voucherId: string;
@@ -23,7 +23,7 @@ interface OutstandingInvoice {
   templateUrl: './payment-reconciliation.component.html',
 })
 export class PaymentReconciliationComponent {
-  private http = inject(HttpClient);
+  private reconciliationService = inject(PaymentReconciliationService);
   private toaster = inject(ToasterService);
 
   partyType = signal<string>('Customer');
@@ -38,17 +38,15 @@ export class PaymentReconciliationComponent {
     this.loading.set(true);
     this.successMessage.set(null);
 
-    this.http.get<any[]>('/api/app/payment-reconciliation/outstanding-invoices', {
-      params: { partyType: this.partyType(), partyId: this.partyId() }
-    }).subscribe({
+    this.reconciliationService.getOutstandingInvoices(this.partyType(), this.partyId()).subscribe({
       next: (result) => {
         this.invoices.set((result ?? []).map(i => ({
-          voucherId: i.documentId,
-          voucherType: i.documentType ?? 'SalesInvoice',
-          documentNumber: i.documentNumber,
-          postingDate: i.postingDate,
-          grandTotal: i.grandTotal,
-          outstanding: i.outstandingAmount ?? 0,
+          voucherId: (i as any).documentId,
+          voucherType: (i as any).documentType ?? 'SalesInvoice',
+          documentNumber: (i as any).documentNumber,
+          postingDate: (i as any).postingDate,
+          grandTotal: (i as any).grandTotal,
+          outstanding: (i as any).outstandingAmount ?? 0,
           allocatedAmount: 0,
           selected: false,
         })));
@@ -74,11 +72,11 @@ export class PaymentReconciliationComponent {
     if (allocations.length === 0) return;
 
     this.reconciling.set(true);
-    this.http.post('/api/app/payment-reconciliation/reconcile', {
+    this.reconciliationService.reconcile({
       partyType: this.partyType(),
       partyId: this.partyId(),
       allocations,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('Payment reconciled successfully');
         this.successMessage.set('Payment reconciled successfully');

@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -9,6 +8,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 
 @Component({
   selector: 'app-payment-entry-detail',
@@ -112,7 +112,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class PaymentEntryDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private paymentEntryService = inject(PaymentEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
@@ -137,9 +137,9 @@ export class PaymentEntryDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.http.get<any>(`/api/app/payment-entry/${id}`).subscribe(data => {
+    this.paymentEntryService.get(id).subscribe(data => {
       this.entry.set(data);
-      this.references.set(data.references || []);
+      this.references.set((data as any).references || []);
     });
   }
 
@@ -147,15 +147,15 @@ export class PaymentEntryDetailComponent implements OnInit {
     const id = this.entry()!.id;
     switch (action) {
       case 'submit':
-        this.http.post(`/api/app/payment-entry/${id}/submit`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+        this.paymentEntryService.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
         break;
       case 'post':
-        this.http.post(`/api/app/payment-entry/${id}/post`, {}).subscribe({ next: () => { this.toaster.success('Payment posted.'); this.reload(); }, error: () => {} });
+        this.paymentEntryService.post(id).subscribe({ next: () => { this.toaster.success('Payment posted.'); this.reload(); }, error: () => {} });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {
           if (s === Confirmation.Status.confirm) {
-            this.http.post(`/api/app/payment-entry/${id}/cancel`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+            this.paymentEntryService.cancel(id).subscribe({ next: () => this.reload(), error: () => {} });
           }
         });
         break;
@@ -165,16 +165,16 @@ export class PaymentEntryDetailComponent implements OnInit {
   private reload(): void {
     setTimeout(() => {
       const id = this.route.snapshot.paramMap.get('id')!;
-      this.http.get<any>(`/api/app/payment-entry/${id}`).subscribe(data => {
+      this.paymentEntryService.get(id).subscribe(data => {
         this.entry.set(data);
-        this.references.set(data.references || []);
+        this.references.set((data as any).references || []);
       });
     }, 500);
   }
 
   deleteEntry(): void {
     if (!confirm('Are you sure you want to delete this draft payment entry?')) return;
-    this.http.delete(`/api/app/payment-entry/${this.entry()!.id}`).subscribe({
+    this.paymentEntryService.delete(this.entry()!.id).subscribe({
       next: () => this.router.navigate(['/accounting/payments']),
       error: () => {},
     });

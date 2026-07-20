@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -132,7 +132,8 @@ export class BomFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private manufacturingService = inject(ManufacturingService);
+  private restService = inject(RestService);
   private toaster = inject(ToasterService);
 
   isEditMode = false;
@@ -165,7 +166,7 @@ export class BomFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
     if (this.isEditMode) {
-      this.http.get<any>(`/api/app/manufacturing/bom/${this.entityId}`).subscribe(bom => {
+      this.manufacturingService.getBom(this.entityId!).subscribe(bom => {
         this.form.patchValue({ itemId: bom.itemId, itemName: bom.itemName, quantity: bom.quantity, isActive: bom.isActive });
         (bom.items ?? []).forEach((item: any) => this.addMaterial(item));
         (bom.operations ?? []).forEach((op: any) => this.addOperation(op));
@@ -224,8 +225,8 @@ export class BomFormComponent implements OnInit {
       operations: this.operations.controls.map(c => c.getRawValue()),
     };
     const req = this.isEditMode
-      ? this.http.put(`/api/app/manufacturing/bom/${this.entityId}`, payload)
-      : this.http.post('/api/app/manufacturing/bom', payload);
+      ? this.restService.request<any, any>({ method: 'PUT', url: `/api/app/manufacturing/bom/${this.entityId}`, body: payload }, { apiName: 'Default' })
+      : this.manufacturingService.createBom(payload as any);
     req.subscribe({
       next: () => { this.toaster.success('BOM saved'); this.router.navigate(['/manufacturing/bom']); },
       error: () => this.toaster.error('Save failed'),

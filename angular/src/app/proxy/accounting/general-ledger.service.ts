@@ -14,7 +14,7 @@ export class GeneralLedgerService {
     this.restService.request<any, GeneralLedgerReportDto>({
       method: 'GET',
       url: '/api/app/general-ledger/report',
-      params: { companyId: input.companyId, accountId: input.accountId, fromDate: input.fromDate, toDate: input.toDate },
+      params: { companyId: input.companyId, accountId: input.accountId, fromDate: input.fromDate, toDate: input.toDate, partyType: input.partyType, partyId: input.partyId, voucherNumber: input.voucherNumber, costCenterId: input.costCenterId },
     },
     { apiName: this.apiName,...config });
 }

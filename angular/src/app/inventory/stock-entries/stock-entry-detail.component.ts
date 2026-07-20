@@ -1,10 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -110,7 +110,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class StockEntryDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private service = inject(StockEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
@@ -133,7 +133,7 @@ export class StockEntryDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.http.get<any>(`/api/app/stock-entry/${id}`).subscribe(data => {
+    this.service.get(id).subscribe(data => {
       this.entry.set(data);
       this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
     });
@@ -143,15 +143,15 @@ export class StockEntryDetailComponent implements OnInit {
     const id = this.entry()!.id;
     switch (action) {
       case 'submit':
-        this.http.post(`/api/app/stock-entry/${id}/submit`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+        this.service.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
         break;
       case 'post':
-        this.http.post(`/api/app/stock-entry/${id}/post`, {}).subscribe({ next: () => { this.toaster.success('Stock entry posted.'); this.reload(); }, error: () => {} });
+        this.service.post(id).subscribe({ next: () => { this.toaster.success('Stock entry posted.'); this.reload(); }, error: () => {} });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {
           if (s === Confirmation.Status.confirm) {
-            this.http.post(`/api/app/stock-entry/${id}/cancel`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+            this.service.cancel(id).subscribe({ next: () => this.reload(), error: () => {} });
           }
         });
         break;
@@ -161,7 +161,7 @@ export class StockEntryDetailComponent implements OnInit {
   private reload(): void {
     setTimeout(() => {
       const id = this.route.snapshot.paramMap.get('id')!;
-      this.http.get<any>(`/api/app/stock-entry/${id}`).subscribe(data => {
+      this.service.get(id).subscribe(data => {
         this.entry.set(data);
         this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
       });
@@ -170,7 +170,7 @@ export class StockEntryDetailComponent implements OnInit {
 
   deleteEntry(): void {
     if (!confirm('Are you sure you want to delete this draft stock entry?')) return;
-    this.http.delete(`/api/app/stock-entry/${this.entry()!.id}`).subscribe({
+    this.service.delete(this.entry()!.id).subscribe({
       next: () => this.router.navigate(['/inventory/stock-entries']),
       error: () => {},
     });

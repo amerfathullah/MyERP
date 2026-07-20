@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 
 export interface CompanyOption {
   id: string;
@@ -13,7 +13,7 @@ export interface CompanyOption {
  */
 @Injectable({ providedIn: 'root' })
 export class CompanyContextService {
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
 
   companies = signal<CompanyOption[]>([]);
   currentCompanyId = signal<string>('');
@@ -24,9 +24,9 @@ export class CompanyContextService {
   load(): void {
     if (this.loaded) return;
     this.loaded = true;
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '50', sorting: '' } })
+    this.companyService.getList({ skipCount: 0, maxResultCount: 50, sorting: '' })
       .subscribe(res => {
-        const items = (res.items ?? []).map((c: any) => ({ id: c.id, name: c.name }));
+        const items = (res.items ?? []).map(c => ({ id: c.id!, name: c.name ?? '' }));
         this.companies.set(items);
         // Auto-select first company if none set
         if (!this.currentCompanyId() && items.length > 0) {

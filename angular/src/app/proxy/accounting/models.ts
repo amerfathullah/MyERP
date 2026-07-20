@@ -70,39 +70,6 @@ export interface AutoMatchResultDto {
   unmatchedCount?: number;
 }
 
-export interface MatchCandidateDto {
-  paymentEntryId?: string;
-  paymentNumber?: string;
-  amount?: number;
-  postingDate?: string;
-  referenceNumber?: string;
-  rank?: number;
-}
-
-export interface MirrorTransactionDto {
-  transactionId?: string;
-  bankAccountId?: string;
-  referenceNumber?: string;
-  transactionDate?: string;
-  deposit?: number;
-  withdrawal?: number;
-  currencyCode?: string;
-}
-
-export interface CreateInternalTransferDto {
-  bankTransactionId: string;
-  targetBankAccountGlId: string;
-  companyId: string;
-  mirrorTransactionId?: string;
-}
-
-export interface InternalTransferResultDto {
-  paymentEntryId?: string;
-  paymentNumber?: string;
-  sourceTransactionId?: string;
-  mirrorTransactionId?: string;
-}
-
 export interface BalanceSheetReportDto {
   asOfDate?: string;
   companyId?: string;
@@ -320,6 +287,13 @@ export interface CreateFiscalYearDto {
   endDate?: string;
 }
 
+export interface CreateInternalTransferDto {
+  bankTransactionId: string;
+  targetBankAccountGlId: string;
+  companyId: string;
+  mirrorTransactionId?: string | null;
+}
+
 export interface CreateInvoiceDiscountingDto {
   companyId?: string;
   annualDiscountRate?: number;
@@ -399,6 +373,13 @@ export interface CreatePaymentRequestDto {
   message?: string | null;
 }
 
+export interface CreatePaymentTermDto {
+  invoicePortion?: number;
+  creditDays?: number;
+  description?: string | null;
+  modeOfPaymentId?: string | null;
+}
+
 export interface CreatePeriodClosingVoucherDto {
   companyId?: string;
   fiscalYearId?: string;
@@ -426,6 +407,11 @@ export interface CreateUpdateAccountDto {
   description?: string | null;
   isFrozen?: boolean;
   isActive?: boolean;
+}
+
+export interface CreateUpdatePaymentTermsTemplateDto {
+  name?: string;
+  terms?: CreatePaymentTermDto[];
 }
 
 export interface CurrencyExchangeDto extends EntityDto<string> {
@@ -470,6 +456,10 @@ export interface GeneralLedgerFilterDto {
   accountId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
+  partyType?: string | null;
+  partyId?: string | null;
+  voucherNumber?: string | null;
+  costCenterId?: string | null;
 }
 
 export interface GeneralLedgerLineDto {
@@ -482,6 +472,10 @@ export interface GeneralLedgerLineDto {
   voucherNumber?: string | null;
   debitAmount?: number;
   creditAmount?: number;
+  balance?: number;
+  partyType?: string | null;
+  partyName?: string | null;
+  costCenterName?: string | null;
   description?: string | null;
 }
 
@@ -518,6 +512,13 @@ export interface ImportBankTransactionDto {
   description: string;
   amount: number;
   referenceNumber?: string | null;
+}
+
+export interface InternalTransferResultDto {
+  paymentEntryId?: string;
+  paymentNumber?: string | null;
+  sourceTransactionId?: string;
+  mirrorTransactionId?: string | null;
 }
 
 export interface InvoiceDiscountingDto {
@@ -559,6 +560,34 @@ export interface JournalEntryLineDto {
   amount?: number;
   isDebit?: boolean;
   description?: string | null;
+}
+
+export interface MatchCandidate {
+  paymentEntryId?: string;
+  paymentNumber?: string | null;
+  amount?: number;
+  postingDate?: string;
+  referenceNumber?: string | null;
+  rank?: number;
+}
+
+export interface MatchCandidateDto {
+  paymentEntryId?: string;
+  paymentNumber?: string | null;
+  amount?: number;
+  postingDate?: string;
+  referenceNumber?: string | null;
+  rank?: number;
+}
+
+export interface MirrorTransactionDto {
+  transactionId?: string;
+  bankAccountId?: string;
+  referenceNumber?: string | null;
+  transactionDate?: string;
+  deposit?: number;
+  withdrawal?: number;
+  currencyCode?: string;
 }
 
 export interface ModeOfPaymentDto extends EntityDto<string> {
@@ -657,6 +686,20 @@ export interface PaymentRequestDto extends EntityDto<string> {
   currency?: string;
   status?: number;
   paymentEntryId?: string | null;
+}
+
+export interface PaymentTermDto {
+  id?: string;
+  invoicePortion?: number;
+  creditDays?: number;
+  description?: string | null;
+  modeOfPaymentId?: string | null;
+}
+
+export interface PaymentTermsTemplateDto extends EntityDto<string> {
+  name?: string;
+  isActive?: boolean;
+  terms?: PaymentTermDto[];
 }
 
 export interface PeriodClosingVoucherDto extends EntityDto<string> {

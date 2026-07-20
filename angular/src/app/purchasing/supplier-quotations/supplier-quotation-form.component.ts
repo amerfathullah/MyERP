@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe } from '@abp/ng.core';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 
 @Component({
   selector: 'app-supplier-quotation-form',
@@ -60,23 +61,23 @@ import { HttpClient } from '@angular/common/http';
   `,
 })
 export class SupplierQuotationFormComponent implements OnInit {
-  private restService = inject(RestService);
+  private supplierService = inject(SupplierService);
+  private sqService = inject(SupplierQuotationService);
   private router = inject(Router);
-  private http = inject(HttpClient);
   saving = false;
   isDirty = false;
   suppliers = signal<any[]>([]);
   form: any = { transactionDate: new Date().toISOString().split('T')[0], supplierId: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
 
   ngOnInit() {
-    this.http.get<any>('/api/app/supplier?maxResultCount=200').subscribe(
+    this.supplierService.getList({ filter: '', sorting: '', skipCount: 0, maxResultCount: 200 } as any).subscribe(
       res => this.suppliers.set(res.items ?? [])
     );
   }
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/supplier-quotation', body: this.form }, { apiName: 'Default' })
+    this.sqService.create(this.form)
       .subscribe({ next: () => { this.router.navigate(['/purchasing/supplier-quotations']); }, error: () => { this.saving = false;
   this.isDirty = false; } });
   }

@@ -1,20 +1,8 @@
 import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
-
-interface ActivityLogEntry {
-  id: string;
-  documentType: string;
-  documentId: string;
-  documentNumber?: string;
-  activityType: string;
-  previousStatus?: string;
-  newStatus?: string;
-  performedByUserId?: string;
-  details?: string;
-  creationTime: string;
-}
+import { DocumentActivityLogService } from '../../../proxy/core/document-activity-log.service';
+import type { DocumentActivityLogDto } from '../../../proxy/core/models';
 
 const ACTIVITY_ICONS: Record<string, string> = {
   Submitted: 'fa fa-paper-plane text-info',
@@ -37,9 +25,9 @@ export class ActivityLogComponent implements OnInit {
   @Input() documentType!: string;
   @Input() documentId!: string;
 
-  private http = inject(HttpClient);
+  private activityLogService = inject(DocumentActivityLogService);
 
-  logs: ActivityLogEntry[] = [];
+  logs: DocumentActivityLogDto[] = [];
   loading = false;
 
   ngOnInit(): void {
@@ -50,10 +38,8 @@ export class ActivityLogComponent implements OnInit {
 
   loadLogs(): void {
     this.loading = true;
-    this.http
-      .get<ActivityLogEntry[]>(
-        `/api/app/document-activity-log/for-document?documentType=${this.documentType}&documentId=${this.documentId}`
-      )
+    this.activityLogService
+      .getForDocument(this.documentType, this.documentId)
       .subscribe({
         next: (logs) => {
           this.logs = logs;

@@ -3,20 +3,22 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { BatchPaymentService } from '../../proxy/accounting/batch-payment.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 interface OutstandingInvoice {
-  invoiceId: string;
-  invoiceNumber: string;
-  invoiceType: string;
-  partyId: string;
-  issueDate: string;
-  dueDate: string;
-  grandTotal: number;
-  outstanding: number;
-  currencyCode: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  invoiceType?: string;
+  partyId?: string;
+  issueDate?: string;
+  dueDate?: string;
+  grandTotal?: number;
+  outstanding?: number;
+  currencyCode?: string;
   selected?: boolean;
   payAmount?: number;
 }
@@ -140,7 +142,9 @@ interface OutstandingInvoice {
   `
 })
 export class BatchPaymentComponent implements OnInit {
-  private http = inject(HttpClient);
+  private batchPaymentService = inject(BatchPaymentService);
+  private customerService = inject(CustomerService);
+  private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -168,16 +172,27 @@ export class BatchPaymentComponent implements OnInit {
   }
 
   loadParties() {
-    const endpoint = this.partyType === 'Supplier' ? '/api/app/supplier' : '/api/app/customer';
-    this.http.get<any>(endpoint, { params: { maxResultCount: '200' } }).subscribe({
-      next: (res) => {
-        const items = res.items ?? res ?? [];
-        this.parties.set(items.map((p: any) => ({
-          id: p.id,
-          name: p.supplierName ?? p.customerName ?? p.name ?? ''
-        })));
-      }
-    });
+    if (this.partyType === 'Supplier') {
+      this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
+        next: (res) => {
+          const items = res.items ?? [];
+          this.parties.set(items.map((p: any) => ({
+            id: p.id,
+            name: p.supplierName ?? p.name ?? ''
+          })));
+        }
+      });
+    } else {
+      this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
+        next: (res) => {
+          const items = res.items ?? [];
+          this.parties.set(items.map((p: any) => ({
+            id: p.id,
+            name: p.customerName ?? p.name ?? ''
+          })));
+        }
+      });
+    }
   }
 
   loadOutstanding() {
@@ -187,11 +202,11 @@ export class BatchPaymentComponent implements OnInit {
     }
     this.loading.set(true);
     const companyId = this.companyContext.currentCompanyId();
-    this.http.post<OutstandingInvoice[]>('/api/app/batch-payment/outstanding-invoices', {
+    this.batchPaymentService.getOutstandingInvoices({
       companyId,
       partyType: this.partyType,
       partyId: this.selectedPartyId
-    }).subscribe({
+    } as any).subscribe({
       next: (res) => {
         const invoices = (res ?? []).map(inv => ({ ...inv, selected: false, payAmount: inv.outstanding }));
         this.invoices.set(invoices);
@@ -227,7 +242,7 @@ export class BatchPaymentComponent implements OnInit {
 
     // Account IDs are resolved from company defaults by the backend BatchPaymentAppService
     // Frontend passes empty GUIDs — backend uses Company.DefaultBankAccountId/DefaultReceivableAccountId
-    this.http.post<any>('/api/app/batch-payment/create-batch-payment', {
+    this.batchPaymentService.createBatchPayment({
       companyId,
       partyType: this.partyType,
       paymentType: this.partyType === 'Supplier' ? 1 : 0, // Pay=1, Receive=0
@@ -242,7 +257,7 @@ export class BatchPaymentComponent implements OnInit {
         amount: inv.payAmount ?? inv.outstanding,
         exchangeRate: 1
       }))
-    }).subscribe({
+    } as any).subscribe({
       next: (res) => {
         this.toaster.success(`${res.successCount} payment entries created (${res.totalAmount.toFixed(2)})`);
         this.processing.set(false);

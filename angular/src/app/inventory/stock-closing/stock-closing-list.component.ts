@@ -2,10 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { StockClosingService } from '../../proxy/inventory/stock-closing.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
@@ -84,7 +84,7 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
   `
 })
 export class StockClosingListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(StockClosingService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -100,11 +100,8 @@ export class StockClosingListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     const cid = this.companyContext.currentCompanyId();
-    if (cid) params.companyId = cid;
-    if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/stock-closing', { params }).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId: cid ?? undefined, status: this.statusFilter || undefined } as any).subscribe({
       next: res => { this.items = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -113,21 +110,21 @@ export class StockClosingListComponent implements OnInit {
   createNew() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) { this.toaster.warn('Select a company first'); return; }
-    this.http.post<any>('/api/app/stock-closing', { companyId: cid, postingDate: new Date().toISOString().slice(0, 10) }).subscribe({
+    this.service.generate({ companyId: cid, postingDate: new Date().toISOString().slice(0, 10) } as any).subscribe({
       next: () => { this.toaster.success('Stock Closing entry created'); this.loadData(); },
       error: () => {}
     });
   }
 
   generate(id: string) {
-    this.http.post(`/api/app/stock-closing/${id}/generate`, {}).subscribe({
+    this.service.generate({ id } as any).subscribe({
       next: () => { this.toaster.success('Balances generated'); this.loadData(); },
       error: () => {}
     });
   }
 
   submit(id: string) {
-    this.http.post(`/api/app/stock-closing/${id}/submit`, {}).subscribe({
+    this.service.submit(id).subscribe({
       next: () => { this.toaster.success('Stock Closing submitted'); this.loadData(); },
       error: () => {}
     });
@@ -135,7 +132,7 @@ export class StockClosingListComponent implements OnInit {
 
   cancelEntry(id: string) {
     if (!confirm('Cancel this stock closing entry?')) return;
-    this.http.post(`/api/app/stock-closing/${id}/cancel`, {}).subscribe({
+    this.service.cancel(id).subscribe({
       next: () => { this.toaster.success('Cancelled'); this.loadData(); },
       error: () => {}
     });

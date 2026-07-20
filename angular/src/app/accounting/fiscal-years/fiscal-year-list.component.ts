@@ -3,19 +3,11 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
+import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
 import type { CompanyDto } from '../../proxy/core/models';
-
-interface FiscalYearDto {
-  id: string;
-  name: string;
-  companyId: string;
-  startDate: string;
-  endDate: string;
-  isClosed: boolean;
-}
+import type { FiscalYearDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-fiscal-year-list',
@@ -105,7 +97,7 @@ interface FiscalYearDto {
 })
 export class FiscalYearListComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private fiscalYearService = inject(FiscalYearService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
 
@@ -127,16 +119,16 @@ export class FiscalYearListComponent implements OnInit {
   }
 
   loadFiscalYears(): void {
-    this.http.get<any>('/api/app/fiscal-year', { params: { skipCount: '0', maxResultCount: '50' } })
+    this.fiscalYearService.getList({ skipCount: 0, maxResultCount: 50, sorting: '' })
       .subscribe({
-        next: res => { this.fiscalYears.set(res.items ?? res ?? []); this.isLoading.set(false); },
+        next: res => { this.fiscalYears.set(res.items ?? []); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
   }
 
   create(): void {
     if (this.form.invalid) return;
-    this.http.post('/api/app/fiscal-year', this.form.getRawValue()).subscribe({
+    this.fiscalYearService.create(this.form.getRawValue() as any).subscribe({
       next: () => { this.toaster.success('Fiscal Year created'); this.loadFiscalYears(); this.form.reset(); },
       error: () => this.toaster.error('Failed to create'),
     });
@@ -144,7 +136,7 @@ export class FiscalYearListComponent implements OnInit {
 
   closeFy(id: string): void {
     if (!confirm('Close this fiscal year? This cannot be undone.')) return;
-    this.http.post(`/api/app/fiscal-year/${id}/close`, {}).subscribe({
+    this.fiscalYearService.close(id).subscribe({
       next: () => { this.toaster.success('Fiscal Year closed'); this.loadFiscalYears(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed to close fiscal year'),
     });

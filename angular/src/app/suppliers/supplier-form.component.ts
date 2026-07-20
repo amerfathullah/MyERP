@@ -1,10 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
@@ -22,7 +21,7 @@ export class SupplierFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private service = inject(SupplierService);
   private toaster = inject(ToasterService);
 
@@ -57,7 +56,7 @@ export class SupplierFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/company', params: { skipCount: '0', maxResultCount: '100', sorting: '' } }, { apiName: 'Default' })
       .subscribe(res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
@@ -65,9 +64,7 @@ export class SupplierFormComponent implements OnInit {
         this.form.patchValue(supplier as any);
       });
       // Load outstanding payables
-      this.http.get<any>('/api/app/payment-reconciliation/outstanding-invoices', {
-        params: { partyType: 'Supplier', partyId: this.entityId! }
-      }).subscribe(invoices => {
+      this.restService.request<any, any>({ method: 'GET', url: '/api/app/payment-reconciliation/outstanding-invoices', params: { partyType: 'Supplier', partyId: this.entityId! } }, { apiName: 'Default' }).subscribe(invoices => {
         const items = invoices ?? [];
         this.outstandingInvoices.set(items);
         this.totalOutstanding.set(items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0));

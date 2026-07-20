@@ -1,4 +1,4 @@
-import type { AutoMatchResult } from './models';
+import type { AutoMatchResult, MatchCandidate } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -15,6 +15,15 @@ export class BankAutoMatchService {
       method: 'POST',
       url: '/api/app/bank-auto-match/auto-match',
       params: { bankAccountId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MatchCandidate[]>({
+      method: 'GET',
+      url: '/api/app/bank-auto-match/match-candidates',
+      params: { bankTransactionId, companyId },
     },
     { apiName: this.apiName,...config });
 }

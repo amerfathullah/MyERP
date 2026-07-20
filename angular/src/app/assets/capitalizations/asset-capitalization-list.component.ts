@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalization.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -54,7 +54,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class AssetCapitalizationListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(AssetCapitalizationService);
   private companyContext = inject(CompanyContextService);
   items: any[] = [];
   isLoading = false;
@@ -67,9 +67,7 @@ export class AssetCapitalizationListComponent implements OnInit {
   loadData() {
     this.isLoading = true;
     const companyId = this.companyContext.currentCompanyId();
-    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
-    if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/asset-capitalization', { params }).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId: companyId ?? undefined } as any).subscribe({
       next: res => { this.items = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });

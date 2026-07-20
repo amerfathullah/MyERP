@@ -3,28 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { BudgetVarianceReportService } from '../../../proxy/accounting/budget-variance-report.service';
+import { FiscalYearService } from '../../../proxy/accounting/fiscal-year.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface BudgetVarianceRow {
-  accountCode: string;
-  accountName: string;
-  accountType: string;
-  budgetAmount: number;
-  actualAmount: number;
-  variance: number;
-  variancePercent: number;
-  isOverBudget: boolean;
-}
-
-interface BudgetVarianceReport {
-  rows: BudgetVarianceRow[];
-  totalBudget: number;
-  totalActual: number;
-  totalVariance: number;
-  overBudgetCount: number;
-}
+import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-budget-variance-report',
@@ -169,14 +152,15 @@ interface BudgetVarianceReport {
   `
 })
 export class BudgetVarianceReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private budgetVarianceReportService = inject(BudgetVarianceReportService);
+  private fiscalYearService = inject(FiscalYearService);
   private companyContext = inject(CompanyContextService);
 
   selectedFiscalYearId = '';
   fromDate = '';
   toDate = '';
   loading = signal(false);
-  report = signal<BudgetVarianceReport | null>(null);
+  report = signal<BudgetVarianceReportDto | null>(null);
   fiscalYears = signal<{ id: string; name: string }[]>([]);
 
   ngOnInit() {
@@ -186,9 +170,9 @@ export class BudgetVarianceReportComponent implements OnInit {
   loadFiscalYears() {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    this.http.get<any>('/api/app/fiscal-year', { params: { companyId, maxResultCount: '20' } }).subscribe({
+    this.fiscalYearService.getList({ skipCount: 0, maxResultCount: 20, sorting: '' }).subscribe({
       next: (res) => {
-        const items = res.items ?? res ?? [];
+        const items = res.items ?? [];
         this.fiscalYears.set(items.map((fy: any) => ({ id: fy.id, name: fy.name })));
         if (items.length > 0) {
           this.selectedFiscalYearId = items[0].id;
@@ -208,7 +192,7 @@ export class BudgetVarianceReportComponent implements OnInit {
     if (this.fromDate) params.fromDate = this.fromDate;
     if (this.toDate) params.toDate = this.toDate;
 
-    this.http.post<BudgetVarianceReport>('/api/app/budget-variance-report/report', params).subscribe({
+    this.budgetVarianceReportService.getReport(params).subscribe({
       next: (res) => {
         this.report.set(res);
         this.loading.set(false);
@@ -220,7 +204,7 @@ export class BudgetVarianceReportComponent implements OnInit {
   exportReport() {
     const r = this.report();
     if (!r) return;
-    const rows = r.rows.map(row => ({
+    const rows = (r.rows ?? []).map(row => ({
       Code: row.accountCode,
       Account: row.accountName,
       Budget: row.budgetAmount,

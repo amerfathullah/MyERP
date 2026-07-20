@@ -2,25 +2,10 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { RepostItemValuationService } from '../../proxy/inventory/repost-item-valuation.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface RepostEntry {
-  id: string;
-  companyId: string;
-  basedOn: number;
-  itemId: string | null;
-  warehouseId: string | null;
-  postingDate: string;
-  status: number;
-  repostGlEntries: boolean;
-  totalAffectedEntries: number;
-  currentIndex: number;
-  errorLog: string | null;
-  isDeduplicated: boolean;
-  creationTime: string;
-}
+import type { RepostItemValuationDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-repost-item-valuation-list',
@@ -114,10 +99,10 @@ interface RepostEntry {
   `
 })
 export class RepostItemValuationListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(RepostItemValuationService);
   private companyContext = inject(CompanyContextService);
 
-  entries = signal<RepostEntry[]>([]);
+  entries = signal<RepostItemValuationDto[]>([]);
   loading = signal(false);
   totalCount = signal(0);
   pendingCount = signal(0);
@@ -131,9 +116,7 @@ export class RepostItemValuationListComponent implements OnInit {
   loadData() {
     this.loading.set(true);
     const companyId = this.companyContext.currentCompanyId();
-    const params: any = { skipCount: this.currentPage * 20, maxResultCount: 20 };
-    if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/repost-item-valuation', { params }).subscribe({
+    this.service.getList({ skipCount: this.currentPage * 20, maxResultCount: 20, companyId: companyId ?? undefined } as any).subscribe({
       next: res => {
         this.entries.set(res.items ?? []);
         this.totalCount.set(res.totalCount ?? 0);
@@ -146,9 +129,7 @@ export class RepostItemValuationListComponent implements OnInit {
   loadPendingCount() {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    this.http.get<number>(`/api/app/repost-item-valuation/pending-count`, {
-      params: { companyId }
-    }).subscribe({
+    this.service.getPendingCount(companyId).subscribe({
       next: count => this.pendingCount.set(count),
       error: () => {}
     });
@@ -162,9 +143,9 @@ export class RepostItemValuationListComponent implements OnInit {
     return ['Queued', 'In Progress', 'Completed', 'Failed', 'Skipped'][status] ?? 'Unknown';
   }
 
-  getProgress(entry: RepostEntry): number {
-    return entry.totalAffectedEntries > 0
-      ? (entry.currentIndex / entry.totalAffectedEntries) * 100 : 0;
+  getProgress(entry: RepostItemValuationDto): number {
+    return entry.totalAffectedEntries
+      ? ((entry.currentIndex ?? 0) / entry.totalAffectedEntries) * 100 : 0;
   }
 
   onPageChange(event: PageEvent) {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { NotificationLogService } from '../../proxy/core/notification-log.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
@@ -83,7 +83,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class NotificationLogListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private notificationLogService = inject(NotificationLogService);
   logs: any[] = [];
   isLoading = false;
   totalCount = 0;
@@ -95,7 +95,7 @@ export class NotificationLogListComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
-    this.http.get<number>('/api/app/notification-log/failed-count').subscribe({
+    this.notificationLogService.getFailedCount().subscribe({
       next: c => this.failedCount = c,
       error: () => {}
     });
@@ -103,10 +103,10 @@ export class NotificationLogListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
+    const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     if (this.channelFilter) params.channel = this.channelFilter;
     if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/notification-log', { params }).subscribe({
+    this.notificationLogService.getList(params).subscribe({
       next: res => { this.logs = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });

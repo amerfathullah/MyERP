@@ -48,7 +48,7 @@ export class StockReservationService {
     this.restService.request<any, PagedResultDto<StockReservationEntryDto>>({
       method: 'GET',
       url: '/api/app/stock-reservation',
-      params: { itemId: input.itemId, warehouseId: input.warehouseId, voucherId: input.voucherId, status: input.status, companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { itemId: input.itemId, warehouseId: input.warehouseId, voucherId: input.voucherId, status: input.status, companyId: input.companyId, filter: input.filter, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

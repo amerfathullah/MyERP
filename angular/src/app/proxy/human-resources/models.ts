@@ -120,6 +120,29 @@ export interface CreateUpdateEmployeeDto {
   taxNumber?: string | null;
 }
 
+export interface CreateUpdateLeaveTypeDto {
+  name?: string;
+  maxDaysAllowed?: number;
+  requiresApproval?: boolean;
+  allowCarryForward?: boolean;
+  maxCarryForwardDays?: number;
+  carryForwardExpiryMonths?: number;
+  isPaidLeave?: boolean;
+  includeHolidays?: boolean;
+  allowNegativeBalance?: boolean;
+}
+
+export interface CreateUpdateSalaryComponentDto {
+  name?: string;
+  abbreviation?: string | null;
+  componentType?: number;
+  isStatutory?: boolean;
+  isTaxApplicable?: boolean;
+  dependsOnPaymentDays?: boolean;
+  defaultAccountId?: string | null;
+  description?: string | null;
+}
+
 export interface DisburseLoanDto {
   disbursementDate?: string;
   repaymentStartDate?: string;
@@ -225,6 +248,19 @@ export interface LeaveApplicationDto extends AuditedEntityDto<string> {
   status?: LeaveApplicationStatus;
 }
 
+export interface LeaveTypeDetailDto extends EntityDto<string> {
+  name?: string;
+  maxDaysAllowed?: number;
+  isActive?: boolean;
+  requiresApproval?: boolean;
+  allowCarryForward?: boolean;
+  maxCarryForwardDays?: number;
+  carryForwardExpiryMonths?: number;
+  isPaidLeave?: boolean;
+  includeHolidays?: boolean;
+  allowNegativeBalance?: boolean;
+}
+
 export interface LeaveTypeDto {
   id?: string;
   name?: string;
@@ -296,6 +332,18 @@ export interface PayrollEntryLineDto {
 export interface RecordRepaymentDto {
   principalAmount?: number;
   interestAmount?: number;
+}
+
+export interface SalaryComponentDto extends EntityDto<string> {
+  name?: string;
+  abbreviation?: string | null;
+  componentType?: number;
+  isStatutory?: boolean;
+  isTaxApplicable?: boolean;
+  dependsOnPaymentDays?: boolean;
+  defaultAccountId?: string | null;
+  isActive?: boolean;
+  description?: string | null;
 }
 
 export interface SalarySlipDto extends EntityDto<string> {

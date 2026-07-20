@@ -2,8 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
@@ -66,7 +65,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class SalesPersonListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   persons: any[] = [];
   isLoading = false;
   totalCount = 0;
@@ -77,9 +76,7 @@ export class SalesPersonListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.http.get<any>('/api/app/sales-person', {
-      params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) }
-    }).subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/sales-person', params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) } }, { apiName: 'Default' }).subscribe({
       next: res => { this.persons = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });

@@ -1,12 +1,12 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { MaterialRequestStore } from '../store/material-request.store';
 import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
@@ -24,7 +24,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class MaterialRequestDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private purchaseConversionService = inject(PurchaseConversionService);
   readonly store = inject(MaterialRequestStore);
   private service = inject(MaterialRequestService);
   private confirmation = inject(ConfirmationService);
@@ -64,9 +64,7 @@ export class MaterialRequestDetailComponent implements OnInit {
   convertToPO(): void {
     const supplierId = prompt('Enter Supplier ID for the Purchase Order:');
     if (!supplierId) return;
-    this.http.post<any>(`/api/app/purchase-conversion/convert-material-request-to-purchase-order`, null, {
-      params: { materialRequestId: this.entity!.id!, supplierId }
-    }).subscribe({
+    this.purchaseConversionService.convertMaterialRequestToPurchaseOrder(this.entity!.id!, supplierId).subscribe({
       next: (po) => {
         this.toaster.success('Purchase Order created: ' + po.orderNumber);
         this.router.navigate(['/purchasing/orders', po.id]);

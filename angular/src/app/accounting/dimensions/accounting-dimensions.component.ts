@@ -3,18 +3,9 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { ToasterService } from '@abp/ng.theme.shared';
-
-interface AccountingDimensionDto {
-  id: string;
-  documentType: string;
-  label: string;
-  fieldName: string;
-  isEnabled: boolean;
-  isMandatory: boolean;
-  companyId: string | null;
-}
+import { AccountingDimensionService } from '../../proxy/accounting/accounting-dimension.service';
+import type { AccountingDimensionDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-accounting-dimensions',
@@ -133,7 +124,7 @@ interface AccountingDimensionDto {
   `
 })
 export class AccountingDimensionsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private dimensionService = inject(AccountingDimensionService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
 
@@ -153,9 +144,9 @@ export class AccountingDimensionsComponent implements OnInit {
 
   loadDimensions() {
     this.loading.set(true);
-    this.http.get<any>('/api/app/accounting-dimension').subscribe({
+    this.dimensionService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe({
       next: (res) => {
-        this.dimensions.set(res.items ?? res ?? []);
+        this.dimensions.set(res.items ?? []);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)
@@ -165,7 +156,7 @@ export class AccountingDimensionsComponent implements OnInit {
   create() {
     if (this.form.invalid) return;
     this.saving.set(true);
-    this.http.post<AccountingDimensionDto>('/api/app/accounting-dimension', this.form.value).subscribe({
+    this.dimensionService.create(this.form.value as any).subscribe({
       next: () => {
         this.toaster.success('Dimension created successfully');
         this.form.reset({ documentType: '', label: '', isMandatory: false });
@@ -177,10 +168,8 @@ export class AccountingDimensionsComponent implements OnInit {
   }
 
   toggleEnable(dim: AccountingDimensionDto, enable: boolean) {
-    const url = enable
-      ? `/api/app/accounting-dimension/${dim.id}/enable`
-      : `/api/app/accounting-dimension/${dim.id}/disable`;
-    this.http.post(url, {}).subscribe({
+    const action = enable ? this.dimensionService.enable(dim.id!) : this.dimensionService.disable(dim.id!);
+    action.subscribe({
       next: () => this.loadDimensions(),
       error: () => {}
     });
@@ -188,7 +177,7 @@ export class AccountingDimensionsComponent implements OnInit {
 
   remove(dim: AccountingDimensionDto) {
     if (!confirm(`Delete dimension "${dim.label}"?`)) return;
-    this.http.delete(`/api/app/accounting-dimension/${dim.id}`).subscribe({
+    this.dimensionService.delete(dim.id!).subscribe({
       next: () => {
         this.toaster.success('Dimension deleted');
         this.loadDimensions();

@@ -2,12 +2,13 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, RestService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import type { AccountDto, CreatePaymentEntryDto } from '../../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -28,8 +29,9 @@ export class PaymentEntryFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private paymentService = inject(PaymentEntryService);
   private accountService = inject(AccountService);
+  private customerService = inject(CustomerService);
+  private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
   private companyContext = inject(CompanyContextService);
 
   accounts = signal<AccountDto[]>([]);
@@ -137,9 +139,7 @@ export class PaymentEntryFormComponent implements OnInit {
 
   loadOutstandingInvoices(partyType: string): void {
     const companyId = this.form.get('companyId')?.value;
-    this.http.get<any[]>(`/api/app/payment-entry/outstanding-for-party`, {
-      params: { partyType, companyId: companyId || '' }
-    }).subscribe({
+    this.paymentService.getOutstandingForParty(partyType, '', companyId || '').subscribe({
       next: (invoices) => this.outstandingInvoices.set(invoices ?? []),
       error: () => {},
     });
@@ -205,18 +205,20 @@ export class PaymentEntryFormComponent implements OnInit {
   }
 
   loadParties(partyType: string): void {
-    const endpoint = partyType === 'Customer' ? '/api/app/customer' : '/api/app/supplier';
-    this.http.get<any>(endpoint, { params: { skipCount: '0', maxResultCount: '200' } })
-      .subscribe({
-        next: (res) => {
-          const items = res.items ?? [];
-          this.parties.set(items.map((p: any) => ({
-            id: p.id,
-            name: p.customerName ?? p.name ?? p.supplierName ?? p.id,
-          })));
-        },
-        error: () => this.parties.set([]),
-      });
+    const service$: any = partyType === 'Customer'
+      ? this.customerService.getList({ skipCount: 0, maxResultCount: 200 } as any)
+      : this.supplierService.getList({ skipCount: 0, maxResultCount: 200 } as any);
+
+    service$.subscribe({
+      next: (res: any) => {
+        const items = res.items ?? [];
+        this.parties.set(items.map((p: any) => ({
+          id: p.id,
+          name: p.customerName ?? p.name ?? p.supplierName ?? p.id,
+        })));
+      },
+      error: () => this.parties.set([]),
+    });
   }
 
   onPartySelected(): void {

@@ -1,32 +1,12 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
+import { StatementOfAccountsService } from '../../proxy/accounting/statement-of-accounts.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
-
-interface StatementEntry {
-  date: string;
-  documentType: string;
-  documentNumber: string;
-  documentId: string;
-  debitAmount: number;
-  creditAmount: number;
-  runningBalance: number;
-}
-
-interface StatementResult {
-  customerId: string;
-  fromDate: string;
-  toDate: string;
-  openingBalance: number;
-  closingBalance: number;
-  totalDebit: number;
-  totalCredit: number;
-  entries: StatementEntry[];
-}
+import type { StatementOfAccountsDto } from '../../proxy/accounting/models';
 
 @Component({
   standalone: true,
@@ -157,12 +137,12 @@ interface StatementResult {
   `
 })
 export class StatementOfAccountsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private statementService = inject(StatementOfAccountsService);
   private companyContext = inject(CompanyContextService);
   private customerService = inject(CustomerService);
 
   customers = signal<any[]>([]);
-  result = signal<StatementResult | null>(null);
+  result = signal<StatementOfAccountsDto | null>(null);
 
   customerId = '';
   fromDate = new Date(new Date().getFullYear(), 0, 1).toISOString().substring(0, 10); // Jan 1 current year
@@ -177,15 +157,11 @@ export class StatementOfAccountsComponent implements OnInit {
   generate() {
     if (!this.customerId) return;
     const companyId = this.companyContext.currentCompanyId();
-    this.http.get<StatementResult>(
-      `/api/app/statement-of-accounts/customer-statement`, {
-        params: {
-          customerId: this.customerId,
-          companyId: companyId || '',
-          fromDate: this.fromDate,
-          toDate: this.toDate
-        }
-      }
+    this.statementService.getCustomerStatement(
+      this.customerId,
+      companyId || '',
+      this.fromDate,
+      this.toDate
     ).subscribe(data => this.result.set(data));
   }
 

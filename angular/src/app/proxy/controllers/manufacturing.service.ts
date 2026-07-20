@@ -24,7 +24,7 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'POST',
       url: '/api/app/manufacturing/bom',
-      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, items: input.items },
+      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, items: input.items, operations: input.operations },
     },
     { apiName: this.apiName,...config });
   
@@ -75,7 +75,7 @@ export class ManufacturingService {
     this.restService.request<any, PagedResultDto<BomDto>>({
       method: 'GET',
       url: '/api/app/manufacturing/bom',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -109,7 +109,7 @@ export class ManufacturingService {
     this.restService.request<any, PagedResultDto<WorkstationDto>>({
       method: 'GET',
       url: '/api/app/manufacturing/workstations',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

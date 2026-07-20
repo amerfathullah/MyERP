@@ -1,8 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -30,7 +29,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
 
   receipt: PurchaseReceiptDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -77,7 +76,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
         });
         break;
       case 'amend':
-        this.http.post<any>(`/api/app/purchase-receipt/${id}/amend`, {}).subscribe({
+        this.restService.request<any, any>({ method: 'POST', url: `/api/app/purchase-receipt/${id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/receipts', amended.id]),
         });
         break;

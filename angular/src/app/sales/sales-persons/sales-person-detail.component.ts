@@ -2,8 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
 @Component({
@@ -73,7 +72,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   `
 })
 export class SalesPersonDetailComponent implements OnInit {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private route = inject(ActivatedRoute);
   person: any = null;
   isLoading = false;
@@ -82,7 +81,7 @@ export class SalesPersonDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.http.get<any>(`/api/app/sales-person/${id}`).subscribe({
+      this.restService.request<any, any>({ method: 'GET', url: `/api/app/sales-person/${id}` }, { apiName: 'Default' }).subscribe({
         next: p => { this.person = p; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

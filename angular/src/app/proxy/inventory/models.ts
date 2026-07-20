@@ -42,6 +42,13 @@ export interface CreateItemGroupDto {
   defaultWarehouseId?: string | null;
 }
 
+export interface CreateItemStandardCostDto {
+  companyId?: string;
+  itemId?: string;
+  standardRate?: number;
+  effectiveDate?: string;
+}
+
 export interface CreatePickListDto {
   companyId?: string;
   purpose?: string;
@@ -57,6 +64,17 @@ export interface CreatePickListItemDto {
   warehouseId?: string;
   qty?: number;
   batchId?: string | null;
+}
+
+export interface CreateRepostItemValuationDto {
+  companyId?: string;
+  basedOn?: number;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  postingDate?: string;
+  repostGlEntries?: boolean;
+  voucherType?: string | null;
+  voucherId?: string | null;
 }
 
 export interface CreateStockClosingDto {
@@ -143,6 +161,16 @@ export interface CreateUpdatePriceListDto {
   companyId?: string | null;
 }
 
+export interface CreateUpdatePutawayRuleDto {
+  companyId?: string;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  warehouseId?: string;
+  stockCapacity?: number;
+  priority?: number;
+  uom?: string | null;
+}
+
 export interface CreateUpdateWarehouseDto {
   companyId: string;
   branchId?: string | null;
@@ -184,6 +212,10 @@ export interface GetItemRateRequestDto {
   customerId?: string | null;
   supplierId?: string | null;
   batchNo?: string | null;
+}
+
+export interface GetItemStandardCostListDto extends CompanyFilteredPagedRequestDto {
+  itemId?: string | null;
 }
 
 export interface GetSerialNoListDto extends PagedAndSortedResultRequestDto {
@@ -275,6 +307,17 @@ export interface ItemRateResultDto {
   source?: string | null;
 }
 
+export interface ItemStandardCostDto extends EntityDto<string> {
+  companyId?: string;
+  itemId?: string;
+  standardRate?: number;
+  effectiveDate?: string;
+  previousRate?: number | null;
+  status?: number;
+  revaluationStockReconciliationId?: string | null;
+  creationTime?: string;
+}
+
 export interface ManufactureItemLineDto {
   itemId?: string;
   itemName?: string;
@@ -346,6 +389,34 @@ export interface PriceListDto extends AuditedEntityDto<string> {
   isDefault?: boolean;
   isActive?: boolean;
   companyId?: string | null;
+}
+
+export interface PutawayRuleDto extends EntityDto<string> {
+  companyId?: string;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  warehouseId?: string;
+  stockCapacity?: number;
+  priority?: number;
+  uom?: string | null;
+  isEnabled?: boolean;
+}
+
+export interface RepostItemValuationDto extends EntityDto<string> {
+  companyId?: string;
+  basedOn?: number;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  postingDate?: string;
+  status?: number;
+  repostGlEntries?: boolean;
+  totalAffectedEntries?: number;
+  currentIndex?: number;
+  errorLog?: string | null;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  isDeduplicated?: boolean;
+  creationTime?: string;
 }
 
 export interface SerialNoDto extends EntityDto<string> {

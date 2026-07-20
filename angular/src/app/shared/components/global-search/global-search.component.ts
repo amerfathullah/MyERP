@@ -2,8 +2,7 @@ import { Component, inject, signal, HostListener, ViewChild, ElementRef } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { CompanyContextService } from '../../services/company-context.service';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 
@@ -88,7 +87,7 @@ interface SearchResult {
   `]
 })
 export class GlobalSearchComponent {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
 
@@ -121,11 +120,11 @@ export class GlobalSearchComponent {
         }
         this.loading.set(true);
         const companyId = this.companyContext.currentCompanyId();
-        return this.http.post<SearchResult[]>('/api/app/global-search/search', {
+        return this.restService.request<any, SearchResult[]>({ method: 'POST', url: '/api/app/global-search/search', body: {
           query: term,
           companyId,
           maxResults: 15
-        });
+        } }, { apiName: 'Default' });
       })
     ).subscribe({
       next: (res) => {

@@ -1,12 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { InvoiceDiscountingService } from '../../proxy/accounting/invoice-discounting.service';
+import { RestService } from '@abp/ng.core';
 
 const STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'Settled', 'Cancelled'] as const;
 
@@ -95,7 +96,8 @@ const STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'Settled', 'Cancelled'] as c
   `
 })
 export class InvoiceDiscountingComponent implements OnInit {
-  private http = inject(HttpClient);
+  private invoiceDiscountingService = inject(InvoiceDiscountingService);
+  private restService = inject(RestService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -112,28 +114,28 @@ export class InvoiceDiscountingComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     const params: any = { maxResultCount: '50' };
     if (cid) params.companyId = cid;
-    this.http.get<any>('/api/app/invoice-discounting', { params }).subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/invoice-discounting', params }, { apiName: 'Default' }).subscribe({
       next: res => { this.items = res.items ?? []; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
   }
 
   calculate() {
-    this.http.post<any>('/api/app/invoice-discounting/calculate', this.calcInput).subscribe({
+    this.invoiceDiscountingService.calculate(this.calcInput as any).subscribe({
       next: res => { this.calcResult = res; },
       error: () => {}
     });
   }
 
   disburse(id: string) {
-    this.http.post(`/api/app/invoice-discounting/${id}/disburse`, {}).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: `/api/app/invoice-discounting/${id}/disburse` }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Disbursed'); this.loadData(); },
       error: () => {}
     });
   }
 
   settle(id: string) {
-    this.http.post(`/api/app/invoice-discounting/${id}/settle`, {}).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: `/api/app/invoice-discounting/${id}/settle` }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Settled'); this.loadData(); },
       error: () => {}
     });

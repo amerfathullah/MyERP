@@ -1,8 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -30,7 +29,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
 
   order: SalesOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -113,7 +112,7 @@ export class SalesOrderDetailComponent implements OnInit {
         });
         break;
       case 'amend':
-        this.http.post<any>(`/api/app/sales-order-amendment/${id}/amend`, {}).subscribe({
+        this.restService.request<any, any>({ method: 'POST', url: `/api/app/sales-order-amendment/${id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
           next: (amended) => this.router.navigate(['/sales/orders', amended.id]),
         });
         break;

@@ -3,19 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
-
-interface SalarySlipDto {
-  id: string;
-  employeeName?: string;
-  postingDate: string;
-  startDate: string;
-  endDate: string;
-  grossAmount: number;
-  totalDeductions: number;
-  netAmount: number;
-  status: number;
-}
+import { SalarySlipService } from '../../proxy/human-resources/salary-slip.service';
+import type { SalarySlipDto } from '../../proxy/human-resources/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -77,7 +66,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `,
 })
 export class SalarySlipListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private salarySlipService = inject(SalarySlipService);
   slips = signal<SalarySlipDto[]>([]);
   isLoading = signal(true);
   totalCount = 0;
@@ -91,7 +80,7 @@ export class SalarySlipListComponent implements OnInit {
 
   load(): void {
     this.isLoading.set(true);
-    this.http.get<any>('/api/app/salary-slip', { params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) } })
+    this.salarySlipService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '' } as any)
       .subscribe({
         next: res => { this.slips.set(res.items ?? []); this.totalCount = res.totalCount ?? 0; this.isLoading.set(false); },
         error: () => this.isLoading.set(false),

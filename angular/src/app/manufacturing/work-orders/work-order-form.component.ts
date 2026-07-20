@@ -7,7 +7,8 @@ import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from './manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { ManufacturingService as ManufacturingProxyService } from '../../proxy/controllers/manufacturing.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -26,7 +27,8 @@ export class WorkOrderFormComponent implements OnInit {
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private itemService = inject(ItemService);
+  private manufacturingProxyService = inject(ManufacturingProxyService);
 
   items = signal<any[]>([]);
   boms = signal<any[]>([]);
@@ -58,11 +60,11 @@ export class WorkOrderFormComponent implements OnInit {
     }
 
     // Load items for dropdown
-    this.http.get<any>('/api/app/item', { params: { skipCount: '0', maxResultCount: '500', sorting: 'itemCode asc' } })
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'itemCode asc' } as any)
       .subscribe(res => this.items.set(res.items ?? []));
 
     // Load BOMs (all — filtered client-side when item changes)
-    this.http.get<any>('/api/app/manufacturing/bom', { params: { skipCount: '0', maxResultCount: '500', sorting: '' } })
+    this.manufacturingProxyService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
       .subscribe(res => this.boms.set(res.items ?? []));
   }
 

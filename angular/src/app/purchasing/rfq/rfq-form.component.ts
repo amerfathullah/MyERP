@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 
 @Component({
   selector: 'app-rfq-form',
@@ -74,7 +73,7 @@ import { HttpClient } from '@angular/common/http';
   `,
 })
 export class RfqFormComponent {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -88,7 +87,7 @@ export class RfqFormComponent {
 
   save() {
     this.saving = true;
-    this.http.post('/api/app/request-for-quotation', this.form).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: '/api/app/request-for-quotation', body: this.form }, { apiName: 'Default' }).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/purchasing/rfq']); },
       error: () => { this.saving = false; },
     });

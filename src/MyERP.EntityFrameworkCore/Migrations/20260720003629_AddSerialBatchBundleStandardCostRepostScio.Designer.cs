@@ -8653,7 +8653,7 @@ namespace MyERP.Migrations
                     b.HasIndex("SerialAndBatchBundleId");
 
                     b.HasIndex("TenantId", "SerialNo")
-                        .HasFilter("[SerialNo] IS NOT NULL");
+                        .HasFilter("\"SerialNo\" IS NOT NULL");
 
                     b.ToTable("Inv_SerialAndBatchEntries", (string)null);
                 });

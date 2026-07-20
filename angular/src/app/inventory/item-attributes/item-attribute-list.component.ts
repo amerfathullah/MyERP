@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ItemAttributeService } from '../../proxy/inventory/item-attribute.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -91,7 +91,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   `
 })
 export class ItemAttributeListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(ItemAttributeService);
   private toaster = inject(ToasterService);
 
   attributes: any[] = [];
@@ -107,7 +107,7 @@ export class ItemAttributeListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.http.get<any[]>('/api/app/item-attribute').subscribe({
+    this.service.getList().subscribe({
       next: res => { this.attributes = res ?? []; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -124,7 +124,7 @@ export class ItemAttributeListComponent implements OnInit {
       dto.toRange = this.toRange;
       dto.increment = this.increment;
     }
-    this.http.post('/api/app/item-attribute', dto).subscribe({
+    this.service.create(dto).subscribe({
       next: () => {
         this.toaster.success('Attribute created');
         this.newName = '';
@@ -139,7 +139,7 @@ export class ItemAttributeListComponent implements OnInit {
     const abbr = abbrInput.value.trim();
     if (!val || !abbr) return;
 
-    this.http.put(`/api/app/item-attribute/${attrId}/add-value`, { value: val, abbreviation: abbr }).subscribe({
+    this.service.addValue(attrId, { value: val, abbreviation: abbr } as any).subscribe({
       next: () => {
         valInput.value = '';
         abbrInput.value = '';
@@ -150,6 +150,6 @@ export class ItemAttributeListComponent implements OnInit {
 
   deleteAttribute(id: string) {
     if (!confirm('Delete this attribute?')) return;
-    this.http.delete(`/api/app/item-attribute/${id}`).subscribe({ next: () => this.loadData() });
+    this.service.delete(id).subscribe({ next: () => this.loadData() });
   }
 }

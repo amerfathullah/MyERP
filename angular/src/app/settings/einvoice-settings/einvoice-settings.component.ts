@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { EInvoiceSettingsService } from '../../proxy/einvoice/einvoice-settings.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -153,7 +153,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   `,
 })
 export class EInvoiceSettingsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private einvoiceService = inject(EInvoiceSettingsService);
   private toaster = inject(ToasterService);
 
   status = signal<any>(null);
@@ -176,7 +176,7 @@ export class EInvoiceSettingsComponent implements OnInit {
 
   loadStatus() {
     this.isLoading.set(true);
-    this.http.get<any>('/api/app/e-invoice-settings/connection-status').subscribe({
+    this.einvoiceService.getConnectionStatus().subscribe({
       next: (res) => {
         this.status.set(res);
         if (res.clientId) this.credentials.clientId = res.clientId;
@@ -189,7 +189,7 @@ export class EInvoiceSettingsComponent implements OnInit {
 
   saveCredentials() {
     this.isSaving.set(true);
-    this.http.post('/api/app/e-invoice-settings/save-credentials', this.credentials).subscribe({
+    this.einvoiceService.saveCredentials(this.credentials as any).subscribe({
       next: () => {
         this.toaster.success('Credentials saved successfully');
         this.isSaving.set(false);
@@ -201,8 +201,8 @@ export class EInvoiceSettingsComponent implements OnInit {
 
   connect() {
     this.isConnecting.set(true);
-    this.http.post<any>('/api/app/e-invoice-settings/connect', {}).subscribe({
-      next: (res) => {
+    this.einvoiceService.connect().subscribe({
+      next: (res: any) => {
         if (res.isSuccess) {
           this.toaster.success('Connected to LHDN successfully');
         } else {
@@ -229,10 +229,10 @@ export class EInvoiceSettingsComponent implements OnInit {
 
   uploadCertificate() {
     this.isUploading.set(true);
-    this.http.post('/api/app/e-invoice-settings/save-certificate', {
+    this.einvoiceService.saveCertificate({
       certificateBase64: this.certBase64,
       certificatePassword: this.certPassword || null,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('Certificate uploaded successfully');
         this.isUploading.set(false);
@@ -247,9 +247,7 @@ export class EInvoiceSettingsComponent implements OnInit {
   searchTaxpayer() {
     this.isSearching.set(true);
     this.searchResult.set(null);
-    this.http.get<any>('/api/app/e-invoice-settings/search-taxpayer', {
-      params: { idType: this.searchIdType, idValue: this.searchIdValue }
-    }).subscribe({
+    this.einvoiceService.searchTaxpayer(this.searchIdType, this.searchIdValue).subscribe({
       next: (res) => { this.searchResult.set(res); this.isSearching.set(false); },
       error: () => this.isSearching.set(false),
     });

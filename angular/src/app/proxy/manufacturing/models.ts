@@ -226,8 +226,10 @@ export interface BomDto extends AuditedEntityDto<string> {
   isActive?: boolean;
   isDefault?: boolean;
   totalMaterialCost?: number;
+  operatingCost?: number;
   totalCost?: number;
   items?: BomItemDto[];
+  operations?: BomOperationDto[];
 }
 
 export interface BomItemDto {
@@ -240,6 +242,19 @@ export interface BomItemDto {
   amount?: number;
 }
 
+export interface BomOperationDto {
+  id?: string;
+  operationId?: string;
+  workstationId?: string | null;
+  sequenceId?: number;
+  timeInMins?: number;
+  operatingCost?: number;
+  batchSize?: number;
+  fixedTime?: number;
+  description?: string | null;
+  isSubcontracted?: boolean;
+}
+
 export interface CreateBomDto {
   itemId: string;
   quantity?: number;
@@ -248,7 +263,9 @@ export interface CreateBomDto {
   isDefault?: boolean;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
+  routingId?: string | null;
   items?: CreateBomItemDto[];
+  operations?: CreateBomOperationDto[];
 }
 
 export interface CreateBomItemDto {
@@ -257,6 +274,18 @@ export interface CreateBomItemDto {
   quantity?: number;
   uom?: string | null;
   rate?: number;
+}
+
+export interface CreateBomOperationDto {
+  operationId: string;
+  workstationId?: string | null;
+  sequenceId?: number;
+  timeInMins?: number;
+  batchSize?: number;
+  fixedTime?: number;
+  description?: string | null;
+  isSubcontracted?: boolean;
+  workstationHourRate?: number;
 }
 
 export interface CreateWorkOrderDto {

@@ -1,5 +1,5 @@
-import type { DepreciationMethod } from './depreciation-method.enum';
 import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { DepreciationMethod } from './depreciation-method.enum';
 import type { AssetStatus } from './asset-status.enum';
 
 export interface AssetCapitalizationDto {
@@ -10,6 +10,17 @@ export interface AssetCapitalizationDto {
   postingDate?: string;
   totalAssetValue?: number;
   status?: string;
+}
+
+export interface AssetCategoryDetailDto extends EntityDto<string> {
+  categoryName?: string;
+  isDepreciable?: boolean;
+  defaultDepreciationMethod?: DepreciationMethod;
+  defaultUsefulLifeMonths?: number;
+  defaultDepreciationRate?: number | null;
+  assetAccountId?: string | null;
+  depreciationAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
 }
 
 export interface AssetCategoryDto {
@@ -146,6 +157,17 @@ export interface CreateMaintenanceScheduleDto {
   startDate?: string;
   endDate?: string;
   periodicity?: string;
+}
+
+export interface CreateUpdateAssetCategoryDetailDto {
+  categoryName?: string;
+  isDepreciable?: boolean;
+  defaultDepreciationMethod?: DepreciationMethod;
+  defaultUsefulLifeMonths?: number;
+  defaultDepreciationRate?: number | null;
+  assetAccountId?: string | null;
+  depreciationAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
 }
 
 export interface CreateUpdateAssetCategoryDto {

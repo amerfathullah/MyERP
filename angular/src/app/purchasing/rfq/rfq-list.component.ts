@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
@@ -62,7 +62,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
 })
 export class RfqListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private rfqService = inject(RequestForQuotationService);
   rfqs = signal<any[]>([]);
   searchTerm = '';
   totalCount = 0;
@@ -72,9 +72,7 @@ export class RfqListComponent implements OnInit {
   ngOnInit() { this.loadData(); }
 
   loadData() {
-    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
-    if (this.searchTerm) params.filter = this.searchTerm;
-    this.http.get<any>('/api/app/request-for-quotation', { params })
+    this.rfqService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, filter: this.searchTerm || undefined, sorting: '' } as any)
       .subscribe({ next: (res) => { this.rfqs.set(res.items ?? []); this.totalCount = res.totalCount ?? 0; }, error: () => {} });
   }
 

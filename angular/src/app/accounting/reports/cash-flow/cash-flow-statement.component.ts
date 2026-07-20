@@ -3,26 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { CashFlowStatementService } from '../../../proxy/accounting/cash-flow-statement.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface CashFlowLineItem {
-  label: string;
-  amount: number;
-}
-
-interface CashFlowStatement {
-  operatingActivities: CashFlowLineItem[];
-  operatingTotal: number;
-  investingActivities: CashFlowLineItem[];
-  investingTotal: number;
-  financingActivities: CashFlowLineItem[];
-  financingTotal: number;
-  netCashChange: number;
-  openingCashBalance: number;
-  closingCashBalance: number;
-}
+import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-cash-flow-statement',
@@ -188,13 +172,13 @@ interface CashFlowStatement {
   `
 })
 export class CashFlowStatementComponent implements OnInit {
-  private http = inject(HttpClient);
+  private cashFlowStatementService = inject(CashFlowStatementService);
   private companyContext = inject(CompanyContextService);
 
   fromDate = '';
   toDate = '';
   loading = signal(false);
-  report = signal<CashFlowStatement | null>(null);
+  report = signal<CashFlowStatementDto | null>(null);
 
   ngOnInit() {
     const today = new Date();
@@ -209,7 +193,7 @@ export class CashFlowStatementComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.post<CashFlowStatement>('/api/app/cash-flow-statement/cash-flow-statement', {
+    this.cashFlowStatementService.getCashFlowStatement({
       companyId,
       fromDate: this.fromDate,
       toDate: this.toDate
@@ -228,15 +212,15 @@ export class CashFlowStatementComponent implements OnInit {
 
     const rows: any[] = [];
     rows.push({ Section: 'OPERATING ACTIVITIES', Label: '', Amount: '' });
-    r.operatingActivities.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
+    r.operatingActivities?.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
     rows.push({ Section: '', Label: 'Net Cash from Operations', Amount: r.operatingTotal });
     rows.push({ Section: '', Label: '', Amount: '' });
     rows.push({ Section: 'INVESTING ACTIVITIES', Label: '', Amount: '' });
-    r.investingActivities.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
+    r.investingActivities?.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
     rows.push({ Section: '', Label: 'Net Cash from Investing', Amount: r.investingTotal });
     rows.push({ Section: '', Label: '', Amount: '' });
     rows.push({ Section: 'FINANCING ACTIVITIES', Label: '', Amount: '' });
-    r.financingActivities.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
+    r.financingActivities?.forEach(i => rows.push({ Section: '', Label: i.label, Amount: i.amount }));
     rows.push({ Section: '', Label: 'Net Cash from Financing', Amount: r.financingTotal });
     rows.push({ Section: '', Label: '', Amount: '' });
     rows.push({ Section: 'SUMMARY', Label: 'Net Cash Change', Amount: r.netCashChange });

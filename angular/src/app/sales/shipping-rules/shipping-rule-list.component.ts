@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
@@ -68,7 +68,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class ShippingRuleListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private shippingRuleService = inject(ShippingRuleService);
   rules: any[] = [];
   isLoading = false;
   totalCount = 0;
@@ -79,18 +79,14 @@ export class ShippingRuleListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.http.get<any>('/api/app/shipping-rule', {
-      params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) }
-    }).subscribe({
+    this.shippingRuleService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '' } as any).subscribe({
       next: res => { this.rules = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
   }
 
   toggleRule(rule: any) {
-    this.http.put<any>(`/api/app/shipping-rule/${rule.id}/toggle`, null, {
-      params: { isEnabled: String(!rule.isEnabled) }
-    }).subscribe({ next: () => { rule.isEnabled = !rule.isEnabled; } });
+    this.shippingRuleService.toggle(rule.id, !rule.isEnabled).subscribe({ next: () => { rule.isEnabled = !rule.isEnabled; } });
   }
 
   onPageChange(e: PageEvent) { this.currentPage = e.pageIndex; this.loadData(); }

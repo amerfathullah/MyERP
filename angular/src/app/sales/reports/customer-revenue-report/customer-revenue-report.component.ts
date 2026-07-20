@@ -4,18 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { CustomerRevenueService } from '../../../proxy/sales/customer-revenue.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface CustomerRevenueLine {
-  customerId: string;
-  customerName: string;
-  invoiceCount: number;
-  totalRevenue: number;
-  totalPaid: number;
-  totalOutstanding: number;
-}
+import type { CustomerRevenueLineDto } from '../../../proxy/sales/models';
 
 @Component({
   selector: 'app-customer-revenue-report',
@@ -25,10 +17,10 @@ interface CustomerRevenueLine {
   styleUrls: ['./customer-revenue-report.component.scss'],
 })
 export class CustomerRevenueReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private customerRevenueService = inject(CustomerRevenueService);
   private companyContext = inject(CompanyContextService);
 
-  items = signal<CustomerRevenueLine[]>([]);
+  items = signal<CustomerRevenueLineDto[]>([]);
   isLoading = signal(false);
   totalRevenue = signal(0);
   totalOutstanding = signal(0);
@@ -46,9 +38,7 @@ export class CustomerRevenueReportComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<any>('/api/app/customer-revenue/report', {
-      params: { companyId, fromDate: this.dateFrom, toDate: this.dateTo },
-    }).subscribe({
+    this.customerRevenueService.getReport({ companyId, fromDate: this.dateFrom, toDate: this.dateTo } as any).subscribe({
       next: (result) => {
         this.items.set(result.items ?? []);
         this.totalRevenue.set(result.totalRevenue ?? 0);

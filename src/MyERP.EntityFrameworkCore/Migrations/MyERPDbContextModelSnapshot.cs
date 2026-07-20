@@ -8650,7 +8650,7 @@ namespace MyERP.Migrations
                     b.HasIndex("SerialAndBatchBundleId");
 
                     b.HasIndex("TenantId", "SerialNo")
-                        .HasFilter("[SerialNo] IS NOT NULL");
+                        .HasFilter("\"SerialNo\" IS NOT NULL");
 
                     b.ToTable("Inv_SerialAndBatchEntries", (string)null);
                 });
@@ -20710,7 +20710,7 @@ namespace MyERP.Migrations
 
                             b1.HasKey("IdentityUserPasskeyCredentialId");
 
-                            b1.ToTable("AbpUserPasskeys");
+                            b1.ToTable("AbpUserPasskeys", (string)null);
 
                             b1
                                 .ToJson("Data")

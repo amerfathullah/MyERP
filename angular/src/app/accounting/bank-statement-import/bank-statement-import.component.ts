@@ -1,9 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { BankStatementImportService } from '../../proxy/accounting/bank-statement-import.service';
 
 @Component({
   selector: 'app-bank-statement-import',
@@ -12,7 +12,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   templateUrl: './bank-statement-import.component.html',
 })
 export class BankStatementImportComponent {
-  private http = inject(HttpClient);
+  private bankStatementImportService = inject(BankStatementImportService);
   private toaster = inject(ToasterService);
 
   bankAccountId = signal<string>('');
@@ -42,17 +42,17 @@ export class BankStatementImportComponent {
     this.importing.set(true);
     this.result.set(null);
 
-    this.http.post<any>('/api/app/bank-statement-import/import-from-csv', {
+    this.bankStatementImportService.importFromCsv({
       companyId: this.companyId(),
       bankAccountId: this.bankAccountId(),
       csvContent: this.csvContent(),
-    }).subscribe({
-      next: (res) => {
+    } as any).subscribe({
+      next: (res: any) => {
         this.result.set(res);
         this.importing.set(false);
         this.toaster.success(`Imported ${res.importedCount} transactions`);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.result.set({ importedCount: 0, skippedCount: 0, errors: [err?.error?.error?.message ?? 'Import failed'] });
         this.importing.set(false);
       },

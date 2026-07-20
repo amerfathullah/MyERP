@@ -3,20 +3,12 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { AgingReportService } from '../../../proxy/accounting/aging-report.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
-
-interface AgingReportDto {
-  reportType: string;
-  asOfDate: string;
-  bucketLabels: string[];
-  bucketTotals: number[];
-  totalOutstanding: number;
-  invoiceCount: number;
-}
+import type { AgingReportDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-aging-report',
@@ -27,7 +19,7 @@ interface AgingReportDto {
 })
 export class AgingReportComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private agingReportService = inject(AgingReportService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
@@ -62,12 +54,12 @@ export class AgingReportComponent implements OnInit {
     }
     this.isLoading.set(true);
     const { companyId, asOfDate, reportType } = this.filters.getRawValue();
-    const endpoint = reportType === 'receivables'
-      ? '/api/app/aging-report/receivables-aging'
-      : '/api/app/aging-report/payables-aging';
+    const request = { companyId: companyId!, asOfDate: asOfDate! };
+    const call$ = reportType === 'receivables'
+      ? this.agingReportService.getReceivablesAging(request)
+      : this.agingReportService.getPayablesAging(request);
 
-    this.http.get<AgingReportDto>(endpoint, { params: { companyId: companyId!, asOfDate: asOfDate! } })
-      .subscribe({
+    call$.subscribe({
         next: data => { this.report.set(data); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });

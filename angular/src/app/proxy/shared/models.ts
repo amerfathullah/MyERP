@@ -4,4 +4,18 @@ export interface CompanyFilteredPagedRequestDto extends PagedAndSortedResultRequ
   companyId?: string | null;
   filter?: string | null;
   status?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface BulkOperationError {
+  id?: string;
+  message?: string;
+}
+
+export interface BulkOperationResultDto {
+  succeeded?: number;
+  failed?: number;
+  total?: number;
+  errors?: BulkOperationError[];
 }

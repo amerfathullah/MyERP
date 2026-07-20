@@ -4,8 +4,9 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { CompanyService } from '../../proxy/core/company.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { ItemStore } from '../store/item.store';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -22,7 +23,8 @@ export class ItemFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
+  private stockBalanceService = inject(StockBalanceService);
   private store = inject(ItemStore);
   private service = inject(ItemService);
 
@@ -61,14 +63,14 @@ export class ItemFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
-      .subscribe(res => this.companies.set(res.items ?? []));
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
+      res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
         this.form.patchValue(item as any);
         // Load stock levels for this item
-        this.http.get<any[]>(`/api/app/stock-balance/item-stock`, { params: { itemId: this.entityId! } })
+        this.stockBalanceService.getItemStock(this.entityId!)
           .subscribe(levels => this.stockLevels.set(levels ?? []));
       });
     }

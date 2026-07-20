@@ -77,7 +77,7 @@ public class GeneralLedgerAppService : ApplicationService
 
         // Filter by voucher number if specified
         if (!string.IsNullOrWhiteSpace(input.VoucherNumber))
-            journalsQuery = journalsQuery.Where(je => je.EntryNumber.Contains(input.VoucherNumber));
+            journalsQuery = journalsQuery.Where(je => je.EntryNumber != null && je.EntryNumber.Contains(input.VoucherNumber));
 
         var journals = journalsQuery
             .OrderBy(je => je.PostingDate)

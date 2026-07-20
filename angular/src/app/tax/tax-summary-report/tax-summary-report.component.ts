@@ -1,8 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
@@ -139,7 +138,7 @@ interface TaxSummary {
   `
 })
 export class TaxSummaryReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private companyContext = inject(CompanyContextService);
 
   result = signal<TaxSummary | null>(null);
@@ -151,9 +150,7 @@ export class TaxSummaryReportComponent implements OnInit {
   generate() {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    this.http.get<TaxSummary>(`/api/app/tax-summary-report/tax-summary`, {
-      params: { companyId, fromDate: this.fromDate, toDate: this.toDate }
-    }).subscribe({ next: data => this.result.set(data), error: () => {} });
+    this.restService.request<any, TaxSummary>({ method: 'GET', url: `/api/app/tax-summary-report/tax-summary`, params: { companyId, fromDate: this.fromDate, toDate: this.toDate } }, { apiName: 'Default' }).subscribe({ next: data => this.result.set(data), error: () => {} });
   }
 
   exportCsv() {

@@ -5,16 +5,10 @@ import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
-
-interface UnbilledSummary {
-  activityType: string;
-  totalHours: number;
-  totalAmount: number;
-  entryCount: number;
-}
+import { TimesheetService } from '../../proxy/projects/timesheet.service';
+import type { UnbilledTimesheetSummaryDto } from '../../proxy/projects/models';
 
 interface CustomerOption {
   id: string;
@@ -29,13 +23,13 @@ interface CustomerOption {
   styleUrls: ['./timesheet-billing.component.scss'],
 })
 export class TimesheetBillingComponent implements OnInit {
-  private http = inject(HttpClient);
+  private timesheetService = inject(TimesheetService);
   private toaster = inject(ToasterService);
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private customerService = inject(CustomerService);
 
-  unbilledItems = signal<UnbilledSummary[]>([]);
+  unbilledItems = signal<UnbilledTimesheetSummaryDto[]>([]);
   customers = signal<CustomerOption[]>([]);
   isLoading = signal(false);
   isBilling = signal(false);
@@ -62,13 +56,11 @@ export class TimesheetBillingComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<UnbilledSummary[]>('/api/app/timesheet/unbilled-summary', {
-      params: { companyId, ...(this.projectId ? { projectId: this.projectId } : {}) },
-    }).subscribe({
+    this.timesheetService.getUnbilledSummary(companyId, this.projectId || '').subscribe({
       next: (items) => {
         this.unbilledItems.set(items);
-        this.totalHours.set(items.reduce((s, i) => s + i.totalHours, 0));
-        this.totalAmount.set(items.reduce((s, i) => s + i.totalAmount, 0));
+        this.totalHours.set(items.reduce((s, i) => s + (i.totalHours ?? 0), 0));
+        this.totalAmount.set(items.reduce((s, i) => s + (i.totalAmount ?? 0), 0));
         this.isLoading.set(false);
       },
       error: () => {
@@ -86,11 +78,11 @@ export class TimesheetBillingComponent implements OnInit {
     }
 
     this.isBilling.set(true);
-    this.http.post<any>('/api/app/timesheet/create-invoice-from-timesheets', {
+    this.timesheetService.createInvoiceFromTimesheets({
       companyId,
       customerId: this.customerId,
       projectId: this.projectId || undefined,
-    }).subscribe({
+    } as any).subscribe({
       next: (result) => {
         this.isBilling.set(false);
         this.toaster.success(`Invoice ${result.invoiceNumber} created (${result.totalHours}h, MYR ${result.totalAmount})`);

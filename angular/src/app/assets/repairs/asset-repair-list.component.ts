@@ -3,22 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { AssetRepairService } from '../../proxy/assets/asset-repair.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface AssetRepairDto {
-  id: string;
-  assetId: string;
-  repairDescription: string | null;
-  failureDate: string | null;
-  completionDate: string | null;
-  repairCost: number;
-  capitalizeRepairCost: boolean;
-  increaseInAssetLife: number;
-  status: number;
-  creationTime: string;
-}
+import type { AssetRepairDto } from '../../proxy/assets/models';
 
 @Component({
   selector: 'app-asset-repair-list',
@@ -102,7 +90,7 @@ interface AssetRepairDto {
   `,
 })
 export class AssetRepairListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(AssetRepairService);
   private companyContext = inject(CompanyContextService);
 
   items = signal<AssetRepairDto[]>([]);
@@ -115,13 +103,9 @@ export class AssetRepairListComponent implements OnInit {
 
   loadData(): void {
     this.isLoading.set(true);
-    const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     const cid = this.companyContext.currentCompanyId();
-    if (cid) params.companyId = cid;
 
-    this.http.get<{ items: AssetRepairDto[]; totalCount: number }>(
-      '/api/app/asset-repair', { params }
-    ).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId: cid ?? undefined } as any).subscribe({
       next: r => { this.items.set(r.items ?? []); this.totalCount.set(r.totalCount); this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });
@@ -129,14 +113,14 @@ export class AssetRepairListComponent implements OnInit {
 
   completeRepair(repair: AssetRepairDto): void {
     if (!confirm('Complete this repair?')) return;
-    this.http.post(`/api/app/asset-repair/${repair.id}/complete`, {}).subscribe({
+    this.service.complete(repair.id).subscribe({
       next: () => this.loadData(),
     });
   }
 
   cancelRepair(repair: AssetRepairDto): void {
     if (!confirm('Cancel this repair?')) return;
-    this.http.post(`/api/app/asset-repair/${repair.id}/cancel`, {}).subscribe({
+    this.service.cancel(repair.id).subscribe({
       next: () => this.loadData(),
     });
   }

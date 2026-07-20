@@ -4,38 +4,13 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { AccountService } from '../../../proxy/accounting/account.service';
+import { GeneralLedgerService } from '../../../proxy/accounting/general-ledger.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
-import type { AccountDto } from '../../../proxy/accounting/models';
-
-interface GLEntry {
-  id: string;
-  postingDate: string;
-  accountCode?: string;
-  accountName?: string;
-  voucherType?: string;
-  voucherId?: string;
-  voucherNumber?: string;
-  debitAmount: number;
-  creditAmount: number;
-  balance: number;
-  partyType?: string;
-  partyName?: string;
-  costCenterName?: string;
-  description?: string;
-}
-
-interface GLReport {
-  entries: GLEntry[];
-  totalDebit: number;
-  totalCredit: number;
-  balance: number;
-  count: number;
-}
+import type { AccountDto, GeneralLedgerReportDto, GeneralLedgerLineDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-general-ledger',
@@ -46,7 +21,7 @@ interface GLReport {
 })
 export class GeneralLedgerComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private generalLedgerService = inject(GeneralLedgerService);
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
   private companyContext = inject(CompanyContextService);
@@ -61,7 +36,7 @@ export class GeneralLedgerComponent implements OnInit {
 
   companies = signal<CompanyDto[]>([]);
   accounts = signal<AccountDto[]>([]);
-  report = signal<GLReport | null>(null);
+  report = signal<GeneralLedgerReportDto | null>(null);
   isLoading = signal(false);
 
   ngOnInit(): void {
@@ -95,7 +70,7 @@ export class GeneralLedgerComponent implements OnInit {
     if (accountId) params.accountId = accountId;
     if (voucherNumber) params.voucherNumber = voucherNumber;
 
-    this.http.get<GLReport>('/api/app/general-ledger/report', { params })
+    this.generalLedgerService.getReport(params)
       .subscribe({
         next: data => { this.report.set(data); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
@@ -105,13 +80,13 @@ export class GeneralLedgerComponent implements OnInit {
   exportCsv(): void {
     const r = this.report();
     if (!r?.entries?.length) return;
-    exportToCsv('general-ledger.csv', r.entries, [
+    exportToCsv('general-ledger.csv', r.entries as any[], [
       'postingDate', 'accountCode', 'accountName', 'voucherType', 'voucherNumber',
       'partyType', 'partyName', 'debitAmount', 'creditAmount', 'balance', 'costCenterName', 'description'
     ]);
   }
 
-  getVoucherRoute(entry: GLEntry): string[] {
+  getVoucherRoute(entry: GeneralLedgerLineDto): string[] {
     if (!entry.voucherId) return [];
     switch (entry.voucherType) {
       case 'SalesInvoice': return ['/sales/invoices', entry.voucherId];

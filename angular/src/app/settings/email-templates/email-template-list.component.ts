@@ -2,8 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -110,7 +109,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   `
 })
 export class EmailTemplateListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private toaster = inject(ToasterService);
 
   templates: any[] = [];
@@ -125,7 +124,7 @@ export class EmailTemplateListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.http.get<any[]>('/api/app/email-template').subscribe({
+    this.restService.request<any, any[]>({ method: 'GET', url: '/api/app/email-template' }, { apiName: 'Default' }).subscribe({
       next: res => { this.templates = res ?? []; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -153,11 +152,11 @@ export class EmailTemplateListComponent implements OnInit {
 
   saveTemplate() {
     if (this.editing) {
-      this.http.put(`/api/app/email-template/${this.editing.id}`, this.formData).subscribe({
+      this.restService.request<any, void>({ method: 'PUT', url: `/api/app/email-template/${this.editing.id}`, body: this.formData }, { apiName: 'Default' }).subscribe({
         next: () => { this.toaster.success('Template updated'); this.cancelEdit(); this.loadData(); }
       });
     } else {
-      this.http.post('/api/app/email-template', this.formData).subscribe({
+      this.restService.request<any, void>({ method: 'POST', url: '/api/app/email-template', body: this.formData }, { apiName: 'Default' }).subscribe({
         next: () => { this.toaster.success('Template created'); this.cancelEdit(); this.loadData(); }
       });
     }
@@ -173,13 +172,13 @@ export class EmailTemplateListComponent implements OnInit {
       due_date: '2026-08-15',
       days: '30'
     };
-    this.http.post<any>(`/api/app/email-template/${this.editing.id}/preview`, sampleVars).subscribe({
+    this.restService.request<any, any>({ method: 'POST', url: `/api/app/email-template/${this.editing.id}/preview`, body: sampleVars }, { apiName: 'Default' }).subscribe({
       next: res => { this.previewSubject = res.subject; this.previewHtml = res.body; }
     });
   }
 
   deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return;
-    this.http.delete(`/api/app/email-template/${id}`).subscribe({ next: () => this.loadData() });
+    this.restService.request<any, void>({ method: 'DELETE', url: `/api/app/email-template/${id}` }, { apiName: 'Default' }).subscribe({ next: () => this.loadData() });
   }
 }

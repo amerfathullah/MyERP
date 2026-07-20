@@ -49,7 +49,7 @@ export class DeliveryNoteService {
     this.restService.request<any, PagedResultDto<DeliveryNoteDto>>({
       method: 'GET',
       url: '/api/app/delivery-note',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -60,19 +60,13 @@ export class DeliveryNoteService {
       url: `/api/app/delivery-note/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreateDeliveryNoteDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'PUT',
       url: `/api/app/delivery-note/${id}`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  delete = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/delivery-note/${id}`,
     },
     { apiName: this.apiName,...config });
 }

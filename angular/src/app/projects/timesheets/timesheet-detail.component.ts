@@ -1,13 +1,13 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
+import { TimesheetService } from '../../proxy/projects/timesheet.service';
 
 @Component({
   selector: 'app-timesheet-detail',
@@ -108,7 +108,7 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 export class TimesheetDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private timesheetService = inject(TimesheetService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
@@ -129,19 +129,19 @@ export class TimesheetDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.http.get<any>(`/api/app/timesheet/${id}`).subscribe(data => this.ts.set(data));
+    this.timesheetService.get(id).subscribe(data => this.ts.set(data));
   }
 
   onAction(action: string): void {
     const id = this.ts()!.id;
     switch (action) {
       case 'submit':
-        this.http.post(`/api/app/timesheet/${id}/submit`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+        this.timesheetService.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {
           if (s === Confirmation.Status.confirm) {
-            this.http.post(`/api/app/timesheet/${id}/cancel`, {}).subscribe({ next: () => this.reload(), error: () => {} });
+            this.timesheetService.cancel(id).subscribe({ next: () => this.reload(), error: () => {} });
           }
         });
         break;
@@ -151,7 +151,7 @@ export class TimesheetDetailComponent implements OnInit {
   private reload(): void {
     setTimeout(() => {
       const id = this.route.snapshot.paramMap.get('id')!;
-      this.http.get<any>(`/api/app/timesheet/${id}`).subscribe(data => this.ts.set(data));
+      this.timesheetService.get(id).subscribe(data => this.ts.set(data));
     }, 500);
   }
 }

@@ -36,9 +36,9 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               @for (o of orders; track o.id) {
                 <tr>
                   <td>{{ o.orderNumber ?? '—' }}</td>
-                  <td>{{ o.supplierName ?? '—' }}</td>
-                  <td>{{ o.transactionDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="text-end fw-bold">{{ o.totalQty }}</td>
+                  <td>{{ o.supplierId ?? '—' }}</td>
+                  <td>{{ o.orderDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end fw-bold">{{ o.grandTotal }}</td>
                   <td><app-status-badge [status]="getStatus(o.status)"></app-status-badge></td>
                 </tr>
               }

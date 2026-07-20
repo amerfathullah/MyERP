@@ -5,8 +5,9 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -25,7 +26,8 @@ export class StockEntryFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private service = inject(StockEntryService);
-  private http = inject(HttpClient);
+  private warehouseService = inject(WarehouseService);
+  private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -59,10 +61,10 @@ export class StockEntryFormComponent implements OnInit {
     }
 
     // Load warehouses and companies for dropdown selectors
-    this.http.get<any>('/api/app/warehouse', { params: { skipCount: '0', maxResultCount: '200', sorting: '' } })
-      .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
-      .subscribe(res => this.companies.set(res.items ?? []));
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
+      res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
+      res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe(se => {
@@ -115,9 +117,7 @@ export class StockEntryFormComponent implements OnInit {
   loadBomItems(workOrderId: string): void {
     this.isLoadingBOM = true;
     const produceQty = 1; // Default to 1 unit — user can adjust
-    this.http.get<any>('/api/app/stock-entry/manufacture-items', {
-      params: { workOrderId, produceQty: produceQty.toString() },
-    }).subscribe({
+    this.service.getManufactureItems(workOrderId, produceQty).subscribe({
       next: (result) => {
         this.isLoadingBOM = false;
         if (result.sourceWarehouseId) {

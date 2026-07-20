@@ -153,6 +153,28 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
 
+    [Authorize(MyERPPermissions.PurchaseReceipts.Edit)]
+    public async Task<PurchaseReceiptDto> UpdateAsync(Guid id, CreatePurchaseReceiptDto input)
+    {
+        var receipt = await _repository.GetAsync(id);
+        if (receipt.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft purchase receipts can be edited");
+
+        receipt.PostingDate = input.PostingDate;
+        receipt.SupplierDeliveryNote = input.SupplierDeliveryNote;
+        receipt.Notes = input.Notes;
+
+        receipt.ClearItems();
+        foreach (var item in input.Items)
+        {
+            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId);
+        }
+
+        await _repository.UpdateAsync(receipt, autoSave: true);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
     [Authorize(MyERPPermissions.PurchaseReceipts.Submit)]
     public async Task<PurchaseReceiptDto> SubmitAsync(Guid id)
     {

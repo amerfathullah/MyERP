@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
 @Component({
@@ -80,7 +80,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   `
 })
 export class WorkstationDetailComponent implements OnInit {
-  private http = inject(HttpClient);
+  private manufacturingService = inject(ManufacturingService);
   private route = inject(ActivatedRoute);
   ws: any = null;
   isLoading = false;
@@ -89,7 +89,7 @@ export class WorkstationDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.http.get<any>(`/api/app/manufacturing/workstations/${id}`).subscribe({
+      this.manufacturingService.getWorkstation(id).subscribe({
         next: w => { this.ws = w; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

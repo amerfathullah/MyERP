@@ -20,6 +20,24 @@ export class BankReconciliationService {
     { apiName: this.apiName,...config });
   
 
+  createInternalTransfer = (input: CreateInternalTransferDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InternalTransferResultDto>({
+      method: 'POST',
+      url: '/api/app/bank-reconciliation/internal-transfer',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MatchCandidateDto[]>({
+      method: 'GET',
+      url: '/api/app/bank-reconciliation/match-candidates',
+      params: { bankTransactionId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getSummary = (bankAccountId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankReconciliationSummaryDto>({
       method: 'GET',
@@ -55,33 +73,18 @@ export class BankReconciliationService {
     { apiName: this.apiName,...config });
   
 
+  searchForMirrorTransaction = (transactionId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MirrorTransactionDto>({
+      method: 'POST',
+      url: `/api/app/bank-reconciliation/search-for-mirror-transaction/${transactionId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   unreconcile = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankTransactionDto>({
       method: 'POST',
       url: `/api/app/bank-reconciliation/${id}/unreconcile`,
-    },
-    { apiName: this.apiName,...config });
-
-  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, MatchCandidateDto[]>({
-      method: 'GET',
-      url: '/api/app/bank-reconciliation/match-candidates',
-      params: { bankTransactionId, companyId },
-    },
-    { apiName: this.apiName,...config });
-
-  searchForMirrorTransaction = (transactionId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, MirrorTransactionDto>({
-      method: 'GET',
-      url: `/api/app/bank-reconciliation/mirror-transaction/${transactionId}`,
-    },
-    { apiName: this.apiName,...config });
-
-  createInternalTransfer = (input: CreateInternalTransferDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, InternalTransferResultDto>({
-      method: 'POST',
-      url: '/api/app/bank-reconciliation/internal-transfer',
-      body: input,
     },
     { apiName: this.apiName,...config });
 }

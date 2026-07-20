@@ -2,8 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
@@ -40,7 +39,7 @@ interface RegisterReport {
 })
 export class SalesRegisterComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
@@ -72,9 +71,7 @@ export class SalesRegisterComponent implements OnInit {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
     const { companyId, fromDate, toDate } = this.filters.getRawValue();
-    this.http.get<RegisterReport>('/api/app/sales-register/report', {
-      params: { companyId: companyId!, fromDate: fromDate!, toDate: toDate! }
-    }).subscribe({
+    this.restService.request<any, RegisterReport>({ method: 'GET', url: '/api/app/sales-register/report', params: { companyId: companyId!, fromDate: fromDate!, toDate: toDate! } }, { apiName: 'Default' }).subscribe({
       next: data => { this.report.set(data); this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });

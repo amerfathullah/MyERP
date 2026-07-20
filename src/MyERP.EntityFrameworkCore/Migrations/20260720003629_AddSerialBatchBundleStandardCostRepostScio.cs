@@ -288,7 +288,7 @@ namespace MyERP.Migrations
                 name: "IX_Inv_SerialAndBatchEntries_TenantId_SerialNo",
                 table: "Inv_SerialAndBatchEntries",
                 columns: new[] { "TenantId", "SerialNo" },
-                filter: "[SerialNo] IS NOT NULL");
+                filter: "\"SerialNo\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Pur_SubcontractingInwardOrderItems_SubcontractingInwardOrde~",

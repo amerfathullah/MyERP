@@ -38,6 +38,14 @@ export class PurchaseInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/purchase-invoice/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'GET',
@@ -50,7 +58,7 @@ export class PurchaseInvoiceService {
     this.restService.request<any, PagedResultDto<PurchaseInvoiceDto>>({
       method: 'GET',
       url: '/api/app/purchase-invoice',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -79,13 +87,6 @@ export class PurchaseInvoiceService {
     { apiName: this.apiName,...config });
   
 
-  writeOff = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PurchaseInvoiceDto>({
-      method: 'POST',
-      url: `/api/app/purchase-invoice/${id}/write-off`,
-    },
-    { apiName: this.apiName,...config });
-
   update = (id: string, input: CreatePurchaseInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'PUT',
@@ -93,11 +94,12 @@ export class PurchaseInvoiceService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
-  delete = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/purchase-invoice/${id}`,
+  writeOff = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/purchase-invoice/${id}/write-off`,
     },
     { apiName: this.apiName,...config });
 }

@@ -29,6 +29,14 @@ export class StockEntryService {
     { apiName: this.apiName,...config });
   
 
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/stock-entry/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'GET',
@@ -41,7 +49,7 @@ export class StockEntryService {
     this.restService.request<any, PagedResultDto<StockEntryDto>>({
       method: 'GET',
       url: '/api/app/stock-entry',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -69,19 +77,13 @@ export class StockEntryService {
       url: `/api/app/stock-entry/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreateStockEntryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'PUT',
       url: `/api/app/stock-entry/${id}`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  delete = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/stock-entry/${id}`,
     },
     { apiName: this.apiName,...config });
 }

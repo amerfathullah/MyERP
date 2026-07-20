@@ -4,19 +4,9 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
-
-interface BomDto {
-  id: string;
-  itemId: string;
-  itemName?: string;
-  bomNumber?: string;
-  quantity: number;
-  totalCost: number;
-  isActive: boolean;
-  isDefault: boolean;
-}
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import type { BomDto } from '../../proxy/manufacturing/models';
 
 @Component({
   selector: 'app-bom-list',
@@ -81,7 +71,7 @@ interface BomDto {
   `,
 })
 export class BomListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private manufacturingService = inject(ManufacturingService);
   boms = signal<BomDto[]>([]);
   isLoading = signal(true);
   searchTerm = '';
@@ -93,11 +83,9 @@ export class BomListComponent implements OnInit {
 
   loadData() {
     this.isLoading.set(true);
-    const params: any = { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) };
-    if (this.searchTerm) params.filter = this.searchTerm;
-    this.http.get<any>('/api/app/manufacturing/bom-list', { params })
+    this.manufacturingService.getBomList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, filter: this.searchTerm || undefined } as any)
       .subscribe({
-        next: res => { this.boms.set(res.items ?? res ?? []); this.totalCount = res.totalCount ?? 0; this.isLoading.set(false); },
+        next: res => { this.boms.set(res.items ?? []); this.totalCount = res.totalCount ?? 0; this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
   }

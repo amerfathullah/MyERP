@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -101,7 +100,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 })
 export class SupplierScorecardFormComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -124,7 +123,7 @@ export class SupplierScorecardFormComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
 
-    this.http.get<any>('/api/app/supplier', { params: { maxResultCount: '200' } }).subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/supplier', params: { maxResultCount: '200' } }, { apiName: 'Default' }).subscribe({
       next: res => { this.suppliers = res.items ?? []; }
     });
 
@@ -157,7 +156,7 @@ export class SupplierScorecardFormComponent implements OnInit {
   save() {
     if (!this.form.valid) return;
     this.saving = true;
-    this.http.post('/api/app/supplier-scorecard', this.form.value).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: '/api/app/supplier-scorecard', body: this.form.value }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Scorecard created'); this.router.navigate(['/purchasing/scorecards']); },
       error: () => { this.saving = false; }
     });

@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LocalizationPipe , RestService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -56,7 +55,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 })
 export class SalesPersonFormComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private restService = inject(RestService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
 
@@ -71,7 +70,7 @@ export class SalesPersonFormComponent implements OnInit {
   });
 
   ngOnInit() {
-    this.http.get<any>('/api/app/sales-person/tree').subscribe({
+    this.restService.request<any, any>({ method: 'GET', url: '/api/app/sales-person/tree' }, { apiName: 'Default' }).subscribe({
       next: res => { this.existingPersons = res ?? []; }
     });
   }
@@ -81,7 +80,7 @@ export class SalesPersonFormComponent implements OnInit {
     this.saving = true;
     const dto = { ...this.form.value };
     if (!dto.parentSalesPersonId) dto.parentSalesPersonId = null;
-    this.http.post('/api/app/sales-person', dto).subscribe({
+    this.restService.request<any, void>({ method: 'POST', url: '/api/app/sales-person', body: dto }, { apiName: 'Default' }).subscribe({
       next: () => { this.toaster.success('Sales person created'); this.router.navigate(['/sales/sales-persons']); },
       error: () => { this.saving = false; }
     });

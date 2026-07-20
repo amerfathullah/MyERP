@@ -10,6 +10,7 @@ export * from './purchase-receipt.service';
 export * from './purchase-register.service';
 export * from './request-for-quotation.service';
 export * from './scorecard-period-type.enum';
+export * from './subcontracting-inward-order.service';
 export * from './subcontracting.service';
 export * from './supplier-quotation.service';
 export * from './supplier-scorecard.service';
