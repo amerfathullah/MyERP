@@ -51,7 +51,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <div class="card text-center">
               <div class="card-body">
                 <h6 class="text-muted mb-1">{{ 'OperatingCashFlow' | abpLocalization }}</h6>
-                <h4 [class]="report()!.operatingTotal >= 0 ? 'text-success' : 'text-danger'">
+                <h4 [class]="(report()!.operatingTotal ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.operatingTotal | number:'1.2-2' }}
                 </h4>
               </div>
@@ -61,7 +61,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <div class="card text-center">
               <div class="card-body">
                 <h6 class="text-muted mb-1">{{ 'NetCashChange' | abpLocalization }}</h6>
-                <h4 [class]="report()!.netCashChange >= 0 ? 'text-success' : 'text-danger'">
+                <h4 [class]="(report()!.netCashChange ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.netCashChange | number:'1.2-2' }}
                 </h4>
               </div>
@@ -92,10 +92,10 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <h6 class="fw-bold text-primary mb-3"><i class="fa fa-industry me-2"></i>{{ 'OperatingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
-                @for (item of report()!.operatingActivities; track item.label) {
+                @for (item of (report()!.operatingActivities ?? []); track item.label) {
                   <tr>
                     <td class="ps-4">{{ item.label }}</td>
-                    <td class="text-end" [class.text-danger]="item.amount < 0">{{ item.amount | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-danger]="(item.amount ?? 0) < 0">{{ item.amount | number:'1.2-2' }}</td>
                   </tr>
                 }
                 <tr class="table-primary fw-bold">
@@ -109,13 +109,13 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <h6 class="fw-bold text-info mb-3"><i class="fa fa-chart-line me-2"></i>{{ 'InvestingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
-                @for (item of report()!.investingActivities; track item.label) {
+                @for (item of (report()!.investingActivities ?? []); track item.label) {
                   <tr>
                     <td class="ps-4">{{ item.label }}</td>
-                    <td class="text-end" [class.text-danger]="item.amount < 0">{{ item.amount | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-danger]="(item.amount ?? 0) < 0">{{ item.amount | number:'1.2-2' }}</td>
                   </tr>
                 }
-                @if (report()!.investingActivities.length === 0) {
+                @if ((report()!.investingActivities ?? []).length === 0) {
                   <tr><td colspan="2" class="text-muted ps-4">No investing activities</td></tr>
                 }
                 <tr class="table-info fw-bold">
@@ -129,13 +129,13 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <h6 class="fw-bold text-warning mb-3"><i class="fa fa-university me-2"></i>{{ 'FinancingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
-                @for (item of report()!.financingActivities; track item.label) {
+                @for (item of (report()!.financingActivities ?? []); track item.label) {
                   <tr>
                     <td class="ps-4">{{ item.label }}</td>
-                    <td class="text-end" [class.text-danger]="item.amount < 0">{{ item.amount | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-danger]="(item.amount ?? 0) < 0">{{ item.amount | number:'1.2-2' }}</td>
                   </tr>
                 }
-                @if (report()!.financingActivities.length === 0) {
+                @if ((report()!.financingActivities ?? []).length === 0) {
                   <tr><td colspan="2" class="text-muted ps-4">No financing activities</td></tr>
                 }
                 <tr class="table-warning fw-bold">
@@ -151,7 +151,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
               <tbody>
                 <tr class="fw-bold">
                   <td>{{ 'NetCashChange' | abpLocalization }}</td>
-                  <td class="text-end" [class.text-success]="report()!.netCashChange >= 0" [class.text-danger]="report()!.netCashChange < 0">
+                  <td class="text-end" [class.text-success]="(report()!.netCashChange ?? 0) >= 0" [class.text-danger]="(report()!.netCashChange ?? 0) < 0">
                     {{ report()!.netCashChange | number:'1.2-2' }}
                   </td>
                 </tr>

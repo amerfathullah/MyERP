@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -38,7 +38,6 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class SalesInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private restService = inject(RestService);
   private service = inject(SalesInvoiceService);
   private eInvoiceService = inject(EInvoiceService);
   private store = inject(SalesInvoiceStore);
@@ -82,7 +81,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
     this.service.get(id).subscribe((result) => {
       this.invoice = result;
       // Load payment schedule
-      this.restService.request<any, any[]>({ method: 'GET', url: `/api/app/sales-invoice/${id}/payment-schedule` }, { apiName: 'Default' })
+      this.service.getPaymentSchedule(id)
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
     });
   }
@@ -122,7 +121,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'writeOff':
         this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
-            this.restService.request<any, any>({ method: 'POST', url: `/api/app/sales-invoice/${id}/write-off`, body: {} }, { apiName: 'Default' }).subscribe({
+            this.service.writeOff(id).subscribe({
               next: () => { this.toaster.success('Invoice written off.'); this.reloadAfterAction(); },
               error: () => {},
             });
@@ -130,7 +129,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'amend':
-        this.restService.request<any, any>({ method: 'POST', url: `/api/app/sales-invoice/${id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
+        this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/sales/invoices', amended.id]),
           error: () => {},
         });
@@ -173,7 +172,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   amend(): void {
-    this.restService.request<any, any>({ method: 'POST', url: `/api/app/sales-invoice/${this.invoice!.id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
+    this.service.amend(this.invoice!.id!).subscribe({
       next: (amended) => {
         this.router.navigate(['/sales/invoices', amended.id]);
       },

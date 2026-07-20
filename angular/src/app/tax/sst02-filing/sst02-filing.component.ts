@@ -1,8 +1,9 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { TaxSummaryReportService } from '../../proxy/tax/tax-summary-report.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 interface Sst02FilingData {
@@ -198,7 +199,7 @@ interface Sst02FilingData {
   `
 })
 export class Sst02FilingComponent implements OnInit {
-  private restService = inject(RestService);
+  private taxSummaryReportService = inject(TaxSummaryReportService);
   private companyContext = inject(CompanyContextService);
 
   fromDate = '';
@@ -220,8 +221,8 @@ export class Sst02FilingComponent implements OnInit {
     if (!companyId || !this.fromDate || !this.toDate) return;
 
     this.loading.set(true);
-    this.restService.request<any, Sst02FilingData>({ method: 'GET', url: '/api/app/tax-summary-report/sst02-filing-data', params: { companyId, fromDate: this.fromDate, toDate: this.toDate } }, { apiName: 'Default' }).subscribe({
-      next: (data) => { this.filing.set(data); this.loading.set(false); },
+    this.taxSummaryReportService.getSst02FilingData(companyId, this.fromDate, this.toDate).subscribe({
+      next: (data) => { this.filing.set(data as any); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
   }

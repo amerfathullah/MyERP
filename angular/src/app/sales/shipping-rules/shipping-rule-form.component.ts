@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 
 @Component({
   selector: 'app-shipping-rule-form',
@@ -94,7 +95,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 })
 export class ShippingRuleFormComponent {
   private fb = inject(FormBuilder);
-  private restService = inject(RestService);
+  private service = inject(ShippingRuleService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
 
@@ -133,7 +134,7 @@ export class ShippingRuleFormComponent {
     if (!this.form.valid) return;
     this.saving = true;
     const dto = { ...this.form.value, countries: this.countries, isEnabled: true };
-    this.restService.request<any, void>({ method: 'POST', url: '/api/app/shipping-rule', body: dto }, { apiName: 'Default' }).subscribe({
+    this.service.create(dto as any).subscribe({
       next: () => { this.toaster.success('Shipping rule created'); this.router.navigate(['/sales/shipping-rules']); },
       error: () => { this.saving = false; }
     });

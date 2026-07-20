@@ -2,8 +2,9 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
 
 @Component({
   selector: 'app-supplier-scorecard-list',
@@ -65,7 +66,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `
 })
 export class SupplierScorecardListComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(SupplierScorecardService);
   scorecards: any[] = [];
   isLoading = false;
   totalCount = 0;
@@ -76,7 +77,7 @@ export class SupplierScorecardListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/supplier-scorecard', params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) } }, { apiName: 'Default' }).subscribe({
+    this.service.getList({ sorting: '', skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }).subscribe({
       next: res => { this.scorecards = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });

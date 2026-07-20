@@ -2,8 +2,9 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { EmailTemplateService } from '../../proxy/core/email-template.service';
 
 @Component({
   selector: 'app-email-template-list',
@@ -109,7 +110,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   `
 })
 export class EmailTemplateListComponent implements OnInit {
-  private restService = inject(RestService);
+  private emailTemplateService = inject(EmailTemplateService);
   private toaster = inject(ToasterService);
 
   templates: any[] = [];
@@ -124,7 +125,7 @@ export class EmailTemplateListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.restService.request<any, any[]>({ method: 'GET', url: '/api/app/email-template' }, { apiName: 'Default' }).subscribe({
+    this.emailTemplateService.getList().subscribe({
       next: res => { this.templates = res ?? []; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -152,11 +153,11 @@ export class EmailTemplateListComponent implements OnInit {
 
   saveTemplate() {
     if (this.editing) {
-      this.restService.request<any, void>({ method: 'PUT', url: `/api/app/email-template/${this.editing.id}`, body: this.formData }, { apiName: 'Default' }).subscribe({
+      this.emailTemplateService.update(this.editing.id, this.formData).subscribe({
         next: () => { this.toaster.success('Template updated'); this.cancelEdit(); this.loadData(); }
       });
     } else {
-      this.restService.request<any, void>({ method: 'POST', url: '/api/app/email-template', body: this.formData }, { apiName: 'Default' }).subscribe({
+      this.emailTemplateService.create(this.formData).subscribe({
         next: () => { this.toaster.success('Template created'); this.cancelEdit(); this.loadData(); }
       });
     }
@@ -164,7 +165,7 @@ export class EmailTemplateListComponent implements OnInit {
 
   previewTemplate() {
     if (!this.editing) return;
-    const sampleVars = {
+    const sampleVars: Record<string, string> = {
       customer: 'Sample Customer Sdn Bhd',
       invoice_no: 'SI-2026-00001',
       amount: '5,000.00',
@@ -172,13 +173,13 @@ export class EmailTemplateListComponent implements OnInit {
       due_date: '2026-08-15',
       days: '30'
     };
-    this.restService.request<any, any>({ method: 'POST', url: `/api/app/email-template/${this.editing.id}/preview`, body: sampleVars }, { apiName: 'Default' }).subscribe({
-      next: res => { this.previewSubject = res.subject; this.previewHtml = res.body; }
+    this.emailTemplateService.preview(this.editing.id, sampleVars).subscribe({
+      next: res => { this.previewSubject = res.subject ?? ''; this.previewHtml = res.body ?? ''; }
     });
   }
 
   deleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return;
-    this.restService.request<any, void>({ method: 'DELETE', url: `/api/app/email-template/${id}` }, { apiName: 'Default' }).subscribe({ next: () => this.loadData() });
+    this.emailTemplateService.delete(id).subscribe({ next: () => this.loadData() });
   }
 }

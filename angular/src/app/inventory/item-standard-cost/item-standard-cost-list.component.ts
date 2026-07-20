@@ -87,22 +87,22 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
                     <td>
                       @if (entry.previousRate) {
                         <span class="text-muted">{{ entry.previousRate | number:'1.2-2' }}</span>
-                        @if (entry.standardRate > entry.previousRate) {
+                        @if ((entry.standardRate ?? 0) > (entry.previousRate ?? 0)) {
                           <i class="fa fa-arrow-up text-danger ms-1"></i>
                         } @else {
                           <i class="fa fa-arrow-down text-success ms-1"></i>
                         }
                       } @else { — }
                     </td>
-                    <td><app-status-badge [status]="getStatusLabel(entry.status)" /></td>
+                    <td><app-status-badge [status]="getStatusLabel(entry.status ?? 0)" /></td>
                     <td>
                       @if (entry.status === 0) {
-                        <button class="btn btn-outline-success btn-sm me-1" (click)="submit(entry.id)">
+                        <button class="btn btn-outline-success btn-sm me-1" (click)="submit(entry.id!)">
                           {{ 'Submit' | abpLocalization }}
                         </button>
                       }
                       @if (entry.status === 1) {
-                        <button class="btn btn-outline-danger btn-sm" (click)="cancel(entry.id)">
+                        <button class="btn btn-outline-danger btn-sm" (click)="cancel(entry.id!)">
                           {{ 'Cancel' | abpLocalization }}
                         </button>
                       }

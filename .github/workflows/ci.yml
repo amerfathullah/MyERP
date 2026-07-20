@@ -8,8 +8,8 @@ on:
 
 env:
   DOTNET_VERSION: '10.0.x'
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10'
+  NODE_VERSION: '24'
+  PNPM_VERSION: '11'
 
 jobs:
   backend:

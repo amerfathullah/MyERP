@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 
 @Component({
   selector: 'app-pricing-rule-form', standalone: true,
@@ -80,7 +81,7 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class PricingRuleFormComponent {
-  private restService = inject(RestService);
+  private service = inject(PricingRuleService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -88,7 +89,7 @@ export class PricingRuleFormComponent {
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/pricing-rule', body: this.form }, { apiName: 'Default' })
+    this.service.create(this.form)
       .subscribe({ next: () => this.router.navigate(['/sales/pricing-rules']), error: () => { this.saving = false;
   this.isDirty = false; } });
   }

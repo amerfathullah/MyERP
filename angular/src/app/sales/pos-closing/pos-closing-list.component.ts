@@ -2,8 +2,9 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { PosClosingService } from '../../proxy/sales/pos-closing.service';
 
 @Component({
   selector: 'app-pos-closing-list',
@@ -56,11 +57,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
 })
 export class PosClosingListComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(PosClosingService);
   entries = signal<any[]>([]);
 
   ngOnInit() {
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/pos-closing', params: { maxResultCount: '50' } }, { apiName: 'Default' })
+    this.service.getList({ maxResultCount: 50, skipCount: 0, sorting: '' } as any)
       .subscribe({ next: (res) => this.entries.set(res.items ?? []), error: () => {} });
   }
 }

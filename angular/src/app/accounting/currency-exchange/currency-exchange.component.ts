@@ -2,8 +2,9 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
 
 interface CurrencyExchangeDto {
   id: string;
@@ -92,7 +93,7 @@ interface CurrencyExchangeDto {
 })
 export class CurrencyExchangeComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private restService = inject(RestService);
+  private currencyExchangeService = inject(CurrencyExchangeService);
   private toaster = inject(ToasterService);
 
   rates = signal<CurrencyExchangeDto[]>([]);
@@ -108,16 +109,16 @@ export class CurrencyExchangeComponent implements OnInit {
   ngOnInit(): void { this.loadRates(); }
 
   loadRates(): void {
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/currency-exchange', params: { skipCount: '0', maxResultCount: '100' } }, { apiName: 'Default' })
+    this.currencyExchangeService.getList({ skipCount: 0, maxResultCount: 100 } as any)
       .subscribe({
-        next: res => { this.rates.set(res.items ?? res ?? []); this.isLoading.set(false); },
+        next: res => { this.rates.set(res.items ?? []); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
   }
 
   addRate(): void {
     if (this.form.invalid) return;
-    this.restService.request<any, CurrencyExchangeDto>({ method: 'POST', url: '/api/app/currency-exchange', body: this.form.getRawValue() }, { apiName: 'Default' })
+    this.currencyExchangeService.create(this.form.getRawValue() as any)
       .subscribe({
         next: () => { this.toaster.success('Rate added'); this.loadRates(); },
         error: () => this.toaster.error('Failed to add rate'),
@@ -125,7 +126,7 @@ export class CurrencyExchangeComponent implements OnInit {
   }
 
   deleteRate(id: string): void {
-    this.restService.request<any, void>({ method: 'DELETE', url: `/api/app/currency-exchange/${id}` }, { apiName: 'Default' }).subscribe({
+    this.currencyExchangeService.delete(id).subscribe({
       next: () => { this.toaster.success('Rate deleted'); this.loadRates(); },
       error: () => this.toaster.error('Failed to delete'),
     });

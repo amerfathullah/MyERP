@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { RestService } from '@abp/ng.core';
+import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
 
 @Component({
   selector: 'app-supplier-scorecard-detail',
@@ -91,7 +91,7 @@ import { RestService } from '@abp/ng.core';
   `
 })
 export class SupplierScorecardDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(SupplierScorecardService);
   private route = inject(ActivatedRoute);
   scorecard: any = null;
   isLoading = false;
@@ -100,7 +100,7 @@ export class SupplierScorecardDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/supplier-scorecard/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: s => { this.scorecard = s; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

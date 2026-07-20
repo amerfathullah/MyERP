@@ -2,10 +2,11 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { OpeningBalanceService } from '../../proxy/accounting/opening-balance.service';
+import { AccountService } from '../../proxy/accounting/account.service';
 import type { OpeningStatusDto } from '../../proxy/accounting/models';
 
 interface AccountDto {
@@ -182,7 +183,7 @@ interface AccountDto {
 })
 export class OpeningBalanceComponent implements OnInit {
   private openingBalanceService = inject(OpeningBalanceService);
-  private restService = inject(RestService);
+  private accountService = inject(AccountService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -226,7 +227,7 @@ export class OpeningBalanceComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
     // Only load Balance Sheet accounts (types 0-2: Asset, Liability, Equity)
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/account', params: { companyId, maxResultCount: '500' } }, { apiName: 'Default' })
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500 } as any)
       .subscribe(result => {
         const accounts = (result.items || []).filter((a: AccountDto) =>
           a.accountType <= 2 && !a.accountCode?.startsWith('0')  // BS accounts only

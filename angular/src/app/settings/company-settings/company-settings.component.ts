@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
@@ -18,7 +18,6 @@ import type { AccountDto } from '../../proxy/accounting/models';
 })
 export class CompanySettingsComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private restService = inject(RestService);
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
   private toaster = inject(ToasterService);
@@ -82,7 +81,7 @@ export class CompanySettingsComponent implements OnInit {
     if (!company) return;
     this.isLoading.set(true);
     const values = this.form.getRawValue();
-    this.restService.request<any, void>({ method: 'PUT', url: `/api/app/company/${company.id}/settings`, body: values }, { apiName: 'Default' }).subscribe({
+    this.companyService.updateSettings(company.id!, values as any).subscribe({
       next: () => { this.toaster.success('Settings saved'); this.isLoading.set(false); },
       error: () => { this.toaster.error('Failed to save'); this.isLoading.set(false); },
     });

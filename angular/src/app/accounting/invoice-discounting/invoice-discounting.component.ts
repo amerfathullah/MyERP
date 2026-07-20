@@ -7,7 +7,6 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { InvoiceDiscountingService } from '../../proxy/accounting/invoice-discounting.service';
-import { RestService } from '@abp/ng.core';
 
 const STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'Settled', 'Cancelled'] as const;
 
@@ -97,7 +96,6 @@ const STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'Settled', 'Cancelled'] as c
 })
 export class InvoiceDiscountingComponent implements OnInit {
   private invoiceDiscountingService = inject(InvoiceDiscountingService);
-  private restService = inject(RestService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -112,9 +110,9 @@ export class InvoiceDiscountingComponent implements OnInit {
   loadData() {
     this.isLoading = true;
     const cid = this.companyContext.currentCompanyId();
-    const params: any = { maxResultCount: '50' };
+    const params: any = { maxResultCount: 50 };
     if (cid) params.companyId = cid;
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/invoice-discounting', params }, { apiName: 'Default' }).subscribe({
+    this.invoiceDiscountingService.getList(params).subscribe({
       next: res => { this.items = res.items ?? []; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -128,14 +126,14 @@ export class InvoiceDiscountingComponent implements OnInit {
   }
 
   disburse(id: string) {
-    this.restService.request<any, void>({ method: 'POST', url: `/api/app/invoice-discounting/${id}/disburse` }, { apiName: 'Default' }).subscribe({
+    this.invoiceDiscountingService.disburseById(id).subscribe({
       next: () => { this.toaster.success('Disbursed'); this.loadData(); },
       error: () => {}
     });
   }
 
   settle(id: string) {
-    this.restService.request<any, void>({ method: 'POST', url: `/api/app/invoice-discounting/${id}/settle` }, { apiName: 'Default' }).subscribe({
+    this.invoiceDiscountingService.settleById(id).subscribe({
       next: () => { this.toaster.success('Settled'); this.loadData(); },
       error: () => {}
     });

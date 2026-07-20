@@ -112,7 +112,7 @@ interface OutstandingInvoice {
                     <td class="text-end">{{ inv.outstanding | number:'1.2-2' }}</td>
                     <td class="text-end" style="width: 150px;">
                       <input type="number" class="form-control form-control-sm text-end"
-                        [(ngModel)]="inv.payAmount" [max]="inv.outstanding" [min]="0"
+                        [(ngModel)]="inv.payAmount" [max]="inv.outstanding ?? 0" [min]="0"
                         [disabled]="!inv.selected" (ngModelChange)="updateSelection()" />
                     </td>
                   </tr>

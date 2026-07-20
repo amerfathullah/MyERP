@@ -64,8 +64,8 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
                     <td><span class="badge bg-info">{{ sre.voucherType }}</span></td>
                     <td class="text-end fw-semibold">{{ sre.reservedQty | number:'1.2-2' }}</td>
                     <td class="text-end">{{ sre.deliveredQty | number:'1.2-2' }}</td>
-                    <td class="text-end" [class.text-danger]="sre.availableQty <= 0"
-                        [class.text-success]="sre.availableQty > 0">
+                    <td class="text-end" [class.text-danger]="(sre.availableQty ?? 0) <= 0"
+                        [class.text-success]="(sre.availableQty ?? 0) > 0">
                       {{ sre.availableQty | number:'1.2-2' }}
                     </td>
                     <td><app-status-badge [status]="sre.status === 1 ? 'Submitted' : 'Cancelled'" /></td>

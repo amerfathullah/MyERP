@@ -2,8 +2,9 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service';
 
 @Component({
   selector: 'app-loyalty-program-detail',
@@ -81,7 +82,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   `
 })
 export class LoyaltyProgramDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(LoyaltyProgramService);
   private route = inject(ActivatedRoute);
   program: any = null;
   isLoading = false;
@@ -90,7 +91,7 @@ export class LoyaltyProgramDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/loyalty-program/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: p => { this.program = p; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

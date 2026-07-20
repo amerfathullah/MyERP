@@ -74,7 +74,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
             <div class="card text-center">
               <div class="card-body">
                 <h6 class="text-muted mb-1">{{ 'TotalVariance' | abpLocalization }}</h6>
-                <h4 [class]="report()!.totalVariance >= 0 ? 'text-success' : 'text-danger'">
+                <h4 [class]="(report()!.totalVariance ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.totalVariance | number:'1.2-2' }}
                 </h4>
               </div>
@@ -84,8 +84,8 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
             <div class="card text-center">
               <div class="card-body">
                 <h6 class="text-muted mb-1">{{ 'OverBudget' | abpLocalization }}</h6>
-                <h4 [class]="report()!.overBudgetCount > 0 ? 'text-danger' : 'text-success'">
-                  {{ report()!.overBudgetCount }} / {{ report()!.rows.length }}
+                <h4 [class]="(report()!.overBudgetCount ?? 0) > 0 ? 'text-danger' : 'text-success'">
+                  {{ report()!.overBudgetCount ?? 0 }} / {{ (report()!.rows ?? []).length }}
                 </h4>
               </div>
             </div>
@@ -95,7 +95,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
         <!-- Report Table -->
         <div class="card">
           <div class="card-body">
-            @if (report()!.rows.length === 0) {
+            @if ((report()!.rows ?? []).length === 0) {
               <div class="text-center text-muted p-4">
                 <i class="fa fa-chart-bar fa-2x mb-2 d-block"></i>
                 No budgets found for this fiscal year.
@@ -114,16 +114,16 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
                   </tr>
                 </thead>
                 <tbody>
-                  @for (row of report()!.rows; track row.accountCode) {
+                  @for (row of (report()!.rows ?? []); track row.accountCode) {
                     <tr [class.table-danger]="row.isOverBudget">
                       <td><code>{{ row.accountCode }}</code></td>
                       <td>{{ row.accountName }}</td>
                       <td class="text-end">{{ row.budgetAmount | number:'1.2-2' }}</td>
                       <td class="text-end">{{ row.actualAmount | number:'1.2-2' }}</td>
-                      <td class="text-end" [class.text-danger]="row.variance < 0" [class.text-success]="row.variance > 0">
+                      <td class="text-end" [class.text-danger]="(row.variance ?? 0) < 0" [class.text-success]="(row.variance ?? 0) > 0">
                         {{ row.variance | number:'1.2-2' }}
                       </td>
-                      <td class="text-end" [class.text-danger]="row.variancePercent < 0">
+                      <td class="text-end" [class.text-danger]="(row.variancePercent ?? 0) < 0">
                         {{ row.variancePercent }}%
                       </td>
                       <td>
@@ -139,7 +139,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
                     <td colspan="2">{{ 'Total' | abpLocalization }}</td>
                     <td class="text-end">{{ report()!.totalBudget | number:'1.2-2' }}</td>
                     <td class="text-end">{{ report()!.totalActual | number:'1.2-2' }}</td>
-                    <td class="text-end" [class.text-danger]="report()!.totalVariance < 0">{{ report()!.totalVariance | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-danger]="(report()!.totalVariance ?? 0) < 0">{{ report()!.totalVariance | number:'1.2-2' }}</td>
                     <td colspan="2"></td>
                   </tr>
                 </tfoot>

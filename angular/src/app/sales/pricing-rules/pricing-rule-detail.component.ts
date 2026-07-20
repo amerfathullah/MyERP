@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { RestService } from '@abp/ng.core';
+import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 
 @Component({
   selector: 'app-pricing-rule-detail',
@@ -82,7 +82,7 @@ import { RestService } from '@abp/ng.core';
   `
 })
 export class PricingRuleDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(PricingRuleService);
   private route = inject(ActivatedRoute);
   rule: any = null;
   isLoading = false;
@@ -91,7 +91,7 @@ export class PricingRuleDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/pricing-rule/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: r => { this.rule = r; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

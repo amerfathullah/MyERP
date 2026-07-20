@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { StockReconciliationService } from '../../proxy/inventory';
 
 @Component({
   selector: 'app-sr-form', standalone: true,
@@ -52,7 +53,7 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class StockReconciliationFormComponent {
-  private restService = inject(RestService);
+  private stockReconciliationService = inject(StockReconciliationService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -62,7 +63,7 @@ export class StockReconciliationFormComponent {
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/stock-reconciliation', body: this.form }, { apiName: 'Default' })
+    this.stockReconciliationService.create(this.form)
       .subscribe({ next: () => this.router.navigate(['/inventory/stock-reconciliations']), error: () => { this.saving = false;
   this.isDirty = false; } });
   }

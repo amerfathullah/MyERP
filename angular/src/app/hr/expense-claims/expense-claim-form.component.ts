@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { ExpenseClaimService } from '../../proxy/human-resources';
 
 @Component({
   selector: 'app-expense-claim-form',
@@ -70,7 +71,7 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class ExpenseClaimFormComponent {
-  private restService = inject(RestService);
+  private expenseClaimService = inject(ExpenseClaimService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -82,7 +83,7 @@ export class ExpenseClaimFormComponent {
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/expense-claim', body: this.form }, { apiName: 'Default' })
+    this.expenseClaimService.create(this.form)
       .subscribe({ next: () => { this.router.navigate(['/hr/expense-claims']); }, error: () => { this.saving = false;
   this.isDirty = false; } });
   }

@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service';
 
 @Component({
   selector: 'app-loyalty-program-form',
@@ -81,7 +82,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 })
 export class LoyaltyProgramFormComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private restService = inject(RestService);
+  private service = inject(LoyaltyProgramService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -117,7 +118,7 @@ export class LoyaltyProgramFormComponent implements OnInit {
   save() {
     if (!this.form.valid) return;
     this.saving = true;
-    this.restService.request<any, void>({ method: 'POST', url: '/api/app/loyalty-program', body: this.form.value }, { apiName: 'Default' }).subscribe({
+    this.service.create(this.form.value as any).subscribe({
       next: () => { this.toaster.success('Loyalty program created'); this.router.navigate(['/sales/loyalty-programs']); },
       error: () => { this.saving = false; }
     });

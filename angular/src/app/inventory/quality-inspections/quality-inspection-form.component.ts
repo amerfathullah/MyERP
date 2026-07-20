@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { QualityInspectionService } from '../../proxy/inventory';
 
 @Component({
   selector: 'app-qi-form', standalone: true,
@@ -66,7 +67,7 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class QualityInspectionFormComponent {
-  private restService = inject(RestService);
+  private qualityInspectionService = inject(QualityInspectionService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -76,7 +77,7 @@ export class QualityInspectionFormComponent {
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/quality-inspection', body: this.form }, { apiName: 'Default' })
+    this.qualityInspectionService.create(this.form)
       .subscribe({ next: () => this.router.navigate(['/inventory/quality-inspections']), error: () => { this.saving = false;
   this.isDirty = false; } });
   }

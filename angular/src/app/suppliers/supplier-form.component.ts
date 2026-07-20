@@ -1,10 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
+import { CompanyService } from '../proxy/core/company.service';
+import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
@@ -21,8 +23,9 @@ export class SupplierFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private restService = inject(RestService);
   private service = inject(SupplierService);
+  private companyService = inject(CompanyService);
+  private paymentReconciliationService = inject(PaymentReconciliationService);
   private toaster = inject(ToasterService);
 
   outstandingInvoices = signal<any[]>([]);
@@ -56,7 +59,7 @@ export class SupplierFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/company', params: { skipCount: '0', maxResultCount: '100', sorting: '' } }, { apiName: 'Default' })
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
@@ -64,7 +67,7 @@ export class SupplierFormComponent implements OnInit {
         this.form.patchValue(supplier as any);
       });
       // Load outstanding payables
-      this.restService.request<any, any>({ method: 'GET', url: '/api/app/payment-reconciliation/outstanding-invoices', params: { partyType: 'Supplier', partyId: this.entityId! } }, { apiName: 'Default' }).subscribe(invoices => {
+      this.paymentReconciliationService.getOutstandingInvoices('Supplier', this.entityId!).subscribe(invoices => {
         const items = invoices ?? [];
         this.outstandingInvoices.set(items);
         this.totalOutstanding.set(items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0));

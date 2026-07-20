@@ -80,7 +80,7 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
                     </td>
                     <td class="text-end">
                       @if (!fy.isClosed) {
-                        <button class="btn btn-outline-warning btn-sm" (click)="closeFy(fy.id)">
+                        <button class="btn btn-outline-warning btn-sm" (click)="closeFy(fy.id!)">
                           <i class="fa fa-lock me-1"></i>Close
                         </button>
                       }

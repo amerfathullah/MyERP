@@ -16,9 +16,11 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">{{ 'RepostItemValuation' | abpLocalization }}</h5>
-          <span class="badge bg-warning" *ngIf="pendingCount() > 0">
-            {{ pendingCount() }} {{ 'Pending' | abpLocalization }}
-          </span>
+          @if (pendingCount() > 0) {
+            <span class="badge bg-warning">
+              {{ pendingCount() }} {{ 'Pending' | abpLocalization }}
+            </span>
+          }
         </div>
         <div class="card-body">
           @if (loading()) {
@@ -51,7 +53,7 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
                       <span class="badge" [class.bg-info]="entry.basedOn === 0"
                         [class.bg-primary]="entry.basedOn === 1"
                         [class.bg-dark]="entry.basedOn === 2">
-                        {{ getMethodLabel(entry.basedOn) }}
+                        {{ getMethodLabel(entry.basedOn ?? 0) }}
                       </span>
                     </td>
                     <td>{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
@@ -81,7 +83,7 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
                         [class.bg-success]="entry.status === 2"
                         [class.bg-danger]="entry.status === 3"
                         [class.bg-dark]="entry.status === 4">
-                        {{ getStatusLabel(entry.status) }}
+                        {{ getStatusLabel(entry.status ?? 0) }}
                       </span>
                     </td>
                     <td><i class="fa" [class.fa-check]="entry.repostGlEntries" [class.fa-minus]="!entry.repostGlEntries"

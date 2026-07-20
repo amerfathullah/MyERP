@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -25,7 +25,6 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 export class PurchaseInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private restService = inject(RestService);
   private service = inject(PurchaseInvoiceService);
   private store = inject(PurchaseInvoiceStore);
   private confirmation = inject(ConfirmationService);
@@ -62,7 +61,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((result) => {
       this.invoice = result;
-      this.restService.request<any, any[]>({ method: 'GET', url: `/api/app/purchase-invoice/${id}/payment-schedule` }, { apiName: 'Default' })
+      this.service.getPaymentSchedule(id)
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
     });
   }
@@ -99,7 +98,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'writeOff':
         this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
-            this.restService.request<any, any>({ method: 'POST', url: `/api/app/purchase-invoice/${id}/write-off`, body: {} }, { apiName: 'Default' }).subscribe({
+            this.service.writeOff(id).subscribe({
               next: () => { this.toaster.success('Invoice written off.'); this.reloadAfterAction(); },
               error: () => {},
             });
@@ -107,7 +106,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'amend':
-        this.restService.request<any, any>({ method: 'POST', url: `/api/app/purchase-invoice/${id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
+        this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/invoices', amended.id]),
           error: () => {},
         });
@@ -126,7 +125,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   }
 
   amend(): void {
-    this.restService.request<any, any>({ method: 'POST', url: `/api/app/purchase-invoice/${this.invoice!.id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
+    this.service.amend(this.invoice!.id!).subscribe({
       next: (amended) => {
         this.router.navigate(['/purchasing/invoices', amended.id]);
       },
@@ -135,7 +134,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
   deleteInvoice(): void {
     if (!confirm('Are you sure you want to delete this draft invoice?')) return;
-    this.restService.request<any, void>({ method: 'DELETE', url: `/api/app/purchase-invoice/${this.invoice!.id}` }, { apiName: 'Default' }).subscribe({
+    this.service.delete(this.invoice!.id!).subscribe({
       next: () => this.router.navigate(['/purchasing/invoices']),
       error: () => {},
     });

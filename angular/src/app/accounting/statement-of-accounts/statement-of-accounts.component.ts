@@ -73,7 +73,7 @@ import type { StatementOfAccountsDto } from '../../proxy/accounting/models';
             <div class="col-md-3">
               <div class="border rounded p-2 text-center bg-light">
                 <small class="text-muted">{{ 'ClosingBalance' | abpLocalization }}</small>
-                <div class="fw-bold" [class.text-danger]="r.closingBalance > 0">
+                <div class="fw-bold" [class.text-danger]="(r.closingBalance ?? 0) > 0">
                   {{ r.closingBalance | number:'1.2-2' }}
                 </div>
               </div>

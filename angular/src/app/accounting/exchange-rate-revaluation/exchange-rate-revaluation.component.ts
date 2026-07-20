@@ -7,7 +7,6 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-rate-revaluation.service';
-import { RestService } from '@abp/ng.core';
 
 @Component({
   selector: 'app-exchange-rate-revaluation',
@@ -107,7 +106,6 @@ import { RestService } from '@abp/ng.core';
 })
 export class ExchangeRateRevaluationComponent implements OnInit {
   private revaluationService = inject(ExchangeRateRevaluationService);
-  private restService = inject(RestService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -124,7 +122,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
   loadHistory() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) return;
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/exchange-rate-revaluation', params: { companyId: cid, maxResultCount: '20' } }, { apiName: 'Default' }).subscribe({
+    this.revaluationService.getList({ companyId: cid, maxResultCount: 20 }).subscribe({
       next: res => { this.revaluations = res.items ?? []; }
     });
   }

@@ -2,9 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 
 @Component({
   selector: 'app-blanket-order-detail',
@@ -74,7 +75,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `
 })
 export class BlanketOrderDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(BlanketOrderService);
   private route = inject(ActivatedRoute);
   order: any = null;
   isLoading = false;
@@ -83,7 +84,7 @@ export class BlanketOrderDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/blanket-order/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: o => { this.order = o; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

@@ -2,9 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
 
 @Component({
   selector: 'app-rfq-detail',
@@ -85,7 +86,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `
 })
 export class RfqDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(RequestForQuotationService);
   private route = inject(ActivatedRoute);
   rfq: any = null;
   isLoading = false;
@@ -94,7 +95,7 @@ export class RfqDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/request-for-quotation/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: r => { this.rfq = r; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

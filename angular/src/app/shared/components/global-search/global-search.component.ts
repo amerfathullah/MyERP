@@ -2,8 +2,10 @@ import { Component, inject, signal, HostListener, ViewChild, ElementRef } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../services/company-context.service';
+import { GlobalSearchService } from '../../../proxy/core/global-search.service';
+import type { SearchResultDto } from '../../../proxy/core/models';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 
 interface SearchResult {
@@ -87,7 +89,7 @@ interface SearchResult {
   `]
 })
 export class GlobalSearchComponent {
-  private restService = inject(RestService);
+  private globalSearchService = inject(GlobalSearchService);
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
 
@@ -120,11 +122,7 @@ export class GlobalSearchComponent {
         }
         this.loading.set(true);
         const companyId = this.companyContext.currentCompanyId();
-        return this.restService.request<any, SearchResult[]>({ method: 'POST', url: '/api/app/global-search/search', body: {
-          query: term,
-          companyId,
-          maxResults: 15
-        } }, { apiName: 'Default' });
+        return this.globalSearchService.search({ query: term, companyId, maxResults: 15 });
       })
     ).subscribe({
       next: (res) => {

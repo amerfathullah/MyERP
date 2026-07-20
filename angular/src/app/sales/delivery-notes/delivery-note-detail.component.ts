@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -29,7 +29,6 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private store = inject(DeliveryNoteStore);
   private confirmation = inject(ConfirmationService);
   private router = inject(Router);
-  private restService = inject(RestService);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
@@ -80,7 +79,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
         });
         break;
       case 'amend':
-        this.restService.request<any, any>({ method: 'POST', url: `/api/app/delivery-note/${id}/amend`, body: {} }, { apiName: 'Default' }).subscribe({
+        this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/sales/delivery-notes', amended.id]),
         });
         break;

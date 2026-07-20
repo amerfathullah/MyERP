@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { BudgetService } from '../../proxy/accounting/budget.service';
 
 @Component({
   selector: 'app-budget-form', standalone: true,
@@ -47,14 +48,14 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class BudgetFormComponent {
-  private restService = inject(RestService);
+  private budgetService = inject(BudgetService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
   form: any = { budgetAgainst: 'CostCenter', budgetAgainstName: '', accounts: [{ accountName: '', budgetAmount: 0 }] };
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/budget', body: this.form }, { apiName: 'Default' })
+    this.budgetService.create(this.form)
       .subscribe({ next: () => this.router.navigate(['/accounting/budgets']), error: () => { this.saving = false;
   this.isDirty = false; } });
   }

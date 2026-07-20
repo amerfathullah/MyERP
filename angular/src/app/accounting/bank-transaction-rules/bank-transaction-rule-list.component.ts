@@ -9,7 +9,6 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { BankTransactionRuleService } from '../../proxy/accounting/bank-transaction-rule.service';
-import { RestService } from '@abp/ng.core';
 
 @Component({
   selector: 'app-bank-transaction-rule-list',
@@ -119,7 +118,6 @@ import { RestService } from '@abp/ng.core';
   `
 })
 export class BankTransactionRuleListComponent implements OnInit {
-  private restService = inject(RestService);
   private bankTransactionRuleService = inject(BankTransactionRuleService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -139,7 +137,7 @@ export class BankTransactionRuleListComponent implements OnInit {
     const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     const cid = this.companyContext.currentCompanyId();
     if (cid) params.companyId = cid;
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/bank-transaction-rule', params }, { apiName: 'Default' }).subscribe({
+    this.bankTransactionRuleService.getList(params).subscribe({
       next: res => { this.items = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -149,15 +147,17 @@ export class BankTransactionRuleListComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) { this.toaster.warn('Select a company first'); return; }
     const dto = { ...this.newRule, companyId: cid, transactionType: Number(this.newRule.transactionType), classifyAs: Number(this.newRule.classifyAs) };
-    this.restService.request<any, any>({ method: 'POST', url: '/api/app/bank-transaction-rule', body: dto }, { apiName: 'Default' }).subscribe({
+    this.bankTransactionRuleService.create(dto as any).subscribe({
       next: () => { this.toaster.success('Rule created'); this.showCreateForm = false; this.loadData(); },
       error: () => {}
     });
   }
 
   toggleRule(rule: any) {
-    const endpoint = rule.isEnabled ? 'disable' : 'enable';
-    this.restService.request<any, void>({ method: 'POST', url: `/api/app/bank-transaction-rule/${rule.id}/${endpoint}` }, { apiName: 'Default' }).subscribe({
+    const action$ = rule.isEnabled
+      ? this.bankTransactionRuleService.disable(rule.id)
+      : this.bankTransactionRuleService.enable(rule.id);
+    action$.subscribe({
       next: () => { this.toaster.success(rule.isEnabled ? 'Rule disabled' : 'Rule enabled'); this.loadData(); },
       error: () => {}
     });

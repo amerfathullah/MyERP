@@ -2,9 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 
 @Component({
   selector: 'app-supplier-quotation-detail',
@@ -76,7 +77,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `
 })
 export class SupplierQuotationDetailComponent implements OnInit {
-  private restService = inject(RestService);
+  private service = inject(SupplierQuotationService);
   private route = inject(ActivatedRoute);
   sq: any = null;
   isLoading = false;
@@ -85,7 +86,7 @@ export class SupplierQuotationDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
-      this.restService.request<any, any>({ method: 'GET', url: `/api/app/supplier-quotation/${id}` }, { apiName: 'Default' }).subscribe({
+      this.service.get(id).subscribe({
         next: s => { this.sq = s; this.isLoading = false; },
         error: () => { this.isLoading = false; }
       });

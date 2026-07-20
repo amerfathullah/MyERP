@@ -84,21 +84,21 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
                         </div>
                       </div>
                     </td>
-                    <td><app-status-badge [status]="getStatusLabel(entry.status)" /></td>
+                    <td><app-status-badge [status]="getStatusLabel(entry.status ?? 0)" /></td>
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (entry.status === 0) {
-                          <button class="btn btn-outline-success" (click)="submit(entry.id)">
+                          <button class="btn btn-outline-success" (click)="submit(entry.id!)">
                             <i class="fa fa-paper-plane"></i>
                           </button>
                         }
                         @if (entry.status === 1 || entry.status === 2) {
-                          <button class="btn btn-outline-dark" (click)="close(entry.id)">
+                          <button class="btn btn-outline-dark" (click)="close(entry.id!)">
                             <i class="fa fa-lock"></i>
                           </button>
                         }
                         @if (entry.status !== 4 && entry.status !== 5) {
-                          <button class="btn btn-outline-danger" (click)="cancelEntry(entry.id)">
+                          <button class="btn btn-outline-danger" (click)="cancelEntry(entry.id!)">
                             <i class="fa fa-times"></i>
                           </button>
                         }

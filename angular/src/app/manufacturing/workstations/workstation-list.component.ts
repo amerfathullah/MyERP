@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { WorkstationService } from './workstation.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { WorkstationDto } from '../../proxy/manufacturing/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -61,7 +61,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   `,
 })
 export class WorkstationListComponent implements OnInit {
-  private service = inject(WorkstationService);
+  private service = inject(ManufacturingService);
   workstations: WorkstationDto[] = [];
   isLoading = false;
   searchTerm = '';
@@ -73,7 +73,7 @@ export class WorkstationListComponent implements OnInit {
 
   loadData() {
     this.isLoading = true;
-    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '' }).subscribe({
+    this.service.getWorkstationList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '' } as any).subscribe({
       next: (r) => { this.workstations = r.items ?? []; this.totalCount = r.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; },
     });

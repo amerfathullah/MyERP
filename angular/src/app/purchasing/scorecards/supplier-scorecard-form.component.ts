@@ -3,10 +3,12 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe , RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 @Component({
   selector: 'app-supplier-scorecard-form',
@@ -100,7 +102,8 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 })
 export class SupplierScorecardFormComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private restService = inject(RestService);
+  private scorecardService = inject(SupplierScorecardService);
+  private supplierService = inject(SupplierService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -123,7 +126,7 @@ export class SupplierScorecardFormComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
 
-    this.restService.request<any, any>({ method: 'GET', url: '/api/app/supplier', params: { maxResultCount: '200' } }, { apiName: 'Default' }).subscribe({
+    this.supplierService.getList({ filter: '', sorting: '', skipCount: 0, maxResultCount: 200 }).subscribe({
       next: res => { this.suppliers = res.items ?? []; }
     });
 
@@ -156,7 +159,7 @@ export class SupplierScorecardFormComponent implements OnInit {
   save() {
     if (!this.form.valid) return;
     this.saving = true;
-    this.restService.request<any, void>({ method: 'POST', url: '/api/app/supplier-scorecard', body: this.form.value }, { apiName: 'Default' }).subscribe({
+    this.scorecardService.create(this.form.value as any).subscribe({
       next: () => { this.toaster.success('Scorecard created'); this.router.navigate(['/purchasing/scorecards']); },
       error: () => { this.saving = false; }
     });

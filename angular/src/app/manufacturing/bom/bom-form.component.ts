@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
@@ -95,7 +95,8 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
               <i class="fa fa-plus me-1"></i>{{ 'AddOperation' | abpLocalization }}
             </button>
           </div>
-          <div class="card-body p-0" *ngIf="operations.length > 0">
+          @if (operations.length > 0) {
+          <div class="card-body p-0">
             <table class="table table-sm table-hover mb-0">
               <thead class="table-light">
                 <tr>
@@ -123,6 +124,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
               </tbody>
             </table>
           </div>
+          }
         </div>
       </form>
     </abp-page>
@@ -133,7 +135,6 @@ export class BomFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private manufacturingService = inject(ManufacturingService);
-  private restService = inject(RestService);
   private toaster = inject(ToasterService);
 
   isEditMode = false;
@@ -225,7 +226,7 @@ export class BomFormComponent implements OnInit {
       operations: this.operations.controls.map(c => c.getRawValue()),
     };
     const req = this.isEditMode
-      ? this.restService.request<any, any>({ method: 'PUT', url: `/api/app/manufacturing/bom/${this.entityId}`, body: payload }, { apiName: 'Default' })
+      ? this.manufacturingService.updateBom(this.entityId!, payload as any)
       : this.manufacturingService.createBom(payload as any);
     req.subscribe({
       next: () => { this.toaster.success('BOM saved'); this.router.navigate(['/manufacturing/bom']); },

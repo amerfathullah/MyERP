@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, RestService } from '@abp/ng.core';
+import { LocalizationPipe } from '@abp/ng.core';
+import { LandedCostVoucherService } from '../../proxy/inventory';
 
 @Component({
   selector: 'app-lcv-form', standalone: true,
@@ -70,7 +71,7 @@ import { LocalizationPipe, RestService } from '@abp/ng.core';
   `,
 })
 export class LandedCostFormComponent {
-  private restService = inject(RestService);
+  private landedCostVoucherService = inject(LandedCostVoucherService);
   private router = inject(Router);
   saving = false;
   isDirty = false;
@@ -82,7 +83,7 @@ export class LandedCostFormComponent {
 
   save() {
     this.saving = true;
-    this.restService.request({ method: 'POST', url: '/api/app/landed-cost-voucher', body: this.form }, { apiName: 'Default' })
+    this.landedCostVoucherService.create(this.form)
       .subscribe({ next: () => this.router.navigate(['/inventory/landed-costs']), error: () => { this.saving = false;
   this.isDirty = false; } });
   }
