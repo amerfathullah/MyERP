@@ -28,6 +28,15 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: '/api/app/sales-invoice/bulk-submit',
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateSalesInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
@@ -82,6 +91,13 @@ export class SalesInvoiceService {
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
       url: `/api/app/sales-invoice/${id}/write-off`,
+    },
+    { apiName: this.apiName,...config });
+
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/sales-invoice/${id}`,
     },
     { apiName: this.apiName,...config });
 }

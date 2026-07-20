@@ -26,8 +26,13 @@
             <label class="form-label" for="companyId">
               {{ '::Company' | abpLocalization }} <span class="text-danger">*</span>
             </label>
-            <input id="companyId" type="text" class="form-control" formControlName="companyId"
-              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
+            <select id="companyId" class="form-select" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
             @if (form.get('companyId')?.errors?.['required'] && form.get('companyId')?.touched) {
               <div class="invalid-feedback">Required</div>
             }
@@ -35,7 +40,7 @@
 
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label" for="tin">{{ '::TIN' | abpLocalization }}</label>
-            <input id="tin" type="text" class="form-control" formControlName="tin" placeholder="e.g. C12345678000" />
+            <input id="tin" type="text" class="form-control" formControlName="tin" [placeholder]="'::Placeholder:TinExample' | abpLocalization" />
           </div>
 
           <div class="col-12 col-md-6 mb-3">

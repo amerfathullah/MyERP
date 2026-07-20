@@ -32,7 +32,7 @@ public class QualityInspectionAppService : ApplicationService
             query = query.Where(q => q.Status == input.Status.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(q => (q.ItemName ?? "").ToLower().Contains(f));
         }
 
@@ -80,3 +80,4 @@ public class QualityInspectionAppService : ApplicationService
         return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
 }
+

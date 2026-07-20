@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { HttpClient } from '@angular/common/http';
 import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -24,6 +25,9 @@ export class ProductionPlanFormComponent implements OnInit {
   private service = inject(ProductionPlanService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
+
+  companies = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -57,6 +61,9 @@ export class ProductionPlanFormComponent implements OnInit {
   ngOnInit(): void {
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
+
+    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+      .subscribe(res => this.companies.set(res.items ?? []));
   }
 
   save(): void {

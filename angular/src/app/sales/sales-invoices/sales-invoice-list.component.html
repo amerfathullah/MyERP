@@ -1,5 +1,9 @@
 <abp-page [title]="'::Sales:Invoices' | abpLocalization">
   <div class="d-flex justify-content-end gap-2 mb-3">
+    <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+      <i class="fa fa-download me-1"></i>
+      {{ '::ExportCSV' | abpLocalization }}
+    </button>
     <button class="btn btn-primary btn-sm" (click)="createInvoice()">
       <i class="fa fa-plus me-1"></i>
       {{ '::NewInvoice' | abpLocalization }}
@@ -12,6 +16,17 @@
       <div class="row mb-3 align-items-center">
         <div class="col">
           <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 280px;">
+            <span class="input-group-text"><i class="fa fa-calendar"></i></span>
+            <input type="date" class="form-control" [ngModel]="fromDate" (ngModelChange)="onDateRangeChange($event, toDate)">
+            <span class="input-group-text">–</span>
+            <input type="date" class="form-control" [ngModel]="toDate" (ngModelChange)="onDateRangeChange(fromDate, $event)">
+          </div>
+        </div>
+        <div class="col-auto">
+          <app-date-presets (dateRange)="onDatePreset($event)" />
         </div>
         <div class="col-auto">
           <select class="form-select form-select-sm" style="width: 140px;" (change)="onStatusFilter($any($event.target).value)">
@@ -49,23 +64,64 @@
           </button>
         </div>
       } @else {
+        <!-- Bulk action bar -->
+        @if (selectedIds.size > 0) {
+          <div class="alert alert-info d-flex align-items-center gap-3 py-2 mb-3">
+            <span class="fw-medium">{{ selectedIds.size }} {{ '::Selected' | abpLocalization }}</span>
+            <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
+              <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
+              <i class="fa fa-times me-1"></i> {{ '::ClearSelection' | abpLocalization }}
+            </button>
+            @if (isBulkProcessing) {
+              <div class="spinner-border spinner-border-sm text-primary ms-2"></div>
+            }
+          </div>
+        }
         <div class="table-responsive">
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 120px;">{{ '::InvoiceNumber' | abpLocalization }}</th>
-                <th style="width: 110px;">{{ '::IssueDate' | abpLocalization }}</th>
+                <th style="width: 40px;">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="isAllSelected()"
+                    (change)="toggleSelectAll($any($event.target).checked)">
+                </th>
+                <th style="min-width: 120px;">
+                  <app-sortable-header field="invoiceNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::InvoiceNumber' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th style="width: 110px;">
+                  <app-sortable-header field="issueDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::IssueDate' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th style="min-width: 150px;">{{ '::Customer' | abpLocalization }}</th>
-                <th class="text-end" style="width: 130px;">{{ '::GrandTotal' | abpLocalization }}</th>
-                <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">
+                  <app-sortable-header field="grandTotal" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::GrandTotal' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th style="width: 120px;">
+                  <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Status' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th style="width: 130px;">{{ '::EInvoiceStatus' | abpLocalization }}</th>
                 <th class="text-end" style="width: 100px;"></th>
               </tr>
             </thead>
             <tbody>
               @for (inv of store.entities(); track inv.id ?? $index) {
-                <tr>
-                  <td class="fw-semibold">{{ inv.invoiceNumber }}</td>
+                <tr [class.table-active]="selectedIds.has(inv.id)">
+                  <td>
+                    <input type="checkbox" class="form-check-input"
+                      [checked]="selectedIds.has(inv.id)"
+                      (change)="toggleSelect(inv.id, $any($event.target).checked)">
+                  </td>
+                  <td class="fw-semibold"><a [routerLink]="['/sales/invoices', inv.id]" class="text-decoration-none">{{ inv.invoiceNumber }}</a></td>
                   <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td>
                     <span class="d-inline-block text-truncate" style="max-width: 180px;"

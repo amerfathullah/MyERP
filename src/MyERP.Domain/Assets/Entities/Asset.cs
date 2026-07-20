@@ -49,7 +49,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
-    public List<DepreciationScheduleEntry> DepreciationSchedule { get; set; } = new();
+    public List<DepreciationScheduleEntry> DepreciationSchedule { get; private set; } = new();
 
     protected Asset() { }
 
@@ -57,7 +57,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DateTime purchaseDate, decimal purchaseAmount, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
         AssetNumber = assetNumber;
         AssetName = assetName;
         PurchaseDate = purchaseDate;
@@ -120,7 +120,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DepreciationSchedule.Clear();
         var startDate = AvailableForUseDate ?? PurchaseDate;
         var depreciableAmount = TotalAssetCost - OpeningAccumulatedDepreciation;
-        var periods = UsefulLifeMonths / FrequencyMonths;
+        var periods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
         if (periods <= 0) return;
 
         var accumulated = OpeningAccumulatedDepreciation;

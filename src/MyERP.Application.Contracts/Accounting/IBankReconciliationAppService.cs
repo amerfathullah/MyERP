@@ -15,6 +15,9 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<BankTransactionDto> ImportTransactionAsync(ImportBankTransactionDto input);
     Task<AutoMatchResultDto> AutoMatchAsync(Guid bankAccountId, Guid companyId);
     Task<BankReconciliationSummaryDto> GetSummaryAsync(Guid bankAccountId);
+    Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId);
+    Task<MirrorTransactionDto?> SearchForMirrorTransactionAsync(Guid transactionId);
+    Task<InternalTransferResultDto> CreateInternalTransferAsync(CreateInternalTransferDto input);
 }
 
 public class BankTransactionDto : EntityDto<Guid>
@@ -85,5 +88,50 @@ public class BankReconciliationSummaryDto
 public class AutoMatchResultDto
 {
     public int MatchedCount { get; set; }
+    public int PartiallyReconciledCount { get; set; }
     public int UnmatchedCount { get; set; }
+}
+
+public class MatchCandidateDto
+{
+    public Guid PaymentEntryId { get; set; }
+    public string? PaymentNumber { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime PostingDate { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public int Rank { get; set; }
+}
+
+public class MirrorTransactionDto
+{
+    public Guid TransactionId { get; set; }
+    public Guid BankAccountId { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public DateTime TransactionDate { get; set; }
+    public decimal Deposit { get; set; }
+    public decimal Withdrawal { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+}
+
+public class CreateInternalTransferDto
+{
+    [Required]
+    public Guid BankTransactionId { get; set; }
+
+    [Required]
+    public Guid TargetBankAccountGlId { get; set; }
+
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    /// <summary>Optional: mirror transaction to also reconcile.</summary>
+    public Guid? MirrorTransactionId { get; set; }
+}
+
+public class InternalTransferResultDto
+{
+    public Guid PaymentEntryId { get; set; }
+    public string? PaymentNumber { get; set; }
+    public Guid SourceTransactionId { get; set; }
+    public Guid? MirrorTransactionId { get; set; }
 }

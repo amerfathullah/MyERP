@@ -28,6 +28,7 @@ export class CustomerFormComponent implements OnInit {
 
   outstandingInvoices = signal<any[]>([]);
   totalOutstanding = signal(0);
+  companies = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -55,6 +56,9 @@ export class CustomerFormComponent implements OnInit {
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
+
+    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+      .subscribe(res => this.companies.set(res.items ?? []));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((customer) => {

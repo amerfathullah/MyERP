@@ -124,3 +124,4 @@ public class SupplierAppService :
         entity.IsActive = input.IsActive;
     }
 }
+

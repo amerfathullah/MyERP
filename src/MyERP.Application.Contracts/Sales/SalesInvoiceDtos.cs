@@ -85,6 +85,12 @@ public class CreateSalesInvoiceDto
     /// <summary>Link to project for timesheet-based billing (auto-fetches unbilled timesheets).</summary>
     public Guid? ProjectId { get; set; }
 
+    /// <summary>When true, stock is deducted on invoice submit (POS/direct sale without DN).</summary>
+    public bool UpdateStock { get; set; }
+
+    /// <summary>Warehouse for stock deduction when UpdateStock=true.</summary>
+    public Guid? WarehouseId { get; set; }
+
     [Required]
     [MinLength(1)]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();

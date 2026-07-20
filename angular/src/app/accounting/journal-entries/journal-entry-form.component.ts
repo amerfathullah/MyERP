@@ -3,12 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
+import { CompanyService } from '../../proxy/core/company.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
@@ -18,7 +21,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
     CommonModule,
     ReactiveFormsModule,
     PageModule,
-    AutoValidationDirective],
+    LocalizationPipe,
+    AutoValidationDirective,
+    SaveShortcutDirective],
   templateUrl: './journal-entry-form.component.html',
   styleUrls: ['./journal-entry-form.component.scss'],
 })
@@ -27,10 +32,12 @@ export class JournalEntryFormComponent implements OnInit {
   private router = inject(Router);
   private accountService = inject(AccountService);
   private journalEntryService = inject(JournalEntryService);
+  private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
   accounts = signal<AccountDto[]>([]);
+  companies = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: [''],
@@ -61,6 +68,8 @@ export class JournalEntryFormComponent implements OnInit {
 
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
       .subscribe((res) => this.accounts.set(res.items ?? []));
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
+      .subscribe((res) => this.companies.set(res.items ?? []));
   }
 
   addLine(): void {

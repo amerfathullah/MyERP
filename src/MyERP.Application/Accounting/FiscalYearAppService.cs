@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
@@ -118,9 +119,9 @@ public class FiscalYearAppService : ApplicationService
                     $"FiscalYear {fy.Name} closed with unbalanced Trial Balance. Difference: {validationResult.Difference:N2}");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Non-blocking: FY close proceeds even if validation fails (it's a warning, not a gate)
+            Logger.LogWarning(ex, "Trial balance validation failed during FY close for {Id}", fy.Id);
         }
 
         return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);

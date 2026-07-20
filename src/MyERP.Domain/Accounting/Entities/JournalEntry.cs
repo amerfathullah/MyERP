@@ -46,8 +46,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public JournalEntry(Guid id, Guid companyId, Guid fiscalYearId, DateTime postingDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        FiscalYearId = fiscalYearId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        FiscalYearId = Check.NotDefaultOrNull<Guid>(fiscalYearId, nameof(fiscalYearId));
         PostingDate = postingDate;
         TenantId = tenantId;
     }
@@ -127,6 +127,7 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         Validate();
         Status = DocumentStatus.Posted;
+        AddLocalEvent(new JournalEntryPostedEvent(this));
     }
 
     public void Cancel()
@@ -135,6 +136,7 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         Status = DocumentStatus.Cancelled;
+        AddLocalEvent(new JournalEntryCancelledEvent(this));
     }
 
     private void RecalculateTotals()
@@ -143,3 +145,7 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TotalCredit = _lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
     }
 }
+
+// Domain Events
+public record JournalEntryPostedEvent(JournalEntry JournalEntry);
+public record JournalEntryCancelledEvent(JournalEntry JournalEntry);

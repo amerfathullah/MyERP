@@ -36,7 +36,7 @@ public class IssueAppService : ApplicationService
             query = query.Where(i => i.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(i => i.Subject.ToLower().Contains(f));
         }
 
@@ -133,3 +133,4 @@ public class GetIssueListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public string? Filter { get; set; }
 }
+

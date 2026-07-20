@@ -77,8 +77,8 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public SalesOrder(Guid id, Guid companyId, Guid customerId, string orderNumber, DateTime orderDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        CustomerId = customerId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        CustomerId = Check.NotDefaultOrNull<Guid>(customerId, nameof(customerId));
         OrderNumber = Check.NotNullOrWhiteSpace(orderNumber, nameof(orderNumber), SalesOrderConsts.MaxOrderNumberLength);
         OrderDate = orderDate;
         TenantId = tenantId;
@@ -88,9 +88,19 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
         _items.Add(new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        RecalculateTotals();
+    }
+
+    /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>
+    public void ClearItems()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _items.Clear();
         RecalculateTotals();
     }
 
@@ -170,6 +180,15 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+
+    /// <summary>Item's stock UOM (e.g., "Unit"). From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM. e.g., 1 Dozen = 12 Units → factor = 12.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
 
     /// <summary>Quantity already delivered via Delivery Notes.</summary>
     public decimal DeliveredQty { get; set; }

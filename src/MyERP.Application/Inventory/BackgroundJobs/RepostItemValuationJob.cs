@@ -70,7 +70,8 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
             _logger.LogError(ex,
                 "Repost item valuation failed: Item={ItemId}, Warehouse={WarehouseId}",
                 args.ItemId, args.WarehouseId);
-            throw; // ABP will retry based on job configuration
+            // Don't re-throw — prevents infinite retry on persistent data issues.
+            // Admin can trigger manually via API after investigating the error.
         }
     }
 }

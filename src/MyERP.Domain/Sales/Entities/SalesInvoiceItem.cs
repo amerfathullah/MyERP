@@ -24,6 +24,15 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>LineTotal + TaxAmount.</summary>
     public decimal LineTotalWithTax => LineTotal + TaxAmount;
 
+    /// <summary>Item's stock UOM. From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
+
     /// <summary>Tax category used for this line item.</summary>
     public Guid? TaxCategoryId { get; set; }
 

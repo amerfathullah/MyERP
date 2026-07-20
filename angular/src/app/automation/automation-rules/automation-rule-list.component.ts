@@ -5,12 +5,13 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { RouterModule } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { AutomationRuleStore } from '../store/automation-rule.store';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
   selector: 'app-automation-rule-list',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, RouterModule],
+    CommonModule, PageModule, LocalizationPipe, RouterModule, PaginationComponent],
   templateUrl: './automation-rule-list.component.html',
   styleUrls: ['./automation-rule-list.component.scss'],
 })
@@ -33,6 +34,9 @@ export class AutomationRuleListComponent implements OnInit {
     102: 'Monthly Schedule',
   };
 
+  pageSize = 10;
+  currentPage = 0;
+
   readonly actionLabels: Record<number, string> = {
     0: 'Send Notification',
     1: 'Send Email',
@@ -44,13 +48,14 @@ export class AutomationRuleListComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 50, sorting: '' });
+    this.store.load({ skipCount: 0, maxResultCount: this.pageSize, sorting: '' });
   }
 
-  onPageChange(event: any): void {
+  onPageChange(event: PageEvent): void {
+    this.currentPage = event.pageIndex;
     this.store.load({
-      skipCount: event.pageIndex * event.pageSize,
-      maxResultCount: event.pageSize,
+      skipCount: event.pageIndex * this.pageSize,
+      maxResultCount: this.pageSize,
       sorting: '',
     });
   }

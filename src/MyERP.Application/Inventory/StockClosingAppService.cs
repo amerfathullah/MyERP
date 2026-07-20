@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -48,9 +49,16 @@ public class StockClosingAppService : ApplicationService
         _repository = repository;
     }
 
-    public async Task<PagedResultDto<StockClosingEntryDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<StockClosingEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = await _repository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<StockClosingStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(c => c.ToDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();

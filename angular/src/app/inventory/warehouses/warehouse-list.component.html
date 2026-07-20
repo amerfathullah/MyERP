@@ -37,7 +37,9 @@
               @for (w of warehouses; track w.id ?? $index) {
                 <tr>
                   <td class="font-monospace">{{ w.warehouseCode }}</td>
-                  <td class="text-truncate" style="max-width: 200px;" [title]="w.name">{{ w.name }}</td>
+                  <td class="text-truncate" style="max-width: 200px;" [title]="w.name">
+                    <a [routerLink]="['/inventory/warehouses', w.id, 'edit']" class="text-primary text-decoration-none">{{ w.name }}</a>
+                  </td>
                   <td>{{ w.branchId }}</td>
                   <td><app-status-badge [status]="w.isActive ? 'Active' : 'Inactive'" /></td>
                 </tr>
@@ -48,4 +50,6 @@
       }
     </div>
   </div>
+
+  <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
 </abp-page>

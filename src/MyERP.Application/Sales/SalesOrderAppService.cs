@@ -1,4 +1,6 @@
 using System;
+using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
@@ -46,11 +48,17 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         _itemValidation = itemValidation;
     }
 
+    private async Task<string?> ResolveCustomerNameAsync(Guid customerId)
+    {
+        var customer = await _customerRepository.FindAsync(customerId);
+        return customer?.Name;
+    }
+
     public async Task<SalesOrderDto> GetAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { dto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return dto;
     }
 
@@ -63,25 +71,41 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.OrderNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.OrderNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.OrderDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.OrderDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var orders = query
-            .OrderByDescending(x => x.OrderDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.OrderDate),
+            ("orderNumber", x => x.OrderNumber),
+            ("orderDate", x => x.OrderDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var orders = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
 
-        var dtos = new System.Collections.Generic.List<SalesOrderDto>();
+        var customerIds = orders.Select(o => o.CustomerId).Distinct().ToArray();
+        var customers = (await _customerRepository.GetQueryableAsync())
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        var dtos = new List<SalesOrderDto>();
         foreach (var o in orders)
         {
             var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(o);
-            try { dto.CustomerName = (await _customerRepository.GetAsync(o.CustomerId)).Name; } catch { }
+            dto.CustomerName = customers.GetValueOrDefault(o.CustomerId);
             dtos.Add(dto);
         }
 
@@ -132,6 +156,25 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         foreach (var item in input.Items)
         {
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.WarehouseId.HasValue)
+                order.Items[^1].WarehouseId = item.WarehouseId;
+        }
+
+        // Resolve UOM conversion factors for stock qty calculation
+        var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var soItem in order.Items)
+        {
+            var itemEntity = await itemRepo.FindAsync(soItem.ItemId);
+            if (itemEntity != null)
+            {
+                soItem.StockUom = itemEntity.Uom;
+                if (!string.Equals(soItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                {
+                    soItem.ConversionFactor = await uomService.GetConversionFactorAsync(
+                        soItem.ItemId, soItem.Uom, itemEntity.Uom);
+                }
+            }
         }
 
         // Apply pricing rules (auto-discount based on configured rules)
@@ -189,7 +232,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         // Check if customer has overdue invoices (advisory warning, not blocking)
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { dto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         try
         {
             var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
@@ -216,7 +259,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 dto.OverdueWarning = $"This customer has {overdueCount} overdue invoice(s) totalling {totalOverdue:N2}. Please follow up on outstanding payments.";
             }
         }
-        catch { /* Non-critical: don't fail SO creation if warning check fails */ }
+        catch (Exception ex) { Logger.LogWarning(ex, "Overdue warning check failed for customer {Id}", input.CustomerId); }
 
         return dto;
     }
@@ -257,13 +300,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             .Select(i => (i.ItemId, i.UnitPrice, i.Description))
             .ToList()
             .AsReadOnly();
-        SalesInvoiceManager.ValidateSellingPrice(
+        await SalesInvoiceManager.ValidateSellingPriceAsync(
             soItemData,
-            itemId =>
+            async itemId =>
             {
-                var balance = valuationService
-                    .GetCurrentBalanceAsync(itemId, Guid.Empty)
-                    .GetAwaiter().GetResult();
+                var warehouseId = order.Items
+                    .FirstOrDefault(i => i.ItemId == itemId && i.WarehouseId.HasValue)?.WarehouseId;
+                if (!warehouseId.HasValue) return 0m;
+                var balance = await valuationService.GetCurrentBalanceAsync(itemId, warehouseId.Value);
                 return balance.ValuationRate;
             },
             action: "Warn");
@@ -284,9 +328,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
             if (bundleItemIds.Contains(item.ItemId))
             {
-                // Bundle item: reserve each component × order qty
+                // Bundle item: reserve each component × order qty (in stock UOM)
                 var components = await bundleService.DecomposeAsync(
-                    item.ItemId, item.Quantity, item.UnitPrice);
+                    item.ItemId, item.StockQty, item.UnitPrice);
                 foreach (var comp in components)
                 {
                     await _binService.UpdateReservedQtyAsync(
@@ -296,7 +340,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             else
             {
                 await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, item.Quantity, order.TenantId);
+                    item.ItemId, item.WarehouseId.Value, item.StockQty, order.TenantId);
             }
         }
 
@@ -310,8 +354,28 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         await _repository.UpdateAsync(order, autoSave: true);
         var submitDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { submitDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        submitDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return submitDto;
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await SubmitAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return results;
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Cancel)]
@@ -339,7 +403,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             if (cancelBundleIds.Contains(item.ItemId))
             {
                 var components = await cancelBundleService.DecomposeAsync(
-                    item.ItemId, item.Quantity, item.UnitPrice);
+                    item.ItemId, item.StockQty, item.UnitPrice);
                 foreach (var comp in components)
                 {
                     await _binService.UpdateReservedQtyAsync(
@@ -349,13 +413,13 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             else
             {
                 await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, -item.Quantity, order.TenantId);
+                    item.ItemId, item.WarehouseId.Value, -item.StockQty, order.TenantId);
             }
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
         var cancelDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { cancelDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        cancelDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return cancelDto;
     }
 
@@ -377,10 +441,13 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var pendingQty = item.PendingDeliveryQty;
             if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
 
+            // Convert pending qty to stock UOM for Bin release
+            var pendingStockQty = pendingQty * item.ConversionFactor;
+
             if (closeBundleIds.Contains(item.ItemId))
             {
                 var components = await closeBundleService.DecomposeAsync(
-                    item.ItemId, pendingQty, item.UnitPrice);
+                    item.ItemId, pendingStockQty, item.UnitPrice);
                 foreach (var comp in components)
                 {
                     await _binService.UpdateReservedQtyAsync(
@@ -390,13 +457,27 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             else
             {
                 await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, -pendingQty, order.TenantId);
+                    item.ItemId, item.WarehouseId.Value, -pendingStockQty, order.TenantId);
             }
+        }
+
+        // Per DO-NOT: "Close Sales Order without cascading status to linked Subcontracting Inward Orders"
+        var scioRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.SubcontractingInwardOrder, Guid>>();
+        var scioQuery = await scioRepo.GetQueryableAsync();
+        var linkedScioList = scioQuery
+            .Where(s => s.SalesOrderId == id &&
+                        s.Status != Purchasing.Entities.SubcontractingInwardOrderStatus.Cancelled &&
+                        s.Status != Purchasing.Entities.SubcontractingInwardOrderStatus.Closed)
+            .ToList();
+        foreach (var scio in linkedScioList)
+        {
+            scio.Close();
+            await scioRepo.UpdateAsync(scio);
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
         var closeDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { closeDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        closeDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return closeDto;
     }
 
@@ -417,10 +498,13 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var pendingQty = item.PendingDeliveryQty;
             if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
 
+            // Convert pending qty to stock UOM for Bin reservation
+            var pendingStockQty = pendingQty * item.ConversionFactor;
+
             if (reopenBundleIds.Contains(item.ItemId))
             {
                 var components = await reopenBundleService.DecomposeAsync(
-                    item.ItemId, pendingQty, item.UnitPrice);
+                    item.ItemId, pendingStockQty, item.UnitPrice);
                 foreach (var comp in components)
                 {
                     await _binService.UpdateReservedQtyAsync(
@@ -430,13 +514,52 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             else
             {
                 await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, pendingQty, order.TenantId);
+                    item.ItemId, item.WarehouseId.Value, pendingStockQty, order.TenantId);
             }
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
         var reopenDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
-        try { reopenDto.CustomerName = (await _customerRepository.GetAsync(order.CustomerId)).Name; } catch { }
+        reopenDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return reopenDto;
     }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<SalesOrderDto> UpdateAsync(Guid id, CreateSalesOrderDto input)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft sales orders can be edited");
+
+        order.OrderDate = input.OrderDate;
+        order.DeliveryDate = input.DeliveryDate;
+        order.CustomerId = input.CustomerId;
+        order.Notes = input.Notes;
+
+        // Replace items
+        order.ClearItems();
+        foreach (var item in input.Items)
+        {
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.WarehouseId.HasValue)
+                order.Items[^1].WarehouseId = item.WarehouseId;
+        }
+
+        await _repository.UpdateAsync(order, autoSave: true);
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft sales orders can be deleted");
+        await _repository.DeleteAsync(id);
+    }
 }
+

@@ -8,11 +8,12 @@ import { LeaveAllocationService } from '../../proxy/human-resources/leave-alloca
 import type { LeaveAllocationDto, BulkLeaveAllocationDto } from '../../proxy/human-resources/models';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
   standalone: true,
   selector: 'app-leave-allocation-list',
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   templateUrl: './leave-allocation-list.component.html',
 })
 export class LeaveAllocationListComponent implements OnInit {
@@ -20,8 +21,11 @@ export class LeaveAllocationListComponent implements OnInit {
   private leaveService = inject(LeaveService);
 
   items = signal<LeaveAllocationDto[]>([]);
+  totalCount = signal(0);
   isLoading = signal(false);
   showBulkForm = signal(false);
+  pageSize = 10;
+  currentPage = 0;
 
   // Bulk allocation form
   bulkForm: BulkLeaveAllocationDto = {
@@ -41,13 +45,19 @@ export class LeaveAllocationListComponent implements OnInit {
 
   loadData() {
     this.isLoading.set(true);
-    this.service.getList({ maxResultCount: 100 }).subscribe({
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }).subscribe({
       next: res => {
         this.items.set(res.items ?? []);
+        this.totalCount.set(res.totalCount ?? 0);
         this.isLoading.set(false);
       },
       error: () => this.isLoading.set(false),
     });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   toggleBulkForm() {

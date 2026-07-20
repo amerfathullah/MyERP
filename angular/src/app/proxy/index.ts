@@ -18,5 +18,4 @@ import * as Shared from './shared';
 import * as Support from './support';
 import * as Tax from './tax';
 import * as Workflow from './workflow';
-export * from './detail-services';
 export { Accounting, Assets, Automation, Controllers, Core, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Manufacturing, Notification, Projects, Purchasing, Sales, Shared, Support, Tax, Workflow };

@@ -28,6 +28,15 @@ export class PurchaseOrderService {
     { apiName: this.apiName,...config });
   
 
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: '/api/app/purchase-order/bulk-submit',
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
+  
+
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
@@ -74,6 +83,21 @@ export class PurchaseOrderService {
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
       url: `/api/app/purchase-order/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
+
+  update = (id: string, input: CreatePurchaseOrderDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'PUT',
+      url: `/api/app/purchase-order/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/purchase-order/${id}`,
     },
     { apiName: this.apiName,...config });
 }

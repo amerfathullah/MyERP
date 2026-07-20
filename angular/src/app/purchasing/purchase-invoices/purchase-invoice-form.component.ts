@@ -3,15 +3,18 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
-import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-purchase-invoice-form',
@@ -20,8 +23,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
     CommonModule,
     ReactiveFormsModule,
     PageModule,
+    LocalizationPipe,
     InvoiceItemGridComponent,
-    AutoValidationDirective],
+    AutoValidationDirective,
+    SaveShortcutDirective],
   templateUrl: './purchase-invoice-form.component.html',
   styleUrls: ['./purchase-invoice-form.component.scss'],
 })
@@ -31,11 +36,14 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private taxCalc = inject(TaxCalculationService);
   private service = inject(PurchaseInvoiceService);
-  private store = inject(PurchaseInvoiceStore);
   private supplierService = inject(SupplierService);
   private companyContext = inject(CompanyContextService);
+  private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
 
   suppliers = signal<any[]>([]);
+  availableItems = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -45,10 +53,12 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     supplierTin: [''],
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
-    currency: ['MYR'],
+    currencyCode: ['MYR'],
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],
+    updateStock: [false],
+    warehouseId: [''],
     items: this.fb.array([]),
   });
 
@@ -69,6 +79,12 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   ngOnInit(): void {
     this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.suppliers.set(res.items ?? [])
+    );
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
+      res => this.availableItems.set(res.items ?? [])
+    );
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' }).subscribe(
+      res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup))
     );
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
@@ -100,7 +116,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
             supplierId: source.supplierId,
             supplierTin: source.supplierTin,
             issueDate: new Date().toISOString().split('T')[0],
-            currency: source.currencyCode,
+            currencyCode: source.currencyCode,
             notes: `Debit Note against ${source.invoiceNumber}`,
             isReturn: true,
             returnAgainstId: returnAgainst,
@@ -140,7 +156,26 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       return;
     }
     this.recalculate();
-    const dto: CreatePurchaseInvoiceDto = this.form.getRawValue() as any;
+    const raw = this.form.getRawValue() as any;
+    // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
+    const dto: CreatePurchaseInvoiceDto = {
+      ...raw,
+      items: (raw.items ?? []).map((item: any) => ({
+        itemId: item.itemId,
+        description: item.description || item.itemName || '',
+        quantity: item.quantity ?? item.qty ?? 0,
+        unitPrice: item.unitPrice ?? item.rate ?? 0,
+        taxAmount: item.taxAmount ?? 0,
+        uom: item.uom ?? 'Unit',
+      })),
+    };
+    if (this.isEditMode) {
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => this.router.navigate(['/purchasing/invoices', this.entityId]),
+        error: () => {},
+      });
+      return;
+    }
     this.service.create(dto).subscribe({
       next: () => this.router.navigate(['/purchasing/invoices']),
       error: () => { /* handled by global error interceptor */ },

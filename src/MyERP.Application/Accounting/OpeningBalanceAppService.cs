@@ -28,6 +28,10 @@ namespace MyERP.Accounting;
 [Authorize(MyERPPermissions.JournalEntries.Default)]
 public class OpeningBalanceAppService : ApplicationService
 {
+    /// <summary>Placeholder item ID for opening balance invoice items. 
+    /// Opening invoices are accounting-only and don't represent real items.</summary>
+    private static readonly Guid _defaultItemId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<JournalEntryLine, Guid> _lineRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
@@ -107,11 +111,15 @@ public class OpeningBalanceAppService : ApplicationService
             fy.StartDate <= input.PostingDate &&
             fy.EndDate >= input.PostingDate);
 
+        if (fiscalYear == null)
+            throw new Volo.Abp.BusinessException("MyERP:02002")
+                .WithData("reason", $"No fiscal year found for company covering posting date {input.PostingDate:yyyy-MM-dd}. Create a fiscal year first.");
+
         // Create Journal Entry
         var journalEntry = new JournalEntry(
             GuidGenerator.Create(),
             input.CompanyId,
-            fiscalYear?.Id ?? Guid.Empty,
+            fiscalYear.Id,
             input.PostingDate,
             CurrentTenant.Id);
 
@@ -191,12 +199,18 @@ public class OpeningBalanceAppService : ApplicationService
         {
             try
             {
+                if (!invoice.CustomerId.HasValue || invoice.CustomerId == Guid.Empty)
+                {
+                    errors.Add($"Invoice for amount {invoice.OutstandingAmount}: Customer ID is required.");
+                    continue;
+                }
+
                 var number = await _numberGenerator.GenerateAsync("SI", input.CompanyId, input.PostingDate);
 
                 var si = new SalesInvoice(
                     GuidGenerator.Create(),
                     input.CompanyId,
-                    invoice.CustomerId ?? Guid.Empty,
+                    invoice.CustomerId.Value,
                     number,
                     input.PostingDate,
                     CurrentTenant.Id);
@@ -204,9 +218,9 @@ public class OpeningBalanceAppService : ApplicationService
                 si.IsOpening = true;
                 si.DueDate = invoice.DueDate ?? input.PostingDate;
 
-                // Single item line for the outstanding amount
-                si.AddItem(invoice.ItemId ?? Guid.Empty,
-                    "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
+                // Single item line for the outstanding amount (use a placeholder item or company default)
+                var itemId = invoice.ItemId ?? _defaultItemId;
+                si.AddItem(itemId, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
 
                 si.Submit();
 
@@ -243,12 +257,18 @@ public class OpeningBalanceAppService : ApplicationService
         {
             try
             {
+                if (!invoice.SupplierId.HasValue || invoice.SupplierId == Guid.Empty)
+                {
+                    errors.Add($"Invoice for amount {invoice.OutstandingAmount}: Supplier ID is required.");
+                    continue;
+                }
+
                 var number = await _numberGenerator.GenerateAsync("PI", input.CompanyId, input.PostingDate);
 
                 var pi = new PurchaseInvoice(
                     GuidGenerator.Create(),
                     input.CompanyId,
-                    invoice.SupplierId ?? Guid.Empty,
+                    invoice.SupplierId.Value,
                     number,
                     input.PostingDate,
                     CurrentTenant.Id);
@@ -256,9 +276,9 @@ public class OpeningBalanceAppService : ApplicationService
                 pi.IsOpening = true;
                 pi.DueDate = invoice.DueDate ?? input.PostingDate;
 
-                // Single item line for the outstanding amount
-                pi.AddItem(invoice.ItemId ?? Guid.Empty,
-                    "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
+                // Single item line for the outstanding amount (use placeholder item or company default)
+                var itemId = invoice.ItemId ?? _defaultItemId;
+                pi.AddItem(itemId, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
 
                 pi.Submit();
 

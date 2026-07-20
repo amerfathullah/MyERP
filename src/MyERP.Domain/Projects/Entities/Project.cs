@@ -35,7 +35,7 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Notes { get; set; }
     public string? CostCenter { get; set; }
 
-    public List<ProjectTask> Tasks { get; set; } = new();
+    public List<ProjectTask> Tasks { get; private set; } = new();
 
     protected Project() { }
 
@@ -78,6 +78,29 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = ProjectStatus.Completed;
         PercentComplete = 100;
         ActualEndDate = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Manually set percent complete (only allowed when PercentCompleteMethod == Manual).
+    /// Per ERPNext PR #57274: must be between 0 and 100; auto-sets to 100 when Completed.
+    /// </summary>
+    public void SetPercentComplete(decimal value)
+    {
+        if (PercentCompleteMethod != PercentCompleteMethod.Manual)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Percent complete can only be set manually when method is Manual");
+
+        if (Status == ProjectStatus.Completed)
+        {
+            PercentComplete = 100;
+            return;
+        }
+
+        if (value < 0 || value > 100)
+            throw new BusinessException("MyERP:13003")
+                .WithData("value", value);
+
+        PercentComplete = value;
     }
 
     public void Cancel()

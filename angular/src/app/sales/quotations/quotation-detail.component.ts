@@ -14,12 +14,13 @@ import { QuotationStore } from '../store/quotation.store';
 import type { QuotationDto } from '../../proxy/sales/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-quotation-detail',
   standalone: true,
   imports: [
-    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe],
+    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, ActivityLogComponent],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
 })

@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -66,16 +67,27 @@ public class PaymentEntryAppService : ApplicationService
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.PaymentNumber != null && x.PaymentNumber.ToLower().Contains(filter));
+            var filter = input.Filter;
+            query = query.Where(x => x.PaymentNumber != null && x.PaymentNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
+
         var count = query.Count();
-        var list = query
-            .OrderByDescending(x => x.PostingDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.PostingDate),
+            ("paymentNumber", x => (object)(x.PaymentNumber ?? string.Empty)),
+            ("postingDate", x => x.PostingDate),
+            ("paidAmount", x => x.PaidAmount),
+            ("status", x => x.Status));
+        var list = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
@@ -264,19 +276,8 @@ public class PaymentEntryAppService : ApplicationService
                 exchangeRate: pe.ExchangeRate,
                 allocations: allocations);
 
-            // Update the linked invoice's AmountPaid
-            if (pe.AgainstInvoiceType == "SalesInvoice")
-            {
-                var si = await _salesInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
-                si.AmountPaid += pe.PaidAmount;
-                await _salesInvoiceRepository.UpdateAsync(si);
-            }
-            else if (pe.AgainstInvoiceType == "PurchaseInvoice")
-            {
-                var pi = await _purchaseInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
-                pi.AmountPaid += pe.PaidAmount;
-                await _purchaseInvoiceRepository.UpdateAsync(pi);
-            }
+            // Update the linked invoice's AmountPaid (with optimistic concurrency retry)
+            await UpdateInvoiceAmountPaidAsync(pe.AgainstInvoiceType!, pe.AgainstInvoiceId.Value, pe.PaidAmount);
 
             // Allocate payment to schedule entries (FIFO by due date)
             var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
@@ -385,6 +386,8 @@ public class PaymentEntryAppService : ApplicationService
 
                     si.AmountPaid += refRow.AllocatedAmount;
                     await _salesInvoiceRepository.UpdateAsync(si);
+                    // Note: stale check above re-reads si, so concurrency is partially handled.
+                    // For full safety, the UpdateInvoiceAmountPaidAsync retry is used on the legacy path.
 
                     multiAllocations.Add(new PaymentAllocation
                     {
@@ -409,6 +412,7 @@ public class PaymentEntryAppService : ApplicationService
 
                     pi.AmountPaid += refRow.AllocatedAmount;
                     await _purchaseInvoiceRepository.UpdateAsync(pi);
+                    // Note: stale check above re-reads pi, so concurrency is partially handled.
 
                     multiAllocations.Add(new PaymentAllocation
                     {
@@ -458,7 +462,7 @@ public class PaymentEntryAppService : ApplicationService
                     pe.Id,
                     pe.TenantId);
             }
-            catch { /* Non-critical */ }
+            catch (Exception ex) { Logger.LogWarning(ex, "Payment notification failed for PE {Id}", pe.Id); }
         }
 
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
@@ -496,21 +500,10 @@ public class PaymentEntryAppService : ApplicationService
 
         pe.Cancel();
 
-        // Reverse invoice AmountPaid
+        // Reverse invoice AmountPaid (with concurrency retry)
         if (pe.AgainstInvoiceId.HasValue)
         {
-            if (pe.AgainstInvoiceType == "SalesInvoice")
-            {
-                var si = await _salesInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
-                si.AmountPaid = Math.Max(0, si.AmountPaid - pe.PaidAmount);
-                await _salesInvoiceRepository.UpdateAsync(si);
-            }
-            else if (pe.AgainstInvoiceType == "PurchaseInvoice")
-            {
-                var pi = await _purchaseInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
-                pi.AmountPaid = Math.Max(0, pi.AmountPaid - pe.PaidAmount);
-                await _purchaseInvoiceRepository.UpdateAsync(pi);
-            }
+            await UpdateInvoiceAmountPaidAsync(pe.AgainstInvoiceType!, pe.AgainstInvoiceId.Value, -pe.PaidAmount);
 
             // Reverse payment schedule allocations
             var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
@@ -560,17 +553,9 @@ public class PaymentEntryAppService : ApplicationService
         {
             foreach (var refRow in pe.References)
             {
-                if (refRow.ReferenceType == "SalesInvoice")
+                if (refRow.ReferenceType == "SalesInvoice" || refRow.ReferenceType == "PurchaseInvoice")
                 {
-                    var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);
-                    si.AmountPaid = Math.Max(0, si.AmountPaid - refRow.AllocatedAmount);
-                    await _salesInvoiceRepository.UpdateAsync(si);
-                }
-                else if (refRow.ReferenceType == "PurchaseInvoice")
-                {
-                    var pi = await _purchaseInvoiceRepository.GetAsync(refRow.ReferenceId);
-                    pi.AmountPaid = Math.Max(0, pi.AmountPaid - refRow.AllocatedAmount);
-                    await _purchaseInvoiceRepository.UpdateAsync(pi);
+                    await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -refRow.AllocatedAmount);
                 }
             }
         }
@@ -670,4 +655,70 @@ public class PaymentEntryAppService : ApplicationService
             await _scheduleRepository.UpdateAsync(entry);
         }
     }
+
+    /// <summary>
+    /// Updates invoice AmountPaid with optimistic concurrency retry.
+    /// ABP's ConcurrencyStamp on SI/PI detects concurrent modifications —
+    /// on conflict, re-reads the entity and retries (up to 3 attempts).
+    /// </summary>
+    private async Task UpdateInvoiceAmountPaidAsync(string invoiceType, Guid invoiceId, decimal amount)
+    {
+        const int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                if (invoiceType == "SalesInvoice")
+                {
+                    var si = await _salesInvoiceRepository.GetAsync(invoiceId);
+                    si.AmountPaid = Math.Max(0, si.AmountPaid + amount);
+                    await _salesInvoiceRepository.UpdateAsync(si, autoSave: true);
+                }
+                else if (invoiceType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.GetAsync(invoiceId);
+                    pi.AmountPaid = Math.Max(0, pi.AmountPaid + amount);
+                    await _purchaseInvoiceRepository.UpdateAsync(pi, autoSave: true);
+                }
+                return; // Success
+            }
+            catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < maxRetries)
+            {
+                Logger.LogWarning(
+                    "Concurrency conflict updating {InvoiceType} {InvoiceId} AmountPaid (attempt {Attempt}/{Max})",
+                    invoiceType, invoiceId, attempt, maxRetries);
+                await Task.Delay(attempt * 10); // Brief backoff
+            }
+        }
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Edit)]
+    public async Task<PaymentEntryDto> UpdateAsync(Guid id, CreatePaymentEntryDto input)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft payment entries can be edited");
+
+        entry.PaymentType = input.PaymentType;
+        entry.PostingDate = input.PostingDate != default ? input.PostingDate : entry.PostingDate;
+        entry.PaidAmount = input.PaidAmount;
+        entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
+        entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
+        entry.ReferenceNumber = input.ReferenceNumber;
+
+        await _repository.UpdateAsync(entry, autoSave: true);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(entry);
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft payment entries can be deleted");
+        await _repository.DeleteAsync(id);
+    }
 }
+

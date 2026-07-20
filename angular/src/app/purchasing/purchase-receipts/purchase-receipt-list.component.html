@@ -12,6 +12,26 @@
 
   <div class="card">
     <div class="card-body">
+      <!-- Filter row -->
+      <div class="row mb-3 align-items-center">
+        <div class="col-auto">
+          <select class="form-select form-select-sm" style="width: 140px;" (change)="onStatusChange($any($event.target).value)">
+            <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+            <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
+            <option value="Submitted">{{ '::Submitted' | abpLocalization }}</option>
+            <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              [ngModel]="searchTerm"
+              (ngModelChange)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
       @if (store.entities().length === 0 && !store.isLoading()) {
         <div class="text-center py-5">
           <i class="fa fa-box-open fa-3x text-muted mb-3 d-block"></i>
@@ -36,7 +56,7 @@
           <tbody>
             @for (row of store.entities(); track row.id ?? $index) {
               <tr>
-                <td class="fw-medium">{{ row.receiptNumber }}</td>
+                <td class="fw-medium"><a [routerLink]="['/purchasing/receipts', row.id]" class="text-decoration-none">{{ row.receiptNumber }}</a></td>
                 <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                 <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                 <td><app-status-badge [status]="row.status ?? ''" /></td>
@@ -65,7 +85,7 @@
 
   <app-pagination
     [totalCount]="store.totalCount()"
-    [pageSize]="20"
-    [currentPage]="0"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
     (pageChange)="onPageChange($event)" />
 </abp-page>

@@ -1,7 +1,7 @@
 <abp-page [title]="'ProductionPlans' | abpLocalization">
   <div class="d-flex justify-content-between gap-2 mb-3">
     <input type="text" class="form-control form-control-sm" style="width:200px"
-      [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Search...">
+      [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" [placeholder]="'::Placeholder:Search' | abpLocalization">
     <button class="btn btn-primary btn-sm" routerLink="/manufacturing/production-plans/new">
       <i class="fa fa-plus me-1"></i>{{ 'NewProductionPlan' | abpLocalization }}
     </button>

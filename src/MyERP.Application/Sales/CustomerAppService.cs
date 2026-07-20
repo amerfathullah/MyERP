@@ -124,3 +124,4 @@ public class CustomerAppService :
         entity.IsActive = input.IsActive;
     }
 }
+

@@ -55,7 +55,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(x => x.RequestNumber.ToLower().Contains(f));
         }
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
@@ -117,16 +117,23 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
             if (fiscalYear != null)
             {
+                // Batch load all item expense accounts to avoid N+1 queries
+                var mrItemIds = entity.Items.Select(i => i.ItemId).Distinct().ToArray();
+                var itemQuery = await _itemRepository.GetQueryableAsync();
+                var itemData = itemQuery
+                    .Where(i => mrItemIds.Contains(i.Id) && i.DefaultExpenseAccountId != null)
+                    .Select(i => new { i.Id, i.DefaultExpenseAccountId, i.StandardBuyingPrice })
+                    .ToDictionary(i => i.Id);
+
                 var budgetItems = new List<BudgetCheckItem>();
                 foreach (var mrItem in entity.Items)
                 {
-                    var item = await _itemRepository.FindAsync(mrItem.ItemId);
-                    if (item?.DefaultExpenseAccountId != null)
+                    if (itemData.TryGetValue(mrItem.ItemId, out var item))
                     {
                         // MR items don't have price — use item's standard buying price or qty as estimate
                         var estimatedAmount = mrItem.Quantity * (item.StandardBuyingPrice ?? 1m);
                         budgetItems.Add(new BudgetCheckItem(
-                            item.DefaultExpenseAccountId.Value,
+                            item.DefaultExpenseAccountId!.Value,
                             estimatedAmount));
                     }
                 }
@@ -167,3 +174,4 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 }
+

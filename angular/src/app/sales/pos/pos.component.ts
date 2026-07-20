@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
 import type { PosItemDto } from '../../proxy/sales/models';
@@ -19,7 +20,7 @@ interface CartItem {
   selector: 'app-pos',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, PageModule],
+    CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './pos.component.html',
   styleUrls: ['./pos.component.scss'],
 })

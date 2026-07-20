@@ -155,12 +155,13 @@ public class SalesInvoiceManager : DomainService
                 }
             }
             so.UpdateFulfillmentStatus();
-            await _orderRepository.UpdateAsync(so);
+            await _orderRepository.UpdateAsync(so, autoSave: true);
         }
     }
 
     /// <summary>
     /// Applies credit note outstanding reduction to the original invoice.
+    /// Note: caller should wrap with concurrency retry at AppService level.
     /// </summary>
     public async Task ApplyCreditNoteAsync(SalesInvoice creditNote)
     {
@@ -168,7 +169,7 @@ public class SalesInvoiceManager : DomainService
 
         var original = await _invoiceRepository.GetAsync(creditNote.ReturnAgainstId.Value);
         original.AmountPaid += Math.Abs(creditNote.GrandTotal);
-        await _invoiceRepository.UpdateAsync(original);
+        await _invoiceRepository.UpdateAsync(original, autoSave: true);
     }
 
     /// <summary>
@@ -233,6 +234,40 @@ public class SalesInvoiceManager : DomainService
         {
             var valuationRate = getValuationRate(item.ItemId);
             if (valuationRate <= 0) continue; // no cost data → skip
+
+            if (item.UnitPrice < valuationRate)
+            {
+                var message = $"Item '{item.Description}' selling rate ({item.UnitPrice:N2}) is below buying/valuation rate ({valuationRate:N2})";
+
+                if (action == "Stop")
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SellingPriceBelowCost)
+                        .WithData("item", item.Description)
+                        .WithData("sellingRate", item.UnitPrice)
+                        .WithData("buyingRate", valuationRate);
+                }
+
+                warnings.Add(message);
+            }
+        }
+
+        return new SellingPriceCheckResult { Warnings = warnings };
+    }
+    /// <summary>
+    /// Async overload for ValidateSellingPrice that avoids sync-over-async in calling code.
+    /// Resolves valuation rates asynchronously before validation.
+    /// </summary>
+    public static async Task<SellingPriceCheckResult> ValidateSellingPriceAsync(
+        IReadOnlyList<(Guid ItemId, decimal UnitPrice, string Description)> items,
+        Func<Guid, Task<decimal>> getValuationRateAsync,
+        string action = "Stop")
+    {
+        var warnings = new List<string>();
+
+        foreach (var item in items)
+        {
+            var valuationRate = await getValuationRateAsync(item.ItemId);
+            if (valuationRate <= 0) continue;
 
             if (item.UnitPrice < valuationRate)
             {

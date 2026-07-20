@@ -59,7 +59,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             query = query.Where(b => b.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(b => b.BomNumber.ToLower().Contains(f));
         }
         var totalCount = query.Count();
@@ -79,6 +79,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             IsDefault = input.IsDefault,
             SourceWarehouseId = input.SourceWarehouseId,
             TargetWarehouseId = input.TargetWarehouseId,
+            RoutingId = input.RoutingId,
         };
 
         foreach (var item in input.Items)
@@ -87,6 +88,23 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
             { Uom = item.Uom });
         }
+
+        // Add operations (sorted by SequenceId to enforce monotonic insertion)
+        foreach (var op in input.Operations.OrderBy(o => o.SequenceId))
+        {
+            var bomOp = new BomOperation(GuidGenerator.Create(), bom.Id, op.OperationId,
+                op.SequenceId, op.TimeInMins, op.WorkstationId, CurrentTenant.Id)
+            {
+                BatchSize = op.BatchSize,
+                FixedTime = op.FixedTime,
+                Description = op.Description,
+                IsSubcontracted = op.IsSubcontracted,
+            };
+            if (op.WorkstationHourRate > 0)
+                bomOp.CalculateCost(op.WorkstationHourRate);
+            bom.AddOperation(bomOp);
+        }
+
         bom.RecalculateCost();
 
         await _bomRepository.InsertAsync(bom);
@@ -150,7 +168,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             query = query.Where(w => w.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(w => w.WorkOrderNumber.ToLower().Contains(f));
         }
 
@@ -163,6 +181,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<WorkOrderDto> CreateWorkOrderAsync(CreateWorkOrderDto input)
     {
+        // Validate item eligibility and BOM (per WorkOrderManager domain logic)
+        var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+        await woManager.ValidateProductionItemAsync(input.ItemId);
+        await woManager.ValidateBomAsync(input.BomId, input.ItemId);
+
         var number = await _numberGenerator.GenerateAsync("WO", input.CompanyId);
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
         {
@@ -265,7 +288,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.RecordProduction(quantity, overproductionPercentage: overproductionPct);
 
         // Validate sufficient stock for raw materials before consuming
-        var productionRatio = quantity / wo.Quantity;
+        var productionRatio = wo.Quantity > 0 ? quantity / wo.Quantity : 0m;
         foreach (var item in wo.RequiredItems)
         {
             var issueQty = Math.Round(item.RequiredQuantity * productionRatio, 4);
@@ -345,7 +368,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // Reverse stock entries: return consumed RM and remove produced FG
         if (wo.ProducedQuantity > 0)
         {
-            var productionRatio = wo.ProducedQuantity / wo.Quantity;
+            var productionRatio = wo.Quantity > 0 ? wo.ProducedQuantity / wo.Quantity : 0m;
 
             // Return raw materials to source warehouse
             foreach (var item in wo.RequiredItems)
@@ -425,3 +448,4 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(mr);
     }
 }
+

@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { IssueService } from '../../proxy/support/issue.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -88,6 +89,7 @@ export class IssueFormComponent {
   private router = inject(Router);
   private service = inject(IssueService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -98,6 +100,11 @@ export class IssueFormComponent {
     raisedVia: [''],
     customerId: [''],
   });
+
+  constructor() {
+    const cid = this.companyContext.currentCompanyId();
+    if (cid) this.form.patchValue({ companyId: cid });
+  }
 
   save(): void {
     if (this.form.invalid) return;

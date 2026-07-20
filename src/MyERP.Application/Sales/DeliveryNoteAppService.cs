@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
@@ -77,16 +79,26 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.DeliveryNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.DeliveryNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var list = query
-            .OrderByDescending(x => x.PostingDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.PostingDate),
+            ("deliveryNumber", x => x.DeliveryNumber),
+            ("postingDate", x => x.PostingDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var list = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
@@ -149,6 +161,26 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var billing = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
         if (billing != null) dn.BillingAddressId = billing.Id;
     }
+
+        // Add items + resolve UOM conversion
+        var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepoForUom = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var item in input.Items)
+        {
+            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice,
+                item.TaxAmount, item.Uom, item.SalesOrderItemId);
+            var lastItem = dn.Items[^1];
+            var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
+            if (itemEntity != null)
+            {
+                lastItem.StockUom = itemEntity.Uom;
+                if (!string.Equals(lastItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                    lastItem.ConversionFactor = await uomService.GetConversionFactorAsync(
+                        item.ItemId, lastItem.Uom, itemEntity.Uom);
+            }
+        }
+
+        await _repository.InsertAsync(dn, autoSave: true);
         return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
     }
 
@@ -182,9 +214,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             var dnItemData = dn.Items
                 .Select(i => (i.ItemId, i.UnitPrice, i.Description))
                 .ToList().AsReadOnly();
-            SalesInvoiceManager.ValidateSellingPrice(dnItemData,
-                itemId => valuationSvc.GetCurrentBalanceAsync(itemId, dn.WarehouseId)
-                    .GetAwaiter().GetResult().ValuationRate,
+            await SalesInvoiceManager.ValidateSellingPriceAsync(dnItemData,
+                async itemId => (await valuationSvc.GetCurrentBalanceAsync(itemId, dn.WarehouseId)).ValuationRate,
                 action: "Warn");
 
             var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
@@ -211,40 +242,31 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
-                var returnQty = Math.Abs(item.Quantity); // Returns have negative qty, use absolute
+                // Use StockQty for SLE (returns in stock UOM)
+                var returnStockQty = Math.Abs(item.StockQty);
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
 
                 await _valuationService.CreateLedgerEntryAsync(
                     dn.CompanyId, item.ItemId, dn.WarehouseId,
-                    dn.PostingDate, returnQty, item.UnitPrice,
+                    dn.PostingDate, returnStockQty, ratePerStockUnit,
                     voucherType: "DeliveryNote", voucherId: dn.Id,
                     tenantId: dn.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, dn.WarehouseId,
-                    returnQty, returnQty * item.UnitPrice, dn.TenantId);
+                    returnStockQty, returnStockQty * ratePerStockUnit, dn.TenantId);
                 // No reserved qty release on returns — stock wasn't reserved for a return
             }
 
             // Reverse GL: DR Stock, CR COGS (opposite of normal DN)
             await _postingOrchestrator.PostDeliveryNoteAsync(dn);
 
-            // Reduce linked SO DeliveredQty (return reverses prior delivery)
+            // Reduce linked SO DeliveredQty (return reverses prior delivery — with concurrency retry)
             if (dn.SalesOrderId.HasValue)
             {
-                var so = await _salesOrderRepository.GetAsync(dn.SalesOrderId.Value);
-                foreach (var dnItem in dn.Items)
-                {
-                    if (dnItem.SalesOrderItemId.HasValue)
-                    {
-                        var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
-                        if (soItem != null)
-                        {
-                            soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - Math.Abs(dnItem.Quantity));
-                        }
-                    }
-                }
-                so.UpdateFulfillmentStatus();
-                await _salesOrderRepository.UpdateAsync(so);
+                await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
             }
         }
         else
@@ -309,40 +331,27 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                     await _valuationService.CreateLedgerEntryAsync(
                         dn.CompanyId, item.ItemId, dn.WarehouseId,
-                        dn.PostingDate, -item.Quantity, item.UnitPrice,
+                        dn.PostingDate, -item.StockQty, item.UnitPrice / (item.ConversionFactor != 0 ? item.ConversionFactor : 1m),
                         voucherType: "DeliveryNote", voucherId: dn.Id,
                         tenantId: dn.TenantId);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, dn.WarehouseId,
-                        -item.Quantity, -(item.Quantity * item.UnitPrice), dn.TenantId);
+                        -item.StockQty, -(item.StockQty * (item.UnitPrice / (item.ConversionFactor != 0 ? item.ConversionFactor : 1m))), dn.TenantId);
 
-                    // Release reserved qty (stock was reserved at SO, now delivered)
+                    // Release reserved qty (stock was reserved at SO in stock UOM, now delivered)
                     await _binService.UpdateReservedQtyAsync(
-                        item.ItemId, dn.WarehouseId, -item.Quantity, dn.TenantId);
+                        item.ItemId, dn.WarehouseId, -item.StockQty, dn.TenantId);
                 }
             }
 
             // GL posting (perpetual inventory): DR COGS, CR Stock
             await _postingOrchestrator.PostDeliveryNoteAsync(dn);
 
-            // Update linked Sales Order fulfillment tracking
+            // Update linked Sales Order fulfillment tracking (with concurrency retry)
             if (dn.SalesOrderId.HasValue)
             {
-                var so = await _salesOrderRepository.GetAsync(dn.SalesOrderId.Value);
-                foreach (var dnItem in dn.Items)
-                {
-                    if (dnItem.SalesOrderItemId.HasValue)
-                    {
-                        var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
-                        if (soItem != null)
-                        {
-                            soItem.DeliveredQty += dnItem.Quantity;
-                        }
-                    }
-                }
-                so.UpdateFulfillmentStatus();
-                await _salesOrderRepository.UpdateAsync(so);
+                await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: false);
             }
 
             // Check auto-reorder for items that had stock reduced
@@ -361,7 +370,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         await notifSvc.NotifyAutoReorderAsync(
                             CurrentUser.Id.Value, item.Description, item.Quantity, mrId.Value, dn.TenantId);
                     }
-                    catch { /* Non-critical */ }
+                    catch (Exception ex) { Logger.LogWarning(ex, "Auto-reorder notification failed"); }
                 }
             }
         }
@@ -402,41 +411,33 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         dn.Cancel();
 
-        // Reverse SLE + Bin for each item
+        // Reverse SLE + Bin for each item (in stock UOM)
         foreach (var item in dn.Items)
         {
+            var stockQty = item.StockQty;
+            var ratePerStockUnit = item.ConversionFactor != 0
+                ? item.UnitPrice / item.ConversionFactor
+                : item.UnitPrice;
+
             await _valuationService.CreateLedgerEntryAsync(
                 dn.CompanyId, item.ItemId, dn.WarehouseId,
-                dn.PostingDate, item.Quantity, item.UnitPrice,
+                dn.PostingDate, stockQty, ratePerStockUnit,
                 voucherType: "DeliveryNote", voucherId: dn.Id,
                 tenantId: dn.TenantId);
 
             await _binService.ApplyStockMovementAsync(
                 item.ItemId, dn.WarehouseId,
-                item.Quantity, item.Quantity * item.UnitPrice, dn.TenantId);
+                stockQty, stockQty * ratePerStockUnit, dn.TenantId);
 
-            // Re-reserve qty
+            // Re-reserve qty in stock UOM
             await _binService.UpdateReservedQtyAsync(
-                item.ItemId, dn.WarehouseId, item.Quantity, dn.TenantId);
+                item.ItemId, dn.WarehouseId, stockQty, dn.TenantId);
         }
 
         // Reverse linked Sales Order fulfillment tracking
         if (dn.SalesOrderId.HasValue)
         {
-            var so = await _salesOrderRepository.GetAsync(dn.SalesOrderId.Value);
-            foreach (var dnItem in dn.Items)
-            {
-                if (dnItem.SalesOrderItemId.HasValue)
-                {
-                    var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
-                    if (soItem != null)
-                    {
-                        soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - dnItem.Quantity);
-                    }
-                }
-            }
-            so.UpdateFulfillmentStatus();
-            await _salesOrderRepository.UpdateAsync(so);
+            await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
@@ -479,4 +480,42 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(amended);
     }
+
+    /// <summary>
+    /// Updates SO fulfillment counters with optimistic concurrency retry.
+    /// Prevents lost updates when concurrent DN submissions modify the same SO.
+    /// </summary>
+    private async Task UpdateSoFulfillmentWithRetryAsync(
+        Guid salesOrderId,
+        IReadOnlyCollection<DeliveryNoteItem> dnItems,
+        bool isReversal)
+    {
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                var so = await _salesOrderRepository.GetAsync(salesOrderId);
+                foreach (var dnItem in dnItems)
+                {
+                    if (!dnItem.SalesOrderItemId.HasValue) continue;
+                    var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
+                    if (soItem == null) continue;
+
+                    if (isReversal)
+                        soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - Math.Abs(dnItem.Quantity));
+                    else
+                        soItem.DeliveredQty += dnItem.Quantity;
+                }
+                so.UpdateFulfillmentStatus();
+                await _salesOrderRepository.UpdateAsync(so, autoSave: true);
+                return;
+            }
+            catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+            {
+                Logger.LogWarning("Concurrency conflict updating SO {SoId} DeliveredQty (attempt {Attempt}/3)", salesOrderId, attempt);
+                await Task.Delay(attempt * 10);
+            }
+        }
+    }
 }
+

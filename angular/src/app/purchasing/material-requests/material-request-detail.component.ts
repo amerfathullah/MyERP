@@ -12,11 +12,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-material-request-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent],
   templateUrl: './material-request-detail.component.html',
   styleUrls: ['./material-request-detail.component.scss'],
 })

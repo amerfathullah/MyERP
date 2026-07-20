@@ -6,11 +6,12 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { WarehouseDto } from '../../proxy/inventory/models';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
   selector: 'app-warehouse-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent],
   templateUrl: './warehouse-list.component.html',
   styleUrls: ['./warehouse-list.component.scss'],
 })
@@ -21,8 +22,10 @@ export class WarehouseListComponent implements OnInit {
   warehouses: WarehouseDto[] = [];
   totalCount = 0;
   isLoading = false;
+  pageSize = 10;
+  currentPage = 0;
   ngOnInit(): void {
-    this.loadWarehouses(0, 20);
+    this.loadWarehouses(this.currentPage * this.pageSize, this.pageSize);
   }
 
   loadWarehouses(skipCount: number, maxResultCount: number): void {
@@ -34,8 +37,9 @@ export class WarehouseListComponent implements OnInit {
     });
   }
 
-  onPageChange(event: any): void {
-    this.loadWarehouses(event.pageIndex * event.pageSize, event.pageSize);
+  onPageChange(event: PageEvent): void {
+    this.currentPage = event.pageIndex;
+    this.loadWarehouses(event.pageIndex * this.pageSize, this.pageSize);
   }
 
   createWarehouse(): void {

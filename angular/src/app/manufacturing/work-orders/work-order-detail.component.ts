@@ -10,11 +10,12 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import type { WorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-work-order-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent],
   template: `
     <abp-page [title]="wo()?.workOrderNumber ?? ('Manufacturing:WorkOrders' | abpLocalization)">
   <app-breadcrumb />
@@ -121,6 +122,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
           </div>
         }
+
+        <app-activity-log documentType="WorkOrder" [documentId]="w.id!" />
       }
     </abp-page>
   `,

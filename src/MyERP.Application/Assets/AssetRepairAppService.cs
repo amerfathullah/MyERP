@@ -56,6 +56,16 @@ public class AssetRepairAppService : ApplicationService
         var query = await _repairRepository.GetQueryableAsync();
         if (input.CompanyId.HasValue)
             query = query.Where(r => r.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+             query = query.Where(r => r.RepairDescription != null && r.RepairDescription.ToLower().Contains(filter.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<AssetRepairStatus>(input.Status, true, out var status))
+            query = query.Where(r => r.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(r => r.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -126,3 +136,4 @@ public class AssetRepairAppService : ApplicationService
         return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
     }
 }
+

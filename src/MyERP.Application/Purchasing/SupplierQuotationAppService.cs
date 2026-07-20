@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Purchasing.Entities;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -61,9 +63,22 @@ public class SupplierQuotationAppService : ApplicationService
     private readonly IRepository<SupplierQuotation, Guid> _repository;
     public SupplierQuotationAppService(IRepository<SupplierQuotation, Guid> repository) => _repository = repository;
 
-    public async Task<PagedResultDto<SupplierQuotationDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<SupplierQuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+             query = query.Where(x => x.SupplierName != null && x.SupplierName.ToLower().Contains(filter.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.TransactionDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -118,3 +133,4 @@ public class SupplierQuotationAppService : ApplicationService
         return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
 }
+

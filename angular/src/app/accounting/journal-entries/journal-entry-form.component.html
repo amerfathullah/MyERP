@@ -1,5 +1,5 @@
 <abp-page [title]="'New Journal Entry'">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <!-- Header -->
     <div class="card mb-4">
       <div class="card-header">
@@ -7,16 +7,25 @@
       </div>
       <div class="card-body">
         <div class="row">
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Entry Date</label>
+          <div class="col-12 col-md-3 mb-3">
+            <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+            <select class="form-select" formControlName="companyId">
+              <option value="">{{ 'SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-3 mb-3">
+            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="entryDate" [class.is-invalid]="form.get('entryDate')?.invalid && form.get('entryDate')?.touched" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Reference</label>
-            <input type="text" class="form-control" formControlName="reference" [class.is-invalid]="form.get('reference')?.invalid && form.get('reference')?.touched" placeholder="e.g., INV-2026-001" />
+          <div class="col-12 col-md-3 mb-3">
+            <label class="form-label">{{ 'Reference' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="reference" [class.is-invalid]="form.get('reference')?.invalid && form.get('reference')?.touched" [placeholder]="'::Placeholder:ReferenceExample' | abpLocalization" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Narration</label>
+          <div class="col-12 col-md-3 mb-3">
+            <label class="form-label">{{ 'Narration' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="narration" [class.is-invalid]="form.get('narration')?.invalid && form.get('narration')?.touched" />
           </div>
         </div>
@@ -33,7 +42,7 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
-                <th>Account</th>
+                <th>{{ 'Account' | abpLocalization }}</th>
                 <th style="width: 140px">Debit</th>
                 <th style="width: 140px">Credit</th>
                 <th style="width: 50px"></th>
@@ -42,7 +51,14 @@
             <tbody>
               @for (row of lines.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="accountName" placeholder="Search account..." /></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="accountId" (change)="onAccountSelected(i, $any(row).get('accountId')?.value)">
+                      <option value="">{{ 'SelectAccount' | abpLocalization }}</option>
+                      @for (acct of accounts(); track acct.id) {
+                        <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
+                      }
+                    </select>
+                  </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="debit" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="credit" /></td>
                   <td>

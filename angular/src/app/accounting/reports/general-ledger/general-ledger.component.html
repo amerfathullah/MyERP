@@ -2,14 +2,14 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
             <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'Account' | abpLocalization }}</label>
           <select class="form-select" formControlName="accountId">
             <option value="">{{ 'AllAccounts' | abpLocalization }}</option>
@@ -23,6 +23,10 @@
         <div class="col-md-2">
           <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ 'VoucherNumber' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="voucherNumber" [placeholder]="'Search' | abpLocalization" />
         </div>
         <div class="col-md-2">
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
@@ -69,34 +73,49 @@
               <tr>
                 <th class="ps-3">{{ 'Date' | abpLocalization }}</th>
                 <th>{{ 'Account' | abpLocalization }}</th>
-                <th>{{ 'Voucher' | abpLocalization }}</th>
+                <th>{{ 'VoucherType' | abpLocalization }}</th>
+                <th>{{ 'VoucherNumber' | abpLocalization }}</th>
+                <th>{{ 'Party' | abpLocalization }}</th>
                 <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
                 <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
-                <th class="pe-3">{{ 'Description' | abpLocalization }}</th>
+                <th class="text-end">{{ 'Balance' | abpLocalization }}</th>
+                <th>{{ 'CostCenter' | abpLocalization }}</th>
+                <th class="pe-3">{{ 'Remarks' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @for (entry of r.entries; track entry.id) {
                 <tr>
                   <td class="ps-3">{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td><span class="text-muted">{{ entry.accountCode }}</span> {{ entry.accountName }}</td>
-                  <td>{{ entry.voucherNumber }}</td>
+                  <td><span class="text-muted small">{{ entry.accountCode }}</span> {{ entry.accountName }}</td>
+                  <td><span class="badge bg-secondary-subtle text-secondary">{{ entry.voucherType }}</span></td>
+                  <td><a class="text-primary text-decoration-none" [routerLink]="getVoucherRoute(entry)">{{ entry.voucherNumber }}</a></td>
+                  <td>
+                    @if (entry.partyType) {
+                      <small class="text-muted">{{ entry.partyType }}:</small> {{ entry.partyName ?? '—' }}
+                    }
+                  </td>
                   <td class="text-end font-monospace" [class.fw-bold]="entry.debitAmount > 0">
                     {{ entry.debitAmount > 0 ? (entry.debitAmount | number:'1.2-2') : '' }}
                   </td>
                   <td class="text-end font-monospace" [class.fw-bold]="entry.creditAmount > 0">
                     {{ entry.creditAmount > 0 ? (entry.creditAmount | number:'1.2-2') : '' }}
                   </td>
-                  <td class="pe-3 text-truncate" style="max-width: 200px;">{{ entry.description }}</td>
+                  <td class="text-end font-monospace" [class.text-success]="entry.balance >= 0" [class.text-danger]="entry.balance < 0">
+                    {{ entry.balance | number:'1.2-2' }}
+                  </td>
+                  <td class="small">{{ entry.costCenterName }}</td>
+                  <td class="pe-3 text-truncate small" style="max-width: 150px;" [title]="entry.description ?? ''">{{ entry.description }}</td>
                 </tr>
               }
             </tbody>
             <tfoot>
               <tr class="fw-bold table-light">
-                <td class="ps-3" colspan="3">{{ 'Total' | abpLocalization }}</td>
+                <td class="ps-3" colspan="5">{{ 'Total' | abpLocalization }}</td>
                 <td class="text-end font-monospace">{{ r.totalDebit | number:'1.2-2' }}</td>
                 <td class="text-end font-monospace">{{ r.totalCredit | number:'1.2-2' }}</td>
-                <td class="pe-3"></td>
+                <td class="text-end font-monospace" [class.text-success]="r.balance >= 0" [class.text-danger]="r.balance < 0">{{ r.balance | number:'1.2-2' }}</td>
+                <td colspan="2" class="pe-3"></td>
               </tr>
             </tfoot>
           </table>

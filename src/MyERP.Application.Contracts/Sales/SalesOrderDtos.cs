@@ -104,4 +104,6 @@ public class CreateSalesOrderItemDto
 
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
+
+    public Guid? WarehouseId { get; set; }
 }

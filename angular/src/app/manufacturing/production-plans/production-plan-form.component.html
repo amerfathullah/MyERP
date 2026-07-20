@@ -5,7 +5,12 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
-            <input type="text" class="form-control" formControlName="companyId" placeholder="Company ID">
+            <select class="form-select" formControlName="companyId">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-md-6">
             <label class="form-label">{{ 'PostingDate' | abpLocalization }} *</label>

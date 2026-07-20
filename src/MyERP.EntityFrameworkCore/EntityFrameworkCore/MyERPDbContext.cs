@@ -149,6 +149,8 @@ public class MyERPDbContext :
     public DbSet<SubcontractingOrderSuppliedItem> SubcontractingOrderSuppliedItems { get; set; }
     public DbSet<SubcontractingReceipt> SubcontractingReceipts { get; set; }
     public DbSet<SubcontractingReceiptItem> SubcontractingReceiptItems { get; set; }
+    public DbSet<SubcontractingInwardOrder> SubcontractingInwardOrders { get; set; }
+    public DbSet<SubcontractingInwardOrderItem> SubcontractingInwardOrderItems { get; set; }
     public DbSet<SupplierQuotation> SupplierQuotations { get; set; }
     public DbSet<SupplierQuotationItem> SupplierQuotationItems { get; set; }
     public DbSet<SupplierScorecard> SupplierScorecards { get; set; }
@@ -190,6 +192,10 @@ public class MyERPDbContext :
     public DbSet<Uom> Uoms { get; set; }
     public DbSet<ItemDefault> ItemDefaults { get; set; }
     public DbSet<PutawayRule> PutawayRules { get; set; }
+    public DbSet<SerialAndBatchBundle> SerialAndBatchBundles { get; set; }
+    public DbSet<SerialAndBatchEntry> SerialAndBatchEntries { get; set; }
+    public DbSet<ItemStandardCost> ItemStandardCosts { get; set; }
+    public DbSet<RepostItemValuation> RepostItemValuations { get; set; }
 
     // Tax
     public DbSet<TaxCategory> TaxCategories { get; set; }
@@ -274,6 +280,7 @@ public class MyERPDbContext :
     // Manufacturing
     public DbSet<BillOfMaterials> BillOfMaterials { get; set; }
     public DbSet<BomItem> BomItems { get; set; }
+    public DbSet<BomOperation> BomOperations { get; set; }
     public DbSet<WorkOrder> WorkOrders { get; set; }
     public DbSet<WorkOrderItem> WorkOrderItems { get; set; }
     public DbSet<ProductionPlan> ProductionPlans { get; set; }
@@ -802,6 +809,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.QuotationId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.QuotationNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
         });
 
         builder.Entity<QuotationItem>(b =>
@@ -833,6 +841,10 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SalesOrderId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.OrderNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
+
+            // Optimistic concurrency — protects DeliveredQty/BilledQty from concurrent DN/SI submission
+            b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
         });
 
         builder.Entity<SalesOrderItem>(b =>
@@ -871,6 +883,9 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.InvoiceNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
+
+            // Optimistic concurrency on AmountPaid — prevents lost payments under concurrent PE posting
+            b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
         });
 
         builder.Entity<SalesInvoiceItem>(b =>
@@ -905,6 +920,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.DeliveryNoteId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DeliveryNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
         });
 
         builder.Entity<DeliveryNoteItem>(b =>
@@ -937,6 +953,9 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.OrderNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.SupplierId, x.Status });
+
+            // Optimistic concurrency — protects ReceivedQty/BilledQty from concurrent PR/PI submission
+            b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
         });
 
         builder.Entity<PurchaseOrderItem>(b =>
@@ -973,6 +992,10 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseInvoiceId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.InvoiceNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.SupplierId, x.Status });
+
+            // Optimistic concurrency on AmountPaid — prevents lost payments under concurrent PE posting
+            b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
         });
 
         builder.Entity<PurchaseInvoiceItem>(b =>
@@ -1005,6 +1028,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseReceiptId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ReceiptNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.SupplierId, x.Status });
         });
 
         builder.Entity<PurchaseReceiptItem>(b =>
@@ -1104,6 +1128,86 @@ public class MyERPDbContext :
             b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
         });
 
+        builder.Entity<SubcontractingInwardOrder>(b =>
+        {
+            b.ToTable("Pur_SubcontractingInwardOrders", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.OrderNumber).IsRequired().HasMaxLength(50);
+            b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(10);
+            b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
+            b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
+            b.Property(x => x.PerReceived).HasColumnType("decimal(18,2)");
+            b.Property(x => x.PerBilled).HasColumnType("decimal(18,2)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SubcontractingInwardOrderId).IsRequired();
+            b.Navigation(x => x.Items).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.OrderNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<SubcontractingInwardOrderItem>(b =>
+        {
+            b.ToTable("Pur_SubcontractingInwardOrderItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ServiceCostPerQty).HasColumnType("decimal(18,4)");
+        });
+
+        // Serial and Batch Bundle
+        builder.Entity<SerialAndBatchBundle>(b =>
+        {
+            b.ToTable("Inv_SerialAndBatchBundles", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.VoucherType).IsRequired().HasMaxLength(64);
+            b.Property(x => x.TotalQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.AvgRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TotalAmount).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Entries).WithOne().HasForeignKey(x => x.SerialAndBatchBundleId).IsRequired();
+            b.Navigation(x => x.Entries).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
+            b.HasIndex(x => new { x.TenantId, x.ItemId, x.WarehouseId, x.TypeOfTransaction });
+        });
+
+        builder.Entity<SerialAndBatchEntry>(b =>
+        {
+            b.ToTable("Inv_SerialAndBatchEntries", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.SerialNo).HasMaxLength(140);
+            b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.IncomingRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.StockQueue).HasMaxLength(4000);
+            b.HasIndex(x => new { x.TenantId, x.SerialNo }).HasFilter("[SerialNo] IS NOT NULL");
+        });
+
+        // Item Standard Cost
+        builder.Entity<ItemStandardCost>(b =>
+        {
+            b.ToTable("Inv_ItemStandardCosts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.StandardRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.PreviousRate).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.ItemId, x.EffectiveDate }).IsUnique();
+        });
+
+        // Repost Item Valuation
+        builder.Entity<RepostItemValuation>(b =>
+        {
+            b.ToTable("Inv_RepostItemValuations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.VoucherType).HasMaxLength(64);
+            b.Property(x => x.ErrorLog).HasMaxLength(4000);
+            b.Property(x => x.ItemsToBeReposted).HasMaxLength(4000);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.ItemId, x.WarehouseId, x.PostingDate });
+        });
+
         // Payment Entry
         builder.Entity<PaymentEntry>(b =>
         {
@@ -1123,6 +1227,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.References).WithOne().HasForeignKey(x => x.PaymentEntryId).IsRequired();
             b.Navigation(x => x.References).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PaymentNumber }).IsUnique().HasFilter("\"PaymentNumber\" IS NOT NULL");
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PostingDate });
         });
 
         builder.Entity<PaymentEntryReference>(b =>
@@ -1342,6 +1447,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.StockEntryId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.EntryNumber }).IsUnique().HasFilter("\"EntryNumber\" IS NOT NULL");
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.EntryType, x.Status });
         });
 
         builder.Entity<StockEntryItem>(b =>
@@ -2122,6 +2228,8 @@ public class MyERPDbContext :
             b.Property(x => x.OperatingCost).HasColumnType("decimal(18,2)");
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.BomId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
+            b.HasMany(x => x.Operations).WithOne().HasForeignKey(x => x.BomId).IsRequired();
+            b.Navigation(x => x.Operations).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.BomNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ItemId, x.IsDefault });
             b.Property(x => x.BackflushBasedOn).HasMaxLength(50);
@@ -2137,6 +2245,17 @@ public class MyERPDbContext :
             b.Property(x => x.Rate).HasColumnType("decimal(18,2)");
             b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
             b.Property(x => x.IsPhantom).HasDefaultValue(false);
+        });
+
+        builder.Entity<BomOperation>(b =>
+        {
+            b.ToTable("Mfg_BOMOperations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TimeInMins).HasColumnType("decimal(18,2)");
+            b.Property(x => x.OperatingCost).HasColumnType("decimal(18,4)");
+            b.Property(x => x.FixedTime).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.HasIndex(x => new { x.BomId, x.SequenceId });
         });
 
         builder.Entity<WorkOrder>(b =>

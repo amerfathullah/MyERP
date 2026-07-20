@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -86,9 +87,21 @@ public class LoanAppService : ApplicationService
         _numberGenerator = numberGenerator;
     }
 
-    public async Task<PagedResultDto<LoanDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<LoanDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter; query = query.Where(x => x.LoanNumber.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<LoanStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(l => l.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -154,10 +167,9 @@ public class LoanAppService : ApplicationService
     public async Task<LoanDto> CancelAsync(Guid id)
     {
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
-        if (loan.Status is LoanStatus.FullyRepaid or LoanStatus.Cancelled)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        loan.Status = LoanStatus.Cancelled;
+        loan.Cancel();
         await _repository.UpdateAsync(loan);
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 }
+

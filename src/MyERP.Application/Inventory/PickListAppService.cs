@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
@@ -92,6 +93,16 @@ public class PickListAppService : ApplicationService
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
         if (input.CompanyId.HasValue)
             query = query.Where(p => p.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+            query = query.Where(p => p.PickListNumber != null && p.PickListNumber.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(p => p.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -187,3 +198,4 @@ public class PickListAppService : ApplicationService
         }).ToList();
     }
 }
+

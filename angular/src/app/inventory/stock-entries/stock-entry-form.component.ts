@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -10,12 +10,13 @@ import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })
@@ -28,8 +29,12 @@ export class StockEntryFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
+  warehouses = signal<any[]>([]);
+  companies = signal<any[]>([]);
   linkedWorkOrderId: string | null = null;
   isLoadingBOM = false;
+  isEditMode = false;
+  entityId: string | null = null;
 
   form = this.fb.group({
     companyId: [''],
@@ -45,8 +50,44 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const cid = this.companyContext.currentCompanyId();
-    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+    this.entityId = this.route.snapshot.paramMap.get('id');
+    this.isEditMode = !!this.entityId;
+
+    if (!this.isEditMode) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+    }
+
+    // Load warehouses and companies for dropdown selectors
+    this.http.get<any>('/api/app/warehouse', { params: { skipCount: '0', maxResultCount: '200', sorting: '' } })
+      .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+      .subscribe(res => this.companies.set(res.items ?? []));
+
+    if (this.isEditMode) {
+      this.service.get(this.entityId!).subscribe(se => {
+        this.form.patchValue({
+          companyId: se.companyId,
+          entryType: se.entryType?.toString() ?? 'Receipt',
+          entryDate: se.postingDate ? new Date(se.postingDate) : new Date(),
+          remarks: se.notes ?? '',
+        });
+        (se.items ?? []).forEach((item: any) => {
+          this.items.push(this.fb.group({
+            itemId: [item.itemId, Validators.required],
+            itemName: [item.description ?? item.itemName ?? '', Validators.required],
+            qty: [item.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+            uom: ['Unit'],
+          }));
+          // Set warehouse from first item if available
+          if (item.sourceWarehouseId && !this.form.get('sourceWarehouse')?.value)
+            this.form.patchValue({ sourceWarehouse: item.sourceWarehouseId });
+          if (item.targetWarehouseId && !this.form.get('targetWarehouse')?.value)
+            this.form.patchValue({ targetWarehouse: item.targetWarehouseId });
+        });
+      });
+      return; // Skip query-param processing for edit mode
+    }
 
     const params = this.route.snapshot.queryParams;
     if (params['purpose']) {
@@ -119,11 +160,28 @@ export class StockEntryFormComponent implements OnInit {
 
   save(): void {
     if (this.form.invalid) return;
-    const dto = this.form.getRawValue() as any;
-    this.service.create(dto).subscribe({
-      next: () => { this.toaster.success('Stock Entry created'); this.router.navigate(['/inventory/stock-entries']); },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
-    });
+    const raw = this.form.getRawValue() as any;
+    // Map item 'qty' field to 'quantity' as expected by CreateStockEntryItemDto
+    const dto = {
+      ...raw,
+      items: (raw.items ?? []).map((item: any) => ({
+        itemId: item.itemId,
+        quantity: item.quantity ?? item.qty ?? 0,
+        sourceWarehouseId: item.sourceWarehouseId || null,
+        targetWarehouseId: item.targetWarehouseId || null,
+      })),
+    };
+    if (this.isEditMode) {
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => { this.toaster.success('Stock Entry updated'); this.router.navigate(['/inventory/stock-entries', this.entityId]); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Update failed'),
+      });
+    } else {
+      this.service.create(dto).subscribe({
+        next: () => { this.toaster.success('Stock Entry created'); this.router.navigate(['/inventory/stock-entries']); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
+      });
+    }
   }
 
   cancel(): void {

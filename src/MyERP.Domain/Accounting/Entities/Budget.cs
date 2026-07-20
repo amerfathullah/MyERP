@@ -51,8 +51,8 @@ public class Budget : FullAuditedAggregateRoot<Guid>, IMultiTenant
         string budgetAgainst, Guid budgetAgainstId, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        FiscalYearId = fiscalYearId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        FiscalYearId = Check.NotDefaultOrNull<Guid>(fiscalYearId, nameof(fiscalYearId));
         BudgetAgainst = budgetAgainst;
         BudgetAgainstId = budgetAgainstId;
         TenantId = tenantId;

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
@@ -49,6 +51,14 @@ public class CompanyAppService :
         CreatePolicyName = MyERPPermissions.Companies.Create;
         UpdatePolicyName = MyERPPermissions.Companies.Edit;
         DeletePolicyName = MyERPPermissions.Companies.Delete;
+    }
+
+    public override async Task<CompanyDto> CreateAsync(CreateUpdateCompanyDto input)
+    {
+        var result = await base.CreateAsync(input);
+        // Auto-setup the new company with required master data (FY, CoA, warehouses, etc.)
+        await SetupNewCompanyAsync(result.Id);
+        return result;
     }
 
     protected override Company MapToEntity(CreateUpdateCompanyDto input)
@@ -157,14 +167,23 @@ public class CompanyAppService :
             await ccRepo.InsertAsync(new CostCenter(GuidGenerator.Create(), companyId, "Main", parentId: root.Id), autoSave: true);
         }
 
-        // Seed Default Warehouses
+        // Seed Default Warehouses (hierarchy per ERPNext Company.create_default_warehouses)
         var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
         var hasWh = (await whRepo.GetQueryableAsync()).Any(w => w.CompanyId == companyId);
         if (!hasWh)
         {
-            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Stores") { IsActive = true }, autoSave: true);
-            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Finished Goods") { IsActive = true }, autoSave: true);
-            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Work In Progress") { IsActive = true }, autoSave: true);
+            var allWarehouses = new Warehouse(GuidGenerator.Create(), companyId, "All Warehouses")
+                { IsGroup = true, IsActive = true };
+            await whRepo.InsertAsync(allWarehouses, autoSave: true);
+
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Stores")
+                { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Finished Goods")
+                { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Work In Progress")
+                { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+            await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Goods In Transit")
+                { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
         }
 
         // Seed Manufacturing Settings
@@ -174,6 +193,51 @@ public class CompanyAppService :
         {
             await mfgRepo.InsertAsync(new Manufacturing.Entities.ManufacturingSettings(
                 GuidGenerator.Create(), companyId), autoSave: true);
+        }
+
+        // Seed Chart of Accounts + assign default accounts
+        var coaSeeder = LazyServiceProvider.LazyGetRequiredService<Data.MalaysianCoaSeeder>();
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var hasAccounts = (await accountRepo.GetQueryableAsync()).Any(a => a.CompanyId == companyId);
+        if (!hasAccounts)
+        {
+            await coaSeeder.SeedAsync(companyId);
+            // Assign default accounts from seeded CoA
+            var accounts = (await accountRepo.GetQueryableAsync())
+                .Where(a => a.CompanyId == companyId).ToList();
+            var lookup = accounts.ToDictionary(a => a.AccountCode ?? "", a => a.Id);
+            if (lookup.TryGetValue("1130", out var receivable)) company.DefaultReceivableAccountId = receivable;
+            if (lookup.TryGetValue("2110", out var payable)) company.DefaultPayableAccountId = payable;
+            if (lookup.TryGetValue("4100", out var income)) company.DefaultIncomeAccountId = income;
+            if (lookup.TryGetValue("5100", out var expense)) company.DefaultExpenseAccountId = expense;
+            if (lookup.TryGetValue("1120", out var bank)) company.DefaultBankAccountId = bank;
+            if (lookup.TryGetValue("1140", out var inventory)) company.DefaultInventoryAccountId = inventory;
+            if (lookup.TryGetValue("5500", out var depr)) company.DepreciationExpenseAccountId = depr;
+            if (lookup.TryGetValue("1220", out var accDepr)) company.AccumulatedDepreciationAccountId = accDepr;
+            if (lookup.TryGetValue("4900", out var exchangeGl)) company.ExchangeGainLossAccountId = exchangeGl;
+            await Repository.UpdateAsync(company, autoSave: true);
+        }
+
+        // Seed default GL posting rules (11 rules per company)
+        var ruleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountingRule, Guid>>();
+        var hasRules = (await ruleRepo.GetQueryableAsync()).Any(r => r.CompanyId == companyId);
+        if (!hasRules)
+        {
+            var rules = new[]
+            {
+                new AccountingRule(GuidGenerator.Create(), companyId, "SI DR Receivable", "SalesInvoice", true, Accounting.AccountSource.CustomerReceivable, Accounting.AmountSource.GrandTotal) { SortOrder = 1 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "SI CR Revenue", "SalesInvoice", false, Accounting.AccountSource.ItemIncome, Accounting.AmountSource.NetTotal) { SortOrder = 2 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "SI CR Tax", "SalesInvoice", false, Accounting.AccountSource.TaxPayable, Accounting.AmountSource.TaxAmount) { SortOrder = 3, FixedAccountId = company.DefaultPayableAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PI DR Expense", "PurchaseInvoice", true, Accounting.AccountSource.ItemExpense, Accounting.AmountSource.NetTotal) { SortOrder = 1 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PI CR Payable", "PurchaseInvoice", false, Accounting.AccountSource.SupplierPayable, Accounting.AmountSource.GrandTotal) { SortOrder = 2 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PE DR Bank", "PaymentEntry", true, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.GrandTotal) { SortOrder = 1, FixedAccountId = company.DefaultBankAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PE CR Receivable", "PaymentEntry", false, Accounting.AccountSource.CustomerReceivable, Accounting.AmountSource.GrandTotal) { SortOrder = 2 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "DN DR COGS", "DeliveryNote", true, Accounting.AccountSource.ItemExpense, Accounting.AmountSource.NetTotal) { SortOrder = 1 },
+                new AccountingRule(GuidGenerator.Create(), companyId, "DN CR Stock", "DeliveryNote", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultInventoryAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PR DR Stock", "PurchaseReceipt", true, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 1, FixedAccountId = company.DefaultInventoryAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PR CR SRBNB", "PurchaseReceipt", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultPayableAccountId },
+            };
+            foreach (var rule in rules) await ruleRepo.InsertAsync(rule, autoSave: true);
         }
     }
 }

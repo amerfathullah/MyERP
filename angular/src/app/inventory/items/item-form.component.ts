@@ -27,6 +27,7 @@ export class ItemFormComponent implements OnInit {
   private service = inject(ItemService);
 
   stockLevels = signal<any[]>([]);
+  companies = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -60,6 +61,9 @@ export class ItemFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
+    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100', sorting: '' } })
+      .subscribe(res => this.companies.set(res.items ?? []));
+
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
         this.form.patchValue(item as any);
@@ -78,11 +82,16 @@ export class ItemFormComponent implements OnInit {
     const value = this.form.getRawValue() as any;
 
     if (this.isEditMode) {
-      this.store.update({ id: this.entityId!, input: value });
+      this.service.update(this.entityId!, value).subscribe({
+        next: () => this.router.navigate(['/inventory/items']),
+        error: () => {},
+      });
     } else {
-      this.store.create(value);
+      this.service.create(value).subscribe({
+        next: () => this.router.navigate(['/inventory/items']),
+        error: () => {},
+      });
     }
-    this.router.navigate(['/inventory/items']);
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

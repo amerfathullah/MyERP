@@ -12,11 +12,11 @@
       <div class="row mb-3">
         <div class="col-md-6">
           <label class="form-label">{{ 'Company' | abpLocalization }}</label>
-          <input type="text" class="form-control" [ngModel]="companyId()" (ngModelChange)="companyId.set($event)" placeholder="Company ID">
+          <input type="text" class="form-control" [ngModel]="companyId()" (ngModelChange)="companyId.set($event)" [placeholder]="'::Placeholder:CompanyId' | abpLocalization">
         </div>
         <div class="col-md-6">
           <label class="form-label">{{ 'BankAccount' | abpLocalization }}</label>
-          <input type="text" class="form-control" [ngModel]="bankAccountId()" (ngModelChange)="bankAccountId.set($event)" placeholder="Bank Account ID">
+          <input type="text" class="form-control" [ngModel]="bankAccountId()" (ngModelChange)="bankAccountId.set($event)" [placeholder]="'::Placeholder:BankAccountId' | abpLocalization">
         </div>
       </div>
 

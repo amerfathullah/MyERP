@@ -46,7 +46,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </table>
         </div></div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -54,17 +54,22 @@ export class SubcontractingListComponent implements OnInit {
   private service = inject(SubcontractingService);
   orders: SubcontractingOrderDto[] = [];
   isLoading = false;
+  totalCount = 0;
 
   currentPage = 0;
   pageSize = 20;
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
     this.isLoading = true;
-    this.service.getOrderList({ skipCount: 0, maxResultCount: 50 })
-      .subscribe({ next: (r) => { this.orders = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+    this.service.getOrderList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize })
+      .subscribe({ next: (r) => { this.orders = r.items ?? []; this.totalCount = r.totalCount ?? 0; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
 
   getStatus(s: number | undefined): string { return ['Draft', 'Open', 'Partial', 'Completed', 'Closed', 'Cancelled'][s ?? 0] ?? 'Draft'; }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 }

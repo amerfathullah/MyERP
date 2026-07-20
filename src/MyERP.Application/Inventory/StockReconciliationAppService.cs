@@ -36,7 +36,7 @@ public class StockReconciliationAppService : ApplicationService
             query = query.Where(s => s.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(s => (s.ReconciliationNumber ?? "").ToLower().Contains(f)
                                   || (s.Purpose ?? "").ToLower().Contains(f));
         }
@@ -161,3 +161,4 @@ public class StockReconciliationAppService : ApplicationService
         return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
     }
 }
+

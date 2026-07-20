@@ -77,6 +77,7 @@ public class AccountingRuleEngine : DomainService
         }
 
         var fiscalYear = await GetFiscalYearAsync(document.CompanyId, document.PostingDate);
+        var company = await _companyRepository.GetAsync(document.CompanyId);
 
         var journal = new JournalEntry(
             GuidGenerator.Create(),
@@ -94,7 +95,7 @@ public class AccountingRuleEngine : DomainService
             var amountInTransactionCurrency = ResolveAmount(rule.AmountSource, document);
             if (amountInTransactionCurrency <= 0) continue;
 
-            var accountId = ResolveAccountId(rule, document);
+            var accountId = ResolveAccountId(rule, company);
 
             if (isMultiCurrency)
             {
@@ -138,7 +139,7 @@ public class AccountingRuleEngine : DomainService
         };
     }
 
-    private Guid ResolveAccountId(AccountingRule rule, IAccountableDocument document)
+    private Guid ResolveAccountId(AccountingRule rule, Company company)
     {
         switch (rule.AccountSource)
         {
@@ -149,39 +150,30 @@ public class AccountingRuleEngine : DomainService
                 return rule.FixedAccountId.Value;
 
             case AccountSource.CustomerReceivable:
-                // Resolve from company's default receivable account
-                var companyForReceivable = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
-                return companyForReceivable.DefaultReceivableAccountId
+                return company.DefaultReceivableAccountId
                     ?? rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no receivable account configured)");
 
             case AccountSource.SupplierPayable:
-                // Resolve from company's default payable account
-                var companyForPayable = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
-                return companyForPayable.DefaultPayableAccountId
+                return company.DefaultPayableAccountId
                     ?? rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no payable account configured)");
 
             case AccountSource.ItemIncome:
-                // Resolve from company's default income account
-                var companyForIncome = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
-                return companyForIncome.DefaultIncomeAccountId
+                return company.DefaultIncomeAccountId
                     ?? rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no income account configured)");
 
             case AccountSource.ItemExpense:
-                // Resolve from company's default expense account
-                var companyForExpense = _companyRepository.GetAsync(document.CompanyId).GetAwaiter().GetResult();
-                return companyForExpense.DefaultExpenseAccountId
+                return company.DefaultExpenseAccountId
                     ?? rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no expense account configured)");
 
             case AccountSource.TaxPayable:
-                // Tax payable uses fixed account (configured per tax rule)
                 return rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no tax account configured)");

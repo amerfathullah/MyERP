@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -53,8 +54,11 @@ public class DashboardAppService : ApplicationService
 
     public async Task<DashboardSummaryDto> GetSummaryAsync()
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1);
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
 
         return new DashboardSummaryDto
         {
@@ -67,10 +71,12 @@ public class DashboardAppService : ApplicationService
                 po.Status == DocumentStatus.ToDeliverAndBill || po.Status == DocumentStatus.ToDeliver || po.Status == DocumentStatus.ToBill),
             SubmittedEInvoices = (int)await _eInvoiceRepo.GetCountAsync(),
             PendingApprovals = (int)await _approvalRepo.CountAsync(a => a.Status == ApprovalStatus.Pending),
-            MonthlyRevenue = (await _salesInvoiceRepo.GetListAsync(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart))
-                .Sum(i => i.GrandTotal),
-            MonthlyExpenses = (await _purchaseInvoiceRepo.GetListAsync(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart))
-                .Sum(i => i.GrandTotal),
+            MonthlyRevenue = siQuery
+                .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
+                .Select(i => i.GrandTotal).DefaultIfEmpty(0).Sum(),
+            MonthlyExpenses = piQuery
+                .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= monthStart)
+                .Select(i => i.GrandTotal).DefaultIfEmpty(0).Sum(),
         };
     }
 
@@ -81,12 +87,18 @@ public class DashboardAppService : ApplicationService
     public async Task<List<LowStockItemDto>> GetLowStockItemsAsync()
     {
         var items = await _itemRepo.GetListAsync(i => i.ReorderLevel > 0 && i.IsActive);
-        var bins = await _binRepo.GetQueryableAsync();
+        if (!items.Any()) return new List<LowStockItemDto>();
+
+        var itemIds = items.Select(i => i.Id).ToHashSet();
+        var binQuery = await _binRepo.GetQueryableAsync();
+        // Batch query: get all bins for reorder-eligible items in one DB call
+        var relevantBins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
+        var binsByItem = relevantBins.GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.ToList());
 
         var result = new List<LowStockItemDto>();
         foreach (var item in items)
         {
-            var itemBins = bins.Where(b => b.ItemId == item.Id).ToList();
+            var itemBins = binsByItem.GetValueOrDefault(item.Id, new List<Bin>());
             var totalProjected = itemBins.Sum(b => b.ProjectedQty);
 
             if (totalProjected <= item.ReorderLevel)
@@ -110,18 +122,18 @@ public class DashboardAppService : ApplicationService
     /// </summary>
     public async Task<List<RevenueTrendDto>> GetRevenueTrendAsync()
     {
-        var sixMonthsAgo = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-5);
-        var invoices = await _salesInvoiceRepo.GetListAsync(
-            i => i.Status == DocumentStatus.Posted && i.IssueDate >= sixMonthsAgo);
+        var sixMonthsAgo = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(-5);
+        var query = await _salesInvoiceRepo.GetQueryableAsync();
 
-        var trend = invoices
+        // Server-side aggregation — only fetches year/month/sum, not full entity rows
+        var trend = query
+            .Where(i => i.Status == DocumentStatus.Posted && i.IssueDate >= sixMonthsAgo)
             .GroupBy(i => new { i.IssueDate.Year, i.IssueDate.Month })
             .Select(g => new RevenueTrendDto
             {
-                Month = $"{g.Key.Year}-{g.Key.Month:D2}",
+                Month = g.Key.Year + "-" + g.Key.Month.ToString().PadLeft(2, '0'),
                 Amount = g.Sum(i => i.GrandTotal),
             })
-            .OrderBy(x => x.Month)
             .ToList();
 
         // Fill in missing months with 0
@@ -142,60 +154,47 @@ public class DashboardAppService : ApplicationService
     /// </summary>
     public async Task<FinancialKpiDto> GetFinancialKpisAsync(Guid companyId)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1);
         var monthEnd = monthStart.AddMonths(1).AddDays(-1);
 
-        // Current month revenue (from posted Sales Invoices)
-        var salesInvoices = await _salesInvoiceRepo.GetListAsync(si =>
-            si.CompanyId == companyId &&
-            si.Status == DocumentStatus.Posted &&
-            si.IssueDate >= monthStart &&
-            si.IssueDate <= monthEnd &&
-            !si.IsReturn);
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
 
-        var monthlyRevenue = salesInvoices.Sum(si => si.GrandTotal);
+        // Current month revenue — server-side sum, no entity materialization
+        var monthSiQuery = siQuery.Where(si =>
+            si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
+            si.IssueDate >= monthStart && si.IssueDate <= monthEnd && !si.IsReturn);
+        var monthlyRevenue = monthSiQuery.Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
+        var invoiceCount = monthSiQuery.Count();
 
-        // Current month expenses (from posted Purchase Invoices)
-        var purchaseInvoices = await _purchaseInvoiceRepo.GetListAsync(pi =>
-            pi.CompanyId == companyId &&
-            pi.Status == DocumentStatus.Posted &&
-            pi.IssueDate >= monthStart &&
-            pi.IssueDate <= monthEnd &&
-            !pi.IsReturn);
+        // Current month expenses
+        var monthPiQuery = piQuery.Where(pi =>
+            pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted &&
+            pi.IssueDate >= monthStart && pi.IssueDate <= monthEnd && !pi.IsReturn);
+        var monthlyExpenses = monthPiQuery.Select(pi => pi.GrandTotal).DefaultIfEmpty(0).Sum();
+        var billCount = monthPiQuery.Count();
 
-        var monthlyExpenses = purchaseInvoices.Sum(pi => pi.GrandTotal);
-
-        // Net Profit (simplified: revenue - expenses for the month)
         var netProfit = monthlyRevenue - monthlyExpenses;
 
-        // Accounts Receivable Outstanding (all posted, non-return SI with outstanding > 0)
-        var allSalesInvoices = await _salesInvoiceRepo.GetListAsync(si =>
-            si.CompanyId == companyId &&
-            si.Status == DocumentStatus.Posted &&
-            !si.IsReturn);
-        var arOutstanding = allSalesInvoices.Sum(si => si.OutstandingAmount);
+        // AR/AP outstanding — server-side sum
+        var arOutstanding = siQuery.Where(si =>
+            si.CompanyId == companyId && si.Status == DocumentStatus.Posted && !si.IsReturn)
+            .Select(si => si.GrandTotal - si.AmountPaid).DefaultIfEmpty(0).Sum();
 
-        // Accounts Payable Outstanding (all posted, non-return PI with outstanding > 0)
-        var allPurchaseInvoices = await _purchaseInvoiceRepo.GetListAsync(pi =>
-            pi.CompanyId == companyId &&
-            pi.Status == DocumentStatus.Posted &&
-            !pi.IsReturn);
-        var apOutstanding = allPurchaseInvoices.Sum(pi => pi.OutstandingAmount);
+        var apOutstanding = piQuery.Where(pi =>
+            pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted && !pi.IsReturn)
+            .Select(pi => pi.GrandTotal - pi.AmountPaid).DefaultIfEmpty(0).Sum();
 
-        // Net cash position estimate (AR - AP, simplified proxy for cash flow health)
         var netCashPosition = arOutstanding - apOutstanding;
 
-        // Month-over-month revenue comparison
+        // Previous month revenue for growth calculation
         var prevMonthStart = monthStart.AddMonths(-1);
         var prevMonthEnd = monthStart.AddDays(-1);
-        var prevSalesInvoices = await _salesInvoiceRepo.GetListAsync(si =>
-            si.CompanyId == companyId &&
-            si.Status == DocumentStatus.Posted &&
-            si.IssueDate >= prevMonthStart &&
-            si.IssueDate <= prevMonthEnd &&
-            !si.IsReturn);
-        var prevMonthRevenue = prevSalesInvoices.Sum(si => si.GrandTotal);
+        var prevMonthRevenue = siQuery.Where(si =>
+            si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
+            si.IssueDate >= prevMonthStart && si.IssueDate <= prevMonthEnd && !si.IsReturn)
+            .Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
 
         decimal revenueGrowth = prevMonthRevenue > 0
             ? Math.Round((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue * 100, 1)
@@ -211,8 +210,8 @@ public class DashboardAppService : ApplicationService
             ApOutstanding = apOutstanding,
             NetCashPosition = netCashPosition,
             RevenueGrowth = revenueGrowth,
-            InvoiceCount = salesInvoices.Count,
-            BillCount = purchaseInvoices.Count,
+            InvoiceCount = invoiceCount,
+            BillCount = billCount,
             PeriodLabel = now.ToString("MMMM yyyy")
         };
     }
@@ -264,7 +263,7 @@ public class DashboardAppService : ApplicationService
             var lowStock = await GetLowStockItemsAsync();
             metrics.LowStockItems = lowStock?.Count ?? 0;
         }
-        catch { metrics.LowStockItems = 0; }
+        catch (Exception ex) { Logger.LogWarning(ex, "Low stock query failed"); metrics.LowStockItems = 0; }
 
         return metrics;
     }

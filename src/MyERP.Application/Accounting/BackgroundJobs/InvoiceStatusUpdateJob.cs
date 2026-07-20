@@ -49,15 +49,16 @@ public class InvoiceStatusUpdateJob : AsyncBackgroundJob<InvoiceStatusUpdateJobA
         int siUpdated = 0;
         int piUpdated = 0;
 
-        // Sales Invoices: check for any that show "outstanding" but are actually fully paid
+        // Sales Invoices: only load those with over-payment (AmountPaid > GrandTotal)
         var siQuery = await _siRepository.GetQueryableAsync();
-        var postedSalesInvoices = siQuery
+        var overpaidSalesInvoices = siQuery
             .Where(si => si.CompanyId == args.CompanyId
                       && si.Status == DocumentStatus.Posted
-                      && si.GrandTotal > 0)
+                      && si.GrandTotal > 0
+                      && si.AmountPaid > si.GrandTotal)
             .ToList();
 
-        foreach (var si in postedSalesInvoices)
+        foreach (var si in overpaidSalesInvoices)
         {
             // OutstandingAmount is a computed property: GrandTotal - AmountPaid
             // If AmountPaid somehow exceeds GrandTotal (e.g., double payment), cap it
@@ -69,15 +70,16 @@ public class InvoiceStatusUpdateJob : AsyncBackgroundJob<InvoiceStatusUpdateJobA
             }
         }
 
-        // Purchase Invoices: same check
+        // Purchase Invoices: same check — only load over-paid ones
         var piQuery = await _piRepository.GetQueryableAsync();
-        var postedPurchaseInvoices = piQuery
+        var overpaidPurchaseInvoices = piQuery
             .Where(pi => pi.CompanyId == args.CompanyId
                       && pi.Status == DocumentStatus.Posted
-                      && pi.GrandTotal > 0)
+                      && pi.GrandTotal > 0
+                      && pi.AmountPaid > pi.GrandTotal)
             .ToList();
 
-        foreach (var pi in postedPurchaseInvoices)
+        foreach (var pi in overpaidPurchaseInvoices)
         {
             if (pi.AmountPaid > pi.GrandTotal)
             {

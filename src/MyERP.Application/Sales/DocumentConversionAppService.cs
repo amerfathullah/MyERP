@@ -45,6 +45,12 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         _activityLog = activityLog;
     }
 
+    private async Task<string?> ResolveCustomerNameAsync(Guid customerId)
+    {
+        var customer = await _customerRepository.FindAsync(customerId);
+        return customer?.Name;
+    }
+
     [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId)
     {
@@ -92,7 +98,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             "SalesOrder", salesOrder.Id, quotation.QuotationNumber, quotation.TenantId);
 
         var soDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(salesOrder);
-        try { soDto.CustomerName = (await _customerRepository.GetAsync(salesOrder.CustomerId)).Name; } catch { }
+        soDto.CustomerName = await ResolveCustomerNameAsync(salesOrder.CustomerId);
         return soDto;
     }
 
@@ -110,7 +116,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             GuidGenerator.Create(),
             salesOrder.CompanyId,
             salesOrder.CustomerId,
-            Guid.Empty, // Warehouse to be set by user on the draft
+            salesOrder.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+                ?? throw new BusinessException("MyERP:01007")
+                    .WithData("documentType", "Delivery Note — no warehouse set on Sales Order items"),
             deliveryNumber,
             Clock.Now.Date,
             salesOrder.TenantId);
@@ -125,6 +133,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             if (pendingQty > 0)
             {
                 deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                // Carry forward UOM conversion data from SO item
+                var lastItem = deliveryNote.Items[^1];
+                lastItem.StockUom = item.StockUom;
+                lastItem.ConversionFactor = item.ConversionFactor;
             }
         }
 
@@ -165,9 +177,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             if (pendingQty > 0)
             {
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
-                // Set the SO item link for billing tracking
                 var lastItem = invoice.Items.Last();
                 lastItem.SalesOrderItemId = item.Id;
+                lastItem.StockUom = item.StockUom;
+                lastItem.ConversionFactor = item.ConversionFactor;
             }
         }
 
@@ -178,7 +191,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             "SalesInvoice", invoice.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
         var siDto1 = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
-        try { siDto1.CustomerName = (await _customerRepository.GetAsync(invoice.CustomerId)).Name; } catch { }
+        siDto1.CustomerName = await ResolveCustomerNameAsync(invoice.CustomerId);
         return siDto1;
     }
 
@@ -205,9 +218,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         foreach (var item in deliveryNote.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
-            // Carry through SO item link from DN item
             var lastItem = invoice.Items.Last();
             lastItem.SalesOrderItemId = item.SalesOrderItemId;
+            lastItem.StockUom = item.StockUom;
+            lastItem.ConversionFactor = item.ConversionFactor;
         }
 
         await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
@@ -217,7 +231,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             "SalesInvoice", invoice.Id, deliveryNote.DeliveryNumber, deliveryNote.TenantId);
 
         var siDto2 = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
-        try { siDto2.CustomerName = (await _customerRepository.GetAsync(invoice.CustomerId)).Name; } catch { }
+        siDto2.CustomerName = await ResolveCustomerNameAsync(invoice.CustomerId);
         return siDto2;
     }
 }

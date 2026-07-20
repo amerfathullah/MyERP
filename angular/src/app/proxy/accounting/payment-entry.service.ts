@@ -69,4 +69,19 @@ export class PaymentEntryService {
       url: `/api/app/payment-entry/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+
+  update = (id: string, input: CreatePaymentEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentEntryDto>({
+      method: 'PUT',
+      url: `/api/app/payment-entry/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/payment-entry/${id}`,
+    },
+    { apiName: this.apiName,...config });
 }

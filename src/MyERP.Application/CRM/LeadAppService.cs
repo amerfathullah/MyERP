@@ -43,12 +43,12 @@ public class LeadAppService : ApplicationService, ILeadAppService
             query = query.Where(l => l.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
+            var filter = input.Filter;
             query = query.Where(l =>
-                l.FirstName.ToLower().Contains(filter) ||
-                (l.LastName != null && l.LastName.ToLower().Contains(filter)) ||
-                (l.CompanyName != null && l.CompanyName.ToLower().Contains(filter)) ||
-                (l.Email != null && l.Email.ToLower().Contains(filter)));
+                l.FirstName.Contains(filter) ||
+                (l.LastName != null && l.LastName.Contains(filter)) ||
+                (l.CompanyName != null && l.CompanyName.Contains(filter)) ||
+                (l.Email != null && l.Email.Contains(filter)));
         }
 
         var totalCount = query.Count();
@@ -191,3 +191,4 @@ public class LeadAppService : ApplicationService, ILeadAppService
         };
     }
 }
+

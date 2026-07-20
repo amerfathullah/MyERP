@@ -88,9 +88,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 && je.PostingDate >= input.FromDate
                 && je.PostingDate <= input.ToDate);
 
-        var journalIds = journalEntries.Select(je => je.Id).ToHashSet();
-        var allLines = await _journalLineRepository.GetListAsync(
-            l => journalIds.Contains(l.JournalEntryId));
+        // Lines are already loaded via AutoInclude — no separate query needed
+        var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
 
         var linesByAccount = allLines.GroupBy(l => l.AccountId)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -158,9 +157,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 && je.Status == DocumentStatus.Posted
                 && je.PostingDate <= input.AsOfDate);
 
-        var journalIds = journalEntries.Select(je => je.Id).ToHashSet();
-        var allLines = await _journalLineRepository.GetListAsync(
-            l => journalIds.Contains(l.JournalEntryId));
+        // Lines are already loaded via AutoInclude — no separate query needed
+        var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
 
         var linesByAccount = allLines.GroupBy(l => l.AccountId)
             .ToDictionary(g => g.Key, g => g.ToList());

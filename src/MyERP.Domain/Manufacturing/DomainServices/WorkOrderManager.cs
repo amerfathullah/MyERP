@@ -99,7 +99,7 @@ public class WorkOrderManager : DomainService
             .Select(i => new WorkOrderMaterialRequirement
             {
                 ItemId = i.ItemId,
-                RequiredQty = i.Quantity * (produceQty / bom.Quantity),
+                RequiredQty = bom.Quantity > 0 ? i.Quantity * (produceQty / bom.Quantity) : 0,
                 Rate = i.Rate,
                 SourceWarehouseId = i.SourceWarehouseId
             })

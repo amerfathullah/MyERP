@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -22,6 +23,7 @@ export class LeadFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private store = inject(LeadStore);
   private service = inject(LeadService);
+  private companyContext = inject(CompanyContextService);
 
   form!: FormGroup;
   isEditMode = false;
@@ -54,6 +56,9 @@ export class LeadFormComponent implements OnInit {
       this.service.get(this.entityId!).subscribe((lead) => {
         this.form.patchValue(lead);
       });
+    } else {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) this.form.patchValue({ companyId: cid });
     }
   }
 
@@ -65,11 +70,16 @@ export class LeadFormComponent implements OnInit {
     const value = this.form.getRawValue();
 
     if (this.isEditMode) {
-      this.store.update({ id: this.entityId!, input: value });
+      this.service.update(this.entityId!, value as any).subscribe({
+        next: () => this.router.navigate(['/crm/leads']),
+        error: () => {},
+      });
     } else {
-      this.store.create(value);
+      this.service.create(value as any).subscribe({
+        next: () => this.router.navigate(['/crm/leads']),
+        error: () => {},
+      });
     }
-    this.router.navigate(['/crm/leads']);
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

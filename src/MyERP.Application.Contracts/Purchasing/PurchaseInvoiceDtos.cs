@@ -13,6 +13,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
     public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
     public string? SupplierTin { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal ExchangeRate { get; set; } = 1m;
@@ -67,6 +68,12 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
+
+    /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
+    public bool UpdateStock { get; set; }
+
+    /// <summary>Warehouse for stock receipt when UpdateStock=true.</summary>
+    public Guid? WarehouseId { get; set; }
 
     [Required][MinLength(1)] public List<CreatePurchaseInvoiceItemDto> Items { get; set; } = new();
 }

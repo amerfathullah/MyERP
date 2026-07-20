@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
@@ -19,6 +20,8 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<DocumentSeries, Guid> _seriesRepository;
+    private readonly IRepository<Warehouse, Guid> _warehouseRepository;
+    private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
 
     protected DocumentConversionAppService_Tests()
     {
@@ -28,15 +31,20 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         _companyRepository = GetRequiredService<IRepository<Company, Guid>>();
         _customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
         _seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+        _warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+        _salesOrderRepository = GetRequiredService<IRepository<SalesOrder, Guid>>();
     }
 
-    private async Task<(Guid companyId, Guid customerId)> SeedDataAsync()
+    private async Task<(Guid companyId, Guid customerId, Guid warehouseId)> SeedDataAsync()
     {
         var company = await _companyRepository.InsertAsync(
             new Company(Guid.NewGuid(), "Conversion Test Co"), autoSave: true);
 
         var customer = await _customerRepository.InsertAsync(
             new Customer(Guid.NewGuid(), company.Id, "Test Buyer"), autoSave: true);
+
+        var warehouse = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Main Warehouse"), autoSave: true);
 
         await _seriesRepository.InsertAsync(
             new DocumentSeries(Guid.NewGuid(), company.Id, "QS", "Quotation", "QT-"), autoSave: true);
@@ -47,14 +55,14 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         await _seriesRepository.InsertAsync(
             new DocumentSeries(Guid.NewGuid(), company.Id, "SIS", "SalesInvoice", "SI-"), autoSave: true);
 
-        return (company.Id, customer.Id);
+        return (company.Id, customer.Id, warehouse.Id);
     }
 
     [Fact]
     public async Task Should_Convert_Quotation_To_SalesOrder()
     {
         // Arrange
-        var (companyId, customerId) = await SeedDataAsync();
+        var (companyId, customerId, _) = await SeedDataAsync();
 
         var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
         {
@@ -89,7 +97,7 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     public async Task Should_Fail_Converting_Draft_Quotation()
     {
         // Arrange
-        var (companyId, customerId) = await SeedDataAsync();
+        var (companyId, customerId, _) = await SeedDataAsync();
 
         var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
         {
@@ -111,7 +119,7 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     public async Task Should_Convert_SalesOrder_To_SalesInvoice()
     {
         // Arrange
-        var (companyId, customerId) = await SeedDataAsync();
+        var (companyId, customerId, _) = await SeedDataAsync();
 
         var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
         {
@@ -147,7 +155,7 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     public async Task Should_Prevent_Double_Conversion_Of_Quotation()
     {
         // Arrange
-        var (companyId, customerId) = await SeedDataAsync();
+        var (companyId, customerId, _) = await SeedDataAsync();
 
         var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
         {
@@ -173,21 +181,18 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     public async Task Should_Convert_SalesOrder_To_DeliveryNote()
     {
         // Arrange
-        var (companyId, customerId) = await SeedDataAsync();
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
 
-        var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
         {
             CompanyId = companyId,
             CustomerId = customerId,
-            IssueDate = DateTime.Today,
+            OrderDate = DateTime.Today,
             Items = new()
             {
-                new() { ItemId = Guid.NewGuid(), Description = "Product X", Quantity = 10, UnitPrice = 50m, TaxAmount = 30m }
+                new() { ItemId = Guid.NewGuid(), Description = "Product X", Quantity = 10, UnitPrice = 50m, TaxAmount = 30m, WarehouseId = warehouseId }
             }
         });
-        await _quotationService.SubmitAsync(quotation.Id);
-
-        var salesOrder = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id);
         await _salesOrderService.SubmitAsync(salesOrder.Id);
 
         // Act

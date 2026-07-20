@@ -42,8 +42,8 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
-    public List<ProductionPlanItem> PlannedItems { get; set; } = new();
-    public List<ProductionPlanMrItem> MaterialRequirements { get; set; } = new();
+    public List<ProductionPlanItem> PlannedItems { get; private set; } = new();
+    public List<ProductionPlanMrItem> MaterialRequirements { get; private set; } = new();
 
     protected ProductionPlan() { }
 

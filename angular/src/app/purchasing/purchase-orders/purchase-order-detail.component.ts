@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -17,7 +18,7 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink],
   templateUrl: './purchase-order-detail.component.html',
   styleUrls: ['./purchase-order-detail.component.scss'],
 })
@@ -116,5 +117,13 @@ export class PurchaseOrderDetailComponent implements OnInit {
     setTimeout(() => {
       this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
     }, 500);
+  }
+
+  deleteOrder(): void {
+    if (!confirm('Are you sure you want to delete this draft order?')) return;
+    this.service.delete(this.order!.id!).subscribe({
+      next: () => this.router.navigate(['/purchasing/orders']),
+      error: () => {},
+    });
   }
 }

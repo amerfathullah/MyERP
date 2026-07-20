@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.Entities;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -16,6 +17,7 @@ namespace MyERP.Accounting;
 /// NOTE: Cost Center filtering only applies to P&L accounts (not Balance Sheet).
 /// Per DO-NOT: "Apply cost_center filter to Balance Sheet accounts in GL balance queries"
 /// </summary>
+[Authorize]
 public class ProfitLossByCostCenterAppService : ApplicationService
 {
     private readonly IRepository<JournalEntry, Guid> _jeRepository;

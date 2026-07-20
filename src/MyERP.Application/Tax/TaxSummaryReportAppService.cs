@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Tax.Entities;
@@ -20,6 +21,7 @@ namespace MyERP.Tax;
 /// - Service Tax: 6% on prescribed services
 /// - Net payable = Output Tax - Input Tax (if positive → pay, if negative → refund/carry forward)
 /// </summary>
+[Authorize]
 public class TaxSummaryReportAppService : ApplicationService
 {
     private readonly IRepository<SalesInvoice, Guid> _siRepository;

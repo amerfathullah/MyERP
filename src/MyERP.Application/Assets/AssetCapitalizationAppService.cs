@@ -40,6 +40,14 @@ public class AssetCapitalizationAppService : ApplicationService
         if (input.CompanyId.HasValue)
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
 
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter; query = query.Where(x => x.CapitalizationNumber.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<AssetCapitalizationStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var count = query.Count();
         var list = query.OrderByDescending(x => x.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -146,3 +154,4 @@ public class CapConsumedAssetDto
 }
 
 #endregion
+

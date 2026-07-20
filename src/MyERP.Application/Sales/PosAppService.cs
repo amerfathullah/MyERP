@@ -54,7 +54,9 @@ public class PosAppService : ApplicationService, IPosAppService
         var invoice = new SalesInvoice(
             GuidGenerator.Create(),
             input.CompanyId,
-            input.CustomerId ?? Guid.Empty, // Walk-in customer
+            input.CustomerId
+                ?? throw new Volo.Abp.BusinessException("MyERP:01007")
+                    .WithData("documentType", "POS Invoice — CustomerId is required"),
             invoiceNumber,
             DateTime.UtcNow,
             CurrentTenant.Id);
@@ -75,10 +77,17 @@ public class PosAppService : ApplicationService, IPosAppService
         // Deduct stock for stock items
         if (input.WarehouseId.HasValue)
         {
+            // Batch load MaintainStock flags to avoid N+1
+            var posItemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
+            var itemQuery = await _itemRepository.GetQueryableAsync();
+            var stockItemIds = itemQuery
+                .Where(i => posItemIds.Contains(i.Id) && i.MaintainStock)
+                .Select(i => i.Id)
+                .ToHashSet();
+
             foreach (var item in input.Items)
             {
-                var stockItem = await _itemRepository.FindAsync(item.ItemId);
-                if (stockItem?.MaintainStock != true) continue;
+                if (!stockItemIds.Contains(item.ItemId)) continue;
 
                 await _stockValuationService.CreateLedgerEntryAsync(
                     input.CompanyId, item.ItemId, input.WarehouseId.Value,
@@ -140,3 +149,4 @@ public class PosAppService : ApplicationService, IPosAppService
             }).ToList());
     }
 }
+

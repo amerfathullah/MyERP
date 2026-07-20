@@ -30,6 +30,24 @@
             <label class="form-label">{{ '::RequiredByDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="requiredByDate" />
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'SourceWarehouse' | abpLocalization }}</label>
+            <select class="form-select" formControlName="sourceWarehouseId">
+              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'TargetWarehouse' | abpLocalization }}</label>
+            <select class="form-select" formControlName="targetWarehouseId">
+              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
           <div class="col-12 mb-3">
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="notes" rows="2"></textarea>
@@ -43,7 +61,7 @@
           <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th>{{ '::ItemName' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
                 <th style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
                 <th style="width: 100px;">{{ '::UOM' | abpLocalization }}</th>
                 <th style="width: 60px;"></th>
@@ -52,7 +70,15 @@
             <tbody>
               @for (row of items.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $any(row).get('itemId')?.value)">
+                      <option value="">— {{ 'SelectItem' | abpLocalization }} —</option>
+                      @for (item of availableItems(); track item.id) {
+                        <option [value]="item.id">{{ item.itemCode || item.itemName }}</option>
+                      }
+                    </select>
+                    <input type="hidden" formControlName="itemName" />
+                  </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
                   <td>

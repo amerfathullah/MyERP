@@ -40,11 +40,11 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
             query = query.Where(o => o.LeadId == input.LeadId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
+            var filter = input.Filter;
             query = query.Where(o =>
-                o.Title.ToLower().Contains(filter) ||
-                (o.ContactName != null && o.ContactName.ToLower().Contains(filter)) ||
-                o.OpportunityNumber.ToLower().Contains(filter));
+                o.Title.Contains(filter) ||
+                (o.ContactName != null && o.ContactName.Contains(filter)) ||
+                o.OpportunityNumber.Contains(filter));
         }
 
         var totalCount = query.Count();
@@ -209,3 +209,4 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         };
     }
 }
+

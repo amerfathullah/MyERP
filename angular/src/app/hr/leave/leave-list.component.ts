@@ -71,7 +71,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </table>
         </div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -79,6 +79,7 @@ export class LeaveListComponent implements OnInit {
   private service = inject(LeaveService);
   items = signal<LeaveApplicationDto[]>([]);
   isLoading = signal(false);
+  totalCount = 0;
 
   currentPage = 0;
   pageSize = 20;
@@ -89,8 +90,8 @@ export class LeaveListComponent implements OnInit {
 
   load() {
     this.isLoading.set(true);
-    this.service.getList({ skipCount: 0, maxResultCount: 20 }).subscribe({
-      next: r => { this.items.set(r.items ?? []); this.isLoading.set(false); },
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }).subscribe({
+      next: r => { this.items.set(r.items ?? []); this.totalCount = r.totalCount ?? 0; this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });
   }
@@ -107,5 +108,5 @@ export class LeaveListComponent implements OnInit {
     this.service.reject(id).subscribe(() => this.load());
   }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 }

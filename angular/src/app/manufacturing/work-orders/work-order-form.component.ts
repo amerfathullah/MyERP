@@ -7,6 +7,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from './manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { HttpClient } from '@angular/common/http';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -25,6 +26,10 @@ export class WorkOrderFormComponent implements OnInit {
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
+
+  items = signal<any[]>([]);
+  boms = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -51,6 +56,25 @@ export class WorkOrderFormComponent implements OnInit {
       const cid = this.companyContext.currentCompanyId();
       if (cid) this.form.patchValue({ companyId: cid });
     }
+
+    // Load items for dropdown
+    this.http.get<any>('/api/app/item', { params: { skipCount: '0', maxResultCount: '500', sorting: 'itemCode asc' } })
+      .subscribe(res => this.items.set(res.items ?? []));
+
+    // Load BOMs (all — filtered client-side when item changes)
+    this.http.get<any>('/api/app/manufacturing/bom', { params: { skipCount: '0', maxResultCount: '500', sorting: '' } })
+      .subscribe(res => this.boms.set(res.items ?? []));
+  }
+
+  get filteredBoms(): any[] {
+    const selectedItemId = this.form.get('itemId')?.value;
+    if (!selectedItemId) return this.boms();
+    return this.boms().filter((b: any) => b.itemId === selectedItemId);
+  }
+
+  onItemChanged(): void {
+    // Reset BOM when item changes
+    this.form.patchValue({ bomId: '' });
   }
 
   save(): void {

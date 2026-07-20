@@ -79,6 +79,7 @@ export class SettingsOverviewComponent {
         { path: '/settings/email-templates', label: 'Email Templates', icon: 'fa-envelope' },
         { path: '/settings/notification-logs', label: 'Notification Logs', icon: 'fa-bell' },
         { path: '/automation', label: 'Automation Rules', icon: 'fa-robot' },
+        { path: '/settings/einvoice', label: 'E-Invoice (LHDN)', icon: 'fa-file-shield' },
       ]
     },
   ];

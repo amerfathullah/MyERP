@@ -30,7 +30,7 @@ public class BudgetAppService : ApplicationService
             query = query.Where(b => b.FiscalYearId == input.FiscalYearId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(b => (b.BudgetAgainstName ?? "").ToLower().Contains(f));
         }
 
@@ -97,3 +97,4 @@ public class BudgetAppService : ApplicationService
         return ObjectMapper.Map<Budget, BudgetDto>(budget);
     }
 }
+

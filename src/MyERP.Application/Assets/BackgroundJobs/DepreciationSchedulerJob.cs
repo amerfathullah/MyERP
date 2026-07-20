@@ -73,10 +73,40 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
 
         foreach (var asset in assets)
         {
+            try
+            {
             var unbookedEntries = asset.DepreciationSchedule
                 .Where(d => !d.IsBooked && d.ScheduleDate <= today)
                 .OrderBy(d => d.ScheduleDate)
                 .ToList();
+
+            // Resolve accounts once per asset (not per entry) to avoid N+1
+            Guid? depreciationExpenseAccountId;
+            Guid? accumulatedDepAccountId;
+            if (asset.AssetCategoryId.HasValue)
+            {
+                var category = await _assetCategoryRepository.GetAsync(asset.AssetCategoryId.Value);
+                depreciationExpenseAccountId = category.DepreciationAccountId ?? company.DepreciationExpenseAccountId;
+                accumulatedDepAccountId = category.AccumulatedDepreciationAccountId ?? company.AccumulatedDepreciationAccountId;
+            }
+            else
+            {
+                depreciationExpenseAccountId = company.DepreciationExpenseAccountId;
+                accumulatedDepAccountId = company.AccumulatedDepreciationAccountId;
+            }
+
+            // Skip this asset if depreciation accounts are not configured
+            if (!depreciationExpenseAccountId.HasValue || !accumulatedDepAccountId.HasValue)
+            {
+                Logger.LogWarning("Skipping depreciation for asset {AssetId}: depreciation accounts not configured", asset.Id);
+                continue;
+            }
+
+            if (!args.FiscalYearId.HasValue)
+            {
+                Logger.LogWarning("Skipping depreciation for asset {AssetId}: fiscal year not provided", asset.Id);
+                continue;
+            }
 
             foreach (var entry in unbookedEntries)
             {
@@ -84,27 +114,16 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                 if (company.AccountsFrozenTillDate.HasValue && entry.ScheduleDate <= company.AccountsFrozenTillDate.Value)
                     continue;
 
-                // Create depreciation JE: DR Expense, CR Accumulated
-                // Resolve accounts from AssetCategory or Company defaults
-                var depreciationExpenseAccountId = asset.AssetCategoryId.HasValue
-                    ? (await _assetCategoryRepository.GetAsync(asset.AssetCategoryId.Value)).DepreciationAccountId
-                      ?? company.DepreciationExpenseAccountId ?? Guid.Empty
-                    : company.DepreciationExpenseAccountId ?? Guid.Empty;
-                var accumulatedDepAccountId = asset.AssetCategoryId.HasValue
-                    ? (await _assetCategoryRepository.GetAsync(asset.AssetCategoryId.Value)).AccumulatedDepreciationAccountId
-                      ?? company.AccumulatedDepreciationAccountId ?? Guid.Empty
-                    : company.AccumulatedDepreciationAccountId ?? Guid.Empty;
-
                 var journal = new JournalEntry(
                     _guidGenerator.Create(),
                     asset.CompanyId,
-                    args.FiscalYearId ?? Guid.Empty,
+                    args.FiscalYearId.Value,
                     entry.ScheduleDate,
                     asset.TenantId);
 
-                journal.AddLine(depreciationExpenseAccountId, entry.DepreciationAmount, true,
+                journal.AddLine(depreciationExpenseAccountId.Value, entry.DepreciationAmount, true,
                     $"Depreciation of {asset.AssetName}");
-                journal.AddLine(accumulatedDepAccountId, entry.DepreciationAmount, false,
+                journal.AddLine(accumulatedDepAccountId.Value, entry.DepreciationAmount, false,
                     $"Accumulated depreciation - {asset.AssetName}");
 
                 journal.Post();
@@ -130,6 +149,11 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
             }
 
             await _assetRepository.UpdateAsync(asset);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Depreciation failed for asset {AssetId}, skipping to next", asset.Id);
+            }
         }
 
         _logger.LogInformation("Depreciation scheduler posted {Count} entries for company {CompanyId}", entriesPosted, args.CompanyId);

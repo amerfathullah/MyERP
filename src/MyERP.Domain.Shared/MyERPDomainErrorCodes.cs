@@ -215,4 +215,15 @@ public static class MyERPDomainErrorCodes
     // Payment Entry — Term Allocation
     public const string PaymentTermRequired = "MyERP:02026";
     public const string PaymentTermOutstandingExceeded = "MyERP:02027";
+
+    // Serial and Batch Bundle
+    public const string BundleQtyMismatch = "MyERP:05032";
+
+    // Item Standard Cost
+    public const string StandardCostEffectiveDateInFuture = "MyERP:05033";
+    public const string StandardCostEffectiveDateBeforeLastSle = "MyERP:05034";
+    public const string StandardCostCannotCancel = "MyERP:05035";
+
+    // Repost Item Valuation
+    public const string RepostAlreadyInProgress = "MyERP:05036";
 }

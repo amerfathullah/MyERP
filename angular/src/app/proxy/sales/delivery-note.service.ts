@@ -60,4 +60,19 @@ export class DeliveryNoteService {
       url: `/api/app/delivery-note/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+
+  update = (id: string, input: CreateDeliveryNoteDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'PUT',
+      url: `/api/app/delivery-note/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/delivery-note/${id}`,
+    },
+    { apiName: this.apiName,...config });
 }

@@ -87,16 +87,26 @@ public class PurchaseOrderAppService : ApplicationService
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.OrderNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.OrderNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.OrderDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.OrderDate <= input.ToDate.Value);
+
         var count = query.Count();
-        var list = query
-            .OrderByDescending(x => x.OrderDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.OrderDate),
+            ("orderNumber", x => x.OrderNumber),
+            ("orderDate", x => x.OrderDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var list = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
@@ -131,7 +141,28 @@ public class PurchaseOrderAppService : ApplicationService
         if (billingAddress != null) po.BillingAddressId = billingAddress.Id;
 
         foreach (var item in input.Items)
+        {
             po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.WarehouseId.HasValue)
+                po.Items[^1].WarehouseId = item.WarehouseId;
+        }
+
+        // Resolve UOM conversion factors for stock qty calculation
+        var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var poItem in po.Items)
+        {
+            var itemEntity = await itemRepo2.FindAsync(poItem.ItemId);
+            if (itemEntity != null)
+            {
+                poItem.StockUom = itemEntity.Uom;
+                if (!string.Equals(poItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                {
+                    poItem.ConversionFactor = await uomService.GetConversionFactorAsync(
+                        poItem.ItemId, poItem.Uom, itemEntity.Uom);
+                }
+            }
+        }
 
         // Apply pricing rules for buying (auto-discount based on configured rules)
         var pricingContexts = po.Items.Select(i => new PricingRuleContext
@@ -191,14 +222,21 @@ public class PurchaseOrderAppService : ApplicationService
 
         if (fiscalYear != null)
         {
+            // Batch load all item IDs to avoid N+1 queries
+            var poItemIds = po.Items.Select(i => i.ItemId).Distinct().ToArray();
+            var itemQuery = await _itemRepository.GetQueryableAsync();
+            var itemExpenseAccounts = itemQuery
+                .Where(i => poItemIds.Contains(i.Id) && i.DefaultExpenseAccountId != null)
+                .Select(i => new { i.Id, i.DefaultExpenseAccountId })
+                .ToDictionary(i => i.Id, i => i.DefaultExpenseAccountId!.Value);
+
             var budgetItems = new List<BudgetCheckItem>();
             foreach (var poItem in po.Items)
             {
-                var item = await _itemRepository.FindAsync(poItem.ItemId);
-                if (item?.DefaultExpenseAccountId != null)
+                if (itemExpenseAccounts.TryGetValue(poItem.ItemId, out var expenseAccountId))
                 {
                     budgetItems.Add(new BudgetCheckItem(
-                        item.DefaultExpenseAccountId.Value,
+                        expenseAccountId,
                         poItem.Quantity * poItem.UnitPrice));
                 }
             }
@@ -215,13 +253,13 @@ public class PurchaseOrderAppService : ApplicationService
 
         po.Submit();
 
-        // Update Bin.OrderedQty for each item (increases projected qty)
+        // Update Bin.OrderedQty for each item in stock UOM (increases projected qty)
         foreach (var item in po.Items)
         {
             if (item.WarehouseId.HasValue)
             {
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, item.Quantity, po.TenantId);
+                    item.ItemId, item.WarehouseId.Value, item.StockQty, po.TenantId);
             }
         }
 
@@ -239,6 +277,26 @@ public class PurchaseOrderAppService : ApplicationService
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
 
+    [Authorize(MyERPPermissions.PurchaseOrders.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await SubmitAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return results;
+    }
+
     [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
     public async Task<PurchaseOrderDto> CancelAsync(Guid id)
     {
@@ -251,13 +309,13 @@ public class PurchaseOrderAppService : ApplicationService
 
         po.Cancel();
 
-        // Reverse Bin.OrderedQty
+        // Reverse Bin.OrderedQty (in stock UOM)
         foreach (var item in po.Items)
         {
             if (item.WarehouseId.HasValue)
             {
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, -item.Quantity, po.TenantId);
+                    item.ItemId, item.WarehouseId.Value, -item.StockQty, po.TenantId);
             }
         }
 
@@ -278,13 +336,14 @@ public class PurchaseOrderAppService : ApplicationService
         var po = await _repository.GetAsync(id);
         po.Close();
 
-        // Release pending ordered qty from Bin (short-close: items not yet received)
+        // Release pending ordered qty from Bin in stock UOM (short-close)
         foreach (var item in po.Items)
         {
             if (item.WarehouseId.HasValue && item.PendingReceiptQty > 0)
             {
+                var pendingStockQty = item.PendingReceiptQty * item.ConversionFactor;
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, -item.PendingReceiptQty, po.TenantId);
+                    item.ItemId, item.WarehouseId.Value, -pendingStockQty, po.TenantId);
             }
         }
 
@@ -301,13 +360,14 @@ public class PurchaseOrderAppService : ApplicationService
         var po = await _repository.GetAsync(id);
         po.Reopen();
 
-        // Re-reserve ordered qty on reopen (restore pending receipt to projected qty)
+        // Re-reserve ordered qty on reopen in stock UOM
         foreach (var item in po.Items)
         {
             if (item.WarehouseId.HasValue && item.PendingReceiptQty > 0)
             {
+                var pendingStockQty = item.PendingReceiptQty * item.ConversionFactor;
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, item.PendingReceiptQty, po.TenantId);
+                    item.ItemId, item.WarehouseId.Value, pendingStockQty, po.TenantId);
             }
         }
 
@@ -345,4 +405,40 @@ public class PurchaseOrderAppService : ApplicationService
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(amended);
     }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<PurchaseOrderDto> UpdateAsync(Guid id, CreatePurchaseOrderDto input)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft purchase orders can be edited");
+
+        order.OrderDate = input.OrderDate;
+        order.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
+        order.SupplierId = input.SupplierId;
+        order.Notes = input.Notes;
+
+        order.ClearItems();
+        foreach (var item in input.Items)
+        {
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.WarehouseId.HasValue)
+                order.Items[^1].WarehouseId = item.WarehouseId;
+        }
+
+        await _repository.UpdateAsync(order, autoSave: true);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(order);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft purchase orders can be deleted");
+        await _repository.DeleteAsync(id);
+    }
 }
+

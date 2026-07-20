@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -106,23 +107,50 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.InvoiceNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.InvoiceNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.IssueDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.IssueDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var invoices = query
-            .OrderByDescending(x => x.IssueDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.IssueDate),
+            ("invoiceNumber", x => x.InvoiceNumber),
+            ("issueDate", x => x.IssueDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var invoices = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<SalesInvoiceDto>(
-            totalCount,
-            invoices.Select(ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>).ToList());
+        var dtos = invoices.Select(ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>).ToList();
+
+        // Batch-resolve customer names (avoid N+1)
+        var customerIds = invoices.Select(i => i.CustomerId).Distinct().ToList();
+        if (customerIds.Count > 0)
+        {
+            var customerQuery = await _customerRepository.GetQueryableAsync();
+            var customerNames = customerQuery
+                .Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.Name })
+                .ToDictionary(c => c.Id, c => c.Name);
+
+            foreach (var dto in dtos)
+            {
+                if (customerNames.TryGetValue(dto.CustomerId, out var name))
+                    dto.CustomerName = name;
+            }
+        }
+
+        return new PagedResultDto<SalesInvoiceDto>(totalCount, dtos);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -155,6 +183,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsReturn = input.IsReturn;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
+        invoice.UpdateStock = input.UpdateStock;
+        invoice.WarehouseId = input.WarehouseId;
 
         // Set party account (debit_to):
         // Returns: inherit from original invoice (ensures account match validation works)
@@ -213,6 +243,23 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        // Resolve UOM conversion factors for direct SI creation (when UpdateStock=true, stock needs StockQty)
+        var uomSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var siItem in invoice.Items)
+        {
+            var itemEntity = await itemRepo.FindAsync(siItem.ItemId);
+            if (itemEntity != null)
+            {
+                siItem.StockUom = itemEntity.Uom ?? "Unit";
+                if (!string.IsNullOrEmpty(siItem.Uom) && siItem.Uom != siItem.StockUom)
+                {
+                    siItem.ConversionFactor = await uomSvc.GetConversionFactorAsync(
+                        siItem.ItemId, siItem.Uom, siItem.StockUom);
+                }
+            }
         }
 
         // Timesheet-in-SI auto-fetch: when project is set, populate unbilled timesheet entries
@@ -359,21 +406,25 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     }
                 }
             }
-            catch { /* Non-critical: don't block invoice submission for notification failure */ }
+            catch (Exception ex) { Logger.LogWarning(ex, "Credit limit notification failed for SI {Id}", invoice.Id); }
 
             // Selling price validation: selling rate must be >= valuation rate
             // Per ERPNext validate_selling_price (Selling Settings configurable: Stop/Warn)
-            SalesInvoiceManager.ValidateSellingPrice(
-                invoice.Items,
-                itemId =>
-                {
-                    // Resolve valuation rate from latest stock balance
-                    var balance = _valuationService
-                        .GetCurrentBalanceAsync(itemId, invoice.WarehouseId ?? Guid.Empty)
-                        .GetAwaiter().GetResult();
-                    return balance.ValuationRate;
-                },
-                action: "Warn"); // Default to Warn — configurable via Selling Settings
+            if (invoice.WarehouseId.HasValue)
+            {
+                var siItemData = invoice.Items
+                    .Select(i => (i.ItemId, i.UnitPrice, i.Description))
+                    .ToList().AsReadOnly();
+                await SalesInvoiceManager.ValidateSellingPriceAsync(
+                    siItemData,
+                    async itemId =>
+                    {
+                        var balance = await _valuationService
+                            .GetCurrentBalanceAsync(itemId, invoice.WarehouseId.Value);
+                        return balance.ValuationRate;
+                    },
+                    action: "Warn");
+            }
         }
 
         // Server-side tax recalculation: fetch applicable tax rows and run cascade
@@ -437,15 +488,21 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                // Use StockQty for SLE (respects UOM conversion)
+                var stockQty = item.StockQty;
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, -item.Quantity, item.UnitPrice,
+                    invoice.IssueDate, -stockQty, ratePerStockUnit,
                     voucherType: "SalesInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
-                    -item.Quantity, -(item.Quantity * item.UnitPrice), invoice.TenantId);
+                    -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
 
                 // Trigger auto-reorder check after stock-out
                 var autoReorder = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.AutoReorderService>();
@@ -491,6 +548,26 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             invoice.InvoiceNumber, invoice.TenantId);
 
         return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await SubmitAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return results;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -567,7 +644,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Reverse PLE entries (GL reversal handled by cancellation JE)
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
 
-        // Reverse stock if UpdateStock was used
+        // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
@@ -577,15 +654,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                var stockQty = item.StockQty;
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, item.Quantity, item.UnitPrice, // Positive = stock back in
+                    invoice.IssueDate, stockQty, ratePerStockUnit, // Positive = stock back in
                     voucherType: "SalesInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
-                    item.Quantity, item.Quantity * item.UnitPrice, invoice.TenantId);
+                    stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
             }
         }
 
@@ -686,4 +768,15 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(amended);
     }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft invoices can be deleted");
+        await _repository.DeleteAsync(id);
+    }
 }
+

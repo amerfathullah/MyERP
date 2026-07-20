@@ -4,7 +4,7 @@
     <!-- Search -->
     <div class="input-group">
       <span class="input-group-text"><i class="fa fa-search"></i></span>
-      <input class="form-control" [(ngModel)]="searchQuery" placeholder="Scan barcode or type item name..."
+      <input class="form-control" [(ngModel)]="searchQuery" [placeholder]="'::Placeholder:ScanBarcodeOrItemName' | abpLocalization"
         (ngModelChange)="onSearchChange($event)" />
     </div>
 

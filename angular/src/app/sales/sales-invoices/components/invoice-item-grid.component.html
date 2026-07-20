@@ -12,13 +12,28 @@
     </thead>
     <tbody>
       @for (row of dataSource; track $index) {
-        <tr>
-          <td [formGroup]="row"><input class="form-control form-control-sm" formControlName="itemName" placeholder="Item name" /></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td [formGroup]="row"><span class="font-monospace small">{{ row.get('amount')?.value | number:'1.2-2' }}</span></td>
-          <td></td>
+        <tr [formGroup]="row">
+          <td>
+            @if (availableItems.length > 0) {
+              <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected($index)">
+                <option value="">— Select —</option>
+                @for (item of availableItems; track item.id) {
+                  <option [value]="item.id">{{ item.itemCode ?? item.itemName }}</option>
+                }
+              </select>
+            } @else {
+              <input class="form-control form-control-sm" formControlName="itemName" [placeholder]="'::Placeholder:ItemName' | abpLocalization" />
+            }
+          </td>
+          <td><input type="number" class="form-control form-control-sm" formControlName="qty" (change)="recalculateRow($index)" min="0.01" step="1" /></td>
+          <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>
+          <td><input type="number" class="form-control form-control-sm" formControlName="discountPercent" (change)="recalculateRow($index)" min="0" max="100" step="1" /></td>
+          <td><span class="font-monospace small">{{ row.get('amount')?.value | number:'1.2-2' }}</span></td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRow($index)">
+              <i class="fa fa-trash"></i>
+            </button>
+          </td>
         </tr>
       }
     </tbody>

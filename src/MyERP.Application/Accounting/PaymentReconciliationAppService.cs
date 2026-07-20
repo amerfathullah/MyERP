@@ -9,6 +9,7 @@ using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -117,21 +118,19 @@ public class PaymentReconciliationAppService : ApplicationService
 
             if (alloc.InvoiceVoucherType == "SalesInvoice")
             {
-                var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
-                si.AmountPaid += alloc.AllocatedAmount;
-                await _salesInvoiceRepository.UpdateAsync(si);
+                await UpdateInvoiceAmountPaidAsync("SalesInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
 
                 // Exchange gain/loss JE for multi-currency reconciliation
+                var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeeded(
                     company, alloc, si.ExchangeRate, input.PartyType, input.PartyId);
             }
             else if (alloc.InvoiceVoucherType == "PurchaseInvoice")
             {
-                var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
-                pi.AmountPaid += alloc.AllocatedAmount;
-                await _purchaseInvoiceRepository.UpdateAsync(pi);
+                await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
 
                 // Exchange gain/loss JE for multi-currency reconciliation
+                var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeeded(
                     company, alloc, pi.ExchangeRate, input.PartyType, input.PartyId);
             }
@@ -216,21 +215,10 @@ public class PaymentReconciliationAppService : ApplicationService
             input.PaymentVoucherType, input.PaymentVoucherId,
             input.InvoiceVoucherType, input.InvoiceVoucherId);
 
-        // Reduce the invoice's AmountPaid
+        // Reduce the invoice's AmountPaid (with concurrency retry)
         if (allocatedAmount > 0)
         {
-            if (input.InvoiceVoucherType == "SalesInvoice")
-            {
-                var si = await _salesInvoiceRepository.GetAsync(input.InvoiceVoucherId);
-                si.AmountPaid = Math.Max(0, si.AmountPaid - allocatedAmount);
-                await _salesInvoiceRepository.UpdateAsync(si);
-            }
-            else if (input.InvoiceVoucherType == "PurchaseInvoice")
-            {
-                var pi = await _purchaseInvoiceRepository.GetAsync(input.InvoiceVoucherId);
-                pi.AmountPaid = Math.Max(0, pi.AmountPaid - allocatedAmount);
-                await _purchaseInvoiceRepository.UpdateAsync(pi);
-            }
+            await UpdateInvoiceAmountPaidAsync(input.InvoiceVoucherType, input.InvoiceVoucherId, -allocatedAmount);
         }
 
         // Cancel related exchange gain/loss JEs
@@ -246,6 +234,39 @@ public class PaymentReconciliationAppService : ApplicationService
         {
             je.Cancel();
             await _journalEntryRepository.UpdateAsync(je);
+        }
+    }
+
+    /// <summary>
+    /// Concurrency-safe AmountPaid update with retry on optimistic concurrency conflict.
+    /// </summary>
+    private async Task UpdateInvoiceAmountPaidAsync(string invoiceType, Guid invoiceId, decimal amount)
+    {
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                if (invoiceType == "SalesInvoice")
+                {
+                    var si = await _salesInvoiceRepository.GetAsync(invoiceId);
+                    si.AmountPaid = Math.Max(0, si.AmountPaid + amount);
+                    await _salesInvoiceRepository.UpdateAsync(si, autoSave: true);
+                }
+                else if (invoiceType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.GetAsync(invoiceId);
+                    pi.AmountPaid = Math.Max(0, pi.AmountPaid + amount);
+                    await _purchaseInvoiceRepository.UpdateAsync(pi, autoSave: true);
+                }
+                return;
+            }
+            catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+            {
+                Logger.LogWarning(
+                    "Concurrency conflict updating {InvoiceType} {InvoiceId} AmountPaid (attempt {Attempt}/3)",
+                    invoiceType, invoiceId, attempt);
+                await Task.Delay(attempt * 10);
+            }
         }
     }
 }

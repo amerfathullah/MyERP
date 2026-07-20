@@ -3,6 +3,12 @@
     <div class="d-flex gap-2 align-items-center">
       <input type="text" class="form-control form-control-sm" style="width: 200px;"
         [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <div class="input-group input-group-sm" style="width: 260px;">
+        <span class="input-group-text"><i class="fa fa-calendar"></i></span>
+        <input type="date" class="form-control" [(ngModel)]="fromDate" (change)="onDateChange()">
+        <span class="input-group-text">–</span>
+        <input type="date" class="form-control" [(ngModel)]="toDate" (change)="onDateChange()">
+      </div>
       <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
         <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
         <option value="Draft">Draft</option>
@@ -12,9 +18,14 @@
       </select>
       <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
     </div>
-    <button class="btn btn-primary btn-sm" (click)="createInvoice()">
-      <i class="fa fa-plus me-1"></i> {{ '::NewPurchaseInvoice' | abpLocalization }}
-    </button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+        <i class="fa fa-download me-1"></i> {{ '::ExportCSV' | abpLocalization }}
+      </button>
+      <button class="btn btn-primary btn-sm" (click)="createInvoice()">
+        <i class="fa fa-plus me-1"></i> {{ '::NewPurchaseInvoice' | abpLocalization }}
+      </button>
+    </div>
   </div>
 
   <div class="card">
@@ -39,11 +50,27 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
-                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>
+                  <app-sortable-header field="invoiceNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::InvoiceNumber' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th>
+                  <app-sortable-header field="issueDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Date' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th style="min-width: 150px;">{{ '::Supplier' | abpLocalization }}</th>
-                <th>{{ '::Total' | abpLocalization }} (MYR)</th>
-                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>
+                  <app-sortable-header field="grandTotal" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Total' | abpLocalization }} (MYR)
+                  </app-sortable-header>
+                </th>
+                <th>
+                  <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Status' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th>{{ '::EInvoice' | abpLocalization }}</th>
                 <th></th>
               </tr>
@@ -51,9 +78,9 @@
             <tbody>
               @for (inv of store.entities(); track inv.id ?? $index) {
                 <tr>
-                  <td class="fw-medium cursor-pointer" (click)="viewDetail(inv.id)">{{ inv.invoiceNumber }}</td>
+                  <td class="fw-medium"><a [routerLink]="['/purchasing/invoices', inv.id]" class="text-decoration-none">{{ inv.invoiceNumber }}</a></td>
                   <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="text-truncate" style="max-width: 200px;" [title]="inv.supplierId">{{ inv.supplierId }}</td>
+                  <td class="text-truncate" style="max-width: 200px;" [title]="inv.supplierName ?? inv.supplierId">{{ inv.supplierName ?? inv.supplierId }}</td>
                   <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="inv.status ?? ''" /></td>
                   <td><app-lhdn-status-badge [status]="inv.eInvoiceStatus ?? ''" /></td>

@@ -57,7 +57,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             query = query.Where(p => p.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(p => p.PlanNumber.ToLower().Contains(f));
         }
 
@@ -141,10 +141,17 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         // Clear existing material requirements for recalculation
         plan.MaterialRequirements.Clear();
 
+        // Batch-load all BOMs for planned items to avoid N+1
+        var bomIds = plan.PlannedItems.Select(pi => pi.BomId).Distinct().ToArray();
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToDictionary(b => b.Id);
+
         // Explode BOMs for each planned item (phantom-aware recursive explosion)
         foreach (var plannedItem in plan.PlannedItems)
         {
-            var bom = await _bomRepository.GetAsync(plannedItem.BomId, includeDetails: true);
+            var bom = boms.TryGetValue(plannedItem.BomId, out var cachedBom)
+                ? cachedBom
+                : await _bomRepository.GetAsync(plannedItem.BomId); // fallback if not in batch
             var multiplier = plannedItem.PlannedQty / (bom.Quantity > 0 ? bom.Quantity : 1);
 
             // Use BomValidationService for phantom-aware explosion
@@ -289,3 +296,4 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         return qty;
     }
 }
+

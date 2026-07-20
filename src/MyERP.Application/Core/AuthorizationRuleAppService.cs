@@ -40,6 +40,12 @@ public class AuthorizationRuleAppService : ApplicationService
         if (input.CompanyId.HasValue)
             query = query.Where(r => r.CompanyId == input.CompanyId.Value || r.CompanyId == null);
 
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+            query = query.Where(r => r.TransactionType.Contains(filter));
+        }
+
         var count = query.Count();
         var list = query.OrderBy(r => r.TransactionType).ThenBy(r => r.ThresholdValue)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -128,3 +134,4 @@ public class UpdateAuthorizationRuleDto
 }
 
 #endregion
+

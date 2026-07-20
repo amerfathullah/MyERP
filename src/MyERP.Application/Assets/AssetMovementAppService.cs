@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Assets.Entities;
+using MyERP.Core;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -41,9 +43,22 @@ public class AssetMovementAppService : ApplicationService
     private readonly IRepository<AssetMovement, Guid> _repository;
     public AssetMovementAppService(IRepository<AssetMovement, Guid> repository) => _repository = repository;
 
-    public async Task<PagedResultDto<AssetMovementDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<AssetMovementDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = await _repository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+            query = query.Where(x => x.Purpose != null && x.Purpose.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(a => a.MovementDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -73,3 +88,4 @@ public class AssetMovementAppService : ApplicationService
         return ObjectMapper.Map<AssetMovement, AssetMovementDto>(am);
     }
 }
+

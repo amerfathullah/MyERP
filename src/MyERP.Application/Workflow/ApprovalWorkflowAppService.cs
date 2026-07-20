@@ -13,7 +13,7 @@ using Volo.Abp.Users;
 
 namespace MyERP.Workflow;
 
-[Authorize]
+[Authorize(MyERPPermissions.ApprovalWorkflows.Default)]
 public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowAppService
 {
     private readonly IRepository<ApprovalRule, Guid> _ruleRepository;
@@ -96,6 +96,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 
+    [Authorize(MyERPPermissions.ApprovalWorkflows.Default)]
     public async Task<ApprovalRequestDto> ApproveAsync(ReviewApprovalDto input)
     {
         await _workflowManager.ApproveAndAdvanceAsync(input.RequestId, CurrentUser.GetId(), input.Remarks);
@@ -103,6 +104,7 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         return ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>(request);
     }
 
+    [Authorize(MyERPPermissions.ApprovalWorkflows.Default)]
     public async Task<ApprovalRequestDto> RejectAsync(ReviewApprovalDto input)
     {
         var request = await _requestRepository.GetAsync(input.RequestId);

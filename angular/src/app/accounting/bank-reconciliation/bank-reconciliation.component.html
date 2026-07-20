@@ -76,12 +76,17 @@
                 </td>
                 <td>
                   @if (!t.isReconciled) {
-                    <button class="btn btn-sm btn-outline-primary" (click)="reconcile(t.id!)">
-                      <i class="fa fa-check me-1"></i>Reconcile
-                    </button>
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" (click)="reconcile(t.id!)">
+                        <i class="fa fa-check me-1"></i>{{ '::Reconcile' | abpLocalization }}
+                      </button>
+                      <button class="btn btn-outline-info" (click)="createTransfer(t.id!)" title="Create Internal Transfer">
+                        <i class="fa fa-exchange-alt"></i>
+                      </button>
+                    </div>
                   } @else {
                     <button class="btn btn-sm btn-outline-secondary" (click)="unreconcile(t.id!)">
-                      <i class="fa fa-undo me-1"></i>Undo
+                      <i class="fa fa-undo me-1"></i>{{ '::Undo' | abpLocalization }}
                     </button>
                   }
                 </td>
@@ -92,4 +97,83 @@
       </div>
     </div>
   </div>
+
+  <!-- Match Candidates Panel (manual reconciliation) -->
+  @if (showMatchPanel()) {
+    <div class="card mt-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fa fa-search me-1"></i>{{ '::MatchCandidates' | abpLocalization }}</h6>
+        <button class="btn btn-sm btn-outline-secondary" (click)="closeMatchPanel()">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (matchCandidates().length === 0) {
+          <p class="text-muted mb-0">{{ '::NoMatchCandidatesFound' | abpLocalization }}</p>
+        } @else {
+          <table class="table table-hover table-sm">
+            <thead>
+              <tr>
+                <th>{{ '::PaymentNumber' | abpLocalization }}</th>
+                <th>{{ '::Amount' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::ReferenceNumber' | abpLocalization }}</th>
+                <th>{{ '::Rank' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of matchCandidates(); track c.paymentEntryId) {
+                <tr>
+                  <td>{{ c.paymentNumber }}</td>
+                  <td class="font-monospace">{{ c.amount | number:'1.2-2' }}</td>
+                  <td>{{ c.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ c.referenceNumber ?? '—' }}</td>
+                  <td>
+                    <span class="badge" [class]="(c.rank ?? 0) >= 3 ? 'bg-success' : (c.rank ?? 0) >= 2 ? 'bg-warning' : 'bg-secondary'">
+                      {{ c.rank }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-primary" (click)="selectCandidate(c.paymentEntryId!, c.paymentNumber ?? '')">
+                      <i class="fa fa-check me-1"></i>{{ '::Select' | abpLocalization }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Internal Transfer Panel -->
+  @if (showTransferPanel()) {
+    <div class="card mt-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fa fa-exchange-alt me-1"></i>{{ '::CreateInternalTransfer' | abpLocalization }}</h6>
+        <button class="btn btn-sm btn-outline-secondary" (click)="closeTransferPanel()">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (mirrorTransaction()) {
+          <div class="alert alert-info">
+            <i class="fa fa-info-circle me-1"></i>
+            {{ '::MirrorTransactionFound' | abpLocalization }}:
+            <strong>{{ mirrorTransaction()!.referenceNumber ?? 'N/A' }}</strong>
+            ({{ mirrorTransaction()!.deposit! > 0 ? '+' : '-' }}{{ (mirrorTransaction()!.deposit! || mirrorTransaction()!.withdrawal!) | number:'1.2-2' }}
+            {{ mirrorTransaction()!.currencyCode }},
+            {{ mirrorTransaction()!.transactionDate | date:'dd/MM/yyyy' }})
+          </div>
+        } @else {
+          <p class="text-muted">{{ '::NoMirrorTransactionFound' | abpLocalization }}</p>
+        }
+        <button class="btn btn-primary" (click)="confirmTransfer(bankAccountId)">
+          <i class="fa fa-paper-plane me-1"></i>{{ '::CreateTransfer' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  }
 </abp-page>

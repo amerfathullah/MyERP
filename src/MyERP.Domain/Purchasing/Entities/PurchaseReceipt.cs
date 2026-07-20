@@ -73,9 +73,9 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public PurchaseReceipt(Guid id, Guid companyId, Guid supplierId, Guid warehouseId, string receiptNumber, DateTime postingDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        SupplierId = supplierId;
-        WarehouseId = warehouseId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        SupplierId = Check.NotDefaultOrNull<Guid>(supplierId, nameof(supplierId));
+        WarehouseId = Check.NotDefaultOrNull<Guid>(warehouseId, nameof(warehouseId));
         ReceiptNumber = Check.NotNullOrWhiteSpace(receiptNumber, nameof(receiptNumber), 50);
         PostingDate = postingDate;
         TenantId = tenantId;

@@ -72,7 +72,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </div>
         </div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -80,17 +80,23 @@ export class SalarySlipListComponent implements OnInit {
   private http = inject(HttpClient);
   slips = signal<SalarySlipDto[]>([]);
   isLoading = signal(true);
+  totalCount = 0;
 
   currentPage = 0;
   pageSize = 20;
 
   ngOnInit(): void {
-    this.http.get<any>('/api/app/salary-slip', { params: { skipCount: '0', maxResultCount: '100' } })
+    this.load();
+  }
+
+  load(): void {
+    this.isLoading.set(true);
+    this.http.get<any>('/api/app/salary-slip', { params: { skipCount: String(this.currentPage * this.pageSize), maxResultCount: String(this.pageSize) } })
       .subscribe({
-        next: res => { this.slips.set(res.items ?? []); this.isLoading.set(false); },
+        next: res => { this.slips.set(res.items ?? []); this.totalCount = res.totalCount ?? 0; this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
   }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 }

@@ -436,7 +436,9 @@ public partial class MaterialRequestMapper : MapperBase<Purchasing.Entities.Mate
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.PurchaseInvoice, Purchasing.PurchaseInvoiceDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     public override partial Purchasing.PurchaseInvoiceDto Map(Purchasing.Entities.PurchaseInvoice source);
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     public override partial void Map(Purchasing.Entities.PurchaseInvoice source, Purchasing.PurchaseInvoiceDto destination);
     private partial Purchasing.PurchaseInvoiceItemDto MapChild(Purchasing.Entities.PurchaseInvoiceItem source);
 }
@@ -685,7 +687,7 @@ public partial class ShippingRuleMapper : MapperBase<Sales.Entities.ShippingRule
 
     public override void AfterMap(Sales.Entities.ShippingRule source, Sales.ShippingRuleDto destination)
     {
-        destination.CompanyId = source.CompanyId ?? System.Guid.Empty;
+        destination.CompanyId = source.CompanyId ?? default;
         destination.Countries = source.Countries.Select(c => c.CountryCode).ToList();
     }
 }
@@ -813,6 +815,7 @@ public partial class BomMapper : MapperBase<Manufacturing.Entities.BillOfMateria
     [MapperIgnoreTarget(nameof(Manufacturing.BomDto.ItemName))]
     public override partial void Map(Manufacturing.Entities.BillOfMaterials source, Manufacturing.BomDto destination);
     private partial Manufacturing.BomItemDto MapChild(Manufacturing.Entities.BomItem source);
+    private partial Manufacturing.BomOperationDto MapChild(Manufacturing.Entities.BomOperation source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -987,4 +990,82 @@ public partial class ApprovalRequestMapper : MapperBase<Workflow.Entities.Approv
     public override partial Workflow.DTOs.ApprovalRequestDto Map(Workflow.Entities.ApprovalRequest source);
     [MapperIgnoreTarget(nameof(Workflow.DTOs.ApprovalRequestDto.RuleName))]
     public override partial void Map(Workflow.Entities.ApprovalRequest source, Workflow.DTOs.ApprovalRequestDto destination);
+}
+
+// ━━━ Replacement mappers for manual MapToDto methods ━━━
+
+// ─── Accounting: PaymentTermsTemplate ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PaymentTermsTemplateMapper : MapperBase<Accounting.Entities.PaymentTermsTemplate, Accounting.PaymentTermsTemplateDto>
+{
+    public override partial Accounting.PaymentTermsTemplateDto Map(Accounting.Entities.PaymentTermsTemplate source);
+    public override partial void Map(Accounting.Entities.PaymentTermsTemplate source, Accounting.PaymentTermsTemplateDto destination);
+    private partial Accounting.PaymentTermDto MapChild(Accounting.Entities.PaymentTerm source);
+}
+
+// ─── Assets: AssetCategory → AssetCategoryDetailDto ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class AssetCategoryDetailMapper : MapperBase<Assets.Entities.AssetCategory, Assets.AssetCategoryDetailDto>
+{
+    public override partial Assets.AssetCategoryDetailDto Map(Assets.Entities.AssetCategory source);
+    public override partial void Map(Assets.Entities.AssetCategory source, Assets.AssetCategoryDetailDto destination);
+}
+
+// ─── HR: LeaveType → LeaveTypeDetailDto ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class LeaveTypeDetailMapper : MapperBase<HumanResources.Entities.LeaveType, HumanResources.LeaveTypeDetailDto>
+{
+    public override partial HumanResources.LeaveTypeDetailDto Map(HumanResources.Entities.LeaveType source);
+    public override partial void Map(HumanResources.Entities.LeaveType source, HumanResources.LeaveTypeDetailDto destination);
+
+    private int MapDecimalToInt(decimal d) => (int)d;
+}
+
+// ─── HR: SalaryComponent ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SalaryComponentMapper : MapperBase<HumanResources.Entities.SalaryComponent, HumanResources.SalaryComponentDto>
+{
+    public override partial HumanResources.SalaryComponentDto Map(HumanResources.Entities.SalaryComponent source);
+    public override partial void Map(HumanResources.Entities.SalaryComponent source, HumanResources.SalaryComponentDto destination);
+}
+
+// ─── Inventory: ItemStandardCost ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ItemStandardCostMapper : MapperBase<Inventory.Entities.ItemStandardCost, Inventory.ItemStandardCostDto>
+{
+    public override partial Inventory.ItemStandardCostDto Map(Inventory.Entities.ItemStandardCost source);
+    public override partial void Map(Inventory.Entities.ItemStandardCost source, Inventory.ItemStandardCostDto destination);
+}
+
+// ─── Inventory: PutawayRule ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PutawayRuleMapper : MapperBase<Inventory.Entities.PutawayRule, Inventory.PutawayRuleDto>
+{
+    public override partial Inventory.PutawayRuleDto Map(Inventory.Entities.PutawayRule source);
+    public override partial void Map(Inventory.Entities.PutawayRule source, Inventory.PutawayRuleDto destination);
+}
+
+// ─── Inventory: RepostItemValuation ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class RepostItemValuationMapper : MapperBase<Inventory.Entities.RepostItemValuation, Inventory.RepostItemValuationDto>
+{
+    public override partial Inventory.RepostItemValuationDto Map(Inventory.Entities.RepostItemValuation source);
+    public override partial void Map(Inventory.Entities.RepostItemValuation source, Inventory.RepostItemValuationDto destination);
+}
+
+// ─── Purchasing: SubcontractingInwardOrder ───
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SubcontractingInwardOrderMapper : MapperBase<Purchasing.Entities.SubcontractingInwardOrder, Purchasing.SubcontractingInwardOrderDto>
+{
+    public override partial Purchasing.SubcontractingInwardOrderDto Map(Purchasing.Entities.SubcontractingInwardOrder source);
+    public override partial void Map(Purchasing.Entities.SubcontractingInwardOrder source, Purchasing.SubcontractingInwardOrderDto destination);
+    private partial Purchasing.SubcontractingInwardOrderItemDto MapChild(Purchasing.Entities.SubcontractingInwardOrderItem source);
 }

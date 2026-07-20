@@ -60,12 +60,47 @@ export interface AgingReportRequestDto {
 
 export interface AutoMatchResult {
   matchedCount?: number;
+  partiallyReconciledCount?: number;
   unmatchedCount?: number;
 }
 
 export interface AutoMatchResultDto {
   matchedCount?: number;
+  partiallyReconciledCount?: number;
   unmatchedCount?: number;
+}
+
+export interface MatchCandidateDto {
+  paymentEntryId?: string;
+  paymentNumber?: string;
+  amount?: number;
+  postingDate?: string;
+  referenceNumber?: string;
+  rank?: number;
+}
+
+export interface MirrorTransactionDto {
+  transactionId?: string;
+  bankAccountId?: string;
+  referenceNumber?: string;
+  transactionDate?: string;
+  deposit?: number;
+  withdrawal?: number;
+  currencyCode?: string;
+}
+
+export interface CreateInternalTransferDto {
+  bankTransactionId: string;
+  targetBankAccountGlId: string;
+  companyId: string;
+  mirrorTransactionId?: string;
+}
+
+export interface InternalTransferResultDto {
+  paymentEntryId?: string;
+  paymentNumber?: string;
+  sourceTransactionId?: string;
+  mirrorTransactionId?: string;
 }
 
 export interface BalanceSheetReportDto {

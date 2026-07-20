@@ -40,12 +40,15 @@ public class ContactAppService : ApplicationService
     private readonly IRepository<Contact, Guid> _repository;
     public ContactAppService(IRepository<Contact, Guid> repository) => _repository = repository;
 
-    public async Task<PagedResultDto<ContactDto>> GetListAsync(string partyType, Guid partyId)
+    public async Task<PagedResultDto<ContactDto>> GetListAsync(string partyType, Guid partyId, int skipCount = 0, int maxResultCount = 50)
     {
         var query = await _repository.GetQueryableAsync();
-        var items = query.Where(c => c.PartyType == partyType && c.PartyId == partyId)
-            .OrderByDescending(c => c.IsPrimaryContact).ThenBy(c => c.FullName).ToList();
-        return new PagedResultDto<ContactDto>(items.Count, items.Select(ObjectMapper.Map<Contact, ContactDto>).ToList());
+        var filtered = query.Where(c => c.PartyType == partyType && c.PartyId == partyId);
+        var totalCount = filtered.Count();
+        var items = filtered
+            .OrderByDescending(c => c.IsPrimaryContact).ThenBy(c => c.FullName)
+            .Skip(skipCount).Take(maxResultCount).ToList();
+        return new PagedResultDto<ContactDto>(totalCount, items.Select(ObjectMapper.Map<Contact, ContactDto>).ToList());
     }
 
     [Authorize(MyERPPermissions.Customers.Create)]

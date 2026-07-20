@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -48,7 +49,7 @@ public class TimesheetAppService : ApplicationService
             query = query.Where(t => t.Status == input.Status.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(t => t.EmployeeName != null && t.EmployeeName.ToLower().Contains(f));
         }
 
@@ -92,7 +93,7 @@ public class TimesheetAppService : ApplicationService
                         if (costingRate == 0 && resolvedCosting > 0) costingRate = resolvedCosting;
                     }
                 }
-                catch { /* Non-critical: if resolution fails, keep user-provided or zero rates */ }
+                catch (Exception ex) { Logger.LogWarning(ex, "Activity rate resolution failed for {Activity}", d.ActivityType); }
             }
 
             var detail = new TimesheetDetail(GuidGenerator.Create(), ts.Id,
@@ -312,3 +313,4 @@ public class UnbilledTimesheetSummaryDto
     public decimal TotalAmount { get; set; }
     public int EntryCount { get; set; }
 }
+

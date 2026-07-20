@@ -1,5 +1,5 @@
 <abp-page [title]="isEditMode ? ('::EditPurchaseOrder' | abpLocalization) : ('::NewPurchaseOrder' | abpLocalization)">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <!-- Header -->
     <div class="card mb-4">
       <div class="card-header">
@@ -35,6 +35,15 @@
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="notes" [class.is-invalid]="form.get('notes')?.invalid && form.get('notes')?.touched" rows="2"></textarea>
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+            <select class="form-select" formControlName="warehouseId">
+              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -49,6 +58,7 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
+                <th style="min-width: 180px">{{ '::Item' | abpLocalization }}</th>
                 <th>{{ '::Description' | abpLocalization }}</th>
                 <th style="width: 100px">{{ '::Quantity' | abpLocalization }}</th>
                 <th style="width: 120px">{{ '::UnitPrice' | abpLocalization }}</th>
@@ -60,7 +70,15 @@
             <tbody>
               @for (row of items.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="description" placeholder="Item description" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $any(row).get('itemId')?.value)">
+                      <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+                      @for (item of availableItems(); track item.id) {
+                        <option [value]="item.id">{{ item.itemCode ?? item.itemName }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:ItemDescription' | abpLocalization" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="taxAmount" /></td>

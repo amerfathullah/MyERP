@@ -131,7 +131,8 @@
                 "inject": true,
                 "bundleName": "bootstrap-icons"
               },
-              "src/styles.scss"
+              "src/styles.scss",
+              "src/styles-print.scss"
             ],
             "scripts": [],
             "browser": "src/main.ts"

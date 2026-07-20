@@ -18,7 +18,7 @@
           <div class="col-md-3">
             <label class="form-label">{{ '::ClosingAccount' | abpLocalization }}</label>
             <input type="text" class="form-control form-control-sm" [(ngModel)]="form.closingAccountId"
-                   placeholder="Retained Earnings Account ID" />
+                   [placeholder]="'::Placeholder:RetainedEarningsAccountId' | abpLocalization" />
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>

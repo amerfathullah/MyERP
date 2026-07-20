@@ -78,10 +78,50 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
         </div>
 
         <div class="d-flex justify-content-between">
-          <div class="fw-bold">{{ 'TotalCost' | abpLocalization }}: {{ totalCost | number:'1.2-2' }}</div>
+          <div class="fw-bold">{{ 'TotalCost' | abpLocalization }}: {{ totalCost | number:'1.2-2' }}
+            <span class="text-muted ms-2">({{ 'Material' | abpLocalization }}: {{ materialCost | number:'1.2-2' }} + {{ 'Operations' | abpLocalization }}: {{ operatingCost | number:'1.2-2' }})</span>
+          </div>
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary" routerLink="/manufacturing/bom"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
             <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          </div>
+        </div>
+
+        <!-- Operations Section -->
+        <div class="card mt-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="fa fa-gears me-2"></i>{{ 'Operations' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addOperation()">
+              <i class="fa fa-plus me-1"></i>{{ 'AddOperation' | abpLocalization }}
+            </button>
+          </div>
+          <div class="card-body p-0" *ngIf="operations.length > 0">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:60px">{{ 'Sequence' | abpLocalization }}</th>
+                  <th>{{ 'Operation' | abpLocalization }}</th>
+                  <th style="width:100px">{{ 'Time' | abpLocalization }} (min)</th>
+                  <th style="width:100px">{{ 'HourRate' | abpLocalization }}</th>
+                  <th style="width:90px">{{ 'BatchSize' | abpLocalization }}</th>
+                  <th style="width:100px" class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                  <th style="width:50px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (op of operations.controls; track $index; let i = $index) {
+                  <tr [formGroup]="$any(op)">
+                    <td><input type="number" class="form-control form-control-sm" formControlName="sequenceId" min="1" /></td>
+                    <td><input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'OperationName' | abpLocalization" /></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="timeInMins" min="0" step="0.5" (change)="recalcOpCost(i)" /></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="workstationHourRate" min="0" step="1" (change)="recalcOpCost(i)" /></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="batchSize" min="0" /></td>
+                    <td class="text-end font-monospace">{{ getOpCost(i) | number:'1.2-2' }}</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeOperation(i)"><i class="fa fa-trash"></i></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         </div>
       </form>
@@ -104,14 +144,22 @@ export class BomFormComponent implements OnInit {
     quantity: [1, [Validators.required, Validators.min(0.01)]],
     isActive: [true],
     materials: this.fb.array([]),
+    operations: this.fb.array([]),
   });
 
   get materials(): FormArray { return this.form.get('materials') as FormArray; }
+  get operations(): FormArray { return this.form.get('operations') as FormArray; }
 
-  get totalCost(): number {
+  get materialCost(): number {
     return this.materials.controls.reduce((sum, c) =>
       sum + (c.get('qty')?.value ?? 0) * (c.get('rate')?.value ?? 0), 0);
   }
+
+  get operatingCost(): number {
+    return this.operations.controls.reduce((sum, _, i) => sum + this.getOpCost(i), 0);
+  }
+
+  get totalCost(): number { return this.materialCost + this.operatingCost; }
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
@@ -120,6 +168,7 @@ export class BomFormComponent implements OnInit {
       this.http.get<any>(`/api/app/manufacturing/bom/${this.entityId}`).subscribe(bom => {
         this.form.patchValue({ itemId: bom.itemId, itemName: bom.itemName, quantity: bom.quantity, isActive: bom.isActive });
         (bom.items ?? []).forEach((item: any) => this.addMaterial(item));
+        (bom.operations ?? []).forEach((op: any) => this.addOperation(op));
       });
     }
   }
@@ -135,11 +184,44 @@ export class BomFormComponent implements OnInit {
 
   removeMaterial(index: number): void { this.materials.removeAt(index); }
 
+  addOperation(op?: any): void {
+    const nextSeq = this.operations.length > 0
+      ? Math.max(...this.operations.controls.map(c => c.get('sequenceId')?.value ?? 0)) + 10
+      : 10;
+    this.operations.push(this.fb.group({
+      operationId: [op?.operationId ?? ''],
+      sequenceId: [op?.sequenceId ?? nextSeq, [Validators.required, Validators.min(1)]],
+      description: [op?.description ?? ''],
+      timeInMins: [op?.timeInMins ?? 0, [Validators.required, Validators.min(0)]],
+      workstationHourRate: [op?.workstationHourRate ?? 0, Validators.min(0)],
+      batchSize: [op?.batchSize ?? 0],
+      fixedTime: [op?.fixedTime ?? 0],
+      isSubcontracted: [op?.isSubcontracted ?? false],
+    }));
+  }
+
+  removeOperation(index: number): void { this.operations.removeAt(index); }
+
+  getOpCost(index: number): number {
+    const op = this.operations.at(index);
+    const time = op.get('timeInMins')?.value ?? 0;
+    const rate = op.get('workstationHourRate')?.value ?? 0;
+    return (time / 60) * rate;
+  }
+
+  recalcOpCost(_index: number): void { /* Triggers template re-render via getter */ }
+
   save(): void {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    const raw = this.form.getRawValue();
     const payload = {
-      ...this.form.getRawValue(),
-      items: this.materials.controls.map(c => c.getRawValue()),
+      ...raw,
+      // Map BOM material 'qty'→'quantity' to match CreateBomItemDto
+      items: this.materials.controls.map(c => {
+        const v = c.getRawValue();
+        return { itemId: v.itemId, itemName: v.itemName || '', quantity: v.quantity ?? v.qty ?? 0, rate: v.rate ?? 0, uom: v.uom ?? 'Unit' };
+      }),
+      operations: this.operations.controls.map(c => c.getRawValue()),
     };
     const req = this.isEditMode
       ? this.http.put(`/api/app/manufacturing/bom/${this.entityId}`, payload)

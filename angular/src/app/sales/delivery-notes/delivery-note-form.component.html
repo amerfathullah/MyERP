@@ -1,4 +1,4 @@
-<abp-page [title]="isEditMode ? ('::EditDeliveryNote' | abpLocalization) : ('::NewDeliveryNote' | abpLocalization)">
+<abp-page [title]="isEditMode ? ('::EditDeliveryNote' | abpLocalization) : ('::NewDeliveryNote' | abpLocalization)" (appSaveShortcut)="save()">
   <div class="card mb-4">
     <div class="card-header">
       <h5 class="card-title mb-0"><i class="fa fa-truck me-2"></i>{{ '::DeliveryNote' | abpLocalization }}</h5>
@@ -8,7 +8,12 @@
         <div class="row">
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
+            <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
@@ -25,11 +30,16 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SalesOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="salesOrderId" [class.is-invalid]="form.get('salesOrderId')?.invalid && form.get('salesOrderId')?.touched" placeholder="Optional" />
+            <input type="text" class="form-control" formControlName="salesOrderId" [class.is-invalid]="form.get('salesOrderId')?.invalid && form.get('salesOrderId')?.touched" [placeholder]="'::Placeholder:Optional' | abpLocalization" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="warehouseId" [class.is-invalid]="form.get('warehouseId')?.invalid && form.get('warehouseId')?.touched" />
+            <select class="form-select" formControlName="warehouseId" [class.is-invalid]="form.get('warehouseId')?.invalid && form.get('warehouseId')?.touched">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (wh of warehouses(); track wh.id) {
+                <option [value]="wh.id">{{ wh.name }}</option>
+              }
+            </select>
           </div>
         </div>
 
@@ -39,16 +49,24 @@
           @for (item of items.controls; track $index; let i = $index) {
             <div [formGroup]="$any(item)" class="row mb-2 align-items-center">
               <div class="col-3">
-                <input type="text" class="form-control form-control-sm" formControlName="itemId" placeholder="Item ID" />
+                <select class="form-select form-select-sm" formControlName="itemId">
+                  <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+                  @for (item of availableItems(); track item.id) {
+                    <option [value]="item.id">{{ item.itemCode ?? item.itemName }}</option>
+                  }
+                </select>
               </div>
-              <div class="col-4">
-                <input type="text" class="form-control form-control-sm" formControlName="description" placeholder="Description" />
+              <div class="col-3">
+                <input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:Description' | abpLocalization" />
               </div>
               <div class="col-2">
-                <input type="number" class="form-control form-control-sm" formControlName="quantity" placeholder="Qty" />
+                <input type="number" class="form-control form-control-sm" formControlName="quantity" [placeholder]="'::Placeholder:Qty' | abpLocalization" />
               </div>
               <div class="col-2">
-                <input type="text" class="form-control form-control-sm" formControlName="uom" placeholder="UOM" />
+                <input type="number" class="form-control form-control-sm" formControlName="unitPrice" placeholder="Rate" />
+              </div>
+              <div class="col-1">
+                <input type="text" class="form-control form-control-sm" formControlName="uom" [placeholder]="'::Placeholder:Uom' | abpLocalization" />
               </div>
               <div class="col-1">
                 <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">

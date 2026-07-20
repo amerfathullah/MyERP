@@ -2,7 +2,7 @@
   <form [formGroup]="form" (ngSubmit)="save()">
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-building me-2"></i>Company Information</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-building me-2"></i>{{ '::CompanyInformation' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
@@ -11,27 +11,27 @@
             <input type="text" class="form-control" formControlName="name"
               [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
             @if (form.get('name')?.errors?.['required'] && form.get('name')?.touched) {
-              <div class="invalid-feedback">Required</div>
+              <div class="invalid-feedback">{{ '::Required' | abpLocalization }}</div>
             }
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Short Name</label>
+            <label class="form-label">{{ '::ShortName' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="shortName" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">TIN (Tax ID)</label>
-            <input type="text" class="form-control" formControlName="taxId" placeholder="e.g., C12345678" />
+            <label class="form-label">{{ '::TinTaxId' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="taxId" [placeholder]="'::Placeholder:TaxIdExample' | abpLocalization" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Registration No (SSM)</label>
+            <label class="form-label">{{ '::RegistrationNoSsm' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="registrationNumber" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">SST Registration No</label>
+            <label class="form-label">{{ '::SstRegistrationNo' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="sstRegistrationNumber" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">MSIC Code</label>
+            <label class="form-label">{{ '::MsicCode' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="msicCode" />
           </div>
         </div>
@@ -40,7 +40,7 @@
 
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>Contact & Address</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>{{ '::ContactAndAddress' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
@@ -53,7 +53,7 @@
             <input type="email" class="form-control" formControlName="email" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Website</label>
+            <label class="form-label">{{ '::Website' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="website" />
           </div>
           <div class="col-12 col-md-8 mb-3">
@@ -82,12 +82,12 @@
 
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-gear me-2"></i>Settings</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-gear me-2"></i>{{ '::Settings' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Currency</label>
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
             <select class="form-select" formControlName="currencyCode">
               <option value="MYR">MYR — Malaysian Ringgit</option>
               <option value="USD">USD — US Dollar</option>
@@ -95,7 +95,7 @@
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Fiscal Year Start</label>
+            <label class="form-label">{{ '::FiscalYearStart' | abpLocalization }}</label>
             <select class="form-select" formControlName="fiscalYearStartMonth">
               @for (m of months; track m.value) {
                 <option [value]="m.value">{{ m.label }}</option>
@@ -105,7 +105,7 @@
           <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive" />
-              <label class="form-check-label" for="isActive">Active</label>
+              <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
             </div>
           </div>
         </div>

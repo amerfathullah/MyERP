@@ -28,11 +28,33 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::UOM' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="uom" [class.is-invalid]="form.get('uom')?.invalid && form.get('uom')?.touched" />
+            <select class="form-select" formControlName="uom">
+              <option value="Unit">Unit</option>
+              <option value="Kg">Kg</option>
+              <option value="Gram">Gram</option>
+              <option value="Litre">Litre</option>
+              <option value="ml">ml</option>
+              <option value="Metre">Metre</option>
+              <option value="cm">cm</option>
+              <option value="Box">Box</option>
+              <option value="Dozen">Dozen</option>
+              <option value="Pair">Pair</option>
+              <option value="Set">Set</option>
+              <option value="Roll">Roll</option>
+              <option value="Bag">Bag</option>
+              <option value="Pallet">Pallet</option>
+              <option value="Case">Case</option>
+              <option value="Pack">Pack</option>
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
+            <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SellingPrice' | abpLocalization }}</label>

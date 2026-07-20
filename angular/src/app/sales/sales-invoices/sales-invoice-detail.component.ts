@@ -188,4 +188,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
       });
     }, 500);
   }
+
+  deleteInvoice(): void {
+    if (!confirm('Are you sure you want to delete this draft invoice?')) return;
+    this.service.delete(this.invoice!.id!).subscribe({
+      next: () => this.router.navigate(['/sales/invoices']),
+      error: () => {},
+    });
+  }
 }

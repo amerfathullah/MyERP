@@ -16,6 +16,7 @@ import { TaxCalculationService } from '../../../shared/services/tax-calculation.
 })
 export class InvoiceItemGridComponent {
   @Input({ required: true }) items!: FormArray;
+  @Input() availableItems: any[] = [];
 
   private fb = inject(FormBuilder);
   private taxCalc = inject(TaxCalculationService);
@@ -28,13 +29,24 @@ export class InvoiceItemGridComponent {
 
   addRow(): void {
     this.items.push(this.fb.group({
-      itemId: [''],
-      itemName: ['', Validators.required],
+      itemId: ['', Validators.required],
+      itemName: [''],
       qty: [1, [Validators.required, Validators.min(0.01)]],
       rate: [0, [Validators.required, Validators.min(0)]],
       discountPercent: [0, [Validators.min(0), Validators.max(100)]],
       amount: [{ value: 0, disabled: true }],
     }));
+  }
+
+  onItemSelected(index: number): void {
+    const row = this.items.at(index) as FormGroup;
+    const selectedId = row.get('itemId')?.value;
+    if (selectedId && this.availableItems.length > 0) {
+      const item = this.availableItems.find((i: any) => i.id === selectedId);
+      if (item) {
+        row.patchValue({ itemName: item.itemName ?? item.itemCode ?? '' });
+      }
+    }
   }
 
   removeRow(index: number): void {

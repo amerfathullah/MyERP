@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { LandedCostDetailService, type LandedCostVoucherDetailDto } from '../../proxy/detail-services';
+import { LandedCostDetailService, type LandedCostVoucherDetailDto } from '../../shared/services/detail-services';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -20,7 +20,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <div class="col-md-3"><strong>{{ 'VoucherNumber' | abpLocalization }}:</strong> {{ d.voucherNumber ?? '—' }}</div>
             <div class="col-md-3"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-3"><strong>{{ 'TotalCharges' | abpLocalization }}:</strong> {{ d.totalCharges | number:'1.2-2' }}</div>
-            <div class="col-md-3"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][d.status]"></app-status-badge></div>
+            <div class="col-md-3"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][d.status ?? 0]"></app-status-badge></div>
           </div>
         </div></div>
         <div class="row">

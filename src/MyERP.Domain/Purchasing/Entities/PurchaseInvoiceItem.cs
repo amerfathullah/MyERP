@@ -20,6 +20,15 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
 
     public decimal LineTotal => Quantity * UnitPrice;
 
+    /// <summary>Item's stock UOM. From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
+
     public Guid? TaxCategoryId { get; set; }
 
     /// <summary>Link to Purchase Order item (for billing qty tracking).</summary>

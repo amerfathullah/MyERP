@@ -90,6 +90,8 @@ public class AutoDunningJob : AsyncBackgroundJob<AutoDunningJobArgs>, ITransient
 
         foreach (var group in byCustomer)
         {
+            try
+            {
             var customerId = group.Key;
 
             // Determine dunning level: count existing submitted dunnings for this customer + 1
@@ -124,6 +126,11 @@ public class AutoDunningJob : AsyncBackgroundJob<AutoDunningJobArgs>, ITransient
 
             await _dunningRepository.InsertAsync(dunning);
             created++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AutoDunningJob: Failed to create dunning for customer {CustomerId}, skipping", group.Key);
+            }
         }
 
         _logger.LogInformation(

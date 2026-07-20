@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
@@ -16,6 +17,7 @@ namespace MyERP.Accounting;
 /// credit notes/debit notes, and running balance.
 /// Essential for collections (customer) and payables management (supplier).
 /// </summary>
+[Authorize]
 public class StatementOfAccountsAppService : ApplicationService
 {
     private readonly IRepository<SalesInvoice, Guid> _siRepository;

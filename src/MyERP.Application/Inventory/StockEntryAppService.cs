@@ -54,12 +54,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.EntryNumber != null && x.EntryNumber.ToLower().Contains(filter));
+            var filter = input.Filter;
+            query = query.Where(x => x.EntryNumber != null && x.EntryNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
+
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
 
         var totalCount = query.Count();
         var entries = query
@@ -285,4 +291,38 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         return result;
     }
 
+    [Authorize(MyERPPermissions.StockEntries.Edit)]
+    public async Task<StockEntryDto> UpdateAsync(Guid id, CreateStockEntryDto input)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft stock entries can be edited");
+
+        entry.EntryType = input.EntryType;
+        entry.PostingDate = input.PostingDate;
+        entry.Notes = input.Notes;
+        entry.ReferenceType = input.ReferenceType;
+        entry.ReferenceId = input.ReferenceId;
+
+        // Replace items
+        entry.ClearItems();
+        foreach (var item in input.Items)
+            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate);
+
+        await _repository.UpdateAsync(entry, autoSave: true);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
+    }
+
+    [Authorize(MyERPPermissions.StockEntries.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft stock entries can be deleted");
+        await _repository.DeleteAsync(id);
+    }
+
 }
+

@@ -36,6 +36,12 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
     private readonly IRepository<AccountingRule, Guid> _accountingRuleRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<Manufacturing.Entities.ManufacturingSettings, Guid> _mfgSettingsRepository;
+    private readonly IRepository<Territory, Guid> _territoryRepository;
+    private readonly IRepository<CustomerGroup, Guid> _customerGroupRepository;
+    private readonly IRepository<SupplierGroup, Guid> _supplierGroupRepository;
+    private readonly IRepository<Uom, Guid> _uomRepository;
+    private readonly IRepository<UomConversion, Guid> _uomConversionRepository;
+    private readonly IRepository<CurrencyExchange, Guid> _currencyExchangeRepository;
     private readonly MalaysianCoaSeeder _coaSeeder;
     private readonly IGuidGenerator _guidGenerator;
 
@@ -54,6 +60,12 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         IRepository<AccountingRule, Guid> accountingRuleRepository,
         IRepository<Account, Guid> accountRepository,
         IRepository<Manufacturing.Entities.ManufacturingSettings, Guid> mfgSettingsRepository,
+        IRepository<Territory, Guid> territoryRepository,
+        IRepository<CustomerGroup, Guid> customerGroupRepository,
+        IRepository<SupplierGroup, Guid> supplierGroupRepository,
+        IRepository<Uom, Guid> uomRepository,
+        IRepository<UomConversion, Guid> uomConversionRepository,
+        IRepository<CurrencyExchange, Guid> currencyExchangeRepository,
         MalaysianCoaSeeder coaSeeder,
         IGuidGenerator guidGenerator)
     {
@@ -71,6 +83,12 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         _accountingRuleRepository = accountingRuleRepository;
         _accountRepository = accountRepository;
         _mfgSettingsRepository = mfgSettingsRepository;
+        _territoryRepository = territoryRepository;
+        _customerGroupRepository = customerGroupRepository;
+        _supplierGroupRepository = supplierGroupRepository;
+        _uomRepository = uomRepository;
+        _uomConversionRepository = uomConversionRepository;
+        _currencyExchangeRepository = currencyExchangeRepository;
         _coaSeeder = coaSeeder;
         _guidGenerator = guidGenerator;
     }
@@ -86,6 +104,11 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         await SeedDefaultCompanyDataAsync();
         await SeedHolidaysAsync();
         await SeedAccountingRulesAsync();
+        await SeedTerritoriesAsync();
+        await SeedCustomerGroupsAsync();
+        await SeedSupplierGroupsAsync();
+        await SeedUomDataAsync();
+        await SeedPeggedCurrenciesAsync();
     }
 
     private async Task SeedItemGroupsAsync()
@@ -226,15 +249,27 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                 await _costCenterRepository.InsertAsync(main, autoSave: true);
             }
 
-            // Seed Default Warehouses
+            // Seed Default Warehouses (hierarchy per ERPNext Company.create_default_warehouses)
             if (!await _warehouseRepository.AnyAsync(w => w.CompanyId == company.Id))
             {
+                // Root group warehouse (parent of all others)
+                var allWarehouses = new Warehouse(
+                    _guidGenerator.Create(), company.Id, "All Warehouses") { IsGroup = true, IsActive = true };
+                await _warehouseRepository.InsertAsync(allWarehouses, autoSave: true);
+
+                // Child warehouses under root
                 await _warehouseRepository.InsertAsync(new Warehouse(
-                    _guidGenerator.Create(), company.Id, "Stores") { IsActive = true }, autoSave: true);
+                    _guidGenerator.Create(), company.Id, "Stores")
+                    { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
                 await _warehouseRepository.InsertAsync(new Warehouse(
-                    _guidGenerator.Create(), company.Id, "Finished Goods") { IsActive = true }, autoSave: true);
+                    _guidGenerator.Create(), company.Id, "Finished Goods")
+                    { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
                 await _warehouseRepository.InsertAsync(new Warehouse(
-                    _guidGenerator.Create(), company.Id, "Work In Progress") { IsActive = true }, autoSave: true);
+                    _guidGenerator.Create(), company.Id, "Work In Progress")
+                    { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+                await _warehouseRepository.InsertAsync(new Warehouse(
+                    _guidGenerator.Create(), company.Id, "Goods In Transit")
+                    { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
             }
 
             // Seed Manufacturing Settings (per-company singleton)
@@ -410,6 +445,123 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                 _guidGenerator.Create(), company.Id, "PR - Credit SRBNB",
                 "PurchaseReceipt", false, AccountSource.FixedAccount, AmountSource.NetTotal)
             { SortOrder = 2, Description = "Credit Stock Received But Not Billed" }, autoSave: true);
+        }
+    }
+
+    private async Task SeedTerritoriesAsync()
+    {
+        if (await _territoryRepository.GetCountAsync() > 0) return;
+
+        var root = new Territory(_guidGenerator.Create(), "All Territories", isGroup: true);
+        await _territoryRepository.InsertAsync(root, autoSave: true);
+
+        await _territoryRepository.InsertAsync(
+            new Territory(_guidGenerator.Create(), "Malaysia", parentId: root.Id), autoSave: true);
+        await _territoryRepository.InsertAsync(
+            new Territory(_guidGenerator.Create(), "Rest Of The World", parentId: root.Id), autoSave: true);
+    }
+
+    private async Task SeedCustomerGroupsAsync()
+    {
+        if (await _customerGroupRepository.GetCountAsync() > 0) return;
+
+        var root = new CustomerGroup(_guidGenerator.Create(), "All Customer Groups", isGroup: true);
+        await _customerGroupRepository.InsertAsync(root, autoSave: true);
+
+        await _customerGroupRepository.InsertAsync(
+            new CustomerGroup(_guidGenerator.Create(), "Individual", parentId: root.Id), autoSave: true);
+        await _customerGroupRepository.InsertAsync(
+            new CustomerGroup(_guidGenerator.Create(), "Commercial", parentId: root.Id), autoSave: true);
+        await _customerGroupRepository.InsertAsync(
+            new CustomerGroup(_guidGenerator.Create(), "Government", parentId: root.Id), autoSave: true);
+    }
+
+    private async Task SeedSupplierGroupsAsync()
+    {
+        if (await _supplierGroupRepository.GetCountAsync() > 0) return;
+
+        var root = new SupplierGroup(_guidGenerator.Create(), "All Supplier Groups", isGroup: true);
+        await _supplierGroupRepository.InsertAsync(root, autoSave: true);
+
+        await _supplierGroupRepository.InsertAsync(
+            new SupplierGroup(_guidGenerator.Create(), "Local", parentId: root.Id), autoSave: true);
+        await _supplierGroupRepository.InsertAsync(
+            new SupplierGroup(_guidGenerator.Create(), "Overseas", parentId: root.Id), autoSave: true);
+    }
+
+    /// <summary>
+    /// Seeds standard UOMs + common conversion factors.
+    /// Per ERPNext: loaded from uom_data.json + uom_conversion_data.json.
+    /// </summary>
+    private async Task SeedUomDataAsync()
+    {
+        if (await _uomRepository.GetCountAsync() > 0) return;
+
+        // Core UOMs (with MustBeWholeNumber where applicable)
+        var uoms = new (string Name, bool WholeNumber, string? Category)[]
+        {
+            ("Unit", true, "Unit"), ("Nos", true, "Unit"), ("Pair", true, "Unit"), ("Set", true, "Unit"),
+            ("Dozen", true, "Unit"), ("Box", true, "Unit"), ("Pallet", true, "Unit"), ("Pack", true, "Unit"),
+            ("Kg", false, "Mass"), ("Gram", false, "Mass"), ("Tonne", false, "Mass"), ("Pound", false, "Mass"), ("Ounce", false, "Mass"),
+            ("Metre", false, "Length"), ("Centimetre", false, "Length"), ("Millimetre", false, "Length"), ("Inch", false, "Length"), ("Foot", false, "Length"),
+            ("Litre", false, "Volume"), ("Millilitre", false, "Volume"), ("Gallon", false, "Volume"),
+            ("Square Metre", false, "Area"), ("Square Foot", false, "Area"),
+            ("Hour", false, "Time"), ("Minute", false, "Time"), ("Day", false, "Time"),
+            ("Roll", true, "Unit"), ("Sheet", true, "Unit"), ("Bag", true, "Unit"), ("Bottle", true, "Unit"),
+            ("Carton", true, "Unit"), ("Bundle", true, "Unit"), ("Drum", true, "Unit"),
+        };
+
+        foreach (var (name, wholeNumber, category) in uoms)
+        {
+            await _uomRepository.InsertAsync(
+                new Uom(_guidGenerator.Create(), name) { MustBeWholeNumber = wholeNumber, Category = category },
+                autoSave: true);
+        }
+
+        // Standard conversion factors
+        var conversions = new (string From, string To, decimal Factor)[]
+        {
+            ("Kg", "Gram", 1000m), ("Tonne", "Kg", 1000m), ("Pound", "Kg", 0.453592m), ("Ounce", "Gram", 28.3495m),
+            ("Metre", "Centimetre", 100m), ("Metre", "Millimetre", 1000m), ("Foot", "Inch", 12m), ("Metre", "Foot", 3.28084m),
+            ("Litre", "Millilitre", 1000m), ("Gallon", "Litre", 3.78541m),
+            ("Square Metre", "Square Foot", 10.7639m),
+            ("Hour", "Minute", 60m), ("Day", "Hour", 8m), // 8-hour working day
+            ("Dozen", "Unit", 12m),
+        };
+
+        foreach (var (from, to, factor) in conversions)
+        {
+            await _uomConversionRepository.InsertAsync(
+                new UomConversion(_guidGenerator.Create(), from, to, factor),
+                autoSave: true);
+        }
+    }
+
+    /// <summary>
+    /// Seeds pegged currency exchange rates (Gulf currencies fixed to USD).
+    /// Per ERPNext install.py: 6 Gulf→USD fixed rates created if both currencies exist.
+    /// </summary>
+    private async Task SeedPeggedCurrenciesAsync()
+    {
+        if (await _currencyExchangeRepository.GetCountAsync() > 0) return;
+
+        var peggedRates = new (string From, string To, decimal Rate)[]
+        {
+            ("AED", "USD", 3.6725m),
+            ("BHD", "USD", 0.376m),
+            ("JOD", "USD", 0.709m),
+            ("OMR", "USD", 0.3845m),
+            ("QAR", "USD", 3.64m),
+            ("SAR", "USD", 3.75m),
+        };
+
+        foreach (var (from, to, rate) in peggedRates)
+        {
+            await _currencyExchangeRepository.InsertAsync(
+                new CurrencyExchange(
+                    _guidGenerator.Create(), from, to, rate,
+                    new DateTime(2000, 1, 1)), // Pegged rates are effectively permanent
+                autoSave: true);
         }
     }
 }

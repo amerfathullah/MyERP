@@ -177,3 +177,4 @@ public class ItemAppService :
         entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
     }
 }
+

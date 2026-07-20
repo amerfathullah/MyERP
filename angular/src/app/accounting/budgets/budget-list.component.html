@@ -53,4 +53,6 @@
       </div>
     </div>
   }
+
+  <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
 </abp-page>

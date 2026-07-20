@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -44,6 +45,14 @@ public class InstallationNoteAppService : ApplicationService
 
         if (input.CompanyId.HasValue)
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter; query = query.Where(x => x.InstallationNumber.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
 
         var count = query.Count();
         var list = query.OrderByDescending(x => x.InstallationDate)
@@ -122,3 +131,4 @@ public class CreateInstallationNoteDto
 }
 
 #endregion
+

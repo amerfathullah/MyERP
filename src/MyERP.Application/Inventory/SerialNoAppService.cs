@@ -49,7 +49,7 @@ public class SerialNoAppService : ApplicationService
             query = query.Where(s => s.WarehouseId == input.WarehouseId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(s => s.SerialNumber.ToLower().Contains(f));
         }
         var totalCount = query.Count();
@@ -64,3 +64,4 @@ public class SerialNoAppService : ApplicationService
         return ObjectMapper.Map<SerialNo, SerialNoDto>(sn);
     }
 }
+

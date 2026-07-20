@@ -55,7 +55,7 @@
             <tbody>
               @for (item of store.entities(); track item.id ?? $index) {
                 <tr>
-                  <td class="font-monospace small">{{ item.itemCode }}</td>
+                  <td class="font-monospace small"><a [routerLink]="['/inventory/items', item.id, 'edit']" class="text-decoration-none">{{ item.itemCode }}</a></td>
                   <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="item.description">{{ item.description }}</td>
                   <td>{{ item.itemGroup }}</td>
                   <td>{{ item.uom }}</td>

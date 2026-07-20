@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
 
@@ -40,7 +41,8 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
-    public List<BomItem> Items { get; set; } = new();
+    public List<BomItem> Items { get; private set; } = new();
+    public List<BomOperation> Operations { get; private set; } = new();
 
     protected BillOfMaterials() { }
 
@@ -61,5 +63,15 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
             item.Recalculate();
             TotalMaterialCost += item.Amount;
         }
+        OperatingCost = Operations.Sum(o => o.OperatingCost);
+    }
+
+    /// <summary>Add an operation to this BOM. Validates monotonically increasing sequence.</summary>
+    public void AddOperation(BomOperation operation)
+    {
+        if (Operations.Any() && operation.SequenceId <= Operations.Max(o => o.SequenceId))
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Operation sequence_id must be monotonically increasing");
+        Operations.Add(operation);
     }
 }

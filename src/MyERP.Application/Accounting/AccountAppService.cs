@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -61,6 +62,33 @@ public class AccountAppService :
         entity.Description = input.Description;
         entity.IsFrozen = input.IsFrozen;
         entity.IsActive = input.IsActive;
+    }
+
+    /// <summary>
+    /// Override UpdateAsync to validate stock account type change.
+    /// Per ERPNext PR #57283: cannot change account type FROM 'Stock' when SLE exists
+    /// for any warehouse using this account.
+    /// </summary>
+    public override async Task<AccountDto> UpdateAsync(Guid id, CreateUpdateAccountDto input)
+    {
+        var entity = await Repository.GetAsync(id);
+
+        // Block changing account sub-type from Stock when stock transactions exist
+        // Per ERPNext PR #57283
+        if (entity.AccountSubType == AccountSubType.Stock && input.AccountSubType != AccountSubType.Stock)
+        {
+            var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var sleQuery = await sleRepo.GetQueryableAsync();
+            var hasSle = sleQuery.Any(sle => sle.CompanyId == entity.CompanyId);
+
+            if (hasSle)
+            {
+                throw new BusinessException("MyERP:02028")
+                    .WithData("accountName", entity.AccountName);
+            }
+        }
+
+        return await base.UpdateAsync(id, input);
     }
 
     /// <summary>

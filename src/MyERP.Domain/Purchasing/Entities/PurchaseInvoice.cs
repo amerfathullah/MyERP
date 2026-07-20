@@ -111,8 +111,8 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public PurchaseInvoice(Guid id, Guid companyId, Guid supplierId, string invoiceNumber, DateTime issueDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        SupplierId = supplierId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        SupplierId = Check.NotDefaultOrNull<Guid>(supplierId, nameof(supplierId));
         InvoiceNumber = Check.NotNullOrWhiteSpace(invoiceNumber, nameof(invoiceNumber), PurchaseInvoiceConsts.MaxInvoiceNumberLength);
         IssueDate = issueDate;
         TenantId = tenantId;
@@ -122,6 +122,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
 
         // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
         if (!IsReturn && quantity <= 0)
@@ -146,6 +147,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
                 .WithData("documentType", "Purchase Invoice");
 
         Status = DocumentStatus.Submitted;
+        AddLocalEvent(new PurchaseInvoiceSubmittedEvent(this));
     }
 
     public void Post()
@@ -153,6 +155,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Posted;
+        AddLocalEvent(new PurchaseInvoicePostedEvent(this));
     }
 
     public void Cancel()
@@ -160,6 +163,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (Status != DocumentStatus.Posted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
+        AddLocalEvent(new PurchaseInvoiceCancelledEvent(this));
     }
 
     private void RecalculateTotals()
@@ -172,3 +176,8 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         BaseGrandTotal = GrandTotal * ExchangeRate;
     }
 }
+
+// Domain Events
+public record PurchaseInvoiceSubmittedEvent(PurchaseInvoice Invoice);
+public record PurchaseInvoicePostedEvent(PurchaseInvoice Invoice);
+public record PurchaseInvoiceCancelledEvent(PurchaseInvoice Invoice);

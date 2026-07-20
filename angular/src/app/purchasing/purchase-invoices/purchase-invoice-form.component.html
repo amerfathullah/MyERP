@@ -1,41 +1,67 @@
-<abp-page [title]="'Create Purchase Invoice'">
-  <form [formGroup]="form" (ngSubmit)="save()">
+<abp-page [title]="'::CreatePurchaseInvoice' | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <!-- Header fields -->
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>Invoice Details</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::InvoiceDetails' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Invoice Number</label>
+            <label class="form-label">{{ '::InvoiceNumber' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="invoiceNumber" [class.is-invalid]="form.get('invoiceNumber')?.invalid && form.get('invoiceNumber')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Issue Date</label>
+            <label class="form-label">{{ '::IssueDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="issueDate" [class.is-invalid]="form.get('issueDate')?.invalid && form.get('issueDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Currency</label>
-            <select class="form-select" formControlName="currency" [class.is-invalid]="form.get('currency')?.invalid && form.get('currency')?.touched">
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
+            <select class="form-select" formControlName="currencyCode" [class.is-invalid]="form.get('currencyCode')?.invalid && form.get('currencyCode')?.touched">
               <option value="MYR">MYR</option>
               <option value="USD">USD</option>
               <option value="SGD">SGD</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Supplier</label>
+            <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
             <select class="form-select" formControlName="supplierId" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
-              <option value="">Select supplier...</option>
+              <option value="">{{ '::SelectSupplier' | abpLocalization }}</option>
               @for (s of suppliers(); track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Supplier TIN</label>
+            <label class="form-label">{{ '::SupplierTin' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="supplierTin" [class.is-invalid]="form.get('supplierTin')?.invalid && form.get('supplierTin')?.touched" />
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Settings -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" />
+              <label class="form-check-label" for="updateStock">{{ 'UpdateStock' | abpLocalization }}</label>
+              <small class="form-text text-muted d-block">{{ 'UpdateStockHelpPurchase' | abpLocalization }}</small>
+            </div>
+          </div>
+          @if (form.get('updateStock')?.value) {
+            <div class="col-12 col-md-4">
+              <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+              <select class="form-select" formControlName="warehouseId">
+                <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+                @for (w of warehouses(); track w.id) {
+                  <option [value]="w.id">{{ w.name }}</option>
+                }
+              </select>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -43,10 +69,10 @@
     <!-- Line items -->
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Invoice Items</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::InvoiceItems' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" />
+        <app-invoice-item-grid [items]="items" [availableItems]="availableItems()" />
       </div>
     </div>
 
@@ -55,7 +81,7 @@
       <div class="card-body">
         <div class="d-flex flex-column align-items-end gap-2">
           <div class="d-flex justify-content-between" style="width: 260px">
-            <small class="text-muted">Net Total</small>
+            <small class="text-muted">{{ '::NetTotal' | abpLocalization }}</small>
             <span class="font-monospace fw-medium">{{ calcResult.netTotal | number:'1.2-2' }}</span>
           </div>
           @for (tax of calcResult.taxLines; track tax.taxName) {
@@ -65,7 +91,7 @@
             </div>
           }
           <div class="d-flex justify-content-between border-top pt-2 mt-2" style="width: 260px">
-            <span class="fw-semibold">Grand Total</span>
+            <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }}</span>
             <span class="font-monospace fw-bold fs-5">{{ calcResult.grandTotal | number:'1.2-2' }}</span>
           </div>
         </div>
@@ -75,12 +101,12 @@
     <!-- Actions -->
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i>Cancel</button>
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
       <button type="button" class="btn btn-outline-secondary" (click)="recalculate()">
-        <i class="fa fa-calculator me-1"></i> Recalculate
+        <i class="fa fa-calculator me-1"></i>{{ '::Recalculate' | abpLocalization }}
       </button>
       <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-        <i class="fa fa-save me-1"></i> Save as Draft
+        <i class="fa fa-save me-1"></i>{{ '::SaveAsDraft' | abpLocalization }}
       </button>
     </div>
   </form>

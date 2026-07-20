@@ -21,7 +21,7 @@ export const PayrollStore = signalStore(
     hasEntries: computed(() => store.ids().length > 0),
   })),
   withMethods((store, service = inject(PayrollService), toaster = inject(ToasterService)) => ({
-    load: rxMethod<PagedAndSortedResultRequestDto>(
+    load: rxMethod<any>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((query) => service.getList(query)),

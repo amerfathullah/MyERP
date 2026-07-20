@@ -1,44 +1,63 @@
-<abp-page [title]="'Stock Entry'">
-  <form [formGroup]="form" (ngSubmit)="save()">
+<abp-page [title]="'::StockEntry' | abpLocalization">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-exchange-alt me-2"></i>Stock Entry</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-exchange-alt me-2"></i>{{ '::StockEntry' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Entry Type</label>
-            <select class="form-select" formControlName="entryType" [class.is-invalid]="form.get('entryType')?.invalid && form.get('entryType')?.touched">
-              <option value="MaterialReceipt">Material Receipt</option>
-              <option value="MaterialIssue">Material Issue</option>
-              <option value="MaterialTransfer">Material Transfer</option>
-              <option value="MaterialTransferForManufacture">Material Transfer for Manufacture</option>
-              <option value="Manufacture">Manufacture</option>
-              <option value="Repack">Repack</option>
-              <option value="SendToSubcontractor">Send to Subcontractor</option>
-              <option value="MaterialConsumptionForManufacture">Material Consumption for Manufacture</option>
-              <option value="Disassemble">Disassemble</option>
-              <option value="SendToWarehouse">Send to Warehouse</option>
-              <option value="ReceiveAtWarehouse">Receive at Warehouse</option>
-              <option value="SubcontractingDelivery">Subcontracting Delivery</option>
-              <option value="SubcontractingReturn">Subcontracting Return</option>
-              <option value="Adjustment">Adjustment</option>
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <select class="form-select" formControlName="companyId">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Entry Date</label>
+            <label class="form-label">{{ '::EntryType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="entryType" [class.is-invalid]="form.get('entryType')?.invalid && form.get('entryType')?.touched">
+              <option value="MaterialReceipt">{{ '::MaterialReceipt' | abpLocalization }}</option>
+              <option value="MaterialIssue">{{ '::MaterialIssue' | abpLocalization }}</option>
+              <option value="MaterialTransfer">{{ '::MaterialTransfer' | abpLocalization }}</option>
+              <option value="MaterialTransferForManufacture">{{ '::MaterialTransferForManufacture' | abpLocalization }}</option>
+              <option value="Manufacture">{{ '::Manufacture' | abpLocalization }}</option>
+              <option value="Repack">{{ '::Repack' | abpLocalization }}</option>
+              <option value="SendToSubcontractor">{{ '::SendToSubcontractor' | abpLocalization }}</option>
+              <option value="MaterialConsumptionForManufacture">{{ '::MaterialConsumptionForManufacture' | abpLocalization }}</option>
+              <option value="Disassemble">{{ '::Disassemble' | abpLocalization }}</option>
+              <option value="SendToWarehouse">{{ '::SendToWarehouse' | abpLocalization }}</option>
+              <option value="ReceiveAtWarehouse">{{ '::ReceiveAtWarehouse' | abpLocalization }}</option>
+              <option value="SubcontractingDelivery">{{ '::SubcontractingDelivery' | abpLocalization }}</option>
+              <option value="SubcontractingReturn">{{ '::SubcontractingReturn' | abpLocalization }}</option>
+              <option value="Adjustment">{{ '::Adjustment' | abpLocalization }}</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::EntryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="entryDate" [class.is-invalid]="form.get('entryDate')?.invalid && form.get('entryDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Source Warehouse</label>
-            <input type="text" class="form-control" formControlName="sourceWarehouse" [class.is-invalid]="form.get('sourceWarehouse')?.invalid && form.get('sourceWarehouse')?.touched" placeholder="For transfer/issue" />
+            <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
+            <select class="form-select" formControlName="sourceWarehouse" [class.is-invalid]="form.get('sourceWarehouse')?.invalid && form.get('sourceWarehouse')?.touched">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (wh of warehouses(); track wh.id) {
+                <option [value]="wh.id">{{ wh.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Target Warehouse</label>
-            <input type="text" class="form-control" formControlName="targetWarehouse" [class.is-invalid]="form.get('targetWarehouse')?.invalid && form.get('targetWarehouse')?.touched" />
+            <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
+            <select class="form-select" formControlName="targetWarehouse" [class.is-invalid]="form.get('targetWarehouse')?.invalid && form.get('targetWarehouse')?.touched">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (wh of warehouses(); track wh.id) {
+                <option [value]="wh.id">{{ wh.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-8 mb-3">
-            <label class="form-label">Remarks</label>
+            <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="remarks" [class.is-invalid]="form.get('remarks')?.invalid && form.get('remarks')?.touched" />
           </div>
         </div>
@@ -48,23 +67,23 @@
     <!-- Items -->
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Items</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="table-responsive">
           <table class="table table-sm w-100">
             <thead>
               <tr>
-                <th>Item</th>
-                <th style="width: 110px">Qty</th>
-                <th style="width: 100px">UoM</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th style="width: 110px">{{ '::Qty' | abpLocalization }}</th>
+                <th style="width: 100px">{{ '::UoM' | abpLocalization }}</th>
                 <th style="width: 50px"></th>
               </tr>
             </thead>
             <tbody>
               @for (row of items.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName" placeholder="Item name" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName" [placeholder]="'::Placeholder:ItemName' | abpLocalization" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="qty" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
                   <td>
@@ -84,9 +103,9 @@
 
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i>Cancel</button>
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
       <button type="submit" class="btn btn-primary" [disabled]="form.invalid || items.length === 0">
-        <i class="fa fa-save me-1"></i>Save</button>
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
     </div>
   </form>
 </abp-page>

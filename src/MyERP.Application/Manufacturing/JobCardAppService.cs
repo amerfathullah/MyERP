@@ -81,7 +81,7 @@ public class JobCardAppService : ApplicationService
             query = query.Where(j => j.Status == input.Status.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(j => j.WorkstationType != null && j.WorkstationType.ToLower().Contains(f));
         }
 
@@ -145,4 +145,23 @@ public class JobCardAppService : ApplicationService
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<JobCardDto> HoldAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        jc.Hold();
+        await _repository.UpdateAsync(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<JobCardDto> ResumeAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        jc.Resume();
+        await _repository.UpdateAsync(jc);
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
 }
+

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyERP.Accounting.DomainServices;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
@@ -66,16 +68,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.ReceiptNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.ReceiptNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var list = query
-            .OrderByDescending(x => x.PostingDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.PostingDate),
+            ("receiptNumber", x => x.ReceiptNumber),
+            ("postingDate", x => x.PostingDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var list = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
@@ -120,6 +132,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         foreach (var item in input.Items)
         {
             receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId);
+        }
+
+        // Resolve UOM conversion factors
+        var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepoUom = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var prItem in receipt.Items)
+        {
+            var itemEntity = await itemRepoUom.FindAsync(prItem.ItemId);
+            if (itemEntity != null)
+            {
+                prItem.StockUom = itemEntity.Uom;
+                if (!string.Equals(prItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                    prItem.ConversionFactor = await uomService.GetConversionFactorAsync(
+                        prItem.ItemId, prItem.Uom, itemEntity.Uom);
+            }
         }
 
         await _repository.InsertAsync(receipt, autoSave: true);
@@ -217,43 +244,34 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
-                var returnQty = Math.Abs(item.Quantity); // Returns have negative qty
+                // Use StockQty for return SLE (stock UOM)
+                var returnStockQty = Math.Abs(item.StockQty);
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
 
                 await _valuationService.CreateLedgerEntryAsync(
                     receipt.CompanyId, item.ItemId, receipt.WarehouseId,
-                    receipt.PostingDate, -returnQty, item.UnitPrice,
+                    receipt.PostingDate, -returnStockQty, ratePerStockUnit,
                     voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                     tenantId: receipt.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, receipt.WarehouseId,
-                    -returnQty, -(returnQty * item.UnitPrice), receipt.TenantId);
+                    -returnStockQty, -(returnStockQty * ratePerStockUnit), receipt.TenantId);
 
-                // Restore ordered qty (returned goods go back to "on order" conceptually)
+                // Restore ordered qty in stock UOM
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, receipt.WarehouseId, returnQty, receipt.TenantId);
+                    item.ItemId, receipt.WarehouseId, returnStockQty, receipt.TenantId);
             }
 
             // GL: reverse of normal receipt (DR SRBNB, CR Stock)
             await _postingOrchestrator.PostPurchaseReceiptAsync(receipt);
 
-            // Reduce linked PO ReceivedQty
+            // Reduce linked PO ReceivedQty (with concurrency retry)
             if (receipt.PurchaseOrderId.HasValue)
             {
-                var po = await _purchaseOrderRepository.GetAsync(receipt.PurchaseOrderId.Value);
-                foreach (var prItem in receipt.Items)
-                {
-                    if (prItem.PurchaseOrderItemId.HasValue)
-                    {
-                        var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
-                        if (poItem != null)
-                        {
-                            poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prItem.Quantity));
-                        }
-                    }
-                }
-                po.UpdateFulfillmentStatus();
-                await _purchaseOrderRepository.UpdateAsync(po);
+                await UpdatePoFulfillmentWithRetryAsync(receipt.PurchaseOrderId.Value, receipt.Items, isReversal: true);
             }
         }
         else
@@ -267,41 +285,35 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                // Use StockQty for SLE (respects UOM conversion factor)
+                var stockQty = item.StockQty;
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     receipt.CompanyId, item.ItemId, receipt.WarehouseId,
-                    receipt.PostingDate, item.Quantity, item.UnitPrice,
+                    receipt.PostingDate, stockQty, ratePerStockUnit,
                     voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                     tenantId: receipt.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, receipt.WarehouseId,
-                    item.Quantity, item.Quantity * item.UnitPrice, receipt.TenantId);
+                    stockQty, stockQty * ratePerStockUnit, receipt.TenantId);
 
                 // Reduce ordered qty (stock is no longer "on order" once received)
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, receipt.WarehouseId, -item.Quantity, receipt.TenantId);
+                    item.ItemId, receipt.WarehouseId, -stockQty, receipt.TenantId);
             }
 
             // GL posting (perpetual inventory): DR Stock, CR SRBNB
             await _postingOrchestrator.PostPurchaseReceiptAsync(receipt);
 
             // Update linked Purchase Order fulfillment tracking
+            // Update linked PO fulfillment (with concurrency retry)
             if (receipt.PurchaseOrderId.HasValue)
             {
-                var po = await _purchaseOrderRepository.GetAsync(receipt.PurchaseOrderId.Value);
-                foreach (var prItem in receipt.Items)
-                {
-                    if (prItem.PurchaseOrderItemId.HasValue)
-                    {
-                        var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
-                        if (poItem != null)
-                        {
-                            poItem.ReceivedQty += prItem.Quantity;
-                        }
-                    }
-                }
-                po.UpdateFulfillmentStatus();
-                await _purchaseOrderRepository.UpdateAsync(po);
+                await UpdatePoFulfillmentWithRetryAsync(receipt.PurchaseOrderId.Value, receipt.Items, isReversal: false);
             }
         }
 
@@ -341,41 +353,34 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         receipt.Cancel();
 
-        // Reverse SLE + Bin for each item
+        // Reverse SLE + Bin for each item (in stock UOM)
         foreach (var item in receipt.Items)
         {
+            var stockQty = item.StockQty;
+            var ratePerStockUnit = item.ConversionFactor != 0
+                ? item.UnitPrice / item.ConversionFactor
+                : item.UnitPrice;
+
             await _valuationService.CreateLedgerEntryAsync(
                 receipt.CompanyId, item.ItemId, receipt.WarehouseId,
-                receipt.PostingDate, -item.Quantity, item.UnitPrice,
+                receipt.PostingDate, -stockQty, ratePerStockUnit,
                 voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                 tenantId: receipt.TenantId);
 
             await _binService.ApplyStockMovementAsync(
                 item.ItemId, receipt.WarehouseId,
-                -item.Quantity, -(item.Quantity * item.UnitPrice), receipt.TenantId);
+                -stockQty, -(stockQty * ratePerStockUnit), receipt.TenantId);
 
-            // Restore ordered qty
+            // Restore ordered qty in stock UOM
             await _binService.UpdateOrderedQtyAsync(
-                item.ItemId, receipt.WarehouseId, item.Quantity, receipt.TenantId);
+                item.ItemId, receipt.WarehouseId, stockQty, receipt.TenantId);
         }
 
         // Reverse linked Purchase Order fulfillment tracking
+        // Cancel reversal: restore PO ReceivedQty (with concurrency retry)
         if (receipt.PurchaseOrderId.HasValue)
         {
-            var po = await _purchaseOrderRepository.GetAsync(receipt.PurchaseOrderId.Value);
-            foreach (var prItem in receipt.Items)
-            {
-                if (prItem.PurchaseOrderItemId.HasValue)
-                {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
-                    if (poItem != null)
-                    {
-                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - prItem.Quantity);
-                    }
-                }
-            }
-            po.UpdateFulfillmentStatus();
-            await _purchaseOrderRepository.UpdateAsync(po);
+            await UpdatePoFulfillmentWithRetryAsync(receipt.PurchaseOrderId.Value, receipt.Items, isReversal: true);
         }
 
         await _repository.UpdateAsync(receipt, autoSave: true);
@@ -419,4 +424,38 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(amended);
     }
+
+    private async Task UpdatePoFulfillmentWithRetryAsync(
+        Guid purchaseOrderId,
+        IReadOnlyCollection<PurchaseReceiptItem> prItems,
+        bool isReversal)
+    {
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                var po = await _purchaseOrderRepository.GetAsync(purchaseOrderId);
+                foreach (var prItem in prItems)
+                {
+                    if (!prItem.PurchaseOrderItemId.HasValue) continue;
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
+                    if (poItem == null) continue;
+
+                    if (isReversal)
+                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prItem.Quantity));
+                    else
+                        poItem.ReceivedQty += prItem.Quantity;
+                }
+                po.UpdateFulfillmentStatus();
+                await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);
+                return;
+            }
+            catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+            {
+                Logger.LogWarning("Concurrency conflict updating PO {PoId} ReceivedQty (attempt {Attempt}/3)", purchaseOrderId, attempt);
+                await Task.Delay(attempt * 10);
+            }
+        }
+    }
 }
+

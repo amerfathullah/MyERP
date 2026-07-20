@@ -20,6 +20,15 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
 
     public decimal LineTotal => Quantity * UnitPrice;
 
+    /// <summary>Item's stock UOM. From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor. Used for SLE creation.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
+
     /// <summary>Link back to the Sales Order item being fulfilled.</summary>
     public Guid? SalesOrderItemId { get; set; }
 

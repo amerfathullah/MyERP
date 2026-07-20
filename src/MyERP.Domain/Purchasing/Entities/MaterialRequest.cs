@@ -41,7 +41,7 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         MaterialRequestType requestType, DateTime requestDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
         RequestNumber = Check.NotNullOrWhiteSpace(requestNumber, nameof(requestNumber), MaterialRequestConsts.MaxRequestNumberLength);
         RequestType = requestType;
         RequestDate = requestDate;

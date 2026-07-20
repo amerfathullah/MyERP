@@ -74,7 +74,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// allocates amounts across multiple invoices/orders.
     /// When populated, these take priority over the legacy AgainstInvoiceId field.
     /// </summary>
-    public ICollection<PaymentEntryReference> References { get; set; } = new List<PaymentEntryReference>();
+    public ICollection<PaymentEntryReference> References { get; private set; } = new List<PaymentEntryReference>();
 
     /// <summary>
     /// Amount not allocated to any invoice/order. 
@@ -109,12 +109,12 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         decimal paidAmount, Guid paidFromAccountId, Guid paidToAccountId, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
         PaymentType = paymentType;
         PostingDate = postingDate;
         PaidAmount = paidAmount;
-        PaidFromAccountId = paidFromAccountId;
-        PaidToAccountId = paidToAccountId;
+        PaidFromAccountId = Check.NotDefaultOrNull<Guid>(paidFromAccountId, nameof(paidFromAccountId));
+        PaidToAccountId = Check.NotDefaultOrNull<Guid>(paidToAccountId, nameof(paidToAccountId));
         TenantId = tenantId;
     }
 
@@ -123,6 +123,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Submitted;
+        AddLocalEvent(new PaymentEntrySubmittedEvent(this));
     }
 
     public void Post()
@@ -147,6 +148,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         }
 
         Status = DocumentStatus.Posted;
+        AddLocalEvent(new PaymentEntryPostedEvent(this));
     }
 
     public void Cancel()
@@ -154,5 +156,11 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Posted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
+        AddLocalEvent(new PaymentEntryCancelledEvent(this));
     }
 }
+
+// Domain Events
+public record PaymentEntrySubmittedEvent(PaymentEntry PaymentEntry);
+public record PaymentEntryPostedEvent(PaymentEntry PaymentEntry);
+public record PaymentEntryCancelledEvent(PaymentEntry PaymentEntry);

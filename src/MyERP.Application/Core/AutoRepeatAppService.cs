@@ -38,6 +38,11 @@ public class AutoRepeatAppService : ApplicationService
         if (input.CompanyId.HasValue)
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
 
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter; query = query.Where(x => x.ReferenceDocumentType.Contains(filter));
+        }
+
         var count = query.Count();
         var list = query.OrderByDescending(x => x.NextScheduleDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -126,3 +131,4 @@ public class CreateAutoRepeatDto
 }
 
 #endregion
+

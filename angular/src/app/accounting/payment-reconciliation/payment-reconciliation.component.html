@@ -16,7 +16,7 @@
     </div>
     <div class="col-md-5">
       <label class="form-label">{{ 'Party' | abpLocalization }}</label>
-      <input type="text" class="form-control" [ngModel]="partyId()" (ngModelChange)="partyId.set($event)" placeholder="Enter party ID">
+      <input type="text" class="form-control" [ngModel]="partyId()" (ngModelChange)="partyId.set($event)" [placeholder]="'::Placeholder:EnterPartyId' | abpLocalization">
     </div>
     <div class="col-md-4 d-flex align-items-end">
       <button class="btn btn-primary" (click)="fetchOutstanding()" [disabled]="loading()">

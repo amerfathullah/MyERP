@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { StockReconciliationDetailService, type StockReconciliationDetailDto } from '../../proxy/detail-services';
+import { StockReconciliationDetailService, type StockReconciliationDetailDto } from '../../shared/services/detail-services';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -20,7 +20,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <div class="col-md-3"><strong>{{ 'ReconciliationNumber' | abpLocalization }}:</strong> {{ d.reconciliationNumber ?? '—' }}</div>
             <div class="col-md-3"><strong>{{ 'PostingDate' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-3"><strong>{{ 'DifferenceAmount' | abpLocalization }}:</strong> <span [class]="(d.differenceAmount ?? 0) < 0 ? 'text-danger' : 'text-success'">{{ d.differenceAmount | number:'1.2-2' }}</span></div>
-            <div class="col-md-3"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][d.status]"></app-status-badge></div>
+            <div class="col-md-3"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][d.status ?? 0]"></app-status-badge></div>
           </div>
         </div></div>
         <div class="card"><div class="card-body">
@@ -29,7 +29,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <tbody>
               @for (i of d.items ?? []; track i.id) {
                 <tr><td>{{ i.itemId | slice:0:8 }}…</td><td class="text-end">{{ i.currentQuantity }}</td><td class="text-end">{{ i.newQuantity }}</td>
-                <td class="text-end" [class]="i.quantityDifference < 0 ? 'text-danger' : 'text-success'">{{ i.quantityDifference }}</td></tr>
+                <td class="text-end" [class]="(i.quantityDifference ?? 0) < 0 ? 'text-danger' : 'text-success'">{{ i.quantityDifference }}</td></tr>
               }
             </tbody>
           </table>

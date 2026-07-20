@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router } from '@angular/router';
 import { AutomationRuleStore } from '../store/automation-rule.store';
+import { AutomationRuleService } from '../../proxy/automation/automation-rule.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -19,8 +20,8 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 export class AutomationRuleFormComponent {
   private fb = inject(FormBuilder);
   private router = inject(Router);
-  private route = inject(ActivatedRoute);
   private store = inject(AutomationRuleStore);
+  private service = inject(AutomationRuleService);
 
   form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(128)]],
@@ -68,7 +69,7 @@ export class AutomationRuleFormComponent {
       return;
     }
     const value = this.form.getRawValue();
-    this.store.create({
+    this.service.create({
       name: value.name!,
       description: value.description || undefined,
       trigger: value.trigger!,
@@ -78,8 +79,10 @@ export class AutomationRuleFormComponent {
       actionConfig: value.actionConfig || undefined,
       isActive: value.isActive ?? true,
       priority: value.priority ?? 0,
+    } as any).subscribe({
+      next: () => this.router.navigate(['/automation']),
+      error: () => {},
     });
-    this.router.navigate(['/automation']);
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -12,13 +12,14 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesOrderStore } from '../store/sales-order.store';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import type { SalesOrderDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -123,5 +124,13 @@ export class SalesOrderDetailComponent implements OnInit {
     setTimeout(() => {
       this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
     }, 500);
+  }
+
+  deleteOrder(): void {
+    if (!confirm('Are you sure you want to delete this draft order?')) return;
+    this.service.delete(this.order!.id!).subscribe({
+      next: () => this.router.navigate(['/sales/orders']),
+      error: () => {},
+    });
   }
 }

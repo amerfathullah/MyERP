@@ -1,7 +1,7 @@
 @if (!hasLoggedIn) {
   <div class="d-flex flex-column align-items-center justify-content-center py-5">
     <i class="fa fa-building fa-4x text-muted mb-3"></i>
-    <h2 class="fw-bold text-muted mb-2">Welcome to MyERP</h2>
+    <h2 class="fw-bold text-muted mb-2">{{ 'WelcomeToMyERP' | abpLocalization }}</h2>
     <p class="text-muted mb-4">Please log in to access your ERP dashboard.</p>
     <button class="btn btn-primary" (click)="login()">
       <i class="fa fa-right-to-bracket me-1"></i> Log In

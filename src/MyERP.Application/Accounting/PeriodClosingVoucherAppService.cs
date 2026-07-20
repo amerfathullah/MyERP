@@ -3,7 +3,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -52,9 +54,22 @@ public class PeriodClosingVoucherAppService : ApplicationService
         _postingOrchestrator = postingOrchestrator;
     }
 
-    public async Task<PagedResultDto<PeriodClosingVoucherDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<PeriodClosingVoucherDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
+
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filter = input.Filter;
+            query = query.Where(x => x.VoucherNumber != null && x.VoucherNumber.Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
+
         var totalCount = query.Count();
         var items = query.OrderByDescending(p => p.PostingDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
@@ -113,3 +128,4 @@ public class PeriodClosingVoucherAppService : ApplicationService
         return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
 }
+

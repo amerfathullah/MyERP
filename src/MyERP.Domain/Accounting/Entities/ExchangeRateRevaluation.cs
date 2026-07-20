@@ -35,7 +35,7 @@ public class ExchangeRateRevaluation : FullAuditedAggregateRoot<Guid>, IMultiTen
     public decimal TotalGainLoss { get; set; }
 
     /// <summary>Document status.</summary>
-    public ExchangeRateRevaluationStatus Status { get; set; } = ExchangeRateRevaluationStatus.Draft;
+    public ExchangeRateRevaluationStatus Status { get; private set; } = ExchangeRateRevaluationStatus.Draft;
 
     /// <summary>Per-account revaluation detail lines.</summary>
     public ICollection<ExchangeRateRevaluationEntry> Entries { get; private set; }

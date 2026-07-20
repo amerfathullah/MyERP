@@ -54,4 +54,5 @@ public class CreatePurchaseOrderItemDto
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(20)] public string Uom { get; set; } = "Unit";
+    public Guid? WarehouseId { get; set; }
 }

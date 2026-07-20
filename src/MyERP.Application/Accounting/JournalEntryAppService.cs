@@ -53,12 +53,18 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.EntryNumber != null && x.EntryNumber.ToLower().Contains(filter));
+            var filter = input.Filter;
+            query = query.Where(x => x.EntryNumber != null && x.EntryNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
+
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
 
         var totalCount = query.Count();
         var entries = query
@@ -178,3 +184,4 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 }
+

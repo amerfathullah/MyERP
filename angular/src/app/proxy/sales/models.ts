@@ -209,6 +209,8 @@ export interface CreateSalesInvoiceDto {
   returnAgainstId?: string | null;
   isOpening?: boolean;
   projectId?: string | null;
+  updateStock?: boolean;
+  warehouseId?: string | null;
   items: CreateSalesInvoiceItemDto[];
 }
 

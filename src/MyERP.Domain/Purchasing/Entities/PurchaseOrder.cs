@@ -62,8 +62,8 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     public PurchaseOrder(Guid id, Guid companyId, Guid supplierId, string orderNumber, DateTime orderDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        SupplierId = supplierId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        SupplierId = Check.NotDefaultOrNull<Guid>(supplierId, nameof(supplierId));
         OrderNumber = Check.NotNullOrWhiteSpace(orderNumber, nameof(orderNumber), PurchaseOrderConsts.MaxOrderNumberLength);
         OrderDate = orderDate;
         TenantId = tenantId;
@@ -73,9 +73,19 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
         _items.Add(new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        RecalculateTotals();
+    }
+
+    /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>
+    public void ClearItems()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _items.Clear();
         RecalculateTotals();
     }
 
@@ -154,6 +164,15 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+
+    /// <summary>Item's stock UOM. From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
 
     /// <summary>Quantity already received via Purchase Receipts.</summary>
     public decimal ReceivedQty { get; set; }

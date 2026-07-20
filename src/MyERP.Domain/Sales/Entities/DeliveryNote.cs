@@ -81,9 +81,9 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public DeliveryNote(Guid id, Guid companyId, Guid customerId, Guid warehouseId, string deliveryNumber, DateTime postingDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        CustomerId = customerId;
-        WarehouseId = warehouseId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        CustomerId = Check.NotDefaultOrNull<Guid>(customerId, nameof(customerId));
+        WarehouseId = Check.NotDefaultOrNull<Guid>(warehouseId, nameof(warehouseId));
         DeliveryNumber = Check.NotNullOrWhiteSpace(deliveryNumber, nameof(deliveryNumber), 50);
         PostingDate = postingDate;
         TenantId = tenantId;

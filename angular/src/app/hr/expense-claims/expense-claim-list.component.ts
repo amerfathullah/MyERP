@@ -52,7 +52,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </table>
         </div></div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -60,18 +60,23 @@ export class ExpenseClaimListComponent implements OnInit {
   private service = inject(ExpenseClaimService);
   items: ExpenseClaimDto[] = [];
   isLoading = false;
+  totalCount = 0;
 
   currentPage = 0;
   pageSize = 20;
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
     this.isLoading = true;
-    this.service.getList({ skipCount: 0, maxResultCount: 50 })
-      .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize })
+      .subscribe({ next: (r) => { this.items = r.items ?? []; this.totalCount = r.totalCount ?? 0; this.isLoading = false; }, error: () => { this.isLoading = false; } });
   }
 
   statusLabel(s: number | undefined): string { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s ?? 0] ?? 'Draft'; }
   statusClass(s: number | undefined): string { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s ?? 0] ?? 'bg-secondary'; }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 }

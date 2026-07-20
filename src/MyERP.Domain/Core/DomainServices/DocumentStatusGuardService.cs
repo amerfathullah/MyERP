@@ -35,14 +35,18 @@ public class DocumentStatusGuardService : DomainService
     public async Task ValidateSOCancelAsync(Guid salesOrderId)
     {
         var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
-        var linkedInvoices = siQuery
+        var hasLinkedInvoices = siQuery
             .Where(si => si.Items.Any(i => i.SalesOrderItemId.HasValue)
                       && si.Status != DocumentStatus.Cancelled
                       && si.Status != DocumentStatus.Draft)
             .Any();
 
-        // Note: In a real implementation, we'd check the specific SO items
-        // For now, this is a framework placeholder for the guard pattern
+        if (hasLinkedInvoices)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                .WithData("documentType", "Sales Order")
+                .WithData("dependentType", "Sales Invoice");
+        }
     }
 
     /// <summary>

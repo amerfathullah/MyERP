@@ -22,6 +22,8 @@ export interface CreatePurchaseInvoiceDto {
   isOpening?: boolean;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  updateStock?: boolean;
+  warehouseId?: string | null;
   items: CreatePurchaseInvoiceItemDto[];
 }
 
@@ -232,6 +234,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   creditToAccountId?: string;
+  supplierName?: string | null;
   items?: PurchaseInvoiceItemDto[];
 }
 

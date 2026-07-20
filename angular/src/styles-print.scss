@@ -1,0 +1,71 @@
+/* Global print styles for all pages */
+@media print {
+  /* Hide LeptonX shell elements */
+  .lpx-sidebar,
+  .lpx-navbar,
+  .lpx-topbar-container,
+  .lpx-mobile-navbar,
+  .lpx-footer,
+  .abp-subheader,
+  abp-breadcrumb {
+    display: none !important;
+  }
+
+  /* Full-width content */
+  .lpx-content-container,
+  .lpx-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body {
+    font-size: 11pt;
+    line-height: 1.4;
+    color: #000;
+  }
+
+  /* Remove shadows and unnecessary borders */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Links show as text (no underline blue) */
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+
+  /* Hide all action buttons */
+  .btn-group,
+  .dropdown-menu,
+  .btn-primary,
+  .btn-outline-primary,
+  .btn-outline-secondary,
+  .btn-outline-danger {
+    display: none !important;
+  }
+
+  /* Keep Print button visible (users click before dialog opens) */
+  .btn-print {
+    display: none !important;
+  }
+
+  /* Tables: clean borders */
+  .table {
+    border-collapse: collapse !important;
+  }
+
+  .table th,
+  .table td {
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 15mm;
+    size: A4;
+  }
+}

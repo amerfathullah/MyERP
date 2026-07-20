@@ -11,6 +11,7 @@ import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-ba
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 @Component({
@@ -18,7 +19,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationPipe,
-    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent],
+    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent, ActivityLogComponent],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],
 })
@@ -130,6 +131,14 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       next: (amended) => {
         this.router.navigate(['/purchasing/invoices', amended.id]);
       },
+    });
+  }
+
+  deleteInvoice(): void {
+    if (!confirm('Are you sure you want to delete this draft invoice?')) return;
+    this.http.delete(`/api/app/purchase-invoice/${this.invoice!.id}`).subscribe({
+      next: () => this.router.navigate(['/purchasing/invoices']),
+      error: () => {},
     });
   }
 }

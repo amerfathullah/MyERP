@@ -154,7 +154,9 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
         var name = GetValue(headers, values, "Name") ?? GetValue(headers, values, "CustomerName")
             ?? throw new InvalidOperationException("Name column is required");
         var companyIdStr = GetValue(headers, values, "CompanyId");
-        var companyId = companyIdStr != null ? Guid.Parse(companyIdStr) : Guid.Empty;
+        if (string.IsNullOrEmpty(companyIdStr))
+            throw new InvalidOperationException("CompanyId column is required for customer import");
+        var companyId = Guid.Parse(companyIdStr);
         var customer = new Customer(GuidGenerator.Create(), companyId, name, CurrentTenant.Id)
         {
             CustomerCode = GetValue(headers, values, "CustomerCode") ?? GetValue(headers, values, "Code"),
@@ -171,7 +173,9 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
             ?? throw new InvalidOperationException("ItemName column is required");
         var code = GetValue(headers, values, "ItemCode") ?? GetValue(headers, values, "Code") ?? name;
         var companyIdStr = GetValue(headers, values, "CompanyId");
-        var companyId = companyIdStr != null ? Guid.Parse(companyIdStr) : Guid.Empty;
+        if (string.IsNullOrEmpty(companyIdStr))
+            throw new InvalidOperationException("CompanyId column is required for item import");
+        var companyId = Guid.Parse(companyIdStr);
         var item = new Item(GuidGenerator.Create(), companyId, code, name, ItemType.Goods, CurrentTenant.Id)
         {
             Uom = GetValue(headers, values, "UOM") ?? "Unit",
@@ -184,24 +188,42 @@ public class ImportExportAppService : ApplicationService, IImportExportAppServic
 
     private async Task<string> ExportCustomersAsync()
     {
-        var customers = await _customerRepository.GetListAsync();
         var sb = new StringBuilder();
         sb.AppendLine("Name,CustomerCode,TIN,Email,Phone");
-        foreach (var c in customers)
+
+        var query = await _customerRepository.GetQueryableAsync();
+        const int batchSize = 1000;
+        int skip = 0;
+        while (true)
         {
-            sb.AppendLine($"\"{Escape(c.Name)}\",\"{Escape(c.CustomerCode)}\",\"{Escape(c.Tin)}\",\"{Escape(c.Email)}\",\"{Escape(c.Phone)}\"");
+            var batch = query.OrderBy(c => c.Id).Skip(skip).Take(batchSize).ToList();
+            if (batch.Count == 0) break;
+            foreach (var c in batch)
+            {
+                sb.AppendLine($"\"{Escape(c.Name)}\",\"{Escape(c.CustomerCode)}\",\"{Escape(c.Tin)}\",\"{Escape(c.Email)}\",\"{Escape(c.Phone)}\"");
+            }
+            skip += batchSize;
         }
         return sb.ToString();
     }
 
     private async Task<string> ExportItemsAsync()
     {
-        var items = await _itemRepository.GetListAsync();
         var sb = new StringBuilder();
         sb.AppendLine("ItemName,ItemCode,UOM,StandardSellingPrice");
-        foreach (var item in items)
+
+        var query = await _itemRepository.GetQueryableAsync();
+        const int batchSize = 1000;
+        int skip = 0;
+        while (true)
         {
-            sb.AppendLine($"\"{Escape(item.ItemName)}\",\"{Escape(item.ItemCode)}\",\"{Escape(item.Uom)}\",{item.StandardSellingPrice}");
+            var batch = query.OrderBy(i => i.Id).Skip(skip).Take(batchSize).ToList();
+            if (batch.Count == 0) break;
+            foreach (var item in batch)
+            {
+                sb.AppendLine($"\"{Escape(item.ItemName)}\",\"{Escape(item.ItemCode)}\",\"{Escape(item.Uom)}\",{item.StandardSellingPrice}");
+            }
+            skip += batchSize;
         }
         return sb.ToString();
     }

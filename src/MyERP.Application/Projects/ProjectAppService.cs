@@ -44,10 +44,10 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             query = query.Where(p => p.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
+            var filter = input.Filter;
             query = query.Where(p =>
-                p.ProjectName.ToLower().Contains(filter) ||
-                p.ProjectNumber.ToLower().Contains(filter));
+                p.ProjectName.ToLower().Contains(filter.ToLower()) ||
+                p.ProjectNumber.Contains(filter));
         }
 
         var totalCount = query.Count();
@@ -221,3 +221,4 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         await _projectRepository.UpdateAsync(project);
     }
 }
+

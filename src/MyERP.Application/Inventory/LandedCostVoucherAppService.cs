@@ -39,7 +39,7 @@ public class LandedCostVoucherAppService : ApplicationService
             query = query.Where(l => l.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(l => (l.VoucherNumber ?? "").ToLower().Contains(f));
         }
 
@@ -180,3 +180,4 @@ public class LandedCostVoucherAppService : ApplicationService
         return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
 }
+

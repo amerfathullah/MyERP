@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -13,13 +13,26 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   selector: 'app-payment-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, RouterLink],
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.paymentNumber || ('PaymentEntry' | abpLocalization)">
       @if (!entry()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div></div>
+          @if (entry()!.status === 'Draft') {
+            <div class="btn-group btn-group-sm">
+              <a class="btn btn-outline-primary" [routerLink]="['/accounting/payments', entry()!.id, 'edit']">
+                <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+              </a>
+              <button class="btn btn-outline-danger" (click)="deleteEntry()">
+                <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+              </button>
+            </div>
+          }
+        </div>
         <app-document-workflow [actions]="workflowActions" (actionClicked)="onAction($event)" />
 
         <div class="row mb-4">
@@ -157,5 +170,13 @@ export class PaymentEntryDetailComponent implements OnInit {
         this.references.set(data.references || []);
       });
     }, 500);
+  }
+
+  deleteEntry(): void {
+    if (!confirm('Are you sure you want to delete this draft payment entry?')) return;
+    this.http.delete(`/api/app/payment-entry/${this.entry()!.id}`).subscribe({
+      next: () => this.router.navigate(['/accounting/payments']),
+      error: () => {},
+    });
   }
 }

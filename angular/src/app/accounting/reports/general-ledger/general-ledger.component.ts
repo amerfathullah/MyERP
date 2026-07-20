@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
@@ -21,6 +22,10 @@ interface GLEntry {
   voucherNumber?: string;
   debitAmount: number;
   creditAmount: number;
+  balance: number;
+  partyType?: string;
+  partyName?: string;
+  costCenterName?: string;
   description?: string;
 }
 
@@ -35,7 +40,7 @@ interface GLReport {
 @Component({
   selector: 'app-general-ledger',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './general-ledger.component.html',
   styleUrls: ['./general-ledger.component.scss'],
 })
@@ -51,6 +56,7 @@ export class GeneralLedgerComponent implements OnInit {
     accountId: [''],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]],
     toDate: [new Date().toISOString().split('T')[0]],
+    voucherNumber: [''],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -84,9 +90,10 @@ export class GeneralLedgerComponent implements OnInit {
   generate(): void {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
-    const { companyId, accountId, fromDate, toDate } = this.filters.getRawValue();
+    const { companyId, accountId, fromDate, toDate, voucherNumber } = this.filters.getRawValue();
     const params: any = { companyId, fromDate, toDate };
     if (accountId) params.accountId = accountId;
+    if (voucherNumber) params.voucherNumber = voucherNumber;
 
     this.http.get<GLReport>('/api/app/general-ledger/report', { params })
       .subscribe({
@@ -99,7 +106,20 @@ export class GeneralLedgerComponent implements OnInit {
     const r = this.report();
     if (!r?.entries?.length) return;
     exportToCsv('general-ledger.csv', r.entries, [
-      'postingDate', 'accountCode', 'accountName', 'voucherNumber', 'debitAmount', 'creditAmount', 'description'
+      'postingDate', 'accountCode', 'accountName', 'voucherType', 'voucherNumber',
+      'partyType', 'partyName', 'debitAmount', 'creditAmount', 'balance', 'costCenterName', 'description'
     ]);
+  }
+
+  getVoucherRoute(entry: GLEntry): string[] {
+    if (!entry.voucherId) return [];
+    switch (entry.voucherType) {
+      case 'SalesInvoice': return ['/sales/invoices', entry.voucherId];
+      case 'PurchaseInvoice': return ['/purchasing/invoices', entry.voucherId];
+      case 'PaymentEntry': return ['/accounting/payments', entry.voucherId];
+      case 'DeliveryNote': return ['/sales/delivery-notes', entry.voucherId];
+      case 'PurchaseReceipt': return ['/purchasing/receipts', entry.voucherId];
+      default: return ['/accounting/journal-entries', entry.voucherId];
+    }
   }
 }

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
+using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -88,21 +89,20 @@ public class SubscriptionAppService : ApplicationService
         _billingEngine = billingEngine;
     }
 
-    public async Task<PagedResultDto<SubscriptionDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<SubscriptionDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
 
-        // Support filter param from frontend search
-        if (input is MyERP.Shared.CompanyFilteredPagedRequestDto filtered)
+        if (input.CompanyId.HasValue)
+            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
+        if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            if (filtered.CompanyId.HasValue)
-                query = query.Where(x => x.CompanyId == filtered.CompanyId.Value);
-            if (!string.IsNullOrWhiteSpace(filtered.Filter))
-            {
-                var f = filtered.Filter.ToLower();
-                query = query.Where(x => x.SubscriptionNumber != null && x.SubscriptionNumber.ToLower().Contains(f));
-            }
+            var f = input.Filter;
+            query = query.Where(x => x.SubscriptionNumber != null && x.SubscriptionNumber.ToLower().Contains(f));
         }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<SubscriptionStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
@@ -198,3 +198,4 @@ public class SubscriptionAppService : ApplicationService
         };
     }
 }
+

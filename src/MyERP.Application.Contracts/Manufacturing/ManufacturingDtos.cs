@@ -20,8 +20,24 @@ public class BomDto : AuditedEntityDto<Guid>
     public bool IsActive { get; set; }
     public bool IsDefault { get; set; }
     public decimal TotalMaterialCost { get; set; }
+    public decimal OperatingCost { get; set; }
     public decimal TotalCost { get; set; }
     public List<BomItemDto> Items { get; set; } = new();
+    public List<BomOperationDto> Operations { get; set; } = new();
+}
+
+public class BomOperationDto
+{
+    public Guid Id { get; set; }
+    public Guid OperationId { get; set; }
+    public Guid? WorkstationId { get; set; }
+    public int SequenceId { get; set; }
+    public decimal TimeInMins { get; set; }
+    public decimal OperatingCost { get; set; }
+    public int BatchSize { get; set; }
+    public decimal FixedTime { get; set; }
+    public string? Description { get; set; }
+    public bool IsSubcontracted { get; set; }
 }
 
 public class BomItemDto
@@ -44,7 +60,22 @@ public class CreateBomDto
     public bool IsDefault { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
+    public Guid? RoutingId { get; set; }
     public List<CreateBomItemDto> Items { get; set; } = new();
+    public List<CreateBomOperationDto> Operations { get; set; } = new();
+}
+
+public class CreateBomOperationDto
+{
+    [Required] public Guid OperationId { get; set; }
+    public Guid? WorkstationId { get; set; }
+    [Range(1, int.MaxValue)] public int SequenceId { get; set; }
+    [Range(0, double.MaxValue)] public decimal TimeInMins { get; set; }
+    public int BatchSize { get; set; }
+    public decimal FixedTime { get; set; }
+    public string? Description { get; set; }
+    public bool IsSubcontracted { get; set; }
+    public decimal WorkstationHourRate { get; set; }
 }
 
 public class CreateBomItemDto

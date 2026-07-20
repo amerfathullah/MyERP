@@ -42,7 +42,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           </table>
         </div></div>
       }
-      <app-pagination [totalCount]="0" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+      <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
   </abp-page>
   `,
 })
@@ -50,15 +50,20 @@ export class BatchListComponent implements OnInit {
   private service = inject(BatchService);
   items: BatchDto[] = [];
   isLoading = false;
+  totalCount = 0;
 
   currentPage = 0;
   pageSize = 20;
 
   ngOnInit(): void {
-    this.isLoading = true;
-    this.service.getList({ skipCount: 0, maxResultCount: 50 })
-      .subscribe({ next: (r) => { this.items = r.items ?? []; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+    this.load();
   }
 
-  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; /* reload handled by store */; }
+  load(): void {
+    this.isLoading = true;
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize })
+      .subscribe({ next: (r) => { this.items = r.items ?? []; this.totalCount = r.totalCount ?? 0; this.isLoading = false; }, error: () => { this.isLoading = false; } });
+  }
+
+  onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 }

@@ -68,4 +68,18 @@ export class JobCardService {
       url: `/api/app/job-card/${id}/start`,
     },
     { apiName: this.apiName,...config });
+
+  hold = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JobCardDto>({
+      method: 'POST',
+      url: `/api/app/job-card/${id}/hold`,
+    },
+    { apiName: this.apiName,...config });
+
+  resume = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JobCardDto>({
+      method: 'POST',
+      url: `/api/app/job-card/${id}/resume`,
+    },
+    { apiName: this.apiName,...config });
 }

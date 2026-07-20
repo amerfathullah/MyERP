@@ -48,7 +48,7 @@
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
-                  <td class="fw-medium">{{ row.quotationNumber }}</td>
+                  <td class="fw-medium"><a [routerLink]="['/sales/quotations', row.id]" class="text-decoration-none">{{ row.quotationNumber }}</a></td>
                   <td>{{ row.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>

@@ -7,6 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
 import type { LeaveTypeDto } from '../../proxy/human-resources/models';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -82,6 +83,7 @@ export class LeaveFormComponent implements OnInit {
   private router = inject(Router);
   private service = inject(LeaveService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   leaveTypes = signal<LeaveTypeDto[]>([]);
 
@@ -98,6 +100,8 @@ export class LeaveFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.service.getLeaveTypes().subscribe(types => this.leaveTypes.set(types));
+    const cid = this.companyContext.currentCompanyId();
+    if (cid) this.form.patchValue({ companyId: cid });
   }
 
   save(): void {

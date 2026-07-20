@@ -246,7 +246,7 @@ public class LoanAppServiceEntityTests
     public void Loan_CancelFromDraft()
     {
         var loan = CreateLoan();
-        loan.Status = LoanStatus.Cancelled;
+        loan.Cancel();
         loan.Status.ShouldBe(LoanStatus.Cancelled);
     }
 

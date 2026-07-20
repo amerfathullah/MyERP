@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
@@ -44,9 +45,12 @@ public class RequestForQuotationAppService : ApplicationService
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(x => x.RfqNumber.ToLower().Contains(f));
         }
+
+        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+            query = query.Where(x => x.Status == status);
 
         var count = query.Count();
         var list = query.OrderByDescending(x => x.TransactionDate)
@@ -159,3 +163,4 @@ public class CreateRfqSupplierDto
     public Guid SupplierId { get; set; }
     public string? Email { get; set; }
 }
+

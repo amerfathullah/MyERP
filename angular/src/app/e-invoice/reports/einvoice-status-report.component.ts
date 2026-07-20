@@ -2,13 +2,14 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { HttpClient } from '@angular/common/http';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 
 @Component({
   selector: 'app-einvoice-status-report',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LhdnStatusBadgeComponent],
+  imports: [CommonModule, ReactiveFormsModule, PageModule, LhdnStatusBadgeComponent, LocalizationPipe],
   templateUrl: './einvoice-status-report.component.html',
   styleUrls: ['./einvoice-status-report.component.scss'],
 })

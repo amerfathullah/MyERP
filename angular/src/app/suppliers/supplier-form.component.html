@@ -20,8 +20,13 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Company' | abpLocalization }} <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" formControlName="companyId"
-              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched" />
+            <select class="form-select" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
             @if (form.get('companyId')?.errors?.['required'] && form.get('companyId')?.touched) {
               <div class="invalid-feedback">Required</div>
             }

@@ -30,11 +30,12 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <div class="col-md-3">@if (d.startedAt) { <strong>Started:</strong> {{ d.startedAt | date:'dd/MM/yyyy HH:mm' }} }</div>
             <div class="col-md-3">@if (d.completedAt) { <strong>Completed:</strong> {{ d.completedAt | date:'dd/MM/yyyy HH:mm' }} }</div>
           </div>
-          @if (d.status === 0 || d.status === 1) {
+          @if (d.status === 0 || d.status === 1 || d.status === 4) {
             <div class="mt-3 d-flex gap-2">
               @if (d.status === 0) { <button class="btn btn-sm btn-primary" (click)="action('start')"><i class="fa fa-play me-1"></i>Start</button> }
               @if (d.status === 1) { <button class="btn btn-sm btn-success" (click)="action('complete')"><i class="fa fa-check me-1"></i>Complete</button> }
               @if (d.status === 1) { <button class="btn btn-sm btn-warning" (click)="action('hold')"><i class="fa fa-pause me-1"></i>Hold</button> }
+              @if (d.status === 4) { <button class="btn btn-sm btn-info" (click)="action('resume')"><i class="fa fa-play me-1"></i>Resume</button> }
             </div>
           }
         </div></div>
@@ -79,6 +80,8 @@ export class JobCardDetailComponent implements OnInit {
       start: (i) => this.service.start(i),
       complete: (i) => this.service.complete(i),
       cancel: (i) => this.service.cancel(i),
+      hold: (i) => this.service.hold(i),
+      resume: (i) => this.service.resume(i),
     };
     (actions[type]?.(id) ?? this.service.get(id)).subscribe(() => this.load());
   }

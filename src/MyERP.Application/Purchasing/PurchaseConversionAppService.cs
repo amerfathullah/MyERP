@@ -60,7 +60,9 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             GuidGenerator.Create(),
             po.CompanyId,
             po.SupplierId,
-            Guid.Empty, // Warehouse to be set by user after creation
+            po.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+                ?? throw new BusinessException("MyERP:01007")
+                    .WithData("documentType", "Purchase Receipt — no warehouse set on Purchase Order items"),
             receiptNumber,
             Clock.Now.Date,
             po.TenantId);
@@ -75,6 +77,13 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             if (pendingQty > 0)
             {
                 receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                // Carry forward UOM conversion data from PO item
+                var lastItem = receipt.Items[^1];
+                lastItem.StockUom = item.StockUom;
+                lastItem.ConversionFactor = item.ConversionFactor;
+                // Propagate per-item warehouse override
+                if (item.WarehouseId.HasValue)
+                    lastItem.WarehouseId = item.WarehouseId;
             }
         }
 
@@ -115,9 +124,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             if (pendingQty > 0)
             {
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
-                // Set PO item link for billing tracking
                 var lastItem = invoice.Items.Last();
                 lastItem.PurchaseOrderItemId = item.Id;
+                lastItem.StockUom = item.StockUom;
+                lastItem.ConversionFactor = item.ConversionFactor;
             }
         }
 
@@ -154,10 +164,11 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         foreach (var item in receipt.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
-            // Carry through PO item link and PR item link from PR item
             var lastItem = invoice.Items.Last();
             lastItem.PurchaseOrderItemId = item.PurchaseOrderItemId;
             lastItem.PurchaseReceiptItemId = item.Id;
+            lastItem.StockUom = item.StockUom;
+            lastItem.ConversionFactor = item.ConversionFactor;
         }
 
         await _purchaseInvoiceRepository.InsertAsync(invoice, autoSave: true);

@@ -12,13 +12,14 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import type { DeliveryNoteDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })

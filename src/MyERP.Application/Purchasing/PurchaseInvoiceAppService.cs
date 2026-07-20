@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
@@ -98,23 +99,50 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
-            query = query.Where(x => x.InvoiceNumber.ToLower().Contains(filter));
+            var filter = input.Filter; query = query.Where(x => x.InvoiceNumber.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.IssueDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.IssueDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var invoices = query
-            .OrderByDescending(x => x.IssueDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.IssueDate),
+            ("invoiceNumber", x => x.InvoiceNumber),
+            ("issueDate", x => x.IssueDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var invoices = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<PurchaseInvoiceDto>(
-            totalCount,
-            invoices.Select(x => ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(x)).ToList());
+        var dtos = invoices.Select(x => ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(x)).ToList();
+
+        // Batch-resolve supplier names (avoid N+1)
+        var supplierIds = invoices.Select(i => i.SupplierId).Distinct().ToList();
+        if (supplierIds.Count > 0)
+        {
+            var supplierQuery = await _supplierRepository.GetQueryableAsync();
+            var supplierNames = supplierQuery
+                .Where(s => supplierIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.Name })
+                .ToDictionary(s => s.Id, s => s.Name);
+
+            foreach (var dto in dtos)
+            {
+                if (supplierNames.TryGetValue(dto.SupplierId, out var name))
+                    dto.SupplierName = name;
+            }
+        }
+
+        return new PagedResultDto<PurchaseInvoiceDto>(totalCount, dtos);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
@@ -147,6 +175,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsOpening = input.IsOpening;
         invoice.IsReturn = input.IsReturn;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+        invoice.UpdateStock = input.UpdateStock;
+        invoice.WarehouseId = input.WarehouseId;
 
         // Set party account (credit_to):
         // Returns: inherit from original invoice (ensures account match validation works)
@@ -191,6 +221,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        // Resolve UOM conversion factors for direct PI creation (when UpdateStock=true, stock needs StockQty)
+        var uomSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var piItem in invoice.Items)
+        {
+            var itemEntity = await itemRepo.FindAsync(piItem.ItemId);
+            if (itemEntity != null)
+            {
+                piItem.StockUom = itemEntity.Uom ?? "Unit";
+                if (!string.IsNullOrEmpty(piItem.Uom) && piItem.Uom != piItem.StockUom)
+                {
+                    piItem.ConversionFactor = await uomSvc.GetConversionFactorAsync(
+                        piItem.ItemId, piItem.Uom, piItem.StockUom);
+                }
+            }
         }
 
         await _repository.InsertAsync(invoice, autoSave: true);
@@ -338,9 +385,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
                     if (result.ThresholdCrossed && result.WithheldAmount > 0)
                     {
-                        // Create withholding entry
+                        // Create withholding entry — uses dedicated tax payable account or expense fallback
                         var company = await _companyRepository.GetAsync(invoice.CompanyId);
-                        var taxAccountId = company.DefaultExpenseAccountId ?? Guid.Empty;
+                        if (!company.DefaultExpenseAccountId.HasValue)
+                            throw new Volo.Abp.BusinessException("MyERP:02001")
+                                .WithData("reason", "No expense account configured for tax withholding. Set Default Expense Account in Company settings.");
+                        var taxAccountId = company.DefaultExpenseAccountId.Value;
                         await _taxWithholdingService.CreateEntryAsync(
                             invoice.CompanyId, invoice.SupplierId,
                             "PurchaseInvoice", invoice.Id, taxAccountId,
@@ -353,13 +403,25 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.Submit();
 
-        // Debit Note: reduce original invoice outstanding (mirrors credit note behavior)
+        // Debit Note: reduce original invoice outstanding (with concurrency retry)
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
         {
-            var original = await _repository.GetAsync(invoice.ReturnAgainstId.Value);
             var returnAmount = Math.Abs(invoice.GrandTotal);
-            original.AmountPaid += returnAmount;
-            await _repository.UpdateAsync(original);
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try
+                {
+                    var original = await _repository.GetAsync(invoice.ReturnAgainstId.Value);
+                    original.AmountPaid += returnAmount;
+                    await _repository.UpdateAsync(original, autoSave: true);
+                    break;
+                }
+                catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+                {
+                    Logger.LogWarning("Concurrency conflict on PI debit note AmountPaid (attempt {Attempt})", attempt);
+                    await Task.Delay(attempt * 10);
+                }
+            }
         }
 
         // Update Stock: create SLE entries for direct purchase (without PR)
@@ -381,15 +443,21 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                // Use StockQty for SLE (respects UOM conversion)
+                var stockQty = item.StockQty;
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, item.Quantity, item.UnitPrice,
+                    invoice.IssueDate, stockQty, ratePerStockUnit,
                     voucherType: "PurchaseInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
-                    item.Quantity, item.Quantity * item.UnitPrice, invoice.TenantId);
+                    stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
             }
         }
 
@@ -438,7 +506,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         }
                     }
                     po.UpdateFulfillmentStatus();
-                    await _purchaseOrderRepository.UpdateAsync(po);
+                    await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);
                 }
             }
         }
@@ -514,7 +582,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Reverse PLE entries
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
 
-        // Reverse stock if UpdateStock was used
+        // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
@@ -524,15 +592,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                var stockQty = item.StockQty;
+                var ratePerStockUnit = item.ConversionFactor != 0
+                    ? item.UnitPrice / item.ConversionFactor
+                    : item.UnitPrice;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, -item.Quantity, item.UnitPrice, // Negative = stock out (reversal)
+                    invoice.IssueDate, -stockQty, ratePerStockUnit, // Negative = stock out (reversal)
                     voucherType: "PurchaseInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
-                    -item.Quantity, -(item.Quantity * item.UnitPrice), invoice.TenantId);
+                    -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
             }
         }
 
@@ -561,7 +634,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     }
                 }
                 po.UpdateFulfillmentStatus();
-                await _purchaseOrderRepository.UpdateAsync(po);
+                await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);
             }
         }
 
@@ -629,4 +702,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(amended);
     }
+
+    [Authorize(MyERPPermissions.PurchaseInvoices.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft invoices can be deleted");
+        await _repository.DeleteAsync(id);
+    }
 }
+

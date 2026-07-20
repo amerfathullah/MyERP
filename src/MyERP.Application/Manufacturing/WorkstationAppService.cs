@@ -37,7 +37,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(x => x.Name.ToLower().Contains(f) ||
                                      (x.WorkstationType != null && x.WorkstationType.ToLower().Contains(f)));
         }
@@ -62,3 +62,4 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }
 }
+

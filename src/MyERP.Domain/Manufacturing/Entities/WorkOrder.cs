@@ -35,17 +35,17 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
-    public List<WorkOrderItem> RequiredItems { get; set; } = new();
+    public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
     protected WorkOrder() { }
 
     public WorkOrder(Guid id, Guid companyId, string workOrderNumber, Guid itemId, Guid bomId, decimal quantity, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
         WorkOrderNumber = workOrderNumber;
-        ItemId = itemId;
-        BomId = bomId;
+        ItemId = Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
+        BomId = Check.NotDefaultOrNull<Guid>(bomId, nameof(bomId));
         Quantity = quantity;
         Status = WorkOrderStatus.Draft;
         TenantId = tenantId;

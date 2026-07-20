@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -13,6 +14,7 @@ namespace MyERP.Inventory;
 /// Used for balance sheet preparation (Inventory asset = total stock value).
 /// Per ERPNext: stock_balance report with valuation_rate × actual_qty per Bin.
 /// </summary>
+[Authorize]
 public class StockValuationSummaryAppService : ApplicationService
 {
     private readonly IRepository<Bin, Guid> _binRepository;

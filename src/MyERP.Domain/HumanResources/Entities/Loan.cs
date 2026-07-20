@@ -32,7 +32,7 @@ public class Loan : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public LoanType LoanType { get; set; }
     public InterestCalculationMethod InterestMethod { get; set; }
-    public LoanStatus Status { get; set; } = LoanStatus.Draft;
+    public LoanStatus Status { get; private set; } = LoanStatus.Draft;
 
     /// <summary>Original loan principal amount.</summary>
     public decimal LoanAmount { get; set; }
@@ -177,6 +177,13 @@ public class Loan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (PenaltyRate <= 0 || overdueDays <= 0) return 0;
         return Math.Round(overduePrincipal * (PenaltyRate / 100m) * overdueDays / 365m, 2);
+    }
+
+    public void Cancel()
+    {
+        if (Status is LoanStatus.FullyRepaid or LoanStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = LoanStatus.Cancelled;
     }
 
     private decimal CalculateDiminishingEmi()

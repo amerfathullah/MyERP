@@ -8,18 +8,20 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import { PurchaseOrderStore } from '../store/purchase-order.store';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })
@@ -27,15 +29,18 @@ export class PurchaseOrderFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private store = inject(PurchaseOrderStore);
   private service = inject(PurchaseOrderService);
   private supplierService = inject(SupplierService);
   private companyService = inject(CompanyService);
+  private itemService = inject(ItemService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private warehouseService = inject(WarehouseService);
 
   companies = signal<CompanyDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
+  availableItems = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
   isEditMode = false;
   entityId: string | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal', 'actions'];
@@ -46,6 +51,7 @@ export class PurchaseOrderFormComponent implements OnInit {
     orderDate: [new Date().toISOString().split('T')[0], Validators.required],
     expectedDeliveryDate: [''],
     notes: [''],
+    warehouseId: [''],
     items: this.fb.array([], Validators.minLength(1)),
   });
 
@@ -65,15 +71,22 @@ export class PurchaseOrderFormComponent implements OnInit {
       .subscribe(r => this.companies.set(r.items ?? []));
     this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'name asc' })
       .subscribe(r => this.suppliers.set(r.items ?? []));
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'itemCode asc' } as any)
+      .subscribe(r => this.availableItems.set(r.items ?? []));
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
+      .subscribe(r => this.warehouses.set((r.items ?? []).filter((w: any) => !w.isGroup)));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe(po => {
+        // Resolve warehouse from first item (header-level representation)
+        const itemWarehouse = (po.items ?? []).find((i: any) => i.warehouseId)?.warehouseId ?? '';
         this.form.patchValue({
           companyId: po.companyId,
           supplierId: po.supplierId,
           orderDate: po.orderDate,
           expectedDeliveryDate: po.expectedDeliveryDate ?? '',
           notes: '',
+          warehouseId: itemWarehouse,
         });
         po.items?.forEach(item => this.addItemRow(item));
       });
@@ -95,6 +108,14 @@ export class PurchaseOrderFormComponent implements OnInit {
 
   removeItemRow(index: number): void {
     this.items.removeAt(index);
+  }
+
+  onItemSelected(index: number, itemId: string): void {
+    const item = this.availableItems().find((i: any) => i.id === itemId);
+    if (item) {
+      const row = this.items.at(index) as FormGroup;
+      row.patchValue({ description: item.itemName || item.itemCode });
+    }
   }
 
   getLineTotal(row: FormGroup): number {
@@ -125,11 +146,26 @@ export class PurchaseOrderFormComponent implements OnInit {
       if (this.items.length === 0) this.toaster.warn('Add at least one item');
       return;
     }
-    const dto = this.form.getRawValue() as any;
-    this.service.create(dto).subscribe({
-      next: () => this.router.navigate(['/purchasing/orders']),
-      error: () => { /* handled by global error interceptor */ },
-    });
+    const raw = this.form.getRawValue() as any;
+    const warehouseId = raw.warehouseId || null;
+    const dto = {
+      ...raw,
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        warehouseId,
+      })),
+    };
+    if (this.isEditMode) {
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => this.router.navigate(['/purchasing/orders', this.entityId]),
+        error: () => { /* handled by global error interceptor */ },
+      });
+    } else {
+      this.service.create(dto).subscribe({
+        next: () => this.router.navigate(['/purchasing/orders']),
+        error: () => { /* handled by global error interceptor */ },
+      });
+    }
   }
 
   cancel(): void {

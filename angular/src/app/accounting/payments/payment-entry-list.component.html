@@ -1,8 +1,14 @@
 <abp-page [title]="'::PaymentEntries' | abpLocalization">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="d-flex gap-2 align-items-center">
-      <input type="text" class="form-control form-control-sm" style="width: 200px;"
+      <input type="text" class="form-control form-control-sm" style="width: 180px;"
         [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <div class="input-group input-group-sm" style="width: 260px;">
+        <span class="input-group-text"><i class="fa fa-calendar"></i></span>
+        <input type="date" class="form-control" [(ngModel)]="fromDate" (change)="onDateChange()">
+        <span class="input-group-text">–</span>
+        <input type="date" class="form-control" [(ngModel)]="toDate" (change)="onDateChange()">
+      </div>
       <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
         <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
         <option value="Draft">Draft</option>
@@ -11,9 +17,14 @@
       </select>
       <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
     </div>
-    <button class="btn btn-primary btn-sm" routerLink="new">
-      <i class="fa fa-plus me-1"></i> {{ '::NewPayment' | abpLocalization }}
-    </button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+        <i class="fa fa-download me-1"></i> {{ '::ExportCSV' | abpLocalization }}
+      </button>
+      <button class="btn btn-primary btn-sm" routerLink="new">
+        <i class="fa fa-plus me-1"></i> {{ '::NewPayment' | abpLocalization }}
+      </button>
+    </div>
   </div>
 
   <div class="card">
@@ -38,11 +49,27 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 150px;">{{ '::PaymentNumber' | abpLocalization }}</th>
-                <th style="width: 110px;">{{ '::PaymentDate' | abpLocalization }}</th>
+                <th style="min-width: 150px;">
+                  <app-sortable-header field="paymentNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::PaymentNumber' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th style="width: 110px;">
+                  <app-sortable-header field="postingDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::PaymentDate' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th>{{ '::Type' | abpLocalization }}</th>
-                <th class="text-end" style="width: 130px;">{{ '::Amount' | abpLocalization }}</th>
-                <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">
+                  <app-sortable-header field="paidAmount" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Amount' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th style="width: 120px;">
+                  <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Status' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th class="text-end" style="width: 100px;"></th>
               </tr>
             </thead>

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HolidayListDetailService, type HolidayListDetailDto } from '../../proxy/detail-services';
+import { HolidayListDetailService, type HolidayListDetailDto } from '../../shared/services/detail-services';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

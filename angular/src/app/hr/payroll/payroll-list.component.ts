@@ -1,11 +1,14 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PayrollStore } from '../store/payroll.store';
+import { PayrollService } from '../../proxy/human-resources/payroll.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
@@ -15,7 +18,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-payroll-list',
   standalone: true,
   imports: [
-    PaginationComponent, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
+    PaginationComponent, CommonModule, FormsModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './payroll-list.component.html',
   styleUrls: ['./payroll-list.component.scss'],
@@ -24,6 +27,8 @@ export class PayrollListComponent implements OnInit {
   readonly store = inject(PayrollStore);
   private fb = inject(FormBuilder);
   private companyService = inject(CompanyService);
+  private payrollService = inject(PayrollService);
+  private toaster = inject(ToasterService);
 
   companies = signal<CompanyDto[]>([]);
   showCreateForm = false;
@@ -36,19 +41,40 @@ export class PayrollListComponent implements OnInit {
 
   currentPage = 0;
   pageSize = 20;
+  searchTerm = '';
+  statusFilter = '';
 
   ngOnInit(): void {
-    this.store.load({ skipCount: 0, maxResultCount: 20, sorting: 'year DESC, month DESC' });
+    this.loadData();
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(r => this.companies.set(r.items ?? []));
   }
 
-  onPageChange(event: any): void {
+  loadData(): void {
     this.store.load({
-      skipCount: event.pageIndex * event.pageSize,
-      maxResultCount: event.pageSize,
+      skipCount: this.currentPage * this.pageSize,
+      maxResultCount: this.pageSize,
       sorting: 'year DESC, month DESC',
+      filter: this.searchTerm || undefined,
+      status: this.statusFilter || undefined,
     });
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onStatusChange(status: string): void {
+    this.statusFilter = status;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onPageChange(event: any): void {
+    this.currentPage = event.pageIndex;
+    this.loadData();
   }
 
   toggleCreateForm(): void {
@@ -60,7 +86,13 @@ export class PayrollListComponent implements OnInit {
       this.createForm.markAllAsTouched();
       return;
     }
-    this.store.create(this.createForm.getRawValue() as any);
-    this.showCreateForm = false;
+    this.payrollService.create(this.createForm.getRawValue() as any).subscribe({
+      next: () => {
+        this.toaster.success('Payroll created successfully');
+        this.showCreateForm = false;
+        this.loadData();
+      },
+      error: () => {}
+    });
   }
 }

@@ -80,7 +80,7 @@ public class DeferredAccountingService : DomainService
                     if (existingDeferredJes.Contains(entry.PostingDate)) continue;
                     if (entry.PostingDate > asOfDate) continue;
 
-                    var je = CreateRecognitionJE(
+                    var je = await CreateRecognitionJEAsync(
                         invoice.CompanyId,
                         entry.Amount,
                         item.DeferredRevenueAccountId!.Value,
@@ -143,18 +143,23 @@ public class DeferredAccountingService : DomainService
         return entries;
     }
 
-    private JournalEntry CreateRecognitionJE(
+    private async Task<JournalEntry> CreateRecognitionJEAsync(
         Guid companyId, decimal amount, Guid deferredAccountId,
         DateTime postingDate, string description, Guid? tenantId)
     {
         // Resolve fiscal year for the posting date
-        var fyQuery = _fiscalYearRepository.GetQueryableAsync().GetAwaiter().GetResult();
+        var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
         var fy = fyQuery.FirstOrDefault(f =>
             f.CompanyId == companyId && f.StartDate <= postingDate && f.EndDate >= postingDate);
-        var fiscalYearId = fy?.Id ?? Guid.Empty;
+        if (fy == null)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02002")
+                .WithData("reason", $"No fiscal year covers posting date {postingDate:yyyy-MM-dd}. Create a fiscal year for this period.");
+        }
+        var fiscalYearId = fy.Id;
 
         // Resolve income account from company defaults
-        var company = _companyRepository.GetAsync(companyId).GetAwaiter().GetResult();
+        var company = await _companyRepository.GetAsync(companyId);
         var incomeAccountId = company.DefaultIncomeAccountId ?? deferredAccountId;
 
         var je = new JournalEntry(GuidGenerator.Create(), companyId, fiscalYearId, postingDate, tenantId);

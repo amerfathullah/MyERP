@@ -36,7 +36,7 @@ public class BatchAppService : ApplicationService
             query = query.Where(b => b.IsDisabled == input.IsDisabled.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(b => b.BatchNo.ToLower().Contains(f));
         }
 
@@ -105,3 +105,4 @@ public class GetBatchListDto : PagedAndSortedResultRequestDto
     public bool? IsDisabled { get; set; }
     public string? Filter { get; set; }
 }
+

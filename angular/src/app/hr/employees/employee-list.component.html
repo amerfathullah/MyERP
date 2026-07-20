@@ -52,8 +52,8 @@
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
                 <tr>
-                  <td class="font-monospace small">{{ row.id }}</td>
-                  <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="(row.firstName ?? '') + ' ' + (row.lastName ?? '')">{{ (row.firstName ?? '') + ' ' + (row.lastName ?? '') }}</td>
+                  <td class="font-monospace small">{{ row.employeeId ?? (row.id | slice:0:8) }}</td>
+                  <td class="fw-medium text-truncate" style="max-width: 200px;" [title]="(row.firstName ?? '') + ' ' + (row.lastName ?? '')"><a [routerLink]="['/hr/employees', row.id, 'edit']" class="text-decoration-none">{{ (row.firstName ?? '') + ' ' + (row.lastName ?? '') }}</a></td>
                   <td>{{ row.department ?? '—' }}</td>
                   <td>{{ row.designation ?? '—' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>

@@ -49,8 +49,8 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public Quotation(Guid id, Guid companyId, Guid customerId, string quotationNumber, DateTime issueDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        CustomerId = customerId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        CustomerId = Check.NotDefaultOrNull<Guid>(customerId, nameof(customerId));
         QuotationNumber = Check.NotNullOrWhiteSpace(quotationNumber, nameof(quotationNumber), QuotationConsts.MaxQuotationNumberLength);
         IssueDate = issueDate;
         TenantId = tenantId;

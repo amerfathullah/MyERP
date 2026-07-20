@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { QualityInspectionDetailService, type QualityInspectionDetailDto } from '../../proxy/detail-services';
+import { QualityInspectionDetailService, type QualityInspectionDetailDto } from '../../shared/services/detail-services';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 

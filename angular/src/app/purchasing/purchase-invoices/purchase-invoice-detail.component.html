@@ -9,6 +9,11 @@
       (actionTriggered)="onWorkflowAction($event)" />
 
     <div class="d-flex justify-content-end mt-2 mb-2 gap-2">
+      @if (invoice.status === 'Draft') {
+        <button class="btn btn-outline-danger btn-sm" (click)="deleteInvoice()">
+          <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+        </button>
+      }
       @if (invoice.status === 'Cancelled') {
         <button class="btn btn-outline-success btn-sm" (click)="amend()">
           <i class="fa fa-file-circle-plus me-1"></i>{{ '::AmendInvoice' | abpLocalization }}
@@ -132,5 +137,7 @@
         </div>
       </div>
     }
+
+    <app-activity-log [documentType]="'PurchaseInvoice'" [documentId]="invoice.id!"></app-activity-log>
   }
 </abp-page>

@@ -42,7 +42,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Notes { get; set; }
 
     // Child items
-    public List<OpportunityItem> Items { get; set; } = new();
+    public List<OpportunityItem> Items { get; private set; } = new();
 
     protected Opportunity() { }
 

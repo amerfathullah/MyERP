@@ -118,8 +118,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public SalesInvoice(Guid id, Guid companyId, Guid customerId, string invoiceNumber, DateTime issueDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
-        CustomerId = customerId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+        CustomerId = Check.NotDefaultOrNull<Guid>(customerId, nameof(customerId));
         InvoiceNumber = Check.NotNullOrWhiteSpace(invoiceNumber, nameof(invoiceNumber), SalesInvoiceConsts.MaxInvoiceNumberLength);
         IssueDate = issueDate;
         TenantId = tenantId;
@@ -129,6 +129,7 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
 
         // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
         if (!IsReturn && quantity <= 0)

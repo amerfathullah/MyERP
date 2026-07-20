@@ -46,10 +46,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
             query = query.Where(a => a.AssetCategoryId == input.AssetCategoryId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter.ToLower();
+            var filter = input.Filter;
             query = query.Where(a =>
-                a.AssetName.ToLower().Contains(filter) ||
-                a.AssetNumber.ToLower().Contains(filter));
+                a.AssetName.Contains(filter) ||
+                a.AssetNumber.Contains(filter));
         }
 
         var totalCount = query.Count();
@@ -152,3 +152,4 @@ public class AssetAppService : ApplicationService, IAssetAppService
         return ObjectMapper.Map<AssetCategory, AssetCategoryDto>(category);
     }
 }
+

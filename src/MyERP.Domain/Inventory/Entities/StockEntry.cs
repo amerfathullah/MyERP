@@ -51,7 +51,7 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public StockEntry(Guid id, Guid companyId, StockEntryType entryType, DateTime postingDate, Guid? tenantId = null)
         : base(id)
     {
-        CompanyId = companyId;
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
         EntryType = entryType;
         PostingDate = postingDate;
         TenantId = tenantId;
@@ -64,6 +64,14 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
 
         _items.Add(new StockEntryItem(
             Guid.NewGuid(), Id, itemId, quantity, sourceWarehouseId, targetWarehouseId, valuationRate));
+    }
+
+    /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>
+    public void ClearItems()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _items.Clear();
     }
 
     public void Submit()

@@ -1,3 +1,81 @@
 :host {
   display: block;
 }
+
+// ── Print Layout ──
+@media print {
+  // Hide navigation, sidebar, toolbar, buttons
+  :host ::ng-deep .lpx-sidebar,
+  :host ::ng-deep .lpx-navbar,
+  :host ::ng-deep .lpx-topbar,
+  :host ::ng-deep .lpx-footer,
+  :host ::ng-deep abp-breadcrumb,
+  :host ::ng-deep .abp-subheader,
+  .btn-group,
+  .btn,
+  app-breadcrumb,
+  app-document-workflow,
+  app-activity-log {
+    display: none !important;
+  }
+
+  // Full width, no margins
+  :host ::ng-deep .container-fluid,
+  :host ::ng-deep .lpx-content-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  // Card styling for print
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .card-header {
+    background: none !important;
+    border-bottom: 2px solid #333 !important;
+    padding: 0 0 8px 0 !important;
+  }
+
+  .card-body {
+    padding: 12px 0 !important;
+  }
+
+  // Table styling
+  table {
+    font-size: 11pt !important;
+    width: 100% !important;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  // Status badges print-friendly
+  app-status-badge,
+  app-lhdn-status-badge {
+    .badge {
+      border: 1px solid #666 !important;
+      color: #333 !important;
+      background: transparent !important;
+    }
+  }
+
+  // Ensure page break control
+  .card {
+    page-break-inside: avoid;
+  }
+
+  // Company header for print
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+  }
+}

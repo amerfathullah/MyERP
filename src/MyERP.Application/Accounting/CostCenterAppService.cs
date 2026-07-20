@@ -28,7 +28,7 @@ public class CostCenterAppService : ApplicationService
             query = query.Where(c => c.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var f = input.Filter.ToLower();
+            var f = input.Filter;
             query = query.Where(c => c.Name.ToLower().Contains(f));
         }
 
@@ -89,3 +89,4 @@ public class GetCostCenterListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public string? Filter { get; set; }
 }
+

@@ -1,4 +1,4 @@
-import type { AutoMatchResultDto, BankReconciliationSummaryDto, BankTransactionDto, GetBankTransactionsDto, ImportBankTransactionDto, ReconcileBankTransactionDto } from './models';
+import type { AutoMatchResultDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -59,6 +59,29 @@ export class BankReconciliationService {
     this.restService.request<any, BankTransactionDto>({
       method: 'POST',
       url: `/api/app/bank-reconciliation/${id}/unreconcile`,
+    },
+    { apiName: this.apiName,...config });
+
+  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MatchCandidateDto[]>({
+      method: 'GET',
+      url: '/api/app/bank-reconciliation/match-candidates',
+      params: { bankTransactionId, companyId },
+    },
+    { apiName: this.apiName,...config });
+
+  searchForMirrorTransaction = (transactionId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MirrorTransactionDto>({
+      method: 'GET',
+      url: `/api/app/bank-reconciliation/mirror-transaction/${transactionId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  createInternalTransfer = (input: CreateInternalTransferDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InternalTransferResultDto>({
+      method: 'POST',
+      url: '/api/app/bank-reconciliation/internal-transfer',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

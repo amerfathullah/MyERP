@@ -31,7 +31,7 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime ToDate { get; set; }
 
     /// <summary>Document status.</summary>
-    public StockClosingStatus Status { get; set; } = StockClosingStatus.Draft;
+    public StockClosingStatus Status { get; private set; } = StockClosingStatus.Draft;
 
     /// <summary>Total number of item+warehouse combinations captured.</summary>
     public int TotalEntries { get; set; }

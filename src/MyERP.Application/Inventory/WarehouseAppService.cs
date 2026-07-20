@@ -90,4 +90,11 @@ public class WarehouseAppService :
 
         await base.DeleteAsync(id);
     }
+
+    protected override async Task<IQueryable<Warehouse>> CreateFilteredQueryAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = await base.CreateFilteredQueryAsync(input);
+        // Only return active, non-group (leaf) warehouses by default — group warehouses can't receive stock
+        return query.Where(w => w.IsActive);
+    }
 }

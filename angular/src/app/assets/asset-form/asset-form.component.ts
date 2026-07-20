@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { AssetStore } from '../store/asset.store';
+import { AssetService } from '../../proxy/assets/asset.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
@@ -22,6 +23,7 @@ export class AssetFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private store = inject(AssetStore);
+  private assetService = inject(AssetService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
@@ -56,8 +58,10 @@ export class AssetFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    this.store.create(this.form.getRawValue());
-    this.router.navigate(['/assets']);
+    this.assetService.create(this.form.getRawValue() as any).subscribe({
+      next: () => this.router.navigate(['/assets']),
+      error: () => { /* handled by global error interceptor */ },
+    });
   }
 
   cancel(): void {

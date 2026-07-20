@@ -60,4 +60,19 @@ export class PurchaseReceiptService {
       url: `/api/app/purchase-receipt/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+
+  update = (id: string, input: CreatePurchaseReceiptDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'PUT',
+      url: `/api/app/purchase-receipt/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/purchase-receipt/${id}`,
+    },
+    { apiName: this.apiName,...config });
 }

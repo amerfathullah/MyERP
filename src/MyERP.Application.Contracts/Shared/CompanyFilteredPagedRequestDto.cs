@@ -24,4 +24,14 @@ public class CompanyFilteredPagedRequestDto : PagedAndSortedResultRequestDto
     /// Optional document status filter (e.g., "Draft", "Submitted", "Posted", "ToDeliverAndBill").
     /// </summary>
     public string? Status { get; set; }
+
+    /// <summary>
+    /// Optional start date for date range filtering (inclusive).
+    /// </summary>
+    public DateTime? FromDate { get; set; }
+
+    /// <summary>
+    /// Optional end date for date range filtering (inclusive).
+    /// </summary>
+    public DateTime? ToDate { get; set; }
 }

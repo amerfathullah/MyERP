@@ -1,12 +1,13 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { CreatePurchaseReceiptDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -22,12 +23,17 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 export class PurchaseReceiptFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private service = inject(PurchaseReceiptService);
   private toaster = inject(ToasterService);
   private supplierService = inject(SupplierService);
+  private warehouseService = inject(WarehouseService);
   private companyContext = inject(CompanyContextService);
 
   suppliers = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
+  isEditMode = false;
+  entityId: string | null = null;
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -55,12 +61,43 @@ export class PurchaseReceiptFormComponent implements OnInit {
   removeItem(i: number): void { this.items.removeAt(i); }
 
   ngOnInit(): void {
-    const cid = this.companyContext.currentCompanyId();
-    if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+    this.entityId = this.route.snapshot.paramMap.get('id');
+    this.isEditMode = !!this.entityId;
+
+    if (!this.isEditMode) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
+    }
 
     this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.suppliers.set(res.items ?? [])
     );
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
+      res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup))
+    );
+
+    if (this.isEditMode) {
+      this.service.get(this.entityId!).subscribe(pr => {
+        this.form.patchValue({
+          companyId: pr.companyId,
+          supplierId: pr.supplierId,
+          warehouseId: pr.warehouseId ?? '',
+          postingDate: pr.postingDate,
+          purchaseOrderId: pr.purchaseOrderId ?? '',
+          supplierDeliveryNote: pr.supplierDeliveryNote ?? '',
+          notes: '',
+        });
+        (pr.items ?? []).forEach((item: any) => {
+          this.items.push(this.fb.group({
+            itemId: [item.itemId ?? '', Validators.required],
+            description: [item.description ?? '', Validators.required],
+            quantity: [item.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+            unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+            uom: [item.uom ?? 'EA'],
+          }));
+        });
+      });
+    }
   }
 
   save(): void {
@@ -69,13 +106,23 @@ export class PurchaseReceiptFormComponent implements OnInit {
       return;
     }
     const dto = this.form.getRawValue() as unknown as CreatePurchaseReceiptDto;
-    this.service.create(dto).subscribe({
-      next: () => {
-        this.toaster.success('Purchase Receipt created');
-        this.router.navigate(['/purchasing/receipts']);
-      },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to create'),
-    });
+    if (this.isEditMode) {
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => {
+          this.toaster.success('Purchase Receipt updated');
+          this.router.navigate(['/purchasing/receipts', this.entityId]);
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to update'),
+      });
+    } else {
+      this.service.create(dto).subscribe({
+        next: () => {
+          this.toaster.success('Purchase Receipt created');
+          this.router.navigate(['/purchasing/receipts']);
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to create'),
+      });
+    }
   }
 
   cancel(): void {

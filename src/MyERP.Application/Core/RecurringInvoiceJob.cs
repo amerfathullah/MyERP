@@ -90,8 +90,18 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
 
     private async Task CreateRecurringInvoiceAsync(AutoRepeat repeat, RecurringInvoiceJobArgs args)
     {
-        // Load the template invoice
-        var template = await _salesInvoiceRepository.GetAsync(repeat.ReferenceDocumentId);
+        // Load the template invoice (FindAsync — template may have been deleted)
+        var template = await _salesInvoiceRepository.FindAsync(repeat.ReferenceDocumentId);
+
+        // Template deleted: auto-disable and stop retrying
+        if (template == null)
+        {
+            _logger.LogWarning(
+                "Recurring invoice template {TemplateId} has been deleted, disabling AutoRepeat {RepeatId}",
+                repeat.ReferenceDocumentId, repeat.Id);
+            repeat.IsEnabled = false;
+            return;
+        }
 
         // Per DO-NOT: cannot auto-repeat cancelled documents
         if (template.Status == DocumentStatus.Cancelled)

@@ -13,12 +13,13 @@ import { PurchaseReceiptStore } from '../store/purchase-receipt.store';
 import type { PurchaseReceiptDto } from '../../proxy/purchasing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-purchase-receipt-detail',
   standalone: true,
   imports: [
-    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe],
+    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent],
   templateUrl: './purchase-receipt-detail.component.html',
   styleUrls: ['./purchase-receipt-detail.component.scss'],
 })

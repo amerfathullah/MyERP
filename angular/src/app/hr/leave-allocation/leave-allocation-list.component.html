@@ -77,14 +77,14 @@
                   <td>{{ item.employeeId | slice:0:8 }}...</td>
                   <td>{{ item.leaveTypeId | slice:0:8 }}...</td>
                   <td>{{ item.fromDate | date:'dd/MM/yyyy' }} - {{ item.toDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="text-end">{{ item.totalLeavesAllocated + item.carryForwardDays }}</td>
+                  <td class="text-end">{{ (item.totalLeavesAllocated ?? 0) + (item.carryForwardDays ?? 0) }}</td>
                   <td class="text-end">{{ item.leavesUsed }}</td>
-                  <td class="text-end fw-bold" [class.text-danger]="item.balance <= 0" [class.text-success]="item.balance > 0">
+                  <td class="text-end fw-bold" [class.text-danger]="(item.balance ?? 0) <= 0" [class.text-success]="(item.balance ?? 0) > 0">
                     {{ item.balance }}
                   </td>
                   <td class="text-end">
-                    <button class="btn btn-outline-danger btn-sm" (click)="deleteAllocation(item.id)"
-                            [disabled]="item.leavesUsed > 0" title="Delete">
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteAllocation(item.id!)"
+                            [disabled]="(item.leavesUsed ?? 0) > 0" title="Delete">
                       <i class="fa fa-trash"></i>
                     </button>
                   </td>
@@ -96,4 +96,6 @@
       }
     </div>
   </div>
+
+  <app-pagination [totalCount]="totalCount()" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
 </abp-page>

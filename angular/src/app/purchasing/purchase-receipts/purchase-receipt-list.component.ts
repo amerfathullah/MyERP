@@ -47,12 +47,14 @@ export class PurchaseReceiptListComponent implements OnInit {
     });
   }
 
-  onSearch(): void {
+  onSearch(term: string): void {
+    this.searchTerm = term;
     this.currentPage = 0;
     this.loadData();
   }
 
-  onStatusChange(): void {
+  onStatusChange(status: string): void {
+    this.statusFilter = status;
     this.currentPage = 0;
     this.loadData();
   }

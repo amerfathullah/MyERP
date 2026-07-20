@@ -5,7 +5,10 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { MaterialRequestStore } from '../store/material-request.store';
+import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
 import { CompanyService } from '../../proxy/core/company.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -22,11 +25,16 @@ export class MaterialRequestFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private store = inject(MaterialRequestStore);
+  private service = inject(MaterialRequestService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
+  private warehouseService = inject(WarehouseService);
+  private itemService = inject(ItemService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
+  warehouses = signal<any[]>([]);
+  availableItems = signal<any[]>([]);
 
   get items(): FormArray {
     return this.form.get('items') as FormArray;
@@ -50,6 +58,10 @@ export class MaterialRequestFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe((res) => this.companies.set(res.items ?? []));
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
+      .subscribe((res) => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
+      .subscribe((res) => this.availableItems.set(res.items ?? []));
   }
 
   addItemRow(): void {
@@ -66,13 +78,23 @@ export class MaterialRequestFormComponent implements OnInit {
     this.items.removeAt(index);
   }
 
+  onItemSelected(index: number, itemId: string): void {
+    const item = this.availableItems().find((i: any) => i.id === itemId);
+    if (item) {
+      const row = this.items.at(index) as FormGroup;
+      row.patchValue({ itemName: item.itemName || item.itemCode, uom: item.uom || 'Unit' });
+    }
+  }
+
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-    this.store.create(this.form.getRawValue());
-    this.router.navigate(['/purchasing/material-requests']);
+    this.service.create(this.form.getRawValue() as any).subscribe({
+      next: () => this.router.navigate(['/purchasing/material-requests']),
+      error: () => {},
+    });
   }
 
   cancel(): void {

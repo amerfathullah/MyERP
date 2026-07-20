@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectStore } from '../store/project.store';
+import { ProjectService } from '../../proxy/projects/project.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
@@ -23,6 +24,7 @@ export class ProjectFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private store = inject(ProjectStore);
+  private service = inject(ProjectService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
@@ -62,8 +64,18 @@ export class ProjectFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    this.store.create(this.form.getRawValue());
-    this.router.navigate(['/projects']);
+    const dto = this.form.getRawValue() as any;
+    if (this.isEditMode) {
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => this.router.navigate(['/projects', this.entityId]),
+        error: () => {},
+      });
+    } else {
+      this.service.create(dto).subscribe({
+        next: () => this.router.navigate(['/projects']),
+        error: () => {},
+      });
+    }
   }
 
   cancel(): void {

@@ -15,8 +15,13 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Warehouse' | abpLocalization }} <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" formControlName="warehouseId"
-              [class.is-invalid]="form.get('warehouseId')?.invalid && form.get('warehouseId')?.touched" placeholder="Warehouse ID" />
+            <select class="form-select" formControlName="warehouseId"
+              [class.is-invalid]="form.get('warehouseId')?.invalid && form.get('warehouseId')?.touched">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (wh of warehouses(); track wh.id) {
+                <option [value]="wh.id">{{ wh.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }} <span class="text-danger">*</span></label>
@@ -24,7 +29,7 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::PurchaseOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="purchaseOrderId" placeholder="Linked PO (optional)" />
+            <input type="text" class="form-control" formControlName="purchaseOrderId" [placeholder]="'::Placeholder:LinkedPurchaseOrderOptional' | abpLocalization" />
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">Supplier Delivery Note</label>
