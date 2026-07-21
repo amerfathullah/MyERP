@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { StockReconciliationDetailService, type StockReconciliationDetailDto } from '../../shared/services/detail-services';
+import { StockReconciliationDetailService } from '../../shared/services/detail-services';
+import type { StockReconciliationDto } from '../../proxy/dtos/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -41,7 +42,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class StockReconciliationDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(StockReconciliationDetailService);
-  d: StockReconciliationDetailDto | null = null;
+  d: StockReconciliationDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((r) => this.d = r);

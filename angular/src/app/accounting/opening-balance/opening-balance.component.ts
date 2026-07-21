@@ -7,14 +7,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { OpeningBalanceService } from '../../proxy/accounting/opening-balance.service';
 import { AccountService } from '../../proxy/accounting/account.service';
-import type { OpeningStatusDto } from '../../proxy/accounting/models';
-
-interface AccountDto {
-  id: string;
-  accountCode: string;
-  accountName: string;
-  accountType: number;
-}
+import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-opening-balance',
@@ -230,7 +223,7 @@ export class OpeningBalanceComponent implements OnInit {
     this.accountService.getList({ skipCount: 0, maxResultCount: 500 } as any)
       .subscribe(result => {
         const accounts = (result.items || []).filter((a: AccountDto) =>
-          a.accountType <= 2 && !a.accountCode?.startsWith('0')  // BS accounts only
+          (a.accountType ?? 0) <= 2 && !a.accountCode?.startsWith('0')  // BS accounts only
         );
         this.bsAccounts.set(accounts);
       });
@@ -286,7 +279,7 @@ export class OpeningBalanceComponent implements OnInit {
       lines
     } as any).subscribe({
       next: (result) => {
-        this.toaster.success(result.message);
+        this.toaster.success(result.message ?? 'Success');
         this.saving.set(false);
         this.loadStatus();
         // Reset form

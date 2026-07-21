@@ -37,6 +37,14 @@ export class PricingRuleService {
     { apiName: this.apiName,...config });
   
 
+  get = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PricingRuleDto>({
+      method: 'GET',
+      url: `/api/app/pricing-rule/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PricingRuleDto>>({
       method: 'GET',

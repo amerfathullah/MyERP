@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HolidayListDetailService, type HolidayListDetailDto } from '../../shared/services/detail-services';
+import { HolidayListDetailService } from '../../shared/services/detail-services';
+import type { HolidayListDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -36,7 +37,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class HolidayListDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(HolidayListDetailService);
-  data: HolidayListDetailDto | null = null;
+  data: HolidayListDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((r) => this.data = r);

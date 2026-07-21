@@ -53,7 +53,7 @@
       <div class="col-md-3">
         <div class="card text-center">
           <div class="card-body">
-            <h4 [class.text-success]="r.grossProfit >= 0" [class.text-danger]="r.grossProfit < 0">
+            <h4 [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
               {{ r.grossProfit | number:'1.2-2' }}
             </h4>
             <small class="text-muted">{{ 'GrossProfit' | abpLocalization }}</small>
@@ -63,7 +63,7 @@
       <div class="col-md-3">
         <div class="card text-center">
           <div class="card-body">
-            <h4 [class.text-success]="r.grossProfitPercentage >= 0" [class.text-danger]="r.grossProfitPercentage < 0">
+            <h4 [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
               {{ r.grossProfitPercentage | number:'1.1-1' }}%
             </h4>
             <small class="text-muted">{{ 'GrossMargin' | abpLocalization }}</small>
@@ -74,7 +74,7 @@
 
     <div class="card">
       <div class="card-body">
-        @if (r.items.length === 0) {
+        @if ((r.items ?? []).length === 0) {
           <div class="text-center py-4 text-muted">
             <i class="fa fa-file-invoice fa-2x mb-2"></i>
             <p>{{ 'NoRecordsFound' | abpLocalization }}</p>
@@ -92,16 +92,16 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of r.items; track item.invoiceId) {
+              @for (item of r.items ?? []; track $index) {
                 <tr>
                   <td>{{ item.invoiceNumber }}</td>
                   <td>{{ item.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
                   <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
-                  <td class="text-end" [class.text-success]="item.grossProfit >= 0" [class.text-danger]="item.grossProfit < 0">
+                  <td class="text-end" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
                     {{ item.grossProfit | number:'1.2-2' }}
                   </td>
-                  <td class="text-end" [class.text-success]="item.grossProfitPercentage >= 0" [class.text-danger]="item.grossProfitPercentage < 0">
+                  <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
                     {{ item.grossProfitPercentage | number:'1.1-1' }}%
                   </td>
                 </tr>
@@ -112,10 +112,10 @@
                 <td colspan="2">{{ 'Total' | abpLocalization }}</td>
                 <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
                 <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
-                <td class="text-end" [class.text-success]="r.grossProfit >= 0" [class.text-danger]="r.grossProfit < 0">
+                <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
                   {{ r.grossProfit | number:'1.2-2' }}
                 </td>
-                <td class="text-end" [class.text-success]="r.grossProfitPercentage >= 0" [class.text-danger]="r.grossProfitPercentage < 0">
+                <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
                   {{ r.grossProfitPercentage | number:'1.1-1' }}%
                 </td>
               </tr>

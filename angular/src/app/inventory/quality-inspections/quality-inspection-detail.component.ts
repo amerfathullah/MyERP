@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { QualityInspectionDetailService, type QualityInspectionDetailDto } from '../../shared/services/detail-services';
+import { QualityInspectionDetailService } from '../../shared/services/detail-services';
+import type { QualityInspectionDto } from '../../proxy/dtos/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -47,7 +48,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class QualityInspectionDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(QualityInspectionDetailService);
-  d: QualityInspectionDetailDto | null = null;
+  d: QualityInspectionDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((r) => this.d = r);

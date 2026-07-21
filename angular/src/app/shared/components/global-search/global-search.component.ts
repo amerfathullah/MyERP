@@ -8,16 +8,6 @@ import { GlobalSearchService } from '../../../proxy/core/global-search.service';
 import type { SearchResultDto } from '../../../proxy/core/models';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 
-interface SearchResult {
-  id: string;
-  documentType: string;
-  documentNumber: string;
-  date: string;
-  amount: number;
-  status: string;
-  route: string;
-}
-
 @Component({
   selector: 'app-global-search',
   standalone: true,
@@ -41,7 +31,7 @@ interface SearchResult {
 
       @if (showResults && results().length > 0) {
         <div class="dropdown-menu show w-100 mt-1 shadow-lg" style="max-height: 400px; overflow-y: auto;">
-          @for (result of results(); track result.id) {
+          @for (result of results(); track $index) {
             <a class="dropdown-item d-flex align-items-center py-2" (mousedown)="navigateTo(result)">
               <span class="me-2">
                 @switch (result.documentType) {
@@ -59,13 +49,13 @@ interface SearchResult {
               <div class="flex-grow-1 overflow-hidden">
                 <div class="d-flex justify-content-between">
                   <strong class="text-truncate">{{ result.documentNumber }}</strong>
-                  @if (result.amount > 0) {
+                  @if ((result.amount ?? 0) > 0) {
                     <small class="text-muted ms-2">{{ result.amount | number:'1.2-2' }}</small>
                   }
                 </div>
                 <small class="text-muted">
-                  {{ getTypeLabel(result.documentType) }} · {{ result.date | date:'dd/MM/yyyy' }}
-                  · <span [class]="getStatusClass(result.status)">{{ result.status }}</span>
+                  {{ getTypeLabel(result.documentType ?? '') }} · {{ result.date | date:'dd/MM/yyyy' }}
+                  · <span [class]="getStatusClass(result.status ?? '')">{{ result.status }}</span>
                 </small>
               </div>
             </a>
@@ -97,7 +87,7 @@ export class GlobalSearchComponent {
 
   searchTerm = '';
   showResults = false;
-  results = signal<SearchResult[]>([]);
+  results = signal<SearchResultDto[]>([]);
   loading = signal(false);
 
   private searchSubject = new Subject<string>();
@@ -137,8 +127,8 @@ export class GlobalSearchComponent {
     this.searchSubject.next(term);
   }
 
-  navigateTo(result: SearchResult) {
-    this.router.navigateByUrl(result.route);
+  navigateTo(result: SearchResultDto) {
+    this.router.navigateByUrl(result.route!);
     this.searchTerm = '';
     this.results.set([]);
     this.showResults = false;

@@ -7,29 +7,8 @@ import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import { SalesRegisterService } from '../../../proxy/sales/sales-register.service';
+import type { RegisterReportDto, SalesRegisterLineDto } from '../../../proxy/sales/models';
 import type { CompanyDto } from '../../../proxy/core/models';
-
-interface SalesRegisterLine {
-  invoiceId: string;
-  invoiceNumber: string;
-  postingDate: string;
-  customerId: string;
-  customerName?: string;
-  netTotal: number;
-  taxAmount: number;
-  grandTotal: number;
-  amountPaid: number;
-  outstanding: number;
-  isReturn: boolean;
-}
-
-interface RegisterReport {
-  items: SalesRegisterLine[];
-  totalNet: number;
-  totalTax: number;
-  totalGrand: number;
-  count: number;
-}
 
 @Component({
   selector: 'app-sales-register',
@@ -51,7 +30,7 @@ export class SalesRegisterComponent implements OnInit {
   });
 
   companies = signal<CompanyDto[]>([]);
-  report = signal<RegisterReport | null>(null);
+  report = signal<RegisterReportDto<SalesRegisterLineDto> | null>(null);
   isLoading = signal(false);
 
   ngOnInit(): void {

@@ -1,5 +1,6 @@
 import type { CreateRevaluationDto, EligibleAccountDto, ExchangeRateRevaluationDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
+import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
 @Injectable({
@@ -8,6 +9,15 @@ import { Injectable, inject } from '@angular/core';
 export class ExchangeRateRevaluationService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  getList = (input: any, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<ExchangeRateRevaluationDto>>({
+      method: 'GET',
+      url: '/api/app/exchange-rate-revaluation',
+      params: { ...input },
+    },
+    { apiName: this.apiName,...config });
   
 
   createRevaluation = (input: CreateRevaluationDto, config?: Partial<Rest.Config>) =>

@@ -5,14 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
-
-interface CurrencyExchangeDto {
-  id: string;
-  fromCurrency: string;
-  toCurrency: string;
-  exchangeRate: number;
-  date: string;
-}
+import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-currency-exchange',
@@ -79,7 +72,7 @@ interface CurrencyExchangeDto {
                     <td class="text-end font-monospace">{{ rate.exchangeRate | number:'1.6-6' }}</td>
                     <td>{{ rate.date | date:'dd/MM/yyyy' }}</td>
                     <td class="pe-3 text-end">
-                      <button class="btn btn-sm btn-outline-danger" (click)="deleteRate(rate.id)"><i class="fa fa-trash"></i></button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="deleteRate(rate.id!)"><i class="fa fa-trash"></i></button>
                     </td>
                   </tr>
                 }

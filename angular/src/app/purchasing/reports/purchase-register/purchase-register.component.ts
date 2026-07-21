@@ -6,29 +6,9 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { PurchaseRegisterService } from '../../../proxy/purchasing/purchase-register.service';
+import type { PurchaseRegisterLineDto } from '../../../proxy/purchasing/models';
+import type { RegisterReportDto } from '../../../proxy/sales/models';
 import type { CompanyDto } from '../../../proxy/core/models';
-
-interface PurchaseRegisterLine {
-  invoiceId: string;
-  invoiceNumber: string;
-  postingDate: string;
-  supplierId: string;
-  supplierName?: string;
-  netTotal: number;
-  taxAmount: number;
-  grandTotal: number;
-  amountPaid: number;
-  outstanding: number;
-  isReturn: boolean;
-}
-
-interface RegisterReport {
-  items: PurchaseRegisterLine[];
-  totalNet: number;
-  totalTax: number;
-  totalGrand: number;
-  count: number;
-}
 
 @Component({
   selector: 'app-purchase-register',
@@ -50,7 +30,7 @@ export class PurchaseRegisterComponent implements OnInit {
   });
 
   companies = signal<CompanyDto[]>([]);
-  report = signal<RegisterReport | null>(null);
+  report = signal<RegisterReportDto<PurchaseRegisterLineDto> | null>(null);
   isLoading = signal(false);
 
   ngOnInit(): void {

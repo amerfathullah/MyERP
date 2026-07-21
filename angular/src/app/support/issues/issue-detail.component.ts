@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { IssueDetailService, type IssueDetailDto } from '../../shared/services/detail-services';
+import { IssueDetailService } from '../../shared/services/detail-services';
+import type { IssueDto } from '../../proxy/support/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -35,7 +36,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class IssueDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(IssueDetailService);
-  d: IssueDetailDto | null = null;
+  d: IssueDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((r) => this.d = r);

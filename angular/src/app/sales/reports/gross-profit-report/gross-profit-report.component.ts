@@ -7,26 +7,8 @@ import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import { GrossProfitReportService } from '../../../proxy/sales/gross-profit-report.service';
+import type { GrossProfitReportDto } from '../../../proxy/sales/models';
 import type { CompanyDto } from '../../../proxy/core/models';
-
-interface GrossProfitLineDto {
-  invoiceId: string;
-  invoiceNumber: string;
-  issueDate: string;
-  customerName?: string;
-  revenue: number;
-  cost: number;
-  grossProfit: number;
-  grossProfitPercentage: number;
-}
-
-interface GrossProfitReportDto {
-  totalRevenue: number;
-  totalCost: number;
-  grossProfit: number;
-  grossProfitPercentage: number;
-  items: GrossProfitLineDto[];
-}
 
 @Component({
   selector: 'app-gross-profit-report',

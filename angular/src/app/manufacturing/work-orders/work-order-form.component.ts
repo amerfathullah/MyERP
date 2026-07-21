@@ -5,10 +5,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { ManufacturingService } from './manufacturing.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
-import { ManufacturingService as ManufacturingProxyService } from '../../proxy/controllers/manufacturing.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -28,7 +27,6 @@ export class WorkOrderFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
-  private manufacturingProxyService = inject(ManufacturingProxyService);
 
   items = signal<any[]>([]);
   boms = signal<any[]>([]);
@@ -64,7 +62,7 @@ export class WorkOrderFormComponent implements OnInit {
       .subscribe(res => this.items.set(res.items ?? []));
 
     // Load BOMs (all — filtered client-side when item changes)
-    this.manufacturingProxyService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
+    this.service.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
       .subscribe(res => this.boms.set(res.items ?? []));
   }
 

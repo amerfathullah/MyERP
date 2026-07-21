@@ -114,7 +114,7 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'amend':
         this.amendmentService.amend(id).subscribe({
-          next: (amended) => this.router.navigate(['/sales/orders', amended.id]),
+          next: (amendedId) => this.router.navigate(['/sales/orders', amendedId]),
         });
         break;
     }

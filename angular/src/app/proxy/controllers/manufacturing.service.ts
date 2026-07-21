@@ -54,7 +54,14 @@ export class ManufacturingService {
     },
     { apiName: this.apiName,...config });
   
-
+  updateBom = (id: string, input: any, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BomDto>({
+      method: 'PUT',
+      url: `/api/app/manufacturing/bom/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
   deleteWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
