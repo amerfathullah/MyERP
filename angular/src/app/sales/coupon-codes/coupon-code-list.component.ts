@@ -3,19 +3,19 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { CouponCodeService } from '../../proxy/sales/coupon-code.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface CouponCodeDto {
-  id: string;
-  code: string;
-  couponName: string;
-  couponType: number;
-  pricingRuleId: string;
-  maximumUse: number;
-  used: number;
-  isEnabled: boolean;
+  id?: string;
+  code?: string;
+  couponName?: string;
+  couponType?: number;
+  pricingRuleId?: string;
+  maximumUse?: number;
+  used?: number;
+  isEnabled?: boolean;
   validFrom?: string;
   validUpto?: string;
   customerId?: string;
@@ -151,7 +151,7 @@ interface CouponCodeDto {
   `
 })
 export class CouponCodeListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private couponCodeService = inject(CouponCodeService);
   private toaster = inject(ToasterService);
 
   coupons = signal<CouponCodeDto[]>([]);
@@ -164,7 +164,7 @@ export class CouponCodeListComponent implements OnInit {
 
   loadData() {
     const skip = (this.currentPage() - 1) * 10;
-    this.http.get<any>(`/api/app/coupon-code?skipCount=${skip}&maxResultCount=10`).subscribe(res => {
+    this.couponCodeService.getList({ skipCount: skip, maxResultCount: 10, sorting: '' } as any).subscribe(res => {
       this.coupons.set(res.items ?? []);
       this.totalCount.set(res.totalCount ?? 0);
     });
@@ -179,14 +179,14 @@ export class CouponCodeListComponent implements OnInit {
       validFrom: this.newCoupon.validFrom || undefined,
       validUpto: this.newCoupon.validUpto || undefined,
     };
-    this.http.post<CouponCodeDto>('/api/app/coupon-code', dto).subscribe({
+    this.couponCodeService.create(dto as any).subscribe({
       next: () => { this.toaster.success('Coupon created'); this.showCreateForm = false; this.loadData(); },
       error: () => {}
     });
   }
 
   toggle(coupon: CouponCodeDto) {
-    this.http.post(`/api/app/coupon-code/${coupon.id}/toggle`, {}).subscribe({
+    this.couponCodeService.toggle(coupon.id).subscribe({
       next: () => { this.toaster.success(coupon.isEnabled ? 'Disabled' : 'Enabled'); this.loadData(); },
       error: () => {}
     });
@@ -194,7 +194,7 @@ export class CouponCodeListComponent implements OnInit {
 
   remove(coupon: CouponCodeDto) {
     if (!confirm('Delete this coupon code?')) return;
-    this.http.delete(`/api/app/coupon-code/${coupon.id}`).subscribe({
+    this.couponCodeService.delete(coupon.id).subscribe({
       next: () => { this.toaster.success('Deleted'); this.loadData(); },
       error: () => {}
     });

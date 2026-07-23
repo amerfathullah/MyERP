@@ -13,107 +13,119 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="se-print-layout" *ngIf="entry">
-      <!-- Company Header -->
-      <div class="print-header d-flex justify-content-between align-items-start mb-4">
-        <div>
-          <h3 class="fw-bold mb-1">{{ companyName }}</h3>
-          <p class="text-muted mb-0" *ngIf="companyAddress">{{ companyAddress }}</p>
+    @if (entry) {
+      <div class="se-print-layout">
+        <!-- Company Header -->
+        <div class="print-header d-flex justify-content-between align-items-start mb-4">
+          <div>
+            <h3 class="fw-bold mb-1">{{ companyName }}</h3>
+            @if (companyAddress) {
+              <p class="text-muted mb-0">{{ companyAddress }}</p>
+            }
+          </div>
+          <div class="text-end">
+            <h4 class="text-uppercase text-primary fw-bold mb-1">STOCK {{ entryTypeLabel }}</h4>
+            <p class="mb-0"><strong>Entry #:</strong> {{ entry.entryNumber }}</p>
+            <p class="mb-0"><strong>Date:</strong> {{ entry.postingDate | date:'dd/MM/yyyy' }}</p>
+            @if (entry.workOrderId) {
+              <p class="mb-0"><strong>Work Order:</strong> {{ woNumber || '—' }}</p>
+            }
+          </div>
         </div>
-        <div class="text-end">
-          <h4 class="text-uppercase text-primary fw-bold mb-1">STOCK {{ entryTypeLabel }}</h4>
-          <p class="mb-0"><strong>Entry #:</strong> {{ entry.entryNumber }}</p>
-          <p class="mb-0"><strong>Date:</strong> {{ entry.postingDate | date:'dd/MM/yyyy' }}</p>
-          <p class="mb-0" *ngIf="entry.workOrderId"><strong>Work Order:</strong> {{ woNumber || '—' }}</p>
+        <!-- Purpose Banner -->
+        <div class="alert alert-light border text-center mb-4">
+          <strong>Purpose:</strong> {{ entryTypeLabel }}
+          @if (sourceWarehouse) {
+            <span> | <strong>From:</strong> {{ sourceWarehouse }}</span>
+          }
+          @if (targetWarehouse) {
+            <span> | <strong>To:</strong> {{ targetWarehouse }}</span>
+          }
         </div>
-      </div>
-
-      <!-- Purpose Banner -->
-      <div class="alert alert-light border text-center mb-4">
-        <strong>Purpose:</strong> {{ entryTypeLabel }}
-        <span *ngIf="sourceWarehouse"> | <strong>From:</strong> {{ sourceWarehouse }}</span>
-        <span *ngIf="targetWarehouse"> | <strong>To:</strong> {{ targetWarehouse }}</span>
-      </div>
-
-      <!-- Items Table -->
-      <table class="table table-bordered table-sm mb-4">
-        <thead class="table-light">
-          <tr>
-            <th style="width:5%">#</th>
-            <th style="width:30%">Item</th>
-            <th style="width:15%">Source WH</th>
-            <th style="width:15%">Target WH</th>
-            <th class="text-center" style="width:10%">Qty</th>
-            <th class="text-end" style="width:12%">Rate</th>
-            <th class="text-end" style="width:13%">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of entry.items; let i = index">
-            <td>{{ i + 1 }}</td>
-            <td>{{ item.itemName || item.description || '—' }}</td>
-            <td>{{ item.sourceWarehouseName || '—' }}</td>
-            <td>{{ item.targetWarehouseName || '—' }}</td>
-            <td class="text-center">{{ item.quantity }}</td>
-            <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
-            <td class="text-end">{{ (item.quantity * item.valuationRate) | number:'1.2-2' }}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="table-light fw-bold">
-            <td colspan="4" class="text-end">Total Qty:</td>
-            <td class="text-center">{{ totalQty }}</td>
-            <td class="text-end">Total Value:</td>
-            <td class="text-end">{{ totalValue | number:'1.2-2' }}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <!-- Additional Costs (for Manufacture/Repack) -->
-      <div *ngIf="entry.additionalCosts && entry.additionalCosts.length > 0" class="mb-4">
-        <h6 class="fw-bold">Additional Costs</h6>
-        <table class="table table-sm table-bordered">
+        <!-- Items Table -->
+        <table class="table table-bordered table-sm mb-4">
           <thead class="table-light">
-            <tr><th>Description</th><th class="text-end">Amount</th></tr>
+            <tr>
+              <th style="width:5%">#</th>
+              <th style="width:30%">Item</th>
+              <th style="width:15%">Source WH</th>
+              <th style="width:15%">Target WH</th>
+              <th class="text-center" style="width:10%">Qty</th>
+              <th class="text-end" style="width:12%">Rate</th>
+              <th class="text-end" style="width:13%">Amount</th>
+            </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let cost of entry.additionalCosts">
-              <td>{{ cost.description }}</td>
-              <td class="text-end">{{ cost.amount | number:'1.2-2' }}</td>
-            </tr>
+            @for (item of entry.items; track item; let i = $index) {
+              <tr>
+                <td>{{ i + 1 }}</td>
+                <td>{{ item.itemName || item.description || '—' }}</td>
+                <td>{{ item.sourceWarehouseName || '—' }}</td>
+                <td>{{ item.targetWarehouseName || '—' }}</td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
+                <td class="text-end">{{ (item.quantity * item.valuationRate) | number:'1.2-2' }}</td>
+              </tr>
+            }
           </tbody>
+          <tfoot>
+            <tr class="table-light fw-bold">
+              <td colspan="4" class="text-end">Total Qty:</td>
+              <td class="text-center">{{ totalQty }}</td>
+              <td class="text-end">Total Value:</td>
+              <td class="text-end">{{ totalValue | number:'1.2-2' }}</td>
+            </tr>
+          </tfoot>
         </table>
-      </div>
-
-      <!-- Remarks -->
-      <div class="mb-4" *ngIf="entry.remarks">
-        <h6 class="fw-bold">Remarks</h6>
-        <p class="border rounded p-2 bg-light">{{ entry.remarks }}</p>
-      </div>
-
-      <!-- Signatures -->
-      <div class="row mt-5 pt-4">
-        <div class="col-4 text-center">
-          <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-          <small class="text-muted">Prepared By</small>
+        <!-- Additional Costs (for Manufacture/Repack) -->
+        @if (entry.additionalCosts && entry.additionalCosts.length > 0) {
+          <div class="mb-4">
+            <h6 class="fw-bold">Additional Costs</h6>
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr><th>Description</th><th class="text-end">Amount</th></tr>
+              </thead>
+              <tbody>
+                @for (cost of entry.additionalCosts; track cost) {
+                  <tr>
+                    <td>{{ cost.description }}</td>
+                    <td class="text-end">{{ cost.amount | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Remarks -->
+        @if (entry.remarks) {
+          <div class="mb-4">
+            <h6 class="fw-bold">Remarks</h6>
+            <p class="border rounded p-2 bg-light">{{ entry.remarks }}</p>
+          </div>
+        }
+        <!-- Signatures -->
+        <div class="row mt-5 pt-4">
+          <div class="col-4 text-center">
+            <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
+            <small class="text-muted">Prepared By</small>
+          </div>
+          <div class="col-4 text-center">
+            <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
+            <small class="text-muted">Issued By / Received By</small>
+          </div>
+          <div class="col-4 text-center">
+            <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
+            <small class="text-muted">Authorized By</small>
+          </div>
         </div>
-        <div class="col-4 text-center">
-          <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-          <small class="text-muted">Issued By / Received By</small>
-        </div>
-        <div class="col-4 text-center">
-          <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-          <small class="text-muted">Authorized By</small>
+        <!-- Footer -->
+        <div class="text-center mt-4 text-muted small">
+          <p class="mb-0">Internal document — not for external distribution.</p>
+          <p class="mb-0">Printed on: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
       </div>
-
-      <!-- Footer -->
-      <div class="text-center mt-4 text-muted small">
-        <p class="mb-0">Internal document — not for external distribution.</p>
-        <p class="mb-0">Printed on: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
-      </div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .se-print-layout { padding: 20mm; font-size: 12px; }
     @media screen { .se-print-layout { display: none; } }

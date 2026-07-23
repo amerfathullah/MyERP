@@ -6,7 +6,8 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BudgetService } from '../../proxy/accounting/budget.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { AccountService } from '../../proxy/accounting/account.service';
+import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
 @Component({
   selector: 'app-budget-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
@@ -80,7 +81,8 @@ export class BudgetFormComponent implements OnInit {
   private budgetService = inject(BudgetService);
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private accountService = inject(AccountService);
+  private fiscalYearService = inject(FiscalYearService);
 
   saving = false;
   isDirty = false;
@@ -94,10 +96,10 @@ export class BudgetFormComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.http.get<any>('/api/app/account', { params: { maxResultCount: '500' } }).subscribe(r =>
+    this.accountService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
-    this.http.get<any>('/api/app/fiscal-year', { params: { maxResultCount: '50' } }).subscribe(r =>
+    this.fiscalYearService.getList({ maxResultCount: 50, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.fiscalYears.set((r.items ?? []).map((fy: any) => ({ id: fy.id, name: fy.name ?? fy.fiscalYearName })))
     );
   }

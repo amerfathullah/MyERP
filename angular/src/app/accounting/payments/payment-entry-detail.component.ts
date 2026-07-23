@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -197,7 +197,7 @@ export class PaymentEntryDetailComponent implements OnInit {
   private paymentEntryService = inject(PaymentEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
 
   entry = signal<any>(null);
   references = signal<any[]>([]);
@@ -229,8 +229,8 @@ export class PaymentEntryDetailComponent implements OnInit {
       this.taxes.set((data as any).taxes || []);
       // Load company data for print layout
       if ((data as any).companyId) {
-        this.http.get<any>(`/api/app/company/${(data as any).companyId}`).subscribe({
-          next: (c) => this.companyData.set({ name: c.name || '', tin: c.tin || '', sst: c.sstRegistrationNumber || '', address: c.address || '', phone: c.phone || '' }),
+        this.companyService.get((data as any).companyId).subscribe({
+          next: (c) => this.companyData.set({ name: c.name || '', tin: c.taxId || '', sst: c.sstRegistrationNumber || '', address: c.address || '', phone: c.phone || '' }),
           error: () => {},
         });
       }

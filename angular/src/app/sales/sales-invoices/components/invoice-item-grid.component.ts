@@ -2,7 +2,7 @@ import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ItemDetailsService } from '../../../proxy/inventory/item-details.service';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 
 @Component({
@@ -23,7 +23,7 @@ export class InvoiceItemGridComponent {
 
   private fb = inject(FormBuilder);
   private taxCalc = inject(TaxCalculationService);
-  private http = inject(HttpClient);
+  private itemDetailsService = inject(ItemDetailsService);
 
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
@@ -52,7 +52,7 @@ export class InvoiceItemGridComponent {
       }
 
       // Resolve full item details from backend (price, UOM, stock availability)
-      this.http.post<any>('/api/app/item-details/item-details', {
+      this.itemDetailsService.getItemDetails({
         itemId: selectedId,
         transactionType: this.transactionType,
         warehouseId: this.warehouseId || undefined

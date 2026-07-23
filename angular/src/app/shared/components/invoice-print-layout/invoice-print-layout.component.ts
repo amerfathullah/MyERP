@@ -67,129 +67,172 @@ import { LocalizationPipe } from '@abp/ng.core';
     }
   `],
   template: `
-    <div class="print-invoice" *ngIf="invoice">
-      <!-- Header: Company Info + Invoice Title -->
-      <div class="print-header">
-        <div class="company-info">
-          <h1>{{ company?.name || 'Company Name' }}</h1>
-          <p *ngIf="company?.registrationNumber">{{ 'RegistrationNumber' | abpLocalization }}: {{ company.registrationNumber }}</p>
-          <p *ngIf="company?.taxId">TIN: {{ company.taxId }}</p>
-          <p *ngIf="company?.sstRegistrationNumber">SST: {{ company.sstRegistrationNumber }}</p>
-          <p *ngIf="company?.address">{{ company.address }}</p>
-          <p *ngIf="company?.city || company?.state">{{ company.city }}<span *ngIf="company?.state">, {{ company.state }}</span> {{ company.postalCode }}</p>
-          <p *ngIf="company?.phone">Tel: {{ company.phone }}</p>
-          <p *ngIf="company?.email">{{ company.email }}</p>
+    @if (invoice) {
+      <div class="print-invoice">
+        <!-- Header: Company Info + Invoice Title -->
+        <div class="print-header">
+          <div class="company-info">
+            <h1>{{ company?.name || 'Company Name' }}</h1>
+            @if (company?.registrationNumber) {
+              <p>{{ 'RegistrationNumber' | abpLocalization }}: {{ company.registrationNumber }}</p>
+            }
+            @if (company?.taxId) {
+              <p>TIN: {{ company.taxId }}</p>
+            }
+            @if (company?.sstRegistrationNumber) {
+              <p>SST: {{ company.sstRegistrationNumber }}</p>
+            }
+            @if (company?.address) {
+              <p>{{ company.address }}</p>
+            }
+            @if (company?.city || company?.state) {
+              <p>{{ company.city }}@if (company?.state) {
+                <span>, {{ company.state }}</span>
+              } {{ company.postalCode }}</p>
+            }
+            @if (company?.phone) {
+              <p>Tel: {{ company.phone }}</p>
+            }
+            @if (company?.email) {
+              <p>{{ company.email }}</p>
+            }
+          </div>
+          <div class="invoice-title">
+            <h2>
+              @if (!invoice.isReturn) {
+                <span>{{ 'Tax Invoice' }}</span>
+              }
+              @if (invoice.isReturn) {
+                <span>{{ 'Credit Note' }}</span>
+              }
+            </h2>
+            <div class="inv-number">{{ invoice.invoiceNumber }}</div>
+            <div class="inv-date">{{ 'Date' | abpLocalization }}: {{ invoice.issueDate | date:'dd/MM/yyyy' }}</div>
+            @if (invoice.dueDate) {
+              <div class="inv-date">{{ 'DueDate' | abpLocalization }}: {{ invoice.dueDate | date:'dd/MM/yyyy' }}</div>
+            }
+          </div>
         </div>
-        <div class="invoice-title">
-          <h2>
-            <span *ngIf="!invoice.isReturn">{{ 'Tax Invoice' }}</span>
-            <span *ngIf="invoice.isReturn">{{ 'Credit Note' }}</span>
-          </h2>
-          <div class="inv-number">{{ invoice.invoiceNumber }}</div>
-          <div class="inv-date">{{ 'Date' | abpLocalization }}: {{ invoice.issueDate | date:'dd/MM/yyyy' }}</div>
-          <div class="inv-date" *ngIf="invoice.dueDate">{{ 'DueDate' | abpLocalization }}: {{ invoice.dueDate | date:'dd/MM/yyyy' }}</div>
+        <!-- Parties: Bill To + Ship To -->
+        <div class="parties">
+          <div class="party-box">
+            <h4>{{ 'BillTo' | abpLocalization }}</h4>
+            <p><strong>{{ invoice.customerName || '—' }}</strong></p>
+            @if (invoice.customerTin) {
+              <p>TIN: {{ invoice.customerTin }}</p>
+            }
+            @if (invoice.billingAddress) {
+              <p>{{ invoice.billingAddress }}</p>
+            }
+          </div>
+          @if (invoice.shippingAddress) {
+            <div class="party-box">
+              <h4>{{ 'ShipTo' | abpLocalization }}</h4>
+              <p>{{ invoice.shippingAddress }}</p>
+            </div>
+          }
         </div>
-      </div>
-
-      <!-- Parties: Bill To + Ship To -->
-      <div class="parties">
-        <div class="party-box">
-          <h4>{{ 'BillTo' | abpLocalization }}</h4>
-          <p><strong>{{ invoice.customerName || '—' }}</strong></p>
-          <p *ngIf="invoice.customerTin">TIN: {{ invoice.customerTin }}</p>
-          <p *ngIf="invoice.billingAddress">{{ invoice.billingAddress }}</p>
-        </div>
-        <div class="party-box" *ngIf="invoice.shippingAddress">
-          <h4>{{ 'ShipTo' | abpLocalization }}</h4>
-          <p>{{ invoice.shippingAddress }}</p>
-        </div>
-      </div>
-
-      <!-- Line Items Table -->
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th class="sno">#</th>
-            <th>{{ 'Description' | abpLocalization }}</th>
-            <th class="text-end" style="width:60px">{{ 'Qty' | abpLocalization }}</th>
-            <th class="text-end" style="width:50px">UOM</th>
-            <th class="text-end" style="width:100px">{{ 'Rate' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
-            <th class="text-end" style="width:120px">{{ 'Amount' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of invoice.items; let i = index">
-            <td class="sno">{{ i + 1 }}</td>
-            <td>{{ item.description || item.itemName || '—' }}</td>
-            <td class="text-end">{{ formatNumber(item.quantity) }}</td>
-            <td class="text-end">{{ item.uom || item.stockUom || 'Unit' }}</td>
-            <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
-            <td class="text-end">{{ formatCurrency(item.quantity * item.unitPrice) }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Totals -->
-      <div class="totals-section">
-        <table class="totals-table">
-          <tr>
-            <td>{{ 'NetTotal' | abpLocalization }}</td>
-            <td>{{ formatCurrency(invoice.netTotal) }}</td>
-          </tr>
-          <tr *ngIf="invoice.discountAmount > 0">
-            <td>{{ 'Discount' | abpLocalization }}</td>
-            <td>- {{ formatCurrency(invoice.discountAmount) }}</td>
-          </tr>
-          <tr *ngIf="invoice.taxAmount > 0">
-            <td>{{ taxLabel }}</td>
-            <td>{{ formatCurrency(invoice.taxAmount) }}</td>
-          </tr>
-          <tr class="grand-total">
-            <td>{{ 'GrandTotal' | abpLocalization }}</td>
-            <td>{{ invoice.currencyCode || 'MYR' }} {{ formatCurrency(invoice.grandTotal) }}</td>
-          </tr>
-          <tr *ngIf="invoice.amountPaid > 0">
-            <td>{{ 'Paid' | abpLocalization }}</td>
-            <td>{{ formatCurrency(invoice.amountPaid) }}</td>
-          </tr>
-          <tr *ngIf="invoice.outstandingAmount > 0">
-            <td><strong>{{ 'Outstanding' | abpLocalization }}</strong></td>
-            <td><strong>{{ formatCurrency(invoice.outstandingAmount) }}</strong></td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- Payment Terms -->
-      <div class="payment-terms" *ngIf="paymentSchedule?.length">
-        <h4>{{ 'PaymentTerms' | abpLocalization }}</h4>
-        <table>
+        <!-- Line Items Table -->
+        <table class="items-table">
           <thead>
-            <tr><th>{{ 'DueDate' | abpLocalization }}</th><th>%</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'Status' | abpLocalization }}</th></tr>
+            <tr>
+              <th class="sno">#</th>
+              <th>{{ 'Description' | abpLocalization }}</th>
+              <th class="text-end" style="width:60px">{{ 'Qty' | abpLocalization }}</th>
+              <th class="text-end" style="width:50px">UOM</th>
+              <th class="text-end" style="width:100px">{{ 'Rate' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
+              <th class="text-end" style="width:120px">{{ 'Amount' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
+            </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let term of paymentSchedule">
-              <td>{{ term.dueDate | date:'dd/MM/yyyy' }}</td>
-              <td>{{ term.invoicePortion }}%</td>
-              <td>{{ formatCurrency(term.paymentAmount) }}</td>
-              <td>{{ term.paidAmount >= term.paymentAmount ? 'Paid' : 'Pending' }}</td>
-            </tr>
+            @for (item of invoice.items; track item; let i = $index) {
+              <tr>
+                <td class="sno">{{ i + 1 }}</td>
+                <td>{{ item.description || item.itemName || '—' }}</td>
+                <td class="text-end">{{ formatNumber(item.quantity) }}</td>
+                <td class="text-end">{{ item.uom || item.stockUom || 'Unit' }}</td>
+                <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
+                <td class="text-end">{{ formatCurrency(item.quantity * item.unitPrice) }}</td>
+              </tr>
+            }
           </tbody>
         </table>
-      </div>
-
-      <!-- Footer -->
-      <div class="footer">
-        <div class="notes" *ngIf="invoice.notes">
-          <strong>{{ 'Notes' | abpLocalization }}:</strong> {{ invoice.notes }}
+        <!-- Totals -->
+        <div class="totals-section">
+          <table class="totals-table">
+            <tr>
+              <td>{{ 'NetTotal' | abpLocalization }}</td>
+              <td>{{ formatCurrency(invoice.netTotal) }}</td>
+            </tr>
+            @if (invoice.discountAmount > 0) {
+              <tr>
+                <td>{{ 'Discount' | abpLocalization }}</td>
+                <td>- {{ formatCurrency(invoice.discountAmount) }}</td>
+              </tr>
+            }
+            @if (invoice.taxAmount > 0) {
+              <tr>
+                <td>{{ taxLabel }}</td>
+                <td>{{ formatCurrency(invoice.taxAmount) }}</td>
+              </tr>
+            }
+            <tr class="grand-total">
+              <td>{{ 'GrandTotal' | abpLocalization }}</td>
+              <td>{{ invoice.currencyCode || 'MYR' }} {{ formatCurrency(invoice.grandTotal) }}</td>
+            </tr>
+            @if (invoice.amountPaid > 0) {
+              <tr>
+                <td>{{ 'Paid' | abpLocalization }}</td>
+                <td>{{ formatCurrency(invoice.amountPaid) }}</td>
+              </tr>
+            }
+            @if (invoice.outstandingAmount > 0) {
+              <tr>
+                <td><strong>{{ 'Outstanding' | abpLocalization }}</strong></td>
+                <td><strong>{{ formatCurrency(invoice.outstandingAmount) }}</strong></td>
+              </tr>
+            }
+          </table>
         </div>
-        <div class="bank-details" *ngIf="bankDetails">
-          <strong>{{ 'BankDetails' | abpLocalization }}:</strong><br/>
-          {{ bankDetails }}
+        <!-- Payment Terms -->
+        @if (paymentSchedule?.length) {
+          <div class="payment-terms">
+            <h4>{{ 'PaymentTerms' | abpLocalization }}</h4>
+            <table>
+              <thead>
+                <tr><th>{{ 'DueDate' | abpLocalization }}</th><th>%</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'Status' | abpLocalization }}</th></tr>
+              </thead>
+              <tbody>
+                @for (term of paymentSchedule; track term) {
+                  <tr>
+                    <td>{{ term.dueDate | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ term.invoicePortion }}%</td>
+                    <td>{{ formatCurrency(term.paymentAmount) }}</td>
+                    <td>{{ term.paidAmount >= term.paymentAmount ? 'Paid' : 'Pending' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Footer -->
+        <div class="footer">
+          @if (invoice.notes) {
+            <div class="notes">
+              <strong>{{ 'Notes' | abpLocalization }}:</strong> {{ invoice.notes }}
+            </div>
+          }
+          @if (bankDetails) {
+            <div class="bank-details">
+              <strong>{{ 'BankDetails' | abpLocalization }}:</strong><br/>
+              {{ bankDetails }}
+            </div>
+          }
+          <div class="thank-you">Thank you for your business</div>
         </div>
-        <div class="thank-you">Thank you for your business</div>
       </div>
-    </div>
-  `
+    }
+    `
 })
 export class InvoicePrintLayoutComponent {
   @Input() invoice: any;

@@ -1,21 +1,21 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { FinancialReportTemplateService } from '../../proxy/accounting/financial-report-template.service';
 import { Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface FinancialReportTemplateDto {
-  id: string;
-  name: string;
-  reportType: number;
+  id?: string;
+  name?: string;
+  reportType?: number;
   companyId?: string;
-  isStandard: boolean;
-  isEnabled: boolean;
+  isStandard?: boolean;
+  isEnabled?: boolean;
   description?: string;
-  rows: any[];
+  rows?: any[];
 }
 
 @Component({
@@ -124,7 +124,7 @@ interface FinancialReportTemplateDto {
   `
 })
 export class FinancialReportTemplateListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private templateService = inject(FinancialReportTemplateService);
   private toaster = inject(ToasterService);
   private router = inject(Router);
 
@@ -142,8 +142,8 @@ export class FinancialReportTemplateListComponent implements OnInit {
   }
 
   load() {
-    this.http.get<any>('/api/app/financial-report-template', {
-      params: { skipCount: String(this.currentPage * 10), maxResultCount: '10' }
+    this.templateService.getList({
+      skipCount: this.currentPage * 10, maxResultCount: 10, sorting: ''
     }).subscribe(res => {
       this.templates.set(res.items ?? []);
       this.totalCount.set(res.totalCount ?? 0);
@@ -152,7 +152,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
 
   create() {
     if (!this.newName) return;
-    this.http.post<any>('/api/app/financial-report-template', {
+    this.templateService.create({
       name: this.newName,
       reportType: +this.newReportType,
       description: this.newDescription || undefined,
@@ -170,7 +170,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
   }
 
   toggle(t: FinancialReportTemplateDto) {
-    this.http.post(`/api/app/financial-report-template/${t.id}/toggle`, {}).subscribe({
+    this.templateService.toggle(t.id).subscribe({
       next: () => this.load(),
       error: () => {}
     });
@@ -178,7 +178,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
 
   remove(t: FinancialReportTemplateDto) {
     if (!confirm(`Delete template "${t.name}"?`)) return;
-    this.http.delete(`/api/app/financial-report-template/${t.id}`).subscribe({
+    this.templateService.delete(t.id).subscribe({
       next: () => { this.toaster.success('Deleted'); this.load(); },
       error: () => {}
     });

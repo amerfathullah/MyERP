@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ProformaInvoiceService } from '../../proxy/application/sales/proforma-invoice.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
@@ -10,17 +10,17 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface ProformaInvoice {
-  id: string;
-  proformaNumber: string;
-  proformaDate: string;
-  salesOrderId: string;
+  id?: string;
+  proformaNumber?: string;
+  proformaDate?: string;
+  salesOrderId?: string;
   salesOrderNumber?: string;
-  customerId: string;
+  customerId?: string;
   customerName?: string;
-  basedOn: number;
-  grandTotal: number;
-  totalQty: number;
-  status: number;
+  basedOn?: number;
+  grandTotal?: number;
+  totalQty?: number;
+  status?: number;
   sentOn?: string;
 }
 
@@ -103,7 +103,7 @@ interface ProformaInvoice {
   `
 })
 export class ProformaInvoiceListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private proformaService = inject(ProformaInvoiceService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -130,7 +130,7 @@ export class ProformaInvoiceListComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (cid) params.companyId = cid;
 
-    this.http.get<any>('/api/app/proforma-invoice', { params }).subscribe({
+    this.proformaService.getList(params as any).subscribe({
       next: (res) => {
         this.proformas.set(res.items ?? []);
         this.totalCount.set(res.totalCount ?? 0);
@@ -142,7 +142,7 @@ export class ProformaInvoiceListComponent implements OnInit {
 
   cancel(id: string) {
     if (!confirm('Cancel this proforma invoice?')) return;
-    this.http.post(`/api/app/proforma-invoice/${id}/cancel`, {}).subscribe({
+    this.proformaService.cancel(id).subscribe({
       next: () => {
         this.toaster.success('Proforma Invoice cancelled');
         this.loadData();

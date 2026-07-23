@@ -1,7 +1,7 @@
-import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { DraftLinkGuardService } from '../../../proxy/core/draft-link-guard.service';
 import { LocalizationPipe } from '@abp/ng.core';
 
 /**
@@ -60,7 +60,7 @@ import { LocalizationPipe } from '@abp/ng.core';
     }
   `
 })
-export class DraftLinkGuardComponent {
+export class DraftLinkGuardComponent implements OnInit {
   @Input({ required: true }) sourceDocType!: string;
   @Input({ required: true }) sourceId!: string;
   @Input({ required: true }) targetDocType!: string;
@@ -73,8 +73,7 @@ export class DraftLinkGuardComponent {
 
   isChecking = signal(false);
   existingDrafts = signal<any[]>([]);
-
-  constructor(private http: HttpClient) {}
+  private draftLinkGuardService = inject(DraftLinkGuardService);
 
   ngOnInit() {
     if (this.autoCheck && this.sourceId && this.targetDocType) {
@@ -84,13 +83,7 @@ export class DraftLinkGuardComponent {
 
   checkDrafts() {
     this.isChecking.set(true);
-    this.http.get<any[]>('/api/app/draft-link-guard/existing-drafts', {
-      params: {
-        sourceDocType: this.sourceDocType,
-        sourceId: this.sourceId,
-        targetDocType: this.targetDocType
-      }
-    }).subscribe({
+    this.draftLinkGuardService.getExistingDrafts(this.sourceDocType, this.sourceId, this.targetDocType).subscribe({
       next: (drafts) => {
         this.isChecking.set(false);
         if (!drafts || drafts.length === 0) {

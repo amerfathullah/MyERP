@@ -7,7 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { DunningService } from '../../proxy/sales/dunning.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
-import { HttpClient } from '@angular/common/http';
+import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -122,7 +122,7 @@ export class DunningFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(DunningService);
   private customerService = inject(CustomerService);
-  private http = inject(HttpClient);
+  private paymentReconciliationService = inject(PaymentReconciliationService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -161,7 +161,7 @@ export class DunningFormComponent implements OnInit {
     if (!customerId) return;
     this.fetchingInvoices.set(true);
     const companyId = this.companyContext.currentCompanyId();
-    this.http.get<any>(`/api/app/payment-reconciliation/outstanding-invoices?partyType=Customer&partyId=${customerId}${companyId ? '&companyId=' + companyId : ''}`)
+    this.paymentReconciliationService.getOutstandingInvoices('Customer', customerId)
       .subscribe({
         next: (res) => {
           const today = new Date();

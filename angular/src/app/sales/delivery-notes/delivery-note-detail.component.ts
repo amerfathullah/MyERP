@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -34,7 +34,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
@@ -83,10 +83,10 @@ export class DeliveryNoteDetailComponent implements OnInit {
 
   private loadCompanyData(companyId: string | undefined): void {
     if (!companyId) return;
-    this.http.get<any>(`/api/app/company/${companyId}`).subscribe({
+    this.companyService.get(companyId).subscribe({
       next: (company) => {
         this.companyName = company.name || '';
-        this.companyTin = company.tin || '';
+        this.companyTin = company.taxId || '';
         this.companySst = company.sstRegistrationNumber || '';
         this.companyAddress = company.address || '';
       },

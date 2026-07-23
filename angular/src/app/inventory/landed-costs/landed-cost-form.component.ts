@@ -7,7 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LandedCostVoucherService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
-import { HttpClient } from '@angular/common/http';
+import { AccountService } from '../../proxy/accounting/account.service';
 
 @Component({
   selector: 'app-lcv-form', standalone: true,
@@ -93,7 +93,7 @@ export class LandedCostFormComponent implements OnInit {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
-  private http = inject(HttpClient);
+  private accountService = inject(AccountService);
 
   saving = false;
   isDirty = false;
@@ -110,7 +110,7 @@ export class LandedCostFormComponent implements OnInit {
     this.itemService.getList({ maxResultCount: 500 } as any).subscribe(r =>
       this.availableItems.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName })))
     );
-    this.http.get<any>('/api/app/account', { params: { maxResultCount: '500' } }).subscribe(r =>
+    this.accountService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
   }

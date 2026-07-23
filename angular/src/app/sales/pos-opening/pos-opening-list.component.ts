@@ -2,21 +2,21 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface PosOpeningDto {
-  id: string;
-  companyId: string;
-  posProfileId: string;
-  userId: string;
-  openingDate: string;
-  status: string;
-  totalOpeningAmount: number;
+  id?: string;
+  companyId?: string;
+  posProfileId?: string;
+  userId?: string;
+  openingDate?: string;
+  status?: string;
+  totalOpeningAmount?: number;
   posClosingEntryId?: string;
-  payments: { modeName: string; openingAmount: number }[];
+  payments?: { modeName: string; openingAmount: number }[];
 }
 
 @Component({
@@ -126,7 +126,7 @@ interface PosOpeningDto {
   `
 })
 export class PosOpeningListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private posOpeningService = inject(PosOpeningService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -146,8 +146,8 @@ export class PosOpeningListComponent implements OnInit {
     const params: any = { maxResultCount: 20, skipCount: this.currentPage * 20 };
     if (companyId) params.companyId = companyId;
 
-    this.http.get<any>('/api/app/pos-opening', { params }).subscribe(res => {
-      this.entries.set(res.items ?? []);
+    this.posOpeningService.getList(params as any).subscribe(res => {
+      this.entries.set((res.items ?? []) as PosOpeningDto[]);
       this.totalCount.set(res.totalCount ?? 0);
     });
   }
@@ -166,7 +166,7 @@ export class PosOpeningListComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
 
-    this.http.post('/api/app/pos-opening', {
+    this.posOpeningService.create({
       companyId,
       posProfileId: companyId, // simplified: use company as profile
       userId: '00000000-0000-0000-0000-000000000000', // will be resolved from current user
@@ -183,7 +183,7 @@ export class PosOpeningListComponent implements OnInit {
 
   cancel(id: string) {
     if (!confirm('Cancel this POS session?')) return;
-    this.http.post(`/api/app/pos-opening/${id}/cancel`, {}).subscribe({
+    this.posOpeningService.cancel(id).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyCancelled');
         this.load();

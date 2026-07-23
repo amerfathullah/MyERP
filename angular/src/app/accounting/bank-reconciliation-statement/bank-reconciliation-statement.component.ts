@@ -1,7 +1,8 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { AccountService } from '../../proxy/accounting/account.service';
+import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -20,15 +21,15 @@ interface BankStatementEntry {
 }
 
 interface ReconciliationStatement {
-  glBalance: number;
-  outstandingDeposits: number;
-  outstandingPayments: number;
-  netOutstanding: number;
-  calculatedBankBalance: number;
-  unclearedEntries: BankStatementEntry[];
-  currencyCode: string;
-  reportDate: string;
-  bankAccountName: string;
+  glBalance?: number;
+  outstandingDeposits?: number;
+  outstandingPayments?: number;
+  netOutstanding?: number;
+  calculatedBankBalance?: number;
+  unclearedEntries?: BankStatementEntry[];
+  currencyCode?: string;
+  reportDate?: string;
+  bankAccountName?: string;
 }
 
 interface AccountOption {
@@ -201,10 +202,9 @@ export class BankReconciliationStatementComponent implements OnInit {
   selectedAccountId = '';
   reportDate = new Date().toISOString().split('T')[0];
 
-  constructor(
-    private http: HttpClient,
-    private companyContext: CompanyContextService
-  ) {}
+  private accountService = inject(AccountService);
+  private bankReconciliationService = inject(BankReconciliationService);
+  private companyContext = inject(CompanyContextService);
 
   ngOnInit(): void {
     this.loadBankAccounts();
@@ -212,9 +212,7 @@ export class BankReconciliationStatementComponent implements OnInit {
 
   private loadBankAccounts(): void {
     // Load accounts of type Bank for the current company
-    this.http.get<any>('/api/app/account', {
-      params: { maxResultCount: '200', accountType: 'Bank' }
-    }).subscribe({
+    this.accountService.getList({ maxResultCount: 200, skipCount: 0, sorting: '', accountType: 'Bank' } as any).subscribe({
       next: (res) => {
         const items = (res.items || []).map((a: any) => ({
           id: a.id,
@@ -238,15 +236,9 @@ export class BankReconciliationStatementComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<ReconciliationStatement>('/api/app/bank-reconciliation/reconciliation-statement', {
-      params: {
-        bankAccountId: this.selectedAccountId,
-        companyId: companyId,
-        reportDate: this.reportDate
-      }
-    }).subscribe({
+    this.bankReconciliationService.getReconciliationStatement({ bankAccountId: this.selectedAccountId, companyId: companyId, reportDate: this.reportDate } as any).subscribe({
       next: (data) => {
-        this.statement.set(data);
+        this.statement.set(data as ReconciliationStatement);
         this.isLoading.set(false);
       },
       error: () => {

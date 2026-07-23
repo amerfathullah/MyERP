@@ -2,7 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { CostCenterService } from '../../proxy/accounting/cost-center.service';
+import { CostCenterAllocationService } from '../../proxy/accounting/cost-center-allocation.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
@@ -13,18 +14,18 @@ interface AllocationEntry {
 }
 
 interface Allocation {
-  id: string;
-  companyId: string;
-  mainCostCenterId: string;
-  validFrom: string;
-  isActive: boolean;
-  entries: AllocationEntry[];
+  id?: string;
+  companyId?: string;
+  mainCostCenterId?: string;
+  validFrom?: string;
+  isActive?: boolean;
+  entries?: AllocationEntry[];
 }
 
 interface CostCenter {
-  id: string;
-  name: string;
-  isGroup: boolean;
+  id?: string;
+  name?: string;
+  isGroup?: boolean;
 }
 
 @Component({
@@ -160,7 +161,8 @@ interface CostCenter {
   `
 })
 export class CostCenterAllocationListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private costCenterService = inject(CostCenterService);
+  private costCenterAllocationService = inject(CostCenterAllocationService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -185,15 +187,15 @@ export class CostCenterAllocationListComponent implements OnInit {
 
   loadCostCenters() {
     const companyId = this.companyContext.currentCompanyId();
-    this.http.get<any>(`/api/app/cost-center?companyId=${companyId}&maxResultCount=500`).subscribe(res => {
-      this.costCenters.set(res.items ?? []);
+    this.costCenterService.getList({ companyId, maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(res => {
+      this.costCenters.set((res.items ?? []) as CostCenter[]);
     });
   }
 
   loadAllocations() {
     const companyId = this.companyContext.currentCompanyId();
-    this.http.get<any>(`/api/app/cost-center-allocation?companyId=${companyId}&maxResultCount=100`).subscribe(res => {
-      this.allocations.set(res.items ?? []);
+    this.costCenterAllocationService.getList({ companyId, maxResultCount: 100, skipCount: 0, sorting: '' } as any).subscribe(res => {
+      this.allocations.set((res.items ?? []) as Allocation[]);
     });
   }
 
@@ -213,7 +215,7 @@ export class CostCenterAllocationListComponent implements OnInit {
       validFrom: this.newAllocation.validFrom,
       entries: this.newAllocation.entries.filter(e => e.childCostCenterId)
     };
-    this.http.post('/api/app/cost-center-allocation', dto).subscribe({
+    this.costCenterAllocationService.create(dto as any).subscribe({
       next: () => {
         this.toaster.success('Cost center allocation created');
         this.showCreateForm = false;
@@ -225,7 +227,7 @@ export class CostCenterAllocationListComponent implements OnInit {
   }
 
   toggleActive(id: string) {
-    this.http.post(`/api/app/cost-center-allocation/${id}/toggle-active`, {}).subscribe({
+    this.costCenterAllocationService.toggleActive(id).subscribe({
       next: () => this.loadAllocations(),
       error: () => {}
     });
@@ -233,7 +235,7 @@ export class CostCenterAllocationListComponent implements OnInit {
 
   deleteAllocation(id: string) {
     if (confirm('Delete this allocation?')) {
-      this.http.delete(`/api/app/cost-center-allocation/${id}`).subscribe({
+      this.costCenterAllocationService.delete(id).subscribe({
         next: () => this.loadAllocations(),
         error: () => {}
       });

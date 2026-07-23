@@ -1,28 +1,28 @@
-import { Component, EventEmitter, Input, Output, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, ElementRef, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { BarcodeScanService } from '../../../proxy/inventory/barcode-scan.service';
 
 export interface BarcodeScanResult {
-  success: boolean;
-  scanType: number;
-  scanTypeName: string;
-  barcode: string;
+  success?: boolean;
+  scanType?: number;
+  scanTypeName?: string;
+  barcode?: string;
   message?: string;
   itemId?: string;
   itemCode?: string;
   itemName?: string;
-  hasSerialNo: boolean;
-  hasBatchNo: boolean;
+  hasSerialNo?: boolean;
+  hasBatchNo?: boolean;
   uom?: string;
-  maintainStock: boolean;
+  maintainStock?: boolean;
   serialNoId?: string;
   serialNumber?: string;
   batchId?: string;
   batchNo?: string;
   warehouseId?: string;
   warehouseName?: string;
-  action: number;
+  action?: number;
   actionName: string;
 }
 
@@ -116,8 +116,7 @@ export class BarcodeScannerComponent {
 
   private warehouseContextId: string | null = null;
   private feedbackTimeout: any;
-
-  constructor(private http: HttpClient) {}
+  private barcodeScanService = inject(BarcodeScanService);
 
   onScan(): void {
     const barcode = this.barcodeValue.trim();
@@ -126,12 +125,10 @@ export class BarcodeScannerComponent {
     this.isScanning.set(true);
     this.showFeedback.set(false);
 
-    this.http.get<BarcodeScanResult>(`/api/app/barcode-scan/scan`, {
-      params: { barcode }
-    }).subscribe({
+    this.barcodeScanService.scan(barcode).subscribe({
       next: (result) => {
         this.isScanning.set(false);
-        this.lastResult.set(result);
+        this.lastResult.set(result as BarcodeScanResult);
         this.barcodeValue = '';
 
         if (result.success) {
@@ -142,7 +139,7 @@ export class BarcodeScannerComponent {
           }
 
           this.scanned.emit({
-            result,
+            result: result as BarcodeScanResult,
             warehouseContext: this.warehouseContextId ?? undefined
           });
 

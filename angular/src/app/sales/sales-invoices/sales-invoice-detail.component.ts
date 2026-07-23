@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -43,7 +43,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 export class SalesInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
   private service = inject(SalesInvoiceService);
   private eInvoiceService = inject(EInvoiceService);
   private store = inject(SalesInvoiceStore);
@@ -92,7 +92,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
       // Load company data for print layout
       if ((result as any).companyId) {
-        this.http.get<any>(`/api/app/company/${(result as any).companyId}`).subscribe({
+        this.companyService.get((result as any).companyId).subscribe({
           next: (company) => this.companyData.set(company),
           error: () => {} // Non-critical — print layout shows without company header
         });

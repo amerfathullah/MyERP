@@ -112,6 +112,12 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Submit, L("Permission:DeliveryNotes.Submit"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Cancel, L("Permission:DeliveryNotes.Cancel"));
 
+        var packingSlipsPermission = myGroup.AddPermission(MyERPPermissions.PackingSlips.Default, L("Permission:PackingSlips"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Create, L("Permission:PackingSlips.Create"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Delete, L("Permission:PackingSlips.Delete"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Submit, L("Permission:PackingSlips.Submit"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Cancel, L("Permission:PackingSlips.Cancel"));
+
         var eInvoicePermission = myGroup.AddPermission(MyERPPermissions.EInvoice.Default, L("Permission:EInvoice"));
         eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Submit, L("Permission:EInvoice.Submit"));
         eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Cancel, L("Permission:EInvoice.Cancel"));

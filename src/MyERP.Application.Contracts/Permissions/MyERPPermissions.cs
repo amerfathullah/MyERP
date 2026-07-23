@@ -156,6 +156,15 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class PackingSlips
+    {
+        public const string Default = GroupName + ".PackingSlips";
+        public const string Create = Default + ".Create";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class EInvoice
     {
         public const string Default = GroupName + ".EInvoice";

@@ -15,7 +15,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { PurchaseReceiptPrintLayoutComponent } from '../../shared/components/pr-print-layout/pr-print-layout.component';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 
 @Component({
   selector: 'app-purchase-receipt-detail',
@@ -32,7 +32,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
 
   receipt: PurchaseReceiptDto | null = null;
   companyData = { name: '', tin: '', sst: '', address: '' };
@@ -66,7 +66,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   }
 
   private loadCompanyData(): void {
-    this.http.get<any[]>('/api/app/company').subscribe(companies => {
+    this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' }).subscribe((res: any) => { const companies = res.items || [];
       if (companies?.length > 0) {
         const c = companies[0];
         this.companyData = {

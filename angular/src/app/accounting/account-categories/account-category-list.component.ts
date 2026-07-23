@@ -2,13 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { AccountCategoryService } from '../../proxy/accounting/account-category.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 interface AccountCategoryDto {
-  id: string;
-  name: string;
-  rootType: string;
+  id?: string;
+  name?: string;
+  rootType?: string;
   description?: string;
 }
 
@@ -103,7 +103,7 @@ interface AccountCategoryDto {
   `
 })
 export class AccountCategoryListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private accountCategoryService = inject(AccountCategoryService);
   private toaster = inject(ToasterService);
 
   categories = signal<AccountCategoryDto[]>([]);
@@ -113,13 +113,13 @@ export class AccountCategoryListComponent implements OnInit {
   ngOnInit() { this.loadData(); }
 
   loadData() {
-    this.http.get<any>('/api/app/account-category?maxResultCount=100').subscribe(res => {
+    this.accountCategoryService.getList({ maxResultCount: 100, skipCount: 0, sorting: '' }).subscribe(res => {
       this.categories.set(res.items ?? []);
     });
   }
 
   create() {
-    this.http.post<AccountCategoryDto>('/api/app/account-category', this.newCategory).subscribe({
+    this.accountCategoryService.create(this.newCategory as any).subscribe({
       next: () => {
         this.toaster.success('Category created');
         this.showCreate = false;
@@ -132,7 +132,7 @@ export class AccountCategoryListComponent implements OnInit {
 
   remove(cat: AccountCategoryDto) {
     if (!confirm(`Delete category "${cat.name}"?`)) return;
-    this.http.delete(`/api/app/account-category/${cat.id}`).subscribe({
+    this.accountCategoryService.delete(cat.id).subscribe({
       next: () => { this.toaster.success('Deleted'); this.loadData(); },
       error: () => {}
     });

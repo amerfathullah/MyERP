@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -28,7 +28,7 @@ import { QuotationPrintLayoutComponent } from '../../shared/components/quotation
 export class QuotationDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
   private service = inject(QuotationService);
   private conversionService = inject(DocumentConversionService);
   private store = inject(QuotationStore);
@@ -61,7 +61,7 @@ export class QuotationDetailComponent implements OnInit {
       this.quotation = result;
       // Load company data for print layout
       if ((result as any).companyId) {
-        this.http.get<any>(`/api/app/company/${(result as any).companyId}`).subscribe({
+        this.companyService.get((result as any).companyId).subscribe({
           next: (company) => this.companyData.set(company),
           error: () => {} // Non-critical — print still works without company header
         });

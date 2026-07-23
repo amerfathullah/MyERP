@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -29,7 +29,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 export class PurchaseInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
   private service = inject(PurchaseInvoiceService);
   private store = inject(PurchaseInvoiceStore);
   private confirmation = inject(ConfirmationService);
@@ -75,7 +75,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
       // Load company data for print layout
       if (result.companyId) {
-        this.http.get<any>(`/api/app/company/${result.companyId}`).subscribe({
+        this.companyService.get(result.companyId).subscribe({
           next: (company) => this.companyData.set(company),
           error: () => {} // Non-critical for print
         });

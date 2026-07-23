@@ -9,7 +9,7 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import type { LeaveTypeDto } from '../../proxy/human-resources/models';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -96,7 +96,7 @@ export class LeaveFormComponent implements OnInit {
   private router = inject(Router);
   private service = inject(LeaveService);
   private employeeService = inject(EmployeeService);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -117,7 +117,7 @@ export class LeaveFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.service.getLeaveTypes().subscribe(types => this.leaveTypes.set(types));
-    this.http.get<any>('/api/app/company').subscribe(res => {
+    this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' }).subscribe(res => {
       this.companies.set((res.items ?? []).map((c: any) => ({ id: c.id, name: c.name })));
     });
     const cid = this.companyContext.currentCompanyId();

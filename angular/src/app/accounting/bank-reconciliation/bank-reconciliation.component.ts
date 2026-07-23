@@ -5,7 +5,6 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import type { BankTransactionDto, BankReconciliationSummaryDto, MatchCandidateDto, MirrorTransactionDto } from '../../proxy/accounting/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -208,7 +207,7 @@ export class BankReconciliationComponent implements OnInit {
   }
 
   // --- Create Payment Entry from Transaction ---
-  private http = inject(HttpClient);
+  private bankReconciliationService = inject(BankReconciliationService);
   private router = inject(Router);
   private customerService = inject(CustomerService);
   private supplierService = inject(SupplierService);
@@ -255,7 +254,7 @@ export class BankReconciliationComponent implements OnInit {
     }
 
     this.isCreatingPe.set(true);
-    this.http.post<any>('/api/app/bank-reconciliation/create-payment-entry-from-transaction', {
+    this.bankReconciliationService.createPaymentEntryFromTransaction({
       bankTransactionId: tx.id,
       companyId,
       partyType: this.pePartyType(),

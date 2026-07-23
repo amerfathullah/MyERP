@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { MonthEndCloseService } from '../../proxy/accounting/month-end-close.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -14,17 +14,17 @@ interface MonthEndCheck {
 }
 
 interface ReadinessResult {
-  isReady: boolean;
-  passedCount: number;
-  totalChecks: number;
-  checks: MonthEndCheck[];
+  isReady?: boolean;
+  passedCount?: number;
+  totalChecks?: number;
+  checks?: MonthEndCheck[];
 }
 
 interface CloseStatus {
-  isTrialBalanceBalanced: boolean;
-  hasPeriodClosingVoucher: boolean;
-  isPeriodClosed: boolean;
-  isFullyClosed: boolean;
+  isTrialBalanceBalanced?: boolean;
+  hasPeriodClosingVoucher?: boolean;
+  isPeriodClosed?: boolean;
+  isFullyClosed?: boolean;
 }
 
 @Component({
@@ -157,7 +157,7 @@ interface CloseStatus {
   `
 })
 export class MonthEndCloseComponent {
-  private http = inject(HttpClient);
+  private monthEndCloseService = inject(MonthEndCloseService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -172,11 +172,11 @@ export class MonthEndCloseComponent {
     if (!companyId) { this.toaster.warn('Select a company first'); return; }
 
     this.loading.set(true);
-    this.http.post<ReadinessResult>('/api/app/month-end-close/validate-readiness', {
+    this.monthEndCloseService.validateReadiness({
       companyId,
       periodEndDate: this.periodEndDate
     }).subscribe({
-      next: (res) => { this.readiness.set(res); this.loading.set(false); },
+      next: (res) => { this.readiness.set(res as ReadinessResult); this.loading.set(false); },
       error: () => { this.loading.set(false); }
     });
   }
@@ -186,11 +186,11 @@ export class MonthEndCloseComponent {
     if (!companyId) { this.toaster.warn('Select a company first'); return; }
 
     this.loading.set(true);
-    this.http.post<CloseStatus>('/api/app/month-end-close/get-close-status', {
+    this.monthEndCloseService.getCloseStatus({
       companyId,
       periodEndDate: this.periodEndDate
     }).subscribe({
-      next: (res) => { this.closeStatus.set(res); this.loading.set(false); },
+      next: (res) => { this.closeStatus.set(res as CloseStatus); this.loading.set(false); },
       error: () => { this.loading.set(false); }
     });
   }
@@ -199,7 +199,7 @@ export class MonthEndCloseComponent {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) { this.toaster.warn('Select a company first'); return; }
 
-    this.http.post('/api/app/month-end-close/freeze', {
+    this.monthEndCloseService.freeze({
       companyId,
       freezeUpTo: this.freezeDate
     }).subscribe({

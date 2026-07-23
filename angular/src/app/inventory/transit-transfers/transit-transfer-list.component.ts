@@ -1,19 +1,19 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface PendingTransfer {
-  stockEntryId: string;
-  entryNumber: string;
-  postingDate: string;
-  sourceWarehouseId: string;
+  stockEntryId?: string;
+  entryNumber?: string;
+  postingDate?: string;
+  sourceWarehouseId?: string;
   sourceWarehouseName?: string;
-  totalQuantity: number;
-  itemCount: number;
+  totalQuantity?: number;
+  itemCount?: number;
 }
 
 @Component({
@@ -101,11 +101,9 @@ export class TransitTransferListComponent implements OnInit {
   isLoading = signal(false);
   isReceiving = signal(false);
 
-  constructor(
-    private http: HttpClient,
-    private toaster: ToasterService,
-    private companyContext: CompanyContextService
-  ) {}
+  private stockEntryService = inject(StockEntryService);
+  private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   ngOnInit(): void {
     this.refreshData();
@@ -116,7 +114,7 @@ export class TransitTransferListComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<PendingTransfer[]>(
+    this.stockEntryService.getPendingTransitTransfers(
       `/api/app/stock-entry/pending-transit-transfers?companyId=${companyId}`
     ).subscribe({
       next: (data) => {

@@ -11,6 +11,7 @@ export * from './installation-note.service';
 export * from './item-sales.service';
 export * from './loyalty-program.service';
 export * from './models';
+export * from './packing-slip.service';
 export * from './pos-closing.service';
 export * from './pos-opening.service';
 export * from './pos.service';

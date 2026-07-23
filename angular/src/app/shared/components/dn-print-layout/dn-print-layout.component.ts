@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 
 /**
  * Delivery Note print layout — professional A4 format for warehouse/shipping operations.
@@ -11,17 +11,18 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-dn-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [DecimalPipe, DatePipe],
   template: `
-    <div class="dn-print-layout" *ngIf="deliveryNote">
+    @if (deliveryNote) {
+    <div class="dn-print-layout">
       <!-- Company Header -->
       <div class="print-header d-flex justify-content-between align-items-start mb-4">
         <div>
           <h3 class="fw-bold mb-1">{{ companyName }}</h3>
-          <p class="text-muted mb-0" *ngIf="companyTin">TIN: {{ companyTin }}</p>
-          <p class="text-muted mb-0" *ngIf="companySst">SST No: {{ companySst }}</p>
-          <p class="text-muted mb-0" *ngIf="companyAddress">{{ companyAddress }}</p>
-          <p class="text-muted mb-0" *ngIf="companyPhone">Tel: {{ companyPhone }}</p>
+          @if (companyTin) { <p class="text-muted mb-0">TIN: {{ companyTin }}</p> }
+          @if (companySst) { <p class="text-muted mb-0">SST No: {{ companySst }}</p> }
+          @if (companyAddress) { <p class="text-muted mb-0">{{ companyAddress }}</p> }
+          @if (companyPhone) { <p class="text-muted mb-0">Tel: {{ companyPhone }}</p> }
         </div>
         <div class="text-end">
           <h4 class="text-uppercase fw-bold mb-1" [class.text-danger]="deliveryNote.isReturn" [class.text-primary]="!deliveryNote.isReturn">
@@ -29,8 +30,8 @@ import { CommonModule } from '@angular/common';
           </h4>
           <p class="mb-0"><strong>DN #:</strong> {{ deliveryNote.deliveryNumber }}</p>
           <p class="mb-0"><strong>Date:</strong> {{ deliveryNote.postingDate | date:'dd/MM/yyyy' }}</p>
-          <p class="mb-0" *ngIf="deliveryNote.salesOrderNumber"><strong>SO Ref:</strong> {{ deliveryNote.salesOrderNumber }}</p>
-          <p class="mb-0" *ngIf="deliveryNote.customerPo"><strong>Customer PO:</strong> {{ deliveryNote.customerPo }}</p>
+          @if (deliveryNote.salesOrderNumber) { <p class="mb-0"><strong>SO Ref:</strong> {{ deliveryNote.salesOrderNumber }}</p> }
+          @if (deliveryNote.customerPo) { <p class="mb-0"><strong>Customer PO:</strong> {{ deliveryNote.customerPo }}</p> }
         </div>
       </div>
 
@@ -41,32 +42,40 @@ import { CommonModule } from '@angular/common';
         <div class="col-6">
           <h6 class="text-uppercase text-muted fw-bold mb-2">Bill To</h6>
           <p class="fw-bold mb-1">{{ deliveryNote.customerName || 'N/A' }}</p>
-          <p class="text-muted mb-0" *ngIf="billingAddress">{{ billingAddress }}</p>
-          <p class="text-muted mb-0" *ngIf="customerTin">TIN: {{ customerTin }}</p>
+          @if (billingAddress) { <p class="text-muted mb-0">{{ billingAddress }}</p> }
+          @if (customerTin) { <p class="text-muted mb-0">TIN: {{ customerTin }}</p> }
         </div>
         <div class="col-6">
           <h6 class="text-uppercase text-muted fw-bold mb-2">Ship To</h6>
           <p class="fw-bold mb-1">{{ shippingContactName || deliveryNote.customerName || 'N/A' }}</p>
-          <p class="text-muted mb-0" *ngIf="shippingAddress">{{ shippingAddress }}</p>
-          <p class="text-muted mb-0" *ngIf="shippingPhone">Tel: {{ shippingPhone }}</p>
+          @if (shippingAddress) { <p class="text-muted mb-0">{{ shippingAddress }}</p> }
+          @if (shippingPhone) { <p class="text-muted mb-0">Tel: {{ shippingPhone }}</p> }
         </div>
       </div>
 
       <!-- Warehouse / Vehicle Info -->
-      <div class="row mb-3" *ngIf="warehouseName || vehicleNo || driverName">
-        <div class="col-4" *ngIf="warehouseName">
+      @if (warehouseName || vehicleNo || driverName) {
+      <div class="row mb-3">
+        @if (warehouseName) {
+        <div class="col-4">
           <small class="text-muted">Source Warehouse</small>
           <p class="fw-bold mb-0">{{ warehouseName }}</p>
         </div>
-        <div class="col-4" *ngIf="vehicleNo">
+        }
+        @if (vehicleNo) {
+        <div class="col-4">
           <small class="text-muted">Vehicle No.</small>
           <p class="fw-bold mb-0">{{ vehicleNo }}</p>
         </div>
-        <div class="col-4" *ngIf="driverName">
+        }
+        @if (driverName) {
+        <div class="col-4">
           <small class="text-muted">Driver</small>
           <p class="fw-bold mb-0">{{ driverName }}</p>
         </div>
+        }
       </div>
+      }
 
       <!-- Items Table -->
       <table class="table table-bordered mb-4">
@@ -76,41 +85,47 @@ import { CommonModule } from '@angular/common';
             <th>Item Code / Description</th>
             <th class="text-end" style="width: 70px">Qty</th>
             <th class="text-end" style="width: 70px">UOM</th>
-            <th class="text-center" style="width: 120px" *ngIf="showSerialBatch">Serial / Batch</th>
-            <th class="text-end" style="width: 100px" *ngIf="!hideAmounts">Rate</th>
-            <th class="text-end" style="width: 110px" *ngIf="!hideAmounts">Amount</th>
+            @if (showSerialBatch) { <th class="text-center" style="width: 120px">Serial / Batch</th> }
+            @if (!hideAmounts) { <th class="text-end" style="width: 100px">Rate</th> }
+            @if (!hideAmounts) { <th class="text-end" style="width: 110px">Amount</th> }
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of deliveryNote.items; let i = index">
-            <td class="text-center">{{ i + 1 }}</td>
+          @for (item of deliveryNote.items; track $index) {
+          <tr>
+            <td class="text-center">{{ $index + 1 }}</td>
             <td>
               <span class="fw-semibold">{{ item.itemCode || item.itemName || '—' }}</span>
-              <br *ngIf="item.description && item.description !== item.itemCode">
-              <small class="text-muted" *ngIf="item.description && item.description !== item.itemCode">{{ item.description }}</small>
+              @if (item.description && item.description !== item.itemCode) { <br><small class="text-muted">{{ item.description }}</small> }
             </td>
             <td class="text-end font-monospace">{{ getDisplayQty(item) | number:'1.0-2' }}</td>
             <td class="text-end">{{ item.uom || item.stockUom || 'Unit' }}</td>
-            <td class="text-center small" *ngIf="showSerialBatch">{{ item.serialNo || item.batchNo || '—' }}</td>
-            <td class="text-end font-monospace" *ngIf="!hideAmounts">{{ item.unitPrice | number:'1.2-2' }}</td>
-            <td class="text-end font-monospace" *ngIf="!hideAmounts">{{ getLineTotal(item) | number:'1.2-2' }}</td>
+            @if (showSerialBatch) { <td class="text-center small">{{ item.serialNo || item.batchNo || '—' }}</td> }
+            @if (!hideAmounts) { <td class="text-end font-monospace">{{ item.unitPrice | number:'1.2-2' }}</td> }
+            @if (!hideAmounts) { <td class="text-end font-monospace">{{ getLineTotal(item) | number:'1.2-2' }}</td> }
           </tr>
+          }
         </tbody>
-        <tfoot *ngIf="!hideAmounts">
+        @if (!hideAmounts) {
+        <tfoot>
           <tr class="fw-bold">
             <td [attr.colspan]="showSerialBatch ? 5 : 4" class="text-end border-0">Total Qty:</td>
             <td class="text-end font-monospace border-0" [attr.colspan]="2">{{ totalQty | number:'1.0-2' }}</td>
           </tr>
         </tfoot>
+        }
       </table>
 
       <!-- Totals (hidden in packing-slip mode) -->
-      <div class="row" *ngIf="!hideAmounts">
+      @if (!hideAmounts) {
+      <div class="row">
         <div class="col-6">
-          <div class="border rounded p-3" *ngIf="deliveryNote.notes || deliveryInstructions">
+          @if (deliveryNote.notes || deliveryInstructions) {
+          <div class="border rounded p-3">
             <h6 class="text-uppercase text-muted fw-bold mb-2">Delivery Instructions</h6>
             <p class="mb-0 small">{{ deliveryInstructions || deliveryNote.notes }}</p>
           </div>
+          }
         </div>
         <div class="col-6">
           <table class="table table-sm mb-0">
@@ -119,10 +134,12 @@ import { CommonModule } from '@angular/common';
                 <td class="text-end border-0"><strong>Subtotal:</strong></td>
                 <td class="text-end border-0 font-monospace" style="width: 140px">{{ currency }} {{ deliveryNote.netTotal | number:'1.2-2' }}</td>
               </tr>
-              <tr *ngIf="deliveryNote.taxAmount">
+              @if (deliveryNote.taxAmount) {
+              <tr>
                 <td class="text-end border-0"><strong>Tax (SST):</strong></td>
                 <td class="text-end border-0 font-monospace">{{ currency }} {{ deliveryNote.taxAmount | number:'1.2-2' }}</td>
               </tr>
+              }
               <tr class="border-top">
                 <td class="text-end"><strong class="fs-5">Grand Total:</strong></td>
                 <td class="text-end font-monospace fs-5 fw-bold">{{ currency }} {{ deliveryNote.grandTotal | number:'1.2-2' }}</td>
@@ -131,6 +148,7 @@ import { CommonModule } from '@angular/common';
           </table>
         </div>
       </div>
+      }
 
       <!-- Signature Section -->
       <div class="mt-5 pt-4 border-top">
@@ -158,11 +176,14 @@ import { CommonModule } from '@angular/common';
         <p class="text-muted small mb-0">
           Goods received in good condition unless otherwise noted above.
         </p>
-        <p class="text-muted small mb-0" *ngIf="deliveryNote.isReturn">
+        @if (deliveryNote.isReturn) {
+        <p class="text-muted small mb-0">
           <strong>Note:</strong> This is a return document. Items listed are being returned to the company.
         </p>
+        }
       </div>
     </div>
+    }
   `,
   styles: [`
     :host { display: none; }

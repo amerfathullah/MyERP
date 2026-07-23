@@ -4,13 +4,13 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { CompanyService } from '../../proxy/core/company.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
-import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesOrderStore } from '../store/sales-order.store';
@@ -35,7 +35,8 @@ export class SalesOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private companyService = inject(CompanyService);
+  private salesOrderService = inject(SalesOrderService);
 
   order: SalesOrderDto | null = null;
   deliverySchedule = signal<any[]>([]);
@@ -89,7 +90,7 @@ export class SalesOrderDetailComponent implements OnInit {
       this.order = result;
       this.loadCompanyData(result.companyId);
       // Load delivery schedule entries
-      this.http.get<any[]>(`/api/app/sales-order/${id}/delivery-schedule`).subscribe({
+      this.salesOrderService.getDeliverySchedule(id).subscribe({
         next: (entries) => this.deliverySchedule.set(entries ?? []),
         error: () => {} // graceful — schedule is optional
       });
@@ -102,10 +103,10 @@ export class SalesOrderDetailComponent implements OnInit {
 
   private loadCompanyData(companyId: string | undefined): void {
     if (!companyId) return;
-    this.http.get<any>(`/api/app/company/${companyId}`).subscribe({
+    this.companyService.get(companyId).subscribe({
       next: (company) => {
         this.companyName = company.name || '';
-        this.companyTin = company.tin || '';
+        this.companyTin = company.taxId || '';
         this.companySst = company.sstRegistrationNumber || '';
         this.companyAddress = company.address || '';
       },

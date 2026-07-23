@@ -2,15 +2,15 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { FinanceBookService } from '../../proxy/accounting/finance-book.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface FinanceBookDto {
-  id: string;
-  companyId: string;
-  name: string;
-  isDefault: boolean;
+  id?: string;
+  companyId?: string;
+  name?: string;
+  isDefault?: boolean;
   description?: string;
 }
 
@@ -102,7 +102,7 @@ interface FinanceBookDto {
   `
 })
 export class FinanceBookListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private financeBookService = inject(FinanceBookService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -119,7 +119,7 @@ export class FinanceBookListComponent implements OnInit {
     const params: any = { maxResultCount: 100 };
     if (companyId) params.companyId = companyId;
 
-    this.http.get<any>('/api/app/finance-book', { params }).subscribe(res => {
+    this.financeBookService.getList({ maxResultCount: 100, skipCount: 0, sorting: '', companyId: companyId || undefined } as any).subscribe(res => {
       this.books.set(res.items ?? []);
     });
   }
@@ -128,12 +128,12 @@ export class FinanceBookListComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId || !this.newBook.name) return;
 
-    this.http.post<FinanceBookDto>('/api/app/finance-book', {
+    this.financeBookService.create({
       companyId,
       name: this.newBook.name,
       description: this.newBook.description || undefined,
       isDefault: this.newBook.isDefault
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyCreated');
         this.newBook = { name: '', description: '', isDefault: false };
@@ -144,7 +144,7 @@ export class FinanceBookListComponent implements OnInit {
   }
 
   setDefault(id: string) {
-    this.http.post(`/api/app/finance-book/${id}/set-default`, {}).subscribe({
+    this.financeBookService.setDefault(id).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyUpdated');
         this.load();
@@ -154,7 +154,7 @@ export class FinanceBookListComponent implements OnInit {
 
   remove(id: string) {
     if (!confirm('Delete this finance book?')) return;
-    this.http.delete(`/api/app/finance-book/${id}`).subscribe({
+    this.financeBookService.delete(id).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyDeleted');
         this.load();

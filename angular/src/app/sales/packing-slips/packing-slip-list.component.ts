@@ -3,20 +3,20 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { PackingSlipService } from '../../proxy/sales/packing-slip.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface PackingSlipDto {
-  id: string;
-  deliveryNoteId: string;
+  id?: string;
+  deliveryNoteId?: string;
   deliveryNoteNumber?: string;
-  fromCaseNo: number;
-  toCaseNo: number;
-  status: number;
-  netWeightKg: number;
-  grossWeightKg: number;
-  creationTime: string;
+  fromCaseNo?: number;
+  toCaseNo?: number;
+  status?: number;
+  netWeightKg?: number;
+  grossWeightKg?: number;
+  creationTime?: string;
 }
 
 @Component({
@@ -97,7 +97,7 @@ interface PackingSlipDto {
   `
 })
 export class PackingSlipListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private packingSlipService = inject(PackingSlipService);
   private toaster = inject(ToasterService);
 
   slips = signal<PackingSlipDto[]>([]);
@@ -108,14 +108,14 @@ export class PackingSlipListComponent implements OnInit {
 
   loadData() {
     const skip = (this.currentPage() - 1) * 10;
-    this.http.get<any>(`/api/app/packing-slip?skipCount=${skip}&maxResultCount=10`).subscribe(res => {
+    this.packingSlipService.getList({ skipCount: skip, maxResultCount: 10, sorting: '' } as any).subscribe(res => {
       this.slips.set(res.items ?? []);
       this.totalCount.set(res.totalCount ?? 0);
     });
   }
 
   submit(slip: PackingSlipDto) {
-    this.http.post(`/api/app/packing-slip/${slip.id}/submit`, {}).subscribe({
+    this.packingSlipService.submit(slip.id).subscribe({
       next: () => { this.toaster.success('Submitted'); this.loadData(); },
       error: () => {}
     });
@@ -123,7 +123,7 @@ export class PackingSlipListComponent implements OnInit {
 
   cancel(slip: PackingSlipDto) {
     if (!confirm('Cancel this packing slip?')) return;
-    this.http.post(`/api/app/packing-slip/${slip.id}/cancel`, {}).subscribe({
+    this.packingSlipService.cancel(slip.id).subscribe({
       next: () => { this.toaster.success('Cancelled'); this.loadData(); },
       error: () => {}
     });

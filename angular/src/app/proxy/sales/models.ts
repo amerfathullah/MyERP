@@ -143,6 +143,24 @@ export interface CreateLoyaltyProgramDto {
   tiers?: LoyaltyProgramTierDto[];
 }
 
+export interface CreatePackingSlipDto {
+  companyId: string;
+  deliveryNoteId: string;
+  fromCaseNo?: number;
+  toCaseNo?: number;
+  grossWeightKg?: number;
+  weightUom?: string | null;
+  items?: CreatePackingSlipItemDto[];
+}
+
+export interface CreatePackingSlipItemDto {
+  itemId: string;
+  qty?: number;
+  netWeight?: number;
+  description?: string | null;
+  deliveryNoteItemId?: string | null;
+}
+
 export interface CreatePosClosingDto {
   companyId?: string;
   posProfileId?: string;
@@ -571,6 +589,31 @@ export interface LoyaltyProgramTierDto {
   minSpent?: number;
   collectionFactor?: number;
   redemptionFactor?: number;
+}
+
+export interface PackingSlipDto extends EntityDto<string> {
+  companyId?: string;
+  deliveryNoteId?: string;
+  deliveryNoteNumber?: string | null;
+  fromCaseNo?: number;
+  toCaseNo?: number;
+  numberOfCases?: number;
+  netWeightKg?: number;
+  grossWeightKg?: number;
+  weightUom?: string | null;
+  status?: number;
+  creationTime?: string;
+  items?: PackingSlipItemDto[];
+}
+
+export interface PackingSlipItemDto extends EntityDto<string> {
+  itemId?: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  qty?: number;
+  netWeight?: number;
+  description?: string | null;
+  deliveryNoteItemId?: string | null;
 }
 
 export interface PaymentScheduleDto {

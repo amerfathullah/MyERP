@@ -1,8 +1,7 @@
-import { Component, Input, OnInit, signal } from '@angular/core';
+import { Component, Input, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-import { LocalizationPipe, PermissionService } from '@abp/ng.core';
+import { CompanyRestrictionService } from '../../../proxy/core/company-restriction.service';import { CompanyService } from '../../../proxy/core/company.service';import { LocalizationPipe, PermissionService } from '@abp/ng.core';
 
 /**
  * Shared component for managing company restrictions on master data (Item, Customer, Supplier).
@@ -76,10 +75,9 @@ export class CompanyRestrictionComponent implements OnInit {
   saving = signal(false);
   hasManagePermission = signal(false);
 
-  constructor(
-    private http: HttpClient,
-    private permissionService: PermissionService
-  ) {}
+  private companyService = inject(CompanyService);
+  private companyRestrictionService = inject(CompanyRestrictionService);
+  private permissionService = inject(PermissionService);
 
   ngOnInit() {
     // Per ERPNext PR #57383: only master-manager roles can view/edit company restriction fields
@@ -94,7 +92,7 @@ export class CompanyRestrictionComponent implements OnInit {
   }
 
   private loadCompanies() {
-    this.http.get<any>('/api/app/company', { params: { maxResultCount: '200' } })
+    this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' })
       .subscribe(res => {
         this.availableCompanies.set(
           (res.items || []).map((c: any) => ({ id: c.id, name: c.name }))
@@ -103,7 +101,7 @@ export class CompanyRestrictionComponent implements OnInit {
   }
 
   private loadRestriction() {
-    this.http.get<any>(`/api/app/company-restriction?parentType=${this.parentType}&parentId=${this.parentId}`)
+    this.companyRestrictionService.get(this.parentType, this.parentId)
       .subscribe({
         next: (res) => {
           this.restrictToCompanies = res.restrictToCompanies;
@@ -143,7 +141,7 @@ export class CompanyRestrictionComponent implements OnInit {
       allowedCompanyIds: Array.from(this.selectedCompanyIds)
     };
 
-    this.http.post('/api/app/company-restriction/save', dto)
+    this.companyRestrictionService.save(dto as any)
       .subscribe({
         next: () => this.saving.set(false),
         error: () => this.saving.set(false)

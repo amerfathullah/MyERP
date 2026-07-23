@@ -1,6 +1,6 @@
-import { Component, Input, OnChanges, SimpleChanges, signal } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
 
 /**
  * Inline stock availability indicator for transaction forms.
@@ -32,14 +32,14 @@ import { HttpClient } from '@angular/common/http';
   `]
 })
 export class StockAvailabilityComponent implements OnChanges {
+  private stockBalanceService = inject(StockBalanceService);
+
   @Input() itemId: string = '';
   @Input() requiredQty: number = 0;
   @Input() warehouseId: string = '';
 
   loading = signal(false);
-  availability = signal<{ availableQty: number; actualQty: number; reservedQty: number; projectedQty: number } | null>(null);
-
-  constructor(private http: HttpClient) {}
+  availability = signal<{ availableQty?: number; actualQty?: number; reservedQty?: number; projectedQty?: number } | null>(null);
 
   ngOnChanges(changes: SimpleChanges) {
     if ((changes['itemId'] || changes['warehouseId']) && this.itemId) {
@@ -52,7 +52,7 @@ export class StockAvailabilityComponent implements OnChanges {
     const params: any = { itemIds: [this.itemId] };
     if (this.warehouseId) params.warehouseId = this.warehouseId;
 
-    this.http.post<any[]>('/api/app/stock-balance/items-availability', params)
+    this.stockBalanceService.getItemsAvailability({ itemIds: [this.itemId], warehouseId: this.warehouseId || undefined } as any)
       .subscribe({
         next: (res) => {
           const match = res?.find((r: any) => r.itemId === this.itemId);

@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ProformaInvoiceService } from '../../proxy/application/sales/proforma-invoice.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -120,7 +120,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 })
 export class ProformaInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private proformaService = inject(ProformaInvoiceService);
   private toaster = inject(ToasterService);
 
   proforma = signal<any>(null);
@@ -133,7 +133,7 @@ export class ProformaInvoiceDetailComponent implements OnInit {
 
   load(id: string) {
     this.loading.set(true);
-    this.http.get(`/api/app/proforma-invoice/${id}`).subscribe({
+    this.proformaService.get(id).subscribe({
       next: (data) => { this.proforma.set(data); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
@@ -141,7 +141,7 @@ export class ProformaInvoiceDetailComponent implements OnInit {
 
   cancel() {
     if (!confirm('Cancel this proforma invoice?')) return;
-    this.http.post(`/api/app/proforma-invoice/${this.proforma()!.id}/cancel`, {}).subscribe({
+    this.proformaService.cancel(this.proforma()!.id).subscribe({
       next: () => {
         this.toaster.success('Proforma Invoice cancelled');
         this.load(this.proforma()!.id);

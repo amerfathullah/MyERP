@@ -4,8 +4,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { WorkOrderDto } from '../../proxy/manufacturing/models';
@@ -141,7 +141,8 @@ export class WorkOrderDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private manufacturingService = inject(ManufacturingService);
+  private stockEntryService = inject(StockEntryService);
 
   wo = signal<WorkOrderDto | null>(null);
   isLoading = signal(false);
@@ -185,7 +186,7 @@ export class WorkOrderDetailComponent implements OnInit {
 
   unstop() {
     const id = this.wo()!.id!;
-    this.http.post<any>(`/api/app/manufacturing/work-order/${id}/unstop`, {}).subscribe({
+    this.manufacturingService.unstopWorkOrder(id).subscribe({
       next: w => { this.wo.set(w); this.toaster.success('Work Order resumed'); },
       error: () => this.toaster.error('Failed to resume'),
     });
@@ -223,7 +224,7 @@ export class WorkOrderDetailComponent implements OnInit {
     }
 
     this.isLoading.set(true);
-    this.http.post<any>('/api/app/manufacturing/work-order/material-consumption', {
+    this.manufacturingService.createMaterialConsumption({
       workOrderId: wo.id,
       items: consumptionItems,
     }).subscribe({
@@ -242,7 +243,7 @@ export class WorkOrderDetailComponent implements OnInit {
     const woId = this.wo()!.id!;
     if (!confirm('Create Material Transfer Stock Entry for all pending materials?')) return;
     this.isLoading.set(true);
-    this.http.post<any>(`/api/app/stock-entry/create-material-transfer-for-manufacture?workOrderId=${woId}`, {}).subscribe({
+    this.stockEntryService.createMaterialTransferForManufacture(woId).subscribe({
       next: (se) => {
         this.isLoading.set(false);
         this.toaster.success('Material Transfer created');
