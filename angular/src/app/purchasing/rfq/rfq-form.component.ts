@@ -5,7 +5,6 @@ import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
-
 @Component({
   selector: 'app-rfq-form',
   standalone: true,

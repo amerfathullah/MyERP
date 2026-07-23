@@ -69,6 +69,7 @@
                     {{ '::OrderNumber' | abpLocalization }}
                   </app-sortable-header>
                 </th>
+                <th>{{ '::Supplier' | abpLocalization }}</th>
                 <th style="width: 110px;">
                   <app-sortable-header field="orderDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::OrderDate' | abpLocalization }}
@@ -100,6 +101,7 @@
                       <span class="d-inline-block text-truncate" style="max-width: 150px;" [title]="row.orderNumber">{{ row.orderNumber }}</span>
                     </a>
                   </td>
+                  <td class="text-truncate" style="max-width: 160px;">{{ row.supplierName || '—' }}</td>
                   <td>{{ row.orderDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>

@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BomDto, CreateBomDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, WorkOrderDto, WorkstationDto } from '../manufacturing/models';
+import type { BomDto, CreateBomDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, MaterialConsumptionResultDto, WorkOrderDto, WorkstationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -24,7 +24,16 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'POST',
       url: '/api/app/manufacturing/bom',
-      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, items: input.items, operations: input.operations },
+      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createMaterialConsumption = (input: CreateMaterialConsumptionDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialConsumptionResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/work-order/material-consumption',
+      params: { workOrderId: input.workOrderId, items: input.items },
     },
     { apiName: this.apiName,...config });
   
@@ -54,14 +63,7 @@ export class ManufacturingService {
     },
     { apiName: this.apiName,...config });
   
-  updateBom = (id: string, input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, BomDto>({
-      method: 'PUT',
-      url: `/api/app/manufacturing/bom/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-  
+
   deleteWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
@@ -99,7 +101,7 @@ export class ManufacturingService {
     this.restService.request<any, PagedResultDto<WorkOrderDto>>({
       method: 'GET',
       url: '/api/app/manufacturing/work-order',
-      params: { status: input.status, filter: input.filter, companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { status: input.status, filter: input.filter, companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -121,11 +123,11 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
-  recordProduction = (id: string, quantity: number, config?: Partial<Rest.Config>) =>
+  recordProduction = (id: string, quantity: number, processLossQty?: number, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderDto>({
       method: 'POST',
       url: `/api/app/manufacturing/work-order/${id}/record-production`,
-      params: { quantity },
+      params: { quantity, processLossQty },
     },
     { apiName: this.apiName,...config });
   
@@ -150,6 +152,23 @@ export class ManufacturingService {
     this.restService.request<any, WorkOrderDto>({
       method: 'POST',
       url: `/api/app/manufacturing/work-order/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  unstopWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkOrderDto>({
+      method: 'POST',
+      url: `/api/app/manufacturing/work-order/${id}/unstop`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateBom = (id: string, input: CreateBomDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BomDto>({
+      method: 'PUT',
+      url: `/api/app/manufacturing/bom/${id}`,
+      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
     },
     { apiName: this.apiName,...config });
 }

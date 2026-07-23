@@ -122,7 +122,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
   loadHistory() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) return;
-    this.revaluationService.getList({ companyId: cid, maxResultCount: 20 }).subscribe({
+    this.revaluationService.getList(cid, 20).subscribe({
       next: res => { this.revaluations = res.items ?? []; }
     });
   }

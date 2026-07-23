@@ -56,7 +56,7 @@
               <tr>
                 <td><input type="checkbox" class="form-check-input" [(ngModel)]="invoice.selected"></td>
                 <td><span class="badge bg-info">{{ invoice.voucherType }}</span></td>
-                <td class="font-monospace">{{ invoice.voucherId | slice:0:8 }}...</td>
+                <td>{{ invoice.documentNumber || (invoice.voucherId | slice:0:8) }}</td>
                 <td class="text-end fw-bold">{{ invoice.outstanding | number:'1.2-2' }}</td>
                 <td class="text-end">
                   <input type="number" class="form-control form-control-sm text-end"

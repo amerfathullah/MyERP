@@ -13,11 +13,12 @@ import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-material-request-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './material-request-form.component.html',
   styleUrls: ['./material-request-form.component.scss'],
 })
@@ -91,7 +92,19 @@ export class MaterialRequestFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    this.service.create(this.form.getRawValue() as any).subscribe({
+    const raw = this.form.getRawValue() as any;
+    // Convert empty strings to null for nullable Guid fields (backend expects null, not '')
+    const dto = {
+      ...raw,
+      sourceWarehouseId: raw.sourceWarehouseId || null,
+      targetWarehouseId: raw.targetWarehouseId || null,
+      requiredByDate: raw.requiredByDate || null,
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        warehouseId: item.warehouseId || null,
+      })),
+    };
+    this.service.create(dto).subscribe({
       next: () => this.router.navigate(['/purchasing/material-requests']),
       error: () => {},
     });

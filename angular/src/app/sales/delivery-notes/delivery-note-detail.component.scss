@@ -1,3 +1,20 @@
 :host {
   display: block;
 }
+
+@media print {
+  :host ::ng-deep {
+    abp-page .card,
+    app-document-workflow,
+    app-breadcrumb,
+    app-activity-log,
+    app-status-badge,
+    app-draft-link-guard,
+    .btn {
+      display: none !important;
+    }
+    app-dn-print-layout {
+      display: block !important;
+    }
+  }
+}

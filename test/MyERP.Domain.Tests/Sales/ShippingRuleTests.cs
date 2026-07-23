@@ -216,4 +216,46 @@ public class ShippingRuleTests
         var rule = CreateRule(type: ShippingRuleType.Buying);
         Assert.Equal(ShippingRuleType.Buying, rule.RuleType);
     }
+
+    [Fact]
+    public void Rule_ProjectId_DefaultsNull()
+    {
+        var rule = CreateRule();
+        Assert.Null(rule.ProjectId);
+    }
+
+    [Fact]
+    public void Rule_ProjectId_CanBeSet()
+    {
+        var rule = CreateRule();
+        var projectId = Guid.NewGuid();
+        rule.ProjectId = projectId;
+        Assert.Equal(projectId, rule.ProjectId);
+    }
+
+    [Fact]
+    public void Rule_CostCenterId_DefaultsNull()
+    {
+        var rule = CreateRule();
+        Assert.Null(rule.CostCenterId);
+    }
+
+    [Fact]
+    public void Rule_CostCenterId_NullMeansCompanyDefault()
+    {
+        // Per PR #57355: when CostCenterId is null, the applied tax row
+        // should fall back to the company's default cost center.
+        // This test documents the semantic: null = use company default
+        var rule = CreateRule();
+        Assert.Null(rule.CostCenterId); // Will use company.CostCenter at application time
+    }
+
+    [Fact]
+    public void Rule_CostCenterId_ExplicitValue_UsedDirectly()
+    {
+        var rule = CreateRule();
+        var ccId = Guid.NewGuid();
+        rule.CostCenterId = ccId;
+        Assert.Equal(ccId, rule.CostCenterId);
+    }
 }

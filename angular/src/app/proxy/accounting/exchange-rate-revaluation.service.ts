@@ -11,15 +11,6 @@ export class ExchangeRateRevaluationService {
   apiName = 'Default';
   
 
-  getList = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<ExchangeRateRevaluationDto>>({
-      method: 'GET',
-      url: '/api/app/exchange-rate-revaluation',
-      params: { ...input },
-    },
-    { apiName: this.apiName,...config });
-  
-
   createRevaluation = (input: CreateRevaluationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExchangeRateRevaluationDto>({
       method: 'POST',
@@ -34,6 +25,15 @@ export class ExchangeRateRevaluationService {
       method: 'GET',
       url: `/api/app/exchange-rate-revaluation/eligible-accounts/${companyId}`,
       params: { companyCurrency, postingDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getList = (companyId: string, maxResultCount: number = 20, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<ExchangeRateRevaluationDto>>({
+      method: 'GET',
+      url: '/api/app/exchange-rate-revaluation',
+      params: { companyId, maxResultCount },
     },
     { apiName: this.apiName,...config });
 }

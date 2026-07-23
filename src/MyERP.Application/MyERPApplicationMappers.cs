@@ -287,6 +287,8 @@ public partial class JournalEntryMapper : MapperBase<Accounting.Entities.Journal
 {
     public override partial Accounting.JournalEntryDto Map(Accounting.Entities.JournalEntry source);
     public override partial void Map(Accounting.Entities.JournalEntry source, Accounting.JournalEntryDto destination);
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryLineDto.AccountName))]
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryLineDto.AccountCode))]
     private partial Accounting.JournalEntryLineDto MapChild(Accounting.Entities.JournalEntryLine source);
 }
 
@@ -446,7 +448,9 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PurchaseOrderMapper : MapperBase<Purchasing.Entities.PurchaseOrder, Purchasing.PurchaseOrderDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.SupplierName))]
     public override partial Purchasing.PurchaseOrderDto Map(Purchasing.Entities.PurchaseOrder source);
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.SupplierName))]
     public override partial void Map(Purchasing.Entities.PurchaseOrder source, Purchasing.PurchaseOrderDto destination);
     private partial Purchasing.PurchaseOrderItemDto MapChild(Purchasing.Entities.PurchaseOrderItem source);
 }
@@ -454,7 +458,11 @@ public partial class PurchaseOrderMapper : MapperBase<Purchasing.Entities.Purcha
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PurchaseReceiptMapper : MapperBase<Purchasing.Entities.PurchaseReceipt, Purchasing.PurchaseReceiptDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]
     public override partial Purchasing.PurchaseReceiptDto Map(Purchasing.Entities.PurchaseReceipt source);
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]
     public override partial void Map(Purchasing.Entities.PurchaseReceipt source, Purchasing.PurchaseReceiptDto destination);
     private partial Purchasing.PurchaseReceiptItemDto MapChild(Purchasing.Entities.PurchaseReceiptItem source);
 }
@@ -487,7 +495,9 @@ public partial class BlanketOrderMapper : MapperBase<Sales.Entities.BlanketOrder
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class DeliveryNoteMapper : MapperBase<Sales.Entities.DeliveryNote, Sales.DeliveryNoteDto>
 {
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.CustomerName))]
     public override partial Sales.DeliveryNoteDto Map(Sales.Entities.DeliveryNote source);
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.CustomerName))]
     public override partial void Map(Sales.Entities.DeliveryNote source, Sales.DeliveryNoteDto destination);
     private partial Sales.DeliveryNoteItemDto MapChild(Sales.Entities.DeliveryNoteItem source);
 }
@@ -554,7 +564,9 @@ public partial class ItemTaxTemplateMapper : MapperBase<Tax.Entities.ItemTaxTemp
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PaymentEntryMapper : MapperBase<Accounting.Entities.PaymentEntry, Accounting.PaymentEntryDto>
 {
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
     public override partial Accounting.PaymentEntryDto Map(Accounting.Entities.PaymentEntry source);
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
     public override partial void Map(Accounting.Entities.PaymentEntry source, Accounting.PaymentEntryDto destination);
 }
 
@@ -802,6 +814,9 @@ public partial class StockEntryMapper : MapperBase<Inventory.Entities.StockEntry
 {
     public override partial Inventory.StockEntryDto Map(Inventory.Entities.StockEntry source);
     public override partial void Map(Inventory.Entities.StockEntry source, Inventory.StockEntryDto destination);
+    [MapperIgnoreTarget(nameof(Inventory.StockEntryItemDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.StockEntryItemDto.SourceWarehouseName))]
+    [MapperIgnoreTarget(nameof(Inventory.StockEntryItemDto.TargetWarehouseName))]
     private partial Inventory.StockEntryItemDto MapChild(Inventory.Entities.StockEntryItem source);
 }
 
@@ -816,6 +831,7 @@ public partial class BomMapper : MapperBase<Manufacturing.Entities.BillOfMateria
     public override partial void Map(Manufacturing.Entities.BillOfMaterials source, Manufacturing.BomDto destination);
     private partial Manufacturing.BomItemDto MapChild(Manufacturing.Entities.BomItem source);
     private partial Manufacturing.BomOperationDto MapChild(Manufacturing.Entities.BomOperation source);
+    private partial Manufacturing.BomSecondaryItemDto MapChild(Manufacturing.Entities.BomSecondaryItem source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -921,7 +937,11 @@ public partial class ItemPriceMapper : MapperBase<Inventory.Entities.ItemPrice, 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class BinToStockBalanceMapper : MapperBase<Inventory.Entities.Bin, Inventory.StockBalanceDto>
 {
+    [MapperIgnoreTarget(nameof(Inventory.StockBalanceDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.StockBalanceDto.WarehouseName))]
     public override partial Inventory.StockBalanceDto Map(Inventory.Entities.Bin source);
+    [MapperIgnoreTarget(nameof(Inventory.StockBalanceDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.StockBalanceDto.WarehouseName))]
     public override partial void Map(Inventory.Entities.Bin source, Inventory.StockBalanceDto destination);
 }
 

@@ -49,6 +49,32 @@ public class GeneralLedgerFilterDto
     public Guid? CostCenterId { get; set; }
 }
 
+/// <summary>
+/// Lightweight DTO for voucher-level GL view (per ERPNext "Accounting Ledger" button on document detail pages).
+/// </summary>
+public class VoucherLedgerEntryDto
+{
+    public DateTime PostingDate { get; set; }
+    public string? AccountCode { get; set; }
+    public string? AccountName { get; set; }
+    public decimal DebitAmount { get; set; }
+    public decimal CreditAmount { get; set; }
+    public string? CostCenterName { get; set; }
+    public string? Description { get; set; }
+    public string? FinanceBook { get; set; }
+}
+
+public class VoucherLedgerDto
+{
+    public string VoucherType { get; set; } = null!;
+    public Guid VoucherId { get; set; }
+    public string? VoucherNumber { get; set; }
+    public List<VoucherLedgerEntryDto> Entries { get; set; } = new();
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public bool IsBalanced => Math.Abs(TotalDebit - TotalCredit) < 0.01m;
+}
+
 [Authorize(MyERPPermissions.Accounts.Default)]
 public class GeneralLedgerAppService : ApplicationService
 {
@@ -152,6 +178,89 @@ public class GeneralLedgerAppService : ApplicationService
             TotalCredit = entries.Sum(e => e.CreditAmount),
             Balance = entries.LastOrDefault()?.Balance ?? 0,
             Count = entries.Count,
+        };
+    }
+
+    /// <summary>
+    /// Returns all GL entries posted by a specific source document (per ERPNext "Accounting Ledger" button).
+    /// Used on SI/PI/PE/DN/PR/SE/JE detail pages to show what GL entries were created.
+    /// </summary>
+    public async Task<VoucherLedgerDto> GetForVoucherAsync(string voucherType, Guid voucherId)
+    {
+        var jeQuery = await _journalRepository.GetQueryableAsync();
+
+        // JEs reference their source document via ReferenceType + ReferenceId (for auto-posted JEs)
+        // OR via the JE's own Id when the voucher IS a Journal Entry
+        var journals = jeQuery
+            .Where(je => (je.ReferenceType == voucherType && je.ReferenceId == voucherId)
+                      || (voucherType == "JournalEntry" && je.Id == voucherId))
+            .Where(je => je.Status == Core.DocumentStatus.Posted)
+            .OrderBy(je => je.PostingDate)
+            .ThenBy(je => je.CreationTime)
+            .ToList();
+
+        if (!journals.Any())
+            return new VoucherLedgerDto
+            {
+                VoucherType = voucherType,
+                VoucherId = voucherId,
+            };
+
+        // Resolve account names
+        var accountIds = journals.SelectMany(je => je.Lines).Select(l => l.AccountId).Distinct().ToList();
+        var accountQuery = await _accountRepository.GetQueryableAsync();
+        var accounts = accountQuery
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionary(a => a.Id, a => new { a.AccountCode, a.AccountName });
+
+        // Resolve cost center names
+        var costCenters = new Dictionary<Guid, string>();
+        var ccIds = journals.SelectMany(je => je.Lines)
+            .Where(l => l.CostCenterId.HasValue)
+            .Select(l => l.CostCenterId!.Value)
+            .Distinct()
+            .ToList();
+        if (ccIds.Any())
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var ccQuery = await ccRepo.GetQueryableAsync();
+            costCenters = ccQuery
+                .Where(cc => ccIds.Contains(cc.Id))
+                .ToDictionary(cc => cc.Id, cc => cc.Name);
+        }
+
+        var entries = new List<VoucherLedgerEntryDto>();
+        foreach (var je in journals)
+        {
+            foreach (var line in je.Lines)
+            {
+                accounts.TryGetValue(line.AccountId, out var acct);
+                string? ccName = null;
+                if (line.CostCenterId.HasValue)
+                    costCenters.TryGetValue(line.CostCenterId.Value, out ccName);
+
+                entries.Add(new VoucherLedgerEntryDto
+                {
+                    PostingDate = je.PostingDate,
+                    AccountCode = acct?.AccountCode,
+                    AccountName = acct?.AccountName,
+                    DebitAmount = line.IsDebit ? line.Amount : 0,
+                    CreditAmount = !line.IsDebit ? line.Amount : 0,
+                    CostCenterName = ccName,
+                    Description = line.Description,
+                    FinanceBook = line.FinanceBook,
+                });
+            }
+        }
+
+        return new VoucherLedgerDto
+        {
+            VoucherType = voucherType,
+            VoucherId = voucherId,
+            VoucherNumber = journals.First().EntryNumber,
+            Entries = entries,
+            TotalDebit = entries.Sum(e => e.DebitAmount),
+            TotalCredit = entries.Sum(e => e.CreditAmount),
         };
     }
 }

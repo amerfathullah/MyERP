@@ -483,6 +483,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/transit-transfers',
+    loadComponent: () => import('./inventory/transit-transfers/transit-transfer-list.component').then(c => c.TransitTransferListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/standard-costs',
     loadComponent: () => import('./inventory/item-standard-cost/item-standard-cost-list.component').then(c => c.ItemStandardCostListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -588,6 +594,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./accounting/bank-reconciliation/bank-reconciliation.component').then(c => c.BankReconciliationComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.BankReconciliation' },
+  },
+  {
+    path: 'accounting/bank-reconciliation-statement',
+    loadComponent: () => import('./accounting/bank-reconciliation-statement/bank-reconciliation-statement.component').then(c => c.BankReconciliationStatementComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries.Default' },
   },
   {
     path: 'accounting/payment-reconciliation',
@@ -823,10 +835,15 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Assets' },
   },
   {
-    path: 'assets/:id',
-    loadComponent: () => import('./assets/asset-form/asset-form.component').then(c => c.AssetFormComponent),
+    path: 'assets/repairs/:id',
+    loadComponent: () => import('./assets/repairs/asset-repair-detail.component').then(c => c.AssetRepairDetailComponent),
     canActivate: [authGuard, permissionGuard],
-    canDeactivate: [(c: any) => !c?.hasUnsavedChanges?.() || confirm('You have unsaved changes. Leave page?')],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  {
+    path: 'assets/:id',
+    loadComponent: () => import('./assets/asset-detail/asset-detail.component').then(c => c.AssetDetailComponent),
+    canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Assets' },
   },
   // Manufacturing
@@ -998,6 +1015,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'sales/proforma-invoices',
+    loadComponent: () => import('./sales/proforma-invoices/proforma-invoice-list.component').then(c => c.ProformaInvoiceListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/proforma-invoices/:id',
+    loadComponent: () => import('./sales/proforma-invoices/proforma-invoice-detail.component').then(c => c.ProformaInvoiceDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/blanket-orders',
     loadComponent: () => import('./sales/blanket-orders/blanket-order-list.component').then(c => c.BlanketOrderListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1028,6 +1057,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/subcontracting/:id',
+    loadComponent: () => import('./purchasing/subcontracting/subcontracting-detail.component').then(c => c.SubcontractingDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'purchasing/subcontracting-inward',
     loadComponent: () => import('./purchasing/subcontracting-inward/subcontracting-inward-order-list.component').then(c => c.SubcontractingInwardOrderListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1047,8 +1082,26 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
   },
   {
+    path: 'sales/coupon-codes',
+    loadComponent: () => import('./sales/coupon-codes/coupon-code-list.component').then(c => c.CouponCodeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/packing-slips',
+    loadComponent: () => import('./sales/packing-slips/packing-slip-list.component').then(c => c.PackingSlipListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
+  },
+  {
     path: 'sales/pos-closing',
     loadComponent: () => import('./sales/pos-closing/pos-closing-list.component').then(c => c.PosClosingListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/pos-opening',
+    loadComponent: () => import('./sales/pos-opening/pos-opening-list.component').then(c => c.PosOpeningListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
@@ -1383,6 +1436,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/finance-books',
+    loadComponent: () => import('./accounting/finance-books/finance-book-list.component').then(c => c.FinanceBookListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/bank-transaction-rules',
     loadComponent: () => import('./accounting/bank-transaction-rules/bank-transaction-rule-list.component').then(c => c.BankTransactionRuleListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1415,6 +1474,30 @@ export const APP_ROUTES: Routes = [
   {
     path: 'accounting/period-closing',
     loadComponent: () => import('./accounting/period-closing/period-closing.component').then(c => c.PeriodClosingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/month-end-close',
+    loadComponent: () => import('./accounting/month-end-close/month-end-close.component').then(c => c.MonthEndCloseComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/cost-center-allocations',
+    loadComponent: () => import('./accounting/cost-center-allocations/cost-center-allocation-list.component').then(c => c.CostCenterAllocationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/report-templates',
+    loadComponent: () => import('./accounting/report-templates/financial-report-template-list.component').then(c => c.FinancialReportTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/account-categories',
+    loadComponent: () => import('./accounting/account-categories/account-category-list.component').then(c => c.AccountCategoryListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Accounts' },
   },

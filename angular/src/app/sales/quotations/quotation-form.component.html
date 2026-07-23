@@ -1,5 +1,5 @@
 <abp-page [title]="'New Quotation'">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-header">
         <h5 class="card-title mb-0"><i class="fa fa-file-alt me-2"></i>Quotation Details</h5>

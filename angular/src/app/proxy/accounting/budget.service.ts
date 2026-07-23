@@ -40,7 +40,7 @@ export class BudgetService {
     this.restService.request<any, PagedResultDto<BudgetDto>>({
       method: 'GET',
       url: '/api/app/budget',
-      params: { companyId: input.companyId, fiscalYearId: input.fiscalYearId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, fiscalYearId: input.fiscalYearId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

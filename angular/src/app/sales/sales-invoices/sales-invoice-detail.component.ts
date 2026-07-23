@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -20,6 +21,8 @@ export interface DetailWorkflowAction {
 }
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { InvoicePrintLayoutComponent } from '../../shared/components/invoice-print-layout/invoice-print-layout.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -31,6 +34,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
     LhdnStatusBadgeComponent,
     ActivityLogComponent,
     BreadcrumbComponent,
+    InvoicePrintLayoutComponent,
+    VoucherLedgerComponent,
     LocalizationPipe],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -38,6 +43,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class SalesInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private http = inject(HttpClient);
   private service = inject(SalesInvoiceService);
   private eInvoiceService = inject(EInvoiceService);
   private store = inject(SalesInvoiceStore);
@@ -47,6 +53,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   invoice: SalesInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   paymentSchedule = signal<any[]>([]);
+  companyData = signal<any>(null);
 
   get workflowActions(): DetailWorkflowAction[] {
     if (!this.invoice) return [];
@@ -83,6 +90,13 @@ export class SalesInvoiceDetailComponent implements OnInit {
       // Load payment schedule
       this.service.getPaymentSchedule(id)
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
+      // Load company data for print layout
+      if ((result as any).companyId) {
+        this.http.get<any>(`/api/app/company/${(result as any).companyId}`).subscribe({
+          next: (company) => this.companyData.set(company),
+          error: () => {} // Non-critical — print layout shows without company header
+        });
+      }
     });
   }
 

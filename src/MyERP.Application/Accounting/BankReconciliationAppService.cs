@@ -206,4 +206,181 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         };
     }
 
+    /// <summary>
+    /// Creates a Payment Entry directly from a bank transaction and auto-reconciles it.
+    /// Per ERPNext banking module (gotcha #784): sets reconciliation_type = "Voucher Created".
+    /// Deposit transactions → Receive type PE (money in from customer).
+    /// Withdrawal transactions → Pay type PE (money out to supplier).
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Create)]
+    public async Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input)
+    {
+        var tx = await _repository.GetAsync(input.BankTransactionId);
+
+        if (tx.IsReconciled)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02048")
+                .WithData("transactionId", tx.Id);
+        }
+
+        // Determine payment type from transaction direction
+        // Positive amount (deposit) = money received → Receive type
+        // Negative amount (withdrawal) = money paid → Pay type
+        var isDeposit = tx.Amount > 0;
+        var paymentType = isDeposit ? PaymentType.Receive : PaymentType.Pay;
+        var amount = Math.Abs(tx.Amount);
+
+        // Resolve paid-from and paid-to based on direction:
+        // Receive: paid_from = party account (customer), paid_to = bank account
+        // Pay: paid_from = bank account, paid_to = party account (supplier)
+        var paidFromAccountId = isDeposit ? input.PartyAccountId : input.BankAccountId;
+        var paidToAccountId = isDeposit ? input.BankAccountId : input.PartyAccountId;
+
+        // Generate PE number
+        var numberGenerator = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.IDocumentNumberGenerator>();
+        var peNumber = await numberGenerator.GenerateAsync("PE", input.CompanyId, tx.TransactionDate);
+
+        // Create the Payment Entry
+        var pe = new PaymentEntry(
+            GuidGenerator.Create(),
+            input.CompanyId,
+            paymentType,
+            tx.TransactionDate,
+            amount,
+            paidFromAccountId,
+            paidToAccountId,
+            CurrentTenant.Id)
+        {
+            PaymentNumber = peNumber,
+            ReferenceNumber = tx.ReferenceNumber,
+            PartyType = input.PartyType,
+            PartyId = input.PartyId,
+            ModeOfPaymentId = input.ModeOfPaymentId,
+            CurrencyCode = tx.CurrencyCode ?? "MYR",
+        };
+
+        // Link to invoice if specified (enables outstanding reduction on post)
+        if (input.AgainstInvoiceId.HasValue)
+        {
+            pe.AgainstInvoiceId = input.AgainstInvoiceId.Value;
+            pe.AgainstInvoiceType = input.PartyType == "Customer" ? "SalesInvoice" : "PurchaseInvoice";
+        }
+
+        // Submit + Post the PE atomically (bank reconciliation creates posted entries)
+        pe.Submit();
+        pe.Post();
+        await _paymentEntryRepository.InsertAsync(pe);
+
+        // Auto-reconcile: link bank transaction to the newly created PE
+        tx.Reconcile(pe.Id, pe.PaymentNumber);
+        await _repository.UpdateAsync(tx);
+
+        // Audit trail
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentEntry", pe.Id, "Posted",
+            input.CompanyId, peNumber, "Draft", "Posted",
+            CurrentUser.Id, details: $"Created from bank transaction: {tx.Description}",
+            tenantId: CurrentTenant.Id));
+
+        return new VoucherCreatedResultDto
+        {
+            PaymentEntryId = pe.Id,
+            PaymentNumber = peNumber,
+            Amount = amount,
+            PaymentType = paymentType.ToString(),
+            BankTransactionId = tx.Id,
+            IsReconciled = true,
+        };
+    }
+
+    /// <summary>
+    /// Bank Reconciliation Statement: GL balance - uncleared items = expected bank balance.
+    /// Per ERPNext Bank Reconciliation Statement report logic.
+    /// </summary>
+    public async Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(
+        GetBankReconciliationStatementInput input)
+    {
+        // Step 1: Get bank GL account from Account entity
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var account = await accountRepo.FindAsync(input.BankAccountId);
+        var accountName = account?.AccountName ?? "Bank Account";
+
+        // Step 2: Calculate GL balance for the bank account as of report date
+        // Sum all posted JE lines hitting this account up to report date
+        var jeLineRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntryLine, Guid>>();
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+
+        var postedJeIds = (await jeRepo.GetQueryableAsync())
+            .Where(je => je.CompanyId == input.CompanyId
+                && je.Status == Core.DocumentStatus.Posted
+                && je.PostingDate <= input.ReportDate)
+            .Select(je => je.Id)
+            .ToList();
+
+        var lines = (await jeLineRepo.GetQueryableAsync())
+            .Where(l => postedJeIds.Contains(l.JournalEntryId) && l.AccountId == input.BankAccountId)
+            .ToList();
+
+        var totalDebit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
+        var totalCredit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+        var glBalance = totalDebit - totalCredit;
+
+        // Step 3: Find uncleared bank transactions (posted payments not yet cleared at bank)
+        // These are payments/receipts that hit GL but haven't been reconciled with bank statement
+        var peQuery = await _paymentEntryRepository.GetQueryableAsync();
+        var unclearedPEs = peQuery
+            .Where(pe => pe.CompanyId == input.CompanyId
+                && pe.Status == Core.DocumentStatus.Posted
+                && pe.PostingDate <= input.ReportDate
+                && (pe.PaidFromAccountId == input.BankAccountId || pe.PaidToAccountId == input.BankAccountId))
+            .ToList();
+
+        // Filter to only those NOT reconciled (no matching reconciled bank transaction)
+        var reconciledPeIds = (await _repository.GetQueryableAsync())
+            .Where(bt => bt.IsReconciled && bt.PaymentEntryId.HasValue)
+            .Select(bt => bt.PaymentEntryId!.Value)
+            .ToHashSet();
+
+        var unclearedEntries = new List<BankStatementEntryDto>();
+        decimal outstandingDeposits = 0;
+        decimal outstandingPayments = 0;
+
+        foreach (var pe in unclearedPEs.Where(pe => !reconciledPeIds.Contains(pe.Id)))
+        {
+            // Determine direction: money INTO bank (deposit) or OUT of bank (payment)
+            var isDeposit = pe.PaidToAccountId == input.BankAccountId;
+            var amount = pe.PaidAmount;
+
+            if (isDeposit)
+                outstandingDeposits += amount;
+            else
+                outstandingPayments += amount;
+
+            unclearedEntries.Add(new BankStatementEntryDto
+            {
+                PostingDate = pe.PostingDate,
+                DocumentType = "Payment Entry",
+                DocumentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
+                DocumentId = pe.Id,
+                Debit = isDeposit ? amount : 0,
+                Credit = isDeposit ? 0 : amount,
+                ReferenceNumber = pe.ReferenceNumber,
+                ClearanceDate = null,
+                PartyName = null
+            });
+        }
+
+        return new BankReconciliationStatementDto
+        {
+            GlBalance = glBalance,
+            OutstandingDeposits = outstandingDeposits,
+            OutstandingPayments = outstandingPayments,
+            UnclearedEntries = unclearedEntries.OrderBy(e => e.PostingDate).ToList(),
+            CurrencyCode = account?.Currency ?? "MYR",
+            ReportDate = input.ReportDate,
+            BankAccountName = accountName
+        };
+    }
+
 }

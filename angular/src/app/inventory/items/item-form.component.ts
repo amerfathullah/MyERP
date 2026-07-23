@@ -10,12 +10,14 @@ import { StockBalanceService } from '../../proxy/inventory/stock-balance.service
 import { ItemStore } from '../store/item.store';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
+import { CompanyRestrictionComponent } from '../../shared/components/company-restriction/company-restriction.component';
 
 @Component({
   selector: 'app-item-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
+    AutoValidationDirective, SaveShortcutDirective, CompanyRestrictionComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './item-form.component.html',
   styleUrls: ['./item-form.component.scss'],
 })

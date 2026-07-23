@@ -4,7 +4,7 @@
       <h5 class="card-title mb-0"><i class="fa fa-box me-2"></i>{{ '::Item' | abpLocalization }}</h5>
     </div>
     <div class="card-body">
-      <form [formGroup]="form" (ngSubmit)="save()">
+      <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="row">
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::ItemCode' | abpLocalization }}</label>
@@ -171,6 +171,10 @@
               </table>
             </div>
           </div>
+        }
+
+        @if (isEditMode && entityId) {
+          <app-company-restriction parentType="Item" [parentId]="entityId" />
         }
 
         <div class="d-flex justify-content-end gap-2 pt-3">

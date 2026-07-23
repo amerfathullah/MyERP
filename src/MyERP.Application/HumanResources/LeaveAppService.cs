@@ -78,22 +78,6 @@ public class LeaveAppService : ApplicationService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<LeaveApplicationDto> ApplyAsync(CreateLeaveApplicationDto input)
     {
-        // Per DO-NOT: "Allow leave application with overlapping dates for same employee"
-        var existingQuery = await _leaveRepository.GetQueryableAsync();
-        var hasOverlap = existingQuery.Any(l =>
-            l.EmployeeId == input.EmployeeId
-            && l.Status != HumanResources.Entities.LeaveApplicationStatus.Cancelled
-            && l.Status != HumanResources.Entities.LeaveApplicationStatus.Rejected
-            && l.FromDate <= input.ToDate
-            && l.ToDate >= input.FromDate);
-
-        if (hasOverlap)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:14004")
-                .WithData("fromDate", input.FromDate)
-                .WithData("toDate", input.ToDate);
-        }
-
         var leave = new LeaveApplication(
             GuidGenerator.Create(), input.CompanyId, input.EmployeeId, input.LeaveTypeId,
             input.FromDate, input.ToDate, input.TotalLeaveDays, CurrentTenant.Id)
@@ -104,6 +88,12 @@ public class LeaveAppService : ApplicationService
             Reason = input.Reason,
             LeaveApproverId = input.LeaveApproverId,
         };
+
+        // Per DO-NOT: "Allow leave application with overlapping dates for same employee"
+        // Delegate to LeaveManager for proper domain-level overlap detection
+        var leaveManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.LeaveManager>();
+        await leaveManager.ValidateNoOverlapAsync(leave);
+
         await _leaveRepository.InsertAsync(leave);
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
@@ -113,31 +103,11 @@ public class LeaveAppService : ApplicationService
     {
         var leave = await _leaveRepository.GetAsync(id);
 
-        // Check sufficient balance before approving
-        var allocQuery = await _allocationRepository.GetQueryableAsync();
-        var allocation = allocQuery.FirstOrDefault(a =>
-            a.EmployeeId == leave.EmployeeId
-            && a.LeaveTypeId == leave.LeaveTypeId
-            && a.FromDate <= leave.FromDate
-            && a.ToDate >= leave.ToDate);
-
-        if (allocation != null && allocation.Balance < leave.TotalLeaveDays)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:14001")
-                .WithData("leaveType", leave.LeaveTypeName ?? "Leave")
-                .WithData("requested", leave.TotalLeaveDays)
-                .WithData("available", allocation.Balance);
-        }
+        // Delegate balance validation + deduction to LeaveManager (DDD pattern)
+        var leaveManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.LeaveManager>();
+        await leaveManager.DeductOnApprovalAsync(leave);
 
         leave.Approve();
-
-        // Deduct from leave allocation balance
-        if (allocation != null)
-        {
-            allocation.DeductLeave(leave.TotalLeaveDays);
-            await _allocationRepository.UpdateAsync(allocation);
-        }
-
         await _leaveRepository.UpdateAsync(leave);
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
@@ -158,21 +128,11 @@ public class LeaveAppService : ApplicationService
         var wasApproved = leave.Status == LeaveApplicationStatus.Approved;
         leave.Cancel();
 
-        // Restore leave balance if previously approved
+        // Restore leave balance if previously approved (delegate to LeaveManager)
         if (wasApproved)
         {
-            var allocQuery = await _allocationRepository.GetQueryableAsync();
-            var allocation = allocQuery.FirstOrDefault(a =>
-                a.EmployeeId == leave.EmployeeId
-                && a.LeaveTypeId == leave.LeaveTypeId
-                && a.FromDate <= leave.FromDate
-                && a.ToDate >= leave.ToDate);
-
-            if (allocation != null)
-            {
-                allocation.RestoreLeave(leave.TotalLeaveDays);
-                await _allocationRepository.UpdateAsync(allocation);
-            }
+            var leaveManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.LeaveManager>();
+            await leaveManager.RestoreOnCancellationAsync(leave);
         }
 
         await _leaveRepository.UpdateAsync(leave);

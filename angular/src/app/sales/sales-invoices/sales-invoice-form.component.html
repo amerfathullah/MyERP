@@ -63,6 +63,19 @@
             </div>
           }
         </div>
+
+        <!-- Coupon & Loyalty -->
+        <div class="row g-3 mt-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label">{{ 'CouponCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="couponCode"
+                   [placeholder]="'::Placeholder:CouponCode' | abpLocalization">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">{{ 'LoyaltyPointsToRedeem' | abpLocalization }}</label>
+            <input type="number" class="form-control" formControlName="loyaltyPointsToRedeem" min="0">
+          </div>
+        </div>
       </div>
     </div>
 

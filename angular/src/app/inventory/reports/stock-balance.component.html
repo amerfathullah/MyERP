@@ -1,4 +1,23 @@
 <abp-page [title]="'StockBalance' | abpLocalization">
+  <div class="card mb-3">
+    <div class="card-body d-flex gap-3 align-items-end">
+      <div>
+        <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+        <select class="form-select form-select-sm" [(ngModel)]="warehouseFilter" (change)="onWarehouseChange()">
+          <option value="">{{ '::All' | abpLocalization }}</option>
+          @for (wh of warehouses(); track wh.id) {
+            <option [value]="wh.id">{{ wh.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="ms-auto">
+        <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="items().length === 0">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   @if (isLoading()) {
     <app-loading-overlay />
   }
@@ -15,20 +34,21 @@
           <table class="table table-hover table-sm mb-0">
             <thead>
               <tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th>{{ 'Warehouse' | abpLocalization }}</th>
-                <th class="text-end">{{ 'ActualQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'OrderedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'ReservedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'ProjectedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ActualQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ReservedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ProjectedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @for (row of items(); track row.id) {
                 <tr>
-                  <td class="text-truncate" style="max-width: 180px;">{{ row.itemId }}</td>
-                  <td class="text-truncate" style="max-width: 180px;">{{ row.warehouseId }}</td>
+                  <td class="text-truncate" style="max-width: 200px;">{{ row.itemName }}</td>
+                  <td class="text-truncate" style="max-width: 160px;">{{ row.warehouseName }}</td>
                   <td class="text-end">{{ row.actualQty | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.orderedQty | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.reservedQty | number:'1.2-2' }}</td>
@@ -36,12 +56,16 @@
                       [class.text-success]="(row.projectedQty ?? 0) > 0">
                     {{ row.projectedQty | number:'1.2-2' }}
                   </td>
+                  <td class="text-end">{{ row.valuationRate | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.stockValue | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+      </div>
+      <div class="card-footer">
+        <app-pagination [totalCount]="totalCount()" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
       </div>
     </div>
   }

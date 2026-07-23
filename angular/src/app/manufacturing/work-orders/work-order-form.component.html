@@ -1,5 +1,5 @@
 <abp-page [title]="'::Manufacturing:NewWorkOrder' | abpLocalization">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-body">
         <div class="row">
@@ -17,7 +17,8 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">BOM <span class="text-danger">*</span></label>
             <select class="form-select" formControlName="bomId"
-              [class.is-invalid]="form.get('bomId')?.invalid && form.get('bomId')?.touched">
+              [class.is-invalid]="form.get('bomId')?.invalid && form.get('bomId')?.touched"
+              (change)="onBomChanged()">
               <option value="">{{ '::SelectBOM' | abpLocalization }}</option>
               @for (bom of filteredBoms; track bom.id) {
                 <option [value]="bom.id">{{ bom.bomNumber }}</option>
@@ -44,6 +45,37 @@
         </div>
       </div>
     </div>
+
+    <!-- BOM Materials Preview -->
+    @if (bomMaterials().length > 0) {
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0"><i class="fa fa-cubes me-2"></i>{{ '::RequiredMaterials' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (mat of bomMaterials(); track $index) {
+                <tr>
+                  <td>{{ mat.itemName || mat.description || mat.itemId }}</td>
+                  <td class="text-end">{{ mat.quantity | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ mat.rate | number:'1.2-2' }}</td>
+                  <td class="text-end">{{ mat.amount | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
 
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">

@@ -37,7 +37,7 @@ public class IssueAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(i => i.Subject.ToLower().Contains(f));
+            query = query.Where(i => i.Subject.Contains(f));
         }
 
         var totalCount = query.Count();

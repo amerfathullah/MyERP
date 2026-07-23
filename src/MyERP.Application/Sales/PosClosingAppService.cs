@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Permissions;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
@@ -21,10 +22,17 @@ namespace MyERP.Sales;
 public class PosClosingAppService : ApplicationService
 {
     private readonly IRepository<PosClosingEntry, Guid> _repository;
+    private readonly PosConsolidationService _consolidationService;
+    private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
 
-    public PosClosingAppService(IRepository<PosClosingEntry, Guid> repository)
+    public PosClosingAppService(
+        IRepository<PosClosingEntry, Guid> repository,
+        PosConsolidationService consolidationService,
+        IRepository<SalesInvoice, Guid> invoiceRepository)
     {
         _repository = repository;
+        _consolidationService = consolidationService;
+        _invoiceRepository = invoiceRepository;
     }
 
     public async Task<PosClosingDto> GetAsync(Guid id)
@@ -75,6 +83,41 @@ public class PosClosingAppService : ApplicationService
     {
         var entry = await _repository.GetAsync(id);
         entry.Submit();
+
+        // POS Consolidation: merge individual POS invoices into consolidated SI for GL posting
+        // Per ERPNext pos_invoice_merge_log: creates single SI per dimension group
+        if (entry.Invoices.Any())
+        {
+            var invoiceIds = entry.Invoices.Select(i => i.PosInvoiceId).ToList();
+
+            // Use first invoice's customer as the consolidation customer
+            var firstInvoice = await _invoiceRepository.FindAsync(entry.Invoices.First().PosInvoiceId);
+            var customerId = firstInvoice?.CustomerId ?? Guid.Empty;
+
+            var results = await _consolidationService.ConsolidateAsync(
+                invoiceIds, entry.CompanyId, customerId, entry.PostingDate);
+
+            // Create the consolidated Sales Invoice from the first result
+            if (results.Any())
+            {
+                var primary = results.First();
+                var consolidatedSi = new SalesInvoice(
+                    GuidGenerator.Create(), primary.CompanyId, primary.CustomerId,
+                    "MYR", primary.PostingDate, CurrentTenant.Id);
+
+                foreach (var item in primary.Items)
+                {
+                    consolidatedSi.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, 0m);
+                }
+
+                consolidatedSi.Submit();
+                consolidatedSi.Post();
+                await _invoiceRepository.InsertAsync(consolidatedSi, autoSave: true);
+
+                entry.ConsolidatedSalesInvoiceId = consolidatedSi.Id;
+            }
+        }
+
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }

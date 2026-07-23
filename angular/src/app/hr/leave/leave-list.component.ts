@@ -7,6 +7,7 @@ import { LeaveService } from '../../proxy/human-resources/leave.service';
 import type { LeaveApplicationDto } from '../../proxy/human-resources/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -77,6 +78,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 })
 export class LeaveListComponent implements OnInit {
   private service = inject(LeaveService);
+  private companyContext = inject(CompanyContextService);
   items = signal<LeaveApplicationDto[]>([]);
   isLoading = signal(false);
   totalCount = 0;
@@ -90,7 +92,8 @@ export class LeaveListComponent implements OnInit {
 
   load() {
     this.isLoading.set(true);
-    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }).subscribe({
+    const companyId = this.companyContext.currentCompanyId();
+    this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, companyId } as any).subscribe({
       next: r => { this.items.set(r.items ?? []); this.totalCount = r.totalCount ?? 0; this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });

@@ -42,6 +42,12 @@ public class Account : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Account Category for financial report template formulas.
+    /// Per gotcha #158: v16 adds account_category Link field. 28 standard categories.
+    /// </summary>
+    public Guid? AccountCategoryId { get; set; }
+
     protected Account() { }
 
     public Account(

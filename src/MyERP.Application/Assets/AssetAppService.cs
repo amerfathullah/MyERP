@@ -44,6 +44,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
             query = query.Where(a => a.CompanyId == input.CompanyId.Value);
         if (input.AssetCategoryId.HasValue)
             query = query.Where(a => a.AssetCategoryId == input.AssetCategoryId.Value);
+        if (input.FromDate.HasValue)
+            query = query.Where(a => a.PurchaseDate >= input.FromDate.Value);
+        if (input.ToDate.HasValue)
+            query = query.Where(a => a.PurchaseDate <= input.ToDate.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
@@ -53,8 +57,13 @@ public class AssetAppService : ApplicationService, IAssetAppService
         }
 
         var totalCount = query.Count();
-        var items = query.OrderByDescending(a => a.CreationTime)
-            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+        query = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(a => a.CreationTime),
+            ("assetNumber", a => a.AssetNumber),
+            ("assetName", a => a.AssetName),
+            ("purchaseDate", a => a.PurchaseDate),
+            ("purchaseAmount", a => a.PurchaseAmount));
+        var items = query.Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
         return new PagedResultDto<AssetDto>(totalCount, items.Select(x => ObjectMapper.Map<Asset, AssetDto>(x)).ToList());
     }
@@ -118,8 +127,23 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount)
     {
         var asset = await _assetRepository.GetAsync(id);
+
+        // Calculate gain/loss via domain service
+        var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
+        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
+
         asset.Sell(disposalDate, amount);
         await _assetRepository.UpdateAsync(asset);
+
+        // Log disposal activity
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Asset", asset.Id,
+            "Sold", asset.CompanyId,
+            asset.AssetName, "Submitted", "Sold",
+            null, $"Disposed for {amount:N2}, Gain/Loss: {gainLoss:N2}",
+            CurrentTenant.Id));
+
         return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 
@@ -127,8 +151,23 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> ScrapAsync(Guid id, DateTime disposalDate)
     {
         var asset = await _assetRepository.GetAsync(id);
+
+        // Calculate loss via domain service
+        var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
+        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
+
         asset.Scrap(disposalDate);
         await _assetRepository.UpdateAsync(asset);
+
+        // Log scrap activity
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Asset", asset.Id,
+            "Scrapped", asset.CompanyId,
+            asset.AssetName, "Submitted", "Scrapped",
+            null, $"Scrapped. Book value loss: {Math.Abs(gainLoss):N2}",
+            CurrentTenant.Id));
+
         return ObjectMapper.Map<Asset, AssetDto>(asset);
     }
 

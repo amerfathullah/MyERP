@@ -6,6 +6,8 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-supplier-quotation-form',
@@ -18,7 +20,7 @@ import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotat
           <div class="col-md-4">
             <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.supplierId">
-              <option value="">Select supplier...</option>
+              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
               @for (s of suppliers(); track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
@@ -40,15 +42,22 @@ import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotat
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemName" /></td>
-                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
-                <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
-                <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1)"><i class="fa fa-trash"></i></button></td>
+                <td>
+                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
+                    <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+                    @for (i of availableItems(); track i.id) {
+                      <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
+                    }
+                  </select>
+                </td>
+                <td><input type="number" class="form-control form-control-sm" min="0" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
+                <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
+                <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1); isDirty=true"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.items.push({itemName:'',qty:0,rate:0})">
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()">
           <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
         </button>
 
@@ -64,22 +73,45 @@ export class SupplierQuotationFormComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private sqService = inject(SupplierQuotationService);
   private router = inject(Router);
+  private companyContext = inject(CompanyContextService);
+  private itemService = inject(ItemService);
+
   saving = false;
   isDirty = false;
-  suppliers = signal<any[]>([]);
-  form: any = { transactionDate: new Date().toISOString().split('T')[0], supplierId: '', items: [{ itemName: '', qty: 0, rate: 0 }] };
+  suppliers = signal<{ id: string; name: string }[]>([]);
+  availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  form: any = {
+    transactionDate: new Date().toISOString().split('T')[0], supplierId: '', validTill: '',
+    items: [{ itemId: '', qty: 1, rate: 0 }]
+  };
 
   ngOnInit() {
-    this.supplierService.getList({ filter: '', sorting: '', skipCount: 0, maxResultCount: 200 } as any).subscribe(
-      res => this.suppliers.set(res.items ?? [])
+    this.supplierService.getList({ maxResultCount: 200 } as any).subscribe(r =>
+      this.suppliers.set((r.items ?? []).map((s: any) => ({ id: s.id, name: s.supplierName ?? s.name })))
+    );
+    this.itemService.getList({ maxResultCount: 500 } as any).subscribe(r =>
+      this.availableItems.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName })))
     );
   }
 
+  addItem() { this.form.items.push({ itemId: '', qty: 1, rate: 0 }); this.isDirty = true; }
+
   save() {
     this.saving = true;
-    this.sqService.create(this.form)
-      .subscribe({ next: () => { this.router.navigate(['/purchasing/supplier-quotations']); }, error: () => { this.saving = false;
-  this.isDirty = false; } });
+    const dto = {
+      companyId: this.companyContext.currentCompanyId(),
+      supplierId: this.form.supplierId || undefined,
+      transactionDate: this.form.transactionDate,
+      validTill: this.form.validTill || undefined,
+      currency: 'MYR',
+      items: this.form.items
+        .filter((i: any) => i.itemId)
+        .map((i: any) => ({ itemId: i.itemId, qty: i.qty || 0, rate: i.rate || 0 }))
+    };
+    this.sqService.create(dto).subscribe({
+      next: () => { this.isDirty = false; this.router.navigate(['/purchasing/supplier-quotations']); },
+      error: () => { this.saving = false; }
+    });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

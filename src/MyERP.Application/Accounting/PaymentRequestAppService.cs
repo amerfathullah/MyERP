@@ -59,7 +59,7 @@ public class PaymentRequestAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
-             query = query.Where(x => x.PartyName != null && x.PartyName.ToLower().Contains(filter.ToLower()));
+             query = query.Where(x => x.PartyName != null && x.PartyName.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<PaymentRequestStatus>(input.Status, true, out var status))

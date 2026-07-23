@@ -84,6 +84,18 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface CompanyRestrictionDto {
+  parentType?: string;
+  parentId?: string;
+  restrictToCompanies?: boolean;
+  allowedCompanies?: CompanyRestrictionEntryDto[];
+}
+
+export interface CompanyRestrictionEntryDto {
+  id?: string;
+  companyId?: string;
+}
+
 export interface ContactDto extends EntityDto<string> {
   partyType?: string;
   partyId?: string;
@@ -247,6 +259,13 @@ export interface DocumentSeriesDto extends EntityDto<string> {
   numberPadding?: number;
 }
 
+export interface DraftLinkDto {
+  documentId?: string;
+  documentNumber?: string | null;
+  documentType?: string;
+  url?: string | null;
+}
+
 export interface EmailTemplateDto {
   id?: string;
   name?: string;
@@ -355,6 +374,13 @@ export interface RevenueTrendDto {
   amount?: number;
 }
 
+export interface SaveCompanyRestrictionDto {
+  parentType?: string;
+  parentId?: string;
+  restrictToCompanies?: boolean;
+  allowedCompanyIds?: string[] | null;
+}
+
 export interface SearchResultDto {
   id?: string;
   documentType?: string;
@@ -363,6 +389,22 @@ export interface SearchResultDto {
   amount?: number;
   status?: string;
   route?: string;
+}
+
+export interface StockValuationItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  valuationRate?: number;
+  stockValue?: number;
+}
+
+export interface StockValuationWidgetDto {
+  totalStockValue?: number;
+  totalItems?: number;
+  totalQuantity?: number;
+  topItemsByValue?: StockValuationItemDto[];
 }
 
 export interface UpdateAuthorizationRuleDto {

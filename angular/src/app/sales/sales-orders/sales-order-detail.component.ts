@@ -1,25 +1,28 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
-import type { SalesOrderDto } from '../../proxy/sales/models';
+import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print-layout/so-print-layout.component';
+import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -31,9 +34,23 @@ export class SalesOrderDetailComponent implements OnInit {
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
   private amendmentService = inject(SalesOrderAmendmentService);
+  private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
   order: SalesOrderDto | null = null;
+  deliverySchedule = signal<any[]>([]);
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+
+  // Print layout data
+  companyName = '';
+  companyTin = '';
+  companySst = '';
+  companyAddress = '';
+
+  // Draft Link Guard state
+  showDraftGuard = signal(false);
+  draftGuardTarget = signal<'DeliveryNote' | 'SalesInvoice' | null>(null);
+  private pendingConversionAction: (() => void) | null = null;
 
   get workflowActions(): WorkflowAction[] {
     if (!this.order) return [];
@@ -68,7 +85,32 @@ export class SalesOrderDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => { this.order = result; });
+    this.service.get(id).subscribe((result) => {
+      this.order = result;
+      this.loadCompanyData(result.companyId);
+      // Load delivery schedule entries
+      this.http.get<any[]>(`/api/app/sales-order/${id}/delivery-schedule`).subscribe({
+        next: (entries) => this.deliverySchedule.set(entries ?? []),
+        error: () => {} // graceful — schedule is optional
+      });
+    });
+  }
+
+  printOrder(): void {
+    window.print();
+  }
+
+  private loadCompanyData(companyId: string | undefined): void {
+    if (!companyId) return;
+    this.http.get<any>(`/api/app/company/${companyId}`).subscribe({
+      next: (company) => {
+        this.companyName = company.name || '';
+        this.companyTin = company.tin || '';
+        this.companySst = company.sstRegistrationNumber || '';
+        this.companyAddress = company.address || '';
+      },
+      error: () => {},
+    });
   }
 
   onWorkflowAction(action: string): void {
@@ -79,13 +121,19 @@ export class SalesOrderDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'delivery':
-        this.conversionService.convertSalesOrderToDeliveryNote(id).subscribe((dn) => {
-          this.router.navigate(['/sales/delivery-notes', dn.id]);
+        this.initiateConversion('DeliveryNote', () => {
+          this.conversionService.convertSalesOrderToDeliveryNote(id).subscribe({
+            next: (dn) => this.router.navigate(['/sales/delivery-notes', dn.id]),
+            error: () => this.toaster.error('::ConversionFailed'),
+          });
         });
         break;
       case 'invoice':
-        this.conversionService.convertSalesOrderToSalesInvoice(id).subscribe((inv) => {
-          this.router.navigate(['/sales/invoices', inv.id]);
+        this.initiateConversion('SalesInvoice', () => {
+          this.conversionService.convertSalesOrderToSalesInvoice(id).subscribe({
+            next: (inv) => this.router.navigate(['/sales/invoices', inv.id]),
+            error: () => this.toaster.error('::ConversionFailed'),
+          });
         });
         break;
       case 'payment':
@@ -124,6 +172,30 @@ export class SalesOrderDetailComponent implements OnInit {
     setTimeout(() => {
       this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
     }, 500);
+  }
+
+  /** Triggers the draft link guard check before executing a conversion action. */
+  private initiateConversion(targetDocType: 'DeliveryNote' | 'SalesInvoice', action: () => void): void {
+    this.pendingConversionAction = action;
+    this.draftGuardTarget.set(targetDocType);
+    this.showDraftGuard.set(true);
+  }
+
+  /** Called when DraftLinkGuard confirms safe to proceed (no drafts or user clicked "Create Anyway"). */
+  onDraftGuardProceed(): void {
+    this.showDraftGuard.set(false);
+    this.draftGuardTarget.set(null);
+    if (this.pendingConversionAction) {
+      this.pendingConversionAction();
+      this.pendingConversionAction = null;
+    }
+  }
+
+  /** Called when user cancels the conversion from the draft guard warning. */
+  onDraftGuardCancelled(): void {
+    this.showDraftGuard.set(false);
+    this.draftGuardTarget.set(null);
+    this.pendingConversionAction = null;
   }
 
   deleteOrder(): void {

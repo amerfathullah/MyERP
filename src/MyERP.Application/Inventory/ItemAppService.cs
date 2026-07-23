@@ -116,6 +116,20 @@ public class ItemAppService :
 
         var queryable = await Repository.GetQueryableAsync();
 
+        // Filter out restricted items that don't allow the specified company
+        if (companyId.HasValue)
+        {
+            var restrictionRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.CompanyRestrictionEntry, Guid>>();
+            var restrictionQuery = await restrictionRepo.GetQueryableAsync();
+            var allowedItemIds = restrictionQuery
+                .Where(r => r.ParentType == "Item" && r.CompanyId == companyId.Value)
+                .Select(r => r.ParentId)
+                .ToList();
+
+            queryable = queryable.Where(i =>
+                !i.RestrictToCompanies || allowedItemIds.Contains(i.Id));
+        }
+
         if (companyId.HasValue)
         {
             queryable = queryable.Where(i => i.CompanyId == companyId.Value);
@@ -123,10 +137,9 @@ public class ItemAppService :
 
         if (!string.IsNullOrWhiteSpace(filter))
         {
-            var filterLower = filter.ToLower();
             queryable = queryable.Where(i =>
-                i.ItemCode.ToLower().Contains(filterLower)
-                || i.ItemName.ToLower().Contains(filterLower));
+                i.ItemCode.Contains(filter)
+                || i.ItemName.Contains(filter));
         }
 
         var totalCount = queryable.Count();

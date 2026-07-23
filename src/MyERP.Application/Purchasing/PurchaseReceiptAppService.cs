@@ -56,7 +56,19 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     public async Task<PurchaseReceiptDto> GetAsync(Guid id)
     {
         var receipt = await _repository.GetAsync(id);
-        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+        var dto = ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+
+        // Resolve supplier and warehouse names
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+
+        var supplier = await supplierRepo.FindAsync(receipt.SupplierId);
+        if (supplier != null) dto.SupplierName = supplier.Name;
+
+        var warehouse = await warehouseRepo.FindAsync(receipt.WarehouseId);
+        if (warehouse != null) dto.WarehouseName = warehouse.Name;
+
+        return dto;
     }
 
     public async Task<PagedResultDto<PurchaseReceiptDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -111,6 +123,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Validate company restriction — items/supplier must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "PurchaseReceipt", input.CompanyId,
+            itemIds: itemIds,
+            supplierIds: new[] { input.SupplierId });
 
         var receiptNumber = await _numberGenerator.GenerateAsync("PurchaseReceipt", input.CompanyId);
 

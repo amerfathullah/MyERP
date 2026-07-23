@@ -2,6 +2,7 @@ import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from
 import type { JobCardStatus } from './job-card-status.enum';
 import type { ProductionPlanStatus } from './production-plan-status.enum';
 import type { SubAssemblyType } from './sub-assembly-type.enum';
+import type { SecondaryItemType } from './secondary-item-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
 
 export interface AddTimeLogDto {
@@ -83,7 +84,11 @@ export interface JobCardDto extends EntityDto<string> {
   companyId?: string;
   workOrderId?: string;
   operationId?: string;
+  bomOperationId?: string | null;
   workstationId?: string | null;
+  finishedGoodItemId?: string | null;
+  semiFgBomId?: string | null;
+  isCorrective?: boolean;
   forQuantity?: number;
   completedQty?: number;
   totalTimeInMins?: number;
@@ -228,8 +233,12 @@ export interface BomDto extends AuditedEntityDto<string> {
   totalMaterialCost?: number;
   operatingCost?: number;
   totalCost?: number;
+  processLossPercentage?: number;
+  fgCostAllocationPercentage?: number;
+  scrapWarehouseId?: string | null;
   items?: BomItemDto[];
   operations?: BomOperationDto[];
+  secondaryItems?: BomSecondaryItemDto[];
 }
 
 export interface BomItemDto {
@@ -255,6 +264,28 @@ export interface BomOperationDto {
   isSubcontracted?: boolean;
 }
 
+export interface BomSecondaryItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string | null;
+  secondaryItemType?: SecondaryItemType;
+  quantity?: number;
+  effectiveQuantity?: number;
+  stockUom?: string | null;
+  rate?: number;
+  amount?: number;
+  costAllocationPercentage?: number;
+  processLossPercentage?: number;
+  warehouseId?: string | null;
+}
+
+export interface ConsumptionItemDto {
+  itemId: string;
+  quantity: number;
+  warehouseId?: string | null;
+  batchId?: string | null;
+}
+
 export interface CreateBomDto {
   itemId: string;
   quantity?: number;
@@ -264,8 +295,11 @@ export interface CreateBomDto {
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   routingId?: string | null;
+  scrapWarehouseId?: string | null;
+  processLossPercentage?: number;
   items?: CreateBomItemDto[];
   operations?: CreateBomOperationDto[];
+  secondaryItems?: CreateBomSecondaryItemDto[];
 }
 
 export interface CreateBomItemDto {
@@ -286,6 +320,23 @@ export interface CreateBomOperationDto {
   description?: string | null;
   isSubcontracted?: boolean;
   workstationHourRate?: number;
+}
+
+export interface CreateBomSecondaryItemDto {
+  itemId: string;
+  itemName?: string | null;
+  secondaryItemType?: SecondaryItemType;
+  quantity?: number;
+  stockUom?: string | null;
+  rate?: number;
+  costAllocationPercentage?: number;
+  processLossPercentage?: number;
+  warehouseId?: string | null;
+}
+
+export interface CreateMaterialConsumptionDto {
+  workOrderId: string;
+  items: ConsumptionItemDto[];
 }
 
 export interface CreateWorkOrderDto {
@@ -314,6 +365,15 @@ export interface GetWorkOrderListDto extends PagedAndSortedResultRequestDto {
   status?: WorkOrderStatus | null;
   filter?: string | null;
   companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface MaterialConsumptionResultDto {
+  stockEntryId?: string;
+  entryNumber?: string;
+  totalConsumedValue?: number;
+  itemCount?: number;
 }
 
 export interface WorkOrderDto extends AuditedEntityDto<string> {
@@ -325,6 +385,9 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   quantity?: number;
   producedQuantity?: number;
   materialTransferred?: number;
+  processLossQty?: number;
+  processLossPercentage?: number;
+  effectiveFgQuantity?: number;
   percentComplete?: number;
   companyId?: string;
   salesOrderId?: string | null;

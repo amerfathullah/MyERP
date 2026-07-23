@@ -46,6 +46,12 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Track stock for this item (false for services).</summary>
     public bool MaintainStock { get; set; } = true;
 
+    /// <summary>Item requires serial number tracking (per-unit identification).</summary>
+    public bool HasSerialNo { get; set; }
+
+    /// <summary>Item requires batch/lot number tracking.</summary>
+    public bool HasBatchNo { get; set; }
+
     /// <summary>Allow negative stock for this specific item (overrides global setting).</summary>
     public bool AllowNegativeStock { get; set; }
 
@@ -86,6 +92,12 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Require submitted+accepted Quality Inspection before Delivery Note can be submitted.</summary>
     public bool InspectionRequiredBeforeDelivery { get; set; }
+
+    /// <summary>
+    /// When true, this item is restricted to specific companies (per PR #57258/#57352).
+    /// Transactions in companies not in the AllowedCompanies list will be blocked.
+    /// </summary>
+    public bool RestrictToCompanies { get; set; }
 
     // Variant system
     /// <summary>True if this is a template item that has variants (cannot be used directly in transactions).</summary>

@@ -37,6 +37,15 @@ export class PickListService {
     { apiName: this.apiName,...config });
   
 
+  createDeliveryNoteFromPickList = (pickListId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      responseType: 'text',
+      url: `/api/app/pick-list/delivery-note-from-pick-list/${pickListId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListDto>({
       method: 'GET',

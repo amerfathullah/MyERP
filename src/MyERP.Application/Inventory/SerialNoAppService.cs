@@ -50,7 +50,7 @@ public class SerialNoAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(s => s.SerialNumber.ToLower().Contains(f));
+            query = query.Where(s => s.SerialNumber.Contains(f));
         }
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)

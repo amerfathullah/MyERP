@@ -103,6 +103,22 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Link to project for timesheet-based billing.</summary>
     public Guid? ProjectId { get; set; }
 
+    // Loyalty Points Redemption
+    /// <summary>Loyalty points redeemed on this invoice (reduces grand total).</summary>
+    public int LoyaltyPointsRedeemed { get; set; }
+
+    /// <summary>Monetary value of redeemed loyalty points.</summary>
+    public decimal LoyaltyRedemptionAmount { get; set; }
+
+    /// <summary>
+    /// Loyalty points earned from this invoice (calculated on submit).
+    /// Per gotcha #333: eligible_amount = (grand_total - loyalty_amount) - returned_amount
+    /// </summary>
+    public int LoyaltyPointsEarned { get; set; }
+
+    /// <summary>Linked loyalty program for this invoice's customer.</summary>
+    public Guid? LoyaltyProgramId { get; set; }
+
     // Line items
     private readonly List<SalesInvoiceItem> _items = new();
     public IReadOnlyList<SalesInvoiceItem> Items => _items.AsReadOnly();

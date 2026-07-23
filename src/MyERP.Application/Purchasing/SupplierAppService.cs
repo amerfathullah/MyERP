@@ -75,11 +75,10 @@ public class SupplierAppService :
         }
 
         var queryable = await Repository.GetQueryableAsync();
-        var filterLower = filter.ToLower();
 
         queryable = queryable.Where(s =>
-            s.Name.ToLower().Contains(filterLower)
-            || (s.SupplierCode != null && s.SupplierCode.ToLower().Contains(filterLower))
+            s.Name.Contains(filter)
+            || (s.SupplierCode != null && s.SupplierCode.Contains(filter))
             || (s.Tin != null && s.Tin.Contains(filter)));
 
         var totalCount = queryable.Count();

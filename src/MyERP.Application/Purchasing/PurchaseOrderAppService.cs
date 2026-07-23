@@ -75,7 +75,9 @@ public class PurchaseOrderAppService : ApplicationService
     public async Task<PurchaseOrderDto> GetAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
-        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+        var dto = ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+        dto.SupplierName = await ResolveSupplierNameAsync(po.SupplierId);
+        return dto;
     }
 
     public async Task<PagedResultDto<PurchaseOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -111,7 +113,19 @@ public class PurchaseOrderAppService : ApplicationService
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<PurchaseOrderDto>(count, list.Select(x => ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(x)).ToList());
+        var dtos = list.Select(x => ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(x)).ToList();
+
+        // Batch-resolve supplier names
+        var supplierIds = list.Select(x => x.SupplierId).Distinct().ToList();
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+        var suppQuery = await supplierRepo.GetQueryableAsync();
+        var supplierNames = suppQuery.Where(s => supplierIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name }).ToList()
+            .ToDictionary(s => s.Id, s => s.Name);
+        foreach (var dto in dtos)
+            dto.SupplierName = supplierNames.GetValueOrDefault(dto.SupplierId);
+
+        return new PagedResultDto<PurchaseOrderDto>(count, dtos);
     }
 
     public async Task<PurchaseOrderDto> CreateAsync(CreatePurchaseOrderDto input)
@@ -129,6 +143,13 @@ public class PurchaseOrderAppService : ApplicationService
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Validate company restriction — items/supplier must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "PurchaseOrder", input.CompanyId,
+            itemIds: itemIds,
+            supplierIds: new[] { input.SupplierId });
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
@@ -439,6 +460,13 @@ public class PurchaseOrderAppService : ApplicationService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft purchase orders can be deleted");
         await _repository.DeleteAsync(id);
+    }
+
+    private async Task<string?> ResolveSupplierNameAsync(Guid supplierId)
+    {
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+        var supplier = await supplierRepo.FindAsync(supplierId);
+        return supplier?.Name;
     }
 }
 

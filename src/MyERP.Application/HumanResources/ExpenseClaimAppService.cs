@@ -68,7 +68,7 @@ public class ExpenseClaimAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
-             query = query.Where(x => x.EmployeeName != null && x.EmployeeName.ToLower().Contains(filter.ToLower()));
+             query = query.Where(x => x.EmployeeName != null && x.EmployeeName.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))

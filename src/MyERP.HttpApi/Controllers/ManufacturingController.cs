@@ -39,6 +39,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("bom")]
     public Task<BomDto> CreateBomAsync(CreateBomDto input) => _service.CreateBomAsync(input);
 
+    [HttpPut("bom/{id}")]
+    public Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input) => _service.UpdateBomAsync(id, input);
+
     [HttpDelete("bom/{id}")]
     public Task DeleteBomAsync(Guid id) => _service.DeleteBomAsync(id);
 
@@ -62,11 +65,17 @@ public class ManufacturingController : MyERPController
     public Task<WorkOrderDto> StartWorkOrderAsync(Guid id) => _service.StartWorkOrderAsync(id);
 
     [HttpPost("work-order/{id}/record-production")]
-    public Task<WorkOrderDto> RecordProductionAsync(Guid id, [FromQuery] decimal quantity) => _service.RecordProductionAsync(id, quantity);
+    public Task<WorkOrderDto> RecordProductionAsync(Guid id, [FromQuery] decimal quantity, [FromQuery] decimal processLossQty = 0) => _service.RecordProductionAsync(id, quantity, processLossQty);
 
     [HttpPost("work-order/{id}/stop")]
     public Task<WorkOrderDto> StopWorkOrderAsync(Guid id) => _service.StopWorkOrderAsync(id);
 
+    [HttpPost("work-order/{id}/unstop")]
+    public Task<WorkOrderDto> UnstopWorkOrderAsync(Guid id) => _service.UnstopWorkOrderAsync(id);
+
     [HttpPost("work-order/{id}/cancel")]
     public Task<WorkOrderDto> CancelWorkOrderAsync(Guid id) => _service.CancelWorkOrderAsync(id);
+
+    [HttpPost("work-order/material-consumption")]
+    public Task<MaterialConsumptionResultDto> CreateMaterialConsumptionAsync(CreateMaterialConsumptionDto input) => _service.CreateMaterialConsumptionAsync(input);
 }

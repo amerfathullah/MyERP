@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -65,10 +66,17 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           }
           @if (wo()!.status === 3) {
             <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>Record Production</button>
+            <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>Record Consumption</button>
             <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>Stop</button>
+          }
+          @if (wo()!.status === 5) {
+            <button class="btn btn-primary btn-sm" (click)="unstop()"><i class="fa fa-play me-1"></i>Resume</button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
             <button class="btn btn-outline-secondary btn-sm" (click)="createStockEntry()"><i class="fa fa-truck me-1"></i>Material Transfer</button>
+          }
+          @if (wo()!.status! >= 1 && wo()!.status! <= 3) {
+            <button class="btn btn-outline-danger btn-sm" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
           }
         </div>
 
@@ -133,6 +141,7 @@ export class WorkOrderDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
   wo = signal<WorkOrderDto | null>(null);
   isLoading = signal(false);
@@ -174,9 +183,78 @@ export class WorkOrderDetailComponent implements OnInit {
     });
   }
 
+  unstop() {
+    const id = this.wo()!.id!;
+    this.http.post<any>(`/api/app/manufacturing/work-order/${id}/unstop`, {}).subscribe({
+      next: w => { this.wo.set(w); this.toaster.success('Work Order resumed'); },
+      error: () => this.toaster.error('Failed to resume'),
+    });
+  }
+
+  cancel() {
+    if (!confirm('Are you sure you want to cancel this Work Order?')) return;
+    const id = this.wo()!.id!;
+    this.service.cancelWorkOrder(id).subscribe({
+      next: w => { this.wo.set(w); this.toaster.success('Work Order cancelled'); },
+      error: () => this.toaster.error('Failed to cancel. Cancel all linked Stock Entries first.'),
+    });
+  }
+
+  recordConsumption() {
+    const wo = this.wo()!;
+    const items = wo.requiredItems ?? [];
+    if (!items.length) {
+      this.toaster.warn('No raw materials defined for this Work Order');
+      return;
+    }
+    if (!confirm('Record actual material consumption for this Work Order?')) return;
+
+    // Build consumption items from WO BOM items (use transferred qty as max)
+    const consumptionItems = items
+      .filter((i: any) => (i.transferredQuantity ?? 0) > 0)
+      .map((i: any) => ({
+        itemId: i.itemId,
+        quantity: i.transferredQuantity ?? i.requiredQuantity,
+      }));
+
+    if (!consumptionItems.length) {
+      this.toaster.warn('No materials have been transferred yet. Transfer materials first.');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.http.post<any>('/api/app/manufacturing/work-order/material-consumption', {
+      workOrderId: wo.id,
+      items: consumptionItems,
+    }).subscribe({
+      next: (result) => {
+        this.isLoading.set(false);
+        this.toaster.success(`Consumption recorded: ${result.itemCount} items, value ${result.totalConsumedValue?.toFixed(2)}`);
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || 'Failed to record material consumption');
+      },
+    });
+  }
+
   createStockEntry() {
-    this.router.navigate(['/inventory/stock-entries/new'], {
-      queryParams: { workOrderId: this.wo()!.id, purpose: 'MaterialTransferForManufacture' }
+    const woId = this.wo()!.id!;
+    if (!confirm('Create Material Transfer Stock Entry for all pending materials?')) return;
+    this.isLoading.set(true);
+    this.http.post<any>(`/api/app/stock-entry/create-material-transfer-for-manufacture?workOrderId=${woId}`, {}).subscribe({
+      next: (se) => {
+        this.isLoading.set(false);
+        this.toaster.success('Material Transfer created');
+        this.router.navigate(['/inventory/stock-entries', se.id]);
+      },
+      error: () => {
+        this.isLoading.set(false);
+        // Fallback: navigate to manual form
+        this.router.navigate(['/inventory/stock-entries/new'], {
+          queryParams: { workOrderId: woId, purpose: 'MaterialTransferForManufacture' }
+        });
+      },
     });
   }
 

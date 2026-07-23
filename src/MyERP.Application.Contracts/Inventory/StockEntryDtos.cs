@@ -22,9 +22,12 @@ public class StockEntryItemDto
 {
     public Guid Id { get; set; }
     public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
     public decimal Quantity { get; set; }
     public Guid? SourceWarehouseId { get; set; }
+    public string? SourceWarehouseName { get; set; }
     public Guid? TargetWarehouseId { get; set; }
+    public string? TargetWarehouseName { get; set; }
     public decimal? ValuationRate { get; set; }
 }
 
@@ -89,4 +92,34 @@ public class ManufactureItemLineDto
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
     public bool IsRawMaterial { get; set; }
+}
+
+// ─── Transit Transfer DTOs ──────────────────────────────────────────────────
+
+public class CreateTransitTransferDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid SourceWarehouseId { get; set; }
+    public Guid DestinationWarehouseId { get; set; }
+    public DateTime PostingDate { get; set; }
+    public string? Notes { get; set; }
+    public System.Collections.Generic.List<TransitTransferItemDto> Items { get; set; } = new();
+}
+
+public class TransitTransferItemDto
+{
+    public Guid ItemId { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal? ValuationRate { get; set; }
+}
+
+public class PendingTransitTransferDto
+{
+    public Guid StockEntryId { get; set; }
+    public string EntryNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public Guid SourceWarehouseId { get; set; }
+    public string? SourceWarehouseName { get; set; }
+    public decimal TotalQuantity { get; set; }
+    public int ItemCount { get; set; }
 }

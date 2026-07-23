@@ -86,7 +86,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     public async Task<SalesInvoiceDto> GetAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
-        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+
+        // Resolve customer name
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(invoice.CustomerId);
+        if (customer != null) dto.CustomerName = customer.Name;
+
+        return dto;
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)
@@ -166,8 +173,15 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("documentType", "Sales Invoice");
 
         // Validate all items are active
-        await _itemValidation.ValidateItemsForTransactionAsync(
-            input.Items.Select(i => i.ItemId).ToArray());
+        var siItemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await _itemValidation.ValidateItemsForTransactionAsync(siItemIds);
+
+        // Validate company restriction — items/customer must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "SalesInvoice", input.CompanyId,
+            itemIds: siItemIds,
+            customerIds: new[] { input.CustomerId });
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", input.CompanyId);
 
@@ -343,6 +357,44 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Apply coupon code discount if provided
+        if (!string.IsNullOrWhiteSpace(input.CouponCode) && !input.IsReturn)
+        {
+            var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
+            var pricingRuleId = await couponService.ValidateAndApplyAsync(
+                input.CouponCode, input.CustomerId, input.IssueDate);
+            invoice.Notes = string.IsNullOrEmpty(invoice.Notes)
+                ? $"Coupon: {input.CouponCode}"
+                : $"{invoice.Notes} | Coupon: {input.CouponCode}";
+        }
+
+        // Apply loyalty points redemption if requested
+        if (input.LoyaltyPointsToRedeem > 0 && !input.IsReturn)
+        {
+            var customer = await _customerRepository.GetAsync(input.CustomerId);
+            if (customer.LoyaltyProgramId.HasValue)
+            {
+                var programRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.LoyaltyProgram, Guid>>();
+                var program = await programRepo.GetAsync(customer.LoyaltyProgramId.Value);
+
+                // Determine current tier for redemption factor
+                var tier = program.Tiers.OrderBy(t => t.MinSpent).FirstOrDefault();
+                if (tier != null)
+                {
+                    var redemptionValue = program.CalculateRedemptionValue(input.LoyaltyPointsToRedeem, tier);
+
+                    // Cap at grand_total to avoid negative payable (per gotcha #109)
+                    var maxRedeemable = invoice.GrandTotal;
+                    if (redemptionValue > maxRedeemable)
+                        redemptionValue = maxRedeemable;
+
+                    invoice.LoyaltyPointsRedeemed = input.LoyaltyPointsToRedeem;
+                    invoice.LoyaltyRedemptionAmount = redemptionValue;
+                    invoice.LoyaltyProgramId = customer.LoyaltyProgramId;
+                }
+            }
+        }
+
         await _repository.InsertAsync(invoice, autoSave: true);
 
         // Persist payment schedule entries (after invoice saved so we have the ID)
@@ -387,7 +439,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Credit limit validation (enforced at SI submit per ERPNext rules, skip for returns)
         if (!invoice.IsReturn)
         {
-            await _creditLimitService.ValidateCreditLimitAsync(invoice.CustomerId, invoice.GrandTotal);
+            await _creditLimitService.ValidateCreditLimitAsync(invoice.CustomerId, invoice.GrandTotal, invoice.CompanyId);
 
             // Credit utilization warning: notify when approaching limit (80%+)
             try
@@ -488,11 +540,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                // Capture valuation rate BEFORE stock-out (actual cost, not selling price)
+                // Per ERPNext: stock movements always use valuation rate for value calculation
+                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value);
+                var ratePerStockUnit = balance.ValuationRate;
+                item.ValuationRate = ratePerStockUnit; // Store for cancel reversal + gross profit
+
                 // Use StockQty for SLE (respects UOM conversion)
                 var stockQty = item.StockQty;
-                var ratePerStockUnit = item.ConversionFactor != 0
-                    ? item.UnitPrice / item.ConversionFactor
-                    : item.UnitPrice;
 
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
@@ -519,6 +574,17 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
+
+        // Loyalty Points: redeem points if specified on invoice (deduct from customer balance)
+        if (invoice.LoyaltyPointsRedeemed > 0 && invoice.LoyaltyProgramId.HasValue && !invoice.IsReturn)
+        {
+            var loyaltyService = LazyServiceProvider.LazyGetRequiredService<LoyaltyPointService>();
+            await loyaltyService.RedeemPointsAsync(
+                invoice.LoyaltyProgramId.Value, invoice.CustomerId,
+                invoice.LoyaltyPointsRedeemed, invoice.IssueDate,
+                invoice.CompanyId,
+                invoiceType: "SalesInvoice", invoiceId: invoice.Id, tenantId: invoice.TenantId);
+        }
 
         // Loyalty Points: earn points on non-return, non-consolidated invoices
         if (!invoice.IsReturn)
@@ -655,9 +721,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     continue;
 
                 var stockQty = item.StockQty;
-                var ratePerStockUnit = item.ConversionFactor != 0
-                    ? item.UnitPrice / item.ConversionFactor
-                    : item.UnitPrice;
+                // Use the valuation rate that was captured during submit (actual cost rate)
+                // Fallback to current balance rate if ValuationRate wasn't set (legacy data)
+                var ratePerStockUnit = item.ValuationRate > 0
+                    ? item.ValuationRate
+                    : (await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value)).ValuationRate;
 
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,

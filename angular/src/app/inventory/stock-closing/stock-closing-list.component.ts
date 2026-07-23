@@ -58,9 +58,6 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
                   <td>
                     <div class="btn-group btn-group-sm">
                       @if (item.status === 0) {
-                        <button class="btn btn-outline-primary" (click)="generate(item.id)" title="Generate">
-                          <i class="fa fa-cogs"></i>
-                        </button>
                         <button class="btn btn-outline-success" (click)="submit(item.id)" title="Submit">
                           <i class="fa fa-check"></i>
                         </button>
@@ -112,13 +109,6 @@ export class StockClosingListComponent implements OnInit {
     if (!cid) { this.toaster.warn('Select a company first'); return; }
     this.service.generate({ companyId: cid, postingDate: new Date().toISOString().slice(0, 10) } as any).subscribe({
       next: () => { this.toaster.success('Stock Closing entry created'); this.loadData(); },
-      error: () => {}
-    });
-  }
-
-  generate(id: string) {
-    this.service.generate({ id } as any).subscribe({
-      next: () => { this.toaster.success('Balances generated'); this.loadData(); },
       error: () => {}
     });
   }

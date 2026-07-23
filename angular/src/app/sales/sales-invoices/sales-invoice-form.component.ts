@@ -59,6 +59,8 @@ export class SalesInvoiceFormComponent implements OnInit {
     returnAgainstId: [null as string | null],
     updateStock: [false],
     warehouseId: [''],
+    couponCode: [''],
+    loyaltyPointsToRedeem: [0],
     items: this.fb.array([]),
   });
 

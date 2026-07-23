@@ -60,7 +60,30 @@ public class BatchExpiryValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Returns batches ordered by oldest expiry date first (FIFO by expiry).
+    /// Per ERPNext PR #57413: null expiry dates sort AFTER all dated batches
+    /// (never-expiring batches are lowest priority for consumption).
+    /// This prevents TypeError when warehouse holds both dated and never-expiring batches.
+    /// </summary>
+    public async Task<List<BatchWithExpiry>> GetBatchesByOldestAsync(Guid itemId, Guid warehouseId)
+    {
+        var batches = await _batchRepository.GetListAsync(b =>
+            b.ItemId == itemId && !b.IsDisabled && !b.IsCancelled);
+
+        // Sort: batches WITH expiry first (oldest first), then batches WITHOUT expiry
+        // Per PR #57413: sort key = (expiryDate is null, expiryDate) to avoid null comparison TypeError
+        return batches
+            .Select(b => new BatchWithExpiry(b.Id, b.BatchNo, b.ExpiryDate))
+            .OrderBy(b => b.ExpiryDate == null) // false (has date) sorts before true (null)
+            .ThenBy(b => b.ExpiryDate)
+            .ToList();
+    }
 }
+
+/// <summary>Batch with expiry info for FIFO selection.</summary>
+public record BatchWithExpiry(Guid BatchId, string BatchNo, DateTime? ExpiryDate);
 
 /// <summary>Input for batch expiry validation.</summary>
 public class BatchValidationItem

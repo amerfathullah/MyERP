@@ -13,12 +13,15 @@ import type { PurchaseReceiptDto } from '../../proxy/purchasing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { PurchaseReceiptPrintLayoutComponent } from '../../shared/components/pr-print-layout/pr-print-layout.component';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-purchase-receipt-detail',
   standalone: true,
   imports: [
-    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent],
+    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent, VoucherLedgerComponent, PurchaseReceiptPrintLayoutComponent],
   templateUrl: './purchase-receipt-detail.component.html',
   styleUrls: ['./purchase-receipt-detail.component.scss'],
 })
@@ -29,8 +32,10 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
+  private http = inject(HttpClient);
 
   receipt: PurchaseReceiptDto | null = null;
+  companyData = { name: '', tin: '', sst: '', address: '' };
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   get workflowActions(): WorkflowAction[] {
@@ -41,6 +46,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     }
     if (this.receipt.status === 'Submitted') {
       actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'primary' });
+      actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
     }
     if (this.receipt.status === 'Cancelled') {
@@ -52,6 +58,25 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe(r => { this.receipt = r; });
+    this.loadCompanyData();
+  }
+
+  printDocument(): void {
+    window.print();
+  }
+
+  private loadCompanyData(): void {
+    this.http.get<any[]>('/api/app/company').subscribe(companies => {
+      if (companies?.length > 0) {
+        const c = companies[0];
+        this.companyData = {
+          name: c.name || c.companyName || '',
+          tin: c.tin || '',
+          sst: c.sstRegistrationNumber || '',
+          address: c.address || '',
+        };
+      }
+    });
   }
 
   onWorkflowAction(action: string): void {
@@ -77,6 +102,11 @@ export class PurchaseReceiptDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/receipts', amended.id]),
+        });
+        break;
+      case 'return':
+        this.router.navigate(['/purchasing/receipts/new'], {
+          queryParams: { returnAgainst: id }
         });
         break;
     }

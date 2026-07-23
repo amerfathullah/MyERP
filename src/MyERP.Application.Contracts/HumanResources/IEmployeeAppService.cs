@@ -8,6 +8,7 @@ namespace MyERP.HumanResources;
 public class GetEmployeeListDto : PagedAndSortedResultRequestDto
 {
     public string? Filter { get; set; }
+    public Guid? CompanyId { get; set; }
 }
 
 public interface IEmployeeAppService : IApplicationService

@@ -21,7 +21,7 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <small class="text-muted d-block">{{ '::Warehouse' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ receipt.warehouseId }}</span>
+            <span class="fw-semibold">{{ receipt.warehouseName || receipt.warehouseId }}</span>
           </div>
         </div>
       </div>
@@ -68,6 +68,31 @@
       </div>
     </div>
 
+    <!-- Print Button -->
+    <div class="mt-3 text-end">
+      <button class="btn btn-outline-secondary btn-sm" (click)="printDocument()">
+        <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
+      </button>
+    </div>
+
     <app-activity-log [documentType]="'PurchaseReceipt'" [documentId]="receipt.id!"></app-activity-log>
+
+    <!-- Ledger Views (Stock + Accounting for submitted/posted documents) -->
+    @if (receipt.status !== 'Draft') {
+      <app-voucher-ledger
+        [voucherType]="'PurchaseReceipt'"
+        [voucherId]="receipt.id!"
+        [companyId]="receipt.companyId!" />
+    }
+
+    <!-- Print Layout (hidden on screen, shown on print) -->
+    <app-pr-print-layout
+      [receipt]="receipt"
+      [companyName]="companyData.name"
+      [companyTin]="companyData.tin"
+      [companySst]="companyData.sst"
+      [companyAddress]="companyData.address"
+      [supplierAddress]="receipt.supplierName || ''"
+      [poNumber]="receipt.purchaseOrderNumber || ''" />
   }
 </abp-page>

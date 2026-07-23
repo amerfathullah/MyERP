@@ -75,4 +75,53 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
             TotalOut = Math.Abs(rows.Where(r => r.QuantityChange < 0).Sum(r => r.QuantityChange)),
         };
     }
+
+    /// <summary>
+    /// Returns all SLE entries posted by a specific source document (per ERPNext "Stock Ledger" button on document detail pages).
+    /// Used on DN/PR/SE/SI(UpdateStock)/PI(UpdateStock)/WO detail pages.
+    /// </summary>
+    public async Task<VoucherStockLedgerDto> GetForVoucherAsync(string voucherType, Guid voucherId)
+    {
+        var query = await _ledgerRepository.GetQueryableAsync();
+        var entries = query
+            .Where(e => e.VoucherType == voucherType && e.VoucherId == voucherId)
+            .OrderBy(e => e.PostingDate)
+            .ThenBy(e => e.CreationTime)
+            .ToList();
+
+        if (!entries.Any())
+            return new VoucherStockLedgerDto { VoucherType = voucherType, VoucherId = voucherId };
+
+        // Resolve item + warehouse names
+        var itemIds = entries.Select(e => e.ItemId).Distinct().ToList();
+        var warehouseIds = entries.Select(e => e.WarehouseId).Distinct().ToList();
+
+        var items = (await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id)))
+            .ToDictionary(i => i.Id, i => new { i.ItemCode, i.ItemName });
+        var warehouses = (await _warehouseRepository.GetListAsync(w => warehouseIds.Contains(w.Id)))
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        var rows = entries.Select(e => new VoucherStockLedgerEntryDto
+        {
+            PostingDate = e.PostingDate,
+            ItemCode = items.GetValueOrDefault(e.ItemId)?.ItemCode,
+            ItemName = items.GetValueOrDefault(e.ItemId)?.ItemName,
+            WarehouseName = warehouses.GetValueOrDefault(e.WarehouseId, "Unknown"),
+            QuantityChange = e.QuantityChange,
+            ValuationRate = e.ValuationRate,
+            StockValueDifference = e.StockValue,
+            BalanceQuantity = e.BalanceQuantity,
+            BalanceValue = e.BalanceValue,
+        }).ToList();
+
+        return new VoucherStockLedgerDto
+        {
+            VoucherType = voucherType,
+            VoucherId = voucherId,
+            Entries = rows,
+            TotalQtyIn = rows.Where(r => r.QuantityChange > 0).Sum(r => r.QuantityChange),
+            TotalQtyOut = Math.Abs(rows.Where(r => r.QuantityChange < 0).Sum(r => r.QuantityChange)),
+            TotalValueDifference = rows.Sum(r => r.StockValueDifference),
+        };
+    }
 }

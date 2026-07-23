@@ -25,6 +25,8 @@ public class JournalEntryLineDto
 {
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
+    public string? AccountName { get; set; }
+    public string? AccountCode { get; set; }
     public decimal Amount { get; set; }
     public bool IsDebit { get; set; }
     public string? Description { get; set; }

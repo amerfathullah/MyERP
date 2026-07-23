@@ -271,6 +271,60 @@ public class DashboardAppService : ApplicationService
 
         return metrics;
     }
+
+    /// <summary>
+    /// Returns total stock valuation summary for the company — used by dashboard widget.
+    /// Shows total inventory value, item count, and top items by value.
+    /// </summary>
+    public async Task<StockValuationWidgetDto> GetStockValuationSummaryAsync(Guid companyId)
+    {
+        var binQuery = await _binRepo.GetQueryableAsync();
+        var itemQuery = await _itemRepo.GetQueryableAsync();
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouseQuery = await warehouseRepo.GetQueryableAsync();
+
+        // Get warehouse IDs for the company
+        var companyWarehouseIds = warehouseQuery
+            .Where(w => w.CompanyId == companyId && !w.IsGroup)
+            .Select(w => w.Id).ToList();
+
+        var bins = binQuery
+            .Where(b => companyWarehouseIds.Contains(b.WarehouseId) && b.ActualQty > 0)
+            .ToList();
+
+        var totalValue = bins.Sum(b => b.ActualQty * b.ValuationRate);
+        var totalItems = bins.Select(b => b.ItemId).Distinct().Count();
+        var totalQty = bins.Sum(b => b.ActualQty);
+
+        // Top 5 items by stock value
+        var itemIds = bins.Select(b => b.ItemId).Distinct().ToList();
+        var itemNames = itemQuery.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList()
+            .ToDictionary(i => i.Id);
+
+        var topItems = bins
+            .GroupBy(b => b.ItemId)
+            .Select(g => new StockValuationItemDto
+            {
+                ItemId = g.Key,
+                ItemCode = itemNames.TryGetValue(g.Key, out var info) ? info.ItemCode : "—",
+                ItemName = itemNames.TryGetValue(g.Key, out var info2) ? info2.ItemName : "—",
+                Quantity = g.Sum(b => b.ActualQty),
+                ValuationRate = g.Average(b => b.ValuationRate),
+                StockValue = g.Sum(b => b.ActualQty * b.ValuationRate)
+            })
+            .OrderByDescending(i => i.StockValue)
+            .Take(5)
+            .ToList();
+
+        return new StockValuationWidgetDto
+        {
+            TotalStockValue = totalValue,
+            TotalItems = totalItems,
+            TotalQuantity = totalQty,
+            TopItemsByValue = topItems
+        };
+    }
 }
 
 public class FinancialKpiDto
@@ -316,4 +370,22 @@ public class OperationalMetricsDto
 
     // Last Processing
     public DateTime? LastNightlyRunDate { get; set; }
+}
+
+public class StockValuationWidgetDto
+{
+    public decimal TotalStockValue { get; set; }
+    public int TotalItems { get; set; }
+    public decimal TotalQuantity { get; set; }
+    public List<StockValuationItemDto> TopItemsByValue { get; set; } = new();
+}
+
+public class StockValuationItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = null!;
+    public string ItemName { get; set; } = null!;
+    public decimal Quantity { get; set; }
+    public decimal ValuationRate { get; set; }
+    public decimal StockValue { get; set; }
 }

@@ -11,11 +11,12 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-project-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './project-form.component.html',
   styleUrls: ['./project-form.component.scss'],
 })

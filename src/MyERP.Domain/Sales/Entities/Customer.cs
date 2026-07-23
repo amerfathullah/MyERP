@@ -68,6 +68,12 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default payment terms template (auto-applied to invoices for this customer).</summary>
     public Guid? DefaultPaymentTermsTemplateId { get; set; }
 
+    /// <summary>
+    /// When true, this customer is restricted to specific companies (per PR #57258/#57352).
+    /// Transactions in companies not in the AllowedCompanies list will be blocked.
+    /// </summary>
+    public bool RestrictToCompanies { get; set; }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

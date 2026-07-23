@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Dtos;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -28,10 +29,15 @@ public class BudgetAppService : ApplicationService
             query = query.Where(b => b.CompanyId == input.CompanyId.Value);
         if (input.FiscalYearId.HasValue)
             query = query.Where(b => b.FiscalYearId == input.FiscalYearId.Value);
+        if (!string.IsNullOrWhiteSpace(input.Status))
+        {
+            if (Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
+                query = query.Where(b => b.Status == status);
+        }
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(b => (b.BudgetAgainstName ?? "").ToLower().Contains(f));
+            query = query.Where(b => (b.BudgetAgainstName ?? "").Contains(f));
         }
 
         var totalCount = query.Count();

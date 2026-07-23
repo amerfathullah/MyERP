@@ -2,6 +2,15 @@ import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedR
 import type { AccountType } from './account-type.enum';
 import type { AccountSubType } from './account-sub-type.enum';
 import type { PaymentType } from './payment-type.enum';
+import type { FinancialReportDataSource } from './entities/financial-report-data-source.enum';
+import type { FinancialReportType } from './entities/financial-report-type.enum';
+
+export interface AccountCategoryDto {
+  id?: string;
+  name?: string;
+  rootType?: string;
+  description?: string | null;
+}
 
 export interface AccountDto extends FullAuditedEntityDto<string> {
   companyId?: string;
@@ -96,6 +105,18 @@ export interface BalanceSheetRowDto {
   isGroup?: boolean;
 }
 
+export interface BankReconciliationStatementDto {
+  glBalance?: number;
+  outstandingDeposits?: number;
+  outstandingPayments?: number;
+  netOutstanding?: number;
+  calculatedBankBalance?: number;
+  unclearedEntries?: BankStatementEntryDto[];
+  currencyCode?: string;
+  reportDate?: string;
+  bankAccountName?: string;
+}
+
 export interface BankReconciliationSummaryDto {
   totalTransactions?: number;
   reconciledCount?: number;
@@ -103,6 +124,18 @@ export interface BankReconciliationSummaryDto {
   totalDeposits?: number;
   totalWithdrawals?: number;
   unreconciledBalance?: number;
+}
+
+export interface BankStatementEntryDto {
+  postingDate?: string;
+  documentType?: string;
+  documentNumber?: string;
+  documentId?: string;
+  debit?: number;
+  credit?: number;
+  referenceNumber?: string | null;
+  clearanceDate?: string | null;
+  partyName?: string | null;
 }
 
 export interface BankStatementImportInput {
@@ -131,6 +164,18 @@ export interface BankTransactionDto extends EntityDto<string> {
   paymentEntryId?: string | null;
   matchedDocumentRef?: string | null;
   reconciledAt?: string | null;
+}
+
+export interface BankTransactionRuleDto extends EntityDto<string> {
+  companyId?: string;
+  ruleName?: string;
+  priority?: number;
+  isEnabled?: boolean;
+  transactionType?: number;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  classifyAs?: number;
+  descriptionContains?: string | null;
 }
 
 export interface BatchPaymentInvoiceDto {
@@ -220,6 +265,21 @@ export interface CashFlowStatementDto {
   closingCashBalance?: number;
 }
 
+export interface CostCenterAllocationDto {
+  id?: string;
+  companyId?: string;
+  mainCostCenterId?: string;
+  validFrom?: string;
+  isActive?: boolean;
+  entries?: CostCenterAllocationEntryDto[];
+}
+
+export interface CostCenterAllocationEntryDto {
+  id?: string;
+  childCostCenterId?: string;
+  percentage?: number;
+}
+
 export interface CostCenterDto extends AuditedEntityDto<string> {
   name?: string;
   costCenterNumber?: string | null;
@@ -238,11 +298,27 @@ export interface CostCenterPLRowDto {
   profitMargin?: number;
 }
 
+export interface CreateAccountCategoryDto {
+  name?: string;
+  rootType?: string;
+  description?: string | null;
+}
+
 export interface CreateAccountingDimensionDto {
   documentType: string;
   label: string;
   isMandatory?: boolean;
   companyId?: string | null;
+}
+
+export interface CreateBankTransactionRuleDto {
+  companyId?: string;
+  ruleName?: string;
+  transactionType?: number;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  classifyAs?: number;
+  descriptionContains?: string | null;
 }
 
 export interface CreateBatchPaymentDto {
@@ -255,6 +331,18 @@ export interface CreateBatchPaymentDto {
   postingDate?: string | null;
   groupByParty?: boolean;
   items: BatchPaymentItemDto[];
+}
+
+export interface CreateCostCenterAllocationDto {
+  companyId?: string;
+  mainCostCenterId?: string;
+  validFrom?: string;
+  entries?: CreateCostCenterAllocationEntryDto[];
+}
+
+export interface CreateCostCenterAllocationEntryDto {
+  childCostCenterId?: string;
+  percentage?: number;
 }
 
 export interface CreateCostCenterDto {
@@ -278,6 +366,35 @@ export interface CreateDimensionFilterDto {
   companyId?: string;
   isAllowList?: boolean;
   dimensionValueIds?: string | null;
+}
+
+export interface CreateFinanceBookDto {
+  companyId?: string;
+  name?: string;
+  isDefault?: boolean;
+  description?: string | null;
+}
+
+export interface CreateFinancialReportRowDto {
+  label?: string;
+  dataSource?: FinancialReportDataSource;
+  sortOrder?: number;
+  referenceCode?: string | null;
+  calculationFormula?: string | null;
+  accountCategoryFilter?: string | null;
+  customApiPath?: string | null;
+  hideWhenEmpty?: boolean;
+  isBold?: boolean;
+  indentLevel?: number;
+  signMultiplier?: number;
+}
+
+export interface CreateFinancialReportTemplateDto {
+  name?: string;
+  reportType?: FinancialReportType;
+  companyId?: string | null;
+  description?: string | null;
+  rows?: CreateFinancialReportRowDto[];
 }
 
 export interface CreateFiscalYearDto {
@@ -335,6 +452,17 @@ export interface CreateOpeningJournalEntryDto {
   postingDate: string;
   lines: OpeningJournalLineDto[];
   remarks?: string | null;
+}
+
+export interface CreatePEFromTransactionDto {
+  bankTransactionId: string;
+  companyId: string;
+  partyType: string;
+  partyId: string;
+  bankAccountId: string;
+  partyAccountId: string;
+  againstInvoiceId?: string | null;
+  modeOfPaymentId?: string | null;
 }
 
 export interface CreatePaymentEntryDto {
@@ -443,12 +571,77 @@ export interface ExchangeRateRevaluationDto extends EntityDto<string> {
   entryCount?: number;
 }
 
+export interface ExecuteReportDto {
+  templateId?: string;
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  financeBook?: string | null;
+}
+
+export interface FinanceBookDto {
+  id?: string;
+  companyId?: string;
+  name?: string;
+  isDefault?: boolean;
+  description?: string | null;
+}
+
+export interface FinancialReportResultDto {
+  templateName?: string;
+  reportType?: string;
+  fromDate?: string;
+  toDate?: string;
+  grandTotal?: number;
+  rows?: FinancialReportResultRowDto[];
+}
+
+export interface FinancialReportResultRowDto {
+  label?: string;
+  value?: number;
+  indentLevel?: number;
+  isBold?: boolean;
+  referenceCode?: string | null;
+  dataSource?: string;
+}
+
+export interface FinancialReportRowDto {
+  id?: string;
+  label?: string;
+  dataSource?: FinancialReportDataSource;
+  sortOrder?: number;
+  referenceCode?: string | null;
+  calculationFormula?: string | null;
+  accountCategoryFilter?: string | null;
+  customApiPath?: string | null;
+  hideWhenEmpty?: boolean;
+  isBold?: boolean;
+  indentLevel?: number;
+  signMultiplier?: number;
+}
+
+export interface FinancialReportTemplateDto {
+  id?: string;
+  name?: string;
+  reportType?: FinancialReportType;
+  companyId?: string | null;
+  isStandard?: boolean;
+  isEnabled?: boolean;
+  description?: string | null;
+  rows?: FinancialReportRowDto[];
+}
+
 export interface FiscalYearDto extends EntityDto<string> {
   companyId?: string;
   name?: string;
   startDate?: string;
   endDate?: string;
   isClosed?: boolean;
+}
+
+export interface FreezeAccountingPeriodDto {
+  companyId?: string;
+  freezeUpTo?: string;
 }
 
 export interface GeneralLedgerFilterDto {
@@ -485,6 +678,12 @@ export interface GeneralLedgerReportDto {
   totalCredit?: number;
   balance?: number;
   count?: number;
+}
+
+export interface GetBankReconciliationStatementInput {
+  bankAccountId: string;
+  companyId: string;
+  reportDate: string;
 }
 
 export interface GetBankTransactionsDto extends PagedAndSortedResultRequestDto {
@@ -557,6 +756,8 @@ export interface JournalEntryDto extends EntityDto<string> {
 export interface JournalEntryLineDto {
   id?: string;
   accountId?: string;
+  accountName?: string | null;
+  accountCode?: string | null;
   amount?: number;
   isDebit?: boolean;
   description?: string | null;
@@ -593,6 +794,35 @@ export interface MirrorTransactionDto {
 export interface ModeOfPaymentDto extends EntityDto<string> {
   name?: string;
   type?: string;
+}
+
+export interface MonthEndCheckDto {
+  name?: string;
+  passed?: boolean;
+  details?: string | null;
+}
+
+export interface MonthEndCloseRequestDto {
+  companyId?: string;
+  periodEndDate?: string;
+}
+
+export interface MonthEndCloseStatusDto {
+  companyId?: string;
+  periodEndDate?: string;
+  isTrialBalanceBalanced?: boolean;
+  hasPeriodClosingVoucher?: boolean;
+  isPeriodClosed?: boolean;
+  isFullyClosed?: boolean;
+}
+
+export interface MonthEndReadinessDto {
+  companyId?: string;
+  periodEndDate?: string;
+  isReady?: boolean;
+  passedCount?: number;
+  totalChecks?: number;
+  checks?: MonthEndCheckDto[];
 }
 
 export interface OpeningBalanceResultDto {
@@ -664,6 +894,9 @@ export interface PaymentEntryDto extends EntityDto<string> {
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;
+  partyType?: string | null;
+  partyId?: string | null;
+  partyName?: string | null;
 }
 
 export interface PaymentReferenceDto {
@@ -856,4 +1089,34 @@ export interface UpdateAccountingDimensionDto {
   isMandatory?: boolean;
   hideDisabledValues?: boolean;
   companyId?: string | null;
+}
+
+export interface VoucherCreatedResultDto {
+  paymentEntryId?: string;
+  paymentNumber?: string;
+  amount?: number;
+  paymentType?: string;
+  bankTransactionId?: string;
+  isReconciled?: boolean;
+}
+
+export interface VoucherLedgerDto {
+  voucherType?: string;
+  voucherId?: string;
+  voucherNumber?: string | null;
+  entries?: VoucherLedgerEntryDto[];
+  totalDebit?: number;
+  totalCredit?: number;
+  isBalanced?: boolean;
+}
+
+export interface VoucherLedgerEntryDto {
+  postingDate?: string;
+  accountCode?: string | null;
+  accountName?: string | null;
+  debitAmount?: number;
+  creditAmount?: number;
+  costCenterName?: string | null;
+  description?: string | null;
+  financeBook?: string | null;
 }

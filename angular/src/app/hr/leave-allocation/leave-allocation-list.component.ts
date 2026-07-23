@@ -7,6 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { LeaveAllocationService } from '../../proxy/human-resources/leave-allocation.service';
 import type { LeaveAllocationDto, BulkLeaveAllocationDto } from '../../proxy/human-resources/models';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
+import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -19,6 +20,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 export class LeaveAllocationListComponent implements OnInit {
   private service = inject(LeaveAllocationService);
   private leaveService = inject(LeaveService);
+  private employeeService = inject(EmployeeService);
 
   items = signal<LeaveAllocationDto[]>([]);
   totalCount = signal(0);
@@ -26,6 +28,10 @@ export class LeaveAllocationListComponent implements OnInit {
   showBulkForm = signal(false);
   pageSize = 10;
   currentPage = 0;
+
+  // Lookup maps for names
+  employeeNames = signal<Record<string, string>>({});
+  leaveTypeNames = signal<Record<string, string>>({});
 
   // Bulk allocation form
   bulkForm: BulkLeaveAllocationDto = {
@@ -40,7 +46,17 @@ export class LeaveAllocationListComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
-    this.leaveService.getLeaveTypes().subscribe(types => this.leaveTypes.set(types as any[]));
+    this.leaveService.getLeaveTypes().subscribe(types => {
+      this.leaveTypes.set(types as any[]);
+      const map: Record<string, string> = {};
+      (types as any[]).forEach((t: any) => { map[t.id] = t.name ?? t.leaveName ?? t.id; });
+      this.leaveTypeNames.set(map);
+    });
+    this.employeeService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(res => {
+      const map: Record<string, string> = {};
+      (res.items ?? []).forEach((e: any) => { map[e.id] = `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.employeeId || e.id; });
+      this.employeeNames.set(map);
+    });
   }
 
   loadData() {
@@ -77,5 +93,15 @@ export class LeaveAllocationListComponent implements OnInit {
   deleteAllocation(id: string) {
     if (!confirm('Delete this allocation?')) return;
     this.service.delete(id).subscribe(() => this.loadData());
+  }
+
+  getEmployeeName(id: string | undefined): string {
+    if (!id) return '—';
+    return this.employeeNames()[id] ?? id.substring(0, 8) + '...';
+  }
+
+  getLeaveTypeName(id: string | undefined): string {
+    if (!id) return '—';
+    return this.leaveTypeNames()[id] ?? id.substring(0, 8) + '...';
   }
 }

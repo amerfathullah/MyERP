@@ -5,29 +5,42 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
+import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import type { LeaveTypeDto } from '../../proxy/human-resources/models';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { HttpClient } from '@angular/common/http';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-leave-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'ApplyLeave' | abpLocalization">
-      <form [formGroup]="form" (ngSubmit)="save()">
+      <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="card mb-3">
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
-                <input type="text" class="form-control" formControlName="companyId">
+                <select class="form-select" formControlName="companyId" (change)="onCompanyChanged()">
+                  <option value="">{{ 'SelectCompany' | abpLocalization }}</option>
+                  @for (c of companies(); track c.id) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                </select>
               </div>
               <div class="col-md-6">
                 <label class="form-label">{{ 'Employee' | abpLocalization }} *</label>
-                <input type="text" class="form-control" formControlName="employeeId">
+                <select class="form-select" formControlName="employeeId">
+                  <option value="">{{ 'SelectEmployee' | abpLocalization }}</option>
+                  @for (e of employees(); track e.id) {
+                    <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
+                  }
+                </select>
               </div>
             </div>
             <div class="row g-3 mt-2">
@@ -82,10 +95,14 @@ export class LeaveFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private service = inject(LeaveService);
+  private employeeService = inject(EmployeeService);
+  private http = inject(HttpClient);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
   leaveTypes = signal<LeaveTypeDto[]>([]);
+  companies = signal<{ id: string; name: string }[]>([]);
+  employees = signal<{ id: string; firstName: string; lastName: string }[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -100,8 +117,27 @@ export class LeaveFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.service.getLeaveTypes().subscribe(types => this.leaveTypes.set(types));
+    this.http.get<any>('/api/app/company').subscribe(res => {
+      this.companies.set((res.items ?? []).map((c: any) => ({ id: c.id, name: c.name })));
+    });
     const cid = this.companyContext.currentCompanyId();
-    if (cid) this.form.patchValue({ companyId: cid });
+    if (cid) {
+      this.form.patchValue({ companyId: cid });
+      this.loadEmployees(cid);
+    }
+  }
+
+  onCompanyChanged(): void {
+    const cid = this.form.get('companyId')?.value;
+    this.form.patchValue({ employeeId: '' });
+    if (cid) this.loadEmployees(cid);
+    else this.employees.set([]);
+  }
+
+  private loadEmployees(companyId: string): void {
+    this.employeeService.getList({ skipCount: 0, maxResultCount: 200, sorting: '', companyId } as any).subscribe(res => {
+      this.employees.set((res.items ?? []).map((e: any) => ({ id: e.id, firstName: e.firstName || '', lastName: e.lastName || '' })));
+    });
   }
 
   save(): void {

@@ -4,9 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { BankReconciliationService } from '../../proxy/accounting/bank-reconciliation.service';
 import type { BankTransactionDto, BankReconciliationSummaryDto, MatchCandidateDto, MirrorTransactionDto } from '../../proxy/accounting/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 @Component({
   selector: 'app-bank-reconciliation',
@@ -201,5 +205,84 @@ export class BankReconciliationComponent implements OnInit {
   closeTransferPanel(): void {
     this.showTransferPanel.set(false);
     this.transferTransactionId.set(null);
+  }
+
+  // --- Create Payment Entry from Transaction ---
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private customerService = inject(CustomerService);
+  private supplierService = inject(SupplierService);
+
+  showCreatePePanel = signal(false);
+  createPeTransaction = signal<BankTransactionDto | null>(null);
+  pePartyType = signal<'Customer' | 'Supplier'>('Customer');
+  pePartyId = signal<string>('');
+  peBankAccountId = signal<string>('');
+  pePartyAccountId = signal<string>('');
+  peAgainstInvoiceId = signal<string>('');
+  isCreatingPe = signal(false);
+
+  customers = signal<{ id: string; name: string }[]>([]);
+  suppliers = signal<{ id: string; name: string }[]>([]);
+
+  /** Open the Create PE panel for an unreconciled transaction */
+  openCreatePayment(tx: BankTransactionDto): void {
+    this.createPeTransaction.set(tx);
+    this.showCreatePePanel.set(true);
+    // Auto-determine party type from transaction direction
+    this.pePartyType.set(tx.amount > 0 ? 'Customer' : 'Supplier');
+    this.peBankAccountId.set(tx.bankAccountId?.toString() ?? this.bankAccountId);
+    this.pePartyId.set('');
+    this.pePartyAccountId.set('');
+    this.peAgainstInvoiceId.set('');
+
+    // Load party lists
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200 }).subscribe({
+      next: (r) => this.customers.set((r.items ?? []).map((c: any) => ({ id: c.id, name: c.customerName || c.name || c.id }))),
+    });
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 200 }).subscribe({
+      next: (r) => this.suppliers.set((r.items ?? []).map((s: any) => ({ id: s.id, name: s.supplierName || s.name || s.id }))),
+    });
+  }
+
+  /** Execute the Create PE from Transaction API call */
+  confirmCreatePayment(): void {
+    const tx = this.createPeTransaction();
+    const companyId = this.companyContext.currentCompanyId();
+    if (!tx || !companyId || !this.pePartyId() || !this.peBankAccountId() || !this.pePartyAccountId()) {
+      this.toaster.warn('Please fill all required fields');
+      return;
+    }
+
+    this.isCreatingPe.set(true);
+    this.http.post<any>('/api/app/bank-reconciliation/create-payment-entry-from-transaction', {
+      bankTransactionId: tx.id,
+      companyId,
+      partyType: this.pePartyType(),
+      partyId: this.pePartyId(),
+      bankAccountId: this.peBankAccountId(),
+      partyAccountId: this.pePartyAccountId(),
+      againstInvoiceId: this.peAgainstInvoiceId() || undefined,
+    }).subscribe({
+      next: (result) => {
+        this.isCreatingPe.set(false);
+        this.showCreatePePanel.set(false);
+        this.toaster.success(
+          `Payment ${result.paymentNumber} created (${result.paymentType}, ${result.amount.toFixed(2)}). Auto-reconciled.`
+        );
+        this.loadTransactions(0, 20);
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.isCreatingPe.set(false);
+        const msg = err?.error?.error?.message || 'Failed to create payment entry';
+        this.toaster.error(msg);
+      },
+    });
+  }
+
+  closeCreatePePanel(): void {
+    this.showCreatePePanel.set(false);
+    this.createPeTransaction.set(null);
   }
 }

@@ -71,9 +71,8 @@
           <table class="table table-sm mb-0">
             <thead>
               <tr>
-                <th>Item ID</th>
                 <th>{{ 'Item' | abpLocalization }}</th>
-                <th>BOM ID</th>
+                <th>{{ 'SelectBOM' | abpLocalization }}</th>
                 <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
                 <th></th>
               </tr>
@@ -81,9 +80,22 @@
             <tbody formArrayName="items">
               @for (item of items.controls; track $index; let i = $index) {
                 <tr [formGroupName]="i">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="itemId"></td>
-                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName"></td>
-                  <td><input type="text" class="form-control form-control-sm" formControlName="bomId"></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i)">
+                      <option value="">{{ 'SelectItem' | abpLocalization }}</option>
+                      @for (it of availableItems(); track it.id) {
+                        <option [value]="it.id">{{ it.itemCode }} — {{ it.itemName }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="bomId">
+                      <option value="">{{ 'SelectBOM' | abpLocalization }}</option>
+                      @for (b of getFilteredBoms(items.at(i).get('itemId')?.value); track b.id) {
+                        <option [value]="b.id">{{ b.bomNumber || b.id }}</option>
+                      }
+                    </select>
+                  </td>
                   <td><input type="number" class="form-control form-control-sm text-end" formControlName="plannedQty" step="0.01"></td>
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">

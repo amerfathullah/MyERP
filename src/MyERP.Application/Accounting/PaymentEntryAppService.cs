@@ -92,7 +92,44 @@ public class PaymentEntryAppService : ApplicationService
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<PaymentEntryDto>(count, list.Select(ObjectMapper.Map<PaymentEntry, PaymentEntryDto>).ToList());
+        var dtos = list.Select(ObjectMapper.Map<PaymentEntry, PaymentEntryDto>).ToList();
+
+        // Resolve party names
+        var customerIds = list.Where(p => p.PartyType == "Customer" && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+        var supplierIds = list.Where(p => p.PartyType == "Supplier" && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+
+        var customerNames = new Dictionary<Guid, string>();
+        var supplierNames = new Dictionary<Guid, string>();
+
+        if (customerIds.Count > 0)
+        {
+            var custRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var custQuery = await custRepo.GetQueryableAsync();
+            customerNames = custQuery.Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.Name }).ToList()
+                .ToDictionary(c => c.Id, c => c.Name);
+        }
+        if (supplierIds.Count > 0)
+        {
+            var suppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+            var suppQuery = await suppRepo.GetQueryableAsync();
+            supplierNames = suppQuery.Where(s => supplierIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.Name }).ToList()
+                .ToDictionary(s => s.Id, s => s.Name);
+        }
+
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            var pe = list[i];
+            dtos[i].PartyType = pe.PartyType;
+            dtos[i].PartyId = pe.PartyId;
+            if (pe.PartyType == "Customer" && pe.PartyId.HasValue)
+                dtos[i].PartyName = customerNames.GetValueOrDefault(pe.PartyId.Value);
+            else if (pe.PartyType == "Supplier" && pe.PartyId.HasValue)
+                dtos[i].PartyName = supplierNames.GetValueOrDefault(pe.PartyId.Value);
+        }
+
+        return new PagedResultDto<PaymentEntryDto>(count, dtos);
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
@@ -204,6 +241,27 @@ public class PaymentEntryAppService : ApplicationService
         }
 
         pe.Post();
+
+        // --- Advance Account Auto-Switch (per ERPNext gotcha #205) ---
+        // When company has BookAdvancePaymentsInSeparatePartyAccount enabled AND payment
+        // only references SO/PO (no invoices), the party account auto-switches to the
+        // advance liability/receivable account for proper advance tracking.
+        var advanceCompany = await LazyServiceProvider
+            .LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>()
+            .GetAsync(pe.CompanyId);
+        if (advanceCompany.BookAdvancePaymentsInSeparatePartyAccount && pe.IsAdvance)
+        {
+            // For Receive (customer advance): switch paid_to → advance received account
+            if (pe.PaymentType == PaymentType.Receive && advanceCompany.DefaultAdvanceReceivedAccountId.HasValue)
+            {
+                pe.PaidToAccountId = advanceCompany.DefaultAdvanceReceivedAccountId.Value;
+            }
+            // For Pay (supplier advance): switch paid_from → advance paid account
+            else if (pe.PaymentType == PaymentType.Pay && advanceCompany.DefaultAdvancePaidAccountId.HasValue)
+            {
+                pe.PaidFromAccountId = advanceCompany.DefaultAdvancePaidAccountId.Value;
+            }
+        }
 
         // Term-based allocation validation: if invoice uses payment terms with
         // allocate_payment_based_on_payment_terms, each reference must specify PaymentTermId
@@ -436,6 +494,53 @@ public class PaymentEntryAppService : ApplicationService
                     accountCurrency: pe.CurrencyCode,
                     exchangeRate: pe.ExchangeRate,
                     allocations: multiAllocations.ToArray());
+            }
+        }
+
+        // --- Payment Entry Tax GL Posting ---
+        // Per ERPNext: PE taxes post separate GL entries per tax row
+        // Per gotcha #624: direction = add_deduct_tax × payment_type
+        if (pe.Taxes.Any(t => !t.IsExchangeGainLoss))
+        {
+            pe.RecalculateTaxes();
+
+            var fyRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var fyQuery2 = await fyRepo2.GetQueryableAsync();
+            var fy2 = fyQuery2.FirstOrDefault(f => f.CompanyId == pe.CompanyId
+                && f.StartDate <= pe.PostingDate && f.EndDate >= pe.PostingDate);
+
+            if (fy2 != null)
+            {
+                var taxJe = new MyERP.Accounting.Entities.JournalEntry(
+                    GuidGenerator.Create(), pe.CompanyId, fy2.Id, pe.PostingDate, pe.TenantId);
+                var bankAccount = pe.PaymentType == PaymentType.Receive
+                    ? pe.PaidFromAccountId : pe.PaidToAccountId;
+
+                foreach (var tax in pe.Taxes.Where(t => !t.IsExchangeGainLoss && t.TaxAmount != 0))
+                {
+                    var isDebit = tax.IsDebit(pe.PaymentType.ToString());
+                    if (isDebit)
+                    {
+                        taxJe.AddLine(tax.AccountId, tax.BaseTaxAmount, true, tax.Description ?? "Payment Tax");
+                        if (!tax.IncludedInPaidAmount)
+                            taxJe.AddLine(bankAccount, tax.BaseTaxAmount, false, "Payment Tax Contra");
+                    }
+                    else
+                    {
+                        taxJe.AddLine(tax.AccountId, tax.BaseTaxAmount, false, tax.Description ?? "Payment Tax");
+                        if (!tax.IncludedInPaidAmount)
+                            taxJe.AddLine(bankAccount, tax.BaseTaxAmount, true, "Payment Tax Contra");
+                    }
+                }
+
+                if (taxJe.Lines.Any())
+                {
+                    taxJe.Validate();
+                    taxJe.Post();
+                    var jeRepo = LazyServiceProvider
+                        .LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+                    await jeRepo.InsertAsync(taxJe);
+                }
             }
         }
 

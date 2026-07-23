@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -8,6 +8,8 @@ import { ProductionPlanService } from '../../proxy/manufacturing/production-plan
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { CreateProductionPlanDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -26,8 +28,18 @@ export class ProductionPlanFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
   private companyService = inject(CompanyService);
+  private itemService = inject(ItemService);
+  private mfgService = inject(ManufacturingService);
 
   companies = signal<any[]>([]);
+  availableItems = signal<any[]>([]);
+  allBoms = signal<any[]>([]);
+
+  /** Returns BOMs filtered by currently selected item in row */
+  getFilteredBoms(itemId: string): any[] {
+    if (!itemId) return this.allBoms();
+    return this.allBoms().filter((b: any) => b.itemId === itemId);
+  }
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -64,6 +76,28 @@ export class ProductionPlanFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => this.companies.set(res.items ?? []));
+
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
+      .subscribe(res => this.availableItems.set(res.items ?? []));
+
+    this.mfgService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' })
+      .subscribe(res => this.allBoms.set(res.items ?? []));
+  }
+
+  onItemSelected(index: number): void {
+    const row = this.items.at(index);
+    const itemId = row.get('itemId')?.value;
+    const item = this.availableItems().find((i: any) => i.id === itemId);
+    if (item) {
+      row.patchValue({ itemName: item.itemName || item.itemCode });
+    }
+    // Auto-select default BOM if only one matches
+    const boms = this.getFilteredBoms(itemId);
+    if (boms.length === 1) {
+      row.patchValue({ bomId: boms[0].id });
+    } else {
+      row.patchValue({ bomId: '' });
+    }
   }
 
   save(): void {

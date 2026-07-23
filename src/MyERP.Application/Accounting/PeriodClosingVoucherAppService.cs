@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -102,11 +104,36 @@ public class PeriodClosingVoucherAppService : ApplicationService
         await _postingOrchestrator.ValidatePostingPeriodAsync(
             pcv.CompanyId, pcv.PostingDate, "PeriodClosingVoucher");
 
+        // Block if a future PCV already exists for this company
+        var allPcvs = await _repository.GetListAsync(p =>
+            p.CompanyId == pcv.CompanyId && p.Status == DocumentStatus.Submitted
+            && p.PostingDate > pcv.PostingDate);
+        if (allPcvs.Any())
+            throw new BusinessException("MyERP:02034")
+                .WithData("existingDate", allPcvs.First().PostingDate.ToString("dd/MM/yyyy"));
+
+        // Validate closing account via dedicated domain service (type + currency checks)
+        var pcvPostingService = LazyServiceProvider.LazyGetRequiredService<PeriodClosingPostingService>();
+        await pcvPostingService.ValidateForSubmitAsync(pcv);
+
+        // Calculate P&L closing entries via domain service (per-account per-CC aggregation)
+        var result = await pcvPostingService.CalculateClosingEntriesAsync(
+            pcv.CompanyId, pcv.PostingDate, CurrentTenant.Id);
+
+        if (!result.Balances.Any())
+        {
+            pcv.Submit();
+            await _repository.UpdateAsync(pcv);
+            return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
+        }
+
+        // Create reversing JE via domain service (proper per-dimension entries)
+        var je = await pcvPostingService.CreateClosingJournalEntryAsync(pcv, result);
+
         pcv.Submit();
         await _repository.UpdateAsync(pcv);
 
         // Build Account Closing Balances — enables O(1) Trial Balance queries
-        // Per ERPNext: PCV submit always rebuilds ACB for the closing period
         var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);
         await _closingBalanceService.RebuildAsync(
             pcv.CompanyId, pcv.PostingDate, period, CurrentTenant.Id);
@@ -118,8 +145,28 @@ public class PeriodClosingVoucherAppService : ApplicationService
     public async Task<PeriodClosingVoucherDto> CancelAsync(Guid id)
     {
         var pcv = await _repository.GetAsync(id);
+
+        // Block cancel if a future PCV exists for this company
+        var futurePcvs = await _repository.GetListAsync(p =>
+            p.CompanyId == pcv.CompanyId && p.Status == DocumentStatus.Submitted
+            && p.PostingDate > pcv.PostingDate);
+        if (futurePcvs.Any())
+            throw new BusinessException("MyERP:02036")
+                .WithData("existingDate", futurePcvs.First().PostingDate.ToString("dd/MM/yyyy"));
+
         pcv.Cancel();
         await _repository.UpdateAsync(pcv);
+
+        // Cancel the linked Journal Entry
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var linkedJe = (await jeRepo.GetListAsync(je =>
+            je.ReferenceType == "PeriodClosingVoucher" && je.ReferenceId == pcv.Id
+            && je.Status == DocumentStatus.Posted)).FirstOrDefault();
+        if (linkedJe != null)
+        {
+            linkedJe.Cancel();
+            await jeRepo.UpdateAsync(linkedJe);
+        }
 
         // Delete closing balances for the cancelled period
         var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);

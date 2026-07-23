@@ -10,12 +10,13 @@ import { EmployeeStore } from '../store/employee.store';
 import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-employee-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss'],
 })

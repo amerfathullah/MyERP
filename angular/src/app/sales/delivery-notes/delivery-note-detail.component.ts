@@ -1,24 +1,28 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
+import { DeliveryNotePrintLayoutComponent } from '../../shared/components/dn-print-layout/dn-print-layout.component';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import type { DeliveryNoteDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
@@ -28,10 +32,23 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(DeliveryNoteStore);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
+
+  // Print layout data
+  companyName = '';
+  companyTin = '';
+  companySst = '';
+  companyAddress = '';
+  warehouseName = '';
+
+  // Draft Link Guard state
+  showDraftGuard = signal(false);
+  private pendingConversionAction: (() => void) | null = null;
 
   get workflowActions(): WorkflowAction[] {
     if (!this.deliveryNote) return [];
@@ -42,6 +59,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
         break;
       case 'Submitted':
         actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'primary' });
+        actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
         break;
       case 'Cancelled':
@@ -55,6 +73,24 @@ export class DeliveryNoteDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((result) => {
       this.deliveryNote = result;
+      this.loadCompanyData(result.companyId);
+    });
+  }
+
+  printDeliveryNote(): void {
+    window.print();
+  }
+
+  private loadCompanyData(companyId: string | undefined): void {
+    if (!companyId) return;
+    this.http.get<any>(`/api/app/company/${companyId}`).subscribe({
+      next: (company) => {
+        this.companyName = company.name || '';
+        this.companyTin = company.tin || '';
+        this.companySst = company.sstRegistrationNumber || '';
+        this.companyAddress = company.address || '';
+      },
+      error: () => {},
     });
   }
 
@@ -66,9 +102,13 @@ export class DeliveryNoteDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'invoice':
-        this.conversionService.convertDeliveryNoteToSalesInvoice(id).subscribe((inv) => {
-          this.router.navigate(['/sales/invoices', inv.id]);
-        });
+        this.pendingConversionAction = () => {
+          this.conversionService.convertDeliveryNoteToSalesInvoice(id).subscribe({
+            next: (inv) => this.router.navigate(['/sales/invoices', inv.id]),
+            error: () => this.toaster.error('::ConversionFailed'),
+          });
+        };
+        this.showDraftGuard.set(true);
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
@@ -76,6 +116,11 @@ export class DeliveryNoteDetailComponent implements OnInit {
             this.store.cancelNote(id);
             this.reloadAfterAction();
           }
+        });
+        break;
+      case 'return':
+        this.router.navigate(['/sales/delivery-notes/new'], {
+          queryParams: { returnAgainst: id }
         });
         break;
       case 'amend':
@@ -92,5 +137,18 @@ export class DeliveryNoteDetailComponent implements OnInit {
         this.deliveryNote = result;
       });
     }, 500);
+  }
+
+  onDraftGuardProceed(): void {
+    this.showDraftGuard.set(false);
+    if (this.pendingConversionAction) {
+      this.pendingConversionAction();
+      this.pendingConversionAction = null;
+    }
+  }
+
+  onDraftGuardCancelled(): void {
+    this.showDraftGuard.set(false);
+    this.pendingConversionAction = null;
   }
 }

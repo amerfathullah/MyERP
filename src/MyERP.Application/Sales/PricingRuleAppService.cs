@@ -93,6 +93,12 @@ public class PricingRuleAppService : ApplicationService
         return new PagedResultDto<PricingRuleDto>(totalCount, items.Select(ObjectMapper.Map<PricingRule, PricingRuleDto>).ToList());
     }
 
+    public async Task<PricingRuleDto> GetAsync(Guid id)
+    {
+        var rule = await _repository.GetAsync(id);
+        return ObjectMapper.Map<PricingRule, PricingRuleDto>(rule);
+    }
+
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<PricingRuleDto> CreateAsync(CreatePricingRuleDto input)
     {

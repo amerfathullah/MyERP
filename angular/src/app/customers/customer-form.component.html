@@ -1,5 +1,5 @@
 <abp-page [title]="isEditMode ? ('::EditCustomer' | abpLocalization) : ('::NewCustomer' | abpLocalization)">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-header">
         <h5 class="card-title mb-0"><i class="fa fa-user me-2"></i>Customer Information</h5>
@@ -163,5 +163,9 @@
         </table>
       </div>
     </div>
+  }
+
+  @if (isEditMode && entityId) {
+    <app-company-restriction parentType="Customer" [parentId]="entityId" />
   }
 </abp-page>

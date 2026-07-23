@@ -55,7 +55,7 @@
             <table class="table table-hover w-100">
               <thead>
                 <tr>
-                  <th>{{ '::Description' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
                   <th style="width:100px">{{ '::Qty' | abpLocalization }}</th>
                   <th style="width:120px">{{ '::UnitPrice' | abpLocalization }}</th>
                   <th style="width:80px">{{ '::UOM' | abpLocalization }}</th>
@@ -65,7 +65,14 @@
               <tbody>
                 @for (item of items.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(item)">
-                    <td><input class="form-control form-control-sm" formControlName="description" /></td>
+                    <td>
+                      <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $event)">
+                        <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+                        @for (avail of availableItems(); track avail.id) {
+                          <option [value]="avail.id">{{ avail.itemCode }} — {{ avail.itemName }}</option>
+                        }
+                      </select>
+                    </td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" /></td>
                     <td><input class="form-control form-control-sm" formControlName="uom" /></td>

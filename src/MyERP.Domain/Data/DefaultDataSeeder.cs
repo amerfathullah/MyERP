@@ -42,6 +42,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
     private readonly IRepository<Uom, Guid> _uomRepository;
     private readonly IRepository<UomConversion, Guid> _uomConversionRepository;
     private readonly IRepository<CurrencyExchange, Guid> _currencyExchangeRepository;
+    private readonly IRepository<FinancialReportTemplate, Guid> _reportTemplateRepository;
     private readonly MalaysianCoaSeeder _coaSeeder;
     private readonly IGuidGenerator _guidGenerator;
 
@@ -66,6 +67,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         IRepository<Uom, Guid> uomRepository,
         IRepository<UomConversion, Guid> uomConversionRepository,
         IRepository<CurrencyExchange, Guid> currencyExchangeRepository,
+        IRepository<FinancialReportTemplate, Guid> reportTemplateRepository,
         MalaysianCoaSeeder coaSeeder,
         IGuidGenerator guidGenerator)
     {
@@ -89,6 +91,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         _uomRepository = uomRepository;
         _uomConversionRepository = uomConversionRepository;
         _currencyExchangeRepository = currencyExchangeRepository;
+        _reportTemplateRepository = reportTemplateRepository;
         _coaSeeder = coaSeeder;
         _guidGenerator = guidGenerator;
     }
@@ -109,6 +112,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         await SeedSupplierGroupsAsync();
         await SeedUomDataAsync();
         await SeedPeggedCurrenciesAsync();
+        await SeedFinancialReportTemplatesAsync();
     }
 
     private async Task SeedItemGroupsAsync()
@@ -422,16 +426,17 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                 "PaymentEntry", false, AccountSource.CustomerReceivable, AmountSource.GrandTotal)
             { SortOrder = 2, Description = "Credit receivable (payment received)" }, autoSave: true);
 
-            // Delivery Note: DR COGS (NetTotal) — perpetual inventory
+            // Delivery Note: DR COGS (StockCostTotal) — perpetual inventory
+            // Per ERPNext: COGS GL uses actual consumed stock cost, NOT selling price
             await _accountingRuleRepository.InsertAsync(new AccountingRule(
                 _guidGenerator.Create(), company.Id, "DN - Debit COGS",
-                "DeliveryNote", true, AccountSource.ItemExpense, AmountSource.NetTotal)
+                "DeliveryNote", true, AccountSource.ItemExpense, AmountSource.StockCostTotal)
             { SortOrder = 1, Description = "Debit Cost of Goods Sold" }, autoSave: true);
 
-            // Delivery Note: CR Stock In Hand (NetTotal)
+            // Delivery Note: CR Stock In Hand (StockCostTotal)
             await _accountingRuleRepository.InsertAsync(new AccountingRule(
                 _guidGenerator.Create(), company.Id, "DN - Credit Stock",
-                "DeliveryNote", false, AccountSource.FixedAccount, AmountSource.NetTotal)
+                "DeliveryNote", false, AccountSource.FixedAccount, AmountSource.StockCostTotal)
             { SortOrder = 2, Description = "Credit Stock In Hand (perpetual inventory)" }, autoSave: true);
 
             // Purchase Receipt: DR Stock In Hand (NetTotal)
@@ -563,5 +568,116 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                     new DateTime(2000, 1, 1)), // Pegged rates are effectively permanent
                 autoSave: true);
         }
+    }
+
+    /// <summary>
+    /// Seeds standard financial report templates: Profit & Loss and Balance Sheet.
+    /// Per gotcha #159: Financial Report Template entity replaces hardcoded P&L/BS report builders.
+    /// Templates use Account Category references for GL data aggregation.
+    /// </summary>
+    private async Task SeedFinancialReportTemplatesAsync()
+    {
+        if (await _reportTemplateRepository.GetCountAsync() > 0) return;
+
+        // --- Standard Profit & Loss Statement ---
+        var pl = new FinancialReportTemplate(
+            _guidGenerator.Create(), "Standard Profit & Loss", FinancialReportType.ProfitAndLoss);
+        pl.IsStandard = true;
+        pl.Description = "Standard IFRS-compliant income statement";
+
+        var sortOrder = 0;
+        // Revenue section
+        var revRow = pl.AddRow("Revenue", FinancialReportDataSource.AccountData, ++sortOrder, "REV",
+            accountCategoryFilter: "Revenue from Operations", isBold: true);
+        pl.AddRow("Other Income", FinancialReportDataSource.AccountData, ++sortOrder, "OI",
+            accountCategoryFilter: "Other Income");
+        var totalIncomeRow = pl.AddRow("Total Income", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TI",
+            calculationFormula: "REV + OI", isBold: true);
+
+        // Expense section
+        pl.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        pl.AddRow("Cost of Goods Sold", FinancialReportDataSource.AccountData, ++sortOrder, "COGS",
+            accountCategoryFilter: "COGS");
+        pl.AddRow("Operating Expenses", FinancialReportDataSource.AccountData, ++sortOrder, "OPEX",
+            accountCategoryFilter: "Operating Expenses");
+        pl.AddRow("Depreciation", FinancialReportDataSource.AccountData, ++sortOrder, "DEP",
+            accountCategoryFilter: "Depreciation");
+        var totalExpenseRow = pl.AddRow("Total Expenses", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TE",
+            calculationFormula: "COGS + OPEX + DEP", isBold: true);
+
+        // Net result
+        pl.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        pl.AddRow("Net Profit / (Loss)", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "NP",
+            calculationFormula: "TI - TE", isBold: true);
+
+        await _reportTemplateRepository.InsertAsync(pl, autoSave: true);
+
+        // --- Standard Balance Sheet ---
+        var bs = new FinancialReportTemplate(
+            _guidGenerator.Create(), "Standard Balance Sheet", FinancialReportType.BalanceSheet);
+        bs.IsStandard = true;
+        bs.Description = "Standard IFRS-compliant statement of financial position";
+
+        sortOrder = 0;
+        // Assets
+        bs.AddRow("ASSETS", FinancialReportDataSource.BlankLine, ++sortOrder, isBold: true);
+        bs.AddRow("Cash and Cash Equivalents", FinancialReportDataSource.AccountData, ++sortOrder, "CASH",
+            accountCategoryFilter: "Cash and Cash Equivalents");
+        bs.AddRow("Trade Receivables", FinancialReportDataSource.AccountData, ++sortOrder, "AR",
+            accountCategoryFilter: "Trade Receivables");
+        bs.AddRow("Inventory", FinancialReportDataSource.AccountData, ++sortOrder, "INV",
+            accountCategoryFilter: "Inventory");
+        bs.AddRow("Other Current Assets", FinancialReportDataSource.AccountData, ++sortOrder, "OCA",
+            accountCategoryFilter: "Other Current Assets");
+        var totalCA = bs.AddRow("Total Current Assets", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TCA",
+            calculationFormula: "CASH + AR + INV + OCA", isBold: true);
+
+        bs.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        bs.AddRow("Property, Plant & Equipment", FinancialReportDataSource.AccountData, ++sortOrder, "PPE",
+            accountCategoryFilter: "Property Plant and Equipment");
+        bs.AddRow("Intangible Assets", FinancialReportDataSource.AccountData, ++sortOrder, "INTG",
+            accountCategoryFilter: "Intangible Assets");
+        var totalNCA = bs.AddRow("Total Non-Current Assets", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TNCA",
+            calculationFormula: "PPE + INTG", isBold: true);
+
+        var totalAssets = bs.AddRow("TOTAL ASSETS", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TA",
+            calculationFormula: "TCA + TNCA", isBold: true);
+
+        // Liabilities
+        bs.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        bs.AddRow("LIABILITIES", FinancialReportDataSource.BlankLine, ++sortOrder, isBold: true);
+        bs.AddRow("Trade Payables", FinancialReportDataSource.AccountData, ++sortOrder, "AP",
+            accountCategoryFilter: "Trade Payables");
+        bs.AddRow("Other Current Liabilities", FinancialReportDataSource.AccountData, ++sortOrder, "OCL",
+            accountCategoryFilter: "Other Current Liabilities");
+        bs.AddRow("Tax Payable", FinancialReportDataSource.AccountData, ++sortOrder, "TAX",
+            accountCategoryFilter: "Tax Payable");
+        var totalCL = bs.AddRow("Total Current Liabilities", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TCL",
+            calculationFormula: "AP + OCL + TAX", isBold: true);
+
+        bs.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        bs.AddRow("Long-Term Borrowings", FinancialReportDataSource.AccountData, ++sortOrder, "LTD",
+            accountCategoryFilter: "Long-Term Borrowings");
+        var totalNCL = bs.AddRow("Total Non-Current Liabilities", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TNCL",
+            calculationFormula: "LTD", isBold: true);
+
+        var totalLiabilities = bs.AddRow("TOTAL LIABILITIES", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TL",
+            calculationFormula: "TCL + TNCL", isBold: true);
+
+        // Equity
+        bs.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        bs.AddRow("EQUITY", FinancialReportDataSource.BlankLine, ++sortOrder, isBold: true);
+        bs.AddRow("Share Capital", FinancialReportDataSource.AccountData, ++sortOrder, "SC",
+            accountCategoryFilter: "Share Capital");
+        bs.AddRow("Retained Earnings", FinancialReportDataSource.AccountData, ++sortOrder, "RE",
+            accountCategoryFilter: "Retained Earnings");
+        var totalEquity = bs.AddRow("TOTAL EQUITY", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TEQ",
+            calculationFormula: "SC + RE", isBold: true);
+
+        bs.AddRow("", FinancialReportDataSource.BlankLine, ++sortOrder);
+        bs.AddRow("TOTAL LIABILITIES & EQUITY", FinancialReportDataSource.CalculatedAmount, ++sortOrder, "TLE",
+            calculationFormula: "TL + TEQ", isBold: true);
+
+        await _reportTemplateRepository.InsertAsync(bs, autoSave: true);
     }
 }

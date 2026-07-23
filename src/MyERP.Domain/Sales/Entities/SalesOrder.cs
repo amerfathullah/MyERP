@@ -219,3 +219,51 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
         Quantity = quantity; UnitPrice = unitPrice; TaxAmount = taxAmount; Uom = uom;
     }
 }
+
+/// <summary>
+/// Sales Order Delivery Schedule — planned delivery windows for partial fulfillment.
+/// Per ERPNext: SO delivery_schedule child table enables splitting large orders into
+/// multiple delivery dates. Each row tracks planned vs actual delivered qty.
+/// Frequency-based auto-generation (Weekly/Monthly/Quarterly/Yearly) supported.
+/// Per gotcha #108: SO has a dialog to create frequency-based split deliveries.
+/// </summary>
+public class DeliveryScheduleEntry : CreationAuditedEntity<Guid>, IMultiTenant
+{
+    public Guid? TenantId { get; set; }
+    public Guid SalesOrderId { get; set; }
+    public Guid SalesOrderItemId { get; set; }
+
+    /// <summary>Planned delivery date for this schedule row.</summary>
+    public DateTime ScheduledDate { get; set; }
+
+    /// <summary>Planned quantity to deliver on this date.</summary>
+    public decimal ScheduledQty { get; set; }
+
+    /// <summary>Quantity actually delivered against this schedule row.</summary>
+    public decimal DeliveredQty { get; set; }
+
+    /// <summary>Pending delivery qty = Scheduled - Delivered.</summary>
+    public decimal PendingQty => Math.Max(0, ScheduledQty - DeliveredQty);
+
+    /// <summary>True when all scheduled qty has been delivered.</summary>
+    public bool IsFullyDelivered => DeliveredQty >= ScheduledQty;
+
+    protected DeliveryScheduleEntry() { }
+
+    public DeliveryScheduleEntry(Guid id, Guid salesOrderId, Guid salesOrderItemId,
+        DateTime scheduledDate, decimal scheduledQty, Guid? tenantId = null) : base(id)
+    {
+        SalesOrderId = salesOrderId;
+        SalesOrderItemId = salesOrderItemId;
+        ScheduledDate = scheduledDate;
+        ScheduledQty = scheduledQty;
+        TenantId = tenantId;
+    }
+
+    /// <summary>Record delivery against this schedule row.</summary>
+    public void RecordDelivery(decimal qty)
+    {
+        DeliveredQty += qty;
+    }
+}
+

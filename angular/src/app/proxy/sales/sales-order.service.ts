@@ -1,4 +1,4 @@
-import type { CreateSalesOrderDto, SalesOrderDto } from './models';
+import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, SalesOrderDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -54,10 +54,27 @@ export class SalesOrderService {
     { apiName: this.apiName,...config });
   
 
+  generateDeliverySchedule = (orderId: string, itemId: string, frequency: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryScheduleEntryDto[]>({
+      method: 'POST',
+      url: '/api/app/sales-order/generate-delivery-schedule',
+      params: { orderId, itemId, frequency },
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
       method: 'GET',
       url: `/api/app/sales-order/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getDeliverySchedule = (orderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryScheduleEntryDto[]>({
+      method: 'GET',
+      url: `/api/app/sales-order/delivery-schedule/${orderId}`,
     },
     { apiName: this.apiName,...config });
   

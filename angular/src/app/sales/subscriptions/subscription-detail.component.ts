@@ -7,10 +7,11 @@ import { SubscriptionService } from '../../proxy/sales/subscription.service';
 import type { SubscriptionDto } from '../../proxy/sales/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-subscription-detail', standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, ActivityLogComponent],
   template: `
     <abp-page [title]="'Subscriptions' | abpLocalization">
   <app-breadcrumb />
@@ -49,6 +50,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </table>
           </div></div>
         }
+        <app-activity-log documentType="Subscription" [documentId]="d.id!" />
       }
     </abp-page>
   `,

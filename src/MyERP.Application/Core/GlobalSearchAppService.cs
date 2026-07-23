@@ -59,7 +59,7 @@ public class GlobalSearchAppService : ApplicationService
         if (string.IsNullOrWhiteSpace(input.Query) || input.Query.Length < 2)
             return new List<SearchResultDto>();
 
-        var query = input.Query.ToLower().Trim();
+        var query = input.Query.Trim();
         var results = new List<SearchResultDto>();
         int limit = input.MaxResults > 0 ? Math.Min(input.MaxResults, 50) : 20;
 
@@ -67,8 +67,8 @@ public class GlobalSearchAppService : ApplicationService
         var siQuery = await _siRepo.GetQueryableAsync();
         var salesInvoices = siQuery
             .Where(si => si.CompanyId == input.CompanyId &&
-                (si.InvoiceNumber.ToLower().Contains(query) ||
-                 (si.Notes != null && si.Notes.ToLower().Contains(query))))
+                (si.InvoiceNumber.Contains(query) ||
+                 (si.Notes != null && si.Notes.Contains(query))))
             .OrderByDescending(si => si.IssueDate)
             .Take(5).ToList();
 
@@ -87,8 +87,8 @@ public class GlobalSearchAppService : ApplicationService
         var piQuery = await _piRepo.GetQueryableAsync();
         var purchaseInvoices = piQuery
             .Where(pi => pi.CompanyId == input.CompanyId &&
-                (pi.InvoiceNumber.ToLower().Contains(query) ||
-                 (pi.SupplierInvoiceNumber != null && pi.SupplierInvoiceNumber.ToLower().Contains(query))))
+                (pi.InvoiceNumber.Contains(query) ||
+                 (pi.SupplierInvoiceNumber != null && pi.SupplierInvoiceNumber.Contains(query))))
             .OrderByDescending(pi => pi.IssueDate)
             .Take(5).ToList();
 
@@ -107,7 +107,7 @@ public class GlobalSearchAppService : ApplicationService
         var soQuery = await _soRepo.GetQueryableAsync();
         var salesOrders = soQuery
             .Where(so => so.CompanyId == input.CompanyId &&
-                so.OrderNumber.ToLower().Contains(query))
+                so.OrderNumber.Contains(query))
             .OrderByDescending(so => so.OrderDate)
             .Take(5).ToList();
 
@@ -126,7 +126,7 @@ public class GlobalSearchAppService : ApplicationService
         var poQuery = await _poRepo.GetQueryableAsync();
         var purchaseOrders = poQuery
             .Where(po => po.CompanyId == input.CompanyId &&
-                po.OrderNumber.ToLower().Contains(query))
+                po.OrderNumber.Contains(query))
             .OrderByDescending(po => po.OrderDate)
             .Take(5).ToList();
 
@@ -145,7 +145,7 @@ public class GlobalSearchAppService : ApplicationService
         var peQuery = await _peRepo.GetQueryableAsync();
         var payments = peQuery
             .Where(pe => pe.CompanyId == input.CompanyId &&
-                (pe.PaymentNumber != null && pe.PaymentNumber.ToLower().Contains(query)))
+                (pe.PaymentNumber != null && pe.PaymentNumber.Contains(query)))
             .OrderByDescending(pe => pe.PostingDate)
             .Take(5).ToList();
 
@@ -164,7 +164,7 @@ public class GlobalSearchAppService : ApplicationService
         var jeQuery = await _jeRepo.GetQueryableAsync();
         var journals = jeQuery
             .Where(je => je.CompanyId == input.CompanyId &&
-                (je.EntryNumber != null && je.EntryNumber.ToLower().Contains(query)))
+                (je.EntryNumber != null && je.EntryNumber.Contains(query)))
             .OrderByDescending(je => je.PostingDate)
             .Take(5).ToList();
 
@@ -182,8 +182,8 @@ public class GlobalSearchAppService : ApplicationService
         // Search Customers
         var custQuery = await _customerRepo.GetQueryableAsync();
         var customers = custQuery
-            .Where(c => c.Name.ToLower().Contains(query) ||
-                       (c.Tin != null && c.Tin.ToLower().Contains(query)))
+            .Where(c => c.Name.Contains(query) ||
+                       (c.Tin != null && c.Tin.Contains(query)))
             .Take(3).ToList();
 
         results.AddRange(customers.Select(c => new SearchResultDto
@@ -200,8 +200,8 @@ public class GlobalSearchAppService : ApplicationService
         // Search Suppliers
         var suppQuery = await _supplierRepo.GetQueryableAsync();
         var suppliers = suppQuery
-            .Where(s => s.Name.ToLower().Contains(query) ||
-                       (s.Tin != null && s.Tin.ToLower().Contains(query)))
+            .Where(s => s.Name.Contains(query) ||
+                       (s.Tin != null && s.Tin.Contains(query)))
             .Take(3).ToList();
 
         results.AddRange(suppliers.Select(s => new SearchResultDto

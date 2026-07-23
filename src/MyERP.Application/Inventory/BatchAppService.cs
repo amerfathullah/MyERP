@@ -37,7 +37,7 @@ public class BatchAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(b => b.BatchNo.ToLower().Contains(f));
+            query = query.Where(b => b.BatchNo.Contains(f));
         }
 
         var totalCount = query.Count();

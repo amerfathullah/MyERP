@@ -6,14 +6,14 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { type PageEvent } from '../../shared/components/pagination/pagination.component';
+import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { BankTransactionRuleService } from '../../proxy/accounting/bank-transaction-rule.service';
 
 @Component({
   selector: 'app-bank-transaction-rule-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   template: `
     <abp-page [title]="'BankTransactionRules' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">
@@ -108,10 +108,11 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
           </table>
         </div></div>
 
-        <div class="mt-3">
+        <div class="mt-3 d-flex justify-content-between align-items-center">
           <button class="btn btn-sm btn-outline-primary" (click)="evaluateRules()">
             <i class="fa fa-bolt me-1"></i>Evaluate All Unmatched
           </button>
+          <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
         </div>
       }
     </abp-page>

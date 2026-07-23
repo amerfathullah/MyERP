@@ -9,11 +9,14 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { StockEntryPrintLayoutComponent } from '../../shared/components/se-print-layout/se-print-layout.component';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-stock-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, RouterLink],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, RouterLink, StockEntryPrintLayoutComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.entryNumber || ('StockEntry' | abpLocalization)">
@@ -81,10 +84,10 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 @for (item of entry()!.items; track item.id; let i = $index) {
                   <tr>
                     <td>{{ i + 1 }}</td>
-                    <td>{{ item.itemId }}</td>
+                    <td>{{ item.itemName || item.itemId }}</td>
                     <td class="text-end">{{ item.quantity | number:'1.0-2' }}</td>
-                    <td>{{ item.sourceWarehouseId || '-' }}</td>
-                    <td>{{ item.targetWarehouseId || '-' }}</td>
+                    <td>{{ item.sourceWarehouseName || item.sourceWarehouseId || '-' }}</td>
+                    <td>{{ item.targetWarehouseName || item.targetWarehouseId || '-' }}</td>
                     <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
                     <td class="text-end">{{ (item.quantity * item.valuationRate) | number:'1.2-2' }}</td>
                   </tr>
@@ -103,6 +106,27 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         </div>
 
         <app-activity-log documentType="StockEntry" [documentId]="entry()!.id" />
+
+        <!-- Print Button -->
+        <div class="mt-3 text-end">
+          <button class="btn btn-outline-secondary btn-sm" (click)="printDocument()">
+            <i class="fa fa-print me-1"></i>Print
+          </button>
+        </div>
+
+        @if (entry()!.status === 'Posted' || entry()!.status === 'Cancelled') {
+          <app-voucher-ledger
+            voucherType="StockEntry"
+            [voucherId]="entry()!.id"
+            [showAccounting]="true"
+            [showStock]="true" />
+        }
+
+        <!-- Print Layout (hidden on screen, shown on print) -->
+        <app-se-print-layout
+          [entry]="entry()"
+          [companyName]="companyName"
+          [companyAddress]="companyAddress" />
       }
     </abp-page>
   `
@@ -113,9 +137,12 @@ export class StockEntryDetailComponent implements OnInit {
   private service = inject(StockEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
   entry = signal<any>(null);
   totalAmount = signal(0);
+  companyName = '';
+  companyAddress = '';
 
   get workflowActions(): WorkflowAction[] {
     const e = this.entry();
@@ -137,6 +164,16 @@ export class StockEntryDetailComponent implements OnInit {
       this.entry.set(data);
       this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
     });
+    this.http.get<any[]>('/api/app/company').subscribe(companies => {
+      if (companies?.length > 0) {
+        this.companyName = companies[0].name || companies[0].companyName || '';
+        this.companyAddress = companies[0].address || '';
+      }
+    });
+  }
+
+  printDocument(): void {
+    window.print();
   }
 
   onAction(action: string): void {

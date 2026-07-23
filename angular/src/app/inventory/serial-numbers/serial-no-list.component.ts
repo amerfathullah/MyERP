@@ -1,9 +1,11 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { SerialNoService } from '../../proxy/inventory/serial-no.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { SerialNoDto } from '../../proxy/inventory/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
@@ -34,8 +36,8 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               @for (sn of items; track sn.id) {
                 <tr>
                   <td class="font-monospace">{{ sn.serialNumber }}</td>
-                  <td>{{ sn.itemId | slice:0:8 }}…</td>
-                  <td>{{ sn.warehouseId ? (sn.warehouseId | slice:0:8) + '…' : '—' }}</td>
+                  <td>{{ itemNames()[sn.itemId ?? ''] || (sn.itemId | slice:0:8) + '…' }}</td>
+                  <td>{{ sn.warehouseId ? (warehouseNames()[sn.warehouseId] || (sn.warehouseId | slice:0:8) + '…') : '—' }}</td>
                   <td>{{ sn.maintenanceStatus }}</td>
                   <td><span class="badge" [ngClass]="{'bg-success':sn.status===0, 'bg-info':sn.status===1, 'bg-secondary':sn.status===2}">
                     {{ ['Active','Delivered','Inactive'][sn.status ?? 0] ?? 'Active' }}
@@ -52,6 +54,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 })
 export class SerialNoListComponent implements OnInit {
   private service = inject(SerialNoService);
+  private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
+  itemNames = signal<Record<string, string>>({});
+  warehouseNames = signal<Record<string, string>>({});
   items: SerialNoDto[] = [];
   isLoading = false;
   totalCount = 0;
@@ -61,6 +67,16 @@ export class SerialNoListComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((i: any) => { map[i.id] = i.itemCode || i.itemName || i.id; });
+      this.itemNames.set(map);
+    });
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' }).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((w: any) => { map[w.id] = w.name || w.id; });
+      this.warehouseNames.set(map);
+    });
   }
 
   load(): void {

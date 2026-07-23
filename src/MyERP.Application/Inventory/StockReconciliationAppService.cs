@@ -37,8 +37,8 @@ public class StockReconciliationAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(s => (s.ReconciliationNumber ?? "").ToLower().Contains(f)
-                                  || (s.Purpose ?? "").ToLower().Contains(f));
+            query = query.Where(s => (s.ReconciliationNumber ?? "").Contains(f)
+                                    || (s.Purpose ?? "").Contains(f));
         }
 
         var totalCount = query.Count();

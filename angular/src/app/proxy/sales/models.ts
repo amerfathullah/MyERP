@@ -1,4 +1,5 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { CouponType } from './entities/coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
@@ -35,6 +36,21 @@ export interface BlanketOrderItemDto {
   remainingQty?: number;
 }
 
+export interface CouponCodeDto {
+  id?: string;
+  code?: string;
+  couponName?: string;
+  couponType?: CouponType;
+  pricingRuleId?: string;
+  maximumUse?: number;
+  used?: number;
+  isEnabled?: boolean;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  customerId?: string | null;
+  description?: string | null;
+}
+
 export interface CreateBlanketOrderDto {
   companyId?: string;
   orderType?: string;
@@ -50,6 +66,20 @@ export interface CreateBlanketOrderItemDto {
   itemName?: string | null;
   qty?: number;
   rate?: number;
+}
+
+export interface CreateCouponCodeDto {
+  code?: string | null;
+  couponName?: string;
+  couponType?: CouponType;
+  pricingRuleId?: string;
+  companyId?: string | null;
+  maximumUse?: number;
+  maximumUsePerCustomer?: number;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  customerId?: string | null;
+  description?: string | null;
 }
 
 export interface CreateDeliveryNoteDto {
@@ -144,6 +174,19 @@ export interface CreatePosInvoiceDto {
   amountReceived?: number;
 }
 
+export interface CreatePosOpeningDto {
+  companyId?: string;
+  posProfileId?: string;
+  userId?: string;
+  payments?: CreatePosOpeningPaymentDto[];
+}
+
+export interface CreatePosOpeningPaymentDto {
+  modeOfPaymentId?: string;
+  modeName?: string;
+  openingAmount?: number;
+}
+
 export interface CreatePricingRuleDto {
   title?: string;
   applicableFor?: string;
@@ -211,6 +254,8 @@ export interface CreateSalesInvoiceDto {
   projectId?: string | null;
   updateStock?: boolean;
   warehouseId?: string | null;
+  couponCode?: string | null;
+  loyaltyPointsToRedeem?: number;
   items: CreateSalesInvoiceItemDto[];
 }
 
@@ -234,6 +279,8 @@ export interface CreateSalesOrderDto {
   notes?: string | null;
   quotationId?: string | null;
   shippingCountry?: string | null;
+  couponCode?: string | null;
+  loyaltyPointsToRedeem?: number;
   items: CreateSalesOrderItemDto[];
 }
 
@@ -265,6 +312,8 @@ export interface CreateShippingRuleDto {
   label?: string;
   companyId?: string;
   accountId?: string;
+  costCenterId?: string | null;
+  projectId?: string | null;
   calculationMode?: ShippingCalculationMode;
   ruleType?: ShippingRuleType;
   fixedAmount?: number;
@@ -360,6 +409,7 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   deliveryNumber?: string;
   postingDate?: string;
   customerId?: string;
+  customerName?: string | null;
   salesOrderId?: string | null;
   warehouseId?: string;
   shippingAddress?: string | null;
@@ -385,6 +435,16 @@ export interface DeliveryNoteItemDto {
   taxAmount?: number;
   lineTotal?: number;
   salesOrderItemId?: string | null;
+}
+
+export interface DeliveryScheduleEntryDto {
+  id?: string;
+  salesOrderItemId?: string;
+  scheduledDate?: string;
+  scheduledQty?: number;
+  deliveredQty?: number;
+  pendingQty?: number;
+  isFullyDelivered?: boolean;
 }
 
 export interface DunningDto extends EntityDto<string> {
@@ -580,6 +640,24 @@ export interface PosLineItemDto {
   quantity?: number;
   unitPrice?: number;
   taxAmount?: number;
+}
+
+export interface PosOpeningDto {
+  id?: string;
+  companyId?: string;
+  posProfileId?: string;
+  userId?: string;
+  openingDate?: string;
+  status?: string;
+  totalOpeningAmount?: number;
+  posClosingEntryId?: string | null;
+  payments?: PosOpeningPaymentDto[];
+}
+
+export interface PosOpeningPaymentDto {
+  modeOfPaymentId?: string;
+  modeName?: string;
+  openingAmount?: number;
 }
 
 export interface PricingRuleDto extends EntityDto<string> {
@@ -792,6 +870,8 @@ export interface ShippingRuleDto {
   ruleType?: string;
   shippingAmount?: number;
   isEnabled?: boolean;
+  costCenterId?: string | null;
+  projectId?: string | null;
   conditions?: ShippingConditionDto[];
   countries?: string[];
 }

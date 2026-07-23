@@ -191,6 +191,8 @@ export interface GetAssetListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
   assetCategoryId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 export interface MaintenanceScheduleDetailDto {

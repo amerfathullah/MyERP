@@ -1,19 +1,22 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { PaymentEntryPrintLayoutComponent } from '../../shared/components/pe-print-layout/pe-print-layout.component';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 
 @Component({
   selector: 'app-payment-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, RouterLink],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, RouterLink, PaymentEntryPrintLayoutComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.paymentNumber || ('PaymentEntry' | abpLocalization)">
@@ -31,6 +34,11 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
                 <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
               </button>
             </div>
+          }
+          @if (entry()!.status === 'Posted') {
+            <button class="btn btn-sm btn-outline-secondary" (click)="printReceipt()">
+              <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+            </button>
           }
         </div>
         <app-document-workflow [actions]="workflowActions" (actionClicked)="onAction($event)" />
@@ -91,8 +99,14 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
                 <tbody>
                   @for (ref of references(); track $index) {
                     <tr>
-                      <td>{{ ref.referenceType }}</td>
-                      <td>{{ ref.referenceNumber || ref.referenceId }}</td>
+                      <td><span class="badge bg-info-subtle text-info">{{ ref.referenceType }}</span></td>
+                      <td>
+                        @if (getRefRoute(ref)) {
+                          <a [routerLink]="getRefRoute(ref)" class="text-primary">{{ ref.referenceNumber || ref.referenceId?.substring(0, 8) }}</a>
+                        } @else {
+                          {{ ref.referenceNumber || ref.referenceId?.substring(0, 8) }}
+                        }
+                      </td>
                       <td class="text-end">{{ ref.totalAmount | number:'1.2-2' }}</td>
                       <td class="text-end">{{ ref.outstandingAmount | number:'1.2-2' }}</td>
                       <td class="text-end fw-bold">{{ ref.allocatedAmount | number:'1.2-2' }}</td>
@@ -104,7 +118,75 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
           </div>
         }
 
+        <!-- Taxes Table (if present) -->
+        @if (taxes().length > 0) {
+          <div class="card mb-4">
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-percent me-2"></i>{{ 'Taxes' | abpLocalization }}</h6></div>
+            <div class="card-body p-0">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ '::Description' | abpLocalization }}</th>
+                    <th>{{ 'ChargeType' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'TaxAmount' | abpLocalization }}</th>
+                    <th class="text-center">{{ 'Included' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (tax of taxes(); track $index) {
+                    <tr>
+                      <td>{{ tax.description || '-' }}</td>
+                      <td><span class="badge bg-secondary">{{ tax.chargeType }}</span></td>
+                      <td class="text-end">{{ tax.rate | number:'1.2-2' }}%</td>
+                      <td class="text-end fw-bold">{{ tax.taxAmount | number:'1.2-2' }}</td>
+                      <td class="text-center">
+                        @if (tax.includedInPaidAmount) {
+                          <i class="fa fa-check text-success"></i>
+                        } @else {
+                          <i class="fa fa-minus text-muted"></i>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="table-light">
+                    <td colspan="3" class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+                    <td class="text-end fw-bold">{{ totalTaxes() | number:'1.2-2' }}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        }
+
         <app-activity-log documentType="PaymentEntry" [documentId]="entry()!.id" />
+
+        <!-- Ledger Views (GL entries for posted payments) -->
+        @if (entry()!.status === 'Posted') {
+          <app-voucher-ledger
+            [voucherType]="'PaymentEntry'"
+            [voucherId]="entry()!.id!"
+            [companyId]="entry()!.companyId!" />
+        }
+
+        <!-- Print Layout (hidden on screen, rendered on print) -->
+        <app-pe-print-layout
+          [payment]="entry()"
+          [companyName]="companyData().name"
+          [companyTin]="companyData().tin"
+          [companySst]="companyData().sst"
+          [companyAddress]="companyData().address"
+          [companyPhone]="companyData().phone"
+          [partyAddress]="''"
+          [modeOfPayment]="entry()!.modeOfPayment || ''"
+          [paidFromAccountName]="''"
+          [paidToAccountName]="''"
+          [againstInvoiceNumber]="''"
+          [amountInWords]="''"
+        />
       }
     </abp-page>
   `
@@ -115,9 +197,13 @@ export class PaymentEntryDetailComponent implements OnInit {
   private paymentEntryService = inject(PaymentEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
   entry = signal<any>(null);
   references = signal<any[]>([]);
+  taxes = signal<any[]>([]);
+  companyData = signal<{ name: string; tin: string; sst: string; address: string; phone: string }>({ name: '', tin: '', sst: '', address: '', phone: '' });
+  totalTaxes = computed(() => this.taxes().reduce((sum: number, t: any) => sum + (t.taxAmount ?? 0), 0));
 
   get workflowActions(): WorkflowAction[] {
     const e = this.entry();
@@ -140,6 +226,14 @@ export class PaymentEntryDetailComponent implements OnInit {
     this.paymentEntryService.get(id).subscribe(data => {
       this.entry.set(data);
       this.references.set((data as any).references || []);
+      this.taxes.set((data as any).taxes || []);
+      // Load company data for print layout
+      if ((data as any).companyId) {
+        this.http.get<any>(`/api/app/company/${(data as any).companyId}`).subscribe({
+          next: (c) => this.companyData.set({ name: c.name || '', tin: c.tin || '', sst: c.sstRegistrationNumber || '', address: c.address || '', phone: c.phone || '' }),
+          error: () => {},
+        });
+      }
     });
   }
 
@@ -178,5 +272,21 @@ export class PaymentEntryDetailComponent implements OnInit {
       next: () => this.router.navigate(['/accounting/payments']),
       error: () => {},
     });
+  }
+
+  printReceipt(): void {
+    window.print();
+  }
+
+  getRefRoute(ref: any): string[] | null {
+    const routeMap: Record<string, string> = {
+      'SalesInvoice': '/sales/invoices',
+      'PurchaseInvoice': '/purchasing/invoices',
+      'SalesOrder': '/sales/orders',
+      'PurchaseOrder': '/purchasing/orders',
+    };
+    const base = routeMap[ref.referenceType];
+    if (base && ref.referenceId) return [base, ref.referenceId];
+    return null;
   }
 }

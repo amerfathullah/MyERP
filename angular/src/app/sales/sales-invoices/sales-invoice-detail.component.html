@@ -172,5 +172,22 @@
     }
 
     <app-activity-log [documentType]="'SalesInvoice'" [documentId]="invoice.id!"></app-activity-log>
+
+    <!-- GL + Stock Ledger entries posted by this invoice (per ERPNext "View" buttons) -->
+    @if (invoice.status === 'Posted' || invoice.status === 'Cancelled') {
+      <app-voucher-ledger
+        [voucherType]="'SalesInvoice'"
+        [voucherId]="invoice.id!"
+        [showAccounting]="true"
+        [showStock]="!!invoice.updateStock" />
+    }
+
+    <!-- Professional print layout (hidden on screen, shown only on print) -->
+    <app-invoice-print-layout
+      [invoice]="invoice"
+      [company]="companyData()"
+      [paymentSchedule]="paymentSchedule()"
+      [taxLabel]="'SST'"
+    ></app-invoice-print-layout>
   }
 </abp-page>

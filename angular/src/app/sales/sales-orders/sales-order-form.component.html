@@ -46,6 +46,19 @@
       </div>
       <div class="card-body">
         <app-invoice-item-grid [items]="items" [availableItems]="availableItems()" />
+
+        @if (items.length > 0) {
+          <div class="mt-2 d-flex flex-wrap gap-2">
+            @for (ctrl of items.controls; track $index) {
+              @if (ctrl.get('itemId')?.value) {
+                <app-stock-availability
+                  [itemId]="ctrl.get('itemId')!.value"
+                  [requiredQty]="ctrl.get('qty')?.value || ctrl.get('quantity')?.value || 0"
+                />
+              }
+            }
+          </div>
+        }
       </div>
     </div>
 

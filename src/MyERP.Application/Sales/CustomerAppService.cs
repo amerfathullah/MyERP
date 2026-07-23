@@ -75,11 +75,10 @@ public class CustomerAppService :
         }
 
         var queryable = await Repository.GetQueryableAsync();
-        var filterLower = filter.ToLower();
 
         queryable = queryable.Where(c =>
-            c.Name.ToLower().Contains(filterLower)
-            || (c.CustomerCode != null && c.CustomerCode.ToLower().Contains(filterLower))
+            c.Name.Contains(filter)
+            || (c.CustomerCode != null && c.CustomerCode.Contains(filter))
             || (c.Tin != null && c.Tin.Contains(filter)));
 
         var totalCount = queryable.Count();

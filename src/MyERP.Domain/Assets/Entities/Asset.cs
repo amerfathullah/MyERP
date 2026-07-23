@@ -51,6 +51,13 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public List<DepreciationScheduleEntry> DepreciationSchedule { get; private set; } = new();
 
+    /// <summary>
+    /// Per-finance-book depreciation settings. Each entry defines method, rate, frequency
+    /// for a specific finance book. Enables multi-book depreciation (tax vs management).
+    /// Per gotcha #64: asset status driven by DEFAULT finance book, not first.
+    /// </summary>
+    public List<AssetDepreciationDetail> DepreciationDetails { get; private set; } = new();
+
     protected Asset() { }
 
     public Asset(Guid id, Guid companyId, string assetNumber, string assetName,

@@ -2,6 +2,7 @@ import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
+import { HttpClient } from '@angular/common/http';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 
 @Component({
@@ -17,9 +18,12 @@ import { TaxCalculationService } from '../../../shared/services/tax-calculation.
 export class InvoiceItemGridComponent {
   @Input({ required: true }) items!: FormArray;
   @Input() availableItems: any[] = [];
+  @Input() transactionType: string = 'Selling';
+  @Input() warehouseId: string = '';
 
   private fb = inject(FormBuilder);
   private taxCalc = inject(TaxCalculationService);
+  private http = inject(HttpClient);
 
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
@@ -46,6 +50,23 @@ export class InvoiceItemGridComponent {
       if (item) {
         row.patchValue({ itemName: item.itemName ?? item.itemCode ?? '' });
       }
+
+      // Resolve full item details from backend (price, UOM, stock availability)
+      this.http.post<any>('/api/app/item-details/item-details', {
+        itemId: selectedId,
+        transactionType: this.transactionType,
+        warehouseId: this.warehouseId || undefined
+      }).subscribe({
+        next: (details) => {
+          if (details) {
+            const patch: any = {};
+            if (details.rate > 0 && !row.get('rate')?.value) patch.rate = details.rate;
+            if (details.description) patch.itemName = details.description;
+            if (Object.keys(patch).length > 0) row.patchValue(patch);
+          }
+        },
+        error: () => {} // Graceful fallback — item name already set from local list
+      });
     }
   }
 

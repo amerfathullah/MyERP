@@ -60,6 +60,7 @@
                   </app-sortable-header>
                 </th>
                 <th>{{ '::Type' | abpLocalization }}</th>
+                <th>{{ '::Party' | abpLocalization }}</th>
                 <th class="text-end" style="width: 130px;">
                   <app-sortable-header field="paidAmount" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::Amount' | abpLocalization }}
@@ -79,6 +80,7 @@
                   <td class="fw-medium"><a [routerLink]="['/accounting/payments', row.id]" class="text-decoration-none">{{ row.paymentNumber }}</a></td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ row.paymentType }}</td>
+                  <td class="text-truncate" style="max-width: 160px;">{{ row.partyName || '—' }}</td>
                   <td class="text-end font-monospace">{{ row.paidAmount | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
                   <td class="text-end">

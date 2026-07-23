@@ -218,4 +218,22 @@ public class DunningTests
         d.Cancel();
         d.Status.ShouldBe(Core.DocumentStatus.Cancelled);
     }
+
+    [Fact]
+    public void Cancel_FromDraft_Throws()
+    {
+        var d = CreateDunning();
+        d.AddOverduePayment(Guid.NewGuid(), 1000m, DateTime.UtcNow.AddDays(-30), 30);
+        Should.Throw<BusinessException>(() => d.Cancel());
+    }
+
+    [Fact]
+    public void Cancel_FromResolved_Throws()
+    {
+        var d = CreateDunning();
+        d.AddOverduePayment(Guid.NewGuid(), 1000m, DateTime.UtcNow.AddDays(-30), 30);
+        d.Submit();
+        d.Resolve();
+        Should.Throw<BusinessException>(() => d.Cancel());
+    }
 }

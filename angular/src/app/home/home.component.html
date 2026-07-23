@@ -200,6 +200,58 @@
         </div>
       }
 
+      <!-- Stock Valuation Widget -->
+      @if (stockValuation()) {
+        <div class="card mt-4 mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-warehouse text-success me-2"></i>{{ '::StockValuation' | abpLocalization }}</h6>
+            <a routerLink="/inventory/reports/stock-balance" class="btn btn-sm btn-outline-primary">{{ '::ViewAll' | abpLocalization }}</a>
+          </div>
+          <div class="card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-4 text-center">
+                <small class="text-muted d-block">{{ '::TotalStockValue' | abpLocalization }}</small>
+                <h5 class="text-success mb-0 font-monospace">MYR {{ stockValuation()!.totalStockValue | number:'1.0-0' }}</h5>
+              </div>
+              <div class="col-4 text-center">
+                <small class="text-muted d-block">{{ '::UniqueItems' | abpLocalization }}</small>
+                <h5 class="mb-0">{{ stockValuation()!.totalItems }}</h5>
+              </div>
+              <div class="col-4 text-center">
+                <small class="text-muted d-block">{{ '::TotalQuantity' | abpLocalization }}</small>
+                <h5 class="mb-0 font-monospace">{{ stockValuation()!.totalQuantity | number:'1.0-0' }}</h5>
+              </div>
+            </div>
+            @if (stockValuation()!.topItemsByValue?.length) {
+              <h6 class="fw-semibold text-muted mb-2"><i class="fa fa-ranking-star me-1"></i>Top Items by Value</h6>
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Value' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of stockValuation()!.topItemsByValue!; track item.itemId) {
+                    <tr>
+                      <td>
+                        <strong>{{ item.itemCode }}</strong>
+                        <small class="text-muted d-block">{{ item.itemName }}</small>
+                      </td>
+                      <td class="text-end font-monospace">{{ item.quantity | number:'1.0-2' }}</td>
+                      <td class="text-end font-monospace">{{ item.valuationRate | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-bold text-success">{{ item.stockValue | number:'1.0-0' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Recent Activity -->
       @if (recentActivity().length > 0) {
         <div class="card mt-4">

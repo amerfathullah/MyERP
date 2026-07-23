@@ -156,8 +156,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 .WithData("documentType", "Purchase Invoice");
 
         // Validate all items are active
-        await _itemValidation.ValidateItemsForTransactionAsync(
-            input.Items.Select(i => i.ItemId).ToArray());
+        var piItemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await _itemValidation.ValidateItemsForTransactionAsync(piItemIds);
+
+        // Validate company restriction — items/supplier must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "PurchaseInvoice", input.CompanyId,
+            itemIds: piItemIds,
+            supplierIds: new[] { input.SupplierId });
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", input.CompanyId);
 
@@ -423,6 +430,32 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     }
                 }
             }
+        }
+
+        // 3-Way Matching: block billing more than received (PO↔PR↔PI fraud prevention)
+        if (!invoice.IsReturn)
+        {
+            var prItemRepo = LazyServiceProvider
+                .LazyGetRequiredService<IRepository<PurchaseReceiptItem, Guid>>();
+            var prItemQueryable = await prItemRepo.GetQueryableAsync();
+
+            // Build a dictionary of PO item → total received qty (single DB query)
+            var poItemIds = invoice.Items
+                .Where(i => i.PurchaseOrderItemId.HasValue)
+                .Select(i => i.PurchaseOrderItemId!.Value)
+                .Distinct()
+                .ToList();
+
+            var receivedQtyMap = prItemQueryable
+                .Where(pri => pri.PurchaseOrderItemId.HasValue && poItemIds.Contains(pri.PurchaseOrderItemId.Value))
+                .GroupBy(pri => pri.PurchaseOrderItemId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(pri => pri.Quantity));
+
+            Func<Guid, decimal> getReceivedQty = (poItemId) =>
+                receivedQtyMap.TryGetValue(poItemId, out var qty) ? qty : 0m;
+
+            // prRequired comes from Buying Settings — defaults to true for safety
+            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateThreeWayMatching(invoice, getReceivedQty, prRequired: true);
         }
 
         invoice.Submit();

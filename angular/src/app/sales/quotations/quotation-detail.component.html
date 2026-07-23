@@ -3,10 +3,22 @@
     <app-loading-overlay />
   } @else {
     <app-breadcrumb />
-    <app-document-workflow
-      [currentStatus]="quotation.status!"
-      [availableActions]="workflowActions"
-      (actionTriggered)="onWorkflowAction($event)" />
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <app-document-workflow
+        [currentStatus]="quotation.status!"
+        [availableActions]="workflowActions"
+        (actionTriggered)="onWorkflowAction($event)" />
+      <div class="btn-group btn-group-sm">
+        @if (quotation.status === 'Draft') {
+          <a class="btn btn-outline-secondary" [routerLink]="['/sales/quotations', quotation.id, 'edit']">
+            <i class="fa fa-pen me-1"></i>{{ '::Edit' | abpLocalization }}
+          </a>
+        }
+        <button class="btn btn-outline-secondary" (click)="print()">
+          <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
+        </button>
+      </div>
+    </div>
 
     <div class="card mt-4">
       <div class="card-body">
@@ -73,5 +85,17 @@
     </div>
 
     <app-activity-log [documentType]="'Quotation'" [documentId]="quotation.id!"></app-activity-log>
+
+    <!-- Print Layout (hidden on screen, shown on print) -->
+    <app-quotation-print-layout
+      [quotation]="quotation"
+      [companyName]="companyData()?.name || ''"
+      [companyTin]="companyData()?.tin || ''"
+      [companySst]="companyData()?.sstRegistrationNumber || ''"
+      [companyAddress]="companyData()?.address || ''"
+      [companyPhone]="companyData()?.phone || ''"
+      [companyEmail]="companyData()?.email || ''"
+      [currency]="quotation.currencyCode || 'MYR'"
+    />
   }
 </abp-page>

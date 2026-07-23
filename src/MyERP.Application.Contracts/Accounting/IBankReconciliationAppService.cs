@@ -18,6 +18,50 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId);
     Task<MirrorTransactionDto?> SearchForMirrorTransactionAsync(Guid transactionId);
     Task<InternalTransferResultDto> CreateInternalTransferAsync(CreateInternalTransferDto input);
+    Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input);
+    Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(GetBankReconciliationStatementInput input);
+}
+
+/// <summary>
+/// Bank Reconciliation Statement — compares GL balance with uncleared items to derive expected bank balance.
+/// Per ERPNext: GL balance - outstanding uncleared = calculated bank statement balance.
+/// Critical for month-end close and bank statement matching.
+/// </summary>
+public class GetBankReconciliationStatementInput
+{
+    [Required]
+    public Guid BankAccountId { get; set; }
+
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    public DateTime ReportDate { get; set; }
+}
+
+public class BankReconciliationStatementDto
+{
+    /// <summary>Total GL balance for the bank account as of report date (SUM debit - SUM credit)</summary>
+    public decimal GlBalance { get; set; }
+
+    /// <summary>Total debit of uncleared entries (outstanding deposits)</summary>
+    public decimal OutstandingDeposits { get; set; }
+
+    /// <summary>Total credit of uncleared entries (outstanding payments/checks)</summary>
+    public decimal OutstandingPayments { get; set; }
+
+    /// <summary>Net outstanding = Deposits - Payments</summary>
+    public decimal NetOutstanding => OutstandingDeposits - OutstandingPayments;
+
+    /// <summary>Calculated bank statement balance = GL Balance - Net Outstanding</summary>
+    public decimal CalculatedBankBalance => GlBalance - NetOutstanding;
+
+    /// <summary>Individual uncleared entries for the statement listing</summary>
+    public List<BankStatementEntryDto> UnclearedEntries { get; set; } = new();
+
+    public string CurrencyCode { get; set; } = "MYR";
+    public DateTime ReportDate { get; set; }
+    public string BankAccountName { get; set; } = string.Empty;
 }
 
 public class BankTransactionDto : EntityDto<Guid>
@@ -134,4 +178,62 @@ public class InternalTransferResultDto
     public string? PaymentNumber { get; set; }
     public Guid SourceTransactionId { get; set; }
     public Guid? MirrorTransactionId { get; set; }
+}
+
+/// <summary>
+/// Creates a Payment Entry directly from a bank transaction.
+/// Per ERPNext banking module: "Voucher Created" reconciliation type.
+/// Deposit → Receive PE from Customer; Withdrawal → Pay PE to Supplier.
+/// </summary>
+public class CreatePEFromTransactionDto
+{
+    [Required]
+    public Guid BankTransactionId { get; set; }
+
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    /// <summary>Customer or Supplier</summary>
+    [Required]
+    public string PartyType { get; set; } = null!;
+
+    [Required]
+    public Guid PartyId { get; set; }
+
+    /// <summary>The bank GL account (Paid From for Pay, Paid To for Receive)</summary>
+    [Required]
+    public Guid BankAccountId { get; set; }
+
+    /// <summary>The receivable/payable account (resolved from party or company default)</summary>
+    [Required]
+    public Guid PartyAccountId { get; set; }
+
+    /// <summary>Optional: specific invoice to allocate against</summary>
+    public Guid? AgainstInvoiceId { get; set; }
+
+    /// <summary>Optional: mode of payment (Cash, Bank Transfer, etc.)</summary>
+    public Guid? ModeOfPaymentId { get; set; }
+}
+
+public class VoucherCreatedResultDto
+{
+    public Guid PaymentEntryId { get; set; }
+    public string PaymentNumber { get; set; } = null!;
+    public decimal Amount { get; set; }
+    public string PaymentType { get; set; } = null!;
+    public Guid BankTransactionId { get; set; }
+    public bool IsReconciled { get; set; }
+}
+
+public class BankStatementEntryDto
+{
+    public DateTime PostingDate { get; set; }
+    public string DocumentType { get; set; } = null!;
+    public string DocumentNumber { get; set; } = null!;
+    public Guid DocumentId { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public DateTime? ClearanceDate { get; set; }
+    public string? PartyName { get; set; }
 }

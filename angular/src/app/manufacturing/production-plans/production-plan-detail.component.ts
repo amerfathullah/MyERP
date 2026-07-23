@@ -8,11 +8,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-production-plan-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent],
   templateUrl: './production-plan-detail.component.html',
   styleUrls: ['./production-plan-detail.component.scss'],
 })

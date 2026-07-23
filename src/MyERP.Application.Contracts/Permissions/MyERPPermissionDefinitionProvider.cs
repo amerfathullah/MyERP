@@ -240,6 +240,10 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         spPermission.AddChild(MyERPPermissions.SalesPersons.Create, L("Permission:SalesPersons.Create"));
         spPermission.AddChild(MyERPPermissions.SalesPersons.Edit, L("Permission:SalesPersons.Edit"));
         spPermission.AddChild(MyERPPermissions.SalesPersons.Delete, L("Permission:SalesPersons.Delete"));
+
+        // Company Restrictions — manager-level only (per ERPNext PR #57383: permlevel 1)
+        var crPermission = myGroup.AddPermission(MyERPPermissions.CompanyRestrictions.Default, L("Permission:CompanyRestrictions"));
+        crPermission.AddChild(MyERPPermissions.CompanyRestrictions.Manage, L("Permission:CompanyRestrictions.Manage"));
     }
 
     private static LocalizableString L(string name)

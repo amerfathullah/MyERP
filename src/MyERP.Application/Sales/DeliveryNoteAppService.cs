@@ -67,7 +67,15 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     public async Task<DeliveryNoteDto> GetAsync(Guid id)
     {
         var dn = await _repository.GetAsync(id);
-        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+        var dto = ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+
+        // Resolve customer name
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(dn.CustomerId);
+        if (customer != null)
+            dto.CustomerName = customer.Name;
+
+        return dto;
     }
 
     public async Task<PagedResultDto<DeliveryNoteDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -103,9 +111,19 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<DeliveryNoteDto>(
-            totalCount,
-            list.Select(x => ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(x)).ToList());
+        var dtos = list.Select(x => ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(x)).ToList();
+
+        // Batch-resolve customer names
+        var customerIds = list.Select(x => x.CustomerId).Distinct().ToList();
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+        var custQuery = await customerRepo.GetQueryableAsync();
+        var customerNames = custQuery.Where(c => customerIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name }).ToList()
+            .ToDictionary(c => c.Id, c => c.Name);
+        foreach (var dto in dtos)
+            dto.CustomerName = customerNames.GetValueOrDefault(dto.CustomerId);
+
+        return new PagedResultDto<DeliveryNoteDto>(totalCount, dtos);
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
@@ -122,6 +140,13 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Validate company restriction — items/customer must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "DeliveryNote", input.CompanyId,
+            itemIds: itemIds,
+            customerIds: new[] { input.CustomerId });
 
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", input.CompanyId);
 
@@ -231,7 +256,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         if (!dn.IsReturn && dn.SalesOrderId.HasValue)
         {
             // Credit limit enforcement at DN submit
-            await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal);
+            await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal, dn.CompanyId);
 
             // Selling price validation at DN submit (Warn mode)
             var valuationSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
@@ -312,35 +337,36 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     var components = await bundleService.DecomposeAsync(
                         item.ItemId, item.Quantity, item.UnitPrice);
 
+                    // Capture component valuation rates BEFORE stock removal (Bug #4 fix)
+                    decimal bundleCostTotal = 0;
                     foreach (var comp in components)
                     {
-                        // Skip non-stock components
                         var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
                         if (compEntity != null && !compEntity.MaintainStock)
                             continue;
 
+                        // Get valuation rate BEFORE consuming stock
+                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
+                        var compValuationRate = compBalance.ValuationRate;
+                        bundleCostTotal += compValuationRate * comp.Qty;
+
                         await _valuationService.CreateLedgerEntryAsync(
                             dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
-                            dn.PostingDate, -comp.Qty, comp.Rate,
+                            dn.PostingDate, -comp.Qty, compValuationRate,
                             voucherType: "DeliveryNote", voucherId: dn.Id,
                             tenantId: dn.TenantId);
 
+                        // Bin value uses valuation rate (Bug #3 fix — was using selling price)
                         await _binService.ApplyStockMovementAsync(
                             comp.ComponentItemId, dn.WarehouseId,
-                            -comp.Qty, -(comp.Qty * comp.Rate), dn.TenantId);
+                            -comp.Qty, -(comp.Qty * compValuationRate), dn.TenantId);
 
                         await _binService.UpdateReservedQtyAsync(
                             comp.ComponentItemId, dn.WarehouseId, -comp.Qty, dn.TenantId);
                     }
 
-                    // Valuation for bundle = sum of component valuations
-                    decimal bundleValuation = 0;
-                    foreach (var comp in components)
-                    {
-                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
-                        bundleValuation += compBalance.ValuationRate * comp.Qty;
-                    }
-                    item.ValuationRate = item.Quantity > 0 ? bundleValuation / item.Quantity : 0;
+                    // Valuation for bundle = sum of component valuations captured before removal
+                    item.ValuationRate = item.Quantity > 0 ? bundleCostTotal / item.Quantity : 0;
                 }
                 else
                 {
@@ -349,25 +375,32 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     if (itemEntity != null && !itemEntity.MaintainStock)
                         continue;
 
-                    // Capture valuation rate before stock-out (for COGS/gross profit)
+                    // Capture valuation rate BEFORE stock-out (for COGS/gross profit)
                     var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, dn.WarehouseId);
                     item.ValuationRate = balance.ValuationRate;
 
                     await _valuationService.CreateLedgerEntryAsync(
                         dn.CompanyId, item.ItemId, dn.WarehouseId,
-                        dn.PostingDate, -item.StockQty, item.UnitPrice / (item.ConversionFactor != 0 ? item.ConversionFactor : 1m),
+                        dn.PostingDate, -item.StockQty, item.ValuationRate,
                         voucherType: "DeliveryNote", voucherId: dn.Id,
                         tenantId: dn.TenantId);
 
+                    // Bin value uses valuation rate (Bug #3 fix — was using selling price)
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, dn.WarehouseId,
-                        -item.StockQty, -(item.StockQty * (item.UnitPrice / (item.ConversionFactor != 0 ? item.ConversionFactor : 1m))), dn.TenantId);
+                        -item.StockQty, -(item.StockQty * item.ValuationRate), dn.TenantId);
 
                     // Release reserved qty (stock was reserved at SO in stock UOM, now delivered)
                     await _binService.UpdateReservedQtyAsync(
                         item.ItemId, dn.WarehouseId, -item.StockQty, dn.TenantId);
                 }
             }
+
+            // Calculate StockCostTotal for COGS GL posting (Bug #2 fix)
+            // Per ERPNext: GL entry uses actual consumed stock cost, NOT selling price
+            dn.StockCostTotal = dn.Items
+                .Where(i => i.ValuationRate > 0)
+                .Sum(i => i.StockQty * i.ValuationRate);
 
             // GL posting (perpetual inventory): DR COGS, CR Stock
             await _postingOrchestrator.PostDeliveryNoteAsync(dn);
@@ -376,6 +409,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             if (dn.SalesOrderId.HasValue)
             {
                 await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: false);
+
+                // Update Delivery Schedule entries (record progressive delivery)
+                await UpdateDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
             }
 
             // Check auto-reorder for items that had stock reduced
@@ -539,6 +575,52 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 Logger.LogWarning("Concurrency conflict updating SO {SoId} DeliveredQty (attempt {Attempt}/3)", salesOrderId, attempt);
                 await Task.Delay(attempt * 10);
             }
+        }
+    }
+
+    /// <summary>
+    /// Updates Delivery Schedule entries to record progressive delivery against scheduled dates.
+    /// Per ERPNext: uses FIFO allocation (earliest scheduled date filled first).
+    /// Per gotcha #108: frequency-based split deliveries with whole-number enforcement.
+    /// </summary>
+    private async Task UpdateDeliveryScheduleAsync(Guid salesOrderId, IReadOnlyCollection<DeliveryNoteItem> dnItems)
+    {
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+
+        var scheduleQueryable = await scheduleRepo.GetQueryableAsync();
+        var scheduleEntries = scheduleQueryable
+            .Where(e => e.SalesOrderId == salesOrderId)
+            .OrderBy(e => e.ScheduledDate)
+            .ToList();
+
+        if (!scheduleEntries.Any()) return;
+
+        // FIFO allocation: allocate delivered qty to earliest pending schedule entries
+        foreach (var dnItem in dnItems)
+        {
+            if (!dnItem.SalesOrderItemId.HasValue) continue;
+
+            var itemSchedules = scheduleEntries
+                .Where(e => e.SalesOrderItemId == dnItem.SalesOrderItemId.Value && !e.IsFullyDelivered)
+                .ToList();
+
+            var remainingToAllocate = Math.Abs(dnItem.Quantity);
+
+            foreach (var schedule in itemSchedules)
+            {
+                if (remainingToAllocate <= 0) break;
+
+                var allocatable = Math.Min(remainingToAllocate, schedule.PendingQty);
+                schedule.RecordDelivery(allocatable);
+                remainingToAllocate -= allocatable;
+            }
+        }
+
+        // Persist updated schedule entries
+        foreach (var entry in scheduleEntries.Where(e => e.DeliveredQty > 0))
+        {
+            await scheduleRepo.UpdateAsync(entry);
         }
     }
 }

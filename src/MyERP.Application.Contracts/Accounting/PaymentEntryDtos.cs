@@ -16,6 +16,9 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? ReferenceNumber { get; set; }
+    public string? PartyType { get; set; }
+    public Guid? PartyId { get; set; }
+    public string? PartyName { get; set; }
 }
 
 public class CreatePaymentEntryDto

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { LoanService } from '../../proxy/human-resources/loan.service';
+import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import type { LoanDto } from '../../proxy/human-resources/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -62,7 +63,7 @@ const LOAN_STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'PartiallyRepaid', 'Ful
               @for (loan of items; track loan.id) {
                 <tr>
                   <td><a [routerLink]="['/hr/loans', loan.id]">{{ loan.loanNumber }}</a></td>
-                  <td>{{ loan.employeeId ?? '—' }}</td>
+                  <td>{{ employeeNames()[loan.employeeId ?? ''] || loan.employeeId || '—' }}</td>
                   <td>{{ loan.loanType === 0 ? 'Term Loan' : 'Demand Loan' }}</td>
                   <td class="text-end">{{ loan.loanAmount | number:'1.2-2' }}</td>
                   <td class="text-end" [class.text-danger]="(loan.outstandingBalance ?? 0) > 0">{{ loan.outstandingBalance | number:'1.2-2' }}</td>
@@ -85,6 +86,7 @@ const LOAN_STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'PartiallyRepaid', 'Ful
 })
 export class LoanListComponent implements OnInit {
   private loanService = inject(LoanService);
+  private employeeService = inject(EmployeeService);
 
   items: LoanDto[] = [];
   isLoading = false;
@@ -93,8 +95,16 @@ export class LoanListComponent implements OnInit {
   currentPage = 0;
   searchTerm = '';
   statusFilter = '';
+  employeeNames = signal<Record<string, string>>({});
 
-  ngOnInit() { this.loadData(); }
+  ngOnInit() {
+    this.loadData();
+    this.employeeService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(res => {
+      const map: Record<string, string> = {};
+      (res.items ?? []).forEach((e: any) => { map[e.id] = `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.employeeId || e.id; });
+      this.employeeNames.set(map);
+    });
+  }
 
   loadData() {
     this.isLoading = true;

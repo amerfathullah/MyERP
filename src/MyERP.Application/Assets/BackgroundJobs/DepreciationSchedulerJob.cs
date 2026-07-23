@@ -32,6 +32,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
     private readonly IRepository<AssetCategory, Guid> _assetCategoryRepository;
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<FinanceBook, Guid> _financeBookRepository;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<DepreciationSchedulerJob> _logger;
 
@@ -40,6 +41,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
         IRepository<AssetCategory, Guid> assetCategoryRepository,
         IRepository<JournalEntry, Guid> journalRepository,
         IRepository<Company, Guid> companyRepository,
+        IRepository<FinanceBook, Guid> financeBookRepository,
         IGuidGenerator guidGenerator,
         ILogger<DepreciationSchedulerJob> logger)
     {
@@ -47,6 +49,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
         _assetCategoryRepository = assetCategoryRepository;
         _journalRepository = journalRepository;
         _companyRepository = companyRepository;
+        _financeBookRepository = financeBookRepository;
         _guidGenerator = guidGenerator;
         _logger = logger;
     }
@@ -75,10 +78,14 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
         {
             try
             {
+            // Group unbooked entries by finance book for multi-book depreciation
             var unbookedEntries = asset.DepreciationSchedule
                 .Where(d => !d.IsBooked && d.ScheduleDate <= today)
                 .OrderBy(d => d.ScheduleDate)
                 .ToList();
+
+            // Group by FinanceBookId to create separate JEs per book (per gotcha #636)
+            var entriesByBook = unbookedEntries.GroupBy(e => e.FinanceBookId);
 
             // Resolve accounts once per asset (not per entry) to avoid N+1
             Guid? depreciationExpenseAccountId;
@@ -108,44 +115,74 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                 continue;
             }
 
-            foreach (var entry in unbookedEntries)
+            foreach (var bookGroup in entriesByBook)
             {
-                // Skip if schedule date falls in frozen accounting period
-                if (company.AccountsFrozenTillDate.HasValue && entry.ScheduleDate <= company.AccountsFrozenTillDate.Value)
-                    continue;
-
-                var journal = new JournalEntry(
-                    _guidGenerator.Create(),
-                    asset.CompanyId,
-                    args.FiscalYearId.Value,
-                    entry.ScheduleDate,
-                    asset.TenantId);
-
-                journal.AddLine(depreciationExpenseAccountId.Value, entry.DepreciationAmount, true,
-                    $"Depreciation of {asset.AssetName}");
-                journal.AddLine(accumulatedDepAccountId.Value, entry.DepreciationAmount, false,
-                    $"Accumulated depreciation - {asset.AssetName}");
-
-                journal.Post();
-                await _journalRepository.InsertAsync(journal);
-
-                // Mark entry as booked
-                entry.IsBooked = true;
-                entry.JournalEntryId = journal.Id;
-
-                // Update asset book value
-                asset.ValueAfterDepreciation -= entry.DepreciationAmount;
-                if (asset.ValueAfterDepreciation <= 0)
+                // Resolve finance book name for JE tagging
+                string? financeBookName = null;
+                if (bookGroup.Key.HasValue)
                 {
-                    asset.ValueAfterDepreciation = 0;
-                    asset.MarkFullyDepreciated();
-                }
-                else
-                {
-                    asset.MarkPartiallyDepreciated();
+                    var fb = await _financeBookRepository.FindAsync(bookGroup.Key.Value);
+                    financeBookName = fb?.Name;
                 }
 
-                entriesPosted++;
+                // Find matching DepreciationDetail for this book (for per-book ValueAfterDepreciation)
+                var detail = asset.DepreciationDetails?
+                    .FirstOrDefault(d => d.FinanceBookId == bookGroup.Key);
+
+                foreach (var entry in bookGroup.OrderBy(e => e.ScheduleDate))
+                {
+                    // Skip if schedule date falls in frozen accounting period
+                    if (company.AccountsFrozenTillDate.HasValue && entry.ScheduleDate <= company.AccountsFrozenTillDate.Value)
+                        continue;
+
+                    var journal = new JournalEntry(
+                        _guidGenerator.Create(),
+                        asset.CompanyId,
+                        args.FiscalYearId.Value,
+                        entry.ScheduleDate,
+                        asset.TenantId);
+
+                    // Tag JE lines with finance book for multi-book GL separation
+                    journal.AddLine(depreciationExpenseAccountId.Value, entry.DepreciationAmount, true,
+                        $"Depreciation of {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
+                    journal.AddLine(accumulatedDepAccountId.Value, entry.DepreciationAmount, false,
+                        $"Accumulated depreciation - {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
+
+                    // Set finance book on all lines (after AddLine, which returns void)
+                    if (financeBookName != null)
+                    {
+                        foreach (var line in journal.Lines)
+                            line.FinanceBook = financeBookName;
+                    }
+
+                    journal.Post();
+                    await _journalRepository.InsertAsync(journal);
+
+                    // Mark entry as booked
+                    entry.IsBooked = true;
+                    entry.JournalEntryId = journal.Id;
+
+                    // Update per-book book value if DepreciationDetail exists
+                    if (detail != null)
+                    {
+                        detail.ValueAfterDepreciation -= entry.DepreciationAmount;
+                        if (detail.ValueAfterDepreciation < 0) detail.ValueAfterDepreciation = 0;
+                    }
+
+                    // Update overall asset book value (primary/default book drives asset status)
+                    asset.ValueAfterDepreciation -= entry.DepreciationAmount;
+                    if (asset.ValueAfterDepreciation <= 0)
+                    {
+                        asset.ValueAfterDepreciation = 0;
+                        asset.MarkFullyDepreciated();
+                    }
+                    else
+                    {
+                        asset.MarkPartiallyDepreciated();
+                    }
+
+                    entriesPosted++;
+                }
             }
 
             await _assetRepository.UpdateAsync(asset);

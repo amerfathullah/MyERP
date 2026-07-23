@@ -50,7 +50,7 @@ public class TimesheetAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(t => t.EmployeeName != null && t.EmployeeName.ToLower().Contains(f));
+            query = query.Where(t => t.EmployeeName != null && t.EmployeeName.Contains(f));
         }
 
         var totalCount = query.Count();

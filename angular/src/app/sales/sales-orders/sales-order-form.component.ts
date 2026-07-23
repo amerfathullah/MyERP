@@ -14,12 +14,13 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 
 @Component({
   selector: 'app-sales-order-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
   templateUrl: './sales-order-form.component.html',
   styleUrls: ['./sales-order-form.component.scss'],
 })
@@ -48,6 +49,8 @@ export class SalesOrderFormComponent implements OnInit {
     customerId: ['', Validators.required],
     customerName: [''],
     warehouseId: [''],
+    couponCode: [''],
+    loyaltyPointsToRedeem: [0],
     items: this.fb.array([]),
   });
 

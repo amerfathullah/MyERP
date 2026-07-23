@@ -39,5 +39,12 @@ public enum AmountSource
     TaxAmount = 2,
 
     /// <summary>Line item amount.</summary>
-    LineAmount = 3
+    LineAmount = 3,
+
+    /// <summary>
+    /// Total stock cost (valuation-based) for inventory documents.
+    /// Used for COGS GL entries on Delivery Notes (stock cost, NOT selling price).
+    /// Per ERPNext: DN GL uses stock_value_difference from SLEs, not invoice amounts.
+    /// </summary>
+    StockCostTotal = 4
 }

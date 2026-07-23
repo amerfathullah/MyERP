@@ -32,6 +32,9 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Parent Work Order (for Manufacture purpose).</summary>
     public Guid? WorkOrderId { get; set; }
 
+    /// <summary>Customer for the pick list (used when creating DN without SO reference).</summary>
+    public Guid? CustomerId { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     private readonly List<PickListItem> _items = new();

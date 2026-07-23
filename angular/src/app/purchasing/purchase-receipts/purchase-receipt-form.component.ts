@@ -8,6 +8,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import type { CreatePurchaseReceiptDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -28,11 +29,14 @@ export class PurchaseReceiptFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private supplierService = inject(SupplierService);
   private warehouseService = inject(WarehouseService);
+  private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
 
   suppliers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  availableItems = signal<any[]>([]);
   isEditMode = false;
+  isReturn = false;
   entityId: string | null = null;
 
   form = this.fb.group({
@@ -42,6 +46,8 @@ export class PurchaseReceiptFormComponent implements OnInit {
     postingDate: [new Date().toISOString().split('T')[0], Validators.required],
     purchaseOrderId: [''],
     supplierDeliveryNote: [''],
+    isReturn: [false],
+    returnAgainstId: [''],
     notes: [''],
     items: this.fb.array([]),
   });
@@ -60,6 +66,14 @@ export class PurchaseReceiptFormComponent implements OnInit {
 
   removeItem(i: number): void { this.items.removeAt(i); }
 
+  onItemSelected(index: number, event: Event): void {
+    const itemId = (event.target as HTMLSelectElement).value;
+    const item = this.availableItems().find((i: any) => i.id === itemId);
+    if (item) {
+      this.items.at(index).patchValue({ description: item.itemName ?? item.itemCode });
+    }
+  }
+
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
@@ -74,6 +88,9 @@ export class PurchaseReceiptFormComponent implements OnInit {
     );
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup))
+    );
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
+      res => this.availableItems.set(res.items ?? [])
     );
 
     if (this.isEditMode) {
@@ -98,6 +115,30 @@ export class PurchaseReceiptFormComponent implements OnInit {
         });
       });
     }
+
+    // Handle return creation from detail page "Create Return" action
+    const returnAgainst = this.route.snapshot.queryParams['returnAgainst'];
+    if (returnAgainst && !this.isEditMode) {
+      this.isReturn = true;
+      this.form.patchValue({ isReturn: true, returnAgainstId: returnAgainst });
+      this.service.get(returnAgainst).subscribe(original => {
+        this.form.patchValue({
+          companyId: original.companyId,
+          supplierId: original.supplierId,
+          warehouseId: original.warehouseId ?? '',
+          purchaseOrderId: original.purchaseOrderId ?? '',
+        });
+        (original.items ?? []).forEach((item: any) => {
+          this.items.push(this.fb.group({
+            itemId: [item.itemId ?? '', Validators.required],
+            description: [item.description ?? '', Validators.required],
+            quantity: [-(Math.abs(item.quantity ?? 0)), [Validators.required]],
+            unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+            uom: [item.uom ?? 'EA'],
+          }));
+        });
+      });
+    }
   }
 
   save(): void {
@@ -105,7 +146,13 @@ export class PurchaseReceiptFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const dto = this.form.getRawValue() as unknown as CreatePurchaseReceiptDto;
+    const raw = this.form.getRawValue() as any;
+    // Convert empty strings to null for nullable Guid fields
+    const dto = {
+      ...raw,
+      purchaseOrderId: raw.purchaseOrderId || null,
+      returnAgainstId: raw.returnAgainstId || null,
+    } as unknown as CreatePurchaseReceiptDto;
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => {
