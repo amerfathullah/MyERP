@@ -31,7 +31,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
-        path: '/sales',
         name: '::Menu:Sales',
         iconClass: 'fas fa-shopping-cart',
         order: 10,
@@ -127,7 +126,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Suppliers',
       },
       {
-        path: '/e-invoice',
         name: '::Menu:EInvoice',
         iconClass: 'fas fa-file-signature',
         order: 20,
@@ -161,7 +159,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.EInvoice',
       },
       {
-        path: '/purchasing',
         name: '::Menu:Purchasing',
         iconClass: 'fas fa-cart-shopping',
         order: 15,
@@ -204,7 +201,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.MaterialRequests',
       },
       {
-        path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',
         order: 30,
@@ -292,7 +288,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Budgets',
       },
       {
-        path: '/inventory',
         name: '::Menu:Inventory',
         iconClass: 'fas fa-warehouse',
         order: 35,
@@ -416,7 +411,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
-        path: '/workflow',
         name: '::Menu:Workflow',
         iconClass: 'fas fa-list-check',
         order: 40,
@@ -429,6 +423,7 @@ function configureRoutes() {
         iconClass: 'fas fa-clock',
         order: 1,
         layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ApprovalWorkflows',
       },
       {
         path: '/workflow/rules',
@@ -456,7 +451,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.AutomationRules',
       },
       {
-        path: '/hr',
         name: '::Menu:HR',
         iconClass: 'fas fa-users',
         order: 50,
@@ -505,7 +499,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaxCategories',
       },
       {
-        path: '/crm',
         name: '::Menu:CRM',
         iconClass: 'fas fa-handshake',
         order: 8,
@@ -1053,5 +1046,6 @@ function configureRoutes() {
         iconClass: 'fas fa-gear',
         order: 100,
         layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Companies.Edit',
       }]);
 }

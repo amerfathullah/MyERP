@@ -4,6 +4,7 @@ export const APP_ROUTES: Routes = [
   {
     path: '',
     pathMatch: 'full',
+    canActivate: [authGuard],
     loadComponent: () => import('./home/home.component').then(c => c.HomeComponent),
   },
   {
@@ -1450,6 +1451,7 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: '**',
+    canActivate: [authGuard],
     loadComponent: () => import('./shared/components/not-found/not-found.component').then(c => c.NotFoundComponent),
   },
 ];
