@@ -97,11 +97,11 @@ services:
       # OpenIddict signing certificate — required when running in Production
       - ./certs/openiddict.pfx:/app/openiddict.pfx:ro
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:5000/health", "||", "exit", "1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/health-status || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 40s
     networks:
       - myerp-network
 
@@ -114,7 +114,7 @@ services:
     restart: unless-stopped
     depends_on:
       api:
-        condition: service_healthy
+        condition: service_started
     environment:
       API_URL: ${APP_URL:-http://localhost:5000}
     ports:
