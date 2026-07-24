@@ -49,7 +49,9 @@ services:
       AuthServer__RequireHttpsMetadata: "true"
 
   web:
-    ports: []  # Traefik terminates TLS and routes to the container
+    # !override clears the base compose's "80:80" mapping (plain [] would merge, not replace),
+    # so only Traefik binds host 80/443.
+    ports: !override []
     environment:
       API_URL: "https://${API_DOMAIN}"
     labels:

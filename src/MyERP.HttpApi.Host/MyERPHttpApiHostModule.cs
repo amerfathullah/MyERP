@@ -31,6 +31,7 @@ using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
 using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
+using Volo.Abp.AspNetCore.Mvc.UI;
 using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
@@ -131,6 +132,10 @@ public class MyERPHttpApiHostModule : AbpModule
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
         ConfigureRateLimiting(context);
+
+        // The published API image doesn't ship wwwroot/libs (client-side libs), so ABP's
+        // libs check would 500 every request. API endpoints don't need those libs.
+        Configure<AbpMvcLibsOptions>(options => options.CheckLibs = false);
 
         // Register HttpClient for external API calls (currency exchange rates, etc.)
         context.Services.AddHttpClient("CurrencyExchange", client =>
