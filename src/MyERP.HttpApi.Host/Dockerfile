@@ -6,6 +6,7 @@ WORKDIR /src
 RUN apt-get update \
     && apt-get install -y --no-install-recommends nodejs npm \
     && npm install -g yarn \
+    && yarn config set ignore-engines true \
     && dotnet tool install -g Volo.Abp.Studio.Cli \
     && rm -rf /var/lib/apt/lists/*
 ENV PATH="${PATH}:/root/.dotnet/tools"
