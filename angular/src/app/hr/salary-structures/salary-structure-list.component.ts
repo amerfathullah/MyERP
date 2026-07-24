@@ -40,7 +40,7 @@ import type { SalaryStructureDto } from '../../proxy/human-resources/models';
               @for (ss of structures; track ss.id) {
                 <tr>
                   <td>{{ ss.name }}</td>
-                  <td>{{ ss.payrollFrequency }}</td>
+                  <td>{{ '::' + ss.payrollFrequency | abpLocalization }}</td>
                   <td>{{ (ss.details ?? []).length }}</td>
                   <td><span class="badge" [class]="ss.isActive ? 'bg-success' : 'bg-secondary'">
                     {{ ss.isActive ? 'Active' : 'Inactive' }}

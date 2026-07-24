@@ -44,7 +44,7 @@
           <div class="d-flex align-items-center gap-2">
             <span class="font-monospace small bg-light px-2 py-1 rounded">{{ cat.code }}</span>
             <span class="fw-medium">{{ cat.name }}</span>
-            <span class="badge bg-primary-subtle text-primary small">{{ cat.taxType }}</span>
+            <span class="badge bg-primary-subtle text-primary small">{{ '::' + cat.taxType | abpLocalization }}</span>
             @if (!cat.isActive) {
               <span class="badge bg-danger-subtle text-danger">Inactive</span>
             }

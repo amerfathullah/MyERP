@@ -29,7 +29,7 @@
             @for (row of store.entities(); track row.id ?? $index) {
               <tr>
                 <td>{{ row.name }}</td>
-                <td><span class="badge bg-light text-dark">{{ row.documentType }}</span></td>
+                <td><span class="badge bg-light text-dark">{{ '::' + row.documentType | abpLocalization }}</span></td>
                 <td>{{ row.level }}</td>
                 <td>{{ row.approverRoleName || 'User: ' + row.approverUserId }}</td>
                 <td>{{ row.minimumAmount ? (row.minimumAmount | number:'1.2-2') : '—' }}</td>

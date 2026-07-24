@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export type LhdnStatus = 'Valid' | 'Invalid' | 'Submitted' | 'Cancelled' | 'Failed' | 'NotSubmitted';
 
@@ -21,7 +22,7 @@ const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
 @Component({
   selector: 'app-lhdn-status-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   templateUrl: './lhdn-status-badge.component.html',
   styleUrls: ['./lhdn-status-badge.component.scss'],
 })

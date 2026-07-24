@@ -12,7 +12,11 @@
         <div class="card-body pt-3">
           <form [formGroup]="importForm" (ngSubmit)="startImport()">
             <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
-            <select class="form-select"></select>
+            <select class="form-select" formControlName="entityType">
+              @for (et of entityTypes; track et) {
+                <option [value]="et">{{ '::' + et | abpLocalization }}</option>
+              }
+            </select>
 
             <div class="mb-3">
               <input type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)" class="d-none" #fileInput />
@@ -48,7 +52,11 @@
         </div>
         <div class="card-body pt-3">
           <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
-            <select class="form-select"></select>
+            <select class="form-select" [(ngModel)]="exportEntityType" [ngModelOptions]="{ standalone: true }">
+              @for (et of entityTypes; track et) {
+                <option [value]="et">{{ '::' + et | abpLocalization }}</option>
+              }
+            </select>
 
           @if (isExporting()) {
             <div class="progress mb-3"><div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div></div>
@@ -82,7 +90,7 @@
               @for (row of importHistory(); track row.id ?? $index) {
                 <tr>
                   <td>{{ row.fileName }}</td>
-                  <td>{{ row.entityType }}</td>
+                  <td>{{ '::' + row.entityType | abpLocalization }}</td>
                   <td><span class="badge" [class]="getStatusColor(row.status!)">{{ getStatusLabel(row.status!) }}</span></td>
                   <td>
                     {{ row.successCount }}/{{ row.totalRows }} rows

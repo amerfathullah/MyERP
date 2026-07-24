@@ -38,7 +38,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ n.installationDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ n.customerId }}</td>
                   <td>{{ n.items?.length ?? 0 }}</td>
-                  <td><span class="badge" [class]="getStatusClass(n.status)">{{ n.status }}</span></td>
+                  <td><span class="badge" [class]="getStatusClass(n.status)">{{ '::' + n.status | abpLocalization }}</span></td>
                 </tr>
               }
             </tbody>

@@ -10,7 +10,7 @@
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">{{ partyType }}</label>
+          <label class="form-label">{{ '::' + partyType | abpLocalization }}</label>
           <select class="form-select form-select-sm" [(ngModel)]="selectedPartyId">
             <option value="">— {{ '::Select' | abpLocalization }} —</option>
             @for (p of parties(); track p.id) {
@@ -103,7 +103,7 @@
                   <td>{{ entry.date | date:'dd/MM/yyyy' }}</td>
                   <td>
                     <span class="badge" [class]="entry.voucherType.includes('Invoice') ? 'bg-primary-subtle text-primary' : entry.voucherType.includes('Payment') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
-                      {{ entry.voucherType }}
+                      {{ '::' + entry.voucherType | abpLocalization }}
                     </span>
                   </td>
                   <td class="fw-medium">{{ entry.voucherNumber }}</td>

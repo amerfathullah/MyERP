@@ -61,14 +61,14 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td class="text-nowrap">{{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
                   <td class="text-truncate" style="max-width:200px">{{ log.recipient }}</td>
                   <td class="text-truncate" style="max-width:250px">{{ log.subject ?? '—' }}</td>
-                  <td><span class="badge" [class]="getChannelClass(log.channel)">{{ log.channel }}</span></td>
+                  <td><span class="badge" [class]="getChannelClass(log.channel)">{{ '::' + log.channel | abpLocalization }}</span></td>
                   <td>
-                    <span class="badge" [class]="getStatusClass(log.status)">{{ log.status }}</span>
+                    <span class="badge" [class]="getStatusClass(log.status)">{{ '::' + log.status | abpLocalization }}</span>
                     @if (log.retryCount > 0) { <small class="text-muted ms-1">({{ log.retryCount }}x)</small> }
                   </td>
                   <td>
                     @if (log.documentType) {
-                      <small class="text-muted">{{ log.documentType }}</small>
+                      <small class="text-muted">{{ '::' + log.documentType | abpLocalization }}</small>
                     }
                   </td>
                 </tr>

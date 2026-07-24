@@ -39,7 +39,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (r of rules; track r.id) {
                 <tr>
-                  <td><span class="badge bg-primary">{{ r.transactionType }}</span></td>
+                  <td><span class="badge bg-primary">{{ '::' + r.transactionType | abpLocalization }}</span></td>
                   <td>{{ r.basedOn }}</td>
                   <td class="fw-bold">{{ r.basedOn?.includes('Discount') ? r.thresholdValue + '%' : ('RM ' + r.thresholdValue) }}</td>
                   <td>{{ r.approvingRole ?? '—' }}</td>

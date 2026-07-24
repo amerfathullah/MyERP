@@ -71,7 +71,7 @@
                   </span>
                 </td>
                 <td class="d-none d-md-table-cell">{{ opp.contactName ?? '—' }}</td>
-                <td><span class="badge bg-info-subtle text-info">{{ opp.salesStage ?? '—' }}</span></td>
+                <td><span class="badge bg-info-subtle text-info">{{ opp.salesStage ? ('::' + opp.salesStage | abpLocalization) : '—' }}</span></td>
                 <td class="text-end font-monospace">{{ opp.opportunityAmount | number:'1.2-2' }}</td>
                 <td><app-status-badge [status]="opp.status?.toString() ?? 'Open'" /></td>
                 <td class="text-end">

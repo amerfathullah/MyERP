@@ -61,7 +61,7 @@
                     {{ lead.email ?? '—' }}
                   </span>
                 </td>
-                <td><span class="badge bg-light text-dark">{{ lead.source }}</span></td>
+                <td><span class="badge bg-light text-dark">{{ '::' + lead.source | abpLocalization }}</span></td>
                 <td><app-status-badge [status]="lead.status?.toString() ?? 'New'" /></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">

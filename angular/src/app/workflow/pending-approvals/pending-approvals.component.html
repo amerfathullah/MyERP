@@ -23,7 +23,7 @@
           <tbody>
             @for (row of store.pendingApprovals(); track $index) {
               <tr>
-                <td><span class="badge bg-primary-subtle text-primary">{{ row.documentType }}</span></td>
+                <td><span class="badge bg-primary-subtle text-primary">{{ '::' + row.documentType | abpLocalization }}</span></td>
                 <td>Level {{ row.level }}</td>
                 <td>{{ row.requestedByUserId }}</td>
                 <td>{{ row.creationTime | date:'medium' }}</td>

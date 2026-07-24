@@ -35,7 +35,7 @@
                   }
                 </td>
                 <td><span class="badge bg-light text-dark">{{ triggerLabels[row.trigger!] || 'Unknown' }}</span></td>
-                <td>{{ row.documentType || 'All' }}</td>
+                <td>{{ row.documentType ? ('::' + row.documentType | abpLocalization) : 'All' }}</td>
                 <td><span class="badge bg-primary-subtle text-primary">{{ actionLabels[row.action!] || 'Unknown' }}</span></td>
                 <td>{{ row.priority }}</td>
                 <td>

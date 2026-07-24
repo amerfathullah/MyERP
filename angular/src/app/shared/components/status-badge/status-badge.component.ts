@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed';
 
@@ -30,7 +31,7 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   templateUrl: './status-badge.component.html',
   styleUrls: ['./status-badge.component.scss'],
 })

@@ -93,7 +93,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
                 <tr>
                   <td class="fw-medium">{{ t.name }}</td>
                   <td class="text-truncate" style="max-width:300px">{{ t.subject }}</td>
-                  <td><span class="badge bg-light text-dark">{{ t.documentType ?? 'Any' }}</span></td>
+                  <td><span class="badge bg-light text-dark">{{ t.documentType ? ('::' + t.documentType | abpLocalization) : 'Any' }}</span></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" (click)="startEdit(t)"><i class="fa fa-edit"></i></button>

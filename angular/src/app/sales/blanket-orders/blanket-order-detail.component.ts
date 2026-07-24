@@ -27,7 +27,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">Order Type</div>
-              <div class="fs-5 fw-bold">{{ order.orderType }}</div>
+              <div class="fs-5 fw-bold">{{ '::' + order.orderType | abpLocalization }}</div>
             </div></div>
           </div>
           <div class="col-md-3">

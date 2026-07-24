@@ -31,11 +31,11 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
             <div class="col-md-3">
               <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (change)="loadData()">
                 <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
-                <option value="Open">Open</option>
-                <option value="PartiallyReceived">Partially Received</option>
-                <option value="Completed">Completed</option>
-                <option value="Closed">Closed</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="Open">{{ '::Open' | abpLocalization }}</option>
+                <option value="PartiallyReceived">{{ '::PartiallyReceived' | abpLocalization }}</option>
+                <option value="Completed">{{ '::Completed' | abpLocalization }}</option>
+                <option value="Closed">{{ '::Closed' | abpLocalization }}</option>
+                <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
               </select>
             </div>
           </div>

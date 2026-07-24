@@ -41,7 +41,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ c.targetAssetName ?? 'Unnamed Asset' }}</td>
                   <td>{{ c.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td class="fw-bold">RM {{ c.totalAssetValue | number:'1.2-2' }}</td>
-                  <td><span class="badge" [class]="getStatusClass(c.status)">{{ c.status }}</span></td>
+                  <td><span class="badge" [class]="getStatusClass(c.status)">{{ '::' + c.status | abpLocalization }}</span></td>
                 </tr>
               }
             </tbody>

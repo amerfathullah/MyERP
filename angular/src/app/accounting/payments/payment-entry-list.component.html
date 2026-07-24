@@ -11,9 +11,9 @@
       </div>
       <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
         <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
-        <option value="Draft">Draft</option>
-        <option value="Posted">Posted</option>
-        <option value="Cancelled">Cancelled</option>
+        <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
+        <option value="Posted">{{ '::Posted' | abpLocalization }}</option>
+        <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
       </select>
       <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
     </div>
@@ -78,7 +78,7 @@
                 <tr>
                   <td class="fw-medium"><a [routerLink]="['/accounting/payments', row.id]" class="text-decoration-none">{{ row.paymentNumber }}</a></td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ row.paymentType }}</td>
+                  <td>{{ '::' + row.paymentType | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ row.paidAmount | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
                   <td class="text-end">

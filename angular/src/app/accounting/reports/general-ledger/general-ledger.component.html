@@ -88,11 +88,11 @@
                 <tr>
                   <td class="ps-3">{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td><span class="text-muted small">{{ entry.accountCode }}</span> {{ entry.accountName }}</td>
-                  <td><span class="badge bg-secondary-subtle text-secondary">{{ entry.voucherType }}</span></td>
+                  <td><span class="badge bg-secondary-subtle text-secondary">{{ '::' + entry.voucherType | abpLocalization }}</span></td>
                   <td><a class="text-primary text-decoration-none" [routerLink]="getVoucherRoute(entry)">{{ entry.voucherNumber }}</a></td>
                   <td>
                     @if (entry.partyType) {
-                      <small class="text-muted">{{ entry.partyType }}:</small> {{ entry.partyName ?? '—' }}
+                      <small class="text-muted">{{ '::' + entry.partyType | abpLocalization }}:</small> {{ entry.partyName ?? '—' }}
                     }
                   </td>
                   <td class="text-end font-monospace" [class.fw-bold]="entry.debitAmount > 0">

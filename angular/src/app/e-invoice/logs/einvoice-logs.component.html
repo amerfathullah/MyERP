@@ -29,7 +29,7 @@
                 @for (log of submissions; track log.id ?? $index) {
                   <tr>
                     <td class="fw-medium">{{ log.invoiceNumber }}</td>
-                    <td>{{ log.status }}</td>
+                    <td>{{ '::' + log.status | abpLocalization }}</td>
                     <td class="font-monospace small">{{ log.lhdnUuid }}</td>
                     <td><app-lhdn-status-badge [status]="log.status ?? ''" /></td>
                     <td>{{ log.issueDate | date:'dd/MM/yyyy HH:mm' }}</td>

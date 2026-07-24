@@ -44,7 +44,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                 <tr>
                   <td><a [routerLink]="['/sales/blanket-orders', bo.id]">{{ bo.orderNumber }}</a></td>
                   <td>{{ bo.partyName ?? '—' }}</td>
-                  <td><span class="badge bg-info">{{ bo.orderType }}</span></td>
+                  <td><span class="badge bg-info">{{ '::' + bo.orderType | abpLocalization }}</span></td>
                   <td>{{ bo.fromDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ bo.toDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ (bo.items ?? []).length }}</td>

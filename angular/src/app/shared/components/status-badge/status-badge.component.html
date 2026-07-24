@@ -1,3 +1,3 @@
 <span class="badge rounded-pill" [ngClass]="config.badgeClass">
-  <i class="me-1" [ngClass]="config.icon"></i>{{ status }}
+  <i class="me-1" [ngClass]="config.icon"></i>{{ '::' + status | abpLocalization }}
 </span>

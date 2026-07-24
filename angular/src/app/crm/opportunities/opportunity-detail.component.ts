@@ -34,7 +34,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               </div>
               <div class="col-md-4 mb-3">
                 <small class="text-muted d-block">{{ '::SalesStage' | abpLocalization }}</small>
-                <span class="fw-bold">{{ o.salesStage }}</span>
+                <span class="fw-bold">{{ '::' + o.salesStage | abpLocalization }}</span>
               </div>
               <div class="col-md-4 mb-3">
                 <small class="text-muted d-block">{{ '::Amount' | abpLocalization }}</small>
