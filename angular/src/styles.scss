@@ -165,3 +165,214 @@ mat-form-field,
     display: block;
   }
 }
+
+
+/* ============================================================
+   MyERP — Modern Theme Layer (2026 refresh)
+   Layered on top of LeptonX Lite. Works in light / dim / dark + RTL.
+   Overrides brand tokens + refines surfaces, depth, and motion.
+   ============================================================ */
+
+:root {
+  /* Brand & semantic accents (modern indigo) */
+  --lpx-primary: #4f46e5;
+  --lpx-brand: #4f46e5;
+  --lpx-info: #0ea5e9;
+  --lpx-success: #16a34a;
+  --lpx-warning: #f59e0b;
+  --lpx-danger: #ef4444;
+
+  /* Bootstrap alignment so .btn/.text-primary/etc. match */
+  --bs-primary: #4f46e5;
+  --bs-primary-rgb: 79, 70, 229;
+  --bs-link-color: #4f46e5;
+  --bs-link-color-rgb: 79, 70, 229;
+  --bs-link-hover-color: #4338ca;
+  --bs-body-font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', 'Noto Kufi Arabic', sans-serif;
+
+  /* Design tokens */
+  --app-radius-lg: 16px;
+  --app-radius: 12px;
+  --app-radius-sm: 9px;
+  --app-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --app-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px -8px rgba(16, 24, 40, 0.12);
+  --app-shadow-lg: 0 14px 38px -10px rgba(16, 24, 40, 0.22);
+  --app-ring: 0 0 0 3px rgba(79, 70, 229, 0.18);
+  --bs-border-radius: var(--app-radius);
+}
+
+/* Base typography */
+body,
+.lpx-content,
+.lpx-sidebar,
+.lpx-topbar {
+  font-family: var(--bs-body-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.1px;
+}
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Cards: soft depth instead of hard borders ---- */
+.card {
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+  .card-header {
+    background: transparent;
+    border-bottom: 1px solid rgba(16, 24, 40, 0.06);
+    padding: 1rem 1.35rem;
+    font-weight: 600;
+  }
+}
+.card-clickable,
+.card.card-hover {
+  &:hover {
+    box-shadow: var(--app-shadow);
+    border-color: rgba(79, 70, 229, 0.25);
+    transform: translateY(-2px);
+  }
+}
+
+/* ---- Buttons ---- */
+.btn {
+  border-radius: var(--app-radius-sm);
+  font-weight: 600;
+  padding-inline: 1.05rem;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  --bs-btn-bg: #4f46e5;
+  --bs-btn-border-color: #4f46e5;
+  --bs-btn-hover-bg: #4338ca;
+  --bs-btn-hover-border-color: #4338ca;
+  --bs-btn-active-bg: #3730a3;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.28), 0 8px 18px -8px rgba(79, 70, 229, 0.55);
+}
+.btn-primary:hover {
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35), 0 12px 24px -8px rgba(79, 70, 229, 0.6);
+}
+.btn-outline-primary {
+  --bs-btn-color: #4f46e5;
+  --bs-btn-border-color: rgba(79, 70, 229, 0.4);
+  --bs-btn-hover-bg: #4f46e5;
+  --bs-btn-hover-border-color: #4f46e5;
+}
+
+/* ---- Inputs ---- */
+.form-control,
+.form-select,
+.input-group-text {
+  border-radius: var(--app-radius-sm);
+  border-color: rgba(16, 24, 40, 0.14);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: #4f46e5;
+  box-shadow: var(--app-ring);
+}
+
+/* ---- Badges: soft pills ---- */
+.badge {
+  border-radius: 999px;
+  padding: 0.4em 0.72em;
+  font-weight: 600;
+}
+
+/* ---- Sidebar modernization ---- */
+.lpx-nav .lpx-menu-item-link,
+.lpx-menu-item-link {
+  border-radius: 10px;
+  margin: 2px 12px;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.lpx-menu-item-link:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+/* active/selected menu item — accent pill (LeptonX puts `.selected` on the link) */
+.lpx-menu-item-link.selected,
+.lpx-menu-item-link.active {
+  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 18px -8px rgba(79, 70, 229, 0.7);
+}
+.lpx-menu-item-link.selected .lpx-menu-item-icon,
+.lpx-menu-item-link.selected .lpx-menu-item-text,
+.lpx-menu-item-link.active .lpx-menu-item-icon,
+.lpx-menu-item-link.active .lpx-menu-item-text {
+  color: #fff !important;
+}
+
+/* ---- Topbar ---- */
+.lpx-topbar,
+.lpx-topbar-container {
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.06);
+}
+
+/* ---- Tables ---- */
+.table,
+.mat-mdc-table,
+.ngx-datatable {
+  border-radius: var(--app-radius);
+  overflow: hidden;
+}
+.table > :not(caption) > * > * {
+  padding: 0.7rem 0.9rem;
+}
+thead th,
+.mat-mdc-header-cell,
+.datatable-header {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---- Dropdown menus ---- */
+.dropdown-menu {
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+  padding: 0.4rem;
+  .dropdown-item {
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* ---- Modern thin scrollbars ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 140, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 140, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 140, 0.55);
+  background-clip: content-box;
+}
+
+/* ---- Progress / spinners tint ---- */
+.progress-bar {
+  background-color: #4f46e5;
+}
