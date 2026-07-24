@@ -63,6 +63,9 @@ services:
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD:-myerp_secret_2026}"
       StringEncryption__DefaultPassPhrase: "${ENCRYPTION_PASSPHRASE:-}"
+      # Register the production OAuth redirect URIs for the seeded OpenIddict clients
+      OpenIddict__Applications__MyERP_App__RootUrl: "${WEB_URL:-http://localhost}"
+      OpenIddict__Applications__MyERP_Swagger__RootUrl: "${APP_URL:-http://localhost:5000}"
     networks:
       - myerp-network
     restart: "no"

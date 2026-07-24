@@ -54,6 +54,7 @@ services:
     ports: !override []
     environment:
       API_URL: "https://${API_DOMAIN}"
+      APP_BASE_URL: "https://${WEB_DOMAIN}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.web.rule=Host(`${WEB_DOMAIN}`)"
