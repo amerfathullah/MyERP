@@ -1,10 +1,23 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+# Node.js + Yarn + ABP CLI — required to fetch client-side libs (wwwroot/libs) that the
+# server-rendered LeptonX account/login pages need in order to render.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && npm install -g yarn \
+    && dotnet tool install -g Volo.Abp.Studio.Cli \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 COPY common.props .
 COPY src/ src/
 
 RUN dotnet restore src/MyERP.HttpApi.Host/MyERP.HttpApi.Host.csproj
+
+# Populate wwwroot/libs (bootstrap, jquery, etc.) before publish so it ships in the image.
+RUN cd src/MyERP.HttpApi.Host && abp install-libs
+
 RUN dotnet publish src/MyERP.HttpApi.Host/MyERP.HttpApi.Host.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
