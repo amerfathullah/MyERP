@@ -1,0 +1,28 @@
+### Local dev override: backend in Docker, Angular run natively.
+### API exposed on host port 5001 (host :5000 is taken by macOS AirPlay/ControlCenter),
+### runs against the already-running Postgres + the host's Redis, in Development mode.
+###
+### In Development the ABP module maps embedded resources to physical source folders at
+### <ContentRoot>/../MyERP.* (i.e. /MyERP.* inside the container), so those source dirs are
+### bind-mounted in. Runs as root so the auto-generated dev signing cert can be written to /app.
+services:
+  api:
+    user: root
+    ports: !override
+      - "5001:5000"
+    environment:
+      - App__SelfUrl=http://localhost:5001
+      - AuthServer__Authority=http://localhost:5001
+      - AuthServer__RequireHttpsMetadata=false
+      - App__AngularUrl=http://localhost:4200
+      - App__CorsOrigins=http://localhost:4200
+      - App__RedirectAllowedUrls=http://localhost:4200
+      # Reuse the Redis already listening on the host's :6379
+      - Redis__Configuration=host.docker.internal:6379
+    volumes:
+      - ./src/MyERP.Domain.Shared:/MyERP.Domain.Shared
+      - ./src/MyERP.Domain:/MyERP.Domain
+      - ./src/MyERP.Application.Contracts:/MyERP.Application.Contracts
+      - ./src/MyERP.Application:/MyERP.Application
+      # Client-side libs for the server-rendered ABP login/account pages (abp install-libs)
+      - ./src/MyERP.HttpApi.Host/wwwroot/libs:/app/wwwroot/libs
