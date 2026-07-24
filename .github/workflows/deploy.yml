@@ -95,7 +95,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
           source: "deploy/docker-compose.yml,deploy/docker-compose.https.yml"
-          target: "/opt/myerp"
+          target: "/home/deploy/myerp"
           strip_components: 1
           overwrite: true
 
@@ -119,8 +119,8 @@ jobs:
           envs: IMAGE_PREFIX,GHCR_USER,GHCR_TOKEN,DB_PASSWORD,CERT_PASSPHRASE,ENCRYPTION_PASSPHRASE,WEB_DOMAIN,API_DOMAIN,ACME_EMAIL
           script: |
             set -euo pipefail
-            mkdir -p /opt/myerp/certs
-            cd /opt/myerp
+            mkdir -p /home/deploy/myerp/certs
+            cd /home/deploy/myerp
 
             # 1) Render .env (secrets live only on the server, never printed to logs)
             umask 077
