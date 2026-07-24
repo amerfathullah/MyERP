@@ -1,78 +1,161 @@
 name: Deploy
 
+# Auto-deploy to the production VPS on every merge/push to main.
+# Also runnable manually from the Actions tab.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE: ghcr.io/${{ github.repository }}/api
-  ANGULAR_IMAGE: ghcr.io/${{ github.repository }}/angular
 
 jobs:
   build-and-push:
-    name: Build & Push Images
+    name: Build & Push Images (GHCR)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_prefix: ${{ steps.meta.outputs.prefix }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v4
+      - name: Compute lowercase image prefix
+        id: meta
+        run: echo "prefix=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        uses: docker/setup-buildx-action@v3
 
       - name: Build & push API image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: src/MyERP.HttpApi.Host/Dockerfile
           push: true
           tags: |
-            ${{ env.API_IMAGE }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.API_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-api:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push Angular image
-        uses: docker/build-push-action@v7
+      - name: Build & push Migrator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/MyERP.DbMigrator/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-migrator:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-migrator:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push Web image
+        uses: docker/build-push-action@v6
         with:
           context: angular
           file: angular/Dockerfile
           push: true
           tags: |
-            ${{ env.ANGULAR_IMAGE }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.ANGULAR_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-web:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.prefix }}/myerp-web:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Production
+    name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: production
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Copy compose files to server
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          source: "deploy/docker-compose.yml,deploy/docker-compose.https.yml"
+          target: "/opt/myerp"
+          strip_components: 1
+          overwrite: true
+
+      - name: Render env, pull images & (re)start stack
+        uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_PREFIX: ${{ needs.build-and-push.outputs.image_prefix }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          CERT_PASSPHRASE: ${{ secrets.CERT_PASSPHRASE }}
+          ENCRYPTION_PASSPHRASE: ${{ secrets.ENCRYPTION_PASSPHRASE }}
+          WEB_DOMAIN: ${{ secrets.WEB_DOMAIN }}
+          API_DOMAIN: ${{ secrets.API_DOMAIN }}
+          ACME_EMAIL: ${{ secrets.ACME_EMAIL }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          envs: IMAGE_PREFIX,GHCR_USER,GHCR_TOKEN,DB_PASSWORD,CERT_PASSPHRASE,ENCRYPTION_PASSPHRASE,WEB_DOMAIN,API_DOMAIN,ACME_EMAIL
           script: |
+            set -euo pipefail
+            mkdir -p /opt/myerp/certs
             cd /opt/myerp
-            docker compose pull
-            docker compose up -d --remove-orphans
+
+            # 1) Render .env (secrets live only on the server, never printed to logs)
+            umask 077
+            cat > .env <<EOF
+            MYERP_REGISTRY=ghcr.io
+            MYERP_IMAGE_PREFIX=${IMAGE_PREFIX}
+            MYERP_VERSION=latest
+            DB_USER=myerp
+            DB_PASSWORD=${DB_PASSWORD}
+            DB_NAME=MyERP
+            APP_URL=https://${API_DOMAIN}
+            WEB_URL=https://${WEB_DOMAIN}
+            REQUIRE_HTTPS=true
+            WEB_DOMAIN=${WEB_DOMAIN}
+            API_DOMAIN=${API_DOMAIN}
+            ACME_EMAIL=${ACME_EMAIL}
+            CERT_PASSPHRASE=${CERT_PASSPHRASE}
+            ENCRYPTION_PASSPHRASE=${ENCRYPTION_PASSPHRASE}
+            EOF
+
+            # 2) Generate the OpenIddict signing certificate once (Production requires it)
+            if [ ! -f certs/openiddict.pfx ]; then
+              echo "Generating openiddict.pfx signing certificate..."
+              openssl req -x509 -newkey rsa:2048 -nodes \
+                -keyout /tmp/oidc-key.pem -out /tmp/oidc-cert.pem \
+                -days 3650 -subj "/CN=MyERP"
+              openssl pkcs12 -export -out certs/openiddict.pfx \
+                -inkey /tmp/oidc-key.pem -in /tmp/oidc-cert.pem \
+                -passout pass:"${CERT_PASSPHRASE}"
+              rm -f /tmp/oidc-key.pem /tmp/oidc-cert.pem
+            fi
+
+            # 3) Pull freshly built images and roll the stack
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            docker compose -f docker-compose.yml -f docker-compose.https.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --remove-orphans
+            docker logout ghcr.io || true
             docker image prune -f

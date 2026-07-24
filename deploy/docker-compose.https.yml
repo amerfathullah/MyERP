@@ -1,9 +1,11 @@
 # =============================================================================
 # MyERP — Self-Hosted with HTTPS (Traefik + Let's Encrypt)
 # =============================================================================
+# Web  -> https://${WEB_DOMAIN}      (e.g. erp.mosalah.cloud)
+# API  -> https://${API_DOMAIN}      (e.g. erp-api.mosalah.cloud)
 # Usage:
-#   1. Set DOMAIN, ACME_EMAIL in .env
-#   2. docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+#   Set WEB_DOMAIN, API_DOMAIN, ACME_EMAIL in .env, then:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 # =============================================================================
 
 services:
@@ -18,6 +20,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
@@ -33,22 +36,26 @@ services:
   api:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=le"
       - "traefik.http.services.api.loadbalancer.server.port=5000"
     environment:
-      App__SelfUrl: "https://api.${DOMAIN}"
-      App__CorsOrigins: "https://${DOMAIN}"
-      AuthServer__Authority: "https://api.${DOMAIN}"
+      App__SelfUrl: "https://${API_DOMAIN}"
+      App__CorsOrigins: "https://${WEB_DOMAIN}"
+      App__AngularUrl: "https://${WEB_DOMAIN}"
+      App__RedirectAllowedUrls: "https://${WEB_DOMAIN}"
+      AuthServer__Authority: "https://${API_DOMAIN}"
       AuthServer__RequireHttpsMetadata: "true"
 
   web:
-    ports: []  # Remove direct port mapping; Traefik handles it
+    ports: []  # Traefik terminates TLS and routes to the container
     environment:
-      API_URL: "https://api.${DOMAIN}"
+      API_URL: "https://${API_DOMAIN}"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.web.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.web.rule=Host(`${WEB_DOMAIN}`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=le"
       - "traefik.http.services.web.loadbalancer.server.port=80"
 

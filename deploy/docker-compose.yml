@@ -62,6 +62,7 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD:-myerp_secret_2026}"
+      StringEncryption__DefaultPassPhrase: "${ENCRYPTION_PASSPHRASE:-}"
     networks:
       - myerp-network
     restart: "no"
@@ -89,7 +90,12 @@ services:
       App__CorsOrigins: ${WEB_URL:-http://localhost}
       AuthServer__Authority: ${APP_URL:-http://localhost:5000}
       AuthServer__RequireHttpsMetadata: "${REQUIRE_HTTPS:-false}"
+      AuthServer__CertificatePassPhrase: "${CERT_PASSPHRASE:-}"
+      StringEncryption__DefaultPassPhrase: "${ENCRYPTION_PASSPHRASE:-}"
       App__HealthChecksEnabled: "true"
+    volumes:
+      # OpenIddict signing certificate — required when running in Production
+      - ./certs/openiddict.pfx:/app/openiddict.pfx:ro
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health", "||", "exit", "1"]
       interval: 15s
