@@ -169,14 +169,14 @@ public class DashboardAppService : ApplicationService
         var monthSiQuery = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
             si.IssueDate >= monthStart && si.IssueDate <= monthEnd && !si.IsReturn);
-        var monthlyRevenue = monthSiQuery.Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
+        var monthlyRevenue = monthSiQuery.Sum(si => (decimal?)si.GrandTotal) ?? 0m;
         var invoiceCount = monthSiQuery.Count();
 
         // Current month expenses
         var monthPiQuery = piQuery.Where(pi =>
             pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted &&
             pi.IssueDate >= monthStart && pi.IssueDate <= monthEnd && !pi.IsReturn);
-        var monthlyExpenses = monthPiQuery.Select(pi => pi.GrandTotal).DefaultIfEmpty(0).Sum();
+        var monthlyExpenses = monthPiQuery.Sum(pi => (decimal?)pi.GrandTotal) ?? 0m;
         var billCount = monthPiQuery.Count();
 
         var netProfit = monthlyRevenue - monthlyExpenses;
@@ -184,11 +184,11 @@ public class DashboardAppService : ApplicationService
         // AR/AP outstanding — server-side sum
         var arOutstanding = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted && !si.IsReturn)
-            .Select(si => si.GrandTotal - si.AmountPaid).DefaultIfEmpty(0).Sum();
+            .Sum(si => (decimal?)(si.GrandTotal - si.AmountPaid)) ?? 0m;
 
         var apOutstanding = piQuery.Where(pi =>
             pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted && !pi.IsReturn)
-            .Select(pi => pi.GrandTotal - pi.AmountPaid).DefaultIfEmpty(0).Sum();
+            .Sum(pi => (decimal?)(pi.GrandTotal - pi.AmountPaid)) ?? 0m;
 
         var netCashPosition = arOutstanding - apOutstanding;
 
@@ -198,7 +198,7 @@ public class DashboardAppService : ApplicationService
         var prevMonthRevenue = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
             si.IssueDate >= prevMonthStart && si.IssueDate <= prevMonthEnd && !si.IsReturn)
-            .Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
+            .Sum(si => (decimal?)si.GrandTotal) ?? 0m;
 
         decimal revenueGrowth = prevMonthRevenue > 0
             ? Math.Round((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue * 100, 1)
