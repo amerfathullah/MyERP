@@ -347,6 +347,7 @@ See [docs/malaysia-compliance.md](docs/malaysia-compliance.md) for details.
 
 | Document | Description |
 |----------|-------------|
+| [**User Guide**](docs/user-guide/README.md) | **End-user manual — every feature explained (what it is, why it exists, how to use it), by module** |
 | [Architecture](docs/architecture.md) | System architecture, layers, module map, data flows |
 | [Deployment](docs/deployment.md) | Local, Docker, and production deployment guide |
 | [Testing](docs/testing.md) | Test strategy, coverage, patterns |
