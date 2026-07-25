@@ -167,12 +167,12 @@ public class EndToEndFlowTests
     {
         var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-USD-001", DateTime.UtcNow);
         si.CurrencyCode = "USD";
-        si.ExchangeRate = 4.72m; // 1 USD = 4.72 MYR
+        si.ExchangeRate = 4.72m; // 1 USD = 4.72 IQD
 
         si.AddItem(Guid.NewGuid(), "Consulting - July", 40, 150, 0, "Hour"); // USD 6000
 
         si.NetTotal.ShouldBe(6000m); // USD
-        si.BaseNetTotal.ShouldBe(28320m); // MYR (6000 * 4.72)
+        si.BaseNetTotal.ShouldBe(28320m); // IQD (6000 * 4.72)
         si.BaseGrandTotal.ShouldBe(28320m);
 
         // Payment in USD

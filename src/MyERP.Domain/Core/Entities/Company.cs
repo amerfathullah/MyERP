@@ -40,8 +40,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? PostalCode { get; set; }
     public string? Country { get; set; }
 
-    /// <summary>Default currency code (ISO 4217), e.g. "MYR".</summary>
-    public string CurrencyCode { get; set; } = "MYR";
+    /// <summary>Default currency code (ISO 4217), e.g. "IQD".</summary>
+    public string CurrencyCode { get; set; } = "IQD";
 
     /// <summary>Fiscal year start month (1-12).</summary>
     public int FiscalYearStartMonth { get; set; } = 1;

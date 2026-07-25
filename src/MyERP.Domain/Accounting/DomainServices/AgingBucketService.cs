@@ -38,11 +38,14 @@ public class AgingBucketService : DomainService
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
         var query = await _salesInvoiceRepository.GetQueryableAsync();
+        // OutstandingAmount is a computed (non-mapped) property — filter it in memory,
+        // not in the SQL Where, otherwise EF Core cannot translate the expression.
         var outstandingInvoices = query
             .Where(si => si.CompanyId == companyId
                       && si.Status == Core.DocumentStatus.Posted
-                      && si.OutstandingAmount > 0
                       && !si.IsReturn)
+            .ToList()
+            .Where(si => si.OutstandingAmount > 0)
             .ToList();
 
         return BuildAgingReport(outstandingInvoices.Select(si => new AgingItem
@@ -65,11 +68,13 @@ public class AgingBucketService : DomainService
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
         var query = await _purchaseInvoiceRepository.GetQueryableAsync();
+        // OutstandingAmount is a computed (non-mapped) property — filter it in memory.
         var outstandingInvoices = query
             .Where(pi => pi.CompanyId == companyId
                       && pi.Status == Core.DocumentStatus.Posted
-                      && pi.OutstandingAmount > 0
                       && !pi.IsReturn)
+            .ToList()
+            .Where(pi => pi.OutstandingAmount > 0)
             .ToList();
 
         return BuildAgingReport(outstandingInvoices.Select(pi => new AgingItem

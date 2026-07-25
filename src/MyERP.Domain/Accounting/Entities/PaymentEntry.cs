@@ -36,7 +36,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Mode of payment (Cash, Bank Transfer, Cheque, etc.).</summary>
     public Guid? ModeOfPaymentId { get; set; }
 
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public decimal PaidAmount { get; set; }
 
     /// <summary>Exchange rate of payment currency to company base currency.</summary>

@@ -92,7 +92,7 @@ public class ServiceWiringTests
     [Fact]
     public void LoyaltyProgram_EarningFlow_Concept()
     {
-        // Simulates: customer with loyalty program makes a 1000 MYR purchase
+        // Simulates: customer with loyalty program makes a 1000 IQD purchase
         var program = new LoyaltyProgram(Guid.NewGuid(), Guid.NewGuid(),
             "MyRewards", 100m, 365);
         program.AddTier("Standard", 0m, 1.0m, 0.5m);

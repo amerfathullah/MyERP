@@ -42,7 +42,7 @@ export class CompanyFormComponent implements OnInit {
     state: [''],
     postalCode: [''],
     country: ['Malaysia'],
-    currencyCode: ['MYR', Validators.required],
+    currencyCode: ['IQD', Validators.required],
     fiscalYearStartMonth: [1],
     isActive: [true],
   });

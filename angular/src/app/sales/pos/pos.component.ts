@@ -115,7 +115,7 @@ export class PosComponent implements OnInit {
       next: (result) => {
         this.isProcessing = false;
         this.lastInvoice = result.invoiceNumber ?? null;
-        this.toaster.success(`Sale completed! Invoice: ${result.invoiceNumber}. Change: MYR ${result.change?.toFixed(2)}`);
+        this.toaster.success(`Sale completed! Invoice: ${result.invoiceNumber}. Change: IQD ${result.change?.toFixed(2)}`);
         this.cart = [];
         this.netTotal = 0;
         this.grandTotal = 0;

@@ -12,7 +12,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
       supplierTin: [''],
       issueDate: ['2026-07-20', Validators.required],
       dueDate: [''],
-      currencyCode: ['MYR'],
+      currencyCode: ['IQD'],
       notes: [''],
       isReturn: [false],
       returnAgainstId: [null as string | null],
@@ -66,9 +66,9 @@ describe('PurchaseInvoice form DTO mapping', () => {
       expect(form.get('issueDate')?.valid).toBe(false);
     });
 
-    it('should default currency to MYR', () => {
+    it('should default currency to IQD', () => {
       const form = createPIForm();
-      expect(form.get('currencyCode')?.value).toBe('MYR');
+      expect(form.get('currencyCode')?.value).toBe('IQD');
     });
 
     it('should default isReturn to false', () => {

@@ -79,7 +79,7 @@ public class FinancialFlowTests
     {
         var ple = new PaymentLedgerEntry(Guid.NewGuid(), Co, DateTime.Today,
             Guid.NewGuid(), "Customer", Cust, "SalesInvoice", Guid.NewGuid(),
-            "SalesInvoice", Guid.NewGuid(), 5000m, 5000m, "MYR");
+            "SalesInvoice", Guid.NewGuid(), 5000m, 5000m, "IQD");
         ple.Amount.ShouldBe(5000m);
         ple.IsReversal.ShouldBeFalse();
     }
@@ -90,10 +90,10 @@ public class FinancialFlowTests
         var inv = Guid.NewGuid();
         var si = new PaymentLedgerEntry(Guid.NewGuid(), Co, DateTime.Today,
             Guid.NewGuid(), "Customer", Cust, "SalesInvoice", inv,
-            "SalesInvoice", inv, 5000m, 5000m, "MYR");
+            "SalesInvoice", inv, 5000m, 5000m, "IQD");
         var pe = new PaymentLedgerEntry(Guid.NewGuid(), Co, DateTime.Today,
             Guid.NewGuid(), "Customer", Cust, "PaymentEntry", Guid.NewGuid(),
-            "SalesInvoice", inv, -3000m, -3000m, "MYR");
+            "SalesInvoice", inv, -3000m, -3000m, "IQD");
         (si.Amount + pe.Amount).ShouldBe(2000m);
     }
 
@@ -102,7 +102,7 @@ public class FinancialFlowTests
     {
         var ple = new PaymentLedgerEntry(Guid.NewGuid(), Co, DateTime.Today,
             Guid.NewGuid(), "Customer", Cust, "PaymentEntry", Guid.NewGuid(),
-            "SalesInvoice", Guid.NewGuid(), -2000m, -2000m, "MYR");
+            "SalesInvoice", Guid.NewGuid(), -2000m, -2000m, "IQD");
         ple.Delinked = true;
         new[] { ple }.Where(e => !e.Delinked && !e.IsReversal).Sum(e => e.Amount).ShouldBe(0m);
     }

@@ -27,7 +27,7 @@ public class CurrencyExchangeServiceTests
     public void CurrencyExchange_SameCurrency_AlwaysOne()
     {
         // Same-currency pair always returns 1.0 without DB lookup
-        var entity = new CurrencyExchange(Guid.NewGuid(), "MYR", "MYR", 1m, DateTime.Today);
+        var entity = new CurrencyExchange(Guid.NewGuid(), "IQD", "IQD", 1m, DateTime.Today);
         entity.ExchangeRate.ShouldBe(1m);
     }
 
@@ -36,9 +36,9 @@ public class CurrencyExchangeServiceTests
     {
         var id = Guid.NewGuid();
         var date = new DateTime(2026, 7, 15);
-        var entity = new CurrencyExchange(id, "USD", "MYR", 4.72m, date);
+        var entity = new CurrencyExchange(id, "USD", "IQD", 4.72m, date);
         entity.FromCurrency.ShouldBe("USD");
-        entity.ToCurrency.ShouldBe("MYR");
+        entity.ToCurrency.ShouldBe("IQD");
         entity.ExchangeRate.ShouldBe(4.72m);
         entity.Date.ShouldBe(date);
     }
@@ -46,7 +46,7 @@ public class CurrencyExchangeServiceTests
     [Fact]
     public void CurrencyExchange_ReverseCalculation()
     {
-        // If USD→MYR = 4.72, then MYR→USD = 1/4.72
+        // If USD→IQD = 4.72, then IQD→USD = 1/4.72
         var rate = 4.72m;
         var reverseRate = 1m / rate;
         reverseRate.ShouldBeInRange(0.21m, 0.22m);
@@ -56,7 +56,7 @@ public class CurrencyExchangeServiceTests
     public void CurrencyExchange_ZeroRate_NotInvertible()
     {
         // Zero exchange rate should not be inverted (division by zero protection)
-        var entity = new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 0m, DateTime.Today);
+        var entity = new CurrencyExchange(Guid.NewGuid(), "USD", "IQD", 0m, DateTime.Today);
         entity.ExchangeRate.ShouldBe(0m);
         // Service code guards: if (reverse.ExchangeRate != 0) → invert
     }
@@ -67,7 +67,7 @@ public class CurrencyExchangeServiceTests
         var info = new StaleCurrencyPairInfo
         {
             FromCurrency = "USD",
-            ToCurrency = "MYR",
+            ToCurrency = "IQD",
             LastRateDate = new DateTime(2026, 7, 10),
             DaysSinceUpdate = 5
         };
@@ -81,8 +81,8 @@ public class CurrencyExchangeServiceTests
         // Same currency pair = never stale, DaysSinceRate = 0
         // This is the guard at the top of CheckStaleRateAsync
         // CurrencyExchangeService returns (false, null, 0) for same currency
-        var fromCurrency = "MYR";
-        var toCurrency = "MYR";
+        var fromCurrency = "IQD";
+        var toCurrency = "IQD";
         fromCurrency.ShouldBe(toCurrency);
     }
 

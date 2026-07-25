@@ -84,7 +84,7 @@ public class FinancialReportingLogicTests
     [Fact]
     public void ExchangeGainLoss_GainWhenPaymentRateHigher()
     {
-        // Invoice at 4.50 MYR/USD, payment at 4.60 MYR/USD
+        // Invoice at 4.50 IQD/USD, payment at 4.60 IQD/USD
         decimal paidAmount = 1000m; // USD
         decimal paymentRate = 4.60m;
         decimal invoiceRate = 4.50m;
@@ -120,7 +120,7 @@ public class FinancialReportingLogicTests
     [Fact]
     public void ExchangeGainLoss_BaseCurrencyAlwaysZero()
     {
-        // MYR→MYR: exchange rate is always 1
+        // IQD→IQD: exchange rate is always 1
         decimal paidAmount = 10000m;
         decimal paymentRate = 1m;
         decimal invoiceRate = 1m;
@@ -212,8 +212,8 @@ public class FinancialReportingLogicTests
     [Fact]
     public void CurrencyExchange_SameCurrency_ReturnsOne()
     {
-        // MYR to MYR = 1.0 (no conversion needed)
-        string from = "MYR", to = "MYR";
+        // IQD to IQD = 1.0 (no conversion needed)
+        string from = "IQD", to = "IQD";
         decimal rate = from == to ? 1m : 0m; // Placeholder logic
         Assert.Equal(1m, rate);
     }
@@ -221,12 +221,12 @@ public class FinancialReportingLogicTests
     [Fact]
     public void CurrencyExchange_ReverseRate_Inverts()
     {
-        // If USD→MYR = 4.72, then MYR→USD = 1/4.72
+        // If USD→IQD = 4.72, then IQD→USD = 1/4.72
         decimal usdToMyr = 4.72m;
         decimal myrToUsd = Math.Round(1m / usdToMyr, 6);
         
         Assert.True(myrToUsd > 0);
-        Assert.True(myrToUsd < 1); // MYR is weaker
+        Assert.True(myrToUsd < 1); // IQD is weaker
         // Round-trip: converting and back should be close to 1
         decimal roundTrip = usdToMyr * myrToUsd;
         Assert.True(Math.Abs(roundTrip - 1m) < 0.001m);
@@ -235,7 +235,7 @@ public class FinancialReportingLogicTests
     [Fact]
     public void CurrencyExchange_BaseAmount_Calculation()
     {
-        // USD 1000 at rate 4.72 = MYR 4720
+        // USD 1000 at rate 4.72 = IQD 4720
         decimal amount = 1000m;
         decimal rate = 4.72m;
         decimal baseAmount = amount * rate;

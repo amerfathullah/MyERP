@@ -151,7 +151,7 @@ public class FinancialPrecisionTests
     [Fact]
     public void ExchangeRate_BaseAmount_Precision()
     {
-        // USD 1,234.56 at rate 4.7200 = MYR 5,827.1232
+        // USD 1,234.56 at rate 4.7200 = IQD 5,827.1232
         var amount = 1234.56m;
         var rate = 4.72m;
         var baseAmount = amount * rate;

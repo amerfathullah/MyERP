@@ -174,11 +174,11 @@ public class SeedDataValidationTests
     }
 
     [Fact]
-    public void Company_Currency_Default_IsMYR()
+    public void Company_Currency_Default_IsIQD()
     {
         // Malaysian company default currency
         var company = new Company(Guid.NewGuid(), "Test Sdn Bhd");
-        Assert.Equal("MYR", company.CurrencyCode);
+        Assert.Equal("IQD", company.CurrencyCode);
     }
 
     [Fact]

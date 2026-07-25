@@ -40,7 +40,7 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime? ReconciledAt { get; set; }
 
     /// <summary>Transaction currency (must match bank account's GL account currency).</summary>
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     /// <summary>Deposit amount (money in). Only one of Deposit/Withdrawal should be non-zero.</summary>
     public decimal Deposit { get; set; }

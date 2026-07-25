@@ -16,15 +16,15 @@ public class CurrencyExchangeAndRecurringTests
     {
         // When from == to, rate is always 1 (no conversion needed)
         // Tested at service level via the `if (fromCurrency == toCurrency) return 1m` check
-        var from = "MYR";
-        var to = "MYR";
+        var from = "IQD";
+        var to = "IQD";
         (from == to).ShouldBeTrue();
     }
 
     [Fact]
     public void CurrencyExchange_ReverseInversion()
     {
-        // If we have USD→MYR = 4.72, then MYR→USD = 1/4.72 ≈ 0.2119
+        // If we have USD→IQD = 4.72, then IQD→USD = 1/4.72 ≈ 0.2119
         decimal usdToMyr = 4.72m;
         decimal myrToUsd = 1m / usdToMyr;
         myrToUsd.ShouldBeGreaterThan(0.21m);

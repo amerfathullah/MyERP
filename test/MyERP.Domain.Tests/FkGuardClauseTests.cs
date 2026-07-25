@@ -185,7 +185,7 @@ public class FkGuardClauseTests
         var q = new Quotation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "QTN-001", DateTime.Today);
         q.QuotationNumber.ShouldBe("QTN-001");
         q.Status.ShouldBe(Core.DocumentStatus.Draft);
-        q.CurrencyCode.ShouldBe("MYR");
+        q.CurrencyCode.ShouldBe("IQD");
         q.Items.Count.ShouldBe(0);
         q.GrandTotal.ShouldBe(0m);
         q.IsExpired.ShouldBeFalse();

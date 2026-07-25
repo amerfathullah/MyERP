@@ -40,9 +40,9 @@ public class CurrencyExchangeTests
     [Fact]
     public void Create_SetsRate()
     {
-        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.72m, new DateTime(2026, 7, 1));
+        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "IQD", 4.72m, new DateTime(2026, 7, 1));
         ce.FromCurrency.ShouldBe("USD");
-        ce.ToCurrency.ShouldBe("MYR");
+        ce.ToCurrency.ShouldBe("IQD");
         ce.ExchangeRate.ShouldBe(4.72m);
     }
 }

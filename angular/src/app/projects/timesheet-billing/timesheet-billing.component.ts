@@ -85,7 +85,7 @@ export class TimesheetBillingComponent implements OnInit {
     } as any).subscribe({
       next: (result) => {
         this.isBilling.set(false);
-        this.toaster.success(`Invoice ${result.invoiceNumber} created (${result.totalHours}h, MYR ${result.totalAmount})`);
+        this.toaster.success(`Invoice ${result.invoiceNumber} created (${result.totalHours}h, IQD ${result.totalAmount})`);
         this.router.navigate(['/sales/invoices', result.invoiceId]);
       },
       error: (err) => {

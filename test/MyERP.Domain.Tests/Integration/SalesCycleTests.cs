@@ -126,7 +126,7 @@ public class SalesCycleTests
     {
         var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-USD-001", DateTime.UtcNow);
         si.CurrencyCode = "USD";
-        si.ExchangeRate = 4.5m; // 1 USD = 4.5 MYR
+        si.ExchangeRate = 4.5m; // 1 USD = 4.5 IQD
 
         si.AddItem(Guid.NewGuid(), "Consulting Service", 10, 200, 0, "Hour"); // USD 2000
 

@@ -46,13 +46,13 @@ public class EntityPersistenceTests : MyERPEntityFrameworkCoreTestBase
         await WithUnitOfWorkAsync(async () =>
         {
             var company = new Company(Guid.NewGuid(), "Test Corp");
-            company.CurrencyCode = "MYR";
+            company.CurrencyCode = "IQD";
             await _companyRepo.InsertAsync(company, autoSave: true);
 
             var loaded = await _companyRepo.GetAsync(company.Id);
             loaded.ShouldNotBeNull();
             loaded.Name.ShouldBe("Test Corp");
-            loaded.CurrencyCode.ShouldBe("MYR");
+            loaded.CurrencyCode.ShouldBe("IQD");
         });
     }
 

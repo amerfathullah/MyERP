@@ -15,7 +15,7 @@ public class CurrencyExchange : AuditedEntity<Guid>, IMultiTenant
     /// <summary>Source currency code (e.g., "USD").</summary>
     public string FromCurrency { get; set; } = null!;
 
-    /// <summary>Target currency code (e.g., "MYR").</summary>
+    /// <summary>Target currency code (e.g., "IQD").</summary>
     public string ToCurrency { get; set; } = null!;
 
     /// <summary>Exchange rate (1 FromCurrency = ExchangeRate ToCurrency).</summary>

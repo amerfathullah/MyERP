@@ -110,7 +110,7 @@ public class MirrorTransactionDto
     public DateTime TransactionDate { get; set; }
     public decimal Deposit { get; set; }
     public decimal Withdrawal { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 }
 
 public class CreateInternalTransferDto

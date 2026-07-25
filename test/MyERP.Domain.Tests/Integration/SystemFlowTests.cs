@@ -189,14 +189,14 @@ public class SystemFlowTests
         var companyId = Guid.NewGuid();
         var customerId = Guid.NewGuid();
 
-        // USD invoice with MYR as base currency (exchange rate 4.5)
+        // USD invoice with IQD as base currency (exchange rate 4.5)
         var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-USD-001", DateTime.UtcNow);
         si.CurrencyCode = "USD";
         si.ExchangeRate = 4.5m;
         si.AddItem(Guid.NewGuid(), "Consulting", 10, 100m, 0m); // USD 1000
 
         si.GrandTotal.ShouldBe(1000m); // Transaction currency
-        si.BaseGrandTotal.ShouldBe(4500m); // Base currency (MYR)
+        si.BaseGrandTotal.ShouldBe(4500m); // Base currency (IQD)
     }
 
     [Fact]

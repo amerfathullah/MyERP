@@ -63,7 +63,7 @@ public class CreateSalesOrderDto
     public string? CustomerPoNumber { get; set; }
 
     [StringLength(SalesOrderConsts.MaxCurrencyCodeLength)]
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     [StringLength(SalesOrderConsts.MaxTermsLength)]
     public string? Terms { get; set; }

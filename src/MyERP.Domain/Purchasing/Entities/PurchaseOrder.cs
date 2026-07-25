@@ -24,7 +24,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public Guid SupplierId { get; set; }
 
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

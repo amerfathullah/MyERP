@@ -80,7 +80,7 @@ export class RfqFormComponent {
   isDirty = false;
   form: any = {
     transactionDate: new Date().toISOString().split('T')[0],
-    currencyCode: 'MYR',
+    currencyCode: 'IQD',
     messageForSupplier: '',
     items: [{ itemId: '', description: '', qty: 1, uom: 'Unit' }],
     suppliers: [{ supplierId: '', email: '' }],

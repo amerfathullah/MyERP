@@ -74,7 +74,7 @@ interface TaxSummary {
                 <strong>{{ r.isRefundable ? 'Tax Refundable' : 'Tax Payable' }}</strong>
                 <small class="d-block text-muted">{{ 'NetTaxPosition' | abpLocalization }}</small>
               </div>
-              <h4 class="mb-0">MYR {{ (r.isRefundable ? -r.netTaxPayable : r.netTaxPayable) | number:'1.2-2' }}</h4>
+              <h4 class="mb-0">IQD {{ (r.isRefundable ? -r.netTaxPayable : r.netTaxPayable) | number:'1.2-2' }}</h4>
             </div>
           </div>
 

@@ -29,7 +29,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     // Financials
     public decimal OpportunityAmount { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     // Organization
     public Guid CompanyId { get; set; }

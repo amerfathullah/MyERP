@@ -87,7 +87,7 @@ public class StockCycleTests
     [Fact]
     public void ItemPrice_ValidOnDate_WorksCorrectly()
     {
-        var price = new ItemPrice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 99.90m, "Unit", "MYR")
+        var price = new ItemPrice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 99.90m, "Unit", "IQD")
         {
             ValidFrom = new DateTime(2026, 1, 1),
             ValidUpto = new DateTime(2026, 12, 31),

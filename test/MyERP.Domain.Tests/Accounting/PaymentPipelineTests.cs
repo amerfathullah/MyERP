@@ -101,9 +101,9 @@ public class PaymentPipelineTests
     public void PE_BaseAmount_IsAmountTimesExchangeRate()
     {
         var pe = CreatePE(1000);  // USD 1000
-        pe.ExchangeRate = 4.72m; // 1 USD = 4.72 MYR
+        pe.ExchangeRate = 4.72m; // 1 USD = 4.72 IQD
 
-        pe.BaseAmount.ShouldBe(4720m); // MYR equivalent
+        pe.BaseAmount.ShouldBe(4720m); // IQD equivalent
     }
 
     // ========== Payment Schedule FIFO Allocation ==========

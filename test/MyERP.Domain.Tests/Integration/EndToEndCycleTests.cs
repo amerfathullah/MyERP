@@ -121,10 +121,10 @@ public class EndToEndCycleTests
     [Fact]
     public void MultiCurrency_USDInvoice_ExchangeRate()
     {
-        // Simulate: USD invoice for a Malaysian company (MYR base)
+        // Simulate: USD invoice for a Malaysian company (IQD base)
         var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-USD-001", DateTime.UtcNow);
         si.CurrencyCode = "USD";
-        si.ExchangeRate = 4.72m; // 1 USD = 4.72 MYR
+        si.ExchangeRate = 4.72m; // 1 USD = 4.72 IQD
 
         si.AddItem(Guid.NewGuid(), "Consulting Service", 10, 100m, 0); // 10 hours @ $100
 
@@ -132,7 +132,7 @@ public class EndToEndCycleTests
         si.NetTotal.ShouldBe(1000m); // 10 * 100
         si.GrandTotal.ShouldBe(1000m);
 
-        // Base (MYR) amounts
+        // Base (IQD) amounts
         si.BaseNetTotal.ShouldBe(4720m); // 1000 * 4.72
         si.BaseGrandTotal.ShouldBe(4720m);
     }

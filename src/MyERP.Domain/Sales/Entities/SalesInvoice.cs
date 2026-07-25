@@ -34,7 +34,7 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public string? BuyerTin { get; set; }
 
     // Amounts
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }

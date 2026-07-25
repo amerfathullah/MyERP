@@ -13,7 +13,7 @@ public class TestCurrencyExchangeProvider : ICurrencyExchangeProvider, ITransien
 {
     public Task<decimal?> FetchRateAsync(string fromCurrency, string toCurrency, DateTime date)
     {
-        // Return a fixed rate for testing (4.72 MYR per USD)
+        // Return a fixed rate for testing (4.72 IQD per USD)
         if (fromCurrency == toCurrency) return Task.FromResult<decimal?>(1.0m);
         return Task.FromResult<decimal?>(4.72m);
     }

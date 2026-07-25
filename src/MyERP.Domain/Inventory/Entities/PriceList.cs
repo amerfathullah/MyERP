@@ -14,7 +14,7 @@ public class PriceList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? TenantId { get; set; }
 
     public string Name { get; private set; } = null!;
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     /// <summary>If true, this price list is used for selling transactions.</summary>
     public bool IsSelling { get; set; }

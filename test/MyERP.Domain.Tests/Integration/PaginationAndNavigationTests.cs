@@ -183,7 +183,7 @@ public class PaginationAndNavigationTests
     {
         var sq = new SupplierQuotation(Guid.NewGuid(), CompanyId, Guid.NewGuid(), DateTime.Today);
         sq.AddItem(Guid.NewGuid(), 100, 25m, "Widget", "Unit");
-        Assert.Equal("MYR", sq.Currency);
+        Assert.Equal("IQD", sq.Currency);
         Assert.Equal(2500m, sq.GrandTotal);
     }
 

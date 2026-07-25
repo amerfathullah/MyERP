@@ -15,7 +15,7 @@ interface BackendCreateSalesInvoiceDto {
   customerId: string;     // [Required] Guid
   issueDate: string;      // [Required] DateTime
   dueDate?: string | null;
-  currencyCode?: string;  // default "MYR"
+  currencyCode?: string;  // default "IQD"
   notes?: string | null;
   paymentTermsTemplateId?: string | null;
   isReturn?: boolean;
@@ -82,7 +82,7 @@ describe('API Contract: Sales Invoice', () => {
       customerId: raw.customerId,
       issueDate: raw.issueDate,
       dueDate: raw.dueDate || null,
-      currencyCode: raw.currencyCode || 'MYR',
+      currencyCode: raw.currencyCode || 'IQD',
       notes: raw.notes || null,
       isReturn: raw.isReturn || false,
       returnAgainstId: raw.returnAgainstId || null,
@@ -104,7 +104,7 @@ describe('API Contract: Sales Invoice', () => {
       companyId: 'comp-1',
       customerId: 'cust-1',
       issueDate: '2026-07-20',
-      currencyCode: 'MYR',
+      currencyCode: 'IQD',
       items: [{ itemId: 'item-1', description: 'Widget', quantity: 5, unitPrice: 100, taxAmount: 30 }],
     });
 
@@ -129,11 +129,11 @@ describe('API Contract: Sales Invoice', () => {
     expect(dto.items[0].description).toBe('Grid Item');
   });
 
-  it('should default currencyCode to MYR', () => {
+  it('should default currencyCode to IQD', () => {
     const dto = simulateSIFormSave({
       companyId: 'c', customerId: 'cu', issueDate: '2026-01-01', items: [],
     });
-    expect(dto.currencyCode).toBe('MYR');
+    expect(dto.currencyCode).toBe('IQD');
   });
 
   it('should include updateStock and warehouseId for POS-style sales', () => {
@@ -166,7 +166,7 @@ describe('API Contract: Purchase Order', () => {
       supplierId: raw.supplierId,
       orderDate: raw.orderDate,
       deliveryDate: raw.deliveryDate || null,
-      currencyCode: raw.currencyCode || 'MYR',
+      currencyCode: raw.currencyCode || 'IQD',
       notes: raw.notes || null,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,

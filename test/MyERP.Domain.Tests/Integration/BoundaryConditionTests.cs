@@ -137,7 +137,7 @@ public class BoundaryConditionTests
     [Fact]
     public void CurrencyExchange_RateOfOne_IsBaseCurrency()
     {
-        var cx = new CurrencyExchange(Guid.NewGuid(), "MYR", "MYR", 1.0m, DateTime.UtcNow);
+        var cx = new CurrencyExchange(Guid.NewGuid(), "IQD", "IQD", 1.0m, DateTime.UtcNow);
         cx.ExchangeRate.ShouldBe(1.0m);
     }
 }

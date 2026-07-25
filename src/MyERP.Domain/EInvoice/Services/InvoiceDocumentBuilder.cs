@@ -186,7 +186,7 @@ public class EInvoiceDocumentData
     public string InvoiceNumber { get; set; } = null!;
     public DateTime IssueDate { get; set; }
     public string DocumentTypeCode { get; set; } = "01";
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public EInvoicePartyData Supplier { get; set; } = null!;
     public EInvoicePartyData Buyer { get; set; } = null!;
     public decimal NetTotal { get; set; }

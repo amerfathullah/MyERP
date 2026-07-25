@@ -33,7 +33,7 @@ public class MultiCurrencyAndDimensionTests
             exchangeRate: 4.72m,
             description: "USD receivable");
 
-        line.Amount.ShouldBe(4720m); // Company currency (MYR)
+        line.Amount.ShouldBe(4720m); // Company currency (IQD)
         line.AmountInAccountCurrency.ShouldBe(1000m); // Account currency (USD)
         line.AccountCurrency.ShouldBe("USD");
         line.ExchangeRate.ShouldBe(4.72m);
@@ -47,7 +47,7 @@ public class MultiCurrencyAndDimensionTests
         var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             amountInCompanyCurrency: 500m,
             isDebit: false,
-            accountCurrency: "MYR",
+            accountCurrency: "IQD",
             amountInAccountCurrency: 500m,
             exchangeRate: 1m);
 

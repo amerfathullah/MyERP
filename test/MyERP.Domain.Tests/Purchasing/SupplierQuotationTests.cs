@@ -16,7 +16,7 @@ public class SupplierQuotationTests
     {
         var sq = CreateSQ();
         sq.Status.ShouldBe(Core.DocumentStatus.Draft);
-        sq.Currency.ShouldBe("MYR");
+        sq.Currency.ShouldBe("IQD");
         sq.Items.ShouldBeEmpty();
     }
 

@@ -21,7 +21,7 @@ public class PriceListDto : AuditedEntityDto<Guid>
 public class CreateUpdatePriceListDto
 {
     [Required][StringLength(PriceListConsts.MaxNameLength)] public string Name { get; set; } = null!;
-    [Required][StringLength(PriceListConsts.MaxCurrencyCodeLength)] public string CurrencyCode { get; set; } = "MYR";
+    [Required][StringLength(PriceListConsts.MaxCurrencyCodeLength)] public string CurrencyCode { get; set; } = "IQD";
     public bool IsSelling { get; set; }
     public bool IsBuying { get; set; }
     public bool IsDefault { get; set; }
@@ -53,7 +53,7 @@ public class CreateUpdateItemPriceDto
     [Required] public Guid PriceListId { get; set; }
     [Required][Range(0, double.MaxValue)] public decimal PriceListRate { get; set; }
     [StringLength(ItemPriceConsts.MaxUomLength)] public string Uom { get; set; } = "Unit";
-    [StringLength(ItemPriceConsts.MaxCurrencyCodeLength)] public string CurrencyCode { get; set; } = "MYR";
+    [StringLength(ItemPriceConsts.MaxCurrencyCodeLength)] public string CurrencyCode { get; set; } = "IQD";
     public decimal MinQty { get; set; }
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }

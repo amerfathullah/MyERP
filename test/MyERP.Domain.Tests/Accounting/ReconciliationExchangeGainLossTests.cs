@@ -64,7 +64,7 @@ public class ReconciliationExchangeGainLossTests
     [Fact]
     public void CalculateExchangeGainLoss_BaseCurrency_AlwaysZero()
     {
-        // Both rates are 1.0 (MYR→MYR) → no gain/loss
+        // Both rates are 1.0 (IQD→IQD) → no gain/loss
         var result = PaymentReconciliationEngine.CalculateExchangeGainLoss(
             allocatedAmount: 5000m,
             paymentExchangeRate: 1m,
@@ -269,7 +269,7 @@ public class ReconciliationExchangeGainLossTests
         var pe = new PaymentEntry(Guid.NewGuid(), Guid.NewGuid(), PaymentType.Pay,
             DateTime.Today, 3000m, Guid.NewGuid(), Guid.NewGuid());
 
-        // Both rates are 1 → MYR payment for MYR invoice
+        // Both rates are 1 → IQD payment for IQD invoice
         pe.ExchangeRate = 1m;
         pe.SourceExchangeRate = 1m;
 

@@ -23,7 +23,7 @@ public class SubcontractingInwardOrderDto : EntityDto<Guid>
     public Guid SupplierId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SubcontractingOrderId { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public decimal NetTotal { get; set; }
     public decimal GrandTotal { get; set; }
     public int Status { get; set; }
@@ -53,7 +53,7 @@ public class CreateSubcontractingInwardOrderDto
     public DateTime OrderDate { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SubcontractingOrderId { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public CreateScioItemDto[] Items { get; set; } = [];
 }
 

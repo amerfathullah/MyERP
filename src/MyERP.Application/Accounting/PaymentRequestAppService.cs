@@ -37,7 +37,7 @@ public class CreatePaymentRequestDto
     public string PartyType { get; set; } = "Customer";
     public string? PartyName { get; set; }
     public decimal GrandTotal { get; set; }
-    public string Currency { get; set; } = "MYR";
+    public string Currency { get; set; } = "IQD";
     public string? EmailTo { get; set; }
     public string? Subject { get; set; }
     public string? Message { get; set; }

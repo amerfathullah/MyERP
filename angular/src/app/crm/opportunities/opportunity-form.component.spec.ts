@@ -21,7 +21,7 @@ describe('OpportunityFormComponent', () => {
       probability: [20, [Validators.min(0), Validators.max(100)]],
       expectedClosingDate: [''],
       opportunityAmount: [0, [Validators.min(0)]],
-      currencyCode: ['MYR'],
+      currencyCode: ['IQD'],
       territory: [''],
       companyId: ['', Validators.required],
       notes: [''],
@@ -98,8 +98,8 @@ describe('OpportunityFormComponent', () => {
       expect(form.get('opportunityAmount')?.hasError('min')).toBe(true);
     });
 
-    it('defaults currency to MYR', () => {
-      expect(form.get('currencyCode')?.value).toBe('MYR');
+    it('defaults currency to IQD', () => {
+      expect(form.get('currencyCode')?.value).toBe('IQD');
     });
   });
 
@@ -176,7 +176,7 @@ describe('OpportunityFormComponent', () => {
         probability: 60,
         expectedClosingDate: '2026-12-31',
         opportunityAmount: 500000,
-        currencyCode: 'MYR',
+        currencyCode: 'IQD',
         territory: 'Selangor',
         companyId: 'comp-abc',
         notes: 'Enterprise deal, multi-phase',

@@ -107,8 +107,8 @@ public class CompleteBusinessFlowTests
         var pe = new PaymentEntry(Guid.NewGuid(), _companyId, PaymentType.Receive,
             DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid(), _tenantId);
 
-        pe.ExchangeRate = 4.5m;        // Payment at MYR 4.50/USD
-        pe.SourceExchangeRate = 4.3m;   // Invoice was at MYR 4.30/USD
+        pe.ExchangeRate = 4.5m;        // Payment at IQD 4.50/USD
+        pe.SourceExchangeRate = 4.3m;   // Invoice was at IQD 4.30/USD
 
         // Gain: paid at higher rate → favorable for receivable
         pe.ExchangeGainLoss.ShouldBe(200m); // 1000 × (4.5 - 4.3) = 200
@@ -181,16 +181,16 @@ public class CompleteBusinessFlowTests
     public void Company_CurrencyLock_PreventsChangeWithTransactions()
     {
         var company = new Company(Guid.NewGuid(), "Test Corp", _tenantId);
-        company.SetCurrency("MYR", hasSubmittedTransactions: false);
-        company.CurrencyCode.ShouldBe("MYR");
+        company.SetCurrency("IQD", hasSubmittedTransactions: false);
+        company.CurrencyCode.ShouldBe("IQD");
 
         // After transactions exist, cannot change
         Should.Throw<BusinessException>(() => company.SetCurrency("USD", hasSubmittedTransactions: true))
             .Code.ShouldBe(MyERPDomainErrorCodes.CompanyCurrencyLocked);
 
         // Same currency always OK
-        company.SetCurrency("MYR", hasSubmittedTransactions: true);
-        company.CurrencyCode.ShouldBe("MYR");
+        company.SetCurrency("IQD", hasSubmittedTransactions: true);
+        company.CurrencyCode.ShouldBe("IQD");
     }
 
     [Fact]

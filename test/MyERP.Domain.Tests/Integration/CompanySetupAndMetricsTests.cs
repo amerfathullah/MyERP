@@ -29,9 +29,9 @@ public class CompanySetupAndMetricsTests
     public void Company_CurrencyCode_CanBeSet()
     {
         var company = new Company(Guid.NewGuid(), "MY Corp");
-        company.CurrencyCode = "MYR";
+        company.CurrencyCode = "IQD";
 
-        company.CurrencyCode.ShouldBe("MYR");
+        company.CurrencyCode.ShouldBe("IQD");
     }
 
     [Fact]

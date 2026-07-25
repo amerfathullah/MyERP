@@ -43,7 +43,7 @@ export class OpportunityFormComponent implements OnInit {
       probability: [20, [Validators.min(0), Validators.max(100)]],
       expectedClosingDate: [''],
       opportunityAmount: [0, [Validators.min(0)]],
-      currencyCode: ['MYR'],
+      currencyCode: ['IQD'],
       territory: [''],
       companyId: ['', Validators.required],
       notes: [''],

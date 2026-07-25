@@ -32,7 +32,7 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal GrandTotal { get; set; }
     public decimal OutstandingAmount { get; set; }
-    public string Currency { get; set; } = "MYR";
+    public string Currency { get; set; } = "IQD";
 
     /// <summary>Payment gateway (if applicable).</summary>
     public string? PaymentGateway { get; set; }

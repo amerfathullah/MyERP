@@ -11,7 +11,7 @@
     <div class="col-md-4">
       <div class="card">
         <div class="card-body text-center py-3">
-          <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalAmount() | number:'1.2-2' }}</p>
+          <p class="fs-3 fw-bold text-success font-monospace">IQD {{ totalAmount() | number:'1.2-2' }}</p>
           <small class="text-muted">{{ '::UnbilledAmount' | abpLocalization }}</small>
         </div>
       </div>
@@ -89,7 +89,7 @@
                 <tr>
                   <td class="fw-medium">{{ item.activityType }}</td>
                   <td class="text-end">{{ item.totalHours | number:'1.1-1' }}h</td>
-                  <td class="text-end font-monospace">MYR {{ item.totalAmount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">IQD {{ item.totalAmount | number:'1.2-2' }}</td>
                   <td class="text-end">{{ item.entryCount }}</td>
                 </tr>
               }
@@ -98,7 +98,7 @@
               <tr class="fw-bold">
                 <td>{{ '::Total' | abpLocalization }}</td>
                 <td class="text-end">{{ totalHours() | number:'1.1-1' }}h</td>
-                <td class="text-end font-monospace">MYR {{ totalAmount() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">IQD {{ totalAmount() | number:'1.2-2' }}</td>
                 <td></td>
               </tr>
             </tfoot>

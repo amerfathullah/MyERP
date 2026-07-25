@@ -105,10 +105,10 @@ public class PaymentCycleTests
     [Fact]
     public void CurrencyExchange_StoredForLookup()
     {
-        var rate = new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.50m, new DateTime(2026, 7, 1));
+        var rate = new CurrencyExchange(Guid.NewGuid(), "USD", "IQD", 4.50m, new DateTime(2026, 7, 1));
 
         rate.FromCurrency.ShouldBe("USD");
-        rate.ToCurrency.ShouldBe("MYR");
+        rate.ToCurrency.ShouldBe("IQD");
         rate.ExchangeRate.ShouldBe(4.50m);
     }
 

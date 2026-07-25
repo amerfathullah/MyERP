@@ -109,12 +109,17 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
             // Auto-deduct loan EMI if employee has an active disbursed loan
             var loanRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
             var loanQuery = await loanRepo.GetQueryableAsync();
-            var activeLoan = loanQuery.FirstOrDefault(l =>
-                l.EmployeeId == employee.Id
-                && l.CompanyId == input.CompanyId
-                && (l.Status == MyERP.HumanResources.LoanStatus.Disbursed
-                    || l.Status == MyERP.HumanResources.LoanStatus.PartiallyRepaid)
-                && l.OutstandingBalance > 0);
+            // Filter by SQL-translatable fields in the DB, then evaluate the computed
+            // OutstandingBalance (a non-mapped property) in memory — EF Core cannot
+            // translate OutstandingBalance to SQL, which previously threw for every
+            // payroll run regardless of whether any loans existed.
+            var candidateLoans = await AsyncExecuter.ToListAsync(
+                loanQuery.Where(l =>
+                    l.EmployeeId == employee.Id
+                    && l.CompanyId == input.CompanyId
+                    && (l.Status == MyERP.HumanResources.LoanStatus.Disbursed
+                        || l.Status == MyERP.HumanResources.LoanStatus.PartiallyRepaid)));
+            var activeLoan = candidateLoans.FirstOrDefault(l => l.OutstandingBalance > 0);
 
             if (activeLoan != null && activeLoan.Emi > 0)
             {

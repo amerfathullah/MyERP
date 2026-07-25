@@ -50,7 +50,7 @@ public class CreateUpdateCompanyDto
 
     [Required]
     [StringLength(CompanyConsts.MaxCurrencyCodeLength)]
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     [Range(1, 12)]
     public int FiscalYearStartMonth { get; set; } = 1;

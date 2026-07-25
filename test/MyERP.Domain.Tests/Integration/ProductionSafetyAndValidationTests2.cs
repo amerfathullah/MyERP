@@ -83,7 +83,7 @@ public class ProductionSafetyAndValidationTests
             Guid.NewGuid(), "Customer", Guid.NewGuid(),
             "PaymentEntry", Guid.NewGuid(),
             "SalesInvoice", Guid.NewGuid(),
-            1000m, 1000m, "MYR");
+            1000m, 1000m, "IQD");
         ple.Delinked.ShouldBeFalse();
     }
 
@@ -96,7 +96,7 @@ public class ProductionSafetyAndValidationTests
             Guid.NewGuid(), "Customer", Guid.NewGuid(),
             "PaymentEntry", Guid.NewGuid(),
             "SalesInvoice", Guid.NewGuid(),
-            1000m, 1000m, "MYR");
+            1000m, 1000m, "IQD");
         ple.Delinked = true;
         ple.Delinked.ShouldBeTrue();
     }

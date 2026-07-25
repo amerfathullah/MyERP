@@ -49,11 +49,11 @@ public class MultiCurrencyPostingTests
     }
 
     [Fact]
-    public void StockEntry_CurrencyCode_DefaultsMYR()
+    public void StockEntry_CurrencyCode_DefaultsIQD()
     {
         var se = new MyERP.Inventory.Entities.StockEntry(
             Guid.NewGuid(), Guid.NewGuid(), MyERP.Inventory.StockEntryType.MaterialReceipt, DateTime.Today);
-        se.CurrencyCode.ShouldBe("MYR");
+        se.CurrencyCode.ShouldBe("IQD");
     }
 
     [Fact]
@@ -71,16 +71,16 @@ public class MultiCurrencyPostingTests
     [Fact]
     public void MultiCurrency_JournalEntryLine_CompanyAndAccountCurrencyDiffer()
     {
-        // USD invoice for MYR company at 4.72 rate
+        // USD invoice for IQD company at 4.72 rate
         var line = new JournalEntryLine(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            amountInCompanyCurrency: 4720m, // MYR
+            amountInCompanyCurrency: 4720m, // IQD
             isDebit: true,
             accountCurrency: "USD",
             amountInAccountCurrency: 1000m, // USD
             exchangeRate: 4.72m);
 
-        line.Amount.ShouldBe(4720m); // Company currency (MYR)
+        line.Amount.ShouldBe(4720m); // Company currency (IQD)
         line.AmountInAccountCurrency.ShouldBe(1000m); // Account currency (USD)
         line.ExchangeRate.ShouldBe(4.72m);
         line.AccountCurrency.ShouldBe("USD");
@@ -91,7 +91,7 @@ public class MultiCurrencyPostingTests
     {
         var line = new JournalEntryLine(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            500m, true, "MYR", 500m, 1m);
+            500m, true, "IQD", 500m, 1m);
 
         line.Amount.ShouldBe(500m);
         line.AmountInAccountCurrency.ShouldBe(500m);
@@ -101,11 +101,11 @@ public class MultiCurrencyPostingTests
     [Fact]
     public void JournalEntry_MultiCurrency_StillBalances()
     {
-        // An invoice in USD at rate 4.72: Grand Total = 1000 USD = 4720 MYR
+        // An invoice in USD at rate 4.72: Grand Total = 1000 USD = 4720 IQD
         var je = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
 
-        je.AddLine(Guid.NewGuid(), 4720m, true); // DR Receivable (MYR)
-        je.AddLine(Guid.NewGuid(), 4720m, false); // CR Revenue (MYR)
+        je.AddLine(Guid.NewGuid(), 4720m, true); // DR Receivable (IQD)
+        je.AddLine(Guid.NewGuid(), 4720m, false); // CR Revenue (IQD)
 
         // Balance check is ALWAYS in company currency
         je.Validate(); // Should not throw

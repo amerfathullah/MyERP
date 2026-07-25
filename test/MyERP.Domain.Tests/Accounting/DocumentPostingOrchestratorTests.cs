@@ -94,10 +94,10 @@ public class DocumentPostingOrchestratorTests
     public void MultiCurrency_BaseAmount_Calculation()
     {
         var invoiceTotal = 1000m; // USD
-        var exchangeRate = 4.72m; // MYR per USD
+        var exchangeRate = 4.72m; // IQD per USD
         var baseAmount = Math.Round(invoiceTotal * exchangeRate, 2);
 
-        baseAmount.ShouldBe(4720m); // MYR
+        baseAmount.ShouldBe(4720m); // IQD
     }
 
     [Fact]

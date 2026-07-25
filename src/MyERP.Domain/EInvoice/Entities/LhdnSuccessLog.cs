@@ -51,7 +51,7 @@ public class LhdnSuccessLog : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal GrandTotal { get; set; }
 
     /// <summary>Currency code.</summary>
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     protected LhdnSuccessLog() { }
 

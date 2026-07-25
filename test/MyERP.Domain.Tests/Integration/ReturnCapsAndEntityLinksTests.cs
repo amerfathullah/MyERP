@@ -97,17 +97,17 @@ public class ReturnCapsAndEntityLinksTests
     public void Company_SetCurrency_SameCurrency_AlwaysSucceeds()
     {
         var company = new Company(Guid.NewGuid(), "Test Corp");
-        company.CurrencyCode = "MYR";
+        company.CurrencyCode = "IQD";
         // Even with transactions, same currency should work
-        company.SetCurrency("MYR", hasSubmittedTransactions: true);
-        company.CurrencyCode.ShouldBe("MYR");
+        company.SetCurrency("IQD", hasSubmittedTransactions: true);
+        company.CurrencyCode.ShouldBe("IQD");
     }
 
     [Fact]
     public void Company_SetCurrency_DifferentCurrency_WithTransactions_Throws()
     {
         var company = new Company(Guid.NewGuid(), "Test Corp");
-        company.CurrencyCode = "MYR";
+        company.CurrencyCode = "IQD";
 
         var ex = Should.Throw<BusinessException>(() =>
             company.SetCurrency("USD", hasSubmittedTransactions: true));

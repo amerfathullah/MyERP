@@ -64,7 +64,7 @@ public class RequestForQuotationAppService : ApplicationService
     {
         var rfqNumber = await _numberGenerator.GenerateAsync("RFQ", input.CompanyId);
         var rfq = new RequestForQuotation(GuidGenerator.Create(), input.CompanyId, rfqNumber, input.TransactionDate, CurrentTenant.Id);
-        rfq.CurrencyCode = input.CurrencyCode ?? "MYR";
+        rfq.CurrencyCode = input.CurrencyCode ?? "IQD";
         rfq.MessageForSupplier = input.MessageForSupplier;
 
         // Validate all items are active

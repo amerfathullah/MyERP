@@ -81,7 +81,7 @@ public class ExchangeRateRevaluationAppService : ApplicationService
     public async Task<ExchangeRateRevaluationDto> CreateRevaluationAsync(CreateRevaluationDto input)
     {
         var accounts = await _service.GetEligibleAccountsAsync(
-            input.CompanyId, "MYR", input.PostingDate);
+            input.CompanyId, "IQD", input.PostingDate);
         var totalGainLoss = accounts.Sum(a => a.GainLoss);
 
         return new ExchangeRateRevaluationDto

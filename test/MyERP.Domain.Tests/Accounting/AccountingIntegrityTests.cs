@@ -128,8 +128,8 @@ public class AccountingIntegrityTests
     [Fact]
     public void StaleRate_SameCurrency_NeverStale()
     {
-        // Same currency pair (MYR→MYR) is always fresh (rate = 1.0)
-        bool isSameCurrency = string.Equals("MYR", "MYR", StringComparison.OrdinalIgnoreCase);
+        // Same currency pair (IQD→IQD) is always fresh (rate = 1.0)
+        bool isSameCurrency = string.Equals("IQD", "IQD", StringComparison.OrdinalIgnoreCase);
         isSameCurrency.ShouldBeTrue();
         // No stale check needed for same currency
     }
@@ -151,14 +151,14 @@ public class AccountingIntegrityTests
         var info = new StaleCurrencyPairInfo
         {
             FromCurrency = "USD",
-            ToCurrency = "MYR",
+            ToCurrency = "IQD",
             LastRateDate = DateTime.UtcNow.AddDays(-10),
             LastRate = 4.72m,
             DaysSinceUpdate = 10
         };
 
         info.FromCurrency.ShouldBe("USD");
-        info.ToCurrency.ShouldBe("MYR");
+        info.ToCurrency.ShouldBe("IQD");
         info.DaysSinceUpdate.ShouldBe(10);
     }
 

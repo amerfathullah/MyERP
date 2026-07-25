@@ -28,7 +28,7 @@ export class CompanySettingsComponent implements OnInit {
   isLoading = signal(false);
 
   form = this.fb.group({
-    defaultCurrency: ['MYR'],
+    defaultCurrency: ['IQD'],
     fiscalYearStartMonth: [1],
     stockFrozenUpto: [''],
     accountsFrozenTillDate: [''],
@@ -58,7 +58,7 @@ export class CompanySettingsComponent implements OnInit {
     this.selectedCompany.set(company);
     const c = company as any;
     this.form.patchValue({
-      defaultCurrency: c.defaultCurrency ?? 'MYR',
+      defaultCurrency: c.defaultCurrency ?? 'IQD',
       stockFrozenUpto: c.stockFrozenUpto ?? '',
       accountsFrozenTillDate: c.accountsFrozenTillDate ?? '',
       defaultReceivableAccountId: c.defaultReceivableAccountId ?? '',

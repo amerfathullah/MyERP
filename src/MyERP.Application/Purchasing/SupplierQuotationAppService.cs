@@ -44,7 +44,7 @@ public class CreateSupplierQuotationDto
     public string? SupplierName { get; set; }
     public DateTime TransactionDate { get; set; }
     public DateTime? ValidTill { get; set; }
-    public string Currency { get; set; } = "MYR";
+    public string Currency { get; set; } = "IQD";
     public Guid? RequestForQuotationId { get; set; }
     public CreateSQItemDto[] Items { get; set; } = [];
 }

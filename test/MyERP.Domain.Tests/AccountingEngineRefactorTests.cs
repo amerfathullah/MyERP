@@ -223,7 +223,7 @@ public class AccountingEngineRefactorTests
             "INV-002", DateTime.Today);
         IAccountableDocument doc = si;
         Assert.Equal("SalesInvoice", doc.DocumentType);
-        Assert.Equal("MYR", doc.CurrencyCode);
+        Assert.Equal("IQD", doc.CurrencyCode);
         Assert.Equal(1m, doc.ExchangeRate);
     }
 

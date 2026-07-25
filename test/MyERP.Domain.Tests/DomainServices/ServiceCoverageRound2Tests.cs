@@ -377,7 +377,7 @@ public class LoyaltyProgramEntityTests
     private static LoyaltyProgram CreateProgram()
     {
         var p = new LoyaltyProgram(Guid.NewGuid(), Guid.NewGuid(),
-            "Test Loyalty", 100m, 365); // 100 MYR per point, 365 day expiry
+            "Test Loyalty", 100m, 365); // 100 IQD per point, 365 day expiry
         p.AddTier("Bronze", 0m, 1.0m, 0.5m);
         p.AddTier("Silver", 5000m, 1.5m, 0.75m);
         p.AddTier("Gold", 20000m, 2.0m, 1.0m);

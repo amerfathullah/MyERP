@@ -159,7 +159,7 @@ public class OpportunityDto : AuditedEntityDto<Guid>
     public int Probability { get; set; }
     public DateTime? ExpectedClosingDate { get; set; }
     public decimal OpportunityAmount { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public Guid CompanyId { get; set; }
     public Guid? AssignedUserId { get; set; }
     public string? Territory { get; set; }
@@ -203,7 +203,7 @@ public class CreateOpportunityDto
     public decimal OpportunityAmount { get; set; }
 
     [StringLength(OpportunityConsts.MaxCurrencyCodeLength)]
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     [Required]
     public Guid CompanyId { get; set; }
@@ -254,7 +254,7 @@ public class UpdateOpportunityDto
     public decimal OpportunityAmount { get; set; }
 
     [StringLength(OpportunityConsts.MaxCurrencyCodeLength)]
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     public Guid? AssignedUserId { get; set; }
     public string? Territory { get; set; }

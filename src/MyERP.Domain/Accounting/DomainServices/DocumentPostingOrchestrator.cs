@@ -62,7 +62,7 @@ public class DocumentPostingOrchestrator : DomainService
         IAccountableDocument invoice,
         Guid receivableAccountId,
         DateTime? dueDate = null,
-        string accountCurrency = "MYR",
+        string accountCurrency = "IQD",
         decimal exchangeRate = 1m)
     {
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);
@@ -106,7 +106,7 @@ public class DocumentPostingOrchestrator : DomainService
         IAccountableDocument invoice,
         Guid payableAccountId,
         DateTime? dueDate = null,
-        string accountCurrency = "MYR",
+        string accountCurrency = "IQD",
         decimal exchangeRate = 1m)
     {
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);

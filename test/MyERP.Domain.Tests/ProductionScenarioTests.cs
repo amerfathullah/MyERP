@@ -287,11 +287,11 @@ public class ProductionScenarioTests
     public void Scenario_MultiCurrency_BaseAmountCalculation()
     {
         var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-FX-001", DateTime.Today);
-        si.ExchangeRate = 4.72m; // USD → MYR
+        si.ExchangeRate = 4.72m; // USD → IQD
 
         // USD 5,000 invoice
         si.GrandTotal = 5000m;
-        si.BaseGrandTotal = 5000m * 4.72m; // 23,600 MYR
+        si.BaseGrandTotal = 5000m * 4.72m; // 23,600 IQD
 
         Assert.Equal(23600m, si.BaseGrandTotal);
         Assert.Equal(5000m, si.GrandTotal);

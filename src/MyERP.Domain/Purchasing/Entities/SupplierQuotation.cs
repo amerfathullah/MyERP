@@ -25,7 +25,7 @@ public class SupplierQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime? ValidTill { get; set; }
 
     /// <summary>Currency of the quotation.</summary>
-    public string Currency { get; set; } = "MYR";
+    public string Currency { get; set; } = "IQD";
     public decimal ExchangeRate { get; set; } = 1;
 
     /// <summary>Link to Request for Quotation (if created from RFQ).</summary>

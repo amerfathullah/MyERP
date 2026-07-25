@@ -19,7 +19,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public string? State { get; set; }
     public string? PostalCode { get; set; }
     public string? Country { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public int FiscalYearStartMonth { get; set; }
     public bool IsActive { get; set; }
 }

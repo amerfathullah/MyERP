@@ -458,7 +458,7 @@ public class PaymentEntryAppService : ApplicationService
                     CurrentUser.Id.Value,
                     pe.PartyType ?? "Customer",
                     pe.PaidAmount,
-                    pe.CurrencyCode ?? "MYR",
+                    pe.CurrencyCode ?? "IQD",
                     pe.Id,
                     pe.TenantId);
             }

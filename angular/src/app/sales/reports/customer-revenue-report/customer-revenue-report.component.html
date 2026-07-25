@@ -31,7 +31,7 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-body text-center py-3">
-            <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalRevenue() | number:'1.2-2' }}</p>
+            <p class="fs-3 fw-bold text-success font-monospace">IQD {{ totalRevenue() | number:'1.2-2' }}</p>
             <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
           </div>
         </div>
@@ -39,7 +39,7 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-body text-center py-3">
-            <p class="fs-3 fw-bold text-danger font-monospace">MYR {{ totalOutstanding() | number:'1.2-2' }}</p>
+            <p class="fs-3 fw-bold text-danger font-monospace">IQD {{ totalOutstanding() | number:'1.2-2' }}</p>
             <small class="text-muted">{{ '::TotalOutstanding' | abpLocalization }}</small>
           </div>
         </div>
@@ -87,10 +87,10 @@
                     <a [routerLink]="['/customers', item.customerId, 'edit']" class="text-decoration-none">{{ item.customerName }}</a>
                   </td>
                   <td class="text-end">{{ item.invoiceCount }}</td>
-                  <td class="text-end font-monospace fw-bold text-success">MYR {{ item.totalRevenue | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace">MYR {{ item.totalPaid | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold text-success">IQD {{ item.totalRevenue | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">IQD {{ item.totalPaid | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace" [class.text-danger]="item.totalOutstanding > 0">
-                    MYR {{ item.totalOutstanding | number:'1.2-2' }}
+                    IQD {{ item.totalOutstanding | number:'1.2-2' }}
                   </td>
                 </tr>
               }
@@ -98,9 +98,9 @@
             <tfoot>
               <tr class="fw-bold border-top-2">
                 <td colspan="3">{{ '::Total' | abpLocalization }} ({{ customerCount() }} customers)</td>
-                <td class="text-end font-monospace text-success">MYR {{ totalRevenue() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace text-success">IQD {{ totalRevenue() | number:'1.2-2' }}</td>
                 <td></td>
-                <td class="text-end font-monospace text-danger">MYR {{ totalOutstanding() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace text-danger">IQD {{ totalOutstanding() | number:'1.2-2' }}</td>
               </tr>
             </tfoot>
           </table>

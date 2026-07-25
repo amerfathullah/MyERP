@@ -21,7 +21,7 @@ public class JournalEntryLine : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>True = Debit, False = Credit.</summary>
     public bool IsDebit { get; set; }
 
-    /// <summary>Account currency code (e.g., "USD", "MYR"). When null, defaults to company currency.</summary>
+    /// <summary>Account currency code (e.g., "USD", "IQD"). When null, defaults to company currency.</summary>
     public string? AccountCurrency { get; set; }
 
     /// <summary>

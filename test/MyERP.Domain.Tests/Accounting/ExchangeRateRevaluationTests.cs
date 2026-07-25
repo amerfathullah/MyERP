@@ -56,8 +56,8 @@ public class ExchangeRateRevaluationTests
         var err = CreateERR();
         var accountId = Guid.NewGuid();
 
-        // USD account: 10,000 USD at old rate 4.2 = 42,000 MYR
-        // New rate 4.5 → new balance 45,000 MYR → gain = 3,000
+        // USD account: 10,000 USD at old rate 4.2 = 42,000 IQD
+        // New rate 4.5 → new balance 45,000 IQD → gain = 3,000
         err.AddEntry(accountId, "USD", 10_000m, 42_000m, 4.5m);
 
         Assert.Single(err.Entries);
@@ -75,8 +75,8 @@ public class ExchangeRateRevaluationTests
         var err = CreateERR();
         var accountId = Guid.NewGuid();
 
-        // USD account: 10,000 USD at old rate 4.5 = 45,000 MYR
-        // New rate 4.2 → new balance 42,000 MYR → loss = -3,000
+        // USD account: 10,000 USD at old rate 4.5 = 45,000 IQD
+        // New rate 4.2 → new balance 42,000 IQD → loss = -3,000
         err.AddEntry(accountId, "USD", 10_000m, 45_000m, 4.2m);
 
         var entry = err.Entries.First();

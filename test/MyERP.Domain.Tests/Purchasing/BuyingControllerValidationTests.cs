@@ -254,7 +254,7 @@ public class BankTransactionFeeTests
         var bt = CreateBankTransaction();
         bt.CurrencyCode = "USD";
 
-        Assert.Throws<BusinessException>(() => bt.ValidateCurrency("MYR"))
+        Assert.Throws<BusinessException>(() => bt.ValidateCurrency("IQD"))
             .Code.ShouldBe(MyERPDomainErrorCodes.BankTransactionCurrencyMismatch);
     }
 
@@ -262,9 +262,9 @@ public class BankTransactionFeeTests
     public void ValidateCurrency_Matches_NoThrow()
     {
         var bt = CreateBankTransaction();
-        bt.CurrencyCode = "MYR";
+        bt.CurrencyCode = "IQD";
 
-        bt.ValidateCurrency("MYR"); // should not throw
+        bt.ValidateCurrency("IQD"); // should not throw
     }
 
     [Fact]

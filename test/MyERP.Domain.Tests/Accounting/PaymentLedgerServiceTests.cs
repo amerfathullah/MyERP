@@ -28,7 +28,7 @@ public class PaymentLedgerServiceTests
             _accountId, "Customer", _customerId,
             "SalesInvoice", invoiceId,
             "SalesInvoice", invoiceId,
-            1000, 1000, "MYR");
+            1000, 1000, "IQD");
 
         ple.CompanyId.ShouldBe(_companyId);
         ple.PartyType.ShouldBe("Customer");
@@ -36,7 +36,7 @@ public class PaymentLedgerServiceTests
         ple.VoucherType.ShouldBe("SalesInvoice");
         ple.Amount.ShouldBe(1000);
         ple.AmountInAccountCurrency.ShouldBe(1000);
-        ple.AccountCurrency.ShouldBe("MYR");
+        ple.AccountCurrency.ShouldBe("IQD");
         ple.Delinked.ShouldBeFalse();
         ple.IsReversal.ShouldBeFalse();
     }
@@ -213,6 +213,6 @@ public class PaymentLedgerServiceTests
             _accountId, "Customer", _customerId,
             "SalesInvoice", invoiceId,
             "SalesInvoice", invoiceId,
-            amount, amount, "MYR");
+            amount, amount, "IQD");
     }
 }

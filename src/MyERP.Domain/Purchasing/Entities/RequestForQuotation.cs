@@ -20,7 +20,7 @@ public class RequestForQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string RfqNumber { get; set; } = null!;
     public DateTime TransactionDate { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public string? MessageForSupplier { get; set; }
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;

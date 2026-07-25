@@ -36,7 +36,7 @@ public class PaymentEntryExchangeTests
     public void BaseAmount_CalculatesCorrectly()
     {
         var pe = CreatePE(1000m, "USD");
-        pe.ExchangeRate = 4.5m; // 1 USD = 4.5 MYR
+        pe.ExchangeRate = 4.5m; // 1 USD = 4.5 IQD
         pe.BaseAmount.ShouldBe(4500m);
     }
 
@@ -70,10 +70,10 @@ public class PaymentEntryExchangeTests
     }
 
     [Fact]
-    public void ExchangeGainLoss_MYRPayment_AlwaysZero()
+    public void ExchangeGainLoss_IQDPayment_AlwaysZero()
     {
-        // MYR payments have rate = 1 always
-        var pe = CreatePE(5000m, "MYR");
+        // IQD payments have rate = 1 always
+        var pe = CreatePE(5000m, "IQD");
         pe.ExchangeRate = 1m;
         pe.SourceExchangeRate = 1m;
         pe.ExchangeGainLoss.ShouldBe(0m);

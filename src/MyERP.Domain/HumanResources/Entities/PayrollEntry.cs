@@ -26,7 +26,7 @@ public class PayrollEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string PeriodLabel => $"{new DateTime(Year, Month, 1):MMMM yyyy}";
 
     public DateTime PostingDate { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     public decimal TotalGrossSalary { get; set; }
     public decimal TotalDeductions { get; set; }

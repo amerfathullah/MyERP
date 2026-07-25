@@ -33,7 +33,7 @@ export class AccountFormComponent implements OnInit {
     accountType: [AccountType.Asset, Validators.required],
     parentAccountId: [null as string | null],
     isGroup: [false],
-    currency: ['MYR'],
+    currency: ['IQD'],
     description: [''],
   });
 

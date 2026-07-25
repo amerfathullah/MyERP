@@ -24,7 +24,7 @@ import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'ToCurrency' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="toCurrency" maxlength="3" placeholder="MYR" />
+              <input type="text" class="form-control" formControlName="toCurrency" maxlength="3" placeholder="IQD" />
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'ExchangeRate' | abpLocalization }}</label>
@@ -94,7 +94,7 @@ export class CurrencyExchangeComponent implements OnInit {
 
   form = this.fb.group({
     fromCurrency: ['USD', [Validators.required, Validators.maxLength(3)]],
-    toCurrency: ['MYR', [Validators.required, Validators.maxLength(3)]],
+    toCurrency: ['IQD', [Validators.required, Validators.maxLength(3)]],
     exchangeRate: [4.5, [Validators.required, Validators.min(0.000001)]],
     date: [new Date().toISOString().split('T')[0], Validators.required],
   });

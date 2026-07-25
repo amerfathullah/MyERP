@@ -4,8 +4,8 @@ import { CurrencyFormatPipe } from './currency-format.pipe';
 describe('CurrencyFormatPipe', () => {
   const pipe = new CurrencyFormatPipe();
 
-  it('should format with default MYR currency', () => {
-    expect(pipe.transform(1234.56)).toBe('MYR 1,234.56');
+  it('should format with default IQD currency', () => {
+    expect(pipe.transform(1234.56)).toBe('IQD 1,234.56');
   });
 
   it('should format with custom currency', () => {
@@ -13,11 +13,11 @@ describe('CurrencyFormatPipe', () => {
   });
 
   it('should handle zero', () => {
-    expect(pipe.transform(0)).toBe('MYR 0.00');
+    expect(pipe.transform(0)).toBe('IQD 0.00');
   });
 
   it('should handle large numbers with thousand separators', () => {
-    expect(pipe.transform(1234567.89)).toBe('MYR 1,234,567.89');
+    expect(pipe.transform(1234567.89)).toBe('IQD 1,234,567.89');
   });
 
   it('should handle null', () => {
@@ -29,18 +29,18 @@ describe('CurrencyFormatPipe', () => {
   });
 
   it('should respect custom decimal places', () => {
-    expect(pipe.transform(99.999, 'MYR', 3)).toBe('MYR 99.999');
+    expect(pipe.transform(99.999, 'IQD', 3)).toBe('IQD 99.999');
   });
 
   it('should round to specified decimals', () => {
-    expect(pipe.transform(10.456, 'MYR', 2)).toBe('MYR 10.46');
+    expect(pipe.transform(10.456, 'IQD', 2)).toBe('IQD 10.46');
   });
 
   it('should format small amounts', () => {
-    expect(pipe.transform(0.5)).toBe('MYR 0.50');
+    expect(pipe.transform(0.5)).toBe('IQD 0.50');
   });
 
   it('should handle negative amounts', () => {
-    expect(pipe.transform(-1500.75)).toBe('MYR -1,500.75');
+    expect(pipe.transform(-1500.75)).toBe('IQD -1,500.75');
   });
 });

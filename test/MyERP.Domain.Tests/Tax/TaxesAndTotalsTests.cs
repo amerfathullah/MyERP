@@ -298,7 +298,7 @@ public class TaxesAndTotalsTests
             new(Guid.NewGuid(), "SalesInvoice", Guid.NewGuid(), 1, "SST 8%", "On Net Total", 8),
         };
 
-        decimal exchangeRate = 4.5m; // 1 USD = 4.5 MYR
+        decimal exchangeRate = 4.5m; // 1 USD = 4.5 IQD
         var result = _service.Calculate(items, taxes, exchangeRate: exchangeRate);
 
         result.NetTotal.ShouldBe(100m);

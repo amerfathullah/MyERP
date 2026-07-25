@@ -71,7 +71,7 @@ public class CreateSalesInvoiceDto
     public DateTime? DueDate { get; set; }
 
     [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     public string? Notes { get; set; }
 

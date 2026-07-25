@@ -164,7 +164,7 @@ public class BatchPaymentInvoiceDto
     public DateTime? DueDate { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal Outstanding { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 }
 
 public class CreateBatchPaymentDto

@@ -28,7 +28,7 @@ public class AccountingRuleEngineTests
         public Guid? CustomerId { get; set; }
         public Guid? SupplierId { get; set; }
         public DateTime PostingDate { get; set; } = DateTime.Today;
-        public string CurrencyCode { get; set; } = "MYR";
+        public string CurrencyCode { get; set; } = "IQD";
         public decimal ExchangeRate { get; set; } = 1m;
     }
 

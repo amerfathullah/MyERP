@@ -23,7 +23,7 @@ public class ItemPrice : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string Uom { get; set; } = "Unit";
 
     /// <summary>Currency (inherited from price list but stored for lookup).</summary>
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
 
     /// <summary>Minimum quantity for this price to apply (qty-based pricing).</summary>
     public decimal MinQty { get; set; }

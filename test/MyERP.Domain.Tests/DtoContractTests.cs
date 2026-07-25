@@ -44,10 +44,10 @@ public class DtoContractTests
     }
 
     [Fact]
-    public void CreateSalesInvoiceDto_DefaultCurrency_IsMYR()
+    public void CreateSalesInvoiceDto_DefaultCurrency_IsIQD()
     {
         var dto = new CreateSalesInvoiceDto();
-        Assert.Equal("MYR", dto.CurrencyCode);
+        Assert.Equal("IQD", dto.CurrencyCode);
     }
 
     [Fact]

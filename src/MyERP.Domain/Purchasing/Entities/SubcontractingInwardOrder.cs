@@ -30,7 +30,7 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
     /// <summary>Linked Subcontracting Order for RM supply tracking.</summary>
     public Guid? SubcontractingOrderId { get; set; }
 
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public decimal ExchangeRate { get; set; } = 1;
 
     public decimal NetTotal { get; set; }

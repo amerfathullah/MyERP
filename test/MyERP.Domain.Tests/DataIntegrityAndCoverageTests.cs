@@ -196,9 +196,9 @@ public class DataIntegrityAndCoverageTests
     [Fact]
     public void CurrencyExchange_Create_SetsProperties()
     {
-        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.72m, new DateTime(2026, 1, 1));
+        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "IQD", 4.72m, new DateTime(2026, 1, 1));
         Assert.Equal("USD", ce.FromCurrency);
-        Assert.Equal("MYR", ce.ToCurrency);
+        Assert.Equal("IQD", ce.ToCurrency);
         Assert.Equal(4.72m, ce.ExchangeRate);
     }
 
@@ -213,7 +213,7 @@ public class DataIntegrityAndCoverageTests
     [Fact]
     public void CurrencyExchange_InverseRate_Calculation()
     {
-        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.72m, DateTime.Today);
+        var ce = new CurrencyExchange(Guid.NewGuid(), "USD", "IQD", 4.72m, DateTime.Today);
         // Inverse: 1/4.72 = ~0.2118644
         var inverse = 1m / ce.ExchangeRate;
         Assert.True(inverse > 0.21m && inverse < 0.22m);

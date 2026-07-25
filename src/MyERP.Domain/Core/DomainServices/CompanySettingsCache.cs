@@ -74,7 +74,7 @@ public class CompanySettingsCacheItem
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
-    public string CurrencyCode { get; set; } = "MYR";
+    public string CurrencyCode { get; set; } = "IQD";
     public int FiscalYearStartMonth { get; set; }
     public DateTime? StockFrozenUpto { get; set; }
     public DateTime? AccountsFrozenTillDate { get; set; }

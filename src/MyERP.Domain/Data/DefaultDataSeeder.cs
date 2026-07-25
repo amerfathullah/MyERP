@@ -141,10 +141,10 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         if (await _priceListRepository.GetCountAsync() > 0) return;
 
         await _priceListRepository.InsertAsync(
-            new PriceList(_guidGenerator.Create(), "Standard Selling", "MYR", isSelling: true, isBuying: false) { IsDefault = true },
+            new PriceList(_guidGenerator.Create(), "Standard Selling", "IQD", isSelling: true, isBuying: false) { IsDefault = true },
             autoSave: true);
         await _priceListRepository.InsertAsync(
-            new PriceList(_guidGenerator.Create(), "Standard Buying", "MYR", isSelling: false, isBuying: true) { IsDefault = true },
+            new PriceList(_guidGenerator.Create(), "Standard Buying", "IQD", isSelling: false, isBuying: true) { IsDefault = true },
             autoSave: true);
     }
 
@@ -553,6 +553,9 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
             ("OMR", "USD", 0.3845m),
             ("QAR", "USD", 3.64m),
             ("SAR", "USD", 3.75m),
+            // Iraqi Dinar — official CBI rate (USD is the secondary currency for MyERP demo)
+            ("USD", "IQD", 1320m),
+            ("IQD", "USD", 0.000758m),
         };
 
         foreach (var (from, to, rate) in peggedRates)

@@ -53,7 +53,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     supplierTin: [''],
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
-    currencyCode: ['MYR'],
+    currencyCode: ['IQD'],
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],

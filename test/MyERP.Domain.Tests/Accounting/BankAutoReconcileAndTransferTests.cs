@@ -259,14 +259,14 @@ public class BankAutoReconcileAndTransferTests
             TransactionDate = DateTime.Today,
             Deposit = 5000m,
             Withdrawal = 0m,
-            CurrencyCode = "MYR"
+            CurrencyCode = "IQD"
         };
 
         result.TransactionId.ShouldNotBe(Guid.Empty);
         result.BankAccountId.ShouldNotBe(Guid.Empty);
         result.ReferenceNumber.ShouldBe("REF-123");
         result.Deposit.ShouldBe(5000m);
-        result.CurrencyCode.ShouldBe("MYR");
+        result.CurrencyCode.ShouldBe("IQD");
     }
 
     [Fact]

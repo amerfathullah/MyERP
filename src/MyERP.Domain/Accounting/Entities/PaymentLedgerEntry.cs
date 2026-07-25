@@ -44,7 +44,7 @@ public class PaymentLedgerEntry : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal AmountInAccountCurrency { get; set; }
 
     /// <summary>Account currency code.</summary>
-    public string AccountCurrency { get; set; } = "MYR";
+    public string AccountCurrency { get; set; } = "IQD";
 
     /// <summary>Due date for this outstanding amount.</summary>
     public DateTime? DueDate { get; set; }

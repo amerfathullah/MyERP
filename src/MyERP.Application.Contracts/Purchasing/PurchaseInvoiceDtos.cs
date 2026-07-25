@@ -57,7 +57,7 @@ public class CreatePurchaseInvoiceDto
     public DateTime? DueDate { get; set; }
     public Guid? PaymentTermsTemplateId { get; set; }
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
-    [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
+    [StringLength(3)] public string CurrencyCode { get; set; } = "IQD";
     public string? Notes { get; set; }
 
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>

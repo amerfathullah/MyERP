@@ -15,7 +15,7 @@
           <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-start"
             style="height: 6rem;" (click)="addToCart(item)">
             <span class="fw-medium small">{{ item.itemName }}</span>
-            <span class="small text-muted font-monospace">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
+            <span class="small text-muted font-monospace">IQD {{ item.sellingPrice | number:'1.2-2' }}</span>
           </button>
         </div>
       }
@@ -35,7 +35,7 @@
             <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
               <div class="flex-grow-1">
                 <p class="fw-medium small mb-0">{{ item.itemName }}</p>
-                <p class="small text-muted mb-0">MYR {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
+                <p class="small text-muted mb-0">IQD {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <span class="font-monospace small fw-medium">{{ item.amount | number:'1.2-2' }}</span>
@@ -53,23 +53,23 @@
       <div class="p-3">
         <div class="d-flex justify-content-between mb-2">
           <span class="text-muted">Subtotal</span>
-          <span class="font-monospace">MYR {{ netTotal | number:'1.2-2' }}</span>
+          <span class="font-monospace">IQD {{ netTotal | number:'1.2-2' }}</span>
         </div>
         <div class="d-flex justify-content-between fs-5 fw-bold mb-3">
           <span>Total</span>
-          <span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
+          <span class="font-monospace">IQD {{ grandTotal | number:'1.2-2' }}</span>
         </div>
         <div class="mb-2">
           <label class="form-label">Amount Received</label>
           <div class="input-group">
-            <span class="input-group-text">MYR</span>
+            <span class="input-group-text">IQD</span>
             <input class="form-control" type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
           </div>
         </div>
         @if (change > 0) {
           <div class="d-flex justify-content-between mb-3 text-success fw-bold">
             <span>Change</span>
-            <span class="font-monospace">MYR {{ change | number:'1.2-2' }}</span>
+            <span class="font-monospace">IQD {{ change | number:'1.2-2' }}</span>
           </div>
         }
         <button class="btn btn-primary w-100 py-2 fs-5"
