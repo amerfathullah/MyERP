@@ -525,6 +525,7 @@ function configureRoutes() {
       {
         path: '',
         name: '::Menu:Projects',
+        invisible: true,
         iconClass: 'fas fa-project-diagram',
         order: 9,
         layout: eLayoutType.application,
@@ -533,6 +534,7 @@ function configureRoutes() {
       {
         path: '/projects',
         name: '::Menu:ProjectList',
+        invisible: true,
         iconClass: 'fas fa-list',
         order: 1,
         parentName: '::Menu:Projects',
@@ -559,6 +561,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/work-orders',
         name: '::Menu:Manufacturing',
+        invisible: true,
         iconClass: 'fas fa-industry',
         order: 11,
         layout: eLayoutType.application,
@@ -567,6 +570,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/production-plans',
         name: '::Menu:ProductionPlans',
+        invisible: true,
         iconClass: 'fas fa-clipboard-list',
         order: 12,
         parentName: '::Menu:Manufacturing',
@@ -576,6 +580,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/bom',
         name: '::Menu:BillOfMaterials',
+        invisible: true,
         iconClass: 'fas fa-sitemap',
         order: 13,
         parentName: '::Menu:Manufacturing',
@@ -585,6 +590,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/settings',
         name: '::Menu:ManufacturingSettings',
+        invisible: true,
         iconClass: 'fas fa-sliders',
         order: 14,
         parentName: '::Menu:Manufacturing',
@@ -656,6 +662,7 @@ function configureRoutes() {
       {
         path: '/projects/timesheets',
         name: '::Menu:Timesheets',
+        invisible: true,
         iconClass: 'fas fa-clock',
         order: 14,
         parentName: '::Menu:Projects',
@@ -665,6 +672,7 @@ function configureRoutes() {
       {
         path: '/projects/timesheet-billing',
         name: '::Menu:TimesheetBilling',
+        invisible: true,
         iconClass: 'fas fa-file-invoice-dollar',
         order: 15,
         parentName: '::Menu:Projects',
@@ -719,6 +727,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/workstations',
         name: '::Menu:Workstations',
+        invisible: true,
         iconClass: 'fas fa-gear',
         order: 5,
         parentName: '::Menu:Manufacturing',
@@ -728,6 +737,7 @@ function configureRoutes() {
       {
         path: '/manufacturing/job-cards',
         name: '::Menu:JobCards',
+        invisible: true,
         iconClass: 'fas fa-id-card',
         order: 6,
         parentName: '::Menu:Manufacturing',
