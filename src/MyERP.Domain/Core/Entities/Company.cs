@@ -80,6 +80,59 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Exchange gain/loss account (multi-currency).</summary>
     public Guid? ExchangeGainLossAccountId { get; set; }
 
+    // --- Advance Payment Settings (per ERPNext gotcha #205) ---
+
+    /// <summary>
+    /// When true, advance payments are routed to a separate liability/receivable account
+    /// instead of the regular party account. Enables advance tracking before invoicing.
+    /// Per ERPNext: Company.book_advance_payments_in_separate_party_account.
+    /// </summary>
+    public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
+
+    /// <summary>Default Advance Received account (Customer advances → Liability).</summary>
+    public Guid? DefaultAdvanceReceivedAccountId { get; set; }
+
+    /// <summary>Default Advance Paid account (Supplier advances → Asset).</summary>
+    public Guid? DefaultAdvancePaidAccountId { get; set; }
+
+    // --- Additional Settings ---
+
+    /// <summary>Enable perpetual inventory (stock movements create GL entries automatically).</summary>
+    public bool EnablePerpetualInventory { get; set; } = true;
+
+    /// <summary>
+    /// Round-off account for opening balance entries.
+    /// Per ERPNext gotcha #200: opening entries use a DIFFERENT round-off account.
+    /// </summary>
+    public Guid? RoundOffForOpeningAccountId { get; set; }
+
+    /// <summary>Default round-off account (for non-opening transaction rounding).</summary>
+    public Guid? RoundOffAccountId { get; set; }
+
+    /// <summary>Stock Received But Not Billed (GRNI) account for perpetual inventory.</summary>
+    public Guid? StockReceivedButNotBilledAccountId { get; set; }
+
+    /// <summary>Stock Delivered But Not Billed (SDBNB) account for perpetual inventory.</summary>
+    public Guid? StockDeliveredButNotBilledAccountId { get; set; }
+
+    /// <summary>Reporting currency for financial reports (default: same as CurrencyCode).</summary>
+    public string? ReportingCurrency { get; set; }
+
+    /// <summary>Auto-exchange rate revaluation: enables automated period-end revaluation.</summary>
+    public bool AutoExchangeRateRevaluation { get; set; }
+
+    /// <summary>Over-delivery/receipt allowance percentage (0 = exact match required).</summary>
+    public decimal OverDeliveryReceiptAllowance { get; set; }
+
+    /// <summary>Over-billing allowance percentage.</summary>
+    public decimal OverBillingAllowance { get; set; }
+
+    /// <summary>
+    /// Enable Proforma Invoice creation from Sales Orders (v16 feature, PR #57263).
+    /// Per gotcha #2454: gated by Selling Settings.enable_proforma_invoice.
+    /// </summary>
+    public bool EnableProformaInvoice { get; set; }
+
     protected Company() { } // EF Core constructor
 
     public Company(Guid id, string name, Guid? tenantId = null) : base(id)

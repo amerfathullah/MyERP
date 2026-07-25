@@ -21,6 +21,25 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal Quantity { get; set; }
     public decimal ProducedQuantity { get; set; }
     public decimal MaterialTransferred { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal ProcessLossPercentage { get; set; }
+
+    /// <summary>
+    /// Effective FG quantity after process loss deduction.
+    /// Per ERPNext: fg_completed_qty = quantity - process_loss_qty
+    /// </summary>
+    public decimal EffectiveFgQuantity =>
+        ProcessLossQty > 0
+            ? Quantity - ProcessLossQty
+            : (ProcessLossPercentage > 0
+                ? Quantity * (1 - ProcessLossPercentage / 100m)
+                : Quantity);
+
+    /// <summary>
+    /// Percentage of production completed (based on total WO quantity, not FG quantity).
+    /// </summary>
+    public decimal PercentComplete =>
+        Quantity > 0 ? Math.Min(100, Math.Round(ProducedQuantity / Quantity * 100, 2)) : 0;
 
     public Guid CompanyId { get; set; }
     public Guid? SalesOrderId { get; set; }
@@ -120,12 +139,18 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = WorkOrderStatus.Stopped;
     }
 
+    public void Unstop()
+    {
+        if (Status != WorkOrderStatus.Stopped)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = WorkOrderStatus.InProcess;
+    }
+
     public void Cancel()
     {
-        if (Status is WorkOrderStatus.Completed or WorkOrderStatus.Cancelled)
+        // Per DO-NOT: "Cancel Stopped Work Order directly (must Unstop first, then cancel)"
+        if (Status is WorkOrderStatus.Completed or WorkOrderStatus.Cancelled or WorkOrderStatus.Stopped)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = WorkOrderStatus.Cancelled;
     }
-
-    public decimal PercentComplete => Quantity > 0 ? Math.Round(ProducedQuantity / Quantity * 100, 1) : 0;
 }

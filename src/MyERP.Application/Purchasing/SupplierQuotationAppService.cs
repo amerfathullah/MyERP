@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.Purchasing.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -61,7 +62,15 @@ public class CreateSQItemDto
 public class SupplierQuotationAppService : ApplicationService
 {
     private readonly IRepository<SupplierQuotation, Guid> _repository;
-    public SupplierQuotationAppService(IRepository<SupplierQuotation, Guid> repository) => _repository = repository;
+    private readonly IDocumentNumberGenerator _numberGenerator;
+
+    public SupplierQuotationAppService(
+        IRepository<SupplierQuotation, Guid> repository,
+        IDocumentNumberGenerator numberGenerator)
+    {
+        _repository = repository;
+        _numberGenerator = numberGenerator;
+    }
 
     public async Task<PagedResultDto<SupplierQuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
@@ -73,7 +82,7 @@ public class SupplierQuotationAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
-             query = query.Where(x => x.SupplierName != null && x.SupplierName.ToLower().Contains(filter.ToLower()));
+             query = query.Where(x => x.SupplierName != null && x.SupplierName.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))
@@ -106,6 +115,7 @@ public class SupplierQuotationAppService : ApplicationService
         var sq = new SupplierQuotation(GuidGenerator.Create(), input.CompanyId,
             input.SupplierId, input.TransactionDate, CurrentTenant.Id)
         {
+            QuotationNumber = await _numberGenerator.GenerateAsync("SQ", input.CompanyId),
             SupplierName = input.SupplierName, ValidTill = input.ValidTill,
             Currency = input.Currency, RequestForQuotationId = input.RequestForQuotationId,
         };

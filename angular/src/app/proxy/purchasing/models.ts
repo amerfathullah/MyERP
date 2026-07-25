@@ -275,6 +275,7 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   orderDate?: string;
   expectedDeliveryDate?: string | null;
   supplierId?: string;
+  supplierName?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -303,8 +304,10 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   receiptNumber?: string;
   postingDate?: string;
   supplierId?: string;
+  supplierName?: string | null;
   purchaseOrderId?: string | null;
   warehouseId?: string;
+  warehouseName?: string | null;
   supplierDeliveryNote?: string | null;
   currencyCode?: string;
   netTotal?: number;

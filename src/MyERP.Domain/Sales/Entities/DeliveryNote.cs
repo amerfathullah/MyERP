@@ -73,6 +73,14 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     Guid? IAccountableDocument.CustomerId => CustomerId;
     Guid? IAccountableDocument.SupplierId => null;
 
+    /// <summary>
+    /// Total stock cost at valuation rate (for COGS GL posting).
+    /// Calculated during submit as SUM(item.StockQty × item.ValuationRate).
+    /// Per ERPNext: GL entry uses actual stock cost, NOT selling price.
+    /// </summary>
+    public decimal StockCostTotal { get; set; }
+    decimal IAccountableDocument.StockCostTotal => StockCostTotal;
+
     private readonly List<DeliveryNoteItem> _items = new();
     public IReadOnlyList<DeliveryNoteItem> Items => _items.AsReadOnly();
 

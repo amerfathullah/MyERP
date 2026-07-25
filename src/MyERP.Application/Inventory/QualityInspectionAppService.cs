@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.DomainServices;
 using MyERP.Dtos;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
@@ -15,10 +16,14 @@ namespace MyERP.Inventory;
 public class QualityInspectionAppService : ApplicationService
 {
     private readonly IRepository<QualityInspection, Guid> _repository;
+    private readonly IDocumentNumberGenerator _numberGenerator;
 
-    public QualityInspectionAppService(IRepository<QualityInspection, Guid> repository)
+    public QualityInspectionAppService(
+        IRepository<QualityInspection, Guid> repository,
+        IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
+        _numberGenerator = numberGenerator;
     }
 
     public async Task<PagedResultDto<QualityInspectionDto>> GetListAsync(GetQualityInspectionListDto input)
@@ -33,7 +38,7 @@ public class QualityInspectionAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(q => (q.ItemName ?? "").ToLower().Contains(f));
+            query = query.Where(q => (q.ItemName ?? "").Contains(f));
         }
 
         var totalCount = query.Count();
@@ -52,9 +57,11 @@ public class QualityInspectionAppService : ApplicationService
     [Authorize(MyERPPermissions.QualityInspections.Create)]
     public async Task<QualityInspectionDto> CreateAsync(CreateQualityInspectionDto input)
     {
+        var number = await _numberGenerator.GenerateAsync("QI", input.CompanyId);
         var qi = new QualityInspection(GuidGenerator.Create(), input.CompanyId, input.ItemId,
             input.InspectionType, input.InspectionDate, CurrentTenant.Id)
         {
+            InspectionNumber = number,
             ItemName = input.ItemName,
             ReferenceType = input.ReferenceType,
             ReferenceId = input.ReferenceId,

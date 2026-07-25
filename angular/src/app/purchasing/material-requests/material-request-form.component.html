@@ -1,5 +1,5 @@
 <abp-page [title]="'::NewMaterialRequest' | abpLocalization">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card">
       <div class="card-body">
         <div class="row">

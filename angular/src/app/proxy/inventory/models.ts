@@ -4,6 +4,29 @@ import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
+export interface BarcodeScanResultDto {
+  success?: boolean;
+  scanType?: number;
+  scanTypeName?: string;
+  barcode?: string;
+  message?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  hasSerialNo?: boolean;
+  hasBatchNo?: boolean;
+  uom?: string | null;
+  maintainStock?: boolean;
+  serialNoId?: string | null;
+  serialNumber?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  action?: number;
+  actionName?: string;
+}
+
 export interface BatchDto extends AuditedEntityDto<string> {
   batchNo?: string;
   itemId?: string;
@@ -55,6 +78,7 @@ export interface CreatePickListDto {
   salesOrderId?: string | null;
   materialRequestId?: string | null;
   workOrderId?: string | null;
+  customerId?: string | null;
   items?: CreatePickListItemDto[];
 }
 
@@ -109,6 +133,15 @@ export interface CreateStockReservationDto {
   voucherDetailId?: string | null;
   reservedQty?: number;
   batchId?: string | null;
+}
+
+export interface CreateTransitTransferDto {
+  companyId?: string;
+  sourceWarehouseId?: string;
+  destinationWarehouseId?: string;
+  postingDate?: string;
+  notes?: string | null;
+  items?: TransitTransferItemDto[];
 }
 
 export interface CreateUpdateItemDto {
@@ -192,6 +225,13 @@ export interface GetBatchListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
+export interface GetItemDetailsInput {
+  itemId?: string;
+  transactionType?: string;
+  warehouseId?: string | null;
+  companyId?: string | null;
+}
+
 export interface GetItemListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
@@ -216,6 +256,11 @@ export interface GetItemRateRequestDto {
 
 export interface GetItemStandardCostListDto extends CompanyFilteredPagedRequestDto {
   itemId?: string | null;
+}
+
+export interface GetItemsAvailabilityInput {
+  itemIds?: string[];
+  warehouseId?: string | null;
 }
 
 export interface GetSerialNoListDto extends PagedAndSortedResultRequestDto {
@@ -249,6 +294,40 @@ export interface ItemAttributeDto {
 export interface ItemAttributeValueDto {
   value?: string;
   abbreviation?: string;
+}
+
+export interface ItemAvailabilityDto {
+  itemId?: string;
+  actualQty?: number;
+  reservedQty?: number;
+  orderedQty?: number;
+  projectedQty?: number;
+  availableQty?: number;
+}
+
+export interface ItemDetailsDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  description?: string | null;
+  uom?: string;
+  stockUom?: string;
+  conversionFactor?: number;
+  isStockItem?: boolean;
+  hasBatchNo?: boolean;
+  hasSerialNo?: boolean;
+  itemGroup?: string | null;
+  rate?: number;
+  warehouseId?: string | null;
+  incomeAccountId?: string | null;
+  expenseAccountId?: string | null;
+  actualQty?: number;
+  projectedQty?: number;
+  reservedQty?: number;
+  availableQty?: number;
+  companyTotalStock?: number;
+  lastPurchaseRate?: number;
+  minOrderQty?: number;
 }
 
 export interface ItemDto extends FullAuditedEntityDto<string> {
@@ -346,6 +425,16 @@ export interface PendingTransferDto {
   batchId?: string | null;
 }
 
+export interface PendingTransitTransferDto {
+  stockEntryId?: string;
+  entryNumber?: string;
+  postingDate?: string;
+  sourceWarehouseId?: string;
+  sourceWarehouseName?: string | null;
+  totalQuantity?: number;
+  itemCount?: number;
+}
+
 export interface PickAllocationDto {
   itemId?: string;
   warehouseId?: string;
@@ -364,6 +453,7 @@ export interface PickListDto extends EntityDto<string> {
   pickListNumber?: string | null;
   purpose?: string;
   salesOrderId?: string | null;
+  customerId?: string | null;
   status?: number;
   isFullyTransferred?: boolean;
   isPartiallyTransferred?: boolean;
@@ -438,6 +528,8 @@ export interface StockBalanceDto {
   id?: string;
   itemId?: string;
   warehouseId?: string;
+  itemName?: string | null;
+  warehouseName?: string | null;
   actualQty?: number;
   orderedQty?: number;
   plannedQty?: number;
@@ -474,9 +566,12 @@ export interface StockEntryDto extends FullAuditedEntityDto<string> {
 export interface StockEntryItemDto {
   id?: string;
   itemId?: string;
+  itemName?: string | null;
   quantity?: number;
   sourceWarehouseId?: string | null;
+  sourceWarehouseName?: string | null;
   targetWarehouseId?: string | null;
+  targetWarehouseName?: string | null;
   valuationRate?: number | null;
 }
 
@@ -541,6 +636,33 @@ export interface StockValuationSummaryDto {
   totalItems?: number;
   totalWarehouses?: number;
   rows?: StockValuationRowDto[];
+}
+
+export interface TransitTransferItemDto {
+  itemId?: string;
+  quantity?: number;
+  valuationRate?: number | null;
+}
+
+export interface VoucherStockLedgerDto {
+  voucherType?: string;
+  voucherId?: string;
+  entries?: VoucherStockLedgerEntryDto[];
+  totalQtyIn?: number;
+  totalQtyOut?: number;
+  totalValueDifference?: number;
+}
+
+export interface VoucherStockLedgerEntryDto {
+  postingDate?: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  warehouseName?: string;
+  quantityChange?: number;
+  valuationRate?: number;
+  stockValueDifference?: number;
+  balanceQuantity?: number;
+  balanceValue?: number;
 }
 
 export interface WarehouseDto extends FullAuditedEntityDto<string> {

@@ -12,6 +12,14 @@ export class DunningService {
   apiName = 'Default';
   
 
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DunningDto>({
+      method: 'POST',
+      url: `/api/app/dunning/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateDunningDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DunningDto>({
       method: 'POST',

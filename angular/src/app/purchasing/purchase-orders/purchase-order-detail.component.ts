@@ -1,13 +1,15 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
+import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -17,7 +19,7 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent],
   templateUrl: './purchase-order-detail.component.html',
   styleUrls: ['./purchase-order-detail.component.scss'],
 })
@@ -28,9 +30,20 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseOrderStore);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+
+  // Company info for print layout
+  companyName = '';
+  companyTin = '';
+  companySst = '';
+
+  // Draft Link Guard state
+  showDraftGuard = signal(false);
+  draftGuardTarget = signal<'PurchaseReceipt' | 'PurchaseInvoice' | null>(null);
+  private pendingConversionAction: (() => void) | null = null;
 
   get workflowActions(): WorkflowAction[] {
     if (!this.order) return [];
@@ -64,7 +77,13 @@ export class PurchaseOrderDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => { this.order = result; });
+    this.service.get(id).subscribe((result) => {
+      this.order = result;
+    });
+  }
+
+  printOrder(): void {
+    window.print();
   }
 
   onWorkflowAction(action: string): void {
@@ -75,13 +94,19 @@ export class PurchaseOrderDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'receipt':
-        this.conversionService.convertPurchaseOrderToReceipt(id).subscribe((receipt) => {
-          this.router.navigate(['/purchasing/receipts', receipt.id]);
+        this.initiateConversion('PurchaseReceipt', () => {
+          this.conversionService.convertPurchaseOrderToReceipt(id).subscribe({
+            next: (receipt) => this.router.navigate(['/purchasing/receipts', receipt.id]),
+            error: () => this.toaster.error('::ConversionFailed'),
+          });
         });
         break;
       case 'invoice':
-        this.conversionService.convertPurchaseOrderToInvoice(id).subscribe((invoice) => {
-          this.router.navigate(['/purchasing/invoices', invoice.id]);
+        this.initiateConversion('PurchaseInvoice', () => {
+          this.conversionService.convertPurchaseOrderToInvoice(id).subscribe({
+            next: (invoice) => this.router.navigate(['/purchasing/invoices', invoice.id]),
+            error: () => this.toaster.error('::ConversionFailed'),
+          });
         });
         break;
       case 'payment':
@@ -115,6 +140,27 @@ export class PurchaseOrderDetailComponent implements OnInit {
     setTimeout(() => {
       this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
     }, 500);
+  }
+
+  private initiateConversion(targetDocType: 'PurchaseReceipt' | 'PurchaseInvoice', action: () => void): void {
+    this.pendingConversionAction = action;
+    this.draftGuardTarget.set(targetDocType);
+    this.showDraftGuard.set(true);
+  }
+
+  onDraftGuardProceed(): void {
+    this.showDraftGuard.set(false);
+    this.draftGuardTarget.set(null);
+    if (this.pendingConversionAction) {
+      this.pendingConversionAction();
+      this.pendingConversionAction = null;
+    }
+  }
+
+  onDraftGuardCancelled(): void {
+    this.showDraftGuard.set(false);
+    this.draftGuardTarget.set(null);
+    this.pendingConversionAction = null;
   }
 
   deleteOrder(): void {

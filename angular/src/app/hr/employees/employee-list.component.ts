@@ -8,6 +8,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { EmployeeStore } from '../store/employee.store';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   selector: 'app-employee-list',
@@ -21,6 +22,7 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
 export class EmployeeListComponent implements OnInit {
   readonly store = inject(EmployeeStore);
   private confirmation = inject(ConfirmationService);
+  private companyContext = inject(CompanyContextService);
   currentPage = 0;
   pageSize = 20;
   searchTerm = '';
@@ -36,6 +38,7 @@ export class EmployeeListComponent implements OnInit {
       maxResultCount: this.pageSize,
       sorting: 'firstName ASC',
       filter: this.searchTerm || undefined,
+      companyId: this.companyContext.currentCompanyId() || undefined,
     } as any);
   }
 

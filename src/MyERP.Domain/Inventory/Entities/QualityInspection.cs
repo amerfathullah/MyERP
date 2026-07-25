@@ -17,6 +17,7 @@ public class QualityInspection : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
+    public string? InspectionNumber { get; set; }
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
 

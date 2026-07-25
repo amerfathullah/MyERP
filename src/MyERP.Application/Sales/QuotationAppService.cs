@@ -7,6 +7,7 @@ using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -59,9 +60,20 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
+        if (input.FromDate.HasValue)
+            query = query.Where(x => x.IssueDate >= input.FromDate.Value);
+
+        if (input.ToDate.HasValue)
+            query = query.Where(x => x.IssueDate <= input.ToDate.Value);
+
         var totalCount = query.Count();
-        var quotations = query
-            .OrderByDescending(x => x.IssueDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.IssueDate),
+            ("quotationNumber", x => (object)(x.QuotationNumber ?? string.Empty)),
+            ("issueDate", x => x.IssueDate),
+            ("grandTotal", x => x.GrandTotal),
+            ("status", x => x.Status));
+        var quotations = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
@@ -113,6 +125,31 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var createDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         createDto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
         return createDto;
+    }
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task<QuotationDto> UpdateAsync(Guid id, CreateQuotationDto input)
+    {
+        var quotation = await _repository.GetAsync(id);
+        if (quotation.Status != Core.DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        quotation.ValidUntil = input.ValidUntil;
+        quotation.CurrencyCode = input.CurrencyCode;
+        quotation.Terms = input.Terms;
+        quotation.Notes = input.Notes;
+
+        // Replace items
+        quotation.ClearItems();
+        foreach (var item in input.Items)
+        {
+            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        await _repository.UpdateAsync(quotation, autoSave: true);
+        var dto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
+        dto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
+        return dto;
     }
 
     [Authorize(MyERPPermissions.Quotations.Submit)]

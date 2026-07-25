@@ -25,6 +25,7 @@ export class HomeComponent implements OnInit {
   revenueTrend = signal<{ month: string; amount: number; heightPct: number }[]>([]);
   recentActivity = signal<any[]>([]);
   financialKpis = signal<any | null>(null);
+  stockValuation = signal<any | null>(null);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -61,6 +62,8 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: res => this.recentActivity.set(res?.items ?? []), error: () => {} });
         this.dashboardService.getFinancialKpis(companyId)
           .subscribe({ next: kpis => this.financialKpis.set(kpis), error: () => {} });
+        this.dashboardService.getStockValuationSummary(companyId)
+          .subscribe({ next: data => this.stockValuation.set(data), error: () => {} });
       }
     }
   }

@@ -10,12 +10,14 @@ import { PaymentReconciliationService } from '../proxy/accounting/payment-reconc
 import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../shared/directives/save-shortcut.directive';
+import { CompanyRestrictionComponent } from '../shared/components/company-restriction/company-restriction.component';
 
 @Component({
   selector: 'app-customer-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
+    AutoValidationDirective, SaveShortcutDirective, CompanyRestrictionComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './customer-form.component.html',
   styleUrls: ['./customer-form.component.scss'],
 })

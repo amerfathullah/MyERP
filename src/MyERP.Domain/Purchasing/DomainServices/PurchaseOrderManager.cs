@@ -107,15 +107,19 @@ public class PurchaseOrderManager : DomainService
     }
 
     /// <summary>
-    /// Validates a Purchase Receipt item does not exceed the PO's pending receipt qty.
-    /// Per DO-NOT: "Cap PO receiving percentage above 100%".
+    /// Validates a Purchase Receipt item does not exceed the PO's allowed receipt qty including tolerance.
+    /// Per ERPNext: max_allowed = ordered_qty × (1 + allowance_pct / 100) - already_received.
+    /// The allowance comes from Company.OverDeliveryReceiptAllowance (Stock Settings in ERPNext).
     /// </summary>
-    public void ValidateReceiptQty(PurchaseOrder order, Guid itemId, decimal receiptQty)
+    public void ValidateReceiptQty(PurchaseOrder order, Guid itemId, decimal receiptQty, decimal overReceiptAllowancePct = 0m)
     {
         var poItem = order.Items.FirstOrDefault(i => i.ItemId == itemId);
         if (poItem == null) return;
 
-        if (receiptQty > poItem.PendingReceiptQty)
+        var maxAllowedTotal = poItem.Quantity * (1m + overReceiptAllowancePct / 100m);
+        var remainingAllowed = maxAllowedTotal - poItem.ReceivedQty;
+
+        if (receiptQty > remainingAllowed)
         {
             throw new BusinessException("MyERP:08006")
                 .WithData("itemName", poItem.Description)

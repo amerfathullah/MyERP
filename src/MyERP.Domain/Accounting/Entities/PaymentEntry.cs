@@ -77,9 +77,28 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public ICollection<PaymentEntryReference> References { get; private set; } = new List<PaymentEntryReference>();
 
     /// <summary>
+    /// Tax/charge rows on this payment entry. PE has its own tax engine separate from SI/PI.
+    /// Per ERPNext: "On Paid Amount" charge type, direction-dependent GL posting.
+    /// Per DO-NOT: "Reuse Sales/Purchase Invoice tax engine for PE — PE has its own"
+    /// </summary>
+    public ICollection<PaymentEntryTax> Taxes { get; private set; } = new List<PaymentEntryTax>();
+
+    /// <summary>
+    /// Total tax amount across all non-exchange-gain-loss tax rows.
+    /// Excludes exchange G/L entries per gotcha #437.
+    /// </summary>
+    public decimal TotalTaxes => Taxes.Where(t => !t.IsExchangeGainLoss).Sum(t => t.TaxAmount);
+
+    /// <summary>
+    /// Total taxes included in the paid amount (deducted from party's share).
+    /// </summary>
+    public decimal TotalIncludedTaxes => Taxes.Where(t => t.IncludedInPaidAmount && !t.IsExchangeGainLoss).Sum(t => t.TaxAmount);
+
+    /// <summary>
     /// Amount not allocated to any invoice/order. 
     /// UnallocatedAmount = PaidAmount - sum(References.AllocatedAmount) - (legacy AgainstInvoice allocation).
     /// Positive value means excess payment (advance/on-account).
+    /// Per gotcha #437: exchange gain/loss deductions excluded.
     /// </summary>
     public decimal UnallocatedAmount
     {
@@ -97,8 +116,8 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     // IAccountableDocument
     string IAccountableDocument.DocumentType => "PaymentEntry";
     decimal IAccountableDocument.NetTotal => PaidAmount;
-    decimal IAccountableDocument.GrandTotal => PaidAmount;
-    decimal IAccountableDocument.TaxAmount => 0;
+    decimal IAccountableDocument.GrandTotal => PaidAmount + TotalTaxes - TotalIncludedTaxes;
+    decimal IAccountableDocument.TaxAmount => TotalTaxes;
     Guid? IAccountableDocument.CustomerId => PartyType == "Customer" ? PartyId : null;
     Guid? IAccountableDocument.SupplierId => PartyType == "Supplier" ? PartyId : null;
 
@@ -124,6 +143,29 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PaymentEntrySubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Adds a tax row to this payment entry. Only allowed in Draft status.
+    /// Per DO-NOT: "PE tax account currency MUST equal company currency"
+    /// </summary>
+    public void AddTax(PaymentEntryTax tax)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Taxes.Add(tax);
+    }
+
+    /// <summary>
+    /// Calculates all tax amounts based on current PaidAmount and ExchangeRate.
+    /// Called before posting to ensure tax amounts are current.
+    /// </summary>
+    public void RecalculateTaxes()
+    {
+        foreach (var tax in Taxes)
+        {
+            tax.Calculate(PaidAmount, ExchangeRate);
+        }
     }
 
     public void Post()

@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { BatchService } from '../../proxy/inventory/batch.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import type { BatchDto } from '../../proxy/inventory/models';
 
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
@@ -33,7 +34,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               @for (b of items; track b.id) {
                 <tr>
                   <td class="font-monospace">{{ b.batchNo }}</td>
-                  <td>{{ b.itemId | slice:0:8 }}…</td>
+                  <td>{{ itemNames()[b.itemId ?? ''] || (b.itemId | slice:0:8) + '…' }}</td>
                   <td>{{ b.expiryDate ? (b.expiryDate | date:'dd/MM/yyyy') : '—' }}</td>
                   <td><span class="badge" [class]="b.isDisabled ? 'bg-danger' : 'bg-success'">{{ b.isDisabled ? 'Disabled' : 'Active' }}</span></td>
                 </tr>
@@ -48,6 +49,8 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 })
 export class BatchListComponent implements OnInit {
   private service = inject(BatchService);
+  private itemService = inject(ItemService);
+  itemNames = signal<Record<string, string>>({});
   items: BatchDto[] = [];
   isLoading = false;
   totalCount = 0;
@@ -57,6 +60,11 @@ export class BatchListComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((i: any) => { map[i.id] = i.itemCode || i.itemName || i.id; });
+      this.itemNames.set(map);
+    });
   }
 
   load(): void {

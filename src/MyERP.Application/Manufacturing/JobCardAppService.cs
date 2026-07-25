@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.DomainServices;
+using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -15,7 +17,11 @@ public class JobCardDto : EntityDto<Guid>
     public Guid CompanyId { get; set; }
     public Guid WorkOrderId { get; set; }
     public Guid OperationId { get; set; }
+    public Guid? BomOperationId { get; set; }
     public Guid? WorkstationId { get; set; }
+    public Guid? FinishedGoodItemId { get; set; }
+    public Guid? SemiFgBomId { get; set; }
+    public bool IsCorrective { get; set; }
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
     public decimal TotalTimeInMins { get; set; }
@@ -82,7 +88,7 @@ public class JobCardAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(j => j.WorkstationType != null && j.WorkstationType.ToLower().Contains(f));
+            query = query.Where(j => j.WorkstationType != null && j.WorkstationType.Contains(f));
         }
 
         var totalCount = query.Count();
@@ -134,6 +140,80 @@ public class JobCardAppService : ApplicationService
         var jc = await _repository.GetAsync(id);
         jc.Complete();
         await _repository.UpdateAsync(jc);
+
+        // Update Work Order produced qty using bottleneck formula (MIN across operations)
+        var jcManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
+        var completedQty = await jcManager.GetWorkOrderCompletedQtyAsync(wo.Id);
+
+        // Only process if bottleneck qty exceeds what WO already recorded
+        if (completedQty > wo.ProducedQuantity)
+        {
+            var delta = completedQty - wo.ProducedQuantity;
+
+            // Read overproduction percentage from ManufacturingSettings
+            var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+            var settingsQ = await settingsRepo.GetQueryableAsync();
+            var settings = settingsQ.FirstOrDefault(s => s.CompanyId == wo.CompanyId);
+            var overproductionPct = settings?.OverproductionPercentage ?? 5m;
+
+            wo.RecordProduction(delta, overproductionPercentage: overproductionPct);
+
+            // Create actual stock movements (RM consumption + FG receipt)
+            // Per ERPNext: Job Card completion triggers Manufacture Stock Entry
+            var valuationService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
+            var binService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.BinService>();
+
+            decimal totalRmCost = 0;
+            var productionRatio = wo.Quantity > 0 ? delta / wo.Quantity : 0m;
+
+            // Consume raw materials proportionally
+            foreach (var item in wo.RequiredItems)
+            {
+                var issueQty = Math.Round(item.RequiredQuantity * productionRatio, 4);
+                var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+                if (issueQty > 0 && warehouseId.HasValue)
+                {
+                    var rmBalance = await valuationService.GetCurrentBalanceAsync(item.ItemId, warehouseId.Value);
+                    var rmRate = rmBalance.ValuationRate;
+                    totalRmCost += issueQty * rmRate;
+
+                    await valuationService.CreateLedgerEntryAsync(
+                        wo.CompanyId, item.ItemId, warehouseId.Value,
+                        DateTime.UtcNow, -issueQty, rmRate,
+                        voucherType: "WorkOrder", voucherId: wo.Id,
+                        tenantId: wo.TenantId);
+
+                    await binService.ApplyStockMovementAsync(
+                        item.ItemId, warehouseId.Value, -issueQty, -(issueQty * rmRate), wo.TenantId);
+
+                    await binService.UpdateReservedQtyForProductionAsync(
+                        item.ItemId, warehouseId.Value, -issueQty, wo.TenantId);
+                }
+            }
+
+            // Receive finished goods at absorbed cost
+            if (wo.FgWarehouseId.HasValue)
+            {
+                var fgRate = delta > 0 ? totalRmCost / delta : 0;
+
+                await valuationService.CreateLedgerEntryAsync(
+                    wo.CompanyId, wo.ItemId, wo.FgWarehouseId.Value,
+                    DateTime.UtcNow, delta, fgRate,
+                    voucherType: "WorkOrder", voucherId: wo.Id,
+                    tenantId: wo.TenantId);
+
+                await binService.ApplyStockMovementAsync(
+                    wo.ItemId, wo.FgWarehouseId.Value, delta, totalRmCost, wo.TenantId);
+
+                await binService.UpdatePlannedQtyAsync(
+                    wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
+            }
+
+            await woRepo.UpdateAsync(wo, autoSave: true);
+        }
+
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 

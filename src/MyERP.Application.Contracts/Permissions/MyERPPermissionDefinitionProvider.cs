@@ -112,6 +112,12 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Submit, L("Permission:DeliveryNotes.Submit"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Cancel, L("Permission:DeliveryNotes.Cancel"));
 
+        var packingSlipsPermission = myGroup.AddPermission(MyERPPermissions.PackingSlips.Default, L("Permission:PackingSlips"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Create, L("Permission:PackingSlips.Create"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Delete, L("Permission:PackingSlips.Delete"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Submit, L("Permission:PackingSlips.Submit"));
+        packingSlipsPermission.AddChild(MyERPPermissions.PackingSlips.Cancel, L("Permission:PackingSlips.Cancel"));
+
         var eInvoicePermission = myGroup.AddPermission(MyERPPermissions.EInvoice.Default, L("Permission:EInvoice"));
         eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Submit, L("Permission:EInvoice.Submit"));
         eInvoicePermission.AddChild(MyERPPermissions.EInvoice.Cancel, L("Permission:EInvoice.Cancel"));
@@ -240,6 +246,10 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         spPermission.AddChild(MyERPPermissions.SalesPersons.Create, L("Permission:SalesPersons.Create"));
         spPermission.AddChild(MyERPPermissions.SalesPersons.Edit, L("Permission:SalesPersons.Edit"));
         spPermission.AddChild(MyERPPermissions.SalesPersons.Delete, L("Permission:SalesPersons.Delete"));
+
+        // Company Restrictions — manager-level only (per ERPNext PR #57383: permlevel 1)
+        var crPermission = myGroup.AddPermission(MyERPPermissions.CompanyRestrictions.Default, L("Permission:CompanyRestrictions"));
+        crPermission.AddChild(MyERPPermissions.CompanyRestrictions.Manage, L("Permission:CompanyRestrictions.Manage"));
     }
 
     private static LocalizableString L(string name)

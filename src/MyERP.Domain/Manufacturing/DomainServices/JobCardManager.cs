@@ -56,6 +56,7 @@ public class JobCardManager : DomainService
                     tenantId
                 )
                 {
+                    BomOperationId = op.Id,
                     WorkstationId = op.WorkstationId,
                     WipWarehouseId = wo.WipWarehouseId,
                     PlannedTimeInMins = op.TimeInMins * (qty / batchSize)

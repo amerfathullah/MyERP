@@ -47,11 +47,36 @@ public class CreateRevaluationDto
 public class ExchangeRateRevaluationAppService : ApplicationService
 {
     private readonly ExchangeRateRevaluationService _service;
+    private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
 
     public ExchangeRateRevaluationAppService(
-        ExchangeRateRevaluationService service)
+        ExchangeRateRevaluationService service,
+        IRepository<JournalEntry, Guid> journalEntryRepository)
     {
         _service = service;
+        _journalEntryRepository = journalEntryRepository;
+    }
+
+    /// <summary>
+    /// List past exchange rate revaluation journal entries for a company.
+    /// </summary>
+    public async Task<PagedResultDto<ExchangeRateRevaluationDto>> GetListAsync(Guid companyId, int maxResultCount = 20)
+    {
+        var query = await _journalEntryRepository.GetQueryableAsync();
+        var items = query
+            .Where(j => j.CompanyId == companyId && j.ReferenceType == "ExchangeRateRevaluation")
+            .OrderByDescending(j => j.PostingDate)
+            .Take(maxResultCount)
+            .Select(j => new ExchangeRateRevaluationDto
+            {
+                Id = j.Id,
+                CompanyId = j.CompanyId,
+                PostingDate = j.PostingDate,
+                TotalGainLoss = j.Lines.Where(l => l.IsDebit).Sum(l => l.Amount) - j.Lines.Where(l => !l.IsDebit).Sum(l => l.Amount),
+                EntryCount = j.Lines.Count,
+            })
+            .ToList();
+        return new PagedResultDto<ExchangeRateRevaluationDto>(items.Count, items);
     }
 
     /// <summary>

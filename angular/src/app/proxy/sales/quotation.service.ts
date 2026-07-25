@@ -68,4 +68,13 @@ export class QuotationService {
       url: `/api/app/quotation/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
+
+  update = (id: string, input: CreateQuotationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, QuotationDto>({
+      method: 'PUT',
+      url: `/api/app/quotation/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
 }

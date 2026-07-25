@@ -35,3 +35,29 @@ public class StockLedgerReportDto
     public decimal TotalIn { get; set; }
     public decimal TotalOut { get; set; }
 }
+
+/// <summary>
+/// Per-voucher stock ledger view (ERPNext "Stock Ledger" button on document detail pages).
+/// </summary>
+public class VoucherStockLedgerEntryDto
+{
+    public DateTime PostingDate { get; set; }
+    public string? ItemCode { get; set; }
+    public string? ItemName { get; set; }
+    public string WarehouseName { get; set; } = null!;
+    public decimal QuantityChange { get; set; }
+    public decimal ValuationRate { get; set; }
+    public decimal StockValueDifference { get; set; }
+    public decimal BalanceQuantity { get; set; }
+    public decimal BalanceValue { get; set; }
+}
+
+public class VoucherStockLedgerDto
+{
+    public string VoucherType { get; set; } = null!;
+    public Guid VoucherId { get; set; }
+    public List<VoucherStockLedgerEntryDto> Entries { get; set; } = new();
+    public decimal TotalQtyIn { get; set; }
+    public decimal TotalQtyOut { get; set; }
+    public decimal TotalValueDifference { get; set; }
+}

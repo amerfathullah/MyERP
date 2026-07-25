@@ -40,7 +40,7 @@ export class EmployeeService {
     this.restService.request<any, PagedResultDto<EmployeeDto>>({
       method: 'GET',
       url: '/api/app/employee',
-      params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { filter: input.filter, companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

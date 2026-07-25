@@ -36,14 +36,16 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         var filter = input.Filter;
         var queryable = await _repository.GetQueryableAsync();
 
+        if (input.CompanyId.HasValue)
+            queryable = queryable.Where(e => e.CompanyId == input.CompanyId.Value);
+
         if (!string.IsNullOrWhiteSpace(filter))
         {
-            var filterLower = filter.ToLower();
             queryable = queryable.Where(e =>
-                e.FirstName.ToLower().Contains(filterLower)
-                || (e.LastName != null && e.LastName.ToLower().Contains(filterLower))
-                || e.EmployeeId.ToLower().Contains(filterLower)
-                || (e.Department != null && e.Department.ToLower().Contains(filterLower)));
+                e.FirstName.Contains(filter)
+                || (e.LastName != null && e.LastName.Contains(filter))
+                || e.EmployeeId.Contains(filter)
+                || (e.Department != null && e.Department.Contains(filter)));
         }
 
         var totalCount = queryable.Count();

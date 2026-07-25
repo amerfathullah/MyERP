@@ -29,7 +29,7 @@
         <div class="row">
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ invoice.supplierId }}</span>
+            <span class="fw-semibold">{{ invoice.supplierName || invoice.supplierId }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::IssueDate' | abpLocalization }}</small>
@@ -139,5 +139,18 @@
     }
 
     <app-activity-log [documentType]="'PurchaseInvoice'" [documentId]="invoice.id!"></app-activity-log>
+
+    @if (invoice.status === 'Posted' || invoice.status === 'Cancelled') {
+      <app-voucher-ledger
+        [voucherType]="'PurchaseInvoice'"
+        [voucherId]="invoice.id!"
+        [showAccounting]="true"
+        [showStock]="!!invoice.updateStock" />
+    }
+
+    <!-- Print Layout: hidden on screen, shown only in print media -->
+    <app-purchase-invoice-print-layout
+      [invoice]="invoice"
+      [company]="companyData()" />
   }
 </abp-page>

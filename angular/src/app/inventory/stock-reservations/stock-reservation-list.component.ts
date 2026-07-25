@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { FormsModule } from '@angular/forms';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -59,8 +61,8 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
               <tbody>
                 @for (sre of items(); track sre.id) {
                   <tr>
-                    <td class="font-monospace text-truncate" style="max-width:120px">{{ sre.itemId | slice:0:8 }}…</td>
-                    <td class="font-monospace text-truncate" style="max-width:120px">{{ sre.warehouseId | slice:0:8 }}…</td>
+                    <td class="text-truncate" style="max-width:150px">{{ itemNames()[sre.itemId ?? ''] || (sre.itemId | slice:0:8) + '…' }}</td>
+                    <td class="text-truncate" style="max-width:150px">{{ warehouseNames()[sre.warehouseId ?? ''] || (sre.warehouseId | slice:0:8) + '…' }}</td>
                     <td><span class="badge bg-info">{{ sre.voucherType }}</span></td>
                     <td class="text-end fw-semibold">{{ sre.reservedQty | number:'1.2-2' }}</td>
                     <td class="text-end">{{ sre.deliveredQty | number:'1.2-2' }}</td>
@@ -92,6 +94,11 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 export class StockReservationListComponent implements OnInit {
   private service = inject(StockReservationService);
   private companyContext = inject(CompanyContextService);
+  private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
+
+  itemNames = signal<Record<string, string>>({});
+  warehouseNames = signal<Record<string, string>>({});
 
   items = signal<StockReservationEntryDto[]>([]);
   totalCount = signal(0);
@@ -101,7 +108,19 @@ export class StockReservationListComponent implements OnInit {
   currentPage = 0;
   pageSize = 20;
 
-  ngOnInit(): void { this.loadData(); }
+  ngOnInit(): void {
+    this.loadData();
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((i: any) => { map[i.id] = i.itemCode || i.itemName || i.id; });
+      this.itemNames.set(map);
+    });
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' }).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((w: any) => { map[w.id] = w.name || w.id; });
+      this.warehouseNames.set(map);
+    });
+  }
 
   loadData(): void {
     this.isLoading.set(true);

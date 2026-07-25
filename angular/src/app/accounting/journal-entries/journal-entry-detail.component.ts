@@ -8,12 +8,13 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 
 @Component({
   selector: 'app-journal-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="je()?.entryNumber || ('JournalEntry' | abpLocalization)">
@@ -92,7 +93,14 @@ import { JournalEntryService } from '../../proxy/accounting/journal-entry.servic
                 @for (line of je()!.lines; track $index; let i = $index) {
                   <tr>
                     <td>{{ i + 1 }}</td>
-                    <td>{{ line.accountId }}</td>
+                    <td>
+                      @if (line.accountCode) {
+                        <span class="text-muted small">{{ line.accountCode }}</span>
+                        {{ line.accountName }}
+                      } @else {
+                        {{ line.accountId }}
+                      }
+                    </td>
                     <td class="text-end font-monospace">{{ line.isDebit ? (line.amount | number:'1.2-2') : '' }}</td>
                     <td class="text-end font-monospace">{{ !line.isDebit ? (line.amount | number:'1.2-2') : '' }}</td>
                     <td class="text-muted">{{ line.description || '-' }}</td>
@@ -112,6 +120,14 @@ import { JournalEntryService } from '../../proxy/accounting/journal-entry.servic
         </div>
 
         <app-activity-log documentType="JournalEntry" [documentId]="je()!.id" />
+
+        <!-- Ledger View (JE IS the GL entry, show for Posted entries) -->
+        @if (je()!.status === 'Posted') {
+          <app-voucher-ledger
+            [voucherType]="'JournalEntry'"
+            [voucherId]="je()!.id!"
+            [companyId]="je()!.companyId!" />
+        }
       }
     </abp-page>
   `

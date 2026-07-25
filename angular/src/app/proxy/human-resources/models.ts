@@ -187,6 +187,7 @@ export interface ExpenseClaimDto extends EntityDto<string> {
 
 export interface GetEmployeeListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+  companyId?: string | null;
 }
 
 export interface GetLeaveAllocationListDto extends PagedAndSortedResultRequestDto {

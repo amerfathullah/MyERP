@@ -7,10 +7,11 @@ import { DunningService } from '../../proxy/sales/dunning.service';
 import type { DunningDto } from '../../proxy/sales/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-dunning-detail', standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, ActivityLogComponent],
   template: `
     <abp-page [title]="'Dunnings' | abpLocalization">
   <app-breadcrumb />
@@ -44,6 +45,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
           }
         </div></div>
+        <app-activity-log documentType="Dunning" [documentId]="d.id!" />
       }
     </abp-page>
   `,
@@ -64,5 +66,6 @@ export class DunningDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     if (type === 'submit') this.service.submit(id).subscribe(() => this.load());
     else if (type === 'resolve') this.service.resolve(id).subscribe(() => this.load());
+    else if (type === 'cancel') this.service.cancel(id).subscribe(() => this.load());
   }
 }

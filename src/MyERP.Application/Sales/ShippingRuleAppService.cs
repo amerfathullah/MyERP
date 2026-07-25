@@ -51,6 +51,8 @@ public class ShippingRuleAppService : ApplicationService
 
         rule.FixedAmount = input.FixedAmount;
         rule.IsEnabled = input.IsEnabled;
+        rule.CostCenterId = input.CostCenterId;
+        rule.ProjectId = input.ProjectId;
 
         foreach (var cond in input.Conditions)
         {
@@ -107,6 +109,8 @@ public class ShippingRuleDto
     public string RuleType { get; set; } = null!;
     public decimal ShippingAmount { get; set; }
     public bool IsEnabled { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<ShippingConditionDto> Conditions { get; set; } = new();
     public List<string> Countries { get; set; } = new();
 }
@@ -123,6 +127,8 @@ public class CreateShippingRuleDto
     public string Label { get; set; } = null!;
     public Guid CompanyId { get; set; }
     public Guid AccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public ShippingCalculationMode CalculationMode { get; set; }
     public ShippingRuleType RuleType { get; set; }
     public decimal FixedAmount { get; set; }

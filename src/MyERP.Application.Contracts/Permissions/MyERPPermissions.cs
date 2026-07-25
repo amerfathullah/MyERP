@@ -156,6 +156,15 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class PackingSlips
+    {
+        public const string Default = GroupName + ".PackingSlips";
+        public const string Create = Default + ".Create";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class EInvoice
     {
         public const string Default = GroupName + ".EInvoice";
@@ -352,5 +361,16 @@ public static class MyERPPermissions
         public const string Create = Default + ".Create";
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";
+    }
+
+    /// <summary>
+    /// Manager-level permission for modifying company restriction settings on master data.
+    /// Per ERPNext PR #57383: only master-manager roles can view/edit restrict_to_companies and allowed_companies.
+    /// Maps to ERPNext permlevel 1 on Item (Item Manager), Customer (Sales Master Manager), Supplier (Purchase Master Manager).
+    /// </summary>
+    public static class CompanyRestrictions
+    {
+        public const string Default = GroupName + ".CompanyRestrictions";
+        public const string Manage = Default + ".Manage";
     }
 }

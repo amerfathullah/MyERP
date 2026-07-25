@@ -41,8 +41,17 @@ public class ShippingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>GL account to post shipping charges to.</summary>
     public Guid AccountId { get; set; }
 
-    /// <summary>Cost center for the shipping charge.</summary>
+    /// <summary>
+    /// Cost center for the shipping charge. When null, falls back to company default cost center.
+    /// Per ERPNext PR #57355: cost center is optional with company default fallback.
+    /// </summary>
     public Guid? CostCenterId { get; set; }
+
+    /// <summary>
+    /// Project to assign to the shipping tax row.
+    /// Per ERPNext PR #57355: project is passed through to the applied tax row.
+    /// </summary>
+    public Guid? ProjectId { get; set; }
 
     /// <summary>Whether this rule is active.</summary>
     public bool IsEnabled { get; set; } = true;

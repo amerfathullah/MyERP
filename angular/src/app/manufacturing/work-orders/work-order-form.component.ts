@@ -11,11 +11,12 @@ import { ItemService } from '../../proxy/inventory/item.service';
 import type { CreateWorkOrderDto } from '../../proxy/manufacturing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
   selector: 'app-work-order-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
+  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './work-order-form.component.html',
   styleUrls: ['./work-order-form.component.scss'],
 })
@@ -30,6 +31,7 @@ export class WorkOrderFormComponent implements OnInit {
 
   items = signal<any[]>([]);
   boms = signal<any[]>([]);
+  bomMaterials = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -73,8 +75,28 @@ export class WorkOrderFormComponent implements OnInit {
   }
 
   onItemChanged(): void {
-    // Reset BOM when item changes
+    // Reset BOM and materials when item changes
     this.form.patchValue({ bomId: '' });
+    this.bomMaterials.set([]);
+  }
+
+  onBomChanged(): void {
+    const bomId = this.form.get('bomId')?.value;
+    if (!bomId) {
+      this.bomMaterials.set([]);
+      return;
+    }
+    // Load the selected BOM's items from the boms list (already fetched with items via AutoInclude)
+    const bom = this.boms().find((b: any) => b.id === bomId);
+    if (bom?.items?.length) {
+      this.bomMaterials.set(bom.items);
+    } else {
+      // Fallback: fetch BOM detail for items
+      this.service.getBom(bomId).subscribe({
+        next: (detail: any) => this.bomMaterials.set(detail.items ?? []),
+        error: () => this.bomMaterials.set([]),
+      });
+    }
   }
 
   save(): void {

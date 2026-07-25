@@ -40,6 +40,17 @@ export class SettingsOverviewComponent {
         { path: '/settings/company', label: 'Company Settings', icon: 'fa-sliders' },
         { path: '/accounting/fiscal-years', label: 'Fiscal Years', icon: 'fa-calendar-days' },
         { path: '/accounting/currency-exchange', label: 'Exchange Rates', icon: 'fa-exchange-alt' },
+        { path: '/accounting/period-closing', label: 'Period Closing', icon: 'fa-lock' },
+      ]
+    },
+    {
+      title: 'Accounting', icon: 'fa-calculator', description: 'Payment terms, budgets, and accounting periods.',
+      links: [
+        { path: '/accounting/opening-balance', label: 'Opening Balance', icon: 'fa-scale-balanced' },
+        { path: '/accounting/bank-transaction-rules', label: 'Bank Transaction Rules', icon: 'fa-robot' },
+        { path: '/accounting/invoice-discounting', label: 'Invoice Discounting', icon: 'fa-percent' },
+        { path: '/accounting/exchange-rate-revaluation', label: 'Exchange Rate Revaluation', icon: 'fa-scale-unbalanced' },
+        { path: '/accounting/finance-books', label: 'Finance Books', icon: 'fa-book-bookmark' },
       ]
     },
     {
@@ -59,17 +70,35 @@ export class SettingsOverviewComponent {
       ]
     },
     {
-      title: 'Inventory', icon: 'fa-boxes-stacked', description: 'Item attributes, batches, and stock settings.',
+      title: 'Inventory & Stock', icon: 'fa-boxes-stacked', description: 'Item attributes, batches, UOMs, and stock control.',
       links: [
         { path: '/inventory/item-attributes', label: 'Item Attributes', icon: 'fa-palette' },
         { path: '/inventory/batches', label: 'Batches', icon: 'fa-layer-group' },
         { path: '/inventory/serial-numbers', label: 'Serial Numbers', icon: 'fa-barcode' },
+        { path: '/inventory/standard-costs', label: 'Standard Costs', icon: 'fa-tag' },
+        { path: '/inventory/stock-closing', label: 'Stock Closing', icon: 'fa-box-archive' },
       ]
     },
     {
       title: 'Purchasing', icon: 'fa-cart-shopping', description: 'Supplier scorecards and procurement settings.',
       links: [
         { path: '/purchasing/scorecards', label: 'Supplier Scorecards', icon: 'fa-star-half-stroke' },
+      ]
+    },
+    {
+      title: 'HR & Payroll', icon: 'fa-users', description: 'Leave types, salary components, holiday lists.',
+      links: [
+        { path: '/hr/leave-allocations', label: 'Leave Allocations', icon: 'fa-calendar-check' },
+        { path: '/hr/holiday-lists', label: 'Holiday Lists', icon: 'fa-umbrella-beach' },
+        { path: '/hr/salary-structures', label: 'Salary Structures', icon: 'fa-money-bill-wave' },
+        { path: '/hr/loans', label: 'Loans', icon: 'fa-hand-holding-dollar' },
+      ]
+    },
+    {
+      title: 'Tax', icon: 'fa-receipt', description: 'Tax categories, templates, and SST configuration.',
+      links: [
+        { path: '/tax/categories', label: 'Tax Categories', icon: 'fa-percent' },
+        { path: '/tax/summary', label: 'SST Tax Summary', icon: 'fa-file-invoice-dollar' },
       ]
     },
     {

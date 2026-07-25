@@ -6,5 +6,6 @@ export * from './operation.service';
 export * from './production-plan-status.enum';
 export * from './production-plan.service';
 export * from './routing.service';
+export * from './secondary-item-type.enum';
 export * from './sub-assembly-type.enum';
 export * from './work-order-status.enum';

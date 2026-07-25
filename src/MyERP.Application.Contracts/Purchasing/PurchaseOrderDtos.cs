@@ -12,6 +12,7 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public DateTime OrderDate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

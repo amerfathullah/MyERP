@@ -11,8 +11,10 @@ public class PurchaseReceiptDto : EntityDto<Guid>
     public string ReceiptNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
     public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
     public Guid? PurchaseOrderId { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }
     public string? SupplierDeliveryNote { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal NetTotal { get; set; }

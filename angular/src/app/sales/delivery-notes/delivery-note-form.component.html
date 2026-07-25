@@ -73,6 +73,15 @@
                   <i class="fa fa-trash"></i>
                 </button>
               </div>
+              @if (item.get('itemId')?.value) {
+                <div class="col-12 ps-3 mb-1">
+                  <app-stock-availability
+                    [itemId]="item.get('itemId')!.value"
+                    [requiredQty]="item.get('quantity')?.value || 0"
+                    [warehouseId]="form.get('warehouseId')?.value || ''"
+                  />
+                </div>
+              }
             </div>
           }
           <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="addItemRow()">

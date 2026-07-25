@@ -110,5 +110,14 @@ public class DunningAppService : ApplicationService
         await _repository.UpdateAsync(d);
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Cancel)]
+    public async Task<DunningDto> CancelAsync(Guid id)
+    {
+        var d = await _repository.GetAsync(id);
+        d.Cancel();
+        await _repository.UpdateAsync(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
+    }
 }
 

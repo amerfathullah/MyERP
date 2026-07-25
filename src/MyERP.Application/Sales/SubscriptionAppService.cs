@@ -98,7 +98,7 @@ public class SubscriptionAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(x => x.SubscriptionNumber != null && x.SubscriptionNumber.ToLower().Contains(f));
+            query = query.Where(x => x.SubscriptionNumber != null && x.SubscriptionNumber.Contains(f));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<SubscriptionStatus>(input.Status, true, out var status))

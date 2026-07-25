@@ -81,7 +81,7 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
               <tbody>
                 @for (entry of entries(); track entry.id) {
                   <tr>
-                    <td>{{ entry.itemId | slice:0:8 }}...</td>
+                    <td>{{ getItemName(entry.itemId) }}</td>
                     <td class="fw-bold">{{ entry.standardRate | number:'1.2-2' }}</td>
                     <td>{{ entry.effectiveDate | date:'dd/MM/yyyy' }}</td>
                     <td>
@@ -179,6 +179,12 @@ export class ItemStandardCostListComponent implements OnInit {
 
   getStatusLabel(status: number): string {
     return ['Draft', 'Submitted', 'Cancelled'][status] ?? 'Draft';
+  }
+
+  getItemName(itemId?: string): string {
+    if (!itemId) return '—';
+    const item = this.items().find(i => i.id === itemId);
+    return item?.itemCode || itemId.substring(0, 8) + '…';
   }
 
   onPageChange(event: PageEvent) {

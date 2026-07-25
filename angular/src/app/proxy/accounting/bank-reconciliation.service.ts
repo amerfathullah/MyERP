@@ -1,4 +1,4 @@
-import type { AutoMatchResultDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto } from './models';
+import type { AutoMatchResultDto, BankReconciliationStatementDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, CreatePEFromTransactionDto, GetBankReconciliationStatementInput, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto, VoucherCreatedResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -29,11 +29,29 @@ export class BankReconciliationService {
     { apiName: this.apiName,...config });
   
 
+  createPaymentEntryFromTransaction = (input: CreatePEFromTransactionDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, VoucherCreatedResultDto>({
+      method: 'POST',
+      url: '/api/app/bank-reconciliation/payment-entry-from-transaction',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MatchCandidateDto[]>({
       method: 'GET',
       url: '/api/app/bank-reconciliation/match-candidates',
       params: { bankTransactionId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getReconciliationStatement = (input: GetBankReconciliationStatementInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BankReconciliationStatementDto>({
+      method: 'GET',
+      url: '/api/app/bank-reconciliation/reconciliation-statement',
+      params: { bankAccountId: input.bankAccountId, companyId: input.companyId, reportDate: input.reportDate },
     },
     { apiName: this.apiName,...config });
   

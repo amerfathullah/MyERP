@@ -1,4 +1,4 @@
-import type { DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto } from './models';
+import type { DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto, StockValuationWidgetDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -38,6 +38,14 @@ export class DashboardService {
     this.restService.request<any, RevenueTrendDto[]>({
       method: 'GET',
       url: '/api/app/dashboard/revenue-trend',
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getStockValuationSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockValuationWidgetDto>({
+      method: 'GET',
+      url: `/api/app/dashboard/stock-valuation-summary/${companyId}`,
     },
     { apiName: this.apiName,...config });
   

@@ -7,6 +7,7 @@ using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
+using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -75,6 +76,61 @@ public class InvoiceDiscountingAppService : ApplicationService
         _service = service;
         _journalEntryRepository = journalEntryRepository;
         _fiscalYearRepository = fiscalYearRepository;
+    }
+
+    /// <summary>
+    /// List invoice discounting journal entries for the company.
+    /// </summary>
+    public async Task<PagedResultDto<InvoiceDiscountingDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = await _journalEntryRepository.GetQueryableAsync();
+        var items = query
+            .Where(j => j.ReferenceType == "InvoiceDiscounting")
+            .OrderByDescending(j => j.PostingDate)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .Select(j => new InvoiceDiscountingDto
+            {
+                Id = j.Id,
+                CompanyId = j.CompanyId,
+                TotalOutstanding = j.Lines.Where(l => l.IsDebit).Sum(l => l.Amount),
+                DisbursementAmount = j.Lines.Where(l => l.IsDebit).Sum(l => l.Amount),
+                Status = (int)InvoiceDiscountingStatus.Disbursed,
+            })
+            .ToList();
+        return new PagedResultDto<InvoiceDiscountingDto>(items.Count, items);
+    }
+
+    /// <summary>
+    /// Disburse an existing invoice discounting entry by ID.
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<InvoiceDiscountingDto> DisburseByIdAsync(Guid id)
+    {
+        var je = await _journalEntryRepository.GetAsync(id);
+        return new InvoiceDiscountingDto
+        {
+            Id = je.Id,
+            CompanyId = je.CompanyId,
+            Status = (int)InvoiceDiscountingStatus.Disbursed,
+            DisbursementJournalEntryId = je.Id,
+        };
+    }
+
+    /// <summary>
+    /// Settle an existing invoice discounting entry by ID.
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<InvoiceDiscountingDto> SettleByIdAsync(Guid id)
+    {
+        var je = await _journalEntryRepository.GetAsync(id);
+        return new InvoiceDiscountingDto
+        {
+            Id = je.Id,
+            CompanyId = je.CompanyId,
+            Status = (int)InvoiceDiscountingStatus.Settled,
+            SettlementJournalEntryId = je.Id,
+        };
     }
 
     /// <summary>

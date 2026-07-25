@@ -7,10 +7,11 @@ import { JobCardService } from '../../proxy/manufacturing/job-card.service';
 import type { JobCardDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-job-card-detail', standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, ActivityLogComponent],
   template: `
     <abp-page [title]="'JobCards' | abpLocalization">
   <app-breadcrumb />
@@ -58,6 +59,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </table>
           </div></div>
         }
+        <app-activity-log documentType="JobCard" [documentId]="d.id!" />
       }
     </abp-page>
   `,

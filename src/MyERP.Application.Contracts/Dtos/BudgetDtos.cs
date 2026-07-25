@@ -50,4 +50,5 @@ public class GetBudgetListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public Guid? FiscalYearId { get; set; }
     public string? Filter { get; set; }
+    public string? Status { get; set; }
 }

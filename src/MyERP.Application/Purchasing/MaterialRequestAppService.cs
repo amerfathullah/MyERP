@@ -56,13 +56,19 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(x => x.RequestNumber.ToLower().Contains(f));
+            query = query.Where(x => x.RequestNumber.Contains(f));
         }
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<Core.DocumentStatus>(input.Status, true, out var status))
             query = query.Where(x => x.Status == status);
 
         var totalCount = query.Count();
-        var items = query.OrderByDescending(x => x.CreationTime)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.CreationTime),
+            ("requestNumber", x => (object)(x.RequestNumber ?? string.Empty)),
+            ("requestDate", x => x.RequestDate),
+            ("requestType", x => x.RequestType),
+            ("status", x => x.Status));
+        var items = sorted
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
 
         return new PagedResultDto<MaterialRequestDto>(totalCount, items.Select(x => ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(x)).ToList());

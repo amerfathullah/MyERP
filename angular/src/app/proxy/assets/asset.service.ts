@@ -57,7 +57,7 @@ export class AssetService {
     this.restService.request<any, PagedResultDto<AssetDto>>({
       method: 'GET',
       url: '/api/app/asset',
-      params: { status: input.status, filter: input.filter, companyId: input.companyId, assetCategoryId: input.assetCategoryId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { status: input.status, filter: input.filter, companyId: input.companyId, assetCategoryId: input.assetCategoryId, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

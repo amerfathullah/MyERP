@@ -49,6 +49,18 @@ public class PosAppService : ApplicationService, IPosAppService
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, DateTime.UtcNow, "POS Invoice");
 
+        // Validate an active POS Opening Entry exists for this user
+        var posOpeningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+        var openingQuery = await posOpeningRepo.GetQueryableAsync();
+        var hasActiveSession = openingQuery.Any(
+            e => e.CompanyId == input.CompanyId
+                && e.Status == PosOpeningStatus.Open);
+        if (!hasActiveSession)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:16003")
+                .WithData("reason", "No active POS session. Please open a POS session first.");
+        }
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("POS", input.CompanyId);
 
         var invoice = new SalesInvoice(
@@ -123,11 +135,11 @@ public class PosAppService : ApplicationService, IPosAppService
 
         if (!string.IsNullOrWhiteSpace(input.Search))
         {
-            var search = input.Search.ToLower();
+            var search = input.Search;
             query = query.Where(i => i.IsActive &&
-                (i.ItemName.ToLower().Contains(search) ||
-                 i.ItemCode.ToLower().Contains(search) ||
-                 (i.Barcode != null && i.Barcode.ToLower().Contains(search))));
+                (i.ItemName.Contains(search) ||
+                 i.ItemCode.Contains(search) ||
+                 (i.Barcode != null && i.Barcode.Contains(search))));
         }
         else
         {

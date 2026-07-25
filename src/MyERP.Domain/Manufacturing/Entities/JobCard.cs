@@ -19,8 +19,34 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid WorkOrderId { get; set; }
     public Guid OperationId { get; set; }
+
+    /// <summary>
+    /// BOM Operation row ID — disambiguates when the same Operation appears
+    /// multiple times in a Work Order routing (e.g., "Assembly" at sequence 10 and 30).
+    /// Per ERPNext PR #57387: resolved server-side via set_operation_id().
+    /// </summary>
+    public Guid? BomOperationId { get; set; }
+
     public Guid? WorkstationId { get; set; }
     public string? WorkstationType { get; set; }
+
+    /// <summary>
+    /// Semi-finished good item ID. When set, the JC produces this intermediate item
+    /// instead of the WO's final production_item. Per gotcha #497/#813.
+    /// </summary>
+    public Guid? FinishedGoodItemId { get; set; }
+
+    /// <summary>
+    /// Semi-FG BOM override. When set, uses this BOM instead of the WO's main BOM.
+    /// Per gotcha #813: `semi_fg_bom ?? bom_no` for correct sub-assembly resolution.
+    /// </summary>
+    public Guid? SemiFgBomId { get; set; }
+
+    /// <summary>
+    /// Whether this is a corrective Job Card (rework/repair operation).
+    /// Corrective JCs skip material transfer validation.
+    /// </summary>
+    public bool IsCorrective { get; set; }
 
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }

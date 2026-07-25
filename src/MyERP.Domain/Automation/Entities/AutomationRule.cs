@@ -27,7 +27,7 @@ public class AutomationRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Optional condition expression (simple field comparison).
-    /// E.g., "GrandTotal > 5000" or "CurrencyCode == MYR"
+    /// E.g., "GrandTotal > 5000" or "CurrencyCode == IQD"
     /// Null = always fire when trigger matches.
     /// </summary>
     public string? ConditionExpression { get; set; }

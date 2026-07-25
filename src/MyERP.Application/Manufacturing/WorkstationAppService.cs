@@ -38,8 +38,8 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(x => x.Name.ToLower().Contains(f) ||
-                                     (x.WorkstationType != null && x.WorkstationType.ToLower().Contains(f)));
+            query = query.Where(x => x.Name.Contains(f) ||
+                                     (x.WorkstationType != null && x.WorkstationType.Contains(f)));
         }
 
         var count = query.Count();

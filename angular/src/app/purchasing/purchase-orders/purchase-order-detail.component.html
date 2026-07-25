@@ -4,7 +4,11 @@
   } @else {
     <app-breadcrumb />
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <div></div>
+      <div>
+        <button class="btn btn-outline-secondary btn-sm" (click)="printOrder()">
+          <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+        </button>
+      </div>
       @if (order.status === 'Draft') {
         <div class="btn-group btn-group-sm">
           <a class="btn btn-outline-primary" [routerLink]="['/purchasing/orders', order.id, 'edit']">
@@ -21,19 +25,33 @@
       [availableActions]="workflowActions"
       (actionTriggered)="onWorkflowAction($event)" />
 
+    <!-- Draft Link Guard (shown when creating follow-up document) -->
+    @if (showDraftGuard() && draftGuardTarget()) {
+      <app-draft-link-guard
+        [sourceDocType]="'PurchaseOrder'"
+        [sourceId]="order.id!"
+        [targetDocType]="draftGuardTarget()!"
+        (proceed)="onDraftGuardProceed()"
+        (cancelled)="onDraftGuardCancelled()" />
+    }
+
     <!-- Header info -->
     <div class="card mt-4">
       <div class="card-body">
         <div class="row">
-          <div class="col-12 col-md-4 mb-3">
+          <div class="col-12 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::OrderNumber' | abpLocalization }}</small>
             <span class="fw-semibold">{{ order.orderNumber }}</span>
           </div>
-          <div class="col-12 col-md-4 mb-3">
+          <div class="col-12 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small>
+            <span class="fw-semibold">{{ order.supplierName || order.supplierId }}</span>
+          </div>
+          <div class="col-12 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::OrderDate' | abpLocalization }}</small>
             <span class="fw-semibold">{{ order.orderDate | date:'dd/MM/yyyy' }}</span>
           </div>
-          <div class="col-12 col-md-4 mb-3">
+          <div class="col-12 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::ExpectedDelivery' | abpLocalization }}</small>
             <span class="fw-semibold">{{ order.expectedDeliveryDate | date:'dd/MM/yyyy' }}</span>
           </div>
@@ -125,5 +143,13 @@
     </div>
 
     <app-activity-log [documentType]="'PurchaseOrder'" [documentId]="order.id!"></app-activity-log>
+
+    <!-- Print Layout (hidden on screen, shown only in print) -->
+    <app-po-print-layout
+      [order]="order"
+      [companyName]="companyName"
+      [companyTin]="companyTin"
+      [companySst]="companySst"
+    ></app-po-print-layout>
   }
 </abp-page>

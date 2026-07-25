@@ -46,7 +46,7 @@ public class RequestForQuotationAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(x => x.RfqNumber.ToLower().Contains(f));
+            query = query.Where(x => x.RfqNumber.Contains(f));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))

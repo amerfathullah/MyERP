@@ -41,7 +41,26 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
     public async Task<JournalEntryDto> GetAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
-        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
+        var dto = ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
+
+        // Resolve account names
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accountIds = dto.Lines.Select(l => l.AccountId).Distinct().ToList();
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var accounts = accountQuery.Where(a => accountIds.Contains(a.Id))
+            .Select(a => new { a.Id, a.AccountCode, a.AccountName }).ToList()
+            .ToDictionary(a => a.Id);
+
+        foreach (var line in dto.Lines)
+        {
+            if (accounts.TryGetValue(line.AccountId, out var acct))
+            {
+                line.AccountCode = acct.AccountCode;
+                line.AccountName = acct.AccountName;
+            }
+        }
+
+        return dto;
     }
 
     public async Task<PagedResultDto<JournalEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -67,8 +86,12 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             query = query.Where(x => x.PostingDate <= input.ToDate.Value);
 
         var totalCount = query.Count();
-        var entries = query
-            .OrderByDescending(x => x.PostingDate)
+        var sorted = SortingHelper.ApplySorting(query, input.Sorting,
+            q => q.OrderByDescending(x => x.PostingDate),
+            ("entryNumber", x => (object)(x.EntryNumber ?? string.Empty)),
+            ("postingDate", x => x.PostingDate),
+            ("status", x => x.Status));
+        var entries = sorted
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();

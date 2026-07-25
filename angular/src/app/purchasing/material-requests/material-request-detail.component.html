@@ -9,6 +9,9 @@
         <app-status-badge [status]="getStatusLabel(entity.status)" />
         <div class="d-flex gap-2">
           @if (entity.status === 0) {
+            <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/purchasing/material-requests', entity.id, 'edit']">
+              <i class="fa fa-pen me-1"></i> {{ '::Edit' | abpLocalization }}
+            </a>
             <button class="btn btn-primary btn-sm" (click)="submit()">
               <i class="fa fa-paper-plane me-1"></i> {{ '::Submit' | abpLocalization }}
             </button>

@@ -66,10 +66,18 @@
 
     <!-- Items -->
     <div class="card mb-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
+        <!-- Barcode Scanner -->
+        <div class="mb-3">
+          <app-barcode-scanner
+            [placeholder]="'Scan item barcode or serial number...'"
+            (scanned)="onBarcodeScan($event)"
+          />
+        </div>
+
         <div class="table-responsive">
           <table class="table table-sm w-100">
             <thead>
@@ -83,7 +91,14 @@
             <tbody>
               @for (row of items.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="itemName" [placeholder]="'::Placeholder:ItemName' | abpLocalization" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $event)">
+                      <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+                      @for (item of availableItems(); track item.id) {
+                        <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
+                      }
+                    </select>
+                  </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="qty" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
                   <td>

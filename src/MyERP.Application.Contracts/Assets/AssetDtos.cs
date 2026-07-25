@@ -96,6 +96,8 @@ public class GetAssetListDto : PagedAndSortedResultRequestDto
     public string? Filter { get; set; }
     public Guid? CompanyId { get; set; }
     public Guid? AssetCategoryId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
 }
 
 public class AssetCategoryDto

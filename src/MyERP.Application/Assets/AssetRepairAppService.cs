@@ -60,7 +60,7 @@ public class AssetRepairAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
-             query = query.Where(r => r.RepairDescription != null && r.RepairDescription.ToLower().Contains(filter.ToLower()));
+             query = query.Where(r => r.RepairDescription != null && r.RepairDescription.Contains(filter));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<AssetRepairStatus>(input.Status, true, out var status))

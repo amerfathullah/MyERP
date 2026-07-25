@@ -11,6 +11,7 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public string DeliveryNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
     public Guid CustomerId { get; set; }
+    public string? CustomerName { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid WarehouseId { get; set; }
     public string? ShippingAddress { get; set; }

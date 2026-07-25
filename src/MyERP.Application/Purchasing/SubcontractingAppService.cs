@@ -123,6 +123,11 @@ public class SubcontractingAppService : ApplicationService
     public async Task<SubcontractingReceiptDto> SubmitReceiptAsync(Guid id)
     {
         var scr = await _scrRepository.GetAsync(id, includeDetails: true);
+
+        // Validate receipt against SCO (qty caps, status guard) via domain service
+        var scManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.SubcontractingManager>();
+        await scManager.ValidateReceiptAgainstOrderAsync(scr);
+
         scr.Submit();
 
         // Stock-in for received finished goods
@@ -138,26 +143,9 @@ public class SubcontractingAppService : ApplicationService
             await _binService.ApplyStockMovementAsync(item.ItemId, warehouseId, item.Qty, item.Qty * item.Rate);
         }
 
-        // Update linked SCO item received quantities
-        var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId, includeDetails: true);
-        foreach (var scrItem in scr.Items)
-        {
-            var scoItem = sco.Items.FirstOrDefault(i => i.ItemId == scrItem.ItemId);
-            if (scoItem != null)
-                scoItem.ReceivedQty += scrItem.Qty;
-        }
+        // Update linked SCO fulfillment via domain service (replaces inline logic)
+        await scManager.UpdateOrderOnReceiptAsync(scr, reverse: false);
 
-        // Update SCO status based on receipt percentage
-        var minPer = sco.Items.Any()
-            ? sco.Items.Min(i => i.Qty > 0 ? (i.ReceivedQty / i.Qty) * 100m : 100m)
-            : 0m;
-        if (minPer >= 100)
-            sco.Close();
-        else if (minPer > 0 && sco.Status == SubcontractingOrderStatus.Open)
-            sco.MarkPartiallyReceived();
-        sco.PerReceived = minPer;
-
-        await _scoRepository.UpdateAsync(sco);
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
@@ -182,18 +170,10 @@ public class SubcontractingAppService : ApplicationService
             }
         }
 
-        // Reverse SCO received quantities
-        var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId, includeDetails: true);
-        foreach (var scrItem in scr.Items)
-        {
-            var scoItem = sco.Items.FirstOrDefault(i => i.ItemId == scrItem.ItemId);
-            if (scoItem != null)
-                scoItem.ReceivedQty = Math.Max(0, scoItem.ReceivedQty - scrItem.Qty);
-        }
-        sco.PerReceived = sco.Items.Any()
-            ? sco.Items.Min(i => i.Qty > 0 ? (i.ReceivedQty / i.Qty) * 100m : 100m) : 0m;
+        // Reverse SCO fulfillment via domain service
+        var scManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.SubcontractingManager>();
+        await scManager.UpdateOrderOnReceiptAsync(scr, reverse: true);
 
-        await _scoRepository.UpdateAsync(sco);
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }

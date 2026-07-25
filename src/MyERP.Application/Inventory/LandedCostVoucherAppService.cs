@@ -40,7 +40,7 @@ public class LandedCostVoucherAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(l => (l.VoucherNumber ?? "").ToLower().Contains(f));
+            query = query.Where(l => (l.VoucherNumber ?? "").Contains(f));
         }
 
         var totalCount = query.Count();

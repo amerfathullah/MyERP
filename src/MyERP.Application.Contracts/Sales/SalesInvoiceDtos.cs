@@ -91,6 +91,12 @@ public class CreateSalesInvoiceDto
     /// <summary>Warehouse for stock deduction when UpdateStock=true.</summary>
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Coupon code to apply pricing discount (validated + recorded on creation).</summary>
+    public string? CouponCode { get; set; }
+
+    /// <summary>Loyalty points to redeem against this invoice (reduces payable amount).</summary>
+    public int LoyaltyPointsToRedeem { get; set; }
+
     [Required]
     [MinLength(1)]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();

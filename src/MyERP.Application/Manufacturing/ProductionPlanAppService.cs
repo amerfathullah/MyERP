@@ -58,7 +58,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(p => p.PlanNumber.ToLower().Contains(f));
+            query = query.Where(p => p.PlanNumber.Contains(f));
         }
 
         var totalCount = query.Count();
@@ -276,24 +276,35 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
+    /// <summary>
+    /// Calculates the planned (to-order) qty for a material requirement.
+    /// Per PR #57399: safety stock is added BEFORE min-order-qty and UOM rounding,
+    /// and consumed available qty tracking uses (qty - required_qty) not min(qty, available).
+    /// </summary>
     private static decimal CalculatePlannedQty(ProductionPlanMrItem item, ProductionPlan plan)
     {
-        var qty = item.RequiredQty;
+        var safetyStock = plan.IncludeSafetyStock ? item.SafetyStock : 0m;
+        var requiredQty = item.RequiredQty;
 
-        if (!plan.IgnoreExistingOrderedQty)
-            qty -= item.OrderedQty;
+        if (!plan.IgnoreExistingOrderedQty || item.AvailableQty < 0)
+        {
+            // When not ignoring existing OR projected qty is negative: use full required + safety
+            var qty = Math.Max(0, requiredQty + safetyStock);
 
-        qty -= item.AvailableQty;
+            if (plan.ConsiderMinimumOrderQty && item.MinOrderQty > 0 && qty > 0 && qty < item.MinOrderQty)
+                qty = item.MinOrderQty;
 
-        if (plan.IncludeSafetyStock)
-            qty += item.SafetyStock;
+            return qty;
+        }
 
-        qty = Math.Max(0, qty);
+        // Deduct available stock (minus safety buffer) from requirement
+        var availableAfterSafety = item.AvailableQty - safetyStock;
+        var plannedQty = Math.Max(0, requiredQty - availableAfterSafety);
 
-        if (plan.ConsiderMinimumOrderQty && item.MinOrderQty > 0)
-            qty = Math.Ceiling(qty / item.MinOrderQty) * item.MinOrderQty;
+        if (plan.ConsiderMinimumOrderQty && item.MinOrderQty > 0 && plannedQty > 0 && plannedQty < item.MinOrderQty)
+            plannedQty = item.MinOrderQty;
 
-        return qty;
+        return plannedQty;
     }
 }
 

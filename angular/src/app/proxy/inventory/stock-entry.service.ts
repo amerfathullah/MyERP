@@ -1,4 +1,4 @@
-import type { CreateStockEntryDto, ManufactureItemsDto, StockEntryDto } from './models';
+import type { CreateStockEntryDto, CreateTransitTransferDto, ManufactureItemsDto, PendingTransitTransferDto, StockEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -24,6 +24,32 @@ export class StockEntryService {
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
       url: '/api/app/stock-entry',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createMaterialTransferForManufacture = (workOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      url: `/api/app/stock-entry/material-transfer-for-manufacture/${workOrderId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createReceiveAtWarehouse = (outgoingStockEntryId: string, destinationWarehouseId: string, postingDate: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      url: '/api/app/stock-entry/receive-at-warehouse',
+      params: { outgoingStockEntryId, destinationWarehouseId, postingDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createTransitTransfer = (input: CreateTransitTransferDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      url: '/api/app/stock-entry/transit-transfer',
       body: input,
     },
     { apiName: this.apiName,...config });
@@ -59,6 +85,14 @@ export class StockEntryService {
       method: 'GET',
       url: `/api/app/stock-entry/manufacture-items/${workOrderId}`,
       params: { produceQty },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPendingTransitTransfers = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PendingTransitTransferDto[]>({
+      method: 'GET',
+      url: `/api/app/stock-entry/pending-transit-transfers/${companyId}`,
     },
     { apiName: this.apiName,...config });
   

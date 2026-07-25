@@ -62,15 +62,21 @@ public class SalesOrderManager : DomainService
     }
 
     /// <summary>
-    /// Validates over-delivery: DN item qty cannot exceed SO item's PendingDeliveryQty.
+    /// Validates over-delivery: DN item qty cannot exceed SO item's allowed qty including tolerance.
     /// Only applies to non-return DNs linked to a Sales Order.
+    /// Per ERPNext StatusUpdater: max_allowed = ordered_qty × (1 + allowance_pct / 100).
+    /// The allowance comes from Company.OverDeliveryReceiptAllowance (Stock Settings in ERPNext).
     /// </summary>
-    public void ValidateDeliveryQty(SalesOrder order, Guid itemId, decimal deliveryQty)
+    public void ValidateDeliveryQty(SalesOrder order, Guid itemId, decimal deliveryQty, decimal overDeliveryAllowancePct = 0m)
     {
         var soItem = order.Items.FirstOrDefault(i => i.ItemId == itemId);
         if (soItem == null) return;
 
-        if (deliveryQty > soItem.PendingDeliveryQty)
+        // Per ERPNext: max allowed = ordered × (1 + pct/100), then subtract already delivered
+        var maxAllowedTotal = soItem.Quantity * (1m + overDeliveryAllowancePct / 100m);
+        var remainingAllowed = maxAllowedTotal - soItem.DeliveredQty;
+
+        if (deliveryQty > remainingAllowed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.OverDelivery)
                 .WithData("itemName", soItem.Description)

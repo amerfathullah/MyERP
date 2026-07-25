@@ -29,7 +29,7 @@ public class CostCenterAppService : ApplicationService
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
-            query = query.Where(c => c.Name.ToLower().Contains(f));
+            query = query.Where(c => c.Name.Contains(f));
         }
 
         var totalCount = query.Count();

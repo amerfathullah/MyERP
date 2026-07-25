@@ -113,6 +113,7 @@ export interface GetBudgetListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   fiscalYearId?: string | null;
   filter?: string | null;
+  status?: string | null;
 }
 
 export interface GetLandedCostVoucherListDto extends PagedAndSortedResultRequestDto {

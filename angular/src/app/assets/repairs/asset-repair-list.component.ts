@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { AssetRepairService } from '../../proxy/assets/asset-repair.service';
+import { AssetService } from '../../proxy/assets/asset.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { AssetRepairDto } from '../../proxy/assets/models';
@@ -46,7 +47,7 @@ import type { AssetRepairDto } from '../../proxy/assets/models';
               <tbody>
                 @for (r of items(); track r.id) {
                   <tr>
-                    <td class="font-monospace">{{ r.assetId | slice:0:8 }}…</td>
+                    <td>{{ assetNames()[r.assetId ?? ''] || (r.assetId | slice:0:8) + '…' }}</td>
                     <td class="text-truncate" style="max-width:200px">{{ r.repairDescription ?? '—' }}</td>
                     <td>{{ r.failureDate ? (r.failureDate | date:'dd/MM/yyyy') : '—' }}</td>
                     <td class="text-end fw-semibold">{{ r.repairCost | number:'1.2-2' }}</td>
@@ -92,6 +93,9 @@ import type { AssetRepairDto } from '../../proxy/assets/models';
 export class AssetRepairListComponent implements OnInit {
   private service = inject(AssetRepairService);
   private companyContext = inject(CompanyContextService);
+  private assetService = inject(AssetService);
+
+  assetNames = signal<Record<string, string>>({});
 
   items = signal<AssetRepairDto[]>([]);
   totalCount = signal(0);
@@ -99,7 +103,14 @@ export class AssetRepairListComponent implements OnInit {
   currentPage = 0;
   pageSize = 20;
 
-  ngOnInit(): void { this.loadData(); }
+  ngOnInit(): void {
+    this.loadData();
+    this.assetService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe(r => {
+      const map: Record<string, string> = {};
+      (r.items ?? []).forEach((a: any) => { map[a.id] = a.assetName || a.assetCode || a.id; });
+      this.assetNames.set(map);
+    });
+  }
 
   loadData(): void {
     this.isLoading.set(true);

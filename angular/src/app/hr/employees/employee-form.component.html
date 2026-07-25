@@ -1,5 +1,5 @@
 <abp-page [title]="isEditMode ? ('::EditEmployee' | abpLocalization) : ('::NewEmployee' | abpLocalization)">
-  <form [formGroup]="form" (ngSubmit)="save()">
+  <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-header">
         <h5 class="card-title mb-0"><i class="fa fa-user me-2"></i>{{ '::Employee' | abpLocalization }}</h5>

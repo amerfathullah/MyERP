@@ -13,12 +13,13 @@ import { ItemService } from '../../proxy/inventory/item.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 
 @Component({
   selector: 'app-delivery-note-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
+    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
   styleUrls: ['./delivery-note-form.component.scss'],
 })
@@ -44,10 +45,13 @@ export class DeliveryNoteFormComponent implements OnInit {
     postingDate: [new Date().toISOString().split('T')[0], Validators.required],
     salesOrderId: [''],
     warehouseId: ['', Validators.required],
+    isReturn: [false],
+    returnAgainstId: [''],
     items: this.fb.array([]),
   });
 
   isEditMode = false;
+  isReturn = false;
   entityId: string | null = null;
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
@@ -86,6 +90,28 @@ export class DeliveryNoteFormComponent implements OnInit {
         dn.items?.forEach((item: any) => this.addItemRow(item));
       });
     }
+
+    // Handle return creation from detail page "Create Return" action
+    const returnAgainst = this.route.snapshot.queryParams['returnAgainst'];
+    if (returnAgainst && !this.isEditMode) {
+      this.isReturn = true;
+      this.form.patchValue({ isReturn: true, returnAgainstId: returnAgainst });
+      this.service.get(returnAgainst).subscribe(original => {
+        this.form.patchValue({
+          companyId: original.companyId,
+          customerId: original.customerId,
+          warehouseId: original.warehouseId,
+          salesOrderId: original.salesOrderId ?? '',
+        });
+        // Add items with negative quantities for return
+        original.items?.forEach((item: any) => {
+          this.addItemRow({
+            ...item,
+            quantity: -(Math.abs(item.quantity ?? 0)),
+          });
+        });
+      });
+    }
   }
 
   addItemRow(item?: any): void {
@@ -108,7 +134,13 @@ export class DeliveryNoteFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const value = this.form.getRawValue() as any;
+    const raw = this.form.getRawValue() as any;
+    // Convert empty strings to null for nullable Guid fields
+    const value = {
+      ...raw,
+      salesOrderId: raw.salesOrderId || null,
+      returnAgainstId: raw.returnAgainstId || null,
+    };
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({
         next: () => this.router.navigate(['/sales/delivery-notes', this.entityId]),

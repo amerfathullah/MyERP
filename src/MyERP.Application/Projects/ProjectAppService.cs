@@ -46,7 +46,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         {
             var filter = input.Filter;
             query = query.Where(p =>
-                p.ProjectName.ToLower().Contains(filter.ToLower()) ||
+                p.ProjectName.Contains(filter) ||
                 p.ProjectNumber.Contains(filter));
         }
 

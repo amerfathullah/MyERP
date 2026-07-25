@@ -6,6 +6,7 @@ public static class MyERPDomainErrorCodes
     public const string CompanyNameAlreadyExists = "MyERP:00001";
     public const string BranchCodeAlreadyExists = "MyERP:00002";
     public const string CompanyCurrencyLocked = "MyERP:00003";
+    public const string CompanyRestrictionBlocked = "MyERP:00004";
 
     // Document Workflow
     public const string InvalidStatusTransition = "MyERP:01001";
@@ -76,6 +77,9 @@ public static class MyERPDomainErrorCodes
     public const string MissingWarehouse = "MyERP:05016";
     public const string SameWarehouseTransfer = "MyERP:05017";
     public const string CannotDeleteItem = "MyERP:05018";
+
+    // Barcode Scanner
+    public const string BarcodeRequired = "MyERP:05041";
     public const string InsufficientRawMaterial = "MyERP:10008";
     public const string CannotDeleteBOM = "MyERP:10009";
 
@@ -161,6 +165,7 @@ public static class MyERPDomainErrorCodes
     public const string AssetExistsOnReturnDocument = "MyERP:04012";
     public const string FromWarehouseEqualsTargetWarehouse = "MyERP:04013";
     public const string FromWarehouseOnSubcontractedDocument = "MyERP:04014";
+    public const string ThreeWayMatchingFailed = "MyERP:04015";
 
     // Bank Transaction
     public const string BankTransactionCurrencyMismatch = "MyERP:02022";
@@ -226,4 +231,28 @@ public static class MyERPDomainErrorCodes
 
     // Repost Item Valuation
     public const string RepostAlreadyInProgress = "MyERP:05036";
+
+    // Transit Transfer
+    public const string NoTransitWarehouseConfigured = "MyERP:05037";
+    public const string InvalidTransitSourceEntry = "MyERP:05038";
+    public const string TransitSourceNotPosted = "MyERP:05039";
+    public const string TransitReceivingEntryExists = "MyERP:05040";
+
+    // Manufacturing
+    public const string AllMaterialsAlreadyTransferred = "MyERP:10013";
+    public const string MaterialConsumptionDisabled = "MyERP:10014";
+    public const string DoubleConsumption = "MyERP:10015";
+    public const string ConsumedQtyExceedsTransferred = "MyERP:10016";
+    public const string BomFgCannotBeSecondaryItem = "MyERP:10017";
+    public const string InvalidProcessLossPercentage = "MyERP:10018";
+    public const string SecondaryItemCostAllocationInvalid = "MyERP:10019";
+
+    // Party Link
+    public const string PartyCannotLinkToSelf = "MyERP:00005";
+
+    // Coupon Code
+    public const string CouponCodeMaxUsageReached = "MyERP:03017";
+    public const string PricingRuleNotFound = "MyERP:03018";
+    public const string CouponCodeNotFound = "MyERP:03019";
+    public const string CouponCodeInvalid = "MyERP:03020";
 }

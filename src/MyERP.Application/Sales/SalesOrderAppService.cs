@@ -126,6 +126,13 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        // Validate company restriction — items/customer must allow this company
+        var restrictionService = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await restrictionService.ValidateTransactionCompanyAsync(
+            "SalesOrder", input.CompanyId,
+            itemIds: itemIds,
+            customerIds: new[] { input.CustomerId });
+
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
         var order = new SalesOrder(
@@ -228,6 +235,17 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Apply coupon code discount if provided
+        if (!string.IsNullOrWhiteSpace(input.CouponCode))
+        {
+            var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
+            var pricingRuleId = await couponService.ValidateAndApplyAsync(
+                input.CouponCode, input.CustomerId, input.OrderDate);
+            order.Notes = string.IsNullOrEmpty(order.Notes)
+                ? $"Coupon: {input.CouponCode}"
+                : $"{order.Notes} | Coupon: {input.CouponCode}";
+        }
+
         await _repository.InsertAsync(order, autoSave: true);
 
         // Check if customer has overdue invoices (advisory warning, not blocking)
@@ -291,7 +309,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         // Credit limit check — per DO-NOT: "must also enforce at SO, DN and SI submit"
         var creditLimitService = LazyServiceProvider
             .LazyGetRequiredService<CreditLimitService>();
-        await creditLimitService.ValidateCreditLimitAsync(order.CustomerId, order.GrandTotal);
+        await creditLimitService.ValidateCreditLimitAsync(order.CustomerId, order.GrandTotal, order.CompanyId);
 
         // Selling price validation — selling rate must be >= valuation rate
         var valuationService = LazyServiceProvider
@@ -560,6 +578,74 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft sales orders can be deleted");
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Gets delivery schedule entries for a sales order.
+    /// Per ERPNext SO delivery schedule: planned delivery windows with qty tracking.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Default)]
+    public async Task<List<DeliveryScheduleEntryDto>> GetDeliveryScheduleAsync(Guid orderId)
+    {
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+        var queryable = await scheduleRepo.GetQueryableAsync();
+        var entries = queryable
+            .Where(e => e.SalesOrderId == orderId)
+            .OrderBy(e => e.ScheduledDate)
+            .ToList();
+
+        return entries.Select(e => new DeliveryScheduleEntryDto
+        {
+            Id = e.Id,
+            SalesOrderItemId = e.SalesOrderItemId,
+            ScheduledDate = e.ScheduledDate,
+            ScheduledQty = e.ScheduledQty,
+            DeliveredQty = e.DeliveredQty,
+            PendingQty = e.PendingQty,
+            IsFullyDelivered = e.IsFullyDelivered,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Generates delivery schedule entries for a sales order item by splitting qty across dates.
+    /// Per ERPNext gotcha #108: SO Delivery Schedule splits by frequency.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<List<DeliveryScheduleEntryDto>> GenerateDeliveryScheduleAsync(
+        Guid orderId, Guid itemId, string frequency)
+    {
+        var order = await _repository.GetAsync(orderId);
+        var item = order.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("detail", "Item not found on this order");
+
+        if (!Enum.TryParse<MyERP.Sales.DomainServices.DeliveryFrequency>(frequency, true, out var freq))
+            freq = MyERP.Sales.DomainServices.DeliveryFrequency.Monthly;
+
+        var scheduleService = LazyServiceProvider
+            .LazyGetRequiredService<DeliveryScheduleService>();
+        var entries = scheduleService.GenerateSchedule(
+            orderId, itemId, item.Quantity,
+            order.OrderDate, order.DeliveryDate ?? order.OrderDate.AddMonths(3),
+            freq);
+
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+        foreach (var entry in entries)
+            await scheduleRepo.InsertAsync(entry);
+
+        return entries.Select(e => new DeliveryScheduleEntryDto
+        {
+            Id = e.Id,
+            SalesOrderItemId = e.SalesOrderItemId,
+            ScheduledDate = e.ScheduledDate,
+            ScheduledQty = e.ScheduledQty,
+            DeliveredQty = e.DeliveredQty,
+            PendingQty = e.PendingQty,
+            IsFullyDelivered = e.IsFullyDelivered,
+        }).ToList();
     }
 }
 

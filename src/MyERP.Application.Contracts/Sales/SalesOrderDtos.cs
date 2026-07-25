@@ -77,6 +77,12 @@ public class CreateSalesOrderDto
     /// <summary>Shipping destination country code (for shipping rule matching).</summary>
     public string? ShippingCountry { get; set; }
 
+    /// <summary>Coupon code to apply pricing discount (validated + recorded on creation).</summary>
+    public string? CouponCode { get; set; }
+
+    /// <summary>Loyalty points to redeem (reduces grand total by redemption value).</summary>
+    public int LoyaltyPointsToRedeem { get; set; }
+
     [Required]
     [MinLength(1)]
     public List<CreateSalesOrderItemDto> Items { get; set; } = new();
@@ -106,4 +112,18 @@ public class CreateSalesOrderItemDto
     public string Uom { get; set; } = "Unit";
 
     public Guid? WarehouseId { get; set; }
+}
+
+/// <summary>
+/// Delivery schedule entry for planned delivery windows per SO item.
+/// </summary>
+public class DeliveryScheduleEntryDto
+{
+    public Guid Id { get; set; }
+    public Guid SalesOrderItemId { get; set; }
+    public DateTime ScheduledDate { get; set; }
+    public decimal ScheduledQty { get; set; }
+    public decimal DeliveredQty { get; set; }
+    public decimal PendingQty { get; set; }
+    public bool IsFullyDelivered { get; set; }
 }
