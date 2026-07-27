@@ -79,6 +79,14 @@ export class SalesOrderService {
     { apiName: this.apiName,...config });
   
 
+  getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/sales-order/${orderId}/order-payments`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesOrderDto>>({
       method: 'GET',

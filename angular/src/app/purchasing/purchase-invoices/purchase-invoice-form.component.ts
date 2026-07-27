@@ -4,11 +4,13 @@ import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angula
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -40,10 +42,15 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private paymentTermsService = inject(PaymentTermsTemplateService);
+  private toaster = inject(ToasterService);
 
   suppliers = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  paymentTermsTemplates = signal<any[]>([]);
+  isLoadingPOItems = signal(false);
+  isLoadingPRItems = signal(false);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -51,8 +58,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     supplierId: ['', Validators.required],
     supplierName: [''],
     supplierTin: [''],
+    supplierInvoiceNumber: [''],
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
+    paymentTermsTemplateId: [''],
     currencyCode: ['MYR'],
     notes: [''],
     isReturn: [false],
@@ -86,6 +95,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' }).subscribe(
       res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup))
     );
+    this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
@@ -160,6 +171,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
     const dto: CreatePurchaseInvoiceDto = {
       ...raw,
+      paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
+      dueDate: raw.dueDate || undefined,
+      warehouseId: raw.warehouseId || undefined,
+      returnAgainstId: raw.returnAgainstId || undefined,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         description: item.description || item.itemName || '',
@@ -167,6 +182,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         unitPrice: item.unitPrice ?? item.rate ?? 0,
         taxAmount: item.taxAmount ?? 0,
         uom: item.uom ?? 'Unit',
+        purchaseOrderItemId: item.purchaseOrderItemId || undefined,
+        purchaseReceiptItemId: item.purchaseReceiptItemId || undefined,
       })),
     };
     if (this.isEditMode) {
@@ -184,6 +201,73 @@ export class PurchaseInvoiceFormComponent implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/purchasing/invoices']);
+  }
+
+  getItemsFromPO(): void {
+    const supplierId = this.form.get('supplierId')?.value;
+    if (!supplierId) return;
+    this.isLoadingPOItems.set(true);
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.service.getUnbilledPurchaseOrderItems(supplierId, companyId).subscribe({
+      next: (items: any[]) => {
+        this.isLoadingPOItems.set(false);
+        if (!items || items.length === 0) {
+          this.toaster.info('::NoUnbilledOrderItems');
+          return;
+        }
+        // Clear existing items and populate from PO
+        while (this.items.length > 0) this.items.removeAt(0);
+        items.forEach((item: any) => {
+          this.addItemRow({
+            itemId: item.itemId,
+            description: item.itemName || '',
+            quantity: item.unbilledQty ?? item.quantity ?? 1,
+            unitPrice: item.rate ?? item.unitPrice ?? 0,
+            uom: item.uom ?? 'Unit',
+            purchaseOrderItemId: item.purchaseOrderItemId ?? item.id ?? null,
+          });
+        });
+        this.recalculate();
+        this.toaster.success(`${items.length} items loaded from Purchase Orders`);
+      },
+      error: () => {
+        this.isLoadingPOItems.set(false);
+      },
+    });
+  }
+
+  getItemsFromPR(): void {
+    const supplierId = this.form.get('supplierId')?.value;
+    if (!supplierId) return;
+    this.isLoadingPRItems.set(true);
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.service.getUnbilledPurchaseReceiptItems(supplierId, companyId).subscribe({
+      next: (items: any[]) => {
+        this.isLoadingPRItems.set(false);
+        if (!items || items.length === 0) {
+          this.toaster.info('::NoUnbilledReceiptItems');
+          return;
+        }
+        // Clear existing items and populate from PR
+        while (this.items.length > 0) this.items.removeAt(0);
+        items.forEach((item: any) => {
+          this.addItemRow({
+            itemId: item.itemId,
+            description: item.itemName || '',
+            quantity: item.quantity ?? 1,
+            unitPrice: item.rate ?? item.unitPrice ?? 0,
+            uom: item.uom ?? 'Unit',
+            purchaseReceiptItemId: item.purchaseReceiptItemId ?? item.id ?? null,
+            purchaseOrderItemId: item.purchaseOrderItemId ?? null,
+          });
+        });
+        this.recalculate();
+        this.toaster.success(`${items.length} items loaded from Purchase Receipts`);
+      },
+      error: () => {
+        this.isLoadingPRItems.set(false);
+      },
+    });
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

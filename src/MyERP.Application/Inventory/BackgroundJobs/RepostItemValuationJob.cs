@@ -60,12 +60,56 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
             "Repost item valuation starting: Item={ItemId}, Warehouse={WarehouseId}, FromDate={FromDate}",
             args.ItemId, args.WarehouseId, args.FromDate);
 
+        // STALE/DUPLICATE CHECK: Per DO-NOT "Skip advisory locking during SLE repost"
+        // If another repost is already InProgress for the same item+warehouse, skip this one.
+        // Per ERPNext: Redis lock with 86400s TTL. We use entity status as advisory lock equivalent.
+        var repostRepo = (IRepository<RepostItemValuation, Guid>)
+            _serviceProvider.GetService(typeof(IRepository<RepostItemValuation, Guid>))!;
+
+        var existingActive = (await repostRepo.GetQueryableAsync())
+            .Where(r => r.ItemId == args.ItemId
+                     && r.WarehouseId == args.WarehouseId
+                     && r.Status == RepostStatus.InProgress
+                     && r.Id != args.RepostId)
+            .OrderByDescending(r => r.CreationTime)
+            .FirstOrDefault();
+
+        if (existingActive != null)
+        {
+            // Stale detection: if it's been InProgress for > 1 day, force-fail it and proceed
+            var staleCutoff = DateTime.UtcNow.AddDays(-1);
+            if (existingActive.CreationTime < staleCutoff)
+            {
+                _logger.LogWarning(
+                    "Stale repost detected (Id={StaleId}, started {Created}). Force-failing and proceeding.",
+                    existingActive.Id, existingActive.CreationTime);
+                existingActive.Fail("Force-failed: stale repost exceeded 1-day TTL");
+                await repostRepo.UpdateAsync(existingActive);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Skipping repost — another repost (Id={ActiveId}) already InProgress for Item={ItemId}, Warehouse={WarehouseId}",
+                    existingActive.Id, args.ItemId, args.WarehouseId);
+
+                // Mark this one as skipped
+                if (args.RepostId.HasValue)
+                {
+                    var thisRepost = await repostRepo.FindAsync(args.RepostId.Value);
+                    if (thisRepost != null)
+                    {
+                        thisRepost.MarkSkipped($"Covered by active repost {existingActive.Id}");
+                        await repostRepo.UpdateAsync(thisRepost);
+                    }
+                }
+                return;
+            }
+        }
+
         // Update RepostItemValuation entity status if tracking ID provided
         RepostItemValuation? repostEntry = null;
         if (args.RepostId.HasValue)
         {
-            var repostRepo = (IRepository<RepostItemValuation, Guid>)
-                _serviceProvider.GetService(typeof(IRepository<RepostItemValuation, Guid>))!;
             repostEntry = await repostRepo.FindAsync(args.RepostId.Value);
             if (repostEntry != null)
             {
@@ -100,9 +144,7 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
             if (repostEntry != null)
             {
                 repostEntry.Complete(0);
-                var repostRepo2 = (IRepository<RepostItemValuation, Guid>)
-                    _serviceProvider.GetService(typeof(IRepository<RepostItemValuation, Guid>))!;
-                await repostRepo2.UpdateAsync(repostEntry);
+                await repostRepo.UpdateAsync(repostEntry);
             }
         }
         catch (Exception ex)
@@ -115,9 +157,7 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
             if (repostEntry != null)
             {
                 repostEntry.Fail(ex.Message);
-                var repostRepo3 = (IRepository<RepostItemValuation, Guid>)
-                    _serviceProvider.GetService(typeof(IRepository<RepostItemValuation, Guid>))!;
-                await repostRepo3.UpdateAsync(repostEntry);
+                await repostRepo.UpdateAsync(repostEntry);
             }
 
             // Don't re-throw — prevents infinite retry on persistent data issues.

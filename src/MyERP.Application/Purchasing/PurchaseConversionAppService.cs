@@ -24,6 +24,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
     private readonly IRepository<PurchaseReceipt, Guid> _purchaseReceiptRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<MaterialRequest, Guid> _materialRequestRepository;
+    private readonly IRepository<RequestForQuotation, Guid> _rfqRepository;
+    private readonly IRepository<SupplierQuotation, Guid> _sqRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly DocumentActivityLogService _activityLog;
@@ -33,6 +35,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         IRepository<PurchaseReceipt, Guid> purchaseReceiptRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<MaterialRequest, Guid> materialRequestRepository,
+        IRepository<RequestForQuotation, Guid> rfqRepository,
+        IRepository<SupplierQuotation, Guid> sqRepository,
         IRepository<Item, Guid> itemRepository,
         IDocumentNumberGenerator numberGenerator,
         DocumentActivityLogService activityLog)
@@ -41,6 +45,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         _purchaseReceiptRepository = purchaseReceiptRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _materialRequestRepository = materialRequestRepository;
+        _rfqRepository = rfqRepository;
+        _sqRepository = sqRepository;
         _itemRepository = itemRepository;
         _numberGenerator = numberGenerator;
         _activityLog = activityLog;
@@ -220,12 +226,130 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         }
 
         if (!po.Items.Any())
-            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "MaterialRequest")
+                .WithData("documentNumber", mr.RequestNumber)
+                .WithData("reason", "All items in this Material Request have been fully ordered. No pending items for Purchase Order.");
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
 
         await _activityLog.LogConvertedAsync("MaterialRequest", mr.Id, mr.CompanyId,
             "PurchaseOrder", po.Id, mr.RequestNumber, mr.TenantId);
+
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    /// <summary>
+    /// Creates Supplier Quotations from a submitted RFQ — one SQ per RFQ supplier.
+    /// Per ERPNext: RFQ detail has "Make Supplier Quotation" per supplier.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<object> ConvertRfqToSupplierQuotationAsync(
+        Guid rfqId, Guid supplierId)
+    {
+        var rfq = await _rfqRepository.GetAsync(rfqId);
+
+        if (rfq.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        // Validate that the supplier is on the RFQ
+        var rfqSupplier = rfq.Suppliers.FirstOrDefault(s => s.SupplierId == supplierId);
+        if (rfqSupplier == null)
+            throw new BusinessException("MyERP:04016")
+                .WithData("reason", "Supplier is not listed on this RFQ");
+
+        // Check if SQ already exists for this RFQ + supplier
+        var existingQuery = await _sqRepository.GetQueryableAsync();
+        var alreadyExists = existingQuery.Any(sq =>
+            sq.RequestForQuotationId == rfqId &&
+            sq.SupplierId == supplierId &&
+            sq.Status != Core.DocumentStatus.Cancelled);
+        if (alreadyExists)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("reason", "Supplier Quotation already exists for this supplier on this RFQ");
+
+        var sqNumber = await _numberGenerator.GenerateAsync("SupplierQuotation", rfq.CompanyId);
+
+        var sq = new SupplierQuotation(
+            GuidGenerator.Create(),
+            rfq.CompanyId,
+            supplierId,
+            Clock.Now.Date,
+            rfq.TenantId);
+
+        sq.QuotationNumber = sqNumber;
+        sq.RequestForQuotationId = rfq.Id;
+        sq.Currency = rfq.CurrencyCode;
+
+        foreach (var rfqItem in rfq.Items)
+        {
+            // Rate starts at 0 — supplier fills in their quoted rate
+            sq.AddItem(rfqItem.ItemId, rfqItem.Qty, 0m, rfqItem.Description,
+                rfqItem.Uom);
+        }
+
+        await _sqRepository.InsertAsync(sq, autoSave: true);
+
+        // Mark RFQ supplier as quote received (will be updated when SQ is submitted)
+        rfqSupplier.EmailSent = true;
+        await _rfqRepository.UpdateAsync(rfq, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("RequestForQuotation", rfq.Id, rfq.CompanyId,
+            "SupplierQuotation", sq.Id, rfq.RfqNumber, rfq.TenantId);
+
+        return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
+    }
+
+    /// <summary>
+    /// Converts a Supplier Quotation to a Purchase Order.
+    /// Per ERPNext: copies items with quoted rates from the SQ to a new PO.
+    /// SQ must be Submitted. Creates Draft PO for review before submission.
+    /// This completes the procurement cycle: MR → RFQ → SQ → PO → PR → PI.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<PurchaseOrderDto> ConvertSupplierQuotationToPurchaseOrderAsync(Guid supplierQuotationId)
+    {
+        var sq = await _sqRepository.GetAsync(supplierQuotationId);
+
+        if (sq.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (!sq.Items.Any())
+            throw new BusinessException("MyERP:04017")
+                .WithData("reason", "Supplier Quotation has no items to convert");
+
+        // Check for existing PO from this SQ
+        var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+        var alreadyConverted = poQuery.Any(po =>
+            po.SupplierQuotationId == supplierQuotationId &&
+            po.Status != Core.DocumentStatus.Cancelled);
+        if (alreadyConverted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("reason", "Purchase Order already exists for this Supplier Quotation");
+
+        var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", sq.CompanyId);
+
+        var po = new PurchaseOrder(
+            GuidGenerator.Create(),
+            sq.CompanyId,
+            sq.SupplierId,
+            orderNumber,
+            Clock.Now.Date,
+            sq.TenantId);
+
+        po.SupplierQuotationId = supplierQuotationId;
+        po.CurrencyCode = sq.Currency;
+        po.ExchangeRate = sq.ExchangeRate;
+
+        foreach (var sqItem in sq.Items)
+        {
+            po.AddItem(sqItem.ItemId, sqItem.ItemName ?? "", sqItem.Qty, sqItem.Rate, 0m, sqItem.Uom ?? "Unit");
+        }
+
+        await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("SupplierQuotation", sq.Id, sq.CompanyId,
+            "PurchaseOrder", po.Id, sq.QuotationNumber, sq.TenantId);
 
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }

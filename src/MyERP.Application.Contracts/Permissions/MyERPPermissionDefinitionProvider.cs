@@ -250,6 +250,24 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         // Company Restrictions — manager-level only (per ERPNext PR #57383: permlevel 1)
         var crPermission = myGroup.AddPermission(MyERPPermissions.CompanyRestrictions.Default, L("Permission:CompanyRestrictions"));
         crPermission.AddChild(MyERPPermissions.CompanyRestrictions.Manage, L("Permission:CompanyRestrictions.Manage"));
+
+        // Sales Partners
+        var salesPartnerPermission = myGroup.AddPermission(MyERPPermissions.SalesPartners.Default, L("Permission:SalesPartners"));
+        salesPartnerPermission.AddChild(MyERPPermissions.SalesPartners.Create, L("Permission:SalesPartners.Create"));
+        salesPartnerPermission.AddChild(MyERPPermissions.SalesPartners.Edit, L("Permission:SalesPartners.Edit"));
+        salesPartnerPermission.AddChild(MyERPPermissions.SalesPartners.Delete, L("Permission:SalesPartners.Delete"));
+
+        // Warranty Claims
+        var warrantyPermission = myGroup.AddPermission(MyERPPermissions.WarrantyClaims.Default, L("Permission:WarrantyClaims"));
+        warrantyPermission.AddChild(MyERPPermissions.WarrantyClaims.Create, L("Permission:WarrantyClaims.Create"));
+        warrantyPermission.AddChild(MyERPPermissions.WarrantyClaims.Edit, L("Permission:WarrantyClaims.Edit"));
+        warrantyPermission.AddChild(MyERPPermissions.WarrantyClaims.Delete, L("Permission:WarrantyClaims.Delete"));
+
+        // Warehouse Accounts
+        var warehouseAccountPermission = myGroup.AddPermission(MyERPPermissions.WarehouseAccounts.Default, L("Permission:WarehouseAccounts"));
+        warehouseAccountPermission.AddChild(MyERPPermissions.WarehouseAccounts.Create, L("Permission:WarehouseAccounts.Create"));
+        warehouseAccountPermission.AddChild(MyERPPermissions.WarehouseAccounts.Edit, L("Permission:WarehouseAccounts.Edit"));
+        warehouseAccountPermission.AddChild(MyERPPermissions.WarehouseAccounts.Delete, L("Permission:WarehouseAccounts.Delete"));
     }
 
     private static LocalizableString L(string name)

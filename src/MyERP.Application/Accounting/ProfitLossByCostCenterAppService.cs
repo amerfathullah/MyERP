@@ -45,11 +45,14 @@ public class ProfitLossByCostCenterAppService : ApplicationService
         var ccQuery = await _costCenterRepository.GetQueryableAsync();
         var accountQuery = await _accountRepository.GetQueryableAsync();
 
-        // Get all posted JEs in the period
-        var journalEntries = jeQuery
+        // Get all posted JEs in the period — use server-side projection to avoid loading full entities
+        // CRITICAL: Previous implementation loaded ALL JEs into memory causing OOM on large datasets
+        var journalLines = jeQuery
             .Where(je => je.CompanyId == companyId
                 && je.Status == Core.DocumentStatus.Posted
                 && je.PostingDate >= fromDate && je.PostingDate <= toDate)
+            .SelectMany(je => je.Lines)
+            .Select(line => new { line.AccountId, line.CostCenterId, line.IsDebit, line.Amount })
             .ToList();
 
         // Get all leaf cost centers for this company
@@ -63,46 +66,43 @@ public class ProfitLossByCostCenterAppService : ApplicationService
                 (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense))
             .ToDictionary(a => a.Id, a => a.AccountType);
 
-        // Aggregate GL lines by cost center
+        // Aggregate GL lines by cost center (server-side projected, no full entity load)
         var costCenterData = new Dictionary<Guid, (decimal revenue, decimal expense)>();
         decimal unallocatedRevenue = 0, unallocatedExpense = 0;
 
-        foreach (var je in journalEntries)
+        foreach (var line in journalLines)
         {
-            foreach (var line in je.Lines)
+            if (!accounts.ContainsKey(line.AccountId))
+                continue; // Skip balance sheet accounts
+
+            var accountType = accounts[line.AccountId];
+            bool isRevenue = accountType == AccountType.Revenue;
+            decimal amount = line.IsDebit ? line.Amount : -line.Amount;
+
+            // For revenue accounts: credit = positive revenue
+            // For expense accounts: debit = positive expense
+            if (isRevenue)
+                amount = -amount; // invert for revenue (credit-normal)
+
+            var ccId = line.CostCenterId;
+            if (ccId.HasValue)
             {
-                if (!accounts.ContainsKey(line.AccountId))
-                    continue; // Skip balance sheet accounts
+                if (!costCenterData.ContainsKey(ccId.Value))
+                    costCenterData[ccId.Value] = (0, 0);
 
-                var accountType = accounts[line.AccountId];
-                bool isRevenue = accountType == AccountType.Revenue;
-                decimal amount = line.IsDebit ? line.Amount : -line.Amount;
-
-                // For revenue accounts: credit = positive revenue
-                // For expense accounts: debit = positive expense
+                var existing = costCenterData[ccId.Value];
                 if (isRevenue)
-                    amount = -amount; // invert for revenue (credit-normal)
-
-                var ccId = line.CostCenterId;
-                if (ccId.HasValue)
-                {
-                    if (!costCenterData.ContainsKey(ccId.Value))
-                        costCenterData[ccId.Value] = (0, 0);
-
-                    var existing = costCenterData[ccId.Value];
-                    if (isRevenue)
-                        costCenterData[ccId.Value] = (existing.revenue + Math.Abs(amount), existing.expense);
-                    else
-                        costCenterData[ccId.Value] = (existing.revenue, existing.expense + Math.Abs(amount));
-                }
+                    costCenterData[ccId.Value] = (existing.revenue + Math.Abs(amount), existing.expense);
                 else
-                {
-                    // No cost center assigned → unallocated
-                    if (isRevenue)
-                        unallocatedRevenue += Math.Abs(amount);
-                    else
-                        unallocatedExpense += Math.Abs(amount);
-                }
+                    costCenterData[ccId.Value] = (existing.revenue, existing.expense + Math.Abs(amount));
+            }
+            else
+            {
+                // No cost center assigned → unallocated
+                if (isRevenue)
+                    unallocatedRevenue += Math.Abs(amount);
+                else
+                    unallocatedExpense += Math.Abs(amount);
             }
         }
 

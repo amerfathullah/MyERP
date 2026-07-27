@@ -1,11 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Accounting.Entities;
+using MyERP.Accounting.DomainServices;
 using MyERP.Permissions;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -25,6 +31,19 @@ public class DunningDto : EntityDto<Guid>
     public decimal GrandTotal { get; set; }
     public int Status { get; set; }
     public int OverduePaymentCount { get; set; }
+
+    /// <summary>Detailed overdue invoice entries (per ERPNext dunning_overdue_payment child table).</summary>
+    public List<DunningOverduePaymentDto> OverduePayments { get; set; } = new();
+}
+
+/// <summary>Per-invoice detail in a Dunning (shows which invoices are overdue and by how much).</summary>
+public class DunningOverduePaymentDto
+{
+    public Guid SalesInvoiceId { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public DateTime DueDate { get; set; }
+    public int OverdueDays { get; set; }
 }
 
 public class CreateDunningDto
@@ -33,9 +52,10 @@ public class CreateDunningDto
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public DateTime PostingDate { get; set; }
-    public int DunningLevel { get; set; } = 1;
     public decimal DunningFee { get; set; }
     public decimal InterestAmount { get; set; }
+    /// <summary>Per-annum interest rate. If set and InterestAmount is 0, interest is auto-calculated.</summary>
+    public decimal InterestRatePerAnnum { get; set; }
     public CreateDunningOverdueDto[] OverduePayments { get; set; } = [];
 }
 
@@ -51,7 +71,15 @@ public class CreateDunningOverdueDto
 public class DunningAppService : ApplicationService
 {
     private readonly IRepository<Dunning, Guid> _repository;
-    public DunningAppService(IRepository<Dunning, Guid> repository) => _repository = repository;
+    private readonly MyERP.Sales.DomainServices.DunningManager _dunningManager;
+
+    public DunningAppService(
+        IRepository<Dunning, Guid> repository,
+        MyERP.Sales.DomainServices.DunningManager dunningManager)
+    {
+        _repository = repository;
+        _dunningManager = dunningManager;
+    }
 
     public async Task<PagedResultDto<DunningDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
@@ -78,15 +106,53 @@ public class DunningAppService : ApplicationService
     public async Task<DunningDto> GetAsync(Guid id)
     {
         var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+
+        // Resolve invoice numbers for overdue payment display
+        if (d.OverduePayments.Any())
+        {
+            var invoiceIds = d.OverduePayments.Select(p => p.SalesInvoiceId).ToList();
+            var invoiceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var invoiceQuery = await invoiceRepo.GetQueryableAsync();
+            var invoiceNumbers = invoiceQuery
+                .Where(si => invoiceIds.Contains(si.Id))
+                .Select(si => new { si.Id, si.InvoiceNumber })
+                .ToDictionary(si => si.Id, si => si.InvoiceNumber);
+
+            dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+            {
+                SalesInvoiceId = p.SalesInvoiceId,
+                InvoiceNumber = invoiceNumbers.GetValueOrDefault(p.SalesInvoiceId),
+                OutstandingAmount = p.OutstandingAmount,
+                DueDate = p.DueDate,
+                OverdueDays = p.OverdueDays,
+            }).OrderByDescending(p => p.OverdueDays).ToList();
+        }
+
+        return dto;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<DunningDto> CreateAsync(CreateDunningDto input)
     {
+        // Determine correct dunning level from existing submitted dunnings
+        var level = await _dunningManager.DetermineDunningLevelAsync(
+            input.CustomerId, input.CompanyId, CurrentTenant.Id);
+
+        // Calculate interest if rate provided but amount not explicitly set
+        var interestAmount = input.InterestAmount;
+        if (interestAmount == 0 && input.InterestRatePerAnnum > 0 && input.OverduePayments.Length > 0)
+        {
+            var overdueData = input.OverduePayments
+                .Select(p => (p.OutstandingAmount, p.OverdueDays))
+                .ToList();
+            interestAmount = MyERP.Sales.DomainServices.DunningManager.CalculateInterest(
+                input.InterestRatePerAnnum, overdueData);
+        }
+
         var d = new Dunning(GuidGenerator.Create(), input.CompanyId, input.CustomerId,
-            input.PostingDate, input.DunningLevel, CurrentTenant.Id)
-        { CustomerName = input.CustomerName, DunningFee = input.DunningFee, InterestAmount = input.InterestAmount };
+            input.PostingDate, level, CurrentTenant.Id)
+        { CustomerName = input.CustomerName, DunningFee = input.DunningFee, InterestAmount = interestAmount };
         foreach (var p in input.OverduePayments)
             d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
         await _repository.InsertAsync(d);
@@ -97,7 +163,55 @@ public class DunningAppService : ApplicationService
     public async Task<DunningDto> SubmitAsync(Guid id)
     {
         var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+
+        // Validate level sequencing before submit
+        await _dunningManager.ValidateLevelSequencingAsync(d.CustomerId, d.CompanyId, d.DunningLevel, d.TenantId);
+
         d.Submit();
+
+        // Post GL entries for dunning fee + interest (DR Receivable, CR Income)
+        if (d.GrandTotal > 0)
+        {
+            try
+            {
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+                var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+                var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+                var company = await companyRepo.GetAsync(d.CompanyId);
+                var fy = (await fyRepo.GetQueryableAsync())
+                    .Where(f => f.CompanyId == d.CompanyId && f.StartDate <= d.PostingDate && f.EndDate >= d.PostingDate)
+                    .FirstOrDefault();
+
+                if (fy != null && company.DefaultReceivableAccountId.HasValue && company.DefaultIncomeAccountId.HasValue)
+                {
+                    var je = new JournalEntry(GuidGenerator.Create(), d.CompanyId, fy.Id, d.PostingDate, d.TenantId);
+                    je.ReferenceType = "Dunning";
+                    je.ReferenceId = d.Id;
+                    // DR Receivable (customer owes fee + interest)
+                    je.AddLine(company.DefaultReceivableAccountId.Value, d.GrandTotal, true);
+                    // CR Income (dunning fee + interest earned)
+                    je.AddLine(company.DefaultIncomeAccountId.Value, d.GrandTotal, false);
+                    je.Post();
+                    await jeRepo.InsertAsync(je);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to post GL entries for Dunning {DunningId}", d.Id);
+            }
+        }
+
+        // Activity log
+        try
+        {
+            var actRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+            await actRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+                "Dunning", d.Id, "Submitted", d.CompanyId,
+                previousStatus: "Draft", newStatus: "Submitted",
+                performedByUserId: CurrentUser.Id, tenantId: d.TenantId));
+        }
+        catch { }
+
         await _repository.UpdateAsync(d);
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }

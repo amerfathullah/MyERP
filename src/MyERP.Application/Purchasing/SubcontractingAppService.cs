@@ -98,6 +98,31 @@ public class SubcontractingAppService : ApplicationService
         return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
+    /// <summary>
+    /// Close an open/partially-received SCO, releasing RM reservation for unreceived supplied items.
+    /// Per upstream PR #57463: pending RM reservation must be released on close.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<SubcontractingOrderDto> CloseOrderAsync(Guid id)
+    {
+        var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+        sco.Close();
+
+        // Release RM reservation for unreceived supplied items
+        foreach (var item in sco.SuppliedItems)
+        {
+            var pendingQty = Math.Max(0, item.RequiredQty - item.ConsumedQty);
+            if (pendingQty > 0 && item.ReserveWarehouseId.HasValue)
+            {
+                await _binService.UpdateReservedQtyForSubContractAsync(
+                    item.ItemId, item.ReserveWarehouseId.Value, -pendingQty);
+            }
+        }
+
+        await _scoRepository.UpdateAsync(sco);
+        return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
+    }
+
     // === Subcontracting Receipt ===
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
@@ -146,6 +171,33 @@ public class SubcontractingAppService : ApplicationService
         // Update linked SCO fulfillment via domain service (replaces inline logic)
         await scManager.UpdateOrderOnReceiptAsync(scr, reverse: false);
 
+        // RM consumption: calculate and track consumed quantities
+        // Per ERPNext subcontracting_controller: RM consumed proportional to received FG qty
+        var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
+        var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty);
+
+        foreach (var rm in rmConsumptions)
+        {
+            if (rm.ConsumedQty <= 0 || !rm.WarehouseId.HasValue) continue;
+
+            // Update SCO supplied item consumed qty
+            var suppliedItem = sco.SuppliedItems.FirstOrDefault(si => si.ItemId == rm.ItemId);
+            if (suppliedItem != null)
+            {
+                suppliedItem.ConsumedQty += rm.ConsumedQty;
+            }
+
+            // Create SLE for RM consumption (stock-out from supplier warehouse)
+            await _stockValuationService.CreateLedgerEntryAsync(
+                scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
+                -rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
+
+            await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, -rm.ConsumedQty, 0);
+        }
+
+        await _scoRepository.UpdateAsync(sco);
+
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
@@ -173,6 +225,31 @@ public class SubcontractingAppService : ApplicationService
         // Reverse SCO fulfillment via domain service
         var scManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.SubcontractingManager>();
         await scManager.UpdateOrderOnReceiptAsync(scr, reverse: true);
+
+        // Reverse RM consumption
+        var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
+        var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty);
+
+        foreach (var rm in rmConsumptions)
+        {
+            if (rm.ConsumedQty <= 0 || !rm.WarehouseId.HasValue) continue;
+
+            var suppliedItem = sco.SuppliedItems.FirstOrDefault(si => si.ItemId == rm.ItemId);
+            if (suppliedItem != null)
+            {
+                suppliedItem.ConsumedQty = Math.Max(0, suppliedItem.ConsumedQty - rm.ConsumedQty);
+            }
+
+            // Reverse SLE for RM consumption (stock back in)
+            await _stockValuationService.CreateLedgerEntryAsync(
+                scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
+                rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
+
+            await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, rm.ConsumedQty, 0);
+        }
+
+        await _scoRepository.UpdateAsync(sco);
 
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);

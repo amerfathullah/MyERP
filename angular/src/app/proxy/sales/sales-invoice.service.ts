@@ -79,6 +79,24 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  getUnbilledOrderItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: '/api/app/sales-invoice/unbilled-order-items',
+      params: { customerId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnbilledDeliveryItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: '/api/app/sales-invoice/unbilled-delivery-items',
+      params: { customerId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   post = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',

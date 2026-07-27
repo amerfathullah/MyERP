@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.CRM.Entities;
+using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
@@ -16,13 +17,16 @@ public class LeadAppService : ApplicationService, ILeadAppService
 {
     private readonly IRepository<Lead, Guid> _leadRepository;
     private readonly IRepository<Opportunity, Guid> _opportunityRepository;
+    private readonly IRepository<Customer, Guid> _customerRepository;
 
     public LeadAppService(
         IRepository<Lead, Guid> leadRepository,
-        IRepository<Opportunity, Guid> opportunityRepository)
+        IRepository<Opportunity, Guid> opportunityRepository,
+        IRepository<Customer, Guid> customerRepository)
     {
         _leadRepository = leadRepository;
         _opportunityRepository = opportunityRepository;
+        _customerRepository = customerRepository;
     }
 
     public async Task<LeadDto> GetAsync(Guid id)
@@ -66,6 +70,10 @@ public class LeadAppService : ApplicationService, ILeadAppService
     [Authorize(MyERPPermissions.Leads.Create)]
     public async Task<LeadDto> CreateAsync(CreateLeadDto input)
     {
+        // Email uniqueness validation (per ERPNext: prevents duplicate leads with same email)
+        var leadManager = LazyServiceProvider.LazyGetRequiredService<MyERP.CRM.DomainServices.LeadManager>();
+        await leadManager.ValidateEmailUniquenessAsync(input.Email);
+
         var leadNumber = $"LEAD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var lead = new Lead(
             GuidGenerator.Create(),
@@ -175,6 +183,47 @@ public class LeadAppService : ApplicationService, ILeadAppService
         await _leadRepository.UpdateAsync(lead);
 
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opportunity);
+    }
+
+    /// <summary>
+    /// Convert a Lead to a Customer.
+    /// Per ERPNext: if lead has CompanyName → Customer type is Company;
+    /// otherwise → type is Individual with contact_person = lead full name.
+    /// Also carries over email, phone, address, industry.
+    /// </summary>
+    [Authorize(MyERPPermissions.Leads.Convert)]
+    public async Task<Guid> ConvertToCustomerAsync(ConvertLeadToCustomerDto input)
+    {
+        var lead = await _leadRepository.GetAsync(input.LeadId);
+
+        // Determine customer name: override, or CompanyName, or FullName
+        var customerName = !string.IsNullOrWhiteSpace(input.CustomerName)
+            ? input.CustomerName
+            : !string.IsNullOrWhiteSpace(lead.CompanyName)
+                ? lead.CompanyName
+                : lead.GetFullName();
+
+        var customer = new Customer(GuidGenerator.Create(), lead.CompanyId, customerName, CurrentTenant.Id)
+        {
+            ContactPerson = lead.GetFullName(),
+            Email = lead.Email,
+            Phone = lead.Phone ?? lead.MobileNo,
+            Website = lead.Website,
+            City = lead.City,
+            State = lead.State,
+            Country = lead.Country,
+            Tin = input.Tin,
+            CustomerGroupId = input.CustomerGroupId,
+            TerritoryId = input.TerritoryId,
+        };
+
+        await _customerRepository.InsertAsync(customer);
+
+        // Mark lead as converted
+        lead.ConvertToCustomer(customer.Id);
+        await _leadRepository.UpdateAsync(lead);
+
+        return customer.Id;
     }
 
     private static IQueryable<Lead> ApplySorting(IQueryable<Lead> query, string sorting)

@@ -105,7 +105,11 @@ export class DeliveryNoteDetailComponent implements OnInit {
         this.pendingConversionAction = () => {
           this.conversionService.convertDeliveryNoteToSalesInvoice(id).subscribe({
             next: (inv) => this.router.navigate(['/sales/invoices', inv.id]),
-            error: () => this.toaster.error('::ConversionFailed'),
+            error: (err) => {
+              // Show the specific reason from backend (e.g., "fully invoiced or returned")
+              const reason = err?.error?.error?.data?.reason || err?.error?.error?.message;
+              this.toaster.error(reason || '::ConversionFailed');
+            },
           });
         };
         this.showDraftGuard.set(true);

@@ -142,6 +142,84 @@
       </div>
     </div>
 
+    <!-- Goods Received History -->
+    @if (orderReceipts().length > 0) {
+      <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-truck-ramp-box me-2"></i>{{ '::GoodsReceived' | abpLocalization }}</h6>
+          <span class="badge bg-info">{{ orderReceipts().length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>{{ '::ReceiptNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Items' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of orderReceipts(); track r.purchaseReceiptId) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/purchasing/receipts', r.purchaseReceiptId]" class="text-decoration-none">
+                        {{ r.receiptNumber || '—' }}
+                      </a>
+                    </td>
+                    <td>{{ r.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end">{{ r.itemCount }}</td>
+                    <td><app-status-badge [status]="r.status" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Payments Made -->
+    @if (orderPayments().length > 0) {
+      <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-money-bill me-2"></i>{{ '::PaymentsMade' | abpLocalization }}</h6>
+          <span class="badge bg-success">{{ orderPayments().length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>{{ '::PaymentNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th>{{ '::Reference' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (pe of orderPayments(); track pe.paymentEntryId) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/accounting/payments', pe.paymentEntryId]" class="text-decoration-none">
+                        {{ pe.paymentNumber || '—' }}
+                      </a>
+                    </td>
+                    <td>{{ pe.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end font-monospace text-success">{{ pe.paidAmount | number:'1.2-2' }}</td>
+                    <td>{{ pe.referenceNumber || '—' }}</td>
+                    <td><app-status-badge [status]="pe.status" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
     <app-activity-log [documentType]="'PurchaseOrder'" [documentId]="order.id!"></app-activity-log>
 
     <!-- Print Layout (hidden on screen, shown only in print) -->

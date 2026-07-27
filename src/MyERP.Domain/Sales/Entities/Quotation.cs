@@ -41,6 +41,9 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     /// <summary>Reference to converted SalesOrder (if converted).</summary>
     public Guid? ConvertedToSalesOrderId { get; set; }
 
+    /// <summary>Source Opportunity that this Quotation was created from (if any).</summary>
+    public Guid? OpportunityId { get; set; }
+
     private readonly List<QuotationItem> _items = new();
     public IReadOnlyList<QuotationItem> Items => _items.AsReadOnly();
 

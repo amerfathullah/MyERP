@@ -102,4 +102,20 @@ export class PurchaseInvoiceService {
       url: `/api/app/purchase-invoice/${id}/write-off`,
     },
     { apiName: this.apiName,...config });
+
+  getUnbilledPurchaseOrderItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/unbilled-purchase-order-items',
+      params: { supplierId, companyId },
+    },
+    { apiName: this.apiName,...config });
+
+  getUnbilledPurchaseReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/unbilled-purchase-receipt-items',
+      params: { supplierId, companyId },
+    },
+    { apiName: this.apiName,...config });
 }

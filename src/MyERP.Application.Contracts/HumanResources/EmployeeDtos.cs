@@ -20,6 +20,7 @@ public class EmployeeDto : FullAuditedEntityDto<Guid>
     public string? Email { get; set; }
     public string? Designation { get; set; }
     public string? Department { get; set; }
+    public string? Gender { get; set; }
     public string? Status { get; set; }
 }
 
@@ -50,6 +51,9 @@ public class CreateUpdateEmployeeDto
 
     [StringLength(128)]
     public string? Department { get; set; }
+
+    [StringLength(20)]
+    public string? Gender { get; set; }
 
     [StringLength(100)]
     public string? EpfNumber { get; set; }

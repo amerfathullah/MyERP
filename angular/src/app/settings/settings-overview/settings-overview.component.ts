@@ -38,6 +38,10 @@ export class SettingsOverviewComponent {
       title: 'Company', icon: 'fa-building', description: 'Company defaults, accounts, and frozen dates.',
       links: [
         { path: '/settings/company', label: 'Company Settings', icon: 'fa-sliders' },
+        { path: '/settings/accounts', label: 'Accounts Settings', icon: 'fa-calculator' },
+        { path: '/settings/selling', label: 'Selling Settings', icon: 'fa-chart-line' },
+        { path: '/settings/buying', label: 'Buying Settings', icon: 'fa-cart-shopping' },
+        { path: '/settings/stock', label: 'Stock Settings', icon: 'fa-boxes-stacked' },
         { path: '/accounting/fiscal-years', label: 'Fiscal Years', icon: 'fa-calendar-days' },
         { path: '/accounting/currency-exchange', label: 'Exchange Rates', icon: 'fa-exchange-alt' },
         { path: '/accounting/period-closing', label: 'Period Closing', icon: 'fa-lock' },

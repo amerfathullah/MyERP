@@ -376,6 +376,32 @@ export interface MaterialConsumptionResultDto {
   itemCount?: number;
 }
 
+export interface StockEntryResultDto {
+  stockEntryId?: string;
+  entryNumber?: string;
+  entryType?: string;
+  itemCount?: number;
+  totalValue?: number;
+}
+
+export interface WorkOrderJobCardDto {
+  id?: string;
+  sequenceId?: number;
+  operationId?: string;
+  status?: number;
+  forQuantity?: number;
+  completedQty?: number;
+  totalTimeInMins?: number;
+  plannedTimeInMins?: number;
+  operationName?: string;
+}
+
+export interface CreateManufactureStockEntryDto {
+  workOrderId: string;
+  fgQuantity: number;
+  processLossQty?: number;
+}
+
 export interface WorkOrderDto extends AuditedEntityDto<string> {
   workOrderNumber?: string;
   status?: WorkOrderStatus;

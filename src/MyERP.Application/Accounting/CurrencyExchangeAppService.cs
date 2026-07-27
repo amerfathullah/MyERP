@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,15 @@ public class CreateCurrencyExchangeDto
 public class CurrencyExchangeAppService : ApplicationService
 {
     private readonly IRepository<CurrencyExchange, Guid> _repository;
-    public CurrencyExchangeAppService(IRepository<CurrencyExchange, Guid> repository) => _repository = repository;
+    private readonly CurrencyExchangeService _exchangeService;
+
+    public CurrencyExchangeAppService(
+        IRepository<CurrencyExchange, Guid> repository,
+        CurrencyExchangeService exchangeService)
+    {
+        _repository = repository;
+        _exchangeService = exchangeService;
+    }
 
     public async Task<PagedResultDto<CurrencyExchangeDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
@@ -53,5 +62,33 @@ public class CurrencyExchangeAppService : ApplicationService
     [Authorize(MyERPPermissions.Accounts.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 
+    /// <summary>
+    /// Gets the exchange rate for a currency pair on a given date.
+    /// Per ERPNext: checks local Currency Exchange table first, then falls back to external API.
+    /// Returns 1.0 for same-currency pairs.
+    /// Called by transaction forms when currency changes to auto-fill exchange rate.
+    /// </summary>
+    public async Task<ExchangeRateResultDto> GetRateAsync(string fromCurrency, string toCurrency, DateTime? transactionDate = null)
+    {
+        if (string.Equals(fromCurrency, toCurrency, StringComparison.OrdinalIgnoreCase))
+            return new ExchangeRateResultDto { Rate = 1m, FromCurrency = fromCurrency, ToCurrency = toCurrency };
 
+        var date = transactionDate ?? DateTime.UtcNow.Date;
+        var rate = await _exchangeService.GetExchangeRateAsync(fromCurrency, toCurrency, date);
+        return new ExchangeRateResultDto
+        {
+            Rate = rate,
+            FromCurrency = fromCurrency,
+            ToCurrency = toCurrency,
+            RateDate = date,
+        };
+    }
+}
+
+public class ExchangeRateResultDto
+{
+    public decimal Rate { get; set; }
+    public string FromCurrency { get; set; } = null!;
+    public string ToCurrency { get; set; } = null!;
+    public DateTime? RateDate { get; set; }
 }

@@ -43,6 +43,13 @@ public partial class AccountingDimensionMapper : MapperBase<Accounting.Entities.
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankAccountMapper : MapperBase<Accounting.Entities.BankAccount, Accounting.BankAccountDto>
+{
+    public override partial Accounting.BankAccountDto Map(Accounting.Entities.BankAccount source);
+    public override partial void Map(Accounting.Entities.BankAccount source, Accounting.BankAccountDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class BankTransactionMapper : MapperBase<Accounting.Entities.BankTransaction, Accounting.BankTransactionDto>
 {
     public override partial Accounting.BankTransactionDto Map(Accounting.Entities.BankTransaction source);
@@ -256,6 +263,10 @@ public partial class StockClosingEntryMapper : MapperBase<Inventory.Entities.Sto
 {
     public override partial Inventory.StockClosingEntryDto Map(Inventory.Entities.StockClosingEntry source);
     public override partial void Map(Inventory.Entities.StockClosingEntry source, Inventory.StockClosingEntryDto destination);
+
+    [MapperIgnoreTarget(nameof(Inventory.StockClosingBalanceDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.StockClosingBalanceDto.WarehouseName))]
+    private partial Inventory.StockClosingBalanceDto MapBalance(Inventory.Entities.StockClosingBalance source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -308,6 +319,14 @@ public partial class MaintenanceScheduleMapper : MapperBase<Assets.Entities.Main
     public override partial Assets.MaintenanceScheduleDto Map(Assets.Entities.MaintenanceSchedule source);
     public override partial void Map(Assets.Entities.MaintenanceSchedule source, Assets.MaintenanceScheduleDto destination);
     private partial Assets.MaintenanceScheduleDetailDto MapChild(Assets.Entities.MaintenanceScheduleDetail source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class MaintenanceVisitMapper : MapperBase<Assets.Entities.MaintenanceVisit, Assets.MaintenanceVisitDto>
+{
+    public override partial Assets.MaintenanceVisitDto Map(Assets.Entities.MaintenanceVisit source);
+    public override partial void Map(Assets.Entities.MaintenanceVisit source, Assets.MaintenanceVisitDto destination);
+    private partial Assets.MaintenanceVisitPurposeDto MapChild(Assets.Entities.MaintenanceVisitPurpose source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -464,6 +483,7 @@ public partial class PurchaseReceiptMapper : MapperBase<Purchasing.Entities.Purc
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.SupplierName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]
     public override partial void Map(Purchasing.Entities.PurchaseReceipt source, Purchasing.PurchaseReceiptDto destination);
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.ItemName))]
     private partial Purchasing.PurchaseReceiptItemDto MapChild(Purchasing.Entities.PurchaseReceiptItem source);
 }
 

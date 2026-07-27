@@ -207,6 +207,24 @@ public class MaterialConsumptionResultDto
     public int ItemCount { get; set; }
 }
 
+/// <summary>Result DTO for Stock Entry creation from Work Order.</summary>
+public class StockEntryResultDto
+{
+    public Guid StockEntryId { get; set; }
+    public string? EntryNumber { get; set; }
+    public string? EntryType { get; set; }
+    public int ItemCount { get; set; }
+    public decimal TotalValue { get; set; }
+}
+
+/// <summary>Input for creating a Manufacture Stock Entry from Work Order.</summary>
+public class CreateManufactureStockEntryDto
+{
+    [Required] public Guid WorkOrderId { get; set; }
+    [Required] [Range(0.0001, double.MaxValue)] public decimal FgQuantity { get; set; }
+    public decimal ProcessLossQty { get; set; }
+}
+
 // === Interface ===
 
 public interface IManufacturingAppService : IApplicationService
@@ -217,6 +235,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<BomDto> CreateBomAsync(CreateBomDto input);
     Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input);
     Task DeleteBomAsync(Guid id);
+    Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1);
 
     // Work Order
     Task<WorkOrderDto> GetWorkOrderAsync(Guid id);
@@ -232,4 +251,72 @@ public interface IManufacturingAppService : IApplicationService
 
     // Material Consumption
     Task<MaterialConsumptionResultDto> CreateMaterialConsumptionAsync(CreateMaterialConsumptionDto input);
+
+    // Material Transfer & Manufacture Stock Entry from Work Order
+    Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId);
+    Task<StockEntryResultDto> CreateManufactureStockEntryAsync(CreateManufactureStockEntryDto input);
+
+    // Job Cards for Work Order
+    Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId);
+}
+
+/// <summary>
+/// Lightweight Job Card summary for Work Order operations progress display.
+/// </summary>
+public class WorkOrderJobCardDto
+{
+    public Guid Id { get; set; }
+    public int SequenceId { get; set; }
+    public Guid OperationId { get; set; }
+    public int Status { get; set; }
+    public decimal ForQuantity { get; set; }
+    public decimal CompletedQty { get; set; }
+    public decimal TotalTimeInMins { get; set; }
+    public decimal PlannedTimeInMins { get; set; }
+    public string? OperationName { get; set; }
+}
+
+// === Subcontracting BOM DTOs ===
+
+/// <summary>
+/// Returned by GetBomItemsForSubcontractingAsync — BOM raw materials for subcontracting PO creation.
+/// Per ERPNext: when creating a subcontracting PO, BOM components auto-populate as supplied items.
+/// </summary>
+public class SubcontractingBomItemsDto
+{
+    public Guid? BomId { get; set; }
+    public string? BomNumber { get; set; }
+    public Guid? FgItemId { get; set; }
+    public decimal FgQty { get; set; }
+    public Guid? SourceWarehouseId { get; set; }
+    public List<SubcontractingBomItemLineDto> Items { get; set; } = new();
+}
+
+public class SubcontractingBomItemLineDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = "";
+    public string ItemCode { get; set; } = "";
+    public decimal RequiredQty { get; set; }
+    public decimal Rate { get; set; }
+    public string Uom { get; set; } = "Unit";
+    public Guid? SourceWarehouseId { get; set; }
+}
+
+/// <summary>
+/// Per-item material availability for a Work Order.
+/// Per ERPNext: shown before starting production to verify material readiness.
+/// </summary>
+public class MaterialAvailabilityDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = "—";
+    public string ItemCode { get; set; } = "—";
+    public decimal RequiredQty { get; set; }
+    public decimal TransferredQty { get; set; }
+    public decimal PendingQty { get; set; }
+    public decimal AvailableQty { get; set; }
+    public decimal Shortage { get; set; }
+    public bool HasSufficientStock { get; set; }
+    public Guid WarehouseId { get; set; }
 }

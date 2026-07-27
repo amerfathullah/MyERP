@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -10,101 +11,71 @@ namespace MyERP.Inventory;
 
 /// <summary>
 /// Resolves item details for transaction forms — auto-populates fields when user selects an item.
-/// Per ERPNext get_item_details.py (1850 lines, 56 functions) — simplified to key fields.
-/// Called on every item selection change in SO/PO/SI/PI/DN/PR forms.
+/// Delegates to ItemDetailsResolverService for proper 3-tier resolution:
+/// ItemDefault (per company) → Item → ItemGroup hierarchy → Company defaults.
+/// Per ERPNext get_item_details.py (1850 lines, 56 functions).
 /// </summary>
 [Authorize]
 public class ItemDetailsAppService : ApplicationService
 {
-    private readonly IRepository<Item, Guid> _itemRepo;
+    private readonly ItemDetailsResolverService _resolver;
     private readonly IRepository<Bin, Guid> _binRepo;
-    private readonly IRepository<Entities.ItemGroup, Guid> _itemGroupRepo;
 
     public ItemDetailsAppService(
-        IRepository<Item, Guid> itemRepo,
-        IRepository<Bin, Guid> binRepo,
-        IRepository<Entities.ItemGroup, Guid> itemGroupRepo)
+        ItemDetailsResolverService resolver,
+        IRepository<Bin, Guid> binRepo)
     {
-        _itemRepo = itemRepo;
+        _resolver = resolver;
         _binRepo = binRepo;
-        _itemGroupRepo = itemGroupRepo;
     }
 
     /// <summary>
     /// Resolves item defaults for a transaction row.
-    /// Per ERPNext: get_basic_details → 45 fields resolved from Item → ItemGroup → Brand → Company defaults.
+    /// Per ERPNext: get_basic_details → 45 fields resolved from Item → ItemDefault → ItemGroup → Brand → Company defaults.
     /// </summary>
     public async Task<ItemDetailsDto> GetItemDetailsAsync(GetItemDetailsInput input)
     {
-        var item = await _itemRepo.GetAsync(input.ItemId);
+        var txType = input.TransactionType == "Buying"
+            ? TransactionType.Buying
+            : TransactionType.Selling;
+
+        var context = new ItemResolutionContext
+        {
+            ItemId = input.ItemId,
+            CompanyId = input.CompanyId,
+            TransactionType = txType,
+            WarehouseOverride = input.WarehouseId,
+        };
+
+        var resolved = await _resolver.ResolveAsync(context);
 
         var result = new ItemDetailsDto
         {
-            ItemId = item.Id,
-            ItemCode = item.ItemCode,
-            ItemName = item.ItemName,
-            Description = item.Description ?? item.ItemName,
-            Uom = item.Uom,
-            StockUom = item.Uom,
-            ConversionFactor = 1m,
-            IsStockItem = item.MaintainStock,
-            HasBatchNo = false, // TODO: link to batch settings
-            HasSerialNo = false,
-            ItemGroup = item.ItemGroup,
+            ItemId = resolved.ItemId,
+            ItemCode = resolved.ItemCode,
+            ItemName = resolved.ItemName,
+            Description = resolved.Description,
+            Uom = resolved.Uom,
+            StockUom = resolved.StockUom,
+            ConversionFactor = resolved.ConversionFactor,
+            IsStockItem = resolved.IsStockItem,
+            HasBatchNo = resolved.HasBatchNo,
+            HasSerialNo = resolved.HasSerialNo,
+            ItemGroup = resolved.ItemGroup,
+            Rate = resolved.Rate,
+            WarehouseId = resolved.WarehouseId,
+            IncomeAccountId = resolved.IncomeAccountId,
+            ExpenseAccountId = resolved.ExpenseAccountId,
+            ActualQty = resolved.ActualQty,
+            ProjectedQty = resolved.ProjectedQty,
+            ReservedQty = resolved.ReservedQty,
+            AvailableQty = resolved.AvailableQty,
+            CompanyTotalStock = resolved.CompanyTotalStock,
+            LastPurchaseRate = resolved.LastPurchaseRate,
+            MinOrderQty = resolved.MinOrderQty,
+            DefaultSupplierId = resolved.DefaultSupplierId,
+            DefaultDiscountPercentage = resolved.DefaultDiscountPercentage,
         };
-
-        // Price resolution: selling vs buying
-        if (input.TransactionType == "Selling")
-        {
-            result.Rate = item.StandardSellingPrice ?? 0;
-            result.IncomeAccountId = item.DefaultIncomeAccountId;
-        }
-        else
-        {
-            result.Rate = item.StandardBuyingPrice ?? 0;
-            result.ExpenseAccountId = item.DefaultExpenseAccountId;
-        }
-
-        // Warehouse resolution: item default → item group default → null
-        result.WarehouseId = item.DefaultWarehouseId;
-        if (!result.WarehouseId.HasValue && item.ItemGroupId.HasValue)
-        {
-            var group = await _itemGroupRepo.FindAsync(item.ItemGroupId.Value);
-            result.WarehouseId = group?.DefaultWarehouseId;
-        }
-
-        // Stock availability: if warehouse specified, get current stock
-        var targetWarehouse = input.WarehouseId ?? result.WarehouseId;
-        if (targetWarehouse.HasValue && item.MaintainStock)
-        {
-            var binQuery = await _binRepo.GetQueryableAsync();
-            var bin = binQuery.FirstOrDefault(b => b.ItemId == input.ItemId && b.WarehouseId == targetWarehouse.Value);
-            if (bin != null)
-            {
-                result.ActualQty = bin.ActualQty;
-                result.ProjectedQty = bin.ProjectedQty;
-                result.ReservedQty = bin.ReservedQty;
-                result.AvailableQty = bin.ActualQty - bin.ReservedQty;
-            }
-        }
-
-        // Company-total stock (across all warehouses)
-        if (item.MaintainStock)
-        {
-            var binQuery = await _binRepo.GetQueryableAsync();
-            result.CompanyTotalStock = binQuery
-                .Where(b => b.ItemId == input.ItemId)
-                .Sum(b => (decimal?)b.ActualQty) ?? 0;
-        }
-
-        // Last purchase rate (for buying)
-        if (input.TransactionType == "Buying" && item.StandardBuyingPrice.HasValue)
-        {
-            result.LastPurchaseRate = item.StandardBuyingPrice.Value;
-        }
-
-        // Min order qty (for buying)
-        result.MinOrderQty = item.MinOrderQty;
 
         return result;
     }
@@ -151,4 +122,9 @@ public class ItemDetailsDto
 
     public decimal LastPurchaseRate { get; set; }
     public decimal MinOrderQty { get; set; }
+
+    /// <summary>Resolved default supplier for buying transactions (from ItemDefault per company).</summary>
+    public Guid? DefaultSupplierId { get; set; }
+    /// <summary>Resolved default discount percentage (from ItemDefault per company).</summary>
+    public decimal DefaultDiscountPercentage { get; set; }
 }

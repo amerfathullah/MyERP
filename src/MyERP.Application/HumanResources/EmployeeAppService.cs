@@ -78,6 +78,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.Email = input.Email;
         employee.Designation = input.Designation;
         employee.Department = input.Department;
+        employee.Gender = input.Gender;
         employee.EpfNumber = input.EpfNumber;
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
@@ -99,6 +100,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.Email = input.Email;
         employee.Designation = input.Designation;
         employee.Department = input.Department;
+        employee.Gender = input.Gender;
         employee.EpfNumber = input.EpfNumber;
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;

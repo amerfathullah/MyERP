@@ -818,6 +818,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   debitToAccountId?: string;
+  updateStock?: boolean;
+  warehouseId?: string | null;
   items?: SalesInvoiceItemDto[];
 }
 
@@ -850,6 +852,8 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   quotationId?: string | null;
   perDelivered?: number;
   perBilled?: number;
+  advancePaid?: number;
+  perAdvancePaid?: number;
   overdueWarning?: string | null;
   items?: SalesOrderItemDto[];
 }

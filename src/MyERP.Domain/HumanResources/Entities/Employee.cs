@@ -37,6 +37,7 @@ public class Employee : FullAuditedAggregateRoot<Guid>, IMultiTenant
     // Employment
     public string? Designation { get; set; }
     public string? Department { get; set; }
+    public string? Gender { get; set; }
     public EmploymentStatus Status { get; set; } = EmploymentStatus.Active;
 
     // Bank (PDPA-sensitive)

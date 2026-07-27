@@ -1,83 +1,164 @@
 <div class="row g-3 p-3" style="height: calc(100vh - 80px);">
   <!-- Left: Item grid -->
-  <div class="col-12 col-lg-8 d-flex flex-column gap-2">
-    <!-- Search -->
-    <div class="input-group">
-      <span class="input-group-text"><i class="fa fa-search"></i></span>
-      <input class="form-control" [(ngModel)]="searchQuery" [placeholder]="'::Placeholder:ScanBarcodeOrItemName' | abpLocalization"
-        (ngModelChange)="onSearchChange($event)" />
+  <div class="col-12 col-lg-7 d-flex flex-column gap-2">
+    <!-- Search + Customer -->
+    <div class="d-flex gap-2">
+      <div class="input-group flex-grow-1">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input class="form-control" [(ngModel)]="searchQuery"
+          placeholder="Search items or scan barcode..."
+          (ngModelChange)="onSearchChange($event)" />
+      </div>
+      <div class="input-group" style="max-width: 220px;">
+        <span class="input-group-text"><i class="bi bi-person"></i></span>
+        <input class="form-control" [(ngModel)]="customerName" placeholder="Walk-in" />
+      </div>
     </div>
 
-    <!-- Item grid from API -->
+    <!-- Item grid -->
     <div class="row g-2 overflow-auto flex-grow-1">
       @for (item of items(); track item.id) {
-        <div class="col-6 col-md-4">
-          <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-start"
-            style="height: 6rem;" (click)="addToCart(item)">
-            <span class="fw-medium small">{{ item.itemName }}</span>
-            <span class="small text-muted font-monospace">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
+        <div class="col-6 col-md-4 col-xl-3">
+          <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-start p-2"
+            style="height: 5.5rem;" (click)="addToCart(item)">
+            <span class="fw-medium small text-truncate w-100">{{ item.itemName }}</span>
+            <span class="small text-muted font-monospace mt-auto">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
           </button>
+        </div>
+      } @empty {
+        <div class="col-12 text-center text-muted py-5">
+          <i class="bi bi-box-seam d-block mb-2" style="font-size: 2rem;"></i>
+          <p>No items found</p>
         </div>
       }
     </div>
+
+    <!-- Held orders toggle -->
+    @if (heldOrders.length > 0) {
+      <button class="btn btn-sm btn-outline-info" (click)="showHeldOrders = !showHeldOrders">
+        <i class="bi bi-pause-circle me-1"></i>Held Orders ({{ heldOrders.length }})
+      </button>
+    }
+    @if (showHeldOrders) {
+      <div class="card">
+        <div class="card-body p-2">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Customer</th><th>Items</th><th>Time</th><th></th></tr></thead>
+            <tbody>
+              @for (order of heldOrders; track order.id; let i = $index) {
+                <tr>
+                  <td>{{ order.customer }}</td>
+                  <td>{{ order.items.length }} items</td>
+                  <td class="small text-muted">{{ order.heldAt | date:'HH:mm' }}</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-success me-1" (click)="resumeOrder(i)">Resume</button>
+                    <button class="btn btn-sm btn-outline-danger" (click)="deleteHeldOrder(i)"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
   </div>
 
-  <!-- Right: Cart -->
-  <div class="col-12 col-lg-4">
+  <!-- Right: Cart + Payment -->
+  <div class="col-12 col-lg-5">
     <div class="card d-flex flex-column h-100">
-      <div class="card-header"><h5 class="card-title mb-0">Cart</h5></div>
+      <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <h6 class="mb-0"><i class="bi bi-cart3 me-1"></i>Cart</h6>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-warning" [disabled]="cart.length === 0" (click)="holdOrder()" title="Hold Order">
+            <i class="bi bi-pause-circle"></i>
+          </button>
+          <button class="btn btn-outline-secondary" [disabled]="cart.length === 0" (click)="clearCart()" title="Clear Cart">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
 
-      <div class="card-body flex-grow-1 overflow-auto pt-3">
+      <div class="card-body flex-grow-1 overflow-auto p-2" style="max-height: 38vh;">
         @if (cart.length === 0) {
-          <p class="text-center text-muted py-5">Cart is empty</p>
+          <p class="text-center text-muted py-4">Cart is empty</p>
         } @else {
           @for (item of cart; track item.itemId; let i = $index) {
-            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+            <div class="d-flex align-items-start gap-2 py-2 border-bottom">
               <div class="flex-grow-1">
-                <p class="fw-medium small mb-0">{{ item.itemName }}</p>
-                <p class="small text-muted mb-0">MYR {{ item.rate | number:'1.2-2' }} × {{ item.qty }}</p>
+                <div class="fw-medium small">{{ item.itemName }}</div>
+                <div class="d-flex gap-2 mt-1">
+                  <input type="number" class="form-control form-control-sm" style="width: 55px;"
+                    [ngModel]="item.qty" (ngModelChange)="updateQty(i, $event)" min="1" />
+                  <span class="small text-muted align-self-center">× {{ item.rate | number:'1.2-2' }}</span>
+                </div>
               </div>
-              <div class="d-flex align-items-center gap-2">
-                <span class="font-monospace small fw-medium">{{ item.amount | number:'1.2-2' }}</span>
-                <button class="btn btn-sm btn-link p-1" (click)="removeFromCart(i)">
-                  <i class="fa fa-times text-danger"></i>
-                </button>
+              <div class="text-end">
+                <div class="font-monospace small fw-medium">{{ item.amount | number:'1.2-2' }}</div>
+                <div class="font-monospace small text-muted">+{{ item.taxAmount | number:'1.2-2' }}</div>
               </div>
+              <button class="btn btn-sm btn-link p-0 text-danger" (click)="removeFromCart(i)"><i class="bi bi-x"></i></button>
             </div>
           }
         }
       </div>
 
       <hr class="m-0">
-
       <div class="p-3">
-        <div class="d-flex justify-content-between mb-2">
+        <div class="d-flex justify-content-between small mb-1">
           <span class="text-muted">Subtotal</span>
-          <span class="font-monospace">MYR {{ netTotal | number:'1.2-2' }}</span>
+          <span class="font-monospace">{{ netTotal | number:'1.2-2' }}</span>
         </div>
-        <div class="d-flex justify-content-between fs-5 fw-bold mb-3">
-          <span>Total</span>
-          <span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Amount Received</label>
-          <div class="input-group">
-            <span class="input-group-text">MYR</span>
-            <input class="form-control" type="number" [(ngModel)]="amountReceived" (ngModelChange)="recalculate()" />
-          </div>
-        </div>
-        @if (change > 0) {
-          <div class="d-flex justify-content-between mb-3 text-success fw-bold">
-            <span>Change</span>
-            <span class="font-monospace">MYR {{ change | number:'1.2-2' }}</span>
+        @if (discountTotal > 0) {
+          <div class="d-flex justify-content-between small mb-1 text-success">
+            <span>Discount</span><span class="font-monospace">-{{ discountTotal | number:'1.2-2' }}</span>
           </div>
         }
-        <button class="btn btn-primary w-100 py-2 fs-5"
-          [disabled]="cart.length === 0 || isProcessing" (click)="completeSale()">
-          <i class="fa fa-money-bill"></i> {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
+        <div class="d-flex justify-content-between small mb-1">
+          <span class="text-muted">Tax ({{ defaultTaxRate }}%)</span>
+          <span class="font-monospace">{{ taxTotal | number:'1.2-2' }}</span>
+        </div>
+        <div class="d-flex justify-content-between fs-5 fw-bold mb-3 pt-1 border-top">
+          <span>Total</span><span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
+        </div>
+
+        <!-- Multi-payment -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-medium">Payment</span>
+            <button class="btn btn-sm btn-link p-0" (click)="addPaymentRow()"><i class="bi bi-plus-circle me-1"></i>Split</button>
+          </div>
+          @for (payment of payments; track $index; let i = $index) {
+            <div class="input-group input-group-sm mb-1">
+              <select class="form-select" style="max-width: 120px;" [(ngModel)]="payment.mode">
+                @for (mode of paymentModes; track mode) { <option [value]="mode">{{ mode }}</option> }
+              </select>
+              <span class="input-group-text">MYR</span>
+              <input class="form-control" type="number" [(ngModel)]="payment.amount" step="0.01" />
+              @if (payments.length > 1) {
+                <button class="btn btn-outline-danger" (click)="removePaymentRow(i)"><i class="bi bi-x"></i></button>
+              }
+            </div>
+          }
+        </div>
+
+        @if (changeAmount > 0) {
+          <div class="d-flex justify-content-between mb-2 text-success fw-bold">
+            <span>Change</span><span class="font-monospace">MYR {{ changeAmount | number:'1.2-2' }}</span>
+          </div>
+        }
+        @if (outstandingAmount > 0.01) {
+          <div class="d-flex justify-content-between mb-2 text-danger fw-bold">
+            <span>Outstanding</span><span class="font-monospace">MYR {{ outstandingAmount | number:'1.2-2' }}</span>
+          </div>
+        }
+
+        <button class="btn btn-primary w-100 py-2"
+          [disabled]="cart.length === 0 || isProcessing || outstandingAmount > 0.01" (click)="completeSale()">
+          <i class="bi bi-check-circle me-1"></i>
+          {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
         </button>
         @if (lastInvoice) {
-          <p class="text-center small text-muted mt-2">Last: {{ lastInvoice }}</p>
+          <p class="text-center small text-muted mt-2"><i class="bi bi-receipt me-1"></i>{{ lastInvoice }}</p>
         }
       </div>
     </div>

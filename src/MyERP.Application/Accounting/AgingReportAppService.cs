@@ -1,9 +1,13 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
+using MyERP.Notification.Entities;
+using MyERP.Notification;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
@@ -15,6 +19,22 @@ public class AgingReportDto
     public decimal[] BucketTotals { get; set; } = [];
     public decimal TotalOutstanding { get; set; }
     public int InvoiceCount { get; set; }
+    /// <summary>Per-invoice detail entries for detailed AR/AP report view.</summary>
+    public AgingDetailEntryDto[] Details { get; set; } = [];
+}
+
+/// <summary>Per-invoice detail in aging report — used by detailed AR/AP report.</summary>
+public class AgingDetailEntryDto
+{
+    public Guid PartyId { get; set; }
+    public string? PartyName { get; set; }
+    public Guid DocumentId { get; set; }
+    public string DocumentNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public DateTime DueDate { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public int AgeDays { get; set; }
+    public string BucketLabel { get; set; } = null!;
 }
 
 public class AgingReportRequestDto
@@ -23,24 +43,96 @@ public class AgingReportRequestDto
     public DateTime? AsOfDate { get; set; }
 }
 
+public class SendPaymentReminderInput
+{
+    public Guid PartyId { get; set; }
+    public string PartyName { get; set; } = null!;
+    public string PartyType { get; set; } = "Customer";
+    public decimal OverdueAmount { get; set; }
+    public int InvoiceCount { get; set; }
+}
+
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
 public class AgingReportAppService : ApplicationService
 {
     private readonly AgingBucketService _agingService;
+    private readonly IRepository<AppNotification, Guid> _notificationRepo;
 
-    public AgingReportAppService(AgingBucketService agingService) => _agingService = agingService;
+    public AgingReportAppService(
+        AgingBucketService agingService,
+        IRepository<AppNotification, Guid> notificationRepo)
+    {
+        _agingService = agingService;
+        _notificationRepo = notificationRepo;
+    }
 
     public async Task<AgingReportDto> GetReceivablesAgingAsync(AgingReportRequestDto input)
     {
         var asOfDate = input.AsOfDate ?? DateTime.UtcNow.Date;
         var report = await _agingService.CalculateReceivablesAgingAsync(input.CompanyId, asOfDate);
-        return ObjectMapper.Map<AgingReport, AgingReportDto>(report);
+        return MapToDto(report);
     }
 
     public async Task<AgingReportDto> GetPayablesAgingAsync(AgingReportRequestDto input)
     {
         var asOfDate = input.AsOfDate ?? DateTime.UtcNow.Date;
         var report = await _agingService.CalculatePayablesAgingAsync(input.CompanyId, asOfDate);
-        return ObjectMapper.Map<AgingReport, AgingReportDto>(report);
+        return MapToDto(report);
+    }
+
+    private static AgingReportDto MapToDto(AgingReport report)
+    {
+        var bucketLabels = new string[report.BucketRanges.Length + 1];
+        for (int i = 0; i < report.BucketRanges.Length + 1; i++)
+        {
+            if (i == 0) bucketLabels[i] = $"0-{report.BucketRanges[0]}";
+            else if (i < report.BucketRanges.Length)
+                bucketLabels[i] = $"{report.BucketRanges[i - 1] + 1}-{report.BucketRanges[i]}";
+            else bucketLabels[i] = $"{report.BucketRanges[^1] + 1}+";
+        }
+
+        return new AgingReportDto
+        {
+            ReportType = report.ReportType,
+            AsOfDate = report.AsOfDate,
+            BucketLabels = bucketLabels,
+            BucketTotals = report.BucketTotals,
+            TotalOutstanding = report.TotalOutstanding,
+            InvoiceCount = report.InvoiceCount,
+            Details = report.Details.Select(d => new AgingDetailEntryDto
+            {
+                PartyId = d.PartyId,
+                PartyName = d.PartyName,
+                DocumentId = d.DocumentId,
+                DocumentNumber = d.DocumentNumber,
+                PostingDate = d.PostingDate,
+                DueDate = d.DueDate,
+                OutstandingAmount = d.OutstandingAmount,
+                AgeDays = d.AgeDays,
+                BucketLabel = d.BucketLabel,
+            }).OrderBy(d => d.PartyName).ThenByDescending(d => d.AgeDays).ToArray(),
+        };
+    }
+
+    /// <summary>
+    /// Sends an on-demand payment reminder notification for a specific party.
+    /// Per ERPNext: creates notification visible to accounts/collections team.
+    /// </summary>
+    public async Task<bool> SendPaymentReminderAsync(SendPaymentReminderInput input)
+    {
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty) return false;
+
+        var notification = new AppNotification(
+            GuidGenerator.Create(),
+            userId,
+            $"Payment reminder sent to {input.PartyName}",
+            CurrentTenant.Id
+        );
+        notification.Body = $"Overdue amount: {input.OverdueAmount:N2} ({input.InvoiceCount} invoice(s)). Reminder initiated manually from Aging Report.";
+        notification.Severity = NotificationSeverity.Warning;
+
+        await _notificationRepo.InsertAsync(notification);
+        return true;
     }
 }

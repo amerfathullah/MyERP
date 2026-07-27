@@ -33,6 +33,24 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Narration { get; set; }
 
+    /// <summary>
+    /// Voucher type determines validation rules and GL behavior.
+    /// Per ERPNext: 18 voucher types with type-specific account restrictions.
+    /// </summary>
+    public JournalEntryVoucherType VoucherType { get; set; } = JournalEntryVoucherType.JournalEntry;
+
+    /// <summary>If this is a reversal, references the original JE being reversed.</summary>
+    public Guid? ReversalOfId { get; set; }
+
+    /// <summary>Indicates this is an opening balance entry (auto-forces IsOpening on lines).</summary>
+    public bool IsOpening { get; set; }
+
+    /// <summary>Multi-currency: whether this JE involves foreign currency accounts.</summary>
+    public bool IsMultiCurrency { get; set; }
+
+    /// <summary>Inter-company: the other company in an inter-company JE.</summary>
+    public Guid? InterCompanyJournalEntryId { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     public decimal TotalDebit { get; private set; }
@@ -67,6 +85,30 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             amount,
             isDebit,
             description));
+
+        RecalculateTotals();
+    }
+
+    /// <summary>
+    /// Adds a GL line with dimension support (cost center, project, finance book).
+    /// Per ERPNext gotcha #24: accounting dimensions must propagate to exchange gain/loss JEs.
+    /// </summary>
+    public void AddLineWithDimensions(Guid accountId, decimal amount, bool isDebit,
+        Guid? costCenterId = null, Guid? projectId = null, string? financeBook = null,
+        string? description = null)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var line = new JournalEntryLine(
+            Guid.NewGuid(), Id, accountId, amount, isDebit, description);
+        line.CostCenterId = costCenterId;
+        line.ProjectId = projectId;
+        line.FinanceBook = financeBook;
+        _lines.Add(line);
 
         RecalculateTotals();
     }
@@ -126,8 +168,46 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         Validate();
+        ValidateVoucherTypeRules();
         Status = DocumentStatus.Posted;
         AddLocalEvent(new JournalEntryPostedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates voucher type-specific rules per ERPNext journal_entry.py.
+    /// Per gotcha #2614: JE has 18 voucher types with distinct validation paths.
+    /// </summary>
+    private void ValidateVoucherTypeRules()
+    {
+        switch (VoucherType)
+        {
+            case JournalEntryVoucherType.OpeningEntry:
+                // Per ERPNext: opening entries auto-force is_opening on all lines
+                IsOpening = true;
+                break;
+
+            case JournalEntryVoucherType.Reversal:
+                // Per ERPNext: reversal JEs MUST reference the original
+                if (!ReversalOfId.HasValue)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                        .WithData("detail", "Reversal JE must reference the original journal entry.");
+                break;
+
+            case JournalEntryVoucherType.DepreciationEntry:
+                // Per ERPNext: depreciation entries skip certain validations
+                // (party mandatory check, reference duplication check)
+                break;
+
+            case JournalEntryVoucherType.ExchangeGainOrLoss:
+                // Per gotcha #591: Exchange GL allows same-row DR+CR with multi_currency
+                // No additional validation needed — standard balance check suffices
+                break;
+
+            case JournalEntryVoucherType.PeriodClosing:
+                // Per gotcha #317: closing account must be Liability or Equity
+                // Validated externally by PeriodClosingPostingService
+                break;
+        }
     }
 
     public void Cancel()

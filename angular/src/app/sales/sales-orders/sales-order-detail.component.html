@@ -141,7 +141,123 @@
       </div>
     </div>
 
+    <!-- Advance Payment Progress -->
+    @if (order.advancePaid && order.advancePaid > 0) {
+      <div class="card mt-4" style="border-left: 4px solid var(--bs-success);">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0"><i class="fa fa-money-bill-wave me-2 text-success"></i>{{ '::AdvancePayment' | abpLocalization }}</h6>
+            <span class="badge" [class]="order.perAdvancePaid >= 100 ? 'bg-success' : 'bg-warning text-dark'">
+              {{ order.perAdvancePaid | number:'1.0-0' }}%
+            </span>
+          </div>
+          <div class="progress mb-2" style="height: 8px;">
+            <div class="progress-bar bg-success" [style.width.%]="order.perAdvancePaid > 100 ? 100 : order.perAdvancePaid"></div>
+          </div>
+          <small class="text-muted">{{ order.advancePaid | number:'1.2-2' }} / {{ order.grandTotal | number:'1.2-2' }}</small>
+        </div>
+      </div>
+    }
+
+    <!-- Payments Received -->
+    @if (orderPayments().length > 0) {
+      <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-credit-card me-2"></i>{{ '::PaymentsReceived' | abpLocalization }}</h6>
+          <span class="badge bg-primary">{{ orderPayments().length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>{{ '::PaymentNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th>{{ '::Reference' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (pe of orderPayments(); track pe.paymentEntryId) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/accounting/payments', pe.paymentEntryId]" class="text-decoration-none">
+                        {{ pe.paymentNumber || '—' }}
+                      </a>
+                    </td>
+                    <td>{{ pe.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end font-monospace text-success">{{ pe.paidAmount | number:'1.2-2' }}</td>
+                    <td>{{ pe.referenceNumber || '—' }}</td>
+                    <td><app-status-badge [status]="pe.status" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (order.notes) {
+      <div class="card mb-3 mt-4">
+        <div class="card-body">
+          <h6 class="card-title"><i class="fa fa-file-lines me-2"></i>{{ '::TermsAndConditions' | abpLocalization }}</h6>
+          <p class="mb-0" style="white-space: pre-wrap;">{{ order.notes }}</p>
+        </div>
+      </div>
+    }
+
     <app-activity-log [documentType]="'SalesOrder'" [documentId]="order.id!"></app-activity-log>
+
+    <!-- Delivery Schedule Generator (when no schedule exists and order is active) -->
+    @if (deliverySchedule().length === 0 && isActiveOrder()) {
+      <div class="card mt-4">
+        <div class="card-body text-center py-4">
+          @if (!showScheduleGenerator()) {
+            <i class="fa fa-calendar-days fa-2x text-muted mb-3"></i>
+            <p class="text-muted mb-2">{{ 'NoDeliveryScheduleYet' | abpLocalization }}</p>
+            <button class="btn btn-outline-primary btn-sm" (click)="showScheduleGenerator.set(true)">
+              <i class="fa fa-plus me-1"></i>{{ 'GenerateSchedule' | abpLocalization }}
+            </button>
+          } @else {
+            <h6 class="mb-3"><i class="fa fa-calendar-days me-2"></i>{{ 'GenerateSchedule' | abpLocalization }}</h6>
+            <div class="row g-3 justify-content-center mb-3">
+              <div class="col-auto">
+                <label class="form-label small text-muted">{{ '::Item' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="scheduleItemId">
+                  <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
+                  @for (item of order!.items; track item.itemId) {
+                    <option [value]="item.itemId">{{ item.description || item.itemId }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-auto">
+                <label class="form-label small text-muted">{{ 'Frequency' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="scheduleFrequency">
+                  <option value="Weekly">{{ 'Weekly' | abpLocalization }}</option>
+                  <option value="Monthly">{{ 'Monthly' | abpLocalization }}</option>
+                  <option value="Quarterly">{{ 'Quarterly' | abpLocalization }}</option>
+                  <option value="Yearly">{{ 'Yearly' | abpLocalization }}</option>
+                </select>
+              </div>
+              <div class="col-auto d-flex align-items-end gap-2">
+                <button class="btn btn-primary btn-sm" (click)="generateDeliverySchedule()"
+                  [disabled]="!scheduleItemId || isGeneratingSchedule()">
+                  @if (isGeneratingSchedule()) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                  }
+                  {{ 'Generate' | abpLocalization }}
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" (click)="showScheduleGenerator.set(false)">
+                  {{ '::Cancel' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
 
     <!-- Delivery Schedule -->
     @if (deliverySchedule().length > 0) {
@@ -199,6 +315,6 @@
       [companySst]="companySst"
       [companyAddress]="companyAddress"
       [customerName]="order.customerName || ''"
-      [currency]="order.currency || 'MYR'" />
+      [currency]="order.currencyCode || 'MYR'" />
   }
 </abp-page>

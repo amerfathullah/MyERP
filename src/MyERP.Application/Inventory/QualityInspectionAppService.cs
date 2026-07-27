@@ -86,5 +86,14 @@ public class QualityInspectionAppService : ApplicationService
         await _repository.UpdateAsync(qi);
         return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
+
+    [Authorize(MyERPPermissions.QualityInspections.Submit)]
+    public async Task<QualityInspectionDto> CancelAsync(Guid id)
+    {
+        var qi = await _repository.GetAsync(id);
+        qi.Cancel();
+        await _repository.UpdateAsync(qi);
+        return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
+    }
 }
 

@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -10,6 +10,7 @@ import { StockEntryType } from '../../proxy/inventory/stock-entry-type.enum';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { HttpClient } from '@angular/common/http';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -42,7 +43,7 @@ const ENUM_TO_ENTRY_TYPE: Record<number, string> = Object.entries(ENTRY_TYPE_TO_
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, BarcodeScannerComponent, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, BarcodeScannerComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })
@@ -56,14 +57,24 @@ export class StockEntryFormComponent implements OnInit {
   private itemService = inject(ItemService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
 
   warehouses = signal<any[]>([]);
   companies = signal<any[]>([]);
   availableItems = signal<any[]>([]);
+  workOrders = signal<any[]>([]);
   linkedWorkOrderId: string | null = null;
   isLoadingBOM = false;
   isEditMode = false;
   entityId: string | null = null;
+  showBomPicker = false;
+  selectedWorkOrderId = '';
+
+  // Stock availability per item (fetched on item selection)
+  // Map: itemId → { actualQty, reservedQty, availableQty, projectedQty, warehouseName }
+  itemStockInfo = signal<Record<string, { actualQty: number; reservedQty: number; availableQty: number; projectedQty: number }>>({});
+
+  produceQty = signal<number>(1);
 
   form = this.fb.group({
     companyId: [''],
@@ -94,6 +105,11 @@ export class StockEntryFormComponent implements OnInit {
       res => this.companies.set(res.items ?? []));
     this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
       res => this.availableItems.set(res.items ?? []));
+    // Load active work orders for BOM picker
+    this.http.get<any>('/api/app/manufacturing/work-order', { params: { maxResultCount: '100', sorting: '' } }).subscribe({
+      next: res => this.workOrders.set(res.items ?? []),
+      error: () => {},
+    });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe(se => {
@@ -136,6 +152,9 @@ export class StockEntryFormComponent implements OnInit {
       this.form.patchValue({ remarks: `Against Work Order: ${params['workOrderId'].substring(0, 8)}...` });
       this.loadBomItems(params['workOrderId']);
     }
+    if (params['materialRequestId']) {
+      this.loadMaterialRequestItems(params['materialRequestId']);
+    }
     if (params['sourceWarehouse']) {
       this.form.patchValue({ sourceWarehouse: params['sourceWarehouse'] });
     }
@@ -144,10 +163,17 @@ export class StockEntryFormComponent implements OnInit {
     }
   }
 
+  onProduceQtyChanged(qty: number): void {
+    this.produceQty.set(qty > 0 ? qty : 1);
+    if (this.linkedWorkOrderId) {
+      this.loadBomItems(this.linkedWorkOrderId);
+    }
+  }
+
   loadBomItems(workOrderId: string): void {
     this.isLoadingBOM = true;
-    const produceQty = 1; // Default to 1 unit — user can adjust
-    this.service.getManufactureItems(workOrderId, produceQty).subscribe({
+    const qty = this.produceQty();
+    this.service.getManufactureItems(workOrderId, qty).subscribe({
       next: (result) => {
         this.isLoadingBOM = false;
         if (result.sourceWarehouseId) {
@@ -156,21 +182,67 @@ export class StockEntryFormComponent implements OnInit {
         if (result.fgWarehouseId) {
           this.form.patchValue({ targetWarehouse: result.fgWarehouseId });
         }
-        // Clear and populate items from BOM
+        // Clear and populate items from BOM (RM + FG)
         this.items.clear();
         for (const item of result.items ?? []) {
           this.items.push(this.fb.group({
             itemId: [item.itemId, Validators.required],
-            itemName: [item.itemName, Validators.required],
+            itemName: [item.isRawMaterial ? item.itemName : `✓ ${item.itemName}`, Validators.required],
             qty: [item.requiredQty, [Validators.required, Validators.min(0.01)]],
             uom: ['Unit'],
+            isFinishedItem: [!item.isRawMaterial],
+            sourceWarehouseId: [item.sourceWarehouseId || ''],
+            targetWarehouseId: [item.targetWarehouseId || ''],
           }));
         }
-        this.toaster.info(`Loaded ${result.items?.length ?? 0} items from BOM`);
+        const rmCount = (result.items ?? []).filter((i: any) => i.isRawMaterial).length;
+        const fgCount = (result.items ?? []).filter((i: any) => !i.isRawMaterial).length;
+        this.toaster.info(`Loaded ${rmCount} raw materials + ${fgCount} finished good(s) from BOM`);
       },
       error: () => {
         this.isLoadingBOM = false;
         this.toaster.warn('Could not load BOM items — add manually');
+      },
+    });
+  }
+
+  getItemsFromBom(): void {
+    if (!this.selectedWorkOrderId) return;
+    this.linkedWorkOrderId = this.selectedWorkOrderId;
+    this.showBomPicker = false;
+    this.loadBomItems(this.selectedWorkOrderId);
+  }
+
+  loadMaterialRequestItems(materialRequestId: string): void {
+    this.service.getItemsFromMaterialRequest(materialRequestId).subscribe({
+      next: (result: any) => {
+        if (result.suggestedPurpose) {
+          this.form.patchValue({ entryType: result.suggestedPurpose });
+        }
+        if (result.sourceWarehouseId) {
+          this.form.patchValue({ sourceWarehouse: result.sourceWarehouseId });
+        }
+        if (result.targetWarehouseId) {
+          this.form.patchValue({ targetWarehouse: result.targetWarehouseId });
+        }
+        this.form.patchValue({ remarks: `Against Material Request: ${result.materialRequestNumber ?? materialRequestId.substring(0, 8)}` });
+
+        // Populate items
+        while (this.items.length > 0) this.items.removeAt(0);
+        for (const item of result.items ?? []) {
+          this.items.push(this.fb.group({
+            itemId: [item.itemId, Validators.required],
+            itemName: [item.itemName ?? '', Validators.required],
+            quantity: [item.quantity, [Validators.required, Validators.min(0.001)]],
+            sourceWarehouse: [result.sourceWarehouseId ?? ''],
+            targetWarehouse: [item.warehouseId ?? result.targetWarehouseId ?? ''],
+            basicRate: [0],
+          }));
+        }
+        this.toaster.success(`${result.items?.length ?? 0} items loaded from Material Request`);
+      },
+      error: () => {
+        this.toaster.warn('Could not load Material Request items');
       },
     });
   }
@@ -193,7 +265,38 @@ export class StockEntryFormComponent implements OnInit {
     const item = this.availableItems().find((i: any) => i.id === itemId);
     if (item) {
       this.items.at(index).patchValue({ itemName: item.itemName ?? item.itemCode });
+      this.fetchStockForItem(itemId);
     }
+  }
+
+  /**
+   * Fetches stock availability for an item across all warehouses.
+   * Per ERPNext: update_bin_details() provides projected_qty, actual_qty, reserved_qty.
+   * Enables users to verify stock before issuing/transferring.
+   */
+  private fetchStockForItem(itemId: string): void {
+    if (!itemId) return;
+    const warehouseId = this.form.get('sourceWarehouse')?.value;
+    const params: any = { itemId };
+    if (warehouseId) params.warehouseId = warehouseId;
+    this.http.get<any>('/api/app/stock-balance/item-stock', { params }).subscribe({
+      next: (result) => {
+        if (result?.items?.length > 0) {
+          const bin = result.items[0];
+          const info = this.itemStockInfo();
+          this.itemStockInfo.set({
+            ...info,
+            [itemId]: {
+              actualQty: bin.actualQty ?? 0,
+              reservedQty: bin.reservedQty ?? 0,
+              availableQty: (bin.actualQty ?? 0) - (bin.reservedQty ?? 0),
+              projectedQty: bin.projectedQty ?? 0,
+            }
+          });
+        }
+      },
+      error: () => {} // Non-blocking — stock info is advisory only
+    });
   }
 
   /**
@@ -255,14 +358,17 @@ export class StockEntryFormComponent implements OnInit {
     // Convert entryType from display string to numeric enum
     const entryType = ENTRY_TYPE_TO_ENUM[raw.entryType] ?? 0;
     // Map item 'qty' field to 'quantity' as expected by CreateStockEntryItemDto
-    const dto = {
+    const dto: any = {
       ...raw,
       entryType,
+      workOrderId: this.linkedWorkOrderId || undefined,
+      fgCompletedQty: this.produceQty() > 0 ? this.produceQty() : undefined,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         quantity: item.quantity ?? item.qty ?? 0,
         sourceWarehouseId: item.sourceWarehouseId || null,
         targetWarehouseId: item.targetWarehouseId || null,
+        isFinishedItem: item.isFinishedItem ?? false,
       })),
     };
     if (this.isEditMode) {

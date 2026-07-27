@@ -10,6 +10,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto, MatchCandidateDt
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-bank-reconciliation',
@@ -23,6 +24,7 @@ export class BankReconciliationComponent implements OnInit {
   private service = inject(BankReconciliationService);
   private toaster = inject(ToasterService);
   companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
 
   transactions = signal<BankTransactionDto[]>([]);
   summary = signal<BankReconciliationSummaryDto>({});
@@ -40,10 +42,39 @@ export class BankReconciliationComponent implements OnInit {
   showTransferPanel = signal(false);
   transferTransactionId = signal<string | null>(null);
 
+  // Bank account selector
+  bankAccounts = signal<any[]>([]);
   bankAccountId = '';
+
+  // Date range filter
+  fromDate = '';
+  toDate = '';
 
   ngOnInit(): void {
     this.companyContext.load();
+    this.loadBankAccounts();
+  }
+
+  loadBankAccounts(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    const params: any = { skipCount: 0, maxResultCount: 200, sorting: '' };
+    this.http.get<any>('/api/app/account', { params: { ...params, filter: 'Bank' } }).subscribe({
+      next: (res) => {
+        const bankAccts = (res.items ?? []).filter((a: any) =>
+          a.accountType === 'Bank' || a.accountSubType === 5 /* Bank */
+        );
+        this.bankAccounts.set(bankAccts);
+        // Auto-select if only one bank account
+        if (bankAccts.length === 1 && !this.bankAccountId) {
+          this.bankAccountId = bankAccts[0].id;
+          this.onBankAccountChanged();
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  onBankAccountChanged(): void {
     if (this.bankAccountId) {
       this.loadTransactions(0, 20);
       this.loadSummary();

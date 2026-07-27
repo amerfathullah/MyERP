@@ -86,13 +86,13 @@ public class PosConsolidationService : DomainService
     }
 
     /// <summary>
-    /// Computes dimension hash for grouping. Uses CostCenterId + ProjectId.
+    /// Computes dimension hash for grouping. Uses CompanyId + ProjectId.
+    /// Different projects produce separate consolidated invoices.
     /// Empty/null dimensions produce the same hash → grouped together.
     /// </summary>
     private string ComputeDimensionHash(SalesInvoice invoice)
     {
-        // Simple concatenation of dimension values for hashing
-        var dimensionKey = $"{invoice.CompanyId}";
+        var dimensionKey = $"{invoice.CompanyId}|{invoice.ProjectId}";
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(dimensionKey));
         return Convert.ToHexStringLower(bytes)[..16]; // 8-byte prefix sufficient for grouping
     }

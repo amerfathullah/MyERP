@@ -1,0 +1,153 @@
+<div class="container-fluid py-3">
+  @if (loading()) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+    </div>
+  } @else if (schedule(); as s) {
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h4 class="mb-1">{{ 'MaintenanceSchedule' | abpLocalization }}</h4>
+        <app-status-badge [status]="getStatusLabel(s.status ?? 0)"></app-status-badge>
+      </div>
+      <div class="btn-group">
+        @if ((s.status ?? 0) === 0) {
+          <button class="btn btn-outline-success btn-sm" (click)="submit()">
+            <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
+          </button>
+        }
+        <a routerLink="/maintenance/schedules" class="btn btn-outline-secondary btn-sm">
+          <i class="fa fa-arrow-left me-1"></i>{{ '::Back' | abpLocalization }}
+        </a>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ 'Periodicity' | abpLocalization }}</small>
+            <h5 class="mb-0 mt-1">{{ s.periodicity || '—' }}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ 'TotalVisits' | abpLocalization }}</small>
+            <h5 class="mb-0 mt-1">{{ getTotalVisits() }}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::Completed' | abpLocalization }}</small>
+            <h5 class="mb-0 mt-1 text-success">{{ getCompletedCount() }}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::Progress' | abpLocalization }}</small>
+            <h5 class="mb-0 mt-1">{{ getProgressPercent() }}%</h5>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    @if (getTotalVisits() > 0) {
+      <div class="mb-4">
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar bg-success"
+               [style.width.%]="getProgressPercent()"
+               role="progressbar"></div>
+        </div>
+      </div>
+    }
+
+    <!-- Schedule Details -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header fw-medium">{{ 'ScheduleDetails' | abpLocalization }}</div>
+          <div class="card-body">
+            <div class="row mb-2">
+              <div class="col-5 text-muted">{{ '::StartDate' | abpLocalization }}</div>
+              <div class="col-7">{{ s.startDate | date:'dd/MM/yyyy' }}</div>
+            </div>
+            <div class="row mb-2">
+              <div class="col-5 text-muted">{{ '::EndDate' | abpLocalization }}</div>
+              <div class="col-7">{{ s.endDate | date:'dd/MM/yyyy' }}</div>
+            </div>
+            <div class="row mb-2">
+              <div class="col-5 text-muted">{{ 'Periodicity' | abpLocalization }}</div>
+              <div class="col-7"><span class="badge bg-info-subtle text-info">{{ s.periodicity }}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header fw-medium">{{ 'References' | abpLocalization }}</div>
+          <div class="card-body">
+            <div class="row mb-2">
+              <div class="col-5 text-muted">{{ '::Item' | abpLocalization }}</div>
+              <div class="col-7">{{ itemName() }}</div>
+            </div>
+            <div class="row mb-2">
+              <div class="col-5 text-muted">{{ '::Customer' | abpLocalization }}</div>
+              <div class="col-7">{{ customerName() }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scheduled Visits Table -->
+    @if (s.details && s.details.length > 0) {
+      <div class="card mb-4">
+        <div class="card-header fw-medium d-flex align-items-center">
+          {{ 'ScheduledVisits' | abpLocalization }}
+          <span class="badge bg-primary ms-2">{{ s.details.length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>{{ 'ScheduledDate' | abpLocalization }}</th>
+                  <th>{{ 'ActualDate' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of s.details; track d.id; let i = $index) {
+                  <tr [class.table-success]="d.isCompleted">
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ d.scheduledDate | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ d.actualDate ? (d.actualDate | date:'dd/MM/yyyy') : '—' }}</td>
+                    <td>
+                      @if (d.isCompleted) {
+                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Completed' | abpLocalization }}</span>
+                      } @else {
+                        <span class="badge bg-warning text-dark"><i class="fa fa-clock me-1"></i>{{ '::Pending' | abpLocalization }}</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Activity Log -->
+    <app-activity-log documentType="MaintenanceSchedule" [documentId]="id"></app-activity-log>
+  }
+</div>

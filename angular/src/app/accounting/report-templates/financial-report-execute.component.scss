@@ -1,0 +1,68 @@
+// Indent levels: 16px per level
+.indent-0 { padding-left: 0.75rem; }
+.indent-1 { padding-left: 2rem; }
+.indent-2 { padding-left: 3.25rem; }
+.indent-3 { padding-left: 4.5rem; }
+
+// Bold total rows
+.total-row {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+// Section break separator
+.section-break td {
+  padding: 0 !important;
+
+  hr {
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+}
+
+// Report table styling
+.report-table {
+  tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+
+  td, th {
+    vertical-align: middle;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+}
+
+.report-table-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+// Print styles
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .card-header {
+    border-bottom: 2px solid #000 !important;
+  }
+
+  .report-table-container {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .report-table {
+    font-size: 10pt;
+
+    .total-row {
+      background-color: #f0f0f0 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+}

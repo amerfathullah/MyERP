@@ -20,7 +20,7 @@ import { StockBalanceService } from '../../../proxy/inventory/stock-balance.serv
       <span class="badge" [class]="badgeClass()">
         <i class="fa fa-boxes-stacked me-1"></i>
         {{ availability()!.availableQty | number:'1.0-2' }}
-        @if (requiredQty > 0 && availability()!.availableQty < requiredQty) {
+        @if (requiredQty > 0 && (availability()?.availableQty ?? 0) < requiredQty) {
           <i class="fa fa-exclamation-triangle ms-1" title="Insufficient stock"></i>
         }
       </span>

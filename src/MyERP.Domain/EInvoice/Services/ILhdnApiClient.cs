@@ -41,6 +41,8 @@ public class LhdnStatusResponse
     public string Status { get; set; } = null!; // "Valid", "Invalid", "Cancelled"
     public string? DocumentUuid { get; set; }
     public string? LongId { get; set; }
+    /// <summary>QR code validation URL returned by LHDN when document is validated.</summary>
+    public string? QrCodeUrl { get; set; }
     public string? RawJson { get; set; }
 }
 

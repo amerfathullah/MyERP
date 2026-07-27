@@ -1,0 +1,78 @@
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">{{ 'MaintenanceSchedules' | abpLocalization }}</h4>
+    <a routerLink="new" class="btn btn-primary btn-sm">
+      <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
+    </a>
+  </div>
+
+  @if (loading()) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+    </div>
+  } @else if (schedules().length === 0) {
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <i class="fa fa-calendar-check fa-3x text-muted mb-3"></i>
+        <p class="text-muted mb-3">{{ 'NoMaintenanceSchedulesYet' | abpLocalization }}</p>
+        <a routerLink="new" class="btn btn-outline-primary btn-sm">
+          <i class="fa fa-plus me-1"></i>{{ 'NewMaintenanceSchedule' | abpLocalization }}
+        </a>
+      </div>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::Customer' | abpLocalization }}</th>
+                <th>{{ 'Periodicity' | abpLocalization }}</th>
+                <th>{{ '::StartDate' | abpLocalization }}</th>
+                <th>{{ '::EndDate' | abpLocalization }}</th>
+                <th>{{ 'Visits' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of schedules(); track s.id) {
+                <tr>
+                  <td>
+                    <a [routerLink]="[s.id]" class="text-decoration-none fw-medium">
+                      {{ getItemName(s.itemId ?? undefined) }}
+                    </a>
+                  </td>
+                  <td>{{ getCustomerName(s.customerId ?? undefined) }}</td>
+                  <td><span class="badge bg-info-subtle text-info">{{ getPeriodicityLabel(s.periodicity) }}</span></td>
+                  <td>{{ s.startDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ s.endDate | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <span class="badge bg-secondary">{{ s.details?.length || 0 }}</span>
+                  </td>
+                  <td><app-status-badge [status]="getStatusLabel(s.status ?? 0)"></app-status-badge></td>
+                  <td>
+                    @if ((s.status ?? 0) === 0) {
+                      <button class="btn btn-outline-success btn-sm" (click)="submitSchedule(s.id!)">
+                        <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <app-pagination
+      [totalCount]="totalCount()"
+      [pageSize]="pageSize"
+      [currentPage]="currentPage"
+      (pageChange)="onPageChange($event)">
+    </app-pagination>
+  }
+</div>

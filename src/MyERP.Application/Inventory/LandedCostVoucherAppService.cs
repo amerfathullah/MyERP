@@ -133,6 +133,28 @@ public class LandedCostVoucherAppService : ApplicationService
             }
         }
 
+        // Update PurchaseReceiptItem.LandedCostVoucherAmount for each item
+        // Per ERPNext PR #57475: tracks LCV allocation per receipt item for purchase expense GL deduction
+        var prItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseReceiptItem, Guid>>();
+        foreach (var lcvItem in lcv.Items.Where(i => i.ApplicableCharges > 0 && i.ReceiptType == "PurchaseReceipt"))
+        {
+            // Find PR items matching this LCV item's receipt + item
+            var prItems = (await prItemRepo.GetQueryableAsync())
+                .Where(pri => pri.PurchaseReceiptId == lcvItem.ReceiptId && pri.ItemId == lcvItem.ItemId)
+                .ToList();
+
+            if (prItems.Count > 0)
+            {
+                // Distribute applicable charges equally across matching PR items
+                var perItemCharge = lcvItem.ApplicableCharges / prItems.Count;
+                foreach (var prItem in prItems)
+                {
+                    prItem.LandedCostVoucherAmount += perItemCharge;
+                    await prItemRepo.UpdateAsync(prItem);
+                }
+            }
+        }
+
         await _repository.UpdateAsync(lcv);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
@@ -167,6 +189,25 @@ public class LandedCostVoucherAppService : ApplicationService
             await _binService.ApplyStockMovementAsync(
                 item.ItemId, item.ReceiptId,
                 0, -item.ApplicableCharges, lcv.TenantId);
+        }
+
+        // Reverse PurchaseReceiptItem.LandedCostVoucherAmount per PR #57475
+        var prItemRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseReceiptItem, Guid>>();
+        foreach (var lcvItem in lcv.Items.Where(i => i.ApplicableCharges > 0 && i.ReceiptType == "PurchaseReceipt"))
+        {
+            var prItems = (await prItemRepo2.GetQueryableAsync())
+                .Where(pri => pri.PurchaseReceiptId == lcvItem.ReceiptId && pri.ItemId == lcvItem.ItemId)
+                .ToList();
+
+            if (prItems.Count > 0)
+            {
+                var perItemCharge = lcvItem.ApplicableCharges / prItems.Count;
+                foreach (var prItem in prItems)
+                {
+                    prItem.LandedCostVoucherAmount = Math.Max(0, prItem.LandedCostVoucherAmount - perItemCharge);
+                    await prItemRepo2.UpdateAsync(prItem);
+                }
+            }
         }
 
         await _repository.UpdateAsync(lcv);

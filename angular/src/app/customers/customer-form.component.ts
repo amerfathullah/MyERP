@@ -62,7 +62,7 @@ export class CustomerFormComponent implements OnInit {
     this.isEditMode = !!this.entityId;
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe(res => this.companies.set(res.items ?? []));
+      .subscribe({ next: res => this.companies.set(res.items ?? []), error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((customer) => {

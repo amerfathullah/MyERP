@@ -206,5 +206,54 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
+
+    /// <summary>
+    /// Creates a reversal Journal Entry from a posted JE.
+    /// Per ERPNext JE→JE reversal: swaps debit↔credit on all lines, links via ReversalOfId.
+    /// </summary>
+    [Authorize(MyERPPermissions.JournalEntries.Post)]
+    public async Task<JournalEntryDto> CreateReversalAsync(Guid sourceId)
+    {
+        var source = await _repository.GetAsync(sourceId);
+        if (source.Status != Core.DocumentStatus.Posted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JournalEntry")
+                .WithData("status", source.Status.ToString());
+        }
+
+        var number = await _numberGenerator.GenerateAsync("JE", source.CompanyId);
+        var reversal = new JournalEntry(
+            GuidGenerator.Create(), source.CompanyId, source.FiscalYearId,
+            DateTime.UtcNow, source.TenantId);
+
+        reversal.EntryNumber = number;
+        reversal.VoucherType = JournalEntryVoucherType.Reversal;
+        reversal.ReversalOfId = source.Id;
+        reversal.IsMultiCurrency = source.IsMultiCurrency;
+
+        // Swap debit↔credit for each line (per ERPNext reversal pattern)
+        foreach (var line in source.Lines)
+        {
+            // Original debit → new credit; original credit → new debit
+            reversal.AddLine(
+                line.AccountId,
+                line.Amount,
+                !line.IsDebit, // flip direction
+                line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry");
+        }
+
+        reversal.Post();
+        await _repository.InsertAsync(reversal, autoSave: true);
+
+        // Audit trail
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JournalEntry", reversal.Id, "Converted",
+            reversal.CompanyId, reversal.EntryNumber, "Draft", "Posted",
+            CurrentUser.Id, $"Reversal of {source.EntryNumber}", tenantId: reversal.TenantId));
+
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(reversal);
+    }
 }
 

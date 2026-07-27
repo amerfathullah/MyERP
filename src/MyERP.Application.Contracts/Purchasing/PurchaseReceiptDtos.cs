@@ -30,12 +30,14 @@ public class PurchaseReceiptItemDto
 {
     public Guid Id { get; set; }
     public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = null!;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal BilledQty { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
 }
 

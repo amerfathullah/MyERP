@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
@@ -24,15 +25,18 @@ public class PosClosingAppService : ApplicationService
     private readonly IRepository<PosClosingEntry, Guid> _repository;
     private readonly PosConsolidationService _consolidationService;
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
+    private readonly IDocumentNumberGenerator _numberGenerator;
 
     public PosClosingAppService(
         IRepository<PosClosingEntry, Guid> repository,
         PosConsolidationService consolidationService,
-        IRepository<SalesInvoice, Guid> invoiceRepository)
+        IRepository<SalesInvoice, Guid> invoiceRepository,
+        IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
         _consolidationService = consolidationService;
         _invoiceRepository = invoiceRepository;
+        _numberGenerator = numberGenerator;
     }
 
     public async Task<PosClosingDto> GetAsync(Guid id)
@@ -101,9 +105,15 @@ public class PosClosingAppService : ApplicationService
             if (results.Any())
             {
                 var primary = results.First();
+                var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", entry.CompanyId);
+
+                // Use currency from first source invoice (all POS invoices in a shift share the same currency)
+                var currencyCode = firstInvoice?.CurrencyCode ?? "MYR";
+
                 var consolidatedSi = new SalesInvoice(
                     GuidGenerator.Create(), primary.CompanyId, primary.CustomerId,
-                    "MYR", primary.PostingDate, CurrentTenant.Id);
+                    invoiceNumber, primary.PostingDate, CurrentTenant.Id);
+                consolidatedSi.CurrencyCode = currencyCode;
 
                 foreach (var item in primary.Items)
                 {
@@ -115,6 +125,17 @@ public class PosClosingAppService : ApplicationService
                 await _invoiceRepository.InsertAsync(consolidatedSi, autoSave: true);
 
                 entry.ConsolidatedSalesInvoiceId = consolidatedSi.Id;
+
+                // Mark each source POS invoice with the consolidated SI to prevent re-consolidation
+                foreach (var invId in invoiceIds)
+                {
+                    var sourceInvoice = await _invoiceRepository.FindAsync(invId);
+                    if (sourceInvoice != null)
+                    {
+                        sourceInvoice.ConsolidatedSalesInvoiceId = consolidatedSi.Id;
+                        await _invoiceRepository.UpdateAsync(sourceInvoice);
+                    }
+                }
             }
         }
 
@@ -129,6 +150,57 @@ public class PosClosingAppService : ApplicationService
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
+    }
+
+    /// <summary>
+    /// Calculates expected payment amounts per payment mode for a POS shift.
+    /// Formula per ERPNext: Expected = Opening Balance + Sum(POS Invoice payments during shift).
+    /// Returns: per-MOP expected amount (used to pre-fill closing form before cashier enters actuals).
+    /// </summary>
+    public async Task<List<PosExpectedPaymentDto>> CalculateExpectedAmountsAsync(Guid posOpeningEntryId)
+    {
+        // 1. Get the opening entry with payment modes and opening balances
+        var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+        var opening = (await openingRepo.WithDetailsAsync())
+            .FirstOrDefault(o => o.Id == posOpeningEntryId);
+        if (opening == null) return [];
+
+        // 2. Find total POS revenue during shift from invoices in the same company/date
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var shiftInvoices = invoiceQuery
+            .Where(si => si.CompanyId == opening.CompanyId
+                      && si.IssueDate >= opening.OpeningDate
+                      && si.Status != Core.DocumentStatus.Cancelled
+                      && si.ConsolidatedSalesInvoiceId == null) // Not yet consolidated = POS invoices
+            .ToList();
+
+        var totalInvoiceAmount = shiftInvoices.Sum(i => i.GrandTotal);
+
+        // 3. For each payment mode, calculate: opening balance + proportional invoice amount
+        // In simplified POS (single payment mode), all invoice revenue goes to that mode
+        // Per ERPNext: POS invoices track payment_mode per invoice; we approximate with proportional split
+        var result = new List<PosExpectedPaymentDto>();
+        var totalOpening = opening.Payments.Sum(p => p.OpeningAmount);
+
+        foreach (var openingPay in opening.Payments)
+        {
+            // Default: all POS revenue assumed in first/primary payment mode (Cash)
+            // When POS supports multi-MOP per invoice, this should be per-MOP aggregation
+            var invoicePortionForMode = openingPay == opening.Payments.First()
+                ? totalInvoiceAmount
+                : 0m;
+
+            result.Add(new PosExpectedPaymentDto
+            {
+                ModeOfPaymentId = openingPay.ModeOfPaymentId,
+                ModeName = openingPay.ModeName,
+                OpeningAmount = openingPay.OpeningAmount,
+                InvoiceTotal = invoicePortionForMode,
+                ExpectedAmount = openingPay.OpeningAmount + invoicePortionForMode,
+            });
+        }
+
+        return result;
     }
 }
 
@@ -185,4 +257,17 @@ public class CreatePosClosingPaymentDto
     public string ModeName { get; set; } = null!;
     public decimal ExpectedAmount { get; set; }
     public decimal ClosingAmount { get; set; }
+}
+
+/// <summary>
+/// Pre-calculated expected payment per mode — used to pre-fill the POS Closing form.
+/// Per ERPNext: Opening Balance + Total POS Invoice payments during shift = Expected.
+/// </summary>
+public class PosExpectedPaymentDto
+{
+    public Guid ModeOfPaymentId { get; set; }
+    public string ModeName { get; set; } = null!;
+    public decimal OpeningAmount { get; set; }
+    public decimal InvoiceTotal { get; set; }
+    public decimal ExpectedAmount { get; set; }
 }

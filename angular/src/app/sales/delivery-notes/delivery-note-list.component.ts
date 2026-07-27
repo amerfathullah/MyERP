@@ -1,15 +1,17 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-delivery-note-list',
@@ -29,6 +31,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
 export class DeliveryNoteListComponent implements OnInit {
   readonly store = inject(DeliveryNoteStore);
   private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   displayedColumns = ['deliveryNumber', 'postingDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
@@ -39,6 +45,13 @@ export class DeliveryNoteListComponent implements OnInit {
   sortDirection: 'asc' | 'desc' = 'desc';
   fromDate = '';
   toDate = '';
+
+  // Batch invoicing selection
+  selectedDnIds = signal<Set<string>>(new Set());
+  isCreatingInvoice = signal(false);
+
+  hasSelection = computed(() => this.selectedDnIds().size > 0);
+  selectionCount = computed(() => this.selectedDnIds().size);
 
   ngOnInit(): void {
     this.loadData();
@@ -94,5 +107,67 @@ export class DeliveryNoteListComponent implements OnInit {
       'Status': d.status,
     }));
     exportToCsv('delivery-notes.csv', data, ['Delivery #', 'Date', 'Total', 'Status']);
+  }
+
+  // --- Batch Invoicing ---
+
+  toggleSelection(dnId: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const newSet = new Set(this.selectedDnIds());
+    if (checked) {
+      newSet.add(dnId);
+    } else {
+      newSet.delete(dnId);
+    }
+    this.selectedDnIds.set(newSet);
+  }
+
+  isSelected(dnId: string): boolean {
+    return this.selectedDnIds().has(dnId);
+  }
+
+  toggleSelectAll(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      // Select all submitted/posted DNs on current page
+      const eligible = this.store.entities()
+        .filter((dn: any) => dn.status === 'Submitted' || dn.status === 'Posted' || dn.status === 3 || dn.status === 5)
+        .map((dn: any) => dn.id);
+      this.selectedDnIds.set(new Set(eligible));
+    } else {
+      this.selectedDnIds.set(new Set());
+    }
+  }
+
+  clearSelection(): void {
+    this.selectedDnIds.set(new Set());
+  }
+
+  createInvoiceFromSelected(): void {
+    const ids = Array.from(this.selectedDnIds());
+    if (ids.length === 0) return;
+
+    // Resolve customer from first selected DN
+    const firstDn: any = this.store.entities().find((dn: any) => dn.id === ids[0]);
+    if (!firstDn) return;
+
+    this.isCreatingInvoice.set(true);
+    this.http.post<any>('/api/app/sales-invoice/from-delivery-notes', {
+      companyId: this.companyContext.currentCompanyId(),
+      customerId: firstDn.customerId,
+      deliveryNoteIds: ids,
+      currencyCode: firstDn.currencyCode || 'MYR',
+    }).subscribe({
+      next: (result) => {
+        this.isCreatingInvoice.set(false);
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        this.clearSelection();
+        this.router.navigate(['/sales/invoices', result.id]);
+      },
+      error: (err) => {
+        this.isCreatingInvoice.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
   }
 }

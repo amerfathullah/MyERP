@@ -373,4 +373,34 @@ public static class MyERPPermissions
         public const string Default = GroupName + ".CompanyRestrictions";
         public const string Manage = Default + ".Manage";
     }
+
+    public static class SalesPartners
+    {
+        public const string Default = GroupName + ".SalesPartners";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class WarrantyClaims
+    {
+        public const string Default = GroupName + ".WarrantyClaims";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class WarehouseAccounts
+    {
+        public const string Default = GroupName + ".WarehouseAccounts";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Settings
+    {
+        public const string Default = GroupName + ".Settings";
+        public const string Edit = Default + ".Edit";
+    }
 }

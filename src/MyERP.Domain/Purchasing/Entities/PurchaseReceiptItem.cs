@@ -38,6 +38,24 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Target warehouse (item-level override). Falls back to receipt-level WarehouseId if null.</summary>
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>
+    /// Quantity already billed against this PR item (via Purchase Invoice).
+    /// Per ERPNext: billed_amt tracking enables PR→PI billing status (PerBilled).
+    /// </summary>
+    public decimal BilledQty { get; set; }
+
+    /// <summary>
+    /// Amount allocated from Landed Cost Vouchers to this item.
+    /// Per ERPNext PR #57475: When calculating purchase expense GL entries,
+    /// this amount is DEDUCTED from the item's valuation-based amount to prevent
+    /// double-counting (LCV creates its own GL entries for the landed cost portion).
+    /// Formula: purchase_expense_gl_amount = (valuation_rate × stock_qty) - LandedCostVoucherAmount
+    /// </summary>
+    public decimal LandedCostVoucherAmount { get; set; }
+
+    /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
+    public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+
     protected PurchaseReceiptItem() { }
 
     public PurchaseReceiptItem(

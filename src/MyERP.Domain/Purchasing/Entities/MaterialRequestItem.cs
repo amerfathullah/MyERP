@@ -17,6 +17,9 @@ public class MaterialRequestItem : Entity<Guid>
     public string Uom { get; set; } = "Unit";
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Sales Order ID when MR was created from SO→MR conversion.</summary>
+    public Guid? SalesOrderId { get; set; }
+
     protected MaterialRequestItem() { }
 
     public MaterialRequestItem(Guid id, Guid materialRequestId, Guid itemId,

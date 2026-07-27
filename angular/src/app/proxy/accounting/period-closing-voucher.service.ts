@@ -52,4 +52,20 @@ export class PeriodClosingVoucherService {
       url: `/api/app/period-closing-voucher/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+
+  getGlEntries = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PcvGlEntryDto[]>({
+      method: 'GET',
+      url: `/api/app/period-closing-voucher/${id}/gl-entries`,
+    },
+    { apiName: this.apiName,...config });
+}
+
+export interface PcvGlEntryDto {
+  accountId?: string;
+  accountName?: string;
+  debit?: number;
+  credit?: number;
+  costCenterId?: string;
+  postingDate?: string;
 }

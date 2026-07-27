@@ -59,6 +59,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var order = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
+        dto.AdvancePaid = order.AdvancePaid;
+        dto.PerAdvancePaid = order.PerAdvancePaid;
         return dto;
     }
 
@@ -286,6 +288,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     public async Task<SalesOrderDto> SubmitAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
+
+        // Authorization control: high-value transaction approval check
+        // Per ERPNext: Authorization Rules check based on GrandTotal/Discount
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "SalesOrder", order.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, order.GrandTotal);
 
         // Check approval workflow — block submit if approval is pending
         var isFullyApproved = await _approvalManager.IsFullyApprovedAsync("SalesOrder", order.Id);
@@ -647,5 +657,30 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             IsFullyDelivered = e.IsFullyDelivered,
         }).ToList();
     }
-}
 
+    /// <summary>
+    /// Returns all payment entries linked to this sales order (advance payments).
+    /// Per ERPNext: PE with AgainstOrderType=SalesOrder and matching AgainstOrderId.
+    /// </summary>
+    public async Task<List<OrderPaymentDto>> GetOrderPaymentsAsync(Guid orderId)
+    {
+        var peRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Accounting.Entities.PaymentEntry, Guid>>();
+        var queryable = await peRepo.GetQueryableAsync();
+        var payments = queryable
+            .Where(pe => pe.AgainstOrderType == "SalesOrder" && pe.AgainstOrderId == orderId)
+            .OrderByDescending(pe => pe.PostingDate)
+            .ToList();
+
+        return payments.Select(pe => new OrderPaymentDto
+        {
+            PaymentEntryId = pe.Id,
+            PaymentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
+            PostingDate = pe.PostingDate,
+            PaidAmount = pe.PaidAmount,
+            PaymentType = pe.PaymentType.ToString(),
+            ReferenceNumber = pe.ReferenceNumber,
+            Status = pe.Status.ToString(),
+        }).ToList();
+    }
+}

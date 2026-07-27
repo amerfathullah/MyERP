@@ -89,12 +89,16 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
-    /// <summary>Add an operation to this BOM. Validates monotonically increasing sequence.</summary>
+    /// <summary>
+    /// Add an operation to this BOM. Validates monotonically non-decreasing sequence.
+    /// Per ERPNext: same sequence_id = parallel operations (allowed).
+    /// Per DO-NOT: "Allow routing sequence_id to decrease between rows"
+    /// </summary>
     public void AddOperation(BomOperation operation)
     {
-        if (Operations.Any() && operation.SequenceId <= Operations.Max(o => o.SequenceId))
+        if (Operations.Any() && operation.SequenceId < Operations.Max(o => o.SequenceId))
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Operation sequence_id must be monotonically increasing");
+                .WithData("detail", "Operation sequence_id must be monotonically non-decreasing");
         Operations.Add(operation);
     }
 

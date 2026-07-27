@@ -82,10 +82,10 @@ interface ProformaInvoice {
                         {{ p.basedOn === 0 ? 'Quantity' : 'Amount' }}
                       </span></td>
                       <td class="text-end fw-semibold">{{ p.grandTotal | number:'1.2-2' }}</td>
-                      <td><app-status-badge [status]="getStatusLabel(p.status)" /></td>
+                      <td><app-status-badge [status]="getStatusLabel(p.status ?? 0)" /></td>
                       <td>
                         @if (p.status === 1) {
-                          <button class="btn btn-sm btn-outline-danger" (click)="cancel(p.id)"
+                          <button class="btn btn-sm btn-outline-danger" (click)="cancel(p.id!)"
                             title="Cancel"><i class="fas fa-times"></i></button>
                         }
                       </td>

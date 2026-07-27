@@ -89,6 +89,46 @@ public class CreditLimitService : DomainService
     }
 
     /// <summary>
+    /// Validates that the customer does not have overdue invoices exceeding the configured threshold.
+    /// Per ERPNext check_overdue_billing_threshold(): blocks new SI when overdue amount exceeds threshold.
+    /// Per Accounts Settings.enable_overdue_billing_threshold: feature gate.
+    /// Resolution: per-company CustomerCreditLimit.OverdueBillingThreshold → 0 = disabled.
+    /// </summary>
+    public async Task ValidateOverdueBillingThresholdAsync(Guid customerId, Guid companyId)
+    {
+        // Resolve per-company overdue threshold
+        var perCompanyLimits = await _creditLimitRepository.GetQueryableAsync();
+        var companyLimit = perCompanyLimits.FirstOrDefault(
+            cl => cl.CustomerId == customerId && cl.CompanyId == companyId);
+
+        var threshold = companyLimit?.OverdueBillingThreshold ?? 0;
+
+        // 0 = disabled (no overdue enforcement)
+        if (threshold <= 0)
+            return;
+
+        // Calculate overdue amount: posted invoices past due date with outstanding > 0
+        var today = DateTime.UtcNow.Date;
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var overdueAmount = invoiceQuery
+            .Where(i => i.CustomerId == customerId
+                && i.CompanyId == companyId
+                && i.Status == Core.DocumentStatus.Posted
+                && i.GrandTotal > i.AmountPaid
+                && i.DueDate < today)
+            .Sum(i => i.GrandTotal - i.AmountPaid);
+
+        if (overdueAmount > threshold)
+        {
+            var customer = await _customerRepository.GetAsync(customerId);
+            throw new BusinessException("MyERP:03021")
+                .WithData("customerName", customer.Name)
+                .WithData("overdueAmount", overdueAmount)
+                .WithData("threshold", threshold);
+        }
+    }
+
+    /// <summary>
     /// Gets total outstanding amount for a customer (posted invoices with outstanding > 0).
     /// Optionally scoped to a specific company.
     /// </summary>

@@ -6,6 +6,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -188,6 +189,30 @@ public class ItemAppService :
         entity.MinOrderQty = input.MinOrderQty;
         entity.InspectionRequiredBeforePurchase = input.InspectionRequiredBeforePurchase;
         entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
+    }
+
+    /// <summary>
+    /// Create a variant item from a template item with specified attribute values.
+    /// Per ERPNext: template items (HasVariants=true) define attributes,
+    /// variants are concrete items with specific attribute values.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Create)]
+    public async Task<ItemDto> CreateVariantAsync(Guid templateItemId, CreateItemVariantDto input)
+    {
+        var variantService = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemVariantService>();
+
+        // Validate attribute values against definitions (numeric range/increment, text value-set)
+        var attributes = input.Attributes.Select(a => new DomainServices.VariantAttributeInput
+        {
+            AttributeId = a.AttributeId,
+            Value = a.Value,
+        }).ToList();
+        await variantService.ValidateAttributeValuesAsync(attributes);
+
+        // Create the variant (generates code, checks duplicates, copies template properties)
+        var variant = await variantService.CreateVariantAsync(templateItemId, attributes);
+
+        return ObjectMapper.Map<Item, ItemDto>(variant);
     }
 }
 

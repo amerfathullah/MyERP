@@ -18,4 +18,7 @@ public interface IPurchaseConversionAppService : IApplicationService
 
     /// <summary>Convert a submitted Purchase Receipt into a Purchase Invoice.</summary>
     Task<PurchaseInvoiceDto> ConvertPurchaseReceiptToInvoiceAsync(Guid purchaseReceiptId);
+
+    /// <summary>Convert a submitted RFQ into a Supplier Quotation for a specific supplier.</summary>
+    Task<object> ConvertRfqToSupplierQuotationAsync(Guid rfqId, Guid supplierId);
 }

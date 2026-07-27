@@ -33,17 +33,20 @@ public class DeferredRevenueJob : AsyncBackgroundJob<DeferredRevenueJobArgs>, IT
 
     public override async Task ExecuteAsync(DeferredRevenueJobArgs args)
     {
-        _logger.LogInformation("DeferredRevenueJob: Processing deferred revenue for company {CompanyId}, as of {AsOfDate}",
+        _logger.LogInformation("DeferredRevenueJob: Processing deferred revenue+expense for company {CompanyId}, as of {AsOfDate}",
             args.CompanyId, args.AsOfDate.ToString("yyyy-MM-dd"));
 
         try
         {
-            var count = await _deferredService.ProcessDeferredRevenueAsync(
+            var revenueCount = await _deferredService.ProcessDeferredRevenueAsync(
+                args.CompanyId, args.AsOfDate, args.TenantId);
+
+            var expenseCount = await _deferredService.ProcessDeferredExpenseAsync(
                 args.CompanyId, args.AsOfDate, args.TenantId);
 
             _logger.LogInformation(
-                "DeferredRevenueJob: Created {Count} recognition JEs for company {CompanyId}",
-                count, args.CompanyId);
+                "DeferredRevenueJob: Created {RevenueCount} revenue + {ExpenseCount} expense recognition JEs for company {CompanyId}",
+                revenueCount, expenseCount, args.CompanyId);
         }
         catch (Exception ex)
         {

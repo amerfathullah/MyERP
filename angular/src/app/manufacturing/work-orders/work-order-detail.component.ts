@@ -2,13 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
-import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import type { WorkOrderDto } from '../../proxy/manufacturing/models';
+import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto } from '../../proxy/manufacturing/models';
+import { HttpClient } from '@angular/common/http';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -67,6 +67,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           @if (wo()!.status === 3) {
             <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>Record Production</button>
             <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>Record Consumption</button>
+            <button class="btn btn-outline-primary btn-sm" (click)="createManufactureEntry()"><i class="fa fa-industry me-1"></i>Manufacture</button>
             <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>Stop</button>
           }
           @if (wo()!.status === 5) {
@@ -78,7 +79,69 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           @if (wo()!.status! >= 1 && wo()!.status! <= 3) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
           }
+          @if (wo()!.status! >= 1 && wo()!.status! <= 3) {
+            <button class="btn btn-outline-info btn-sm" (click)="checkMaterialAvailability()" [disabled]="isCheckingMaterials()">
+              @if (isCheckingMaterials()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-boxes-stacked me-1"></i> {{ '::CheckMaterialAvailability' | abpLocalization }}
+            </button>
+          }
         </div>
+
+        <!-- Material Availability Results -->
+        @if (materialAvailability().length > 0) {
+          <div class="card mb-3" [class.border-danger]="hasShortage()" [class.border-success]="!hasShortage()">
+            <div class="card-header d-flex justify-content-between align-items-center py-2"
+                 [class.bg-danger]="hasShortage()" [class.text-white]="hasShortage()"
+                 [class.bg-success]="!hasShortage()" [class.bg-opacity-10]="true">
+              <span>
+                <i class="fa" [class.fa-triangle-exclamation]="hasShortage()" [class.fa-check-circle]="!hasShortage()"></i>
+                {{ hasShortage() ? ('::MaterialShortageDetected' | abpLocalization) : ('::AllMaterialsAvailable' | abpLocalization) }}
+              </span>
+              <button class="btn btn-sm btn-outline-secondary" (click)="materialAvailability.set([])">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr class="table-light">
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Required' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Transferred' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Pending' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Available' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Shortage' | abpLocalization }}</th>
+                    <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (mat of materialAvailability(); track mat.itemId) {
+                    <tr [class.table-danger]="!mat.hasSufficientStock" [class.table-success]="mat.hasSufficientStock">
+                      <td>
+                        <span class="fw-medium">{{ mat.itemName }}</span>
+                        <br><small class="text-muted">{{ mat.itemCode }}</small>
+                      </td>
+                      <td class="text-end font-monospace">{{ mat.requiredQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ mat.transferredQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ mat.pendingQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ mat.availableQty | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace" [class.text-danger]="mat.shortage > 0" [class.fw-bold]="mat.shortage > 0">
+                        {{ mat.shortage > 0 ? (mat.shortage | number:'1.2-2') : '—' }}
+                      </td>
+                      <td class="text-center">
+                        @if (mat.hasSufficientStock) {
+                          <span class="badge bg-success"><i class="fa fa-check"></i></span>
+                        } @else {
+                          <span class="badge bg-danger"><i class="fa fa-times"></i></span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
 
         <div class="card mb-3">
           <div class="card-body">
@@ -103,6 +166,78 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         </div>
 
+        @if (operations().length > 0) {
+          <div class="card mb-3">
+            <div class="card-header fw-bold">{{ 'Manufacturing:Operations' | abpLocalization }}</div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{{ 'Manufacturing:OperationName' | abpLocalization }}</th>
+                    <th>{{ 'Manufacturing:Workstation' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Manufacturing:PlannedTime' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (op of operations(); track op.id) {
+                    <tr>
+                      <td>{{ op.sequenceId }}</td>
+                      <td>{{ op.description ?? op.operationId }}</td>
+                      <td>{{ op.workstationId ?? '—' }}</td>
+                      <td class="text-end">{{ op.timeInMins }} min</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (jobCards().length > 0) {
+          <div class="card mb-3">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+              <span><i class="fa fa-id-card me-2"></i>{{ 'JobCards' | abpLocalization }}</span>
+              <span class="badge bg-primary">{{ jobCards().length }}</span>
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{{ 'Operation' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'CompletedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'TimeSpent' | abpLocalization }}</th>
+                    <th style="width: 120px;">{{ 'Manufacturing:Progress' | abpLocalization }}</th>
+                    <th>{{ 'Status' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (jc of jobCards(); track jc.id) {
+                    <tr>
+                      <td>{{ jc.sequenceId }}</td>
+                      <td><a [routerLink]="['/manufacturing/job-cards', jc.id]" class="text-decoration-none">{{ jc.operationName ?? 'Operation ' + jc.sequenceId }}</a></td>
+                      <td class="text-end">{{ jc.completedQty ?? 0 | number:'1.2-2' }} / {{ jc.forQuantity ?? 0 | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ jc.totalTimeInMins ?? 0 | number:'1.0-0' }} min</td>
+                      <td>
+                        <div class="progress" style="height: 6px;">
+                          <div class="progress-bar"
+                            [class.bg-success]="getJcCompletionPct(jc) >= 100"
+                            [class.bg-primary]="getJcCompletionPct(jc) > 0 && getJcCompletionPct(jc) < 100"
+                            [class.bg-secondary]="getJcCompletionPct(jc) === 0"
+                            [style.width.%]="getJcCompletionPct(jc)">
+                          </div>
+                        </div>
+                      </td>
+                      <td><span class="badge" [ngClass]="getJcStatusClass(jc.status)">{{ getJcStatusLabel(jc.status) }}</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
         @if (w.requiredItems && w.requiredItems.length > 0) {
           <div class="card">
             <div class="card-header fw-bold">Required Materials</div>
@@ -114,6 +249,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                     <th class="text-end">Required</th>
                     <th class="text-end">Transferred</th>
                     <th class="text-end">Consumed</th>
+                    <th style="width: 140px;">{{ 'Manufacturing:TransferProgress' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -123,6 +259,17 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                       <td class="text-end">{{ item.requiredQuantity | number:'1.2-2' }}</td>
                       <td class="text-end">{{ item.transferredQuantity | number:'1.2-2' }}</td>
                       <td class="text-end">{{ item.consumedQuantity | number:'1.2-2' }}</td>
+                      <td>
+                        <div class="progress" style="height: 8px;">
+                          <div class="progress-bar"
+                            [class.bg-success]="getTransferPct(item) >= 100"
+                            [class.bg-primary]="getTransferPct(item) > 0 && getTransferPct(item) < 100"
+                            [class.bg-secondary]="getTransferPct(item) === 0"
+                            [style.width.%]="getTransferPct(item)">
+                          </div>
+                        </div>
+                        <small class="text-muted">{{ getTransferPct(item) | number:'1.0-0' }}%</small>
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -142,17 +289,39 @@ export class WorkOrderDetailComponent implements OnInit {
   private service = inject(ManufacturingService);
   private toaster = inject(ToasterService);
   private manufacturingService = inject(ManufacturingService);
-  private stockEntryService = inject(StockEntryService);
+  private http = inject(HttpClient);
+  private l = inject(LocalizationService);
 
   wo = signal<WorkOrderDto | null>(null);
+  operations = signal<BomOperationDto[]>([]);
+  jobCards = signal<WorkOrderJobCardDto[]>([]);
   isLoading = signal(false);
+  materialAvailability = signal<any[]>([]);
+  isCheckingMaterials = signal(false);
+
+  hasShortage(): boolean {
+    return this.materialAvailability().some(m => !m.hasSufficientStock);
+  }
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading.set(true);
       this.service.getWorkOrder(id).subscribe({
-        next: w => { this.wo.set(w); this.isLoading.set(false); },
+        next: w => {
+          this.wo.set(w);
+          this.isLoading.set(false);
+          if (w.bomId) {
+            this.service.getBom(w.bomId).subscribe({
+              next: bom => this.operations.set(bom.operations ?? []),
+            });
+          }
+          // Load job cards for this work order
+          this.service.getWorkOrderJobCards(w.id!).subscribe({
+            next: res => this.jobCards.set(res.items ?? []),
+            error: () => {},
+          });
+        },
         error: () => this.isLoading.set(false),
       });
     }
@@ -243,23 +412,86 @@ export class WorkOrderDetailComponent implements OnInit {
     const woId = this.wo()!.id!;
     if (!confirm('Create Material Transfer Stock Entry for all pending materials?')) return;
     this.isLoading.set(true);
-    this.stockEntryService.createMaterialTransferForManufacture(woId).subscribe({
+    this.manufacturingService.createMaterialTransferForManufacture(woId).subscribe({
       next: (se) => {
         this.isLoading.set(false);
-        this.toaster.success('Material Transfer created');
-        this.router.navigate(['/inventory/stock-entries', se.id]);
+        this.toaster.success(`Material Transfer created: ${se.entryNumber}`);
+        this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
       },
-      error: () => {
+      error: (err) => {
         this.isLoading.set(false);
-        // Fallback: navigate to manual form
-        this.router.navigate(['/inventory/stock-entries/new'], {
-          queryParams: { workOrderId: woId, purpose: 'MaterialTransferForManufacture' }
-        });
+        this.toaster.error(err?.error?.error?.message || 'Failed to create material transfer');
+      },
+    });
+  }
+
+  createManufactureEntry() {
+    const wo = this.wo()!;
+    const remaining = (wo.quantity ?? 0) - (wo.producedQuantity ?? 0);
+    const qtyStr = prompt(`Enter FG quantity to manufacture (max ${remaining}):`, remaining.toString());
+    if (!qtyStr || isNaN(+qtyStr) || +qtyStr <= 0) return;
+    const fgQty = +qtyStr;
+
+    this.isLoading.set(true);
+    this.manufacturingService.createManufactureStockEntry({
+      workOrderId: wo.id,
+      fgQuantity: fgQty,
+      processLossQty: 0,
+    }).subscribe({
+      next: (se) => {
+        this.isLoading.set(false);
+        this.toaster.success(`Manufacture entry created: ${se.entryNumber}`);
+        this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || 'Failed to create manufacture entry');
       },
     });
   }
 
   getStatus(s: number | undefined): string {
     return ['Draft', 'Submitted', 'Not Started', 'In Process', 'Completed', 'Stopped', 'Cancelled'][s ?? 0] ?? 'Draft';
+  }
+
+  getTransferPct(item: { requiredQuantity?: number; transferredQuantity?: number }): number {
+    const req = item.requiredQuantity ?? 0;
+    if (req <= 0) return 0;
+    return Math.min(100, ((item.transferredQuantity ?? 0) / req) * 100);
+  }
+
+  getJcStatusLabel(status: number | undefined): string {
+    return ['Open', 'In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][status ?? 0] ?? 'Open';
+  }
+
+  getJcStatusClass(status: number | undefined): string {
+    return ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-warning text-dark', 'bg-danger'][status ?? 0] ?? 'bg-secondary';
+  }
+
+  getJcCompletionPct(jc: WorkOrderJobCardDto): number {
+    const total = jc.forQuantity ?? 0;
+    if (total <= 0) return 0;
+    return Math.min(100, ((jc.completedQty ?? 0) / total) * 100);
+  }
+
+  checkMaterialAvailability(): void {
+    const w = this.wo();
+    if (!w?.id) return;
+    this.isCheckingMaterials.set(true);
+    this.http.get<any[]>(`/api/app/manufacturing/work-order/${w.id}/material-availability`).subscribe({
+      next: (result) => {
+        this.materialAvailability.set(result ?? []);
+        this.isCheckingMaterials.set(false);
+        if (this.hasShortage()) {
+          this.toaster.warn(this.l.instant('::MaterialShortageDetected'));
+        } else {
+          this.toaster.success(this.l.instant('::AllMaterialsAvailable'));
+        }
+      },
+      error: (err) => {
+        this.isCheckingMaterials.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
   }
 }

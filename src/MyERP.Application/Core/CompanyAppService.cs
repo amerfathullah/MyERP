@@ -123,6 +123,10 @@ public class CompanyAppService :
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
 
         await Repository.UpdateAsync(company);
+
+        // Invalidate cached settings so next posting reads fresh frozen dates + accounts
+        var cache = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanySettingsCache>();
+        await cache.InvalidateAsync(id);
     }
 
     /// <summary>

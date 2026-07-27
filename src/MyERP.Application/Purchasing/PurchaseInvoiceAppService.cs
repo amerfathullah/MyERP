@@ -10,6 +10,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
+using MyERP.Purchasing.DomainServices;
 using MyERP.Sales;
 using MyERP.Shared;
 using MyERP.Tax.DomainServices;
@@ -88,6 +89,90 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             .Where(e => e.ParentId == invoiceId && e.ParentType == "PurchaseInvoice")
             .OrderBy(e => e.DueDate)
             .Select(ObjectMapper.Map<Accounting.Entities.PaymentScheduleEntry, Sales.PaymentScheduleDto>).ToList();
+    }
+
+    public async Task<List<ThreeWayMatchingItemDto>> GetThreeWayMatchingAsync(Guid invoiceId)
+    {
+        var pi = await _repository.GetAsync(invoiceId);
+        var result = new List<ThreeWayMatchingItemDto>();
+
+        // Collect all linked PO item IDs to batch-query PO + PR data
+        var poItemIds = pi.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        // Batch-resolve PO items (ordered qty + rate)
+        Dictionary<Guid, (decimal OrderedQty, decimal Rate)> poItemData = new();
+        if (poItemIds.Count > 0)
+        {
+            var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+            var poItems = poQuery
+                .SelectMany(po => po.Items)
+                .Where(i => poItemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.Quantity, i.UnitPrice })
+                .ToList();
+            poItemData = poItems.ToDictionary(i => i.Id, i => (i.Quantity, i.UnitPrice));
+        }
+
+        // Batch-resolve PR items (received qty) via LazyServiceProvider
+        var prItemIds = pi.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<Guid, decimal> prReceivedQty = new();
+        if (prItemIds.Count > 0)
+        {
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var prQuery = await prRepo.GetQueryableAsync();
+            var prItems = prQuery
+                .SelectMany(pr => pr.Items)
+                .Where(i => prItemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.Quantity })
+                .ToList();
+            prReceivedQty = prItems.ToDictionary(i => i.Id, i => i.Quantity);
+        }
+
+        foreach (var item in pi.Items)
+        {
+            var dto = new ThreeWayMatchingItemDto
+            {
+                PiItemId = item.Id,
+                ItemDescription = item.Description,
+                BilledQty = item.Quantity,
+                BilledRate = item.UnitPrice,
+            };
+
+            if (item.PurchaseOrderItemId.HasValue && poItemData.TryGetValue(item.PurchaseOrderItemId.Value, out var poData))
+            {
+                dto.OrderedQty = poData.OrderedQty;
+                dto.OrderedRate = poData.Rate;
+                dto.RateVariance = poData.Rate - item.UnitPrice;
+                dto.HasRateDiscrepancy = Math.Abs(dto.RateVariance.Value) > 0.01m;
+            }
+
+            if (item.PurchaseReceiptItemId.HasValue && prReceivedQty.TryGetValue(item.PurchaseReceiptItemId.Value, out var receivedQty))
+            {
+                dto.ReceivedQty = receivedQty;
+                dto.QtyVariance = receivedQty - item.Quantity;
+                dto.HasQtyDiscrepancy = Math.Abs(dto.QtyVariance.Value) > 0.01m;
+            }
+
+            // Determine match level
+            if (item.PurchaseOrderItemId.HasValue && item.PurchaseReceiptItemId.HasValue)
+                dto.MatchLevel = "3-Way";
+            else if (item.PurchaseOrderItemId.HasValue)
+                dto.MatchLevel = "2-Way";
+            else
+                dto.MatchLevel = "Direct";
+
+            result.Add(dto);
+        }
+
+        return result;
     }
 
     public async Task<PagedResultDto<PurchaseInvoiceDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -184,6 +269,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
+
+        // Duplicate supplier invoice detection (early — block before DB insert)
+        if (!invoice.IsReturn && !string.IsNullOrWhiteSpace(input.SupplierInvoiceNumber))
+        {
+            var piMgr = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+            await piMgr.ValidateNoDuplicateSupplierInvoiceAsync(
+                input.SupplierId, input.CompanyId, input.SupplierInvoiceNumber);
+        }
 
         // Set party account (credit_to):
         // Returns: inherit from original invoice (ensures account match validation works)
@@ -301,9 +395,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     {
         var invoice = await _repository.GetAsync(id);
 
+        // Authorization control: high-value transaction approval check
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "PurchaseInvoice", invoice.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, invoice.GrandTotal);
+
         // Buying controller validations via domain manager
         var piManager = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+
+        // Duplicate supplier invoice detection (FY-scoped per ERPNext)
+        if (!invoice.IsReturn)
+        {
+            await piManager.ValidateNoDuplicateSupplierInvoiceAsync(
+                invoice.SupplierId, invoice.CompanyId, invoice.SupplierInvoiceNumber, invoice.Id);
+        }
 
         // Temporal ordering: PI date must not precede linked PO dates
         await piManager.ValidatePostingDateWithPOAsync(invoice);
@@ -333,38 +441,52 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
-        // Server-side tax recalculation (mirrors Sales Invoice pattern)
-        var taxQuery = await _taxRowRepository.GetQueryableAsync();
-        var taxRows = taxQuery
-            .Where(t => t.ParentType == "PurchaseInvoice" && t.ParentId == invoice.Id)
-            .OrderBy(t => t.RowIndex)
-            .ToList();
-
-        if (taxRows.Any())
+        // Server-side tax recalculation (delegated to domain service)
+        var taxRecalcService = LazyServiceProvider.LazyGetRequiredService<TransactionTaxRecalculationService>();
+        var discountAmt = invoice.DiscountAmount;
+        if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
         {
-            var items = invoice.Items.Select(i => new TransactionItem
+            var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
+            discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
+        }
+        var totals = await taxRecalcService.RecalculateAsync(new TaxRecalculationInput
+        {
+            DocumentType = "PurchaseInvoice",
+            DocumentId = invoice.Id,
+            Items = invoice.Items.Select(i => new TaxItemInput
             {
-                ItemId = i.ItemId,
-                Qty = i.Quantity,
-                Rate = i.UnitPrice,
-                NetAmount = i.LineTotal,
+                ItemId = i.ItemId, Quantity = i.Quantity, UnitPrice = i.UnitPrice
+            }).ToList(),
+            ExchangeRate = invoice.ExchangeRate,
+            DiscountAmount = discountAmt,
+        });
+        invoice.NetTotal = totals.NetTotal;
+        invoice.TaxAmount = totals.TaxAmount;
+        invoice.GrandTotal = totals.GrandTotal;
+        invoice.BaseNetTotal = totals.BaseNetTotal;
+        invoice.BaseTaxAmount = totals.BaseTaxAmount;
+        invoice.BaseGrandTotal = totals.BaseGrandTotal;
+
+        // Validate payment schedule integrity before submit
+        var scheduleValidator = LazyServiceProvider.LazyGetRequiredService<PaymentScheduleValidationService>();
+        var scheduleQuery = await _paymentScheduleRepository.GetQueryableAsync();
+        var scheduleEntries = scheduleQuery
+            .Where(e => e.ParentType == "PurchaseInvoice" && e.ParentId == invoice.Id)
+            .ToList();
+        if (scheduleEntries.Count > 0)
+        {
+            var scheduleInputs = scheduleEntries.Select(e => new PaymentScheduleInput
+            {
+                DueDate = e.DueDate,
+                InvoicePortion = e.InvoicePortion,
+                PaymentAmount = e.PaymentAmount,
             }).ToList();
-
-            // Calculate discount amount from percentage if applicable
-            var discountAmt = invoice.DiscountAmount;
-            if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
+            var validation = scheduleValidator.Validate(scheduleInputs, invoice.GrandTotal, invoice.IssueDate);
+            if (!validation.IsValid)
             {
-                var netForDiscount = items.Sum(i => i.NetAmount);
-                discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
+                throw new BusinessException("MyERP:02004")
+                    .WithData("errors", string.Join("; ", validation.Errors));
             }
-
-            var totals = _taxService.Calculate(items, taxRows, invoice.ExchangeRate, discountAmt);
-            invoice.NetTotal = totals.NetTotal;
-            invoice.TaxAmount = totals.TotalTax;
-            invoice.GrandTotal = totals.GrandTotal;
-            invoice.BaseNetTotal = totals.BaseNetTotal;
-            invoice.BaseTaxAmount = totals.BaseTotalTax;
-            invoice.BaseGrandTotal = totals.BaseGrandTotal;
         }
 
         // Tax Withholding — apply TDS if supplier has a tax withholding category
@@ -568,6 +690,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // PR BilledQty update: track which PR items have been billed
+        // Per ERPNext: update_billed_amount_in_pr FIFO billing status
+        var piMgr = LazyServiceProvider.LazyGetRequiredService<PurchaseInvoiceManager>();
+        await piMgr.UpdateLinkedPurchaseReceiptBillingAsync(invoice);
+
         await _repository.UpdateAsync(invoice, autoSave: true);
 
         // Audit trail
@@ -611,6 +738,41 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             invoice,
             payableAccountId: payableAccountId,
             dueDate: invoice.DueDate);
+
+        // Auto-insert item prices (per ERPNext: auto_insert_price_list_rate_if_missing)
+        try
+        {
+            var priceAutoInsert = LazyServiceProvider
+                .LazyGetRequiredService<Inventory.DomainServices.ItemPriceAutoInsertService>();
+
+            {
+                var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PriceList, Guid>>();
+                var plQuery = await priceListRepo.GetQueryableAsync();
+                var defaultPl = plQuery.FirstOrDefault(p => p.IsBuying && p.IsDefault && p.IsActive);
+                var priceListId = defaultPl?.Id ?? Guid.Empty;
+                if (priceListId != Guid.Empty)
+                {
+                    await priceAutoInsert.AutoInsertFromTransactionAsync(new Inventory.DomainServices.AutoInsertPriceContext
+                    {
+                        IsEnabled = true,
+                        PriceListId = priceListId,
+                        PartyId = invoice.SupplierId,
+                        IsSelling = false,
+                        TransactionDate = invoice.IssueDate,
+                        CurrencyCode = invoice.CurrencyCode,
+                        TenantId = invoice.TenantId,
+                        Items = invoice.Items.Select(i => new Inventory.DomainServices.AutoInsertPriceItem
+                        {
+                            ItemId = i.ItemId, Rate = i.UnitPrice, Uom = i.Uom,
+                        }).ToArray(),
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Item price auto-insert failed for PI {PiId}", invoice.Id);
+        }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
 
@@ -695,6 +857,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Reverse PR BilledQty (domain service)
+        var piMgrCancel = LazyServiceProvider.LazyGetRequiredService<PurchaseInvoiceManager>();
+        await piMgrCancel.UpdateLinkedPurchaseReceiptBillingAsync(invoice, reverse: true);
+
         await _repository.UpdateAsync(invoice, autoSave: true);
 
         // Audit trail
@@ -769,5 +935,235 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 .WithData("detail", "Only Draft invoices can be deleted");
         await _repository.DeleteAsync(id);
     }
+
+    /// <summary>
+    /// Returns unbilled Purchase Receipt items for a supplier.
+    /// Per ERPNext PI form "Get Items From Purchase Receipt": fetches PR items
+    /// where billed_qty &lt; qty (partially or fully unbilled).
+    /// Most common PI creation workflow: bill against verified goods receipts.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<List<UnbilledReceiptItemDto>> GetUnbilledReceiptItemsAsync(
+        Guid supplierId, Guid? companyId = null)
+    {
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var prQuery = await prRepo.GetQueryableAsync();
+
+        var query = prQuery.Where(pr =>
+            pr.SupplierId == supplierId &&
+            pr.Status == Core.DocumentStatus.Posted &&
+            !pr.IsReturn);
+
+        if (companyId.HasValue)
+            query = query.Where(pr => pr.CompanyId == companyId.Value);
+
+        var receipts = query.ToList();
+
+        var result = new List<UnbilledReceiptItemDto>();
+        foreach (var pr in receipts)
+        {
+            foreach (var item in pr.Items)
+            {
+                var unbilledQty = item.PendingBillingQty;
+                if (unbilledQty > 0)
+                {
+                    result.Add(new UnbilledReceiptItemDto
+                    {
+                        PurchaseReceiptId = pr.Id,
+                        ReceiptNumber = pr.ReceiptNumber,
+                        ReceiptDate = pr.PostingDate,
+                        ItemId = item.ItemId,
+                        ItemName = item.Description,
+                        Quantity = unbilledQty,
+                        Rate = item.UnitPrice,
+                        Uom = item.Uom,
+                        PurchaseReceiptItemId = item.Id,
+                        PurchaseOrderItemId = item.PurchaseOrderItemId,
+                    });
+                }
+            }
+        }
+
+        return result.OrderBy(r => r.ReceiptDate).ThenBy(r => r.ItemName).ToList();
+    }
+
+    /// <summary>
+    /// Returns unbilled Purchase Order items for a supplier.
+    /// Per ERPNext PI form "Get Items From Purchase Order": fetches PO items
+    /// where billed_qty &lt; qty (partially or fully unbilled).
+    /// Used for direct billing from orders (service purchases without PR).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<List<UnbilledPurchaseOrderItemDto>> GetUnbilledPurchaseOrderItemsAsync(
+        Guid supplierId, Guid? companyId = null)
+    {
+        var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+
+        var query = poQuery.Where(po =>
+            po.SupplierId == supplierId &&
+            po.Status != Core.DocumentStatus.Draft &&
+            po.Status != Core.DocumentStatus.Cancelled &&
+            po.Status != Core.DocumentStatus.Closed);
+
+        if (companyId.HasValue)
+            query = query.Where(po => po.CompanyId == companyId.Value);
+
+        var orders = query.ToList();
+
+        var result = new List<UnbilledPurchaseOrderItemDto>();
+        foreach (var po in orders)
+        {
+            foreach (var item in po.Items)
+            {
+                var unbilledQty = item.PendingBillingQty;
+                if (unbilledQty > 0)
+                {
+                    result.Add(new UnbilledPurchaseOrderItemDto
+                    {
+                        PurchaseOrderId = po.Id,
+                        OrderNumber = po.OrderNumber,
+                        OrderDate = po.OrderDate,
+                        ItemId = item.ItemId,
+                        ItemName = item.Description,
+                        Quantity = unbilledQty,
+                        Rate = item.UnitPrice,
+                        Uom = item.Uom,
+                        PurchaseOrderItemId = item.Id,
+                    });
+                }
+            }
+        }
+
+        return result.OrderBy(r => r.OrderDate).ThenBy(r => r.ItemName).ToList();
+    }
+
+    /// <summary>
+    /// Gets unbilled items from submitted Purchase Receipts for a supplier.
+    /// Per ERPNext PI form: "Get Items from Purchase Receipt" button populates items
+    /// from received goods that haven't been billed yet.
+    /// Formula: pending = qty - billed_qty (per PurchaseReceiptItem.PendingBillingQty)
+    /// Enables: 3-way matching (PO→PR→PI) and bill-on-receipt workflows.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<List<UnbilledPurchaseReceiptItemDto>> GetUnbilledPurchaseReceiptItemsAsync(
+        Guid supplierId, Guid? companyId = null)
+    {
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var prQuery = (await prRepo.WithDetailsAsync()).AsQueryable();
+
+        var query = prQuery.Where(pr =>
+            pr.SupplierId == supplierId &&
+            pr.Status != Core.DocumentStatus.Draft &&
+            pr.Status != Core.DocumentStatus.Cancelled);
+
+        if (companyId.HasValue)
+            query = query.Where(pr => pr.CompanyId == companyId.Value);
+
+        var receipts = query.ToList();
+
+        var result = new List<UnbilledPurchaseReceiptItemDto>();
+        foreach (var pr in receipts)
+        {
+            foreach (var item in pr.Items)
+            {
+                var unbilledQty = item.PendingBillingQty;
+                if (unbilledQty > 0)
+                {
+                    result.Add(new UnbilledPurchaseReceiptItemDto
+                    {
+                        PurchaseReceiptId = pr.Id,
+                        ReceiptNumber = pr.ReceiptNumber,
+                        ReceiptDate = pr.PostingDate,
+                        ItemId = item.ItemId,
+                        ItemName = item.Description,
+                        Quantity = unbilledQty,
+                        Rate = item.UnitPrice,
+                        Uom = item.Uom,
+                        PurchaseReceiptItemId = item.Id,
+                        PurchaseOrderItemId = item.PurchaseOrderItemId,
+                        WarehouseId = item.WarehouseId ?? pr.WarehouseId,
+                    });
+                }
+            }
+        }
+
+        return result.OrderBy(r => r.ReceiptDate).ThenBy(r => r.ItemName).ToList();
+    }
+
+    /// <summary>
+    /// Get payment entries that have been made against this invoice.
+    /// </summary>
+    public async Task<List<InvoicePaymentDto>> GetPaymentsAsync(Guid id)
+    {
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peQuery = await peRepo.GetQueryableAsync();
+        var payments = peQuery
+            .Where(pe => pe.AgainstInvoiceId == id
+                         || pe.References.Any(r => r.ReferenceType == "PurchaseInvoice" && r.ReferenceId == id))
+            .OrderByDescending(pe => pe.PostingDate)
+            .Select(pe => new InvoicePaymentDto
+            {
+                Id = pe.Id,
+                PaymentNumber = pe.PaymentNumber ?? pe.Id.ToString().Substring(0, 8),
+                PostingDate = pe.PostingDate,
+                Amount = pe.PaidAmount,
+                Status = pe.Status.ToString()
+            }).ToList();
+        return payments;
+    }
 }
 
+/// <summary>Payment entry linked to an invoice (for payment history display).</summary>
+public class InvoicePaymentDto
+{
+    public Guid Id { get; set; }
+    public string PaymentNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = null!;
+}
+
+/// <summary>DTO for an unbilled Purchase Receipt item ready for billing.</summary>
+public class UnbilledReceiptItemDto
+{
+    public Guid PurchaseReceiptId { get; set; }
+    public string? ReceiptNumber { get; set; }
+    public DateTime ReceiptDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseReceiptItemId { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+}
+
+/// <summary>DTO for an unbilled Purchase Order item ready for billing.</summary>
+public class UnbilledPurchaseOrderItemDto
+{
+    public Guid PurchaseOrderId { get; set; }
+    public string? OrderNumber { get; set; }
+    public DateTime OrderDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseOrderItemId { get; set; }
+}
+
+/// <summary>DTO for an unbilled Purchase Receipt item ready for billing.</summary>
+public class UnbilledPurchaseReceiptItemDto
+{
+    public Guid PurchaseReceiptId { get; set; }
+    public string? ReceiptNumber { get; set; }
+    public DateTime ReceiptDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseReceiptItemId { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+}

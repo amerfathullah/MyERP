@@ -36,6 +36,18 @@ export interface CreatePurchaseInvoiceItemDto {
   uom?: string;
 }
 
+export interface UnbilledPurchaseOrderItemDto {
+  purchaseOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  purchaseOrderItemId?: string;
+  itemId?: string;
+  itemName?: string;
+  unbilledQty?: number;
+  rate?: number;
+  uom?: string;
+}
+
 export interface CreatePurchaseOrderDto {
   companyId: string;
   supplierId: string;
@@ -255,6 +267,8 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   creditToAccountId?: string;
+  updateStock?: boolean;
+  warehouseId?: string | null;
   items?: PurchaseInvoiceItemDto[];
 }
 

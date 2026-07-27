@@ -6,6 +6,7 @@ using MyERP.Core.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
+using MyERP.HumanResources.DomainServices;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -129,22 +130,19 @@ public class ExpenseClaimAppService : ApplicationService
     /// Creates a Payment Entry to reimburse an approved/submitted expense claim.
     /// Per ERPNext: validates advance linkage to prevent double-payment.
     /// Per DO-NOT: "Allow expense claim GL posting without verifying advance linkage"
+    /// Uses ExpenseClaimManager domain service for validation per DDD.
     /// </summary>
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
     public async Task<Guid> ReimburseAsync(Guid id, Guid paidFromAccountId)
     {
         var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
 
-        if (ec.Status != DocumentStatus.Submitted)
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("documentType", "ExpenseClaim")
-                .WithData("status", ec.Status.ToString());
+        // Delegate validation to domain service
+        var claimManager = LazyServiceProvider.LazyGetRequiredService<ExpenseClaimManager>();
+        claimManager.ValidateForReimbursement(ec);
 
-        // Calculate reimbursable amount (claimed minus any advance already paid)
-        var reimbursableAmount = ec.TotalClaimedAmount - ec.AdvanceAmount - ec.TotalAmountReimbursed;
-        if (reimbursableAmount <= 0)
-            throw new Volo.Abp.BusinessException("MyERP:14003")
-                .WithData("reason", "No amount pending reimbursement");
+        // Calculate reimbursable via domain service (single source of truth)
+        var reimbursableAmount = claimManager.CalculateReimbursableAmount(ec);
 
         // Create Payment Entry (company pays employee)
         var numberGenerator = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();

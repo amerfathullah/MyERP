@@ -56,19 +56,27 @@ public class PurchaseOrderManager : DomainService
 
     /// <summary>
     /// Validates each PO item meets the item's minimum order quantity.
+    /// Per DO-NOT: "Validate PO minimum order qty per row — must aggregate stock_qty
+    /// across ALL rows per item before comparing to Item.min_order_qty"
     /// Per ERPNext: hard error, not warning.
     /// </summary>
     public async Task ValidateMinimumOrderQtyAsync(PurchaseOrder order)
     {
-        foreach (var poItem in order.Items)
+        // Aggregate quantity by item (multiple rows for same item are summed)
+        var qtyByItem = order.Items
+            .GroupBy(i => i.ItemId)
+            .Select(g => new { ItemId = g.Key, TotalQty = g.Sum(i => i.Quantity) })
+            .ToList();
+
+        foreach (var group in qtyByItem)
         {
-            var item = await _itemRepository.FindAsync(poItem.ItemId);
-            if (item != null && item.MinOrderQty > 0 && poItem.Quantity < item.MinOrderQty)
+            var item = await _itemRepository.FindAsync(group.ItemId);
+            if (item != null && item.MinOrderQty > 0 && group.TotalQty < item.MinOrderQty)
             {
                 throw new BusinessException("MyERP:04005")
                     .WithData("itemName", item.ItemName)
                     .WithData("minQty", item.MinOrderQty)
-                    .WithData("orderedQty", poItem.Quantity);
+                    .WithData("orderedQty", group.TotalQty);
             }
         }
     }
@@ -155,7 +163,8 @@ public class PurchaseOrderManager : DomainService
     public async Task ValidateCanCancelAsync(
         PurchaseOrder order,
         IRepository<PurchaseReceipt, Guid> prRepository,
-        IRepository<PurchaseInvoice, Guid> piRepository)
+        IRepository<PurchaseInvoice, Guid> piRepository,
+        IRepository<SubcontractingOrder, Guid>? scoRepository = null)
     {
         var prQuery = await prRepository.GetQueryableAsync();
         var hasSubmittedPR = prQuery.Any(pr =>
@@ -182,6 +191,23 @@ public class PurchaseOrderManager : DomainService
             throw new BusinessException("MyERP:01010")
                 .WithData("documentType", "Purchase Order")
                 .WithData("dependent", "Purchase Invoice");
+        }
+
+        // Per DO-NOT: "Allow SO/PO item update when Subcontracting Order already exists (must cancel SCO first)"
+        if (scoRepository != null)
+        {
+            var scoQuery = await scoRepository.GetQueryableAsync();
+            var hasActiveSCO = scoQuery.Any(sco =>
+                sco.PurchaseOrderId == order.Id
+                && sco.Status != SubcontractingOrderStatus.Draft
+                && sco.Status != SubcontractingOrderStatus.Cancelled);
+
+            if (hasActiveSCO)
+            {
+                throw new BusinessException("MyERP:01010")
+                    .WithData("documentType", "Purchase Order")
+                    .WithData("dependent", "Subcontracting Order");
+            }
         }
     }
 }

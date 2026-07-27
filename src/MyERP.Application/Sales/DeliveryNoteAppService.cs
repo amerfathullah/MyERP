@@ -238,6 +238,13 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     {
         var dn = await _repository.GetAsync(id);
 
+        // Authorization control: high-value transaction approval check
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "DeliveryNote", dn.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, dn.GrandTotal);
+
         // Enforce Quality Inspection requirement (per item flags)
         var itemIds = dn.Items.Select(i => i.ItemId).ToArray();
         await _qiEnforcement.ValidateForDeliveryNoteAsync(dn.Id, itemIds, dn.TenantId);
@@ -310,12 +317,49 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             }
 
             // Reverse GL: DR Stock, CR COGS (opposite of normal DN)
-            await _postingOrchestrator.PostDeliveryNoteAsync(dn);
+            var warehouseAccountService = LazyServiceProvider
+                .LazyGetRequiredService<WarehouseAccountService>();
+            var returnStockAccountId = await warehouseAccountService
+                .ResolveStockAccountAsync(dn.WarehouseId, dn.CompanyId);
+            await _postingOrchestrator.PostDeliveryNoteAsync(dn, returnStockAccountId);
 
             // Reduce linked SO DeliveredQty (return reverses prior delivery — with concurrency retry)
             if (dn.SalesOrderId.HasValue)
             {
                 await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
+            }
+
+            // Auto-create Credit Note (negative Sales Invoice) for the return
+            // Per ERPNext: DN return → auto-creates Credit Note SI with is_return=true
+            // Per DO-NOT: "Allow returns with positive qty (must always be negative)"
+            try
+            {
+                var numberGen = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.IDocumentNumberGenerator>();
+                var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+                var creditNoteNumber = await numberGen.GenerateAsync("SalesInvoice", dn.CompanyId);
+
+                var creditNote = new SalesInvoice(
+                    GuidGenerator.Create(), dn.CompanyId, dn.CustomerId,
+                    creditNoteNumber, dn.PostingDate, dn.TenantId);
+                creditNote.IsReturn = true;
+                creditNote.ReturnAgainstId = dn.ReturnAgainstId;
+                creditNote.DeliveryNoteId = dn.Id;
+                creditNote.Notes = $"Credit Note for Return {dn.DeliveryNumber}";
+
+                foreach (var item in dn.Items)
+                {
+                    // Return items have negative qty — per DO-NOT rule
+                    var qty = -Math.Abs(item.Quantity);
+                    creditNote.AddItem(item.ItemId, item.Description ?? "", qty, item.UnitPrice, item.TaxAmount);
+                }
+
+                creditNote.Submit();
+                await siRepo.InsertAsync(creditNote, autoSave: true);
+            }
+            catch (Exception ex)
+            {
+                // Non-blocking: credit note failure should not rollback stock return
+                Logger.LogWarning(ex, "Auto credit note creation failed for DN return {DnId}", dn.Id);
             }
         }
         else
@@ -402,8 +446,29 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 .Where(i => i.ValuationRate > 0)
                 .Sum(i => i.StockQty * i.ValuationRate);
 
+            // Consume Stock Reservation Entries (FIFO by creation date)
+            // Per ERPNext: update_stock_reservation_entries on DN submit
+            // Updates SRE.DeliveredQty for each item+warehouse
+            if (dn.SalesOrderId.HasValue)
+            {
+                var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                foreach (var item in dn.Items)
+                {
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity == null || !itemEntity.MaintainStock) continue;
+
+                    await sreManager.ConsumeOnDeliveryAsync(
+                        item.ItemId, dn.WarehouseId, item.StockQty, dn.SalesOrderId);
+                }
+            }
+
             // GL posting (perpetual inventory): DR COGS, CR Stock
-            await _postingOrchestrator.PostDeliveryNoteAsync(dn);
+            // Per ERPNext BaseStockGLComposer: uses warehouse-specific stock account for CR
+            var warehouseAccountService = LazyServiceProvider
+                .LazyGetRequiredService<WarehouseAccountService>();
+            var stockAccountId = await warehouseAccountService
+                .ResolveStockAccountAsync(dn.WarehouseId, dn.CompanyId);
+            await _postingOrchestrator.PostDeliveryNoteAsync(dn, stockAccountId);
 
             // Update linked Sales Order fulfillment tracking (with concurrency retry)
             if (dn.SalesOrderId.HasValue)
@@ -498,6 +563,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         if (dn.SalesOrderId.HasValue)
         {
             await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
+            await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
@@ -619,6 +685,53 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         // Persist updated schedule entries
         foreach (var entry in scheduleEntries.Where(e => e.DeliveredQty > 0))
+        {
+            await scheduleRepo.UpdateAsync(entry);
+        }
+    }
+
+    /// <summary>
+    /// Reverses delivery schedule entries on DN cancellation.
+    /// Uses LIFO for reversal: reduces DeliveredQty on latest-date entries first,
+    /// which is the inverse of the FIFO allocation used during delivery.
+    /// </summary>
+    private async Task ReverseDeliveryScheduleAsync(Guid salesOrderId, IReadOnlyCollection<DeliveryNoteItem> dnItems)
+    {
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+
+        var scheduleQueryable = await scheduleRepo.GetQueryableAsync();
+        var scheduleEntries = scheduleQueryable
+            .Where(e => e.SalesOrderId == salesOrderId)
+            .OrderByDescending(e => e.ScheduledDate) // LIFO: latest first for reversal
+            .ToList();
+
+        if (!scheduleEntries.Any()) return;
+
+        var modified = new HashSet<Guid>();
+
+        foreach (var dnItem in dnItems)
+        {
+            if (!dnItem.SalesOrderItemId.HasValue) continue;
+
+            var itemSchedules = scheduleEntries
+                .Where(e => e.SalesOrderItemId == dnItem.SalesOrderItemId.Value && e.DeliveredQty > 0)
+                .ToList();
+
+            var remainingToReverse = Math.Abs(dnItem.Quantity);
+
+            foreach (var schedule in itemSchedules)
+            {
+                if (remainingToReverse <= 0) break;
+
+                var reversible = Math.Min(remainingToReverse, schedule.DeliveredQty);
+                schedule.DeliveredQty = Math.Max(0, schedule.DeliveredQty - reversible);
+                remainingToReverse -= reversible;
+                modified.Add(schedule.Id);
+            }
+        }
+
+        foreach (var entry in scheduleEntries.Where(e => modified.Contains(e.Id)))
         {
             await scheduleRepo.UpdateAsync(entry);
         }

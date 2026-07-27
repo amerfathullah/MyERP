@@ -66,25 +66,55 @@
               @for (item of items(); track item.id) {
                 <tr>
                   <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ item.closingAccountName ?? (item.closingAccountId | slice:0:8) }}</td>
+                  <td>{{ item.closingAccountId ? (item.closingAccountId | slice:0:8) : '—' }}</td>
                   <td class="text-end fw-bold">{{ item.totalClosingAmount | number:'1.2-2' }}</td>
-                  <td><app-status-badge [status]="item.status" /></td>
+                  <td><app-status-badge [status]="getStatusLabel(item.status)" /></td>
                   <td>{{ item.remarks }}</td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
-                      @if (item.status === 'Draft') {
-                        <button class="btn btn-outline-success" (click)="submit(item.id)" title="Submit">
+                      @if (item.status === 0) {
+                        <button class="btn btn-outline-success" (click)="submit(item.id!)" title="Submit">
                           <i class="fa fa-paper-plane"></i>
                         </button>
                       }
-                      @if (item.status === 'Submitted') {
-                        <button class="btn btn-outline-danger" (click)="cancel(item.id)" title="Cancel">
+                      @if (item.status === 1) {
+                        <button class="btn btn-outline-info" (click)="toggleGlEntries(item.id!)" title="View GL Entries">
+                          <i class="fa" [class.fa-eye]="expandedPcvId() !== item.id" [class.fa-eye-slash]="expandedPcvId() === item.id"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" (click)="cancel(item.id!)" title="Cancel">
                           <i class="fa fa-times"></i>
                         </button>
                       }
                     </div>
                   </td>
                 </tr>
+                @if (expandedPcvId() === item.id && glEntries().length > 0) {
+                  <tr>
+                    <td colspan="6" class="p-0">
+                      <div class="bg-light p-3">
+                        <h6 class="mb-2"><i class="fa fa-list-ol me-1"></i>GL Entries ({{ glEntries().length }})</h6>
+                        <table class="table table-sm table-bordered mb-0">
+                          <thead class="table-secondary">
+                            <tr>
+                              <th>Account</th>
+                              <th class="text-end">Debit</th>
+                              <th class="text-end">Credit</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (gl of glEntries(); track gl.accountId) {
+                              <tr>
+                                <td>{{ gl.accountName }}</td>
+                                <td class="text-end">@if (gl.debit) { {{ gl.debit | number:'1.2-2' }} }</td>
+                                <td class="text-end">@if (gl.credit) { {{ gl.credit | number:'1.2-2' }} }</td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>

@@ -32,30 +32,35 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<RecurringInvoiceJob> _logger;
+    private readonly AutoRepeatService _autoRepeatService;
 
     public RecurringInvoiceJob(
         IRepository<AutoRepeat, Guid> autoRepeatRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IDocumentNumberGenerator numberGenerator,
         IGuidGenerator guidGenerator,
-        ILogger<RecurringInvoiceJob> logger)
+        ILogger<RecurringInvoiceJob> logger,
+        AutoRepeatService autoRepeatService)
     {
         _autoRepeatRepository = autoRepeatRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _numberGenerator = numberGenerator;
         _guidGenerator = guidGenerator;
         _logger = logger;
+        _autoRepeatService = autoRepeatService;
     }
 
     [UnitOfWork]
     public override async Task ExecuteAsync(RecurringInvoiceJobArgs args)
     {
-        var query = await _autoRepeatRepository.GetQueryableAsync();
-        var dueRepeats = query
-            .Where(ar => ar.CompanyId == args.CompanyId
-                && ar.IsEnabled
-                && ar.NextScheduleDate <= args.AsOfDate
-                && ar.ReferenceDocumentType == "SalesInvoice")
+        // Cleanup: disable expired auto-repeats before processing
+        await _autoRepeatService.DisableExpiredAsync(DateTime.UtcNow);
+
+        var dueRepeats = await _autoRepeatService.GetDueAutoRepeatsAsync(args.AsOfDate, args.CompanyId);
+
+        // Filter to SalesInvoice type only (this job handles SI repeats)
+        dueRepeats = dueRepeats
+            .Where(ar => ar.ReferenceDocumentType == "SalesInvoice")
             .ToList();
 
         if (!dueRepeats.Any())
@@ -67,8 +72,7 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
             try
             {
                 await CreateRecurringInvoiceAsync(repeat, args);
-                repeat.RecordGeneration(args.AsOfDate);
-                await _autoRepeatRepository.UpdateAsync(repeat);
+                await _autoRepeatService.RecordGenerationAsync(repeat.Id, args.AsOfDate);
                 created++;
             }
             catch (Exception ex)

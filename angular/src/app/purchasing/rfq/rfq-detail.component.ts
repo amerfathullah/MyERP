@@ -1,11 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 
 @Component({
   selector: 'app-rfq-detail',
@@ -41,6 +43,16 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
         @if (rfq.messageForSupplier) {
           <div class="alert alert-light">
             <strong>Message for Suppliers:</strong><br>{{ rfq.messageForSupplier }}
+          </div>
+        }
+
+        @if (rfq.status === 'Submitted' || rfq.status === 1) {
+          <div class="d-flex gap-2 mb-3">
+            @for (s of rfq.suppliers; track s.supplierId) {
+              <button class="btn btn-outline-primary btn-sm" (click)="createSupplierQuotation(s.supplierId, s.supplierName)">
+                <i class="fa fa-file-invoice me-1"></i>Create SQ for {{ s.supplierName }}
+              </button>
+            }
           </div>
         }
 
@@ -87,7 +99,10 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
 })
 export class RfqDetailComponent implements OnInit {
   private service = inject(RequestForQuotationService);
+  private conversionService = inject(PurchaseConversionService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
   rfq: any = null;
   isLoading = false;
 
@@ -100,5 +115,21 @@ export class RfqDetailComponent implements OnInit {
         error: () => { this.isLoading = false; }
       });
     }
+  }
+
+  createSupplierQuotation(supplierId: string, supplierName: string) {
+    if (!confirm(`Create Supplier Quotation for ${supplierName}?`)) return;
+    this.isLoading = true;
+    this.conversionService.convertRfqToSupplierQuotation(this.rfq.id, supplierId).subscribe({
+      next: (sq) => {
+        this.isLoading = false;
+        this.toaster.success(`Supplier Quotation created for ${supplierName}`);
+        this.router.navigate(['/purchasing/supplier-quotations', sq.id]);
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.toaster.error(err?.error?.error?.message || 'Failed to create Supplier Quotation');
+      },
+    });
   }
 }

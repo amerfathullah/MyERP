@@ -95,6 +95,13 @@ export class StockEntryService {
       url: `/api/app/stock-entry/pending-transit-transfers/${companyId}`,
     },
     { apiName: this.apiName,...config });
+
+  getItemsFromMaterialRequest = (materialRequestId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/stock-entry/items-from-material-request/${materialRequestId}`,
+    },
+    { apiName: this.apiName,...config });
   
 
   post = (id: string, config?: Partial<Rest.Config>) =>

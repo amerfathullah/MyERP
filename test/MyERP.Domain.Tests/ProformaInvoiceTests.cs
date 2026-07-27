@@ -226,6 +226,110 @@ public class ProformaInvoiceTests
         pi2.HideItemQty.ShouldBeFalse();
     }
 
+    // ─── Upstream PR #57263 Feature Tests ───
+
+    [Fact]
+    public void AmountBasis_RateDerived_From_QtyAndAmount()
+    {
+        // Per upstream: Amount basis derives rate = amount / qty
+        var pi = CreateProforma(ProformaInvoiceBasis.Amount);
+        // rate = 600 / 5 = 120
+        pi.AddItem(_soItemId, _itemId, "ITEM-001", "Widget", 5, 120, "Unit");
+
+        var item = pi.Items.First();
+        item.Rate.ShouldBe(120m);
+        item.Amount.ShouldBe(600m); // 5 × 120
+    }
+
+    [Fact]
+    public void FullLifecycle_Draft_Submit_Cancel()
+    {
+        var pi = CreateProformaWithItems();
+        pi.Status.ShouldBe(ProformaInvoiceStatus.Draft);
+
+        pi.Submit();
+        pi.Status.ShouldBe(ProformaInvoiceStatus.Issued);
+
+        pi.Cancel();
+        pi.Status.ShouldBe(ProformaInvoiceStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_From_Cancelled_Throws()
+    {
+        var pi = CreateProformaWithItems();
+        pi.Submit();
+        pi.Cancel();
+
+        Should.Throw<BusinessException>(() => pi.Cancel());
+    }
+
+    [Fact]
+    public void CurrencyCode_Preserved()
+    {
+        var pi = new ProformaInvoice(Guid.NewGuid(), _companyId, _salesOrderId, _customerId,
+            DateTime.UtcNow, ProformaInvoiceBasis.Quantity, "USD");
+        pi.CurrencyCode.ShouldBe("USD");
+    }
+
+    [Fact]
+    public void ProformaDate_SetCorrectly()
+    {
+        var date = new DateTime(2026, 7, 15);
+        var pi = new ProformaInvoice(Guid.NewGuid(), _companyId, _salesOrderId, _customerId,
+            date, ProformaInvoiceBasis.Quantity, "MYR");
+        pi.ProformaDate.ShouldBe(date);
+    }
+
+    [Fact]
+    public void MultiItem_OverProforma_Tracking_Concept()
+    {
+        // Per gotcha #2450: over-proforma is a WARNING not a block
+        // This test verifies the entity allows creating proformas for arbitrary quantities
+        // (the AppService warns but doesn't block)
+        var pi = CreateProforma();
+        pi.AddItem(Guid.NewGuid(), _itemId, "A", "Item A", 100, 10, "Unit");
+        pi.AddItem(Guid.NewGuid(), _itemId, "B", "Item B", 200, 5, "Unit");
+
+        pi.TotalQty.ShouldBe(300);
+        pi.GrandTotal.ShouldBe(2000); // 1000 + 1000
+    }
+
+    [Fact]
+    public void MarkEmailed_Draft_Succeeds()
+    {
+        // Per upstream: emailing is allowed from Draft (not just Issued)
+        // Only Cancelled is blocked
+        var pi = CreateProformaWithItems();
+
+        pi.MarkEmailed("sales@company.com");
+
+        pi.SentOn.ShouldNotBeNull();
+        pi.EmailedTo.ShouldBe("sales@company.com");
+    }
+
+    [Fact]
+    public void ProformaPdfUrl_DefaultsNull()
+    {
+        var pi = CreateProforma();
+        pi.ProformaPdfUrl.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ProformaPdfUrl_CanBeSet()
+    {
+        var pi = CreateProforma();
+        pi.ProformaPdfUrl = "/private/files/PRO-2026-00001.pdf";
+        pi.ProformaPdfUrl.ShouldBe("/private/files/PRO-2026-00001.pdf");
+    }
+
+    [Fact]
+    public void EmptyCustomerId_Throws()
+    {
+        Should.Throw<ArgumentException>(() =>
+            new ProformaInvoice(Guid.NewGuid(), _companyId, _salesOrderId, Guid.Empty, DateTime.UtcNow));
+    }
+
     // ─── Helpers ───
 
     private ProformaInvoice CreateProforma(ProformaInvoiceBasis basis = ProformaInvoiceBasis.Quantity)

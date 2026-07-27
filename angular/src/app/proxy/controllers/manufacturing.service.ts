@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BomDto, CreateBomDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, MaterialConsumptionResultDto, WorkOrderDto, WorkstationDto } from '../manufacturing/models';
+import type { BomDto, CreateBomDto, CreateMaterialConsumptionDto, CreateManufactureStockEntryDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, MaterialConsumptionResultDto, StockEntryResultDto, WorkOrderDto, WorkstationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -97,6 +97,14 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  getWorkOrderJobCards = (workOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<import('../manufacturing/models').WorkOrderJobCardDto>>({
+      method: 'GET',
+      url: `/api/app/manufacturing/work-order/${workOrderId}/job-cards`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getWorkOrderList = (input: GetWorkOrderListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<WorkOrderDto>>({
       method: 'GET',
@@ -169,6 +177,21 @@ export class ManufacturingService {
       method: 'PUT',
       url: `/api/app/manufacturing/bom/${id}`,
       params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
+    },
+    { apiName: this.apiName,...config });
+
+  createMaterialTransferForManufacture = (workOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryResultDto>({
+      method: 'POST',
+      url: `/api/app/manufacturing/work-order/${workOrderId}/material-transfer`,
+    },
+    { apiName: this.apiName,...config });
+
+  createManufactureStockEntry = (input: CreateManufactureStockEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/work-order/manufacture',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

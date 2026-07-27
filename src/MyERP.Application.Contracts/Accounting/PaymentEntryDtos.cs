@@ -32,6 +32,10 @@ public class CreatePaymentEntryDto
     [StringLength(PaymentEntryConsts.MaxModeOfPaymentLength)] public string? ModeOfPayment { get; set; }
     public string? PartyType { get; set; }
     public Guid? PartyId { get; set; }
+    /// <summary>Cost center for departmental GL reporting. Propagated to exchange gain/loss JE.</summary>
+    public Guid? CostCenterId { get; set; }
+    /// <summary>Project for project-wise reporting. Propagated to exchange gain/loss JE.</summary>
+    public Guid? ProjectId { get; set; }
     [StringLength(PaymentEntryConsts.MaxReferenceNumberLength)] public string? ReferenceNumber { get; set; }
     public string? Notes { get; set; }
 

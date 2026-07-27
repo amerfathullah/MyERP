@@ -154,6 +154,8 @@ public class PaymentEntryAppService : ApplicationService
         pe.ModeOfPayment = input.ModeOfPayment;
         pe.PartyType = input.PartyType;
         pe.PartyId = input.PartyId;
+        pe.CostCenterId = input.CostCenterId;
+        pe.ProjectId = input.ProjectId;
         pe.ReferenceNumber = input.ReferenceNumber;
         pe.Notes = input.Notes;
         pe.AgainstOrderId = input.AgainstOrderId;
@@ -381,14 +383,18 @@ public class PaymentEntryAppService : ApplicationService
                         if (pe.ExchangeGainLoss > 0)
                         {
                             // Gain: DR Bank/Receivable, CR Exchange Gain
-                            je.AddLine(pe.PaidToAccountId, gainLossAmount, true, "Exchange Gain");
-                            je.AddLine(company.ExchangeGainLossAccountId.Value, gainLossAmount, false, "Exchange Gain");
+                            je.AddLineWithDimensions(pe.PaidToAccountId, gainLossAmount, true,
+                                pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
+                            je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, false,
+                                pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
                         }
                         else
                         {
                             // Loss: DR Exchange Loss, CR Bank/Payable
-                            je.AddLine(company.ExchangeGainLossAccountId.Value, gainLossAmount, true, "Exchange Loss");
-                            je.AddLine(pe.PaidToAccountId, gainLossAmount, false, "Exchange Loss");
+                            je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, true,
+                                pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
+                            je.AddLineWithDimensions(pe.PaidToAccountId, gainLossAmount, false,
+                                pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
                         }
 
                         je.Validate();
@@ -494,6 +500,46 @@ public class PaymentEntryAppService : ApplicationService
                     accountCurrency: pe.CurrencyCode,
                     exchangeRate: pe.ExchangeRate,
                     allocations: multiAllocations.ToArray());
+            }
+
+            // Per-reference exchange gain/loss JE for multi-currency multi-ref payments
+            // Per DO-NOT: each reference may have different exchange rate; gain/loss calculated PER REFERENCE
+            var companyForFx = await LazyServiceProvider
+                .LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>()
+                .FindAsync(pe.CompanyId);
+            if (companyForFx?.ExchangeGainLossAccountId.HasValue == true)
+            {
+                foreach (var refRow in pe.References)
+                {
+                    var refExchangeRate = refRow.ExchangeRate > 0 ? refRow.ExchangeRate : pe.SourceExchangeRate;
+                    var refGainLoss = refRow.AllocatedAmount * (pe.ExchangeRate - refExchangeRate);
+                    if (Math.Abs(refGainLoss) < 0.01m) continue;
+
+                    var fxFyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+                    var fxFyQuery = await fxFyRepo.GetQueryableAsync();
+                    var fxFy = fxFyQuery.FirstOrDefault(f => f.CompanyId == pe.CompanyId
+                        && f.StartDate <= pe.PostingDate && f.EndDate >= pe.PostingDate);
+                    if (fxFy == null) continue;
+
+                    var fxJe = new MyERP.Accounting.Entities.JournalEntry(
+                        GuidGenerator.Create(), pe.CompanyId, fxFy.Id, pe.PostingDate, pe.TenantId);
+
+                    if (refGainLoss > 0) // gain
+                    {
+                        fxJe.AddLine(pe.PaidToAccountId, refGainLoss, true); // DR Bank
+                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, refGainLoss, false); // CR Exchange GL
+                    }
+                    else // loss
+                    {
+                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, Math.Abs(refGainLoss), true); // DR Exchange GL
+                        fxJe.AddLine(pe.PaidToAccountId, Math.Abs(refGainLoss), false); // CR Bank
+                    }
+
+                    fxJe.Post();
+                    await LazyServiceProvider
+                        .LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>()
+                        .InsertAsync(fxJe);
+                }
             }
         }
 
@@ -824,6 +870,29 @@ public class PaymentEntryAppService : ApplicationService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft payment entries can be deleted");
         await _repository.DeleteAsync(id);
+    }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var result = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                var entry = await _repository.GetAsync(id);
+                if (entry.Status != Core.DocumentStatus.Draft) continue;
+                entry.Submit();
+                await _repository.UpdateAsync(entry, autoSave: true);
+                result.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return result;
     }
 }
 

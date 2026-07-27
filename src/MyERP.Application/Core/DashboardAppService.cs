@@ -325,6 +325,190 @@ public class DashboardAppService : ApplicationService
             TopItemsByValue = topItems
         };
     }
+
+    /// <summary>
+    /// Returns overdue invoice alerts for the dashboard banner.
+    /// Shows count + amount of overdue receivables and payables, plus pending approval count.
+    /// </summary>
+    public async Task<OverdueAlertsDto> GetOverdueAlertsAsync(Guid companyId)
+    {
+        var now = DateTime.UtcNow;
+
+        // Overdue receivables (SI posted, outstanding > 0, due date < today)
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var overdueReceivables = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn &&
+                         si.OutstandingAmount > 0 &&
+                         si.DueDate.HasValue && si.DueDate.Value < now)
+            .Select(si => si.OutstandingAmount)
+            .ToList();
+
+        // Overdue payables (PI posted, outstanding > 0, due date < today)
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+        var overduePayables = piQuery
+            .Where(pi => pi.CompanyId == companyId &&
+                         pi.Status == DocumentStatus.Posted &&
+                         !pi.IsReturn &&
+                         pi.OutstandingAmount > 0 &&
+                         pi.DueDate.HasValue && pi.DueDate.Value < now)
+            .Select(pi => pi.OutstandingAmount)
+            .ToList();
+
+        // Pending approvals
+        var approvalRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ApprovalRequest, Guid>>();
+        var approvalQuery = await approvalRepo.GetQueryableAsync();
+        var pendingApprovals = approvalQuery
+            .Count(ar => ar.Status == MyERP.Workflow.ApprovalStatus.Pending);
+
+        return new OverdueAlertsDto
+        {
+            OverdueReceivableCount = overdueReceivables.Count,
+            OverdueReceivableAmount = overdueReceivables.Sum(),
+            OverduePayableCount = overduePayables.Count,
+            OverduePayableAmount = overduePayables.Sum(),
+            PendingApprovalCount = pendingApprovals,
+        };
+    }
+
+    /// <summary>
+    /// Returns bank and cash account balances for the dashboard cash position widget.
+    /// Queries GL (JournalEntryLine) for Bank and Cash accounts to show current balances.
+    /// </summary>
+    public async Task<BankBalanceWidgetDto> GetBankBalancesAsync(Guid companyId)
+    {
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var bankCashAccounts = accountQuery
+            .Where(a => a.CompanyId == companyId && a.IsActive &&
+                        (a.AccountSubType == MyERP.Accounting.AccountSubType.BankAccount ||
+                         a.AccountSubType == MyERP.Accounting.AccountSubType.CashAccount))
+            .Select(a => new { a.Id, a.AccountName, a.AccountCode, a.AccountSubType })
+            .ToList();
+
+        if (!bankCashAccounts.Any())
+            return new BankBalanceWidgetDto();
+
+        var accountIds = bankCashAccounts.Select(a => a.Id).ToHashSet();
+
+        // Calculate balance per account from GL lines (debit - credit)
+        var jeQuery = await jeRepo.GetQueryableAsync();
+        var lineBalances = jeQuery
+            .Where(je => je.CompanyId == companyId && je.Status == DocumentStatus.Posted)
+            .SelectMany(je => je.Lines)
+            .Where(l => accountIds.Contains(l.AccountId))
+            .GroupBy(l => l.AccountId)
+            .Select(g => new { AccountId = g.Key, Balance = g.Sum(l => l.IsDebit ? l.Amount : -l.Amount) })
+            .ToList();
+
+        var balanceMap = lineBalances.ToDictionary(b => b.AccountId, b => b.Balance);
+
+        var accounts = bankCashAccounts.Select(a => new BankAccountBalanceDto
+        {
+            AccountName = a.AccountName,
+            AccountCode = a.AccountCode,
+            Balance = balanceMap.GetValueOrDefault(a.Id, 0),
+            AccountType = a.AccountSubType == MyERP.Accounting.AccountSubType.CashAccount ? "Cash" : "Bank",
+        })
+        .OrderByDescending(a => a.Balance)
+        .ToList();
+
+        return new BankBalanceWidgetDto
+        {
+            TotalCashAndBank = accounts.Sum(a => a.Balance),
+            Accounts = accounts,
+        };
+    }
+
+    /// <summary>
+    /// Returns aging bucket summary for the dashboard widget.
+    /// Shows receivable and payable amounts grouped by 0-30, 31-60, 61-90, 91+ days overdue.
+    /// </summary>
+    public async Task<AgingSummaryWidgetDto> GetAgingSummaryWidgetAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow;
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var outstandingSi = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn &&
+                         si.OutstandingAmount > 0)
+            .Select(si => new { si.OutstandingAmount, si.DueDate })
+            .ToList();
+
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+        var outstandingPi = piQuery
+            .Where(pi => pi.CompanyId == companyId &&
+                         pi.Status == DocumentStatus.Posted &&
+                         !pi.IsReturn &&
+                         pi.OutstandingAmount > 0)
+            .Select(pi => new { pi.OutstandingAmount, pi.DueDate })
+            .ToList();
+
+        var receivableBuckets = new decimal[4]; // 0-30, 31-60, 61-90, 91+
+        foreach (var si in outstandingSi)
+        {
+            var daysOverdue = si.DueDate.HasValue ? Math.Max(0, (int)(today - si.DueDate.Value).TotalDays) : 0;
+            var idx = daysOverdue switch { <= 30 => 0, <= 60 => 1, <= 90 => 2, _ => 3 };
+            receivableBuckets[idx] += si.OutstandingAmount;
+        }
+
+        var payableBuckets = new decimal[4];
+        foreach (var pi in outstandingPi)
+        {
+            var daysOverdue = pi.DueDate.HasValue ? Math.Max(0, (int)(today - pi.DueDate.Value).TotalDays) : 0;
+            var idx = daysOverdue switch { <= 30 => 0, <= 60 => 1, <= 90 => 2, _ => 3 };
+            payableBuckets[idx] += pi.OutstandingAmount;
+        }
+
+        return new AgingSummaryWidgetDto
+        {
+            Receivables = new AgingBucketsDto
+            {
+                Current = receivableBuckets[0],
+                ThirtyOneToSixty = receivableBuckets[1],
+                SixtyOneToNinety = receivableBuckets[2],
+                NinetyPlus = receivableBuckets[3],
+                Total = receivableBuckets.Sum(),
+            },
+            Payables = new AgingBucketsDto
+            {
+                Current = payableBuckets[0],
+                ThirtyOneToSixty = payableBuckets[1],
+                SixtyOneToNinety = payableBuckets[2],
+                NinetyPlus = payableBuckets[3],
+                Total = payableBuckets.Sum(),
+            },
+        };
+    }
+}
+
+public class AgingSummaryWidgetDto
+{
+    public AgingBucketsDto Receivables { get; set; } = new();
+    public AgingBucketsDto Payables { get; set; } = new();
+}
+
+public class AgingBucketsDto
+{
+    public decimal Current { get; set; }
+    public decimal ThirtyOneToSixty { get; set; }
+    public decimal SixtyOneToNinety { get; set; }
+    public decimal NinetyPlus { get; set; }
+    public decimal Total { get; set; }
+}
+
+public class OverdueAlertsDto
+{
+    public int OverdueReceivableCount { get; set; }
+    public decimal OverdueReceivableAmount { get; set; }
+    public int OverduePayableCount { get; set; }
+    public decimal OverduePayableAmount { get; set; }
+    public int PendingApprovalCount { get; set; }
 }
 
 public class FinancialKpiDto
@@ -388,4 +572,18 @@ public class StockValuationItemDto
     public decimal Quantity { get; set; }
     public decimal ValuationRate { get; set; }
     public decimal StockValue { get; set; }
+}
+
+public class BankBalanceWidgetDto
+{
+    public decimal TotalCashAndBank { get; set; }
+    public List<BankAccountBalanceDto> Accounts { get; set; } = new();
+}
+
+public class BankAccountBalanceDto
+{
+    public string AccountName { get; set; } = null!;
+    public string AccountCode { get; set; } = null!;
+    public decimal Balance { get; set; }
+    public string AccountType { get; set; } = null!;
 }

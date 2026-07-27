@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.HumanResources.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -65,6 +66,12 @@ public class RecordRepaymentDto
 {
     public decimal PrincipalAmount { get; set; }
     public decimal InterestAmount { get; set; }
+    /// <summary>
+    /// When set and both PrincipalAmount/InterestAmount are zero,
+    /// the system auto-splits this total into principal+interest per the loan's interest method.
+    /// Used by the payroll deduction path.
+    /// </summary>
+    public decimal TotalAmount { get; set; }
 }
 
 /// <summary>
@@ -152,12 +159,27 @@ public class LoanAppService : ApplicationService
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
-    /// <summary>Record a repayment against the loan.</summary>
+    /// <summary>Record a repayment against the loan.
+    /// When only total amount is provided (PrincipalAmount=0 AND InterestAmount=0),
+    /// uses LoanManager to auto-split into principal+interest per the loan's interest method.
+    /// Per DO-NOT: "Calculate loan EMI with flat rate when diminishing balance is configured"
+    /// </summary>
     [Authorize(MyERPPermissions.Employees.Edit)]
     public async Task<LoanDto> RecordRepaymentAsync(Guid id, RecordRepaymentDto input)
     {
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
-        loan.RecordRepayment(input.PrincipalAmount, input.InterestAmount);
+
+        decimal principal = input.PrincipalAmount;
+        decimal interest = input.InterestAmount;
+
+        // Auto-split when caller provides only total (e.g., payroll deduction path)
+        if (principal == 0 && interest == 0 && input.TotalAmount > 0)
+        {
+            var loanManager = LazyServiceProvider.LazyGetRequiredService<LoanManager>();
+            (principal, interest) = loanManager.SplitRepayment(loan, input.TotalAmount);
+        }
+
+        loan.RecordRepayment(principal, interest);
         await _repository.UpdateAsync(loan);
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }

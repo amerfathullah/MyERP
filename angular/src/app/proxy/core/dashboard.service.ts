@@ -1,4 +1,4 @@
-import type { DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto, StockValuationWidgetDto } from './models';
+import type { AgingSummaryWidgetDto, DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto, StockValuationWidgetDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -49,6 +49,28 @@ export class DashboardService {
     },
     { apiName: this.apiName,...config });
   
+
+  getOverdueAlerts = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/overdue-alerts/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getAgingSummaryWidget = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AgingSummaryWidgetDto>({
+      method: 'GET',
+      url: `/api/app/dashboard/aging-summary-widget/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+  getBankBalances = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/bank-balances/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
 
   getSummary = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, DashboardSummaryDto>({

@@ -13,7 +13,9 @@ public class ManufacturingController : MyERPController
     private readonly IManufacturingAppService _service;
     private readonly IWorkstationAppService _workstationService;
 
-    public ManufacturingController(IManufacturingAppService service, IWorkstationAppService workstationService)
+    public ManufacturingController(
+        IManufacturingAppService service,
+        IWorkstationAppService workstationService)
     {
         _service = service;
         _workstationService = workstationService;
@@ -78,4 +80,14 @@ public class ManufacturingController : MyERPController
 
     [HttpPost("work-order/material-consumption")]
     public Task<MaterialConsumptionResultDto> CreateMaterialConsumptionAsync(CreateMaterialConsumptionDto input) => _service.CreateMaterialConsumptionAsync(input);
+
+    // BOM Subcontracting Lookup
+    [HttpGet("bom/subcontracting-items")]
+    public Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync([FromQuery] Guid itemId, [FromQuery] Guid companyId, [FromQuery] decimal fgQty = 1)
+        => _service.GetBomItemsForSubcontractingAsync(itemId, companyId, fgQty);
+
+    // Job Cards for Work Order (operations progress)
+    [HttpGet("work-order/{workOrderId}/job-cards")]
+    public Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId)
+        => _service.GetWorkOrderJobCardsAsync(workOrderId);
 }

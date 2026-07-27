@@ -99,6 +99,25 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool RestrictToCompanies { get; set; }
 
+    // UOM settings per ERPNext Item master
+    /// <summary>Sales UOM (defaults to stock UOM if null). Per ERPNext: sales_uom field.</summary>
+    public string? SalesUom { get; set; }
+
+    /// <summary>Purchase UOM (defaults to stock UOM if null). Per ERPNext: purchase_uom field.</summary>
+    public string? PurchaseUom { get; set; }
+
+    /// <summary>Weight per unit in weight UOM. Per ERPNext: weight_per_unit field.</summary>
+    public decimal WeightPerUnit { get; set; }
+
+    /// <summary>Weight UOM (e.g., "Kg", "Gram"). Per ERPNext: weight_uom field.</summary>
+    public string? WeightUom { get; set; }
+
+    /// <summary>Default BOM for manufacturing. Per ERPNext: default_bom field.</summary>
+    public Guid? DefaultBomId { get; set; }
+
+    /// <summary>Lead time in days for procurement planning. Per ERPNext: lead_time_days.</summary>
+    public int LeadTimeDays { get; set; }
+
     // Variant system
     /// <summary>True if this is a template item that has variants (cannot be used directly in transactions).</summary>
     public bool HasVariants { get; set; }

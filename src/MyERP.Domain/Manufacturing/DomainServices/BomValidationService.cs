@@ -66,6 +66,9 @@ public class BomValidationService : DomainService
         var result = new List<ExplodedBomItem>();
         var bom = await _bomRepository.GetAsync(bomId);
 
+        // Validate routing sequence before explosion (catches invalid BOMs early)
+        ValidateOperationsSequence(bom);
+
         foreach (var item in bom.Items)
         {
             var qty = item.Quantity * multiplier;
@@ -99,6 +102,29 @@ public class BomValidationService : DomainService
                 g.First().Uom,
                 g.First().SubBomId))
             .ToList();
+    }
+    /// <summary>
+    /// Validates that BOM operations have monotonically increasing sequence IDs.
+    /// Per DO-NOT: "Allow routing sequence_id to decrease between rows (must be monotonically increasing)"
+    /// Also validates no duplicate sequence IDs exist (parallel ops share same sequence_id,
+    /// but sequential must always increase).
+    /// </summary>
+    public static void ValidateOperationsSequence(BillOfMaterials bom)
+    {
+        if (bom.Operations.Count <= 1) return;
+
+        var sortedOps = bom.Operations.OrderBy(o => o.SequenceId).ToList();
+        for (int i = 1; i < sortedOps.Count; i++)
+        {
+            // Per ERPNext: sequence_id must be >= previous (not strictly >; same = parallel)
+            if (sortedOps[i].SequenceId < sortedOps[i - 1].SequenceId)
+            {
+                throw new BusinessException("MyERP:10020")
+                    .WithData("operation", sortedOps[i].OperationId)
+                    .WithData("sequenceId", sortedOps[i].SequenceId)
+                    .WithData("previousSequenceId", sortedOps[i - 1].SequenceId);
+            }
+        }
     }
 }
 

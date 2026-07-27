@@ -10,6 +10,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -19,7 +20,7 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent, StatusBadgeComponent],
   templateUrl: './purchase-order-detail.component.html',
   styleUrls: ['./purchase-order-detail.component.scss'],
 })
@@ -34,6 +35,8 @@ export class PurchaseOrderDetailComponent implements OnInit {
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+  orderReceipts = signal<any[]>([]);
+  orderPayments = signal<any[]>([]);
 
   // Company info for print layout
   companyName = '';
@@ -51,23 +54,23 @@ export class PurchaseOrderDetailComponent implements OnInit {
     const s = this.order.status;
 
     if (s === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
-      actions.push({ name: 'receipt', label: 'Make Receipt', icon: 'inventory_2', color: 'primary' });
+      actions.push({ name: 'receipt', label: 'Make Receipt', icon: 'box-open', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
-      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'accent' });
+      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'accent' });
+      actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warn' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (s === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock_open', color: 'primary' });
+      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
     }
     if (s === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -79,11 +82,26 @@ export class PurchaseOrderDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((result) => {
       this.order = result;
+      // Load linked receipts and payments
+      if (result.status !== 'Draft') {
+        this.loadReceiptsAndPayments(id);
+      }
     });
   }
 
   printOrder(): void {
     window.print();
+  }
+
+  private loadReceiptsAndPayments(orderId: string): void {
+    this.service.getOrderReceipts(orderId).subscribe({
+      next: (receipts) => this.orderReceipts.set(receipts ?? []),
+      error: () => {}
+    });
+    this.service.getOrderPayments(orderId).subscribe({
+      next: (payments) => this.orderPayments.set(payments ?? []),
+      error: () => {}
+    });
   }
 
   onWorkflowAction(action: string): void {

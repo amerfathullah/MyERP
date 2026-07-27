@@ -40,8 +40,9 @@ public class StockBalanceAppService : ApplicationService
         if (input.WarehouseId.HasValue)
             query = query.Where(b => b.WarehouseId == input.WarehouseId.Value);
 
-        // Only show bins with non-zero quantities
-        query = query.Where(b => b.ActualQty != 0 || b.OrderedQty != 0 || b.ReservedQty != 0 || b.PlannedQty != 0);
+        // Per ERPNext PR #57458: include zero stock items by default
+        if (input.ExcludeZeroStock)
+            query = query.Where(b => b.ActualQty != 0 || b.OrderedQty != 0 || b.ReservedQty != 0 || b.PlannedQty != 0);
 
         var totalCount = query.Count();
         var items = query
@@ -167,6 +168,8 @@ public class GetStockBalanceRequestDto : PagedAndSortedResultRequestDto
 {
     public Guid? ItemId { get; set; }
     public Guid? WarehouseId { get; set; }
+    /// <summary>When true, hides items with zero stock. Default false per ERPNext PR #57458.</summary>
+    public bool ExcludeZeroStock { get; set; }
 }
 
 /// <summary>Input for batch item availability check.</summary>

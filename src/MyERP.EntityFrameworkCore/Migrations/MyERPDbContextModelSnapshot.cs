@@ -4762,6 +4762,9 @@ namespace MyERP.Migrations
                     b.Property<bool>("EnablePerpetualInventory")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("EnableProformaInvoice")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("ExchangeGainLossAccountId")
                         .HasColumnType("uuid");
 
@@ -9610,6 +9613,9 @@ namespace MyERP.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ExtraProperties");
 
+                    b.Property<decimal>("FgCompletedQty")
+                        .HasColumnType("numeric");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -9631,12 +9637,21 @@ namespace MyERP.Migrations
                     b.Property<DateTime>("PostingDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<decimal>("ProcessLossPercentage")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("ProcessLossQty")
+                        .HasColumnType("numeric");
+
                     b.Property<Guid?>("ReferenceId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("ReferenceType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("SourceStockEntryId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -9674,11 +9689,26 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
 
+                    b.Property<bool>("IsFinishedItem")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("ProcessLossPercentage")
+                        .HasColumnType("numeric");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SecondaryItemType")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("SetBasicRateManually")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("SourceStockEntryDetailId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("SourceWarehouseId")
                         .HasColumnType("uuid");
@@ -9730,14 +9760,48 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
 
+                    b.Property<string>("FiscalYear")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("HasBatchNo")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasSerialNo")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("IncomingRate")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("IsAdjustmentEntry")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCancelled")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("OutgoingRate")
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("PostingDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime>("PostingDateTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<TimeSpan>("PostingTime")
+                        .HasColumnType("interval");
+
                     b.Property<decimal>("QuantityChange")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("RecalculateRate")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("SerialAndBatchBundleId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("SerialNoId")
                         .HasColumnType("uuid");
@@ -9745,7 +9809,14 @@ namespace MyERP.Migrations
                     b.Property<string>("StockQueue")
                         .HasColumnType("text");
 
+                    b.Property<string>("StockUom")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<decimal>("StockValue")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("StockValueDifference")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid?>("TenantId")
@@ -9753,7 +9824,13 @@ namespace MyERP.Migrations
                         .HasColumnName("TenantId");
 
                     b.Property<decimal>("ValuationRate")
-                        .HasColumnType("decimal(18,4)");
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("ViaLandedCostVoucher")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("VoucherDetailNo")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("VoucherId")
                         .HasColumnType("uuid");
@@ -9773,11 +9850,12 @@ namespace MyERP.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.HasIndex("TenantId", "CompanyId", "PostingDate");
+                    b.HasIndex("TenantId", "CompanyId", "PostingDateTime");
 
                     b.HasIndex("TenantId", "VoucherType", "VoucherId");
 
-                    b.HasIndex("TenantId", "ItemId", "WarehouseId", "PostingDate");
+                    b.HasIndex("TenantId", "ItemId", "WarehouseId", "PostingDateTime", "CreationTime")
+                        .HasFilter("\"IsCancelled\" = false");
 
                     b.ToTable("Inv_StockLedgerEntries", (string)null);
                 });
@@ -10343,10 +10421,16 @@ namespace MyERP.Migrations
                     b.Property<decimal>("OperatingCost")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("ProcessLossPercentage")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid?>("RoutingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ScrapWarehouseId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("SourceWarehouseId")
@@ -10528,6 +10612,57 @@ namespace MyERP.Migrations
                     b.HasIndex("BomId", "SequenceId");
 
                     b.ToTable("Mfg_BOMOperations", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Manufacturing.Entities.BomSecondaryItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CostAllocationPercentage")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("IsLegacy")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("ProcessLossPercentage")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SecondaryItemType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StockUom")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BomId", "ItemId");
+
+                    b.ToTable("Mfg_BOMSecondaryItems", (string)null);
                 });
 
             modelBuilder.Entity("MyERP.Manufacturing.Entities.JobCard", b =>
@@ -11379,8 +11514,17 @@ namespace MyERP.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("BomOperationId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("ConsumedQuantity")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ConversionFactor")
+                        .HasColumnType("numeric");
+
+                    b.Property<bool>("IsAlternativeItem")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
@@ -11390,11 +11534,18 @@ namespace MyERP.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid?>("OriginalItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("RequiredQuantity")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid?>("SourceWarehouseId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("StockUom")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<decimal>("TransferredQuantity")
                         .HasColumnType("decimal(18,4)");
@@ -12356,6 +12507,12 @@ namespace MyERP.Migrations
                     b.Property<decimal>("BaseNetTotal")
                         .HasColumnType("numeric");
 
+                    b.Property<decimal>("BaseRoundedTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("BaseRoundingAdjustment")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("BaseTaxAmount")
                         .HasColumnType("numeric");
 
@@ -12402,6 +12559,9 @@ namespace MyERP.Migrations
                     b.Property<DateTime?>("DeletionTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("DeletionTime");
+
+                    b.Property<bool>("DisableRoundedTotal")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("numeric");
@@ -12474,6 +12634,12 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("ReturnAgainstId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("RoundedTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("RoundingAdjustment")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -12495,10 +12661,22 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<decimal>("TotalAdvance")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<bool>("UpdateStock")
                         .HasColumnType("boolean");
 
                     b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WriteOffAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("WriteOffAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("WriteOffCostCenterId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -12531,10 +12709,16 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
 
+                    b.Property<Guid?>("DeferredExpenseAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("EnableDeferredExpense")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
@@ -12550,6 +12734,12 @@ namespace MyERP.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ServiceEndDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ServiceStartDate")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("StockUom")
                         .IsRequired()
@@ -12902,6 +13092,9 @@ namespace MyERP.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("BilledQty")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal>("ConversionFactor")
                         .HasColumnType("numeric");
@@ -14774,6 +14967,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("BatchId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("BilledQty")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("ConversionFactor")
                         .HasColumnType("numeric");
 
@@ -16012,6 +16208,189 @@ namespace MyERP.Migrations
                     b.ToTable("Sal_ProductBundleItems", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.ProformaInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BasedOn")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("EmailedTo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<decimal>("GrandTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("HideItemQty")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<DateTime>("ProformaDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ProformaNumber")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ProformaPdfUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SentOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal>("TotalQty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SalesOrderId", "Status");
+
+                    b.ToTable("Sal_ProformaInvoices", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.ProformaInvoiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("character varying(140)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<Guid>("ProformaInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid>("SalesOrderItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<string>("Uom")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProformaInvoiceId");
+
+                    b.ToTable("Sal_ProformaInvoiceItems", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.Quotation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -16196,6 +16575,12 @@ namespace MyERP.Migrations
                     b.Property<decimal>("BaseNetTotal")
                         .HasColumnType("numeric");
 
+                    b.Property<decimal>("BaseRoundedTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("BaseRoundingAdjustment")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("BaseTaxAmount")
                         .HasColumnType("numeric");
 
@@ -16245,6 +16630,9 @@ namespace MyERP.Migrations
                     b.Property<DateTime?>("DeletionTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("DeletionTime");
+
+                    b.Property<bool>("DisableRoundedTotal")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("numeric");
@@ -16340,6 +16728,12 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("ReturnAgainstId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("RoundedTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("RoundingAdjustment")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid?>("ShippingAddressId")
                         .HasColumnType("uuid");
 
@@ -16357,10 +16751,22 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<decimal>("TotalAdvance")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<bool>("UpdateStock")
                         .HasColumnType("boolean");
 
                     b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WriteOffAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("WriteOffAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("WriteOffCostCenterId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -16394,6 +16800,9 @@ namespace MyERP.Migrations
                         .HasColumnName("CreatorId");
 
                     b.Property<Guid?>("DeferredRevenueAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeliveryNoteItemId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Description")
@@ -20896,6 +21305,15 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Manufacturing.Entities.BomSecondaryItem", b =>
+                {
+                    b.HasOne("MyERP.Manufacturing.Entities.BillOfMaterials", null)
+                        .WithMany("SecondaryItems")
+                        .HasForeignKey("BomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyERP.Manufacturing.Entities.JobCard", b =>
                 {
                     b.HasOne("MyERP.Core.Entities.Company", null)
@@ -21580,6 +21998,15 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.ProformaInvoiceItem", b =>
+                {
+                    b.HasOne("MyERP.Sales.Entities.ProformaInvoice", null)
+                        .WithMany("Items")
+                        .HasForeignKey("ProformaInvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.Quotation", b =>
                 {
                     b.HasOne("MyERP.Core.Entities.Company", null)
@@ -22158,6 +22585,8 @@ namespace MyERP.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("Operations");
+
+                    b.Navigation("SecondaryItems");
                 });
 
             modelBuilder.Entity("MyERP.Manufacturing.Entities.JobCard", b =>
@@ -22303,6 +22732,11 @@ namespace MyERP.Migrations
                 });
 
             modelBuilder.Entity("MyERP.Sales.Entities.ProductBundle", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.ProformaInvoice", b =>
                 {
                     b.Navigation("Items");
                 });

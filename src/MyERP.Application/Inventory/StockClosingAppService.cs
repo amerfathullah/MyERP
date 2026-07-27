@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.DomainServices;
@@ -23,6 +24,19 @@ public class StockClosingEntryDto : EntityDto<Guid>
     public Guid? PreviousClosingEntryId { get; set; }
     public DateTime? ScannedFromDate { get; set; }
     public DateTime CreationTime { get; set; }
+    public List<StockClosingBalanceDto>? Balances { get; set; }
+}
+
+public class StockClosingBalanceDto
+{
+    public Guid Id { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }
+    public decimal Qty { get; set; }
+    public decimal StockValue { get; set; }
+    public decimal ValuationRate { get; set; }
 }
 
 public class CreateStockClosingDto
@@ -40,13 +54,19 @@ public class StockClosingAppService : ApplicationService
 {
     private readonly StockClosingService _closingService;
     private readonly IRepository<StockClosingEntry, Guid> _repository;
+    private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<Warehouse, Guid> _warehouseRepository;
 
     public StockClosingAppService(
         StockClosingService closingService,
-        IRepository<StockClosingEntry, Guid> repository)
+        IRepository<StockClosingEntry, Guid> repository,
+        IRepository<Item, Guid> itemRepository,
+        IRepository<Warehouse, Guid> warehouseRepository)
     {
         _closingService = closingService;
         _repository = repository;
+        _itemRepository = itemRepository;
+        _warehouseRepository = warehouseRepository;
     }
 
     public async Task<PagedResultDto<StockClosingEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -67,8 +87,40 @@ public class StockClosingAppService : ApplicationService
 
     public async Task<StockClosingEntryDto> GetAsync(Guid id)
     {
-        var entry = await _repository.GetAsync(id);
-        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
+        var query = await _repository.WithDetailsAsync(e => e.Balances);
+        var entry = query.First(e => e.Id == id);
+        var dto = ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
+
+        // Resolve item and warehouse names for balances
+        if (entry.Balances.Any())
+        {
+            var itemIds = entry.Balances.Select(b => b.ItemId).Distinct().ToList();
+            var warehouseIds = entry.Balances.Select(b => b.WarehouseId).Distinct().ToList();
+
+            var itemQuery = await _itemRepository.GetQueryableAsync();
+            var itemNames = itemQuery.Where(i => itemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.ItemName }).ToList()
+                .ToDictionary(i => i.Id, i => i.ItemName);
+
+            var whQuery = await _warehouseRepository.GetQueryableAsync();
+            var warehouseNames = whQuery.Where(w => warehouseIds.Contains(w.Id))
+                .Select(w => new { w.Id, w.Name }).ToList()
+                .ToDictionary(w => w.Id, w => w.Name);
+
+            dto.Balances = entry.Balances.Select(b => new StockClosingBalanceDto
+            {
+                Id = b.Id,
+                ItemId = b.ItemId,
+                ItemName = itemNames.GetValueOrDefault(b.ItemId),
+                WarehouseId = b.WarehouseId,
+                WarehouseName = warehouseNames.GetValueOrDefault(b.WarehouseId),
+                Qty = b.Qty,
+                StockValue = b.StockValue,
+                ValuationRate = b.ValuationRate,
+            }).OrderBy(b => b.ItemName).ThenBy(b => b.WarehouseName).ToList();
+        }
+
+        return dto;
     }
 
     /// <summary>

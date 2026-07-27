@@ -132,7 +132,7 @@ public class DeferredAccountingServiceTests
     {
         var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
         var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
-        _service = new DeferredAccountingService(jeRepo, siRepo, null!, null!);
+        _service = new DeferredAccountingService(jeRepo, siRepo, null!, null!, null!);
     }
 
     [Fact]

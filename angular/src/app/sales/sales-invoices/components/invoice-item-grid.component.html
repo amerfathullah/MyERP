@@ -2,11 +2,11 @@
     <table class="table table-hover w-100">
     <thead>
       <tr>
-        <th style="min-width: 150px;">Item</th>
-        <th style="width: 80px;">Qty</th>
-        <th style="width: 100px;">Rate</th>
-        <th style="width: 80px;">Disc %</th>
-        <th style="width: 100px;">Amount</th>
+        <th style="min-width: 150px;">{{ '::Item' | abpLocalization }}</th>
+        <th style="width: 80px;">{{ '::Qty' | abpLocalization }}</th>
+        <th style="width: 100px;">{{ '::Rate' | abpLocalization }}</th>
+        <th style="width: 80px;">{{ '::DiscountPercent' | abpLocalization }}</th>
+        <th style="width: 100px;">{{ '::Amount' | abpLocalization }}</th>
         <th style="width: 50px;"></th>
       </tr>
     </thead>
@@ -16,7 +16,7 @@
           <td>
             @if (availableItems.length > 0) {
               <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected($index)">
-                <option value="">— Select —</option>
+                <option value="">\u2014 {{ '::SelectItem' | abpLocalization }} \u2014</option>
                 @for (item of availableItems; track item.id) {
                   <option [value]="item.id">{{ item.itemCode ?? item.itemName }}</option>
                 }

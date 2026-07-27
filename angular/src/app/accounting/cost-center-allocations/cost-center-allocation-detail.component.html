@@ -1,0 +1,90 @@
+<app-breadcrumb />
+
+@if (allocation(); as alloc) {
+  <!-- Header card -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-4">
+          <small class="text-muted">{{ '::MainCostCenter' | abpLocalization }}</small>
+          <div class="fw-bold fs-5">{{ getCostCenterName(alloc.mainCostCenterId) }}</div>
+        </div>
+        <div class="col-md-2">
+          <small class="text-muted">{{ '::ValidFrom' | abpLocalization }}</small>
+          <div>{{ alloc.validFrom | date:'dd/MM/yyyy' }}</div>
+        </div>
+        <div class="col-md-2">
+          <small class="text-muted">{{ '::Status' | abpLocalization }}</small>
+          <div>
+            <span class="badge" [class.bg-success]="alloc.isActive" [class.bg-secondary]="!alloc.isActive">
+              {{ alloc.isActive ? ('::Active' | abpLocalization) : ('::Inactive' | abpLocalization) }}
+            </span>
+          </div>
+        </div>
+        <div class="col-md-4 text-end">
+          <button
+            class="btn btn-sm"
+            [class.btn-outline-warning]="alloc.isActive"
+            [class.btn-outline-success]="!alloc.isActive"
+            (click)="toggleActive()"
+            [disabled]="loading()"
+          >
+            <i class="fa" [class.fa-pause]="alloc.isActive" [class.fa-play]="!alloc.isActive"></i>
+            {{ alloc.isActive ? ('::DeactivateAllocation' | abpLocalization) : ('::ActivateAllocation' | abpLocalization) }}
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-2" (click)="deleteAllocation()" [disabled]="loading()">
+            <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Allocation entries table -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h6 class="mb-0">{{ '::AllocationEntries' | abpLocalization }}</h6>
+      <span
+        class="badge"
+        [class.bg-success]="is100Percent()"
+        [class.bg-danger]="!is100Percent()"
+      >
+        {{ '::TotalPercentage' | abpLocalization }}: {{ totalPercentage() | number:'1.2-2' }}%
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>{{ '::ChildCostCenter' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Percentage' | abpLocalization }} (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of alloc.entries ?? []; track entry.id; let i = $index) {
+              <tr>
+                <td class="text-muted">{{ i + 1 }}</td>
+                <td>{{ getCostCenterName(entry.childCostCenterId) }}</td>
+                <td class="text-end fw-bold">{{ entry.percentage | number:'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back link -->
+  <a routerLink="/accounting/cost-center-allocations" class="btn btn-sm btn-outline-secondary">
+    <i class="fa fa-arrow-left me-1"></i>{{ '::BackToList' | abpLocalization }}
+  </a>
+
+  <app-activity-log documentType="CostCenterAllocation" [documentId]="alloc.id!" />
+} @else {
+  <div class="text-center py-5 text-muted">
+    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+    {{ '::Loading' | abpLocalization }}...
+  </div>
+}

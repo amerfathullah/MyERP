@@ -65,6 +65,8 @@ public class EInvoiceService : DomainService
 
     /// <summary>
     /// Refresh the status of a submission from LHDN.
+    /// Per myinvois get_status.py: updates QR code URL, document UUID, longId,
+    /// and marks validated time when status = "Valid".
     /// </summary>
     public async Task<EInvoiceSubmission> RefreshStatusAsync(
         Guid submissionId,
@@ -79,12 +81,20 @@ public class EInvoiceService : DomainService
         var response = await _lhdnApiClient.GetDocumentStatusAsync(
             accessToken, submission.SubmissionUid, environment);
 
+        // Update all fields from LHDN response
+        var previousStatus = submission.Status;
         submission.Status = response.Status;
         if (response.DocumentUuid != null) submission.DocumentUuid = response.DocumentUuid;
         if (response.LongId != null) submission.LongId = response.LongId;
+        if (response.QrCodeUrl != null) submission.QrCodeUrl = response.QrCodeUrl;
 
-        if (response.Status == "Valid")
+        // Per myinvois: mark validated timestamp when LHDN confirms "Valid"
+        if (response.Status == "Valid" && submission.ValidatedAt == null)
             submission.ValidatedAt = DateTime.UtcNow;
+
+        // Per myinvois: detect cancellation by LHDN (counter-party reject)
+        if (response.Status == "Cancelled" && previousStatus != "Cancelled")
+            submission.CancelledAt = DateTime.UtcNow;
 
         await _submissionRepository.UpdateAsync(submission);
         return submission;

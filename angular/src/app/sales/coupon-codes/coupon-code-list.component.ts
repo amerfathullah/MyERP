@@ -104,8 +104,8 @@ interface CouponCodeDto {
                       </span>
                     </td>
                     <td>
-                      <span [class.text-danger]="coupon.used >= coupon.maximumUse && coupon.maximumUse > 0">
-                        {{ coupon.used }} / {{ coupon.maximumUse || '∞' }}
+                      <span [class.text-danger]="(coupon.used ?? 0) >= (coupon.maximumUse ?? 0) && (coupon.maximumUse ?? 0) > 0">
+                        {{ coupon.used ?? 0 }} / {{ coupon.maximumUse || '∞' }}
                       </span>
                     </td>
                     <td>

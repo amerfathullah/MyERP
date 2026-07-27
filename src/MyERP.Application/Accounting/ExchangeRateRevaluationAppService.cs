@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
@@ -116,5 +117,33 @@ public class ExchangeRateRevaluationAppService : ApplicationService
             TotalGainLoss = totalGainLoss,
             EntryCount = accounts.Count,
         };
+    }
+
+    /// <summary>
+    /// Create a Draft reversal JE for an existing revaluation JE.
+    /// Per upstream PR #57476: reversal must be Draft (not auto-submitted) + duplicate detection.
+    /// </summary>
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<Guid> CreateReversalAsync(Guid revaluationJournalEntryId)
+    {
+        var originalJe = await _journalEntryRepository.GetAsync(revaluationJournalEntryId, includeDetails: true);
+
+        // Duplicate draft reversal detection: block if a Draft reversal already exists
+        var query = await _journalEntryRepository.GetQueryableAsync();
+        var existingDraftReversal = query.Any(j =>
+            j.ReversalOfId == revaluationJournalEntryId
+            && j.Status == DocumentStatus.Draft);
+
+        if (existingDraftReversal)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateReversalDraft)
+                .WithData("journalEntryId", revaluationJournalEntryId);
+        }
+
+        // Create reversal JE as Draft (not submitted)
+        var reversalJe = await _service.CreateReversalJournalEntryAsync(originalJe, originalJe.FiscalYearId);
+        await _journalEntryRepository.InsertAsync(reversalJe);
+
+        return reversalJe.Id;
     }
 }

@@ -52,4 +52,12 @@ export class ItemService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  createVariant = (templateItemId: string, input: { attributes: { attributeId: string; value: string }[] }, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ItemDto>({
+      method: 'POST',
+      url: `/api/app/item/${templateItemId}/create-variant`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
 }

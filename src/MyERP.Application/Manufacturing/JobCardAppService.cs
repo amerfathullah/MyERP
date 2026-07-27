@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -113,6 +115,43 @@ public class JobCardAppService : ApplicationService
             PlannedTimeInMins = input.PlannedTimeInMins,
         };
         await _repository.InsertAsync(jc);
+
+        // Workstation scheduling: compute time slot for capacity planning
+        // Per DO-NOT: "Skip workstation holiday enforcement on Job Card scheduling"
+        if (jc.WorkstationId.HasValue && jc.PlannedTimeInMins > 0)
+        {
+            var schedulingService = LazyServiceProvider
+                .LazyGetRequiredService<WorkstationSchedulingService>();
+            var slot = await schedulingService.ScheduleJobCardAsync(
+                jc.WorkstationId.Value, jc.CompanyId,
+                jc.PlannedTimeInMins, DateTime.UtcNow);
+
+            if (slot.Status == ScheduleStatus.NoCapacity)
+            {
+                Logger.LogWarning(
+                    "No workstation capacity for JobCard {JobCardId} within planning window",
+                    jc.Id);
+            }
+        }
+
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<JobCardDto> UpdateAsync(Guid id, CreateJobCardDto input)
+    {
+        var jc = await _repository.GetAsync(id);
+        if (jc.Status != JobCardStatus.Open)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JobCard")
+                .WithData("status", jc.Status.ToString());
+
+        jc.WorkstationId = input.WorkstationId;
+        jc.PlannedTimeInMins = input.PlannedTimeInMins;
+        jc.ForQuantity = input.ForQuantity;
+        jc.SequenceId = input.SequenceId;
+
+        await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
@@ -242,6 +281,17 @@ public class JobCardAppService : ApplicationService
         jc.Resume();
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        if (jc.Status != JobCardStatus.Open)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JobCard")
+                .WithData("status", jc.Status.ToString());
+        await _repository.DeleteAsync(id);
     }
 }
 

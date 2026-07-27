@@ -258,4 +258,42 @@ public class PurchaseInvoiceManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Updates linked Purchase Receipt item BilledQty after PI submit.
+    /// Per ERPNext: update_billed_amount_in_pr updates PR Item billed_amt using FIFO.
+    /// When reverse=true (cancel), decrements BilledQty.
+    /// </summary>
+    public async Task UpdateLinkedPurchaseReceiptBillingAsync(PurchaseInvoice invoice, bool reverse = false)
+    {
+        var prItemIds = invoice.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!prItemIds.Any()) return;
+
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var prQuery = await prRepo.GetQueryableAsync();
+        var affectedPrs = prQuery
+            .Where(pr => pr.Items.Any(i => prItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var pr in affectedPrs)
+        {
+            foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
+            {
+                var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
+                if (prItem != null)
+                {
+                    if (reverse)
+                        prItem.BilledQty = Math.Max(0, prItem.BilledQty - Math.Abs(piItem.Quantity));
+                    else
+                        prItem.BilledQty += Math.Abs(piItem.Quantity);
+                }
+            }
+            await prRepo.UpdateAsync(pr, autoSave: true);
+        }
+    }
 }

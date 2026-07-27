@@ -1,0 +1,150 @@
+<abp-page [title]="'::PLByCostCenter' | abpLocalization">
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+      <select class="form-select form-select-sm" [formControl]="filters.controls.companyId" (change)="generate()">
+        <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+        @for (c of companies(); track c.id) {
+          <option [value]="c.id">{{ c.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">{{ '::From' | abpLocalization }}</label>
+      <input type="date" class="form-control form-control-sm" [formControl]="filters.controls.fromDate">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">{{ '::To' | abpLocalization }}</label>
+      <input type="date" class="form-control form-control-sm" [formControl]="filters.controls.toDate">
+    </div>
+    <div class="col-md-2 d-flex align-items-end gap-2">
+      <button class="btn btn-primary btn-sm" (click)="generate()" [disabled]="isLoading() || filters.invalid">
+        @if (isLoading()) {
+          <i class="fa fa-spinner fa-spin me-1"></i>
+        }
+        {{ '::Generate' | abpLocalization }}
+      </button>
+      @if (report()?.costCenters?.length) {
+        <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (report(); as data) {
+    <!-- KPI Summary Cards -->
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
+            <h4 class="text-success mb-0">{{ data.totalRevenue | number:'1.2-2' }}</h4>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::TotalExpense' | abpLocalization }}</small>
+            <h4 class="text-danger mb-0">{{ data.totalExpense | number:'1.2-2' }}</h4>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::NetProfit' | abpLocalization }}</small>
+            <h4 [class]="data.netProfit! >= 0 ? 'text-success mb-0' : 'text-danger mb-0'">
+              {{ data.netProfit | number:'1.2-2' }}
+            </h4>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body text-center">
+            <small class="text-muted">{{ '::OverallMargin' | abpLocalization }}</small>
+            <h4 [class]="getMarginColor(data.overallMargin) + ' mb-0'">
+              {{ data.overallMargin | number:'1.1-1' }}%
+            </h4>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Center Comparison Table -->
+    @if (data.costCenters?.length) {
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">
+            <i class="fa fa-diagram-project me-2"></i>{{ '::CostCenterBreakdown' | abpLocalization }}
+          </h6>
+          <span class="badge bg-secondary">{{ data.costCenters!.length }} {{ '::CostCenters' | abpLocalization }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::CostCenter' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Expense' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::NetProfit' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Margin' | abpLocalization }}</th>
+                  <th style="width: 200px">{{ '::Contribution' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cc of data.costCenters; track cc.costCenterId) {
+                  <tr>
+                    <td class="fw-medium">{{ cc.costCenterName }}</td>
+                    <td class="text-end">{{ cc.revenue | number:'1.2-2' }}</td>
+                    <td class="text-end text-danger">{{ cc.expense | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-success]="cc.netProfit! >= 0" [class.text-danger]="cc.netProfit! < 0">
+                      {{ cc.netProfit | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end">
+                      <span [class]="'badge ' + (cc.profitMargin! >= 20 ? 'bg-success' : cc.profitMargin! >= 0 ? 'bg-warning' : 'bg-danger')">
+                        {{ cc.profitMargin | number:'1.1-1' }}%
+                      </span>
+                    </td>
+                    <td>
+                      <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary" [style.width.%]="getBarWidth(cc.revenue)"></div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot class="table-light fw-bold">
+                <tr>
+                  <td>{{ '::Total' | abpLocalization }}</td>
+                  <td class="text-end">{{ data.totalRevenue | number:'1.2-2' }}</td>
+                  <td class="text-end text-danger">{{ data.totalExpense | number:'1.2-2' }}</td>
+                  <td class="text-end" [class.text-success]="data.netProfit! >= 0" [class.text-danger]="data.netProfit! < 0">
+                    {{ data.netProfit | number:'1.2-2' }}
+                  </td>
+                  <td class="text-end">
+                    <span class="badge bg-dark">{{ data.overallMargin | number:'1.1-1' }}%</span>
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="text-center py-5 text-muted">
+        <i class="fa fa-chart-bar fa-3x mb-3 opacity-25"></i>
+        <p>{{ '::NoCostCenterDataForPeriod' | abpLocalization }}</p>
+      </div>
+    }
+  } @else if (!isLoading()) {
+    <div class="text-center py-5 text-muted">
+      <i class="fa fa-diagram-project fa-3x mb-3 opacity-25"></i>
+      <p>{{ '::SelectCompanyToGenerateReport' | abpLocalization }}</p>
+    </div>
+  }
+</abp-page>

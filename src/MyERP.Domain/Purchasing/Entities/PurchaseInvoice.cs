@@ -44,7 +44,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
-    public decimal OutstandingAmount => GrandTotal - AmountPaid;
+    public decimal OutstandingAmount => GrandTotal - AmountPaid - WriteOffAmount - TotalAdvance;
 
     // Discount on grand total
     public decimal AdditionalDiscountPercentage { get; set; }
@@ -96,6 +96,45 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public string? LhdnUuid { get; set; }
 
     public string? Notes { get; set; }
+
+    // Advance payment tracking
+    /// <summary>Total advance payments allocated against this invoice.</summary>
+    public decimal TotalAdvance { get; set; }
+
+    /// <summary>Write-off amount. Reduces outstanding without payment.</summary>
+    public decimal WriteOffAmount { get; set; }
+
+    /// <summary>Write-off GL account.</summary>
+    public Guid? WriteOffAccountId { get; set; }
+
+    /// <summary>Write-off cost center.</summary>
+    public Guid? WriteOffCostCenterId { get; set; }
+
+    // Rounded total
+    /// <summary>Grand total rounded to nearest whole number.</summary>
+    public decimal RoundedTotal { get; set; }
+
+    /// <summary>Rounding adjustment = RoundedTotal - GrandTotal.</summary>
+    public decimal RoundingAdjustment { get; set; }
+
+    /// <summary>Base currency rounded total.</summary>
+    public decimal BaseRoundedTotal { get; set; }
+
+    /// <summary>Base currency rounding adjustment.</summary>
+    public decimal BaseRoundingAdjustment { get; set; }
+
+    /// <summary>Whether rounding is disabled for this invoice.</summary>
+    public bool DisableRoundedTotal { get; set; }
+
+    /// <summary>
+    /// Whether the invoice is overdue (past due date with outstanding balance).
+    /// Per ERPNext: overdue detection is AMOUNT-based for payment schedules.
+    /// </summary>
+    public bool IsOverdue => Status == DocumentStatus.Posted
+        && !IsReturn
+        && OutstandingAmount > 0.01m
+        && DueDate.HasValue
+        && DueDate.Value.Date < DateTime.UtcNow.Date;
 
     private readonly List<PurchaseInvoiceItem> _items = new();
     public IReadOnlyList<PurchaseInvoiceItem> Items => _items.AsReadOnly();
@@ -172,6 +211,40 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
         AddLocalEvent(new PurchaseInvoiceCancelledEvent(this));
+    }
+
+    public void ApplyRounding()
+    {
+        if (DisableRoundedTotal)
+        {
+            RoundedTotal = GrandTotal;
+            RoundingAdjustment = 0;
+            BaseRoundedTotal = BaseGrandTotal;
+            BaseRoundingAdjustment = 0;
+            return;
+        }
+
+        RoundedTotal = Math.Round(GrandTotal, 0, MidpointRounding.AwayFromZero);
+        RoundingAdjustment = RoundedTotal - GrandTotal;
+        BaseRoundedTotal = Math.Round(BaseGrandTotal, 0, MidpointRounding.AwayFromZero);
+        BaseRoundingAdjustment = BaseRoundedTotal - BaseGrandTotal;
+    }
+
+    public void SetWriteOff(decimal amount, Guid? writeOffAccountId = null, Guid? writeOffCostCenterId = null)
+    {
+        if (amount < 0) throw new ArgumentException("Write-off amount cannot be negative.", nameof(amount));
+        if (amount > OutstandingAmount + WriteOffAmount)
+            throw new ArgumentException("Write-off amount exceeds outstanding.", nameof(amount));
+
+        WriteOffAmount = amount;
+        WriteOffAccountId = writeOffAccountId;
+        WriteOffCostCenterId = writeOffCostCenterId;
+    }
+
+    public void SetTotalAdvance(decimal amount)
+    {
+        if (amount < 0) throw new ArgumentException("Advance amount cannot be negative.", nameof(amount));
+        TotalAdvance = amount;
     }
 
     private void RecalculateTotals()

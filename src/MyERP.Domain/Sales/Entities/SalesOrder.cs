@@ -211,6 +211,9 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Drop-ship supplier for this item (required when DeliveredBySupplier=true).</summary>
     public Guid? SupplierId { get; set; }
 
+    /// <summary>Per-item delivery date (overrides parent SO DeliveryDate). Per ERPNext: each SO item can have its own delivery_date.</summary>
+    public DateTime? DeliveryDate { get; set; }
+
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)
         : base(id)

@@ -23,6 +23,21 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Cost per unit at time of transaction.</summary>
     public decimal? ValuationRate { get; set; }
 
+    /// <summary>Marks this item as the finished good in Manufacture/Repack entries.</summary>
+    public bool IsFinishedItem { get; set; }
+
+    /// <summary>When true, user must manually enter the valuation rate (multi-FG Repack).</summary>
+    public bool SetBasicRateManually { get; set; }
+
+    /// <summary>For secondary items: CoProduct, ByProduct, Scrap.</summary>
+    public string? SecondaryItemType { get; set; }
+
+    /// <summary>Per-item process loss percentage for secondary items.</summary>
+    public decimal ProcessLossPercentage { get; set; }
+
+    /// <summary>Link to source stock entry detail row (for Disassemble scale factor matching).</summary>
+    public Guid? SourceStockEntryDetailId { get; set; }
+
     protected StockEntryItem() { }
 
     public StockEntryItem(Guid id, Guid stockEntryId, Guid itemId, decimal quantity,

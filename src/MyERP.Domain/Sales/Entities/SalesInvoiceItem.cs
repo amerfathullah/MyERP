@@ -59,6 +59,9 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Gross profit per unit: UnitPrice - ValuationRate.</summary>
     public decimal GrossProfit => (UnitPrice - ValuationRate) * Quantity;
 
+    /// <summary>Link to Delivery Note item (for DN billing status tracking, per ERPNext dn_detail).</summary>
+    public Guid? DeliveryNoteItemId { get; set; }
+
     protected SalesInvoiceItem() { }
 
     public SalesInvoiceItem(

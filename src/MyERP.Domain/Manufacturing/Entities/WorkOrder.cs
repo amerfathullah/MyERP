@@ -46,6 +46,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }
+    public Guid? ScrapWarehouseId { get; set; }
 
     public DateTime? PlannedStartDate { get; set; }
     public DateTime? PlannedEndDate { get; set; }

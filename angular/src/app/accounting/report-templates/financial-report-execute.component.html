@@ -1,0 +1,122 @@
+<div class="container-fluid py-3">
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-chart-bar me-2"></i>{{ 'RunFinancialReport' | abpLocalization }}
+      </h5>
+    </div>
+
+    <!-- Filters -->
+    <div class="card-body border-bottom">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ 'SelectTemplate' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="selectedTemplateId">
+            <option value="">-- {{ 'SelectTemplate' | abpLocalization }} --</option>
+            @for (t of templates(); track t.id) {
+              <option [value]="t.id">{{ t.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [ngModel]="companyContext.currentCompanyId()"
+                  (ngModelChange)="companyContext.selectCompany($event, '')">
+            @for (c of companyContext.companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary btn-sm w-100" (click)="run()" [disabled]="loading() || !selectedTemplateId">
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fas fa-play me-1"></i>
+            }
+            {{ 'RunReport' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    @if (result(); as r) {
+      <div class="card-body border-bottom py-2 d-flex justify-content-between align-items-center no-print">
+        <div>
+          <strong>{{ r.templateName }}</strong>
+          <span class="text-muted ms-2">{{ r.fromDate | date:'mediumDate' }} – {{ r.toDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary" (click)="exportCsv()" title="Export CSV">
+            <i class="fas fa-file-csv me-1"></i>CSV
+          </button>
+          <button class="btn btn-outline-secondary" (click)="printReport()" title="Print">
+            <i class="fas fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body p-0 report-table-container">
+        @if (visibleRows().length === 0) {
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
+            <p>{{ 'NoDataForSelectedPeriod' | abpLocalization }}</p>
+          </div>
+        } @else {
+          <table class="table table-sm mb-0 report-table">
+            <thead>
+              <tr>
+                <th class="ps-3">{{ 'Label' | abpLocalization }}</th>
+                <th class="text-end pe-3" style="width: 200px;">{{ 'Amount' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleRows(); track $index) {
+                @if (isSectionBreak(row)) {
+                  <tr class="section-break">
+                    <td colspan="2"><hr class="my-1"></td>
+                  </tr>
+                } @else {
+                  <tr [class.fw-bold]="row.isBold" [class.total-row]="row.isBold">
+                    <td class="ps-3" [ngClass]="getIndentClass(row)">
+                      {{ row.label }}
+                      @if (row.referenceCode) {
+                        <small class="text-muted ms-1">({{ row.referenceCode }})</small>
+                      }
+                    </td>
+                    <td class="text-end pe-3 font-monospace">
+                      {{ row.value | number:'1.2-2' }}
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+            @if (r.grandTotal !== undefined && r.grandTotal !== null) {
+              <tfoot>
+                <tr class="fw-bold border-top border-2 total-row">
+                  <td class="ps-3">{{ 'GrandTotal' | abpLocalization }}</td>
+                  <td class="text-end pe-3 font-monospace">{{ r.grandTotal | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            }
+          </table>
+        }
+      </div>
+    } @else if (!loading()) {
+      <!-- Empty state before running -->
+      <div class="card-body text-center py-5 text-muted">
+        <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
+        <p>{{ 'SelectTemplateAndRunReport' | abpLocalization }}</p>
+      </div>
+    }
+  </div>
+</div>

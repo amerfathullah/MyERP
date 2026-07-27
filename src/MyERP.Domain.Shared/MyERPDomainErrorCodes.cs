@@ -7,6 +7,7 @@ public static class MyERPDomainErrorCodes
     public const string BranchCodeAlreadyExists = "MyERP:00002";
     public const string CompanyCurrencyLocked = "MyERP:00003";
     public const string CompanyRestrictionBlocked = "MyERP:00004";
+    public const string DuplicateRecord = "MyERP:00005";
 
     // Document Workflow
     public const string InvalidStatusTransition = "MyERP:01001";
@@ -18,6 +19,7 @@ public static class MyERPDomainErrorCodes
     public const string PaymentTermsPortionMustBe100 = "MyERP:02004";
     public const string InvoiceAlreadySettled = "MyERP:02010";
     public const string PartyNotAllowedOnAccount = "MyERP:02012";
+    public const string DuplicateReversalDraft = "MyERP:02013";
 
     // Tax
     public const string NoApplicableTaxRule = "MyERP:03001";
@@ -41,6 +43,7 @@ public static class MyERPDomainErrorCodes
     public const string DocumentMustBeSubmittedForConversion = "MyERP:07001";
     public const string DocumentAlreadyConverted = "MyERP:07002";
     public const string QuotationExpired = "MyERP:07003";
+    public const string DeliveryNoteCustomerMismatch = "MyERP:07004";
 
     // Manufacturing
     public const string PlannedEndDateBeforeStartDate = "MyERP:10001";
@@ -99,6 +102,7 @@ public static class MyERPDomainErrorCodes
     public const string OverDelivery = "MyERP:08005";
     public const string OverReceipt = "MyERP:08006";
     public const string OverBilling = "MyERP:08007";
+    public const string OverTransfer = "MyERP:08008";
 
     // Document Guards
     public const string CannotCancelWithPayments = "MyERP:01002";
@@ -166,6 +170,9 @@ public static class MyERPDomainErrorCodes
     public const string FromWarehouseEqualsTargetWarehouse = "MyERP:04013";
     public const string FromWarehouseOnSubcontractedDocument = "MyERP:04014";
     public const string ThreeWayMatchingFailed = "MyERP:04015";
+    public const string DropShipItemNotFound = "MyERP:04016";
+    public const string DropShipQtyReductionExceeded = "MyERP:04017";
+    public const string DropShipQtyIncreaseExceeded = "MyERP:04018";
 
     // Bank Transaction
     public const string BankTransactionCurrencyMismatch = "MyERP:02022";
@@ -238,6 +245,14 @@ public static class MyERPDomainErrorCodes
     public const string TransitSourceNotPosted = "MyERP:05039";
     public const string TransitReceivingEntryExists = "MyERP:05040";
 
+    // Repack / Disassemble
+    public const string RepackMissingItems = "MyERP:05041";
+    public const string RepackMultiFgManualRate = "MyERP:05042";
+    public const string DisassembleSourceNotFound = "MyERP:05043";
+    public const string DisassembleCrossWorkOrder = "MyERP:05044";
+    public const string DisassembleQtyExceedsSource = "MyERP:05045";
+    public const string DisassembleScaleFactorMismatch = "MyERP:05046";
+
     // Manufacturing
     public const string AllMaterialsAlreadyTransferred = "MyERP:10013";
     public const string MaterialConsumptionDisabled = "MyERP:10014";
@@ -255,4 +270,59 @@ public static class MyERPDomainErrorCodes
     public const string PricingRuleNotFound = "MyERP:03018";
     public const string CouponCodeNotFound = "MyERP:03019";
     public const string CouponCodeInvalid = "MyERP:03020";
+
+    // Overdue Billing
+    public const string OverdueBillingThresholdExceeded = "MyERP:03021";
+
+    // Lead
+    public const string DuplicateLeadEmail = "MyERP:03022";
+
+    // Sales Partner / Commission
+    public const string InvalidCommissionRate = "MyERP:03023";
+
+    // Bank Transaction — Auto-Reconcile
+    public const string BankTransactionAlreadyReconciled = "MyERP:02048";
+
+    // POS
+    public const string NoPosOpeningEntry = "MyERP:16003";
+    public const string PosProfileAlreadyOpen = "MyERP:16001";
+    public const string PosUserAlreadyHasSession = "MyERP:16002";
+
+    // Project
+    public const string ProjectPercentOutOfRange = "MyERP:13003";
+
+    // Account
+    public const string StockAccountTypeChangeLocked = "MyERP:02028";
+
+    // CRM — Prospect
+    public const string ProspectAlreadyConverted = "MyERP:17001";
+
+    // CRM — Contract
+    public const string ContractAlreadyActive = "MyERP:17002";
+
+    // Cost Center Allocation
+    public const string CostCenterAllocationSelfReference = "MyERP:02038";
+    public const string CostCenterAllocationPercentageOutOfRange = "MyERP:02039";
+    public const string CostCenterAllocationDuplicate = "MyERP:02040";
+    public const string CostCenterAllocationNoEntries = "MyERP:02041";
+    public const string CostCenterAllocationPercentagesNot100 = "MyERP:02042";
+    public const string CostCenterAllocationCycleDetected = "MyERP:02043";
+    public const string CostCenterAllocationValidFromBeforeGL = "MyERP:02044";
+
+    // Financial Report Template
+    public const string FormulaValidationFailed = "MyERP:02045";
+    public const string CannotDeleteStandardTemplate = "MyERP:02046";
+
+    // Month End Close
+    public const string CannotFreezeFutureDate = "MyERP:02047";
+
+    // Finance Book
+    public const string DuplicateDefaultFinanceBook = "MyERP:02029";
+
+    // Authorization Control
+    public const string NoApprover = "MyERP:01013";
+    public const string SelfApproval = "MyERP:01014";
+    public const string DiscountExceeds100 = "MyERP:01015";
+    public const string CustomerwiseNeedsCustomer = "MyERP:01016";
+    public const string AuthorizationBlocked = "MyERP:01017";
 }

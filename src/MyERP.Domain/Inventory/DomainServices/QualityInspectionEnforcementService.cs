@@ -49,6 +49,35 @@ public class QualityInspectionEnforcementService : DomainService
             InspectionType.Outgoing, i => i.InspectionRequiredBeforeDelivery, tenantId);
     }
 
+    /// <summary>
+    /// Validates QI for Stock Entry outward stock movements.
+    /// Only applies to Material Issue and Material Transfer types (outgoing stock).
+    /// Per DO-NOT: Material Consumption for Manufacture is explicitly excluded.
+    /// </summary>
+    public async Task ValidateForStockEntryAsync(
+        Guid stockEntryId, Guid[] itemIds, string purpose, Guid? tenantId)
+    {
+        // Material Consumption for Manufacture explicitly excluded per DO-NOT
+        if (purpose == "MaterialConsumptionForManufacture") return;
+
+        // Only validate outward purposes (Issue, Transfer, Send to Subcontractor)
+        var outwardPurposes = new[] { "MaterialIssue", "MaterialTransfer", "SendToSubcontractor" };
+        if (!outwardPurposes.Contains(purpose)) return;
+
+        await ValidateAsync(stockEntryId, "StockEntry", itemIds,
+            InspectionType.Outgoing, i => i.InspectionRequiredBeforeDelivery, tenantId);
+    }
+
+    /// <summary>
+    /// Validates QI for Sales Invoice with UpdateStock=true (direct sales).
+    /// </summary>
+    public async Task ValidateForSalesInvoiceAsync(
+        Guid invoiceId, Guid[] itemIds, Guid? tenantId)
+    {
+        await ValidateAsync(invoiceId, "SalesInvoice", itemIds,
+            InspectionType.Outgoing, i => i.InspectionRequiredBeforeDelivery, tenantId);
+    }
+
     private async Task ValidateAsync(
         Guid referenceId, string referenceType, Guid[] itemIds,
         InspectionType expectedType, Func<Item, bool> requiresInspection, Guid? tenantId)

@@ -288,3 +288,28 @@ public class ConvertLeadToOpportunityDto
     public string? SalesStage { get; set; }
     public DateTime? ExpectedClosingDate { get; set; }
 }
+
+/// <summary>
+/// DTO for converting a Lead directly to a Customer.
+/// Per ERPNext: Lead→Customer type inference — if CompanyName is set, Customer type = Company;
+/// otherwise, type = Individual with contact_person = lead full name.
+/// </summary>
+public class ConvertLeadToCustomerDto
+{
+    [Required]
+    public Guid LeadId { get; set; }
+
+    /// <summary>Override customer name. Defaults to lead's CompanyName or FullName.</summary>
+    [StringLength(200)]
+    public string? CustomerName { get; set; }
+
+    /// <summary>Tax ID / BRN for the customer.</summary>
+    [StringLength(50)]
+    public string? Tin { get; set; }
+
+    /// <summary>Customer group to assign.</summary>
+    public Guid? CustomerGroupId { get; set; }
+
+    /// <summary>Sales territory to assign.</summary>
+    public Guid? TerritoryId { get; set; }
+}

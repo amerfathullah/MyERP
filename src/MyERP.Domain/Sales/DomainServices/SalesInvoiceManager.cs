@@ -287,6 +287,44 @@ public class SalesInvoiceManager : DomainService
 
         return new SellingPriceCheckResult { Warnings = warnings };
     }
+
+    /// <summary>
+    /// Updates linked Delivery Note item BilledQty after SI submit.
+    /// Per ERPNext: update_billed_amount_in_dn updates DN Item billed_amt using FIFO.
+    /// When reverse=true (cancel), decrements BilledQty.
+    /// </summary>
+    public async Task UpdateLinkedDeliveryNoteBillingAsync(SalesInvoice invoice, bool reverse = false)
+    {
+        var dnItemIds = invoice.Items
+            .Where(i => i.DeliveryNoteItemId.HasValue)
+            .Select(i => i.DeliveryNoteItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!dnItemIds.Any()) return;
+
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+        var dnQuery = await dnRepo.GetQueryableAsync();
+        var affectedDns = dnQuery
+            .Where(dn => dn.Items.Any(i => dnItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var dn in affectedDns)
+        {
+            foreach (var siItem in invoice.Items.Where(i => i.DeliveryNoteItemId.HasValue))
+            {
+                var dnItem = dn.Items.FirstOrDefault(i => i.Id == siItem.DeliveryNoteItemId!.Value);
+                if (dnItem != null)
+                {
+                    if (reverse)
+                        dnItem.BilledQty = Math.Max(0, dnItem.BilledQty - Math.Abs(siItem.Quantity));
+                    else
+                        dnItem.BilledQty += Math.Abs(siItem.Quantity);
+                }
+            }
+            await dnRepo.UpdateAsync(dn, autoSave: true);
+        }
+    }
 }
 
 /// <summary>Result of selling price validation. Contains warnings when action is "Warn".</summary>

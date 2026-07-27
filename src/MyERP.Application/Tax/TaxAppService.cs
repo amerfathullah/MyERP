@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Permissions;
@@ -60,6 +61,66 @@ public class TaxCategoryAppService : ApplicationService, ITaxCategoryAppService
     public async Task DeleteAsync(Guid id)
     {
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Returns default tax lines for auto-populating transaction forms.
+    /// Resolves active tax rules effective as of today for the specified transaction type (Selling/Buying).
+    /// Per ERPNext: forms auto-load company's default Sales/Purchase Tax Template on creation.
+    /// </summary>
+    public async Task<List<DefaultTaxLineDto>> GetDefaultTaxLinesAsync(string transactionType)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        // Query active tax rules effective today
+        var ruleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<TaxRule, Guid>>();
+        var ruleQuery = await ruleRepo.GetQueryableAsync();
+
+        // Get active rules effective today
+        var activeRules = ruleQuery
+            .Where(r => r.IsActive && r.EffectiveFrom <= today && (r.EffectiveTo == null || r.EffectiveTo >= today))
+            .OrderByDescending(r => r.Priority)
+            .ThenByDescending(r => r.EffectiveFrom)
+            .ToList();
+
+        if (!activeRules.Any())
+            return new List<DefaultTaxLineDto>();
+
+        // Load categories for names + type filtering
+        var categoryIds = activeRules.Select(r => r.TaxCategoryId).Distinct().ToList();
+        var catQuery = await _repository.GetQueryableAsync();
+        var categories = catQuery.Where(c => categoryIds.Contains(c.Id) && c.IsActive).ToList();
+        var categoryMap = categories.ToDictionary(c => c.Id, c => c);
+
+        // Build default tax lines — one per unique category, highest priority wins
+        var result = new List<DefaultTaxLineDto>();
+        var seenCategories = new HashSet<Guid>();
+
+        foreach (var rule in activeRules)
+        {
+            if (seenCategories.Contains(rule.TaxCategoryId)) continue;
+            if (!categoryMap.TryGetValue(rule.TaxCategoryId, out var category)) continue;
+
+            // Filter: Exempt/ZeroRated/OutOfScope categories don't produce tax lines for transactions
+            if (category.TaxType == TaxType.Exempt || category.TaxType == TaxType.ZeroRated || category.TaxType == TaxType.OutOfScope) continue;
+
+            // For selling: include Sales + Service taxes
+            // For buying: include Sales + Service taxes (input tax credit)
+            // Both selling and buying use the same tax categories (SST applies to both sides)
+
+            seenCategories.Add(rule.TaxCategoryId);
+
+            result.Add(new DefaultTaxLineDto
+            {
+                TaxName = $"{category.Name} ({rule.Rate}%)",
+                Rate = rule.Rate,
+                ChargeType = "OnNetTotal",
+                AccountId = null,
+                TaxCategoryCode = category.Code,
+            });
+        }
+
+        return result;
     }
 }
 

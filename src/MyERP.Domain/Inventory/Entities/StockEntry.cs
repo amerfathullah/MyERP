@@ -29,6 +29,18 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// <summary>Linked Work Order ID (for material transfer/manufacture stock entries).</summary>
     public Guid? WorkOrderId { get; set; }
 
+    /// <summary>Source Manufacture Stock Entry ID (for Disassemble purpose — links to the original production).</summary>
+    public Guid? SourceStockEntryId { get; set; }
+
+    /// <summary>Finished goods quantity produced/consumed (Manufacture/Disassemble).</summary>
+    public decimal FgCompletedQty { get; set; }
+
+    /// <summary>Process loss quantity in this stock entry.</summary>
+    public decimal ProcessLossQty { get; set; }
+
+    /// <summary>Process loss percentage (for Manufacture/Repack).</summary>
+    public decimal ProcessLossPercentage { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";
@@ -42,6 +54,19 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
 
     public string? Notes { get; set; }
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
+
+    /// <summary>Total value of incoming (stock-in) items. Computed from items with TargetWarehouseId.</summary>
+    public decimal TotalIncomingValue => _items
+        .Where(i => i.TargetWarehouseId.HasValue)
+        .Sum(i => i.Quantity * (i.ValuationRate ?? 0));
+
+    /// <summary>Total value of outgoing (stock-out) items. Computed from items with SourceWarehouseId.</summary>
+    public decimal TotalOutgoingValue => _items
+        .Where(i => i.SourceWarehouseId.HasValue)
+        .Sum(i => i.Quantity * (i.ValuationRate ?? 0));
+
+    /// <summary>Net value difference (incoming - outgoing). Zero for balanced transfers.</summary>
+    public decimal TotalValueDifference => TotalIncomingValue - TotalOutgoingValue;
 
     private readonly List<StockEntryItem> _items = new();
     public IReadOnlyList<StockEntryItem> Items => _items.AsReadOnly();

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -160,6 +161,110 @@ public class BankStatementImportAppService : ApplicationService
         }
         return null;
     }
+
+    /// <summary>
+    /// Import bank transactions from an MT940 (SWIFT) formatted bank statement.
+    /// Most Malaysian banks (Maybank, CIMB, Public Bank, etc.) export MT940.
+    /// Uses Mt940Parser domain service for parsing.
+    /// </summary>
+    public async Task<BankStatementImportResult> ImportFromMt940Async(Mt940ImportInput input)
+    {
+        var result = new BankStatementImportResult();
+        var parser = LazyServiceProvider.LazyGetRequiredService<Mt940Parser>();
+
+        var parseResult = parser.Parse(input.Mt940Content);
+
+        if (!parseResult.IsSuccess)
+        {
+            result.Errors.Add(parseResult.ErrorMessage ?? "MT940 parsing failed");
+            result.Errors.AddRange(parseResult.Errors);
+            return result;
+        }
+
+        if (parseResult.TransactionCount == 0)
+        {
+            result.Errors.Add("No transactions found in MT940 statement.");
+            return result;
+        }
+
+        foreach (var tx in parseResult.Transactions)
+        {
+            try
+            {
+                var bankTx = new BankTransaction(
+                    _guidGenerator.Create(),
+                    input.CompanyId,
+                    input.BankAccountId,
+                    tx.ValueDate,
+                    tx.Description ?? "",
+                    tx.Amount,
+                    tenantId: input.TenantId);
+
+                // Set directional amounts
+                bankTx.Deposit = tx.IsCredit ? tx.Amount : 0m;
+                bankTx.Withdrawal = tx.IsCredit ? 0m : tx.Amount;
+
+                if (!string.IsNullOrWhiteSpace(tx.ReferenceNumber))
+                    bankTx.ReferenceNumber = tx.ReferenceNumber;
+
+                if (!string.IsNullOrWhiteSpace(input.CurrencyCode))
+                    bankTx.CurrencyCode = input.CurrencyCode;
+
+                await _transactionRepository.InsertAsync(bankTx);
+                result.ImportedCount++;
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Transaction {tx.ValueDate:dd/MM/yyyy} {tx.Amount}: {ex.Message}");
+                result.SkippedCount++;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Extracts the per-transaction reference from MT940 :61: tag data.
+    /// 
+    /// Per ERPNext PR #57382: the mt940 library exposes transaction_reference from the :20: tag,
+    /// which is the statement-level reference identical for every transaction. The real per-transaction
+    /// reference is customer_reference from :61: with overflow handling.
+    /// 
+    /// Resolution chain:
+    /// 1. customer_reference (with extra_details concatenation when at 16-char cap)
+    /// 2. bank_reference (fallback when customer_reference is empty or NONREF)
+    /// 3. transaction_reference (final fallback — statement-level reference)
+    /// </summary>
+    public static string? ExtractMt940TransactionReference(
+        string? customerReference,
+        string? extraDetails,
+        string? bankReference,
+        string? transactionReference)
+    {
+        const int Mt940CustomerReferenceMaxLen = 16;
+
+        var custRef = (customerReference ?? "").Trim();
+
+        // When customer_reference is exactly at MT940 cap (16 chars), overflow spills into extra_details
+        if (custRef.Length == Mt940CustomerReferenceMaxLen)
+        {
+            custRef += (extraDetails ?? "").Trim();
+        }
+
+        // NONREF is the MT940 standard sentinel for "no customer reference"
+        if (!string.IsNullOrEmpty(custRef) && !custRef.Equals("NONREF", StringComparison.OrdinalIgnoreCase))
+        {
+            return custRef;
+        }
+
+        // Fallback to bank_reference, then statement-level transaction_reference
+        var bankRef = (bankReference ?? "").Trim();
+        if (!string.IsNullOrEmpty(bankRef))
+            return bankRef;
+
+        var txnRef = (transactionReference ?? "").Trim();
+        return string.IsNullOrEmpty(txnRef) ? null : txnRef;
+    }
 }
 
 public class BankStatementImportInput
@@ -179,4 +284,13 @@ public class BankStatementImportResult
     public int SkippedCount { get; set; }
     public List<string> Errors { get; set; } = new();
     public bool Success => Errors.Count == 0 || ImportedCount > 0;
+}
+
+public class Mt940ImportInput
+{
+    public Guid CompanyId { get; set; }
+    public Guid BankAccountId { get; set; }
+    public string Mt940Content { get; set; } = null!;
+    public Guid? TenantId { get; set; }
+    public string? CurrencyCode { get; set; }
 }

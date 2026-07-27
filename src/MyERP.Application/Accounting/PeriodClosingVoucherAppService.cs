@@ -23,10 +23,22 @@ public class PeriodClosingVoucherDto : EntityDto<Guid>
     public DateTime PostingDate { get; set; }
     public DateTime TransactionDate { get; set; }
     public Guid ClosingAccountId { get; set; }
+    public string? ClosingAccountName { get; set; }
     public decimal TotalClosingAmount { get; set; }
     public int Status { get; set; }
     public string? Remarks { get; set; }
     public int EntryCount { get; set; }
+}
+
+/// <summary>Per-account GL entry line created by PCV — for audit display.</summary>
+public class PcvGlEntryDto
+{
+    public Guid AccountId { get; set; }
+    public string? AccountName { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public DateTime PostingDate { get; set; }
 }
 
 public class CreatePeriodClosingVoucherDto
@@ -82,6 +94,42 @@ public class PeriodClosingVoucherAppService : ApplicationService
     {
         var pcv = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
+    }
+
+    /// <summary>
+    /// Gets the GL entries (Journal Entry lines) created by a Period Closing Voucher.
+    /// Per ERPNext: PCV creates one JE with per-P&amp;L-account per-dimension reversing entries.
+    /// This enables the audit trail: users can see exactly what GL postings the PCV made.
+    /// </summary>
+    public async Task<PcvGlEntryDto[]> GetGlEntriesAsync(Guid id)
+    {
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+
+        var linkedJes = (await jeRepo.WithDetailsAsync())
+            .Where(je => je.ReferenceType == "PeriodClosingVoucher" && je.ReferenceId == id)
+            .ToList();
+
+        if (!linkedJes.Any())
+            return [];
+
+        // Resolve account names for display
+        var accountIds = linkedJes.SelectMany(je => je.Lines).Select(l => l.AccountId).Distinct().ToList();
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var accountNames = accountQuery
+            .Where(a => accountIds.Contains(a.Id))
+            .Select(a => new { a.Id, a.AccountName, a.AccountCode })
+            .ToDictionary(a => a.Id, a => $"{a.AccountCode} - {a.AccountName}");
+
+        return linkedJes.SelectMany(je => je.Lines.Select(line => new PcvGlEntryDto
+        {
+            AccountId = line.AccountId,
+            AccountName = accountNames.TryGetValue(line.AccountId, out var name) ? name : line.AccountId.ToString(),
+            Debit = line.IsDebit ? line.Amount : 0,
+            Credit = !line.IsDebit ? line.Amount : 0,
+            CostCenterId = line.CostCenterId,
+            PostingDate = je.PostingDate,
+        })).OrderBy(e => e.AccountName).ToArray();
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]

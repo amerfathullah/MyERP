@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -26,6 +27,7 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly PaymentLedgerService _pleService;
     private readonly BudgetValidationService _budgetValidationService;
     private readonly AccountingDimensionService _dimensionService;
+    private readonly CompanySettingsCache _companySettingsCache;
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
     private readonly IRepository<AccountingPeriod, Guid> _periodRepository;
@@ -37,6 +39,7 @@ public class DocumentPostingOrchestrator : DomainService
         PaymentLedgerService pleService,
         BudgetValidationService budgetValidationService,
         AccountingDimensionService dimensionService,
+        CompanySettingsCache companySettingsCache,
         IRepository<JournalEntry, Guid> journalRepository,
         IRepository<PaymentLedgerEntry, Guid> pleRepository,
         IRepository<AccountingPeriod, Guid> periodRepository,
@@ -47,6 +50,7 @@ public class DocumentPostingOrchestrator : DomainService
         _pleService = pleService;
         _budgetValidationService = budgetValidationService;
         _dimensionService = dimensionService;
+        _companySettingsCache = companySettingsCache;
         _journalRepository = journalRepository;
         _pleRepository = pleRepository;
         _periodRepository = periodRepository;
@@ -214,6 +218,24 @@ public class DocumentPostingOrchestrator : DomainService
     }
 
     /// <summary>
+    /// Post a Delivery Note with warehouse-specific stock account (per-warehouse GL).
+    /// DR: COGS account, CR: warehouse-specific stock account (resolved by WarehouseAccountService).
+    /// Per ERPNext BaseStockGLComposer: uses warehouse account for CR Stock, company default for DR COGS.
+    /// </summary>
+    public async Task<JournalEntry> PostDeliveryNoteAsync(
+        IAccountableDocument deliveryNote,
+        Guid stockAccountId,
+        Guid? sdbnbAccountId = null)
+    {
+        await ValidatePostingPeriodAsync(deliveryNote.CompanyId, deliveryNote.PostingDate, deliveryNote.DocumentType);
+
+        var journal = await _ruleEngine.PostDocumentAsync(deliveryNote, stockAccountId);
+        await _dimensionService.ValidateMandatoryDimensionsAsync(deliveryNote.CompanyId, journal.Lines);
+        await _journalRepository.InsertAsync(journal);
+        return journal;
+    }
+
+    /// <summary>
     /// Post a Purchase Receipt (perpetual inventory): creates GL entries for stock received.
     /// DR: Stock In Hand, CR: Stock Received But Not Billed
     /// </summary>
@@ -222,6 +244,24 @@ public class DocumentPostingOrchestrator : DomainService
         await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
 
         var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt);
+        await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
+        await _journalRepository.InsertAsync(journal);
+        return journal;
+    }
+
+    /// <summary>
+    /// Post a Purchase Receipt with warehouse-specific GL accounts.
+    /// DR: warehouse-specific stock account, CR: SRBNB account (resolved by WarehouseAccountService).
+    /// Per ERPNext BaseStockGLComposer: uses WarehouseAccount for DR Stock, company for CR SRBNB.
+    /// </summary>
+    public async Task<JournalEntry> PostPurchaseReceiptAsync(
+        IAccountableDocument purchaseReceipt,
+        Guid stockAccountId,
+        Guid? srbnbAccountId = null)
+    {
+        await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
+
+        var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt, stockAccountId);
         await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
@@ -273,12 +313,13 @@ public class DocumentPostingOrchestrator : DomainService
     /// </summary>
     public async Task ValidatePostingPeriodAsync(Guid companyId, DateTime postingDate, string documentType, IEnumerable<string>? currentUserRoles = null)
     {
-        // Check accounts frozen date
-        var company = await _companyRepository.GetAsync(companyId);
-        if (company.AccountsFrozenTillDate.HasValue && postingDate <= company.AccountsFrozenTillDate.Value)
+        // Check accounts frozen date — uses cached company settings (5-min TTL)
+        // to avoid hitting the database on every single posting operation
+        var cachedSettings = await _companySettingsCache.GetAsync(companyId);
+        if (cachedSettings.AccountsFrozenTillDate.HasValue && postingDate <= cachedSettings.AccountsFrozenTillDate.Value)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AccountingPeriodClosed)
-                .WithData("frozenTill", company.AccountsFrozenTillDate.Value.ToString("yyyy-MM-dd"))
+                .WithData("frozenTill", cachedSettings.AccountsFrozenTillDate.Value.ToString("yyyy-MM-dd"))
                 .WithData("postingDate", postingDate.ToString("yyyy-MM-dd"));
         }
 

@@ -103,7 +103,7 @@
     <!-- Actions -->
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
-        <i class="fa fa-times me-1"></i>Cancel</button>
+        <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
       <button type="submit" class="btn btn-primary"
         [disabled]="form.invalid || !isBalanced || lines.length === 0">
         <i class="fa fa-save me-1"></i> Save as Draft

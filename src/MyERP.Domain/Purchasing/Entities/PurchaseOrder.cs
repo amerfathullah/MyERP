@@ -35,6 +35,15 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Total advance payment made against this order.</summary>
     public decimal AdvancePaid { get; set; }
 
+    /// <summary>Whether this PO is for subcontracted items (links to SCO).</summary>
+    public bool IsSubcontracted { get; set; }
+
+    /// <summary>Source Supplier Quotation that this PO was created from (if any).</summary>
+    public Guid? SupplierQuotationId { get; set; }
+
+    /// <summary>Exchange rate: transaction currency → company currency. Default 1.0 for same-currency.</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
+
     public string? Terms { get; set; }
     public string? Notes { get; set; }
 

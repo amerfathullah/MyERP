@@ -119,6 +119,24 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Enqueue payment reminders for overdue invoices
+                // Per ERPNext: send_payment_reminders daily scheduler event
+                await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.PaymentReminderJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    ReminderCooldownDays = 7,
+                });
+
+                // Enqueue BOM cost auto-update (when raw material prices change)
+                // Per ERPNext: Manufacturing Settings.update_bom_costs_automatically
+                await jobManager.EnqueueAsync(new Manufacturing.BackgroundJobs.BomCostAutoUpdateJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -127,6 +145,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (11 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (13 jobs).", companies.Count);
     }
 }

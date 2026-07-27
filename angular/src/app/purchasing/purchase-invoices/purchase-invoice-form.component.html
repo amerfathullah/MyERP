@@ -36,6 +36,33 @@
             <label class="form-label">{{ '::SupplierTin' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="supplierTin" [class.is-invalid]="form.get('supplierTin')?.invalid && form.get('supplierTin')?.touched" />
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::SupplierInvoiceNumber' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="supplierInvoiceNumber" [placeholder]="'::Placeholder:SupplierInvoiceNumber' | abpLocalization" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Terms & Due Date -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PaymentTerms' | abpLocalization }}</label>
+            <select class="form-select" formControlName="paymentTermsTemplateId">
+              <option value="">— {{ '::None' | abpLocalization }} —</option>
+              @for (pt of paymentTermsTemplates(); track pt.id) {
+                <option [value]="pt.id">{{ pt.name }}</option>
+              }
+            </select>
+            <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::DueDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="dueDate" />
+            <small class="form-text text-muted">{{ '::DueDateHelp' | abpLocalization }}</small>
+          </div>
         </div>
       </div>
     </div>
@@ -68,8 +95,28 @@
 
     <!-- Line items -->
     <div class="card mb-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::InvoiceItems' | abpLocalization }}</h5>
+        @if (form.get('supplierId')?.value) {
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-success" (click)="getItemsFromPO()" [disabled]="isLoadingPOItems() || isLoadingPRItems()">
+              @if (isLoadingPOItems()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="fa fa-file-invoice me-1"></i>
+              }
+              {{ '::GetItemsFromPO' | abpLocalization }}
+            </button>
+            <button type="button" class="btn btn-outline-info" (click)="getItemsFromPR()" [disabled]="isLoadingPRItems() || isLoadingPOItems()">
+              @if (isLoadingPRItems()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="fa fa-truck-ramp-box me-1"></i>
+              }
+              {{ '::GetItemsFromPR' | abpLocalization }}
+            </button>
+          </div>
+        }
       </div>
       <div class="card-body">
         <app-invoice-item-grid [items]="items" [availableItems]="availableItems()" />

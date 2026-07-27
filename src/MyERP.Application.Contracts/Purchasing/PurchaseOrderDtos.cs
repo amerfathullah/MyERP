@@ -19,6 +19,7 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     public decimal PerReceived { get; set; }
     public decimal PerBilled { get; set; }
+    public string? Notes { get; set; }
     public List<PurchaseOrderItemDto> Items { get; set; } = new();
 }
 
@@ -56,4 +57,27 @@ public class CreatePurchaseOrderItemDto
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(20)] public string Uom { get; set; } = "Unit";
     public Guid? WarehouseId { get; set; }
+}
+
+/// <summary>
+/// Input for marking drop-ship PO items as delivered (no Purchase Receipt needed).
+/// Per ERPNext PO.update_dropship_received_qty: updates received_qty directly on PO items
+/// and cascades SO.delivered_qty for fulfillment tracking.
+/// </summary>
+public class UpdateDropShipDeliveredQtyDto
+{
+    [Required][MinLength(1)]
+    public List<DropShipDeliveryItemDto> Items { get; set; } = new();
+}
+
+public class DropShipDeliveryItemDto
+{
+    /// <summary>PO Item ID to update.</summary>
+    [Required] public Guid PurchaseOrderItemId { get; set; }
+
+    /// <summary>
+    /// Change in delivered qty (positive = more delivered, negative = correction).
+    /// Per ERPNext: negative cannot exceed current received_qty; positive cannot exceed remaining qty.
+    /// </summary>
+    [Required] public decimal QtyChange { get; set; }
 }

@@ -40,4 +40,11 @@ export class DocumentConversionService {
       url: `/api/app/document-conversion/convert-sales-order-to-sales-invoice/${salesOrderId}`,
     },
     { apiName: this.apiName,...config });
+
+  convertSalesOrderToMaterialRequest = (salesOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      url: `/api/app/document-conversion/convert-sales-order-to-material-request/${salesOrderId}`,
+    },
+    { apiName: this.apiName,...config });
 }

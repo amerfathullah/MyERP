@@ -1,0 +1,61 @@
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">{{ 'NewMaintenanceSchedule' | abpLocalization }}</h4>
+  </div>
+
+  <form [formGroup]="form" (appSaveShortcut)="save()">
+    <div class="card mb-3">
+      <div class="card-header fw-medium">{{ 'ScheduleDetails' | abpLocalization }}</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+            <select class="form-select" formControlName="itemId">
+              <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+              @for (item of items(); track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
+            <select class="form-select" formControlName="customerId">
+              <option value="">{{ '::SelectCustomer' | abpLocalization }}</option>
+              @for (cust of customers(); track cust.id) {
+                <option [value]="cust.id">{{ cust.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ '::StartDate' | abpLocalization }} *</label>
+            <input type="date" class="form-control" formControlName="startDate">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ '::EndDate' | abpLocalization }} *</label>
+            <input type="date" class="form-control" formControlName="endDate">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ 'Periodicity' | abpLocalization }} *</label>
+            <select class="form-select" formControlName="periodicity">
+              @for (opt of periodicityOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label | abpLocalization }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <a routerLink="/maintenance/schedules" class="btn btn-outline-secondary">
+        {{ '::Cancel' | abpLocalization }}
+      </a>
+      <button type="button" class="btn btn-primary" (click)="save()" [disabled]="saving() || form.invalid">
+        @if (saving()) {
+          <span class="spinner-border spinner-border-sm me-1"></span>
+        }
+        <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+      </button>
+    </div>
+  </form>
+</div>

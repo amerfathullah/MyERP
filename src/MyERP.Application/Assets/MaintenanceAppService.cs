@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -108,4 +109,164 @@ public class MaintenanceAppService : ApplicationService
             date = date.AddMonths(months);
         }
     }
+
+    // --- Maintenance Visit CRUD ---
+
+    public async Task<PagedResultDto<MaintenanceVisitDto>> GetVisitListAsync(GetMaintenanceVisitListDto input)
+    {
+        var query = (await _visitRepo.WithDetailsAsync()).AsQueryable();
+
+        if (input.CompletionStatus.HasValue)
+            query = query.Where(v => v.CompletionStatus == input.CompletionStatus.Value);
+        if (input.MaintenanceScheduleId.HasValue)
+            query = query.Where(v => v.MaintenanceScheduleId == input.MaintenanceScheduleId.Value);
+        if (!string.IsNullOrWhiteSpace(input.MaintenanceType))
+            query = query.Where(v => v.MaintenanceType == input.MaintenanceType);
+        if (input.CustomerId.HasValue)
+            query = query.Where(v => v.CustomerId == input.CustomerId.Value);
+
+        var totalCount = query.Count();
+        var items = query.OrderByDescending(v => v.VisitDate)
+            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+
+        return new PagedResultDto<MaintenanceVisitDto>(totalCount,
+            items.Select(ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>).ToList());
+    }
+
+    public async Task<MaintenanceVisitDto> GetVisitAsync(Guid id)
+    {
+        var visit = (await _visitRepo.WithDetailsAsync()).First(v => v.Id == id);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Create)]
+    public async Task<MaintenanceVisitDto> CreateVisitAsync(CreateMaintenanceVisitDto input)
+    {
+        var visit = new MaintenanceVisit(GuidGenerator.Create(), input.CompanyId,
+            input.VisitDate, input.MaintenanceType, CurrentTenant.Id)
+        {
+            MaintenanceScheduleId = input.MaintenanceScheduleId,
+            CustomerId = input.CustomerId,
+            ContactId = input.ContactId,
+        };
+
+        foreach (var p in input.Purposes)
+        {
+            visit.AddPurpose(new MaintenanceVisitPurpose(GuidGenerator.Create(), visit.Id, p.WorkDone)
+            {
+                ItemId = p.ItemId,
+                ItemName = p.ItemName,
+                SerialNoId = p.SerialNoId,
+                WorkDetails = p.WorkDetails,
+            });
+        }
+
+        await _visitRepo.InsertAsync(visit);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Edit)]
+    public async Task<MaintenanceVisitDto> UpdateVisitAsync(Guid id, CreateMaintenanceVisitDto input)
+    {
+        var visit = (await _visitRepo.WithDetailsAsync()).First(v => v.Id == id);
+
+        if (visit.CompletionStatus == MaintenanceVisitStatus.Completed ||
+            visit.CompletionStatus == MaintenanceVisitStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("message", "Cannot edit a completed or cancelled visit.");
+        }
+
+        visit.VisitDate = input.VisitDate;
+        visit.MaintenanceType = input.MaintenanceType;
+        visit.MaintenanceScheduleId = input.MaintenanceScheduleId;
+        visit.CustomerId = input.CustomerId;
+        visit.ContactId = input.ContactId;
+
+        await _visitRepo.UpdateAsync(visit);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Submit)]
+    public async Task<MaintenanceVisitDto> CompleteVisitAsync(Guid id)
+    {
+        var visit = await _visitRepo.GetAsync(id);
+        visit.Complete();
+        await _visitRepo.UpdateAsync(visit);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Submit)]
+    public async Task<MaintenanceVisitDto> CancelVisitAsync(Guid id)
+    {
+        var visit = await _visitRepo.GetAsync(id);
+        visit.Cancel();
+        await _visitRepo.UpdateAsync(visit);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Delete)]
+    public async Task DeleteVisitAsync(Guid id)
+    {
+        var visit = await _visitRepo.GetAsync(id);
+        if (visit.CompletionStatus == MaintenanceVisitStatus.Completed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("message", "Cannot delete a completed visit.");
+        }
+        await _visitRepo.DeleteAsync(id);
+    }
+}
+
+// --- Maintenance Visit DTOs ---
+
+public class MaintenanceVisitDto : EntityDto<Guid>
+{
+    public Guid CompanyId { get; set; }
+    public DateTime VisitDate { get; set; }
+    public string MaintenanceType { get; set; } = null!;
+    public Guid? MaintenanceScheduleId { get; set; }
+    public Guid? CustomerId { get; set; }
+    public Guid? ContactId { get; set; }
+    public MaintenanceVisitStatus CompletionStatus { get; set; }
+    public MaintenanceVisitPurposeDto[] Purposes { get; set; } = [];
+    public DateTime CreationTime { get; set; }
+}
+
+public class MaintenanceVisitPurposeDto
+{
+    public Guid Id { get; set; }
+    public Guid? ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid? SerialNoId { get; set; }
+    public string WorkDone { get; set; } = null!;
+    public string? WorkDetails { get; set; }
+}
+
+public class CreateMaintenanceVisitDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime VisitDate { get; set; }
+    public string MaintenanceType { get; set; } = "Scheduled";
+    public Guid? MaintenanceScheduleId { get; set; }
+    public Guid? CustomerId { get; set; }
+    public Guid? ContactId { get; set; }
+    public CreateMaintenanceVisitPurposeDto[] Purposes { get; set; } = [];
+}
+
+public class CreateMaintenanceVisitPurposeDto
+{
+    public Guid? ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid? SerialNoId { get; set; }
+    public string WorkDone { get; set; } = null!;
+    public string? WorkDetails { get; set; }
+}
+
+public class GetMaintenanceVisitListDto : PagedAndSortedResultRequestDto
+{
+    public MaintenanceVisitStatus? CompletionStatus { get; set; }
+    public Guid? MaintenanceScheduleId { get; set; }
+    public string? MaintenanceType { get; set; }
+    public Guid? CustomerId { get; set; }
 }

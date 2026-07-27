@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Permissions;
@@ -72,10 +71,10 @@ public class IssueAppService : ApplicationService
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]
-    public async Task<IssueDto> ResolveAsync(Guid id, string? resolution = null)
+    public async Task<IssueDto> ResolveAsync(Guid id, ResolveIssueDto input)
     {
         var issue = await _issueRepository.GetAsync(id);
-        issue.Resolve(resolution);
+        issue.Resolve(input.Resolution);
         await _issueRepository.UpdateAsync(issue);
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
@@ -97,40 +96,5 @@ public class IssueAppService : ApplicationService
         await _issueRepository.UpdateAsync(issue);
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
-
-
-}
-
-public class IssueDto : AuditedEntityDto<Guid>
-{
-    public string Subject { get; set; } = null!;
-    public string? Description { get; set; }
-    public IssueStatus Status { get; set; }
-    public string Priority { get; set; } = null!;
-    public string? IssueType { get; set; }
-    public Guid? CustomerId { get; set; }
-    public Guid? AssignedToId { get; set; }
-    public string? RaisedVia { get; set; }
-    public DateTime OpeningDate { get; set; }
-    public DateTime? ResolutionDate { get; set; }
-    public string? Resolution { get; set; }
-}
-
-public class CreateIssueDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required][StringLength(500)] public string Subject { get; set; } = null!;
-    [StringLength(4000)] public string? Description { get; set; }
-    [StringLength(20)] public string? Priority { get; set; }
-    [StringLength(100)] public string? IssueType { get; set; }
-    public Guid? CustomerId { get; set; }
-    [StringLength(50)] public string? RaisedVia { get; set; }
-}
-
-public class GetIssueListDto : PagedAndSortedResultRequestDto
-{
-    public IssueStatus? Status { get; set; }
-    public Guid? CompanyId { get; set; }
-    public string? Filter { get; set; }
 }
 

@@ -37,6 +37,19 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Purchase Receipt item (for receipt-to-bill traceability).</summary>
     public Guid? PurchaseReceiptItemId { get; set; }
 
+    // --- Deferred Expense fields (mirrors SI deferred revenue) ---
+    /// <summary>When true, expense is recognized over the service period (not at invoice post).</summary>
+    public bool EnableDeferredExpense { get; set; }
+
+    /// <summary>Deferred expense account (liability account holding pre-paid expense).</summary>
+    public Guid? DeferredExpenseAccountId { get; set; }
+
+    /// <summary>Service period start date for deferred expense recognition.</summary>
+    public DateTime? ServiceStartDate { get; set; }
+
+    /// <summary>Service period end date for deferred expense recognition.</summary>
+    public DateTime? ServiceEndDate { get; set; }
+
     protected PurchaseInvoiceItem() { }
 
     public PurchaseInvoiceItem(

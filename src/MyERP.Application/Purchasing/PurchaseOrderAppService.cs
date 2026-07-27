@@ -4,12 +4,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
+using Microsoft.Extensions.Logging;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Purchasing.DomainServices;
 using MyERP.Shared;
@@ -216,6 +219,14 @@ public class PurchaseOrderAppService : ApplicationService
     {
         var po = await _repository.GetAsync(id);
 
+        // Authorization control: high-value transaction approval check
+        // Per ERPNext: Authorization Rules check based on GrandTotal/Discount
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "PurchaseOrder", po.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, po.GrandTotal);
+
         // Supplier hold + scorecard enforcement (domain service)
         await _purchaseOrderManager.ValidateSupplierEligibilityAsync(po.SupplierId);
 
@@ -286,6 +297,42 @@ public class PurchaseOrderAppService : ApplicationService
 
         // Update linked Material Request OrderedQuantity (domain service)
         await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po);
+
+        // Auto-insert item prices (per ERPNext: auto_insert_price_list_rate_if_missing)
+        try
+        {
+            var priceAutoInsert = LazyServiceProvider
+                .LazyGetRequiredService<Inventory.DomainServices.ItemPriceAutoInsertService>();
+
+            {
+                // Use default buying price list
+                var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PriceList, Guid>>();
+                var plQuery = await priceListRepo.GetQueryableAsync();
+                var defaultPl = plQuery.FirstOrDefault(p => p.IsBuying && p.IsDefault && p.IsActive);
+                var priceListId = defaultPl?.Id ?? Guid.Empty;
+                if (priceListId != Guid.Empty)
+                {
+                    await priceAutoInsert.AutoInsertFromTransactionAsync(new Inventory.DomainServices.AutoInsertPriceContext
+                    {
+                        IsEnabled = true,
+                        PriceListId = priceListId,
+                        PartyId = po.SupplierId,
+                        IsSelling = false,
+                        TransactionDate = po.OrderDate,
+                        CurrencyCode = po.CurrencyCode,
+                        TenantId = po.TenantId,
+                        Items = po.Items.Select(i => new Inventory.DomainServices.AutoInsertPriceItem
+                        {
+                            ItemId = i.ItemId, Rate = i.UnitPrice, Uom = i.Uom,
+                        }).ToArray(),
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Item price auto-insert failed for PO {PoId}", po.Id);
+        }
 
         await _repository.UpdateAsync(po, autoSave: true);
 
@@ -467,6 +514,153 @@ public class PurchaseOrderAppService : ApplicationService
         var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
         var supplier = await supplierRepo.FindAsync(supplierId);
         return supplier?.Name;
+    }
+
+    /// <summary>
+    /// Get payment entries linked to this purchase order (advance payments to supplier).
+    /// </summary>
+    public async Task<List<OrderPaymentDto>> GetOrderPaymentsAsync(Guid id)
+    {
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peQuery = await peRepo.GetQueryableAsync();
+        var payments = peQuery
+            .Where(pe => pe.AgainstOrderId == id && pe.AgainstOrderType == "PurchaseOrder")
+            .OrderByDescending(pe => pe.PostingDate)
+            .Select(pe => new OrderPaymentDto
+            {
+                PaymentEntryId = pe.Id,
+                PaymentNumber = pe.PaymentNumber ?? pe.Id.ToString().Substring(0, 8),
+                PostingDate = pe.PostingDate,
+                PaidAmount = pe.PaidAmount,
+                PaymentType = pe.PaymentType.ToString(),
+                ReferenceNumber = pe.ReferenceNumber,
+                Status = pe.Status.ToString()
+            }).ToList();
+        return payments;
+    }
+
+    /// <summary>
+    /// Get receipt entries linked to this purchase order (for receipt tracking).
+    /// </summary>
+    public async Task<List<OrderReceiptDto>> GetOrderReceiptsAsync(Guid id)
+    {
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var prQuery = await prRepo.GetQueryableAsync();
+        var receipts = prQuery
+            .Where(pr => pr.PurchaseOrderId == id)
+            .OrderByDescending(pr => pr.PostingDate)
+            .Select(pr => new OrderReceiptDto
+            {
+                PurchaseReceiptId = pr.Id,
+                ReceiptNumber = pr.ReceiptNumber,
+                PostingDate = pr.PostingDate,
+                Status = pr.Status.ToString(),
+                ItemCount = pr.Items.Count
+            }).ToList();
+        return receipts;
+    }
+
+    /// <summary>
+    /// Marks drop-ship PO items as delivered without a Purchase Receipt.
+    /// Per ERPNext PO.update_dropship_received_qty: directly updates received_qty on PO items
+    /// and cascades delivery status to the linked Sales Order.
+    /// Only valid for items that are delivered_by_supplier on the source SO.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<PurchaseOrderDto> UpdateDropShipDeliveredQtyAsync(Guid id, UpdateDropShipDeliveredQtyDto input)
+    {
+        var po = await _repository.GetAsync(id);
+        if (po.Status == DocumentStatus.Draft || po.Status == DocumentStatus.Cancelled || po.Status == DocumentStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "PurchaseOrder")
+                .WithData("status", po.Status.ToString());
+
+        if (!input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        foreach (var deliveryItem in input.Items)
+        {
+            var poItem = po.Items.FirstOrDefault(i => i.Id == deliveryItem.PurchaseOrderItemId);
+            if (poItem == null)
+                throw new BusinessException("MyERP:04016")
+                    .WithData("itemId", deliveryItem.PurchaseOrderItemId);
+
+            // Validate: negative qty change cannot exceed current received_qty
+            if (deliveryItem.QtyChange < 0 && Math.Abs(deliveryItem.QtyChange) > poItem.ReceivedQty)
+                throw new BusinessException("MyERP:04017")
+                    .WithData("itemCode", poItem.Description)
+                    .WithData("maxReduction", poItem.ReceivedQty);
+
+            // Validate: positive qty change cannot exceed remaining (qty - received_qty)
+            if (deliveryItem.QtyChange > 0 && poItem.ReceivedQty + deliveryItem.QtyChange > poItem.Quantity)
+                throw new BusinessException("MyERP:04018")
+                    .WithData("itemCode", poItem.Description)
+                    .WithData("maxIncrease", poItem.Quantity - poItem.ReceivedQty);
+
+            poItem.ReceivedQty += deliveryItem.QtyChange;
+        }
+
+        // Recalculate PO fulfillment status
+        po.UpdateFulfillmentStatus();
+        await _repository.UpdateAsync(po, autoSave: true);
+
+        // Cascade delivery status to linked Sales Order(s)
+        await UpdateLinkedSalesOrderDeliveryStatusAsync(po);
+
+        // Activity log
+        await _activityLogRepository.InsertAsync(new DocumentActivityLog(
+            Guid.NewGuid(), "PurchaseOrder", po.Id,
+            "DropShipDelivered", po.CompanyId,
+            po.OrderNumber, po.Status.ToString(), po.Status.ToString(),
+            CurrentUser.Id ?? Guid.Empty,
+            $"Drop-ship delivery qty updated for {input.Items.Count} item(s)",
+            po.TenantId));
+
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    /// <summary>
+    /// After updating drop-ship received qty on PO, cascades the delivery status
+    /// to linked Sales Orders (per ERPNext DropShipService.update_delivered_qty_in_sales_order).
+    /// </summary>
+    private async Task UpdateLinkedSalesOrderDeliveryStatusAsync(PurchaseOrder po)
+    {
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+
+        // Find PO items that link back to SO items (via the SO→PO drop-ship creation flow)
+        // The SO item has DeliveredBySupplier=true and the PO was created from it
+        var soQuery = await soRepo.GetQueryableAsync();
+        // Look for SOs that have drop-ship items linking to this PO's supplier
+        // In ERPNext: PO Item has sales_order_item field linking to SO Item
+        // In MyERP: the link is established during SO→PO conversion (SO.Notes references the SO)
+        // For now, we find SOs referenced in PO notes or via item linkage
+        if (po.Notes != null && po.Notes.Contains("Drop-ship order for SO"))
+        {
+            // Extract SO reference from notes — production would use a proper FK
+            var allSOs = soQuery.Where(so =>
+                so.CompanyId == po.CompanyId &&
+                so.Status != DocumentStatus.Draft &&
+                so.Status != DocumentStatus.Cancelled).ToList();
+
+            foreach (var so in allSOs)
+            {
+                var hasDropShipItems = so.Items.Any(i => i.DeliveredBySupplier && i.SupplierId == po.SupplierId);
+                if (!hasDropShipItems) continue;
+
+                // Update SO item delivered qty from PO received qty
+                foreach (var soItem in so.Items.Where(i => i.DeliveredBySupplier && i.SupplierId == po.SupplierId))
+                {
+                    // Find matching PO item by ItemId
+                    var matchingPoItem = po.Items.FirstOrDefault(pi => pi.ItemId == soItem.ItemId);
+                    if (matchingPoItem != null)
+                    {
+                        soItem.DeliveredQty = matchingPoItem.ReceivedQty;
+                    }
+                }
+                so.UpdateFulfillmentStatus();
+                await soRepo.UpdateAsync(so);
+            }
+        }
     }
 }
 

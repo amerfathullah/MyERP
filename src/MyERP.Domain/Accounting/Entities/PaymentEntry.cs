@@ -36,6 +36,12 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Mode of payment (Cash, Bank Transfer, Cheque, etc.).</summary>
     public Guid? ModeOfPaymentId { get; set; }
 
+    /// <summary>Cost center for departmental GL reporting. Propagated to exchange gain/loss JE.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise reporting. Propagated to exchange gain/loss JE.</summary>
+    public Guid? ProjectId { get; set; }
+
     public string CurrencyCode { get; set; } = "MYR";
     public decimal PaidAmount { get; set; }
 
@@ -45,8 +51,29 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Exchange rate of the source invoice (for gain/loss calculation).</summary>
     public decimal SourceExchangeRate { get; set; } = 1m;
 
+    /// <summary>
+    /// Target exchange rate — used when payment is received in different currency than paid.
+    /// Per ERPNext PE set_amounts: received_amount = paid_amount / source_exchange_rate × target_exchange_rate.
+    /// Same-currency: TargetExchangeRate = ExchangeRate (no conversion needed).
+    /// </summary>
+    public decimal TargetExchangeRate { get; set; } = 1m;
+
+    /// <summary>
+    /// Received amount in target party currency. Per ERPNext set_amounts:
+    /// - Same currency: ReceivedAmount = PaidAmount
+    /// - Cross-currency (Receive type): ReceivedAmount = PaidAmount / SourceExchangeRate × TargetExchangeRate
+    /// - Cross-currency (Pay type): PaidAmount is the amount going out
+    /// </summary>
+    public decimal ReceivedAmount { get; set; }
+
     /// <summary>Base currency amount (PaidAmount × ExchangeRate).</summary>
     public decimal BaseAmount => PaidAmount * ExchangeRate;
+
+    /// <summary>
+    /// Base received amount in company currency.
+    /// Per ERPNext: base_received_amount = received_amount × target_exchange_rate.
+    /// </summary>
+    public decimal BaseReceivedAmount => ReceivedAmount * TargetExchangeRate;
 
     /// <summary>Exchange gain/loss = PaidAmount × (ExchangeRate - SourceExchangeRate).</summary>
     public decimal ExchangeGainLoss => PaidAmount * (ExchangeRate - SourceExchangeRate);
@@ -166,6 +193,36 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         {
             tax.Calculate(PaidAmount, ExchangeRate);
         }
+    }
+
+    /// <summary>
+    /// Per ERPNext payment_entry.py `set_amounts()`: computes received amount based on exchange rates.
+    /// Must be called after PaidAmount, ExchangeRate, SourceExchangeRate, TargetExchangeRate are set.
+    /// Algorithm:
+    ///   - Same-currency (source=target=company): received = paid (no conversion)
+    ///   - Receive type: received = paid (what we got), base_paid = paid × source_rate, base_received = received × target_rate
+    ///   - Pay type: paid = what goes out, received = paid / source × target (cross-rate)
+    /// Per ERPNext: `received_amount = paid_amount / source_exchange_rate * target_exchange_rate` for cross-currency
+    /// </summary>
+    public void SetAmounts()
+    {
+        // Per ERPNext: same currency → received = paid, rates all = ExchangeRate
+        if (SourceExchangeRate == TargetExchangeRate || TargetExchangeRate == 0)
+        {
+            ReceivedAmount = PaidAmount;
+            TargetExchangeRate = ExchangeRate;
+        }
+        else
+        {
+            // Cross-currency: per ERPNext set_amounts 6-step chain
+            // received_amount = paid_amount / source_exchange_rate * target_exchange_rate
+            ReceivedAmount = SourceExchangeRate > 0
+                ? Math.Round(PaidAmount / SourceExchangeRate * TargetExchangeRate, 2)
+                : PaidAmount;
+        }
+
+        // Recalculate taxes with current amounts
+        RecalculateTaxes();
     }
 
     public void Post()

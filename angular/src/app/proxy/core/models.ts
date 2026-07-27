@@ -3,6 +3,25 @@ import type { AuthorizationBasedOn } from './authorization-based-on.enum';
 import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 
+export interface GetPartyDetailsInput {
+  partyType: string;
+  partyId: string;
+  companyId?: string;
+}
+
+export interface PartyDetailsDto {
+  partyName?: string;
+  tin?: string;
+  registrationNumber?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  defaultPaymentTermsTemplateId?: string;
+  defaultCreditDays?: number;
+  creditLimit?: number;
+  outstandingAmount?: number;
+  currencyCode?: string;
+}
+
 export interface AddressDto extends EntityDto<string> {
   title?: string;
   addressType?: string;
@@ -398,6 +417,19 @@ export interface StockValuationItemDto {
   quantity?: number;
   valuationRate?: number;
   stockValue?: number;
+}
+
+export interface AgingSummaryWidgetDto {
+  receivables?: AgingBucketsDto;
+  payables?: AgingBucketsDto;
+}
+
+export interface AgingBucketsDto {
+  current?: number;
+  days31to60?: number;
+  days61to90?: number;
+  days91Plus?: number;
+  total?: number;
 }
 
 export interface StockValuationWidgetDto {

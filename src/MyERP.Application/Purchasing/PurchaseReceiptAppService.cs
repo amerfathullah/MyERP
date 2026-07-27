@@ -68,6 +68,23 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var warehouse = await warehouseRepo.FindAsync(receipt.WarehouseId);
         if (warehouse != null) dto.WarehouseName = warehouse.Name;
 
+        // Resolve item names for display
+        if (dto.Items?.Count > 0)
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var itemIds = dto.Items.Select(i => i.ItemId).Distinct().ToList();
+            var itemQuery = await itemRepo.GetQueryableAsync();
+            var itemNames = itemQuery.Where(i => itemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.ItemName }).ToList()
+                .ToDictionary(i => i.Id, i => i.ItemName);
+
+            foreach (var item in dto.Items)
+            {
+                if (itemNames.TryGetValue(item.ItemId, out var name))
+                    item.ItemName = name;
+            }
+        }
+
         return dto;
     }
 
@@ -199,6 +216,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     {
         var receipt = await _repository.GetAsync(id);
 
+        // Authorization control: high-value transaction approval check
+        var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
+        var userRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await authControl.ValidateApprovingAuthorityAsync(
+            "PurchaseReceipt", receipt.CompanyId,
+            CurrentUser.Id ?? Guid.Empty, userRoles, receipt.GrandTotal);
+
         // Buying controller validations via domain manager
         var prManager = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
@@ -307,7 +331,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
 
             // GL: reverse of normal receipt (DR SRBNB, CR Stock)
-            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt);
+            var warehouseAccountService = LazyServiceProvider
+                .LazyGetRequiredService<WarehouseAccountService>();
+            var returnStockAccountId = await warehouseAccountService
+                .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
+            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt, returnStockAccountId);
 
             // Reduce linked PO ReceivedQty (with concurrency retry)
             if (receipt.PurchaseOrderId.HasValue)
@@ -348,7 +376,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
 
             // GL posting (perpetual inventory): DR Stock, CR SRBNB
-            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt);
+            // Per ERPNext BaseStockGLComposer: uses warehouse-specific stock account for DR
+            var warehouseAccountService = LazyServiceProvider
+                .LazyGetRequiredService<WarehouseAccountService>();
+            var stockAccountId = await warehouseAccountService
+                .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
+            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt, stockAccountId);
 
             // Update linked Purchase Order fulfillment tracking
             // Update linked PO fulfillment (with concurrency retry)
@@ -498,5 +531,64 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
     }
+
+    /// <summary>
+    /// Resolves putaway warehouse allocations for incoming items.
+    /// Per ERPNext: putaway rules determine which warehouses receive stock based on priority + capacity.
+    /// Called before PR creation to suggest optimal warehouse distribution.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
+    public async Task<List<PutawayAllocationResultDto>> GetPutawayAllocationsAsync(
+        Guid companyId, List<PutawayItemInput> items)
+    {
+        var putawayService = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Inventory.DomainServices.PutawayService>();
+        var itemRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+
+        var results = new List<PutawayAllocationResultDto>();
+
+        foreach (var input in items)
+        {
+            var item = await itemRepo.FindAsync(input.ItemId);
+            if (item == null || !item.MaintainStock) continue;
+
+            var uomRepo = LazyServiceProvider
+                .LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Uom, Guid>>();
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            var mustBeWholeNumber = uomQuery
+                .Any(u => u.Name == item.Uom && u.MustBeWholeNumber);
+
+            var allocations = await putawayService.AllocateAsync(
+                companyId, input.ItemId, input.Qty,
+                item.ItemGroupId, mustBeWholeNumber);
+
+            foreach (var alloc in allocations)
+            {
+                results.Add(new PutawayAllocationResultDto
+                {
+                    ItemId = input.ItemId,
+                    WarehouseId = alloc.WarehouseId,
+                    Qty = alloc.Qty,
+                    IsUnallocated = alloc.IsUnallocated,
+                });
+            }
+        }
+
+        return results;
+    }
 }
 
+public class PutawayItemInput
+{
+    public Guid ItemId { get; set; }
+    public decimal Qty { get; set; }
+}
+
+public class PutawayAllocationResultDto
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal Qty { get; set; }
+    public bool IsUnallocated { get; set; }
+}

@@ -47,6 +47,28 @@ public class PurchaseInvoiceItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+    public Guid? PurchaseReceiptItemId { get; set; }
+}
+
+/// <summary>3-way matching detail per PI item — enriched with PO/PR quantities and rates.</summary>
+public class ThreeWayMatchingItemDto
+{
+    public Guid PiItemId { get; set; }
+    public string ItemDescription { get; set; } = null!;
+    public decimal BilledQty { get; set; }
+    public decimal BilledRate { get; set; }
+    public decimal? OrderedQty { get; set; }
+    public decimal? OrderedRate { get; set; }
+    public decimal? ReceivedQty { get; set; }
+    /// <summary>Qty variance: received - billed (negative = under-receipt, positive = over-receipt vs billing)</summary>
+    public decimal? QtyVariance { get; set; }
+    /// <summary>Rate variance: PO rate - PI rate (negative = PI charged more than PO)</summary>
+    public decimal? RateVariance { get; set; }
+    /// <summary>3-Way (PO+PR+PI), 2-Way (PO+PI), Direct (PI only)</summary>
+    public string MatchLevel { get; set; } = "Direct";
+    public bool HasQtyDiscrepancy { get; set; }
+    public bool HasRateDiscrepancy { get; set; }
 }
 
 public class CreatePurchaseInvoiceDto

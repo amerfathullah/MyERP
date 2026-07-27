@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { PeriodClosingVoucherService } from '../../proxy/accounting/period-closing-voucher.service';
+import { PeriodClosingVoucherService, PcvGlEntryDto } from '../../proxy/accounting/period-closing-voucher.service';
 import type { PeriodClosingVoucherDto, CreatePeriodClosingVoucherDto } from '../../proxy/accounting/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -20,6 +20,8 @@ export class PeriodClosingComponent implements OnInit {
   items = signal<PeriodClosingVoucherDto[]>([]);
   isLoading = signal(false);
   showCreateForm = signal(false);
+  expandedPcvId = signal<string | null>(null);
+  glEntries = signal<PcvGlEntryDto[]>([]);
 
   form: CreatePeriodClosingVoucherDto = {
     companyId: '',
@@ -58,6 +60,11 @@ export class PeriodClosingComponent implements OnInit {
     });
   }
 
+  getStatusLabel(status?: number): string {
+    const labels: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: 'Cancelled' };
+    return labels[status ?? 0] ?? 'Draft';
+  }
+
   submit(id: string) {
     this.service.submit(id).subscribe(() => this.loadData());
   }
@@ -65,5 +72,18 @@ export class PeriodClosingComponent implements OnInit {
   cancel(id: string) {
     if (!confirm('Cancel this Period Closing Voucher?')) return;
     this.service.cancel(id).subscribe(() => this.loadData());
+  }
+
+  toggleGlEntries(id: string) {
+    if (this.expandedPcvId() === id) {
+      this.expandedPcvId.set(null);
+      this.glEntries.set([]);
+      return;
+    }
+    this.expandedPcvId.set(id);
+    this.service.getGlEntries(id).subscribe({
+      next: entries => this.glEntries.set(entries ?? []),
+      error: () => this.glEntries.set([]),
+    });
   }
 }

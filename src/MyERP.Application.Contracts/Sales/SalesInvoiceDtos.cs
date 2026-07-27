@@ -15,6 +15,15 @@ public class PaymentScheduleDto
     public decimal Outstanding { get; set; }
 }
 
+public class InvoicePaymentHistoryDto
+{
+    public Guid Id { get; set; }
+    public string? PaymentNumber { get; set; }
+    public DateTime PostingDate { get; set; }
+    public string? PaymentType { get; set; }
+    public decimal Amount { get; set; }
+}
+
 public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
 {
     public Guid CompanyId { get; set; }
@@ -37,6 +46,9 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public string Status { get; set; } = null!;
     public string? EInvoiceStatus { get; set; }
     public string? LhdnUuid { get; set; }
+    public string? LhdnLongId { get; set; }
+    public Guid? LhdnSubmissionId { get; set; }
+    public DateTime? LhdnSubmittedAt { get; set; }
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public Guid? AmendedFromId { get; set; }
@@ -97,6 +109,15 @@ public class CreateSalesInvoiceDto
     /// <summary>Loyalty points to redeem against this invoice (reduces payable amount).</summary>
     public int LoyaltyPointsToRedeem { get; set; }
 
+    /// <summary>
+    /// Document-level discount amount (per ERPNext additional_discount_section).
+    /// Distributed proportionally across items or applied after tax based on ApplyDiscountOn.
+    /// </summary>
+    public decimal DiscountAmount { get; set; }
+
+    /// <summary>"GrandTotal" or "NetTotal" — determines at which stage the discount is applied.</summary>
+    public string? ApplyDiscountOn { get; set; }
+
     [Required]
     [MinLength(1)]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();
@@ -125,3 +146,32 @@ public class CreateSalesInvoiceItemDto
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
 }
+
+/// <summary>
+/// Creates a consolidated Sales Invoice from multiple submitted Delivery Notes.
+/// Per ERPNext: primary billing workflow for goods-based businesses (deliver daily, invoice weekly/monthly).
+/// All DNs must belong to the same customer and company.
+/// </summary>
+public class CreateInvoiceFromDeliveryNotesDto
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    public Guid CustomerId { get; set; }
+
+    /// <summary>List of Delivery Note IDs to consolidate into one invoice.</summary>
+    [Required]
+    [MinLength(1)]
+    public List<Guid> DeliveryNoteIds { get; set; } = new();
+
+    public DateTime? IssueDate { get; set; }
+
+    [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
+    public string CurrencyCode { get; set; } = "MYR";
+
+    public Guid? PaymentTermsTemplateId { get; set; }
+
+    public string? Notes { get; set; }
+}
+

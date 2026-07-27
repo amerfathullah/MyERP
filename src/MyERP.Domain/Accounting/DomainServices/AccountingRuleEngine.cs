@@ -82,6 +82,16 @@ public class AccountingRuleEngine : DomainService
     /// </summary>
     public async Task<JournalEntry> PostDocumentAsync(IAccountableDocument document)
     {
+        return await PostDocumentAsync(document, warehouseStockAccountOverride: null);
+    }
+
+    /// <summary>
+    /// Generate a balanced journal entry with a warehouse-specific stock account override.
+    /// When provided, any rule with AccountSource.WarehouseStock will use this ID instead of company default.
+    /// Per ERPNext BaseStockGLComposer: uses WarehouseAccountService to resolve per-warehouse GL.
+    /// </summary>
+    public async Task<JournalEntry> PostDocumentAsync(IAccountableDocument document, Guid? warehouseStockAccountOverride)
+    {
         var rules = await _ruleRepository.GetListAsync(r =>
             r.CompanyId == document.CompanyId &&
             r.DocumentType == document.DocumentType &&
@@ -112,7 +122,7 @@ public class AccountingRuleEngine : DomainService
             var amountInTransactionCurrency = ResolveAmount(rule.AmountSource, document);
             if (amountInTransactionCurrency <= 0) continue;
 
-            var accountId = ResolveAccountId(rule, company);
+            var accountId = ResolveAccountId(rule, company, warehouseStockAccountOverride);
 
             if (isMultiCurrency)
             {
@@ -138,17 +148,16 @@ public class AccountingRuleEngine : DomainService
             }
         }
 
-        // Double-entry validation — will throw if unbalanced
-        journal.Validate();
-
-        // Apply cost center allocation distribution
-        // Per ERPNext gotcha #418: validates MAIN CC budget BEFORE splitting
-        // Per gotcha #550: budget validates against main CC, GL posts to split CCs
+        // Apply cost center allocation BEFORE validation (distribution may expand lines)
+        // Per ERPNext gotcha #418: budget validates MAIN CC, GL posts to split CCs
+        // Per gotcha #550: distribution happens before journal posting
         if (document.CostCenterId.HasValue)
         {
             await ApplyCostCenterAllocationAsync(journal, document.CostCenterId.Value, document.PostingDate);
         }
 
+        // Double-entry validation — will throw if unbalanced
+        journal.Validate();
         journal.Post();
 
         return journal;
@@ -156,17 +165,17 @@ public class AccountingRuleEngine : DomainService
 
     /// <summary>
     /// Applies cost center allocation to journal lines.
-    /// If an active allocation exists for the cost center, splits each line into sub-CC lines.
+    /// If an active allocation exists, replaces each line with N distributed lines (one per child CC).
     /// If no allocation exists, assigns the cost center directly to all lines.
-    /// Per ERPNext gotcha #418: distributes 4 fields only, round-off to FIRST sub-CC.
+    /// Per ERPNext gotcha #418: distributes debit/credit amounts only. Round-off to FIRST sub-CC.
     /// </summary>
     private async Task ApplyCostCenterAllocationAsync(JournalEntry journal, Guid costCenterId, DateTime postingDate)
     {
-        var allocation = await _allocationService.GetActiveAllocationAsync(costCenterId, postingDate);
+        var distribution = await _allocationService.DistributeGlAmountsAsync(costCenterId, 1m, 1m, postingDate);
 
-        if (allocation == null)
+        if (distribution == null)
         {
-            // No distribution — assign cost center directly to all lines
+            // No allocation — assign cost center directly to all lines
             foreach (var line in journal.Lines)
             {
                 line.CostCenterId = costCenterId;
@@ -174,19 +183,60 @@ public class AccountingRuleEngine : DomainService
             return;
         }
 
-        // Distribution needed — expand lines per allocation entries
+        // Distribution needed — expand each existing line into N lines per allocation entry
+        // We need to collect original lines, then add distributed copies.
+        // Since JournalEntry._lines is a List and AddLine enforces Draft status,
+        // we set CostCenterId on existing lines and add new ones for the remaining entries.
+
         var originalLines = journal.Lines.ToList();
 
-        // Note: We don't remove+re-add (would break entity tracking).
-        // Instead, assign split CC to existing lines and add extra lines for distribution.
-        // Simplified approach: assign main CC (budget validated against main) and tag distribution for reporting.
-        // Per ERPNext: the actual GL lines get the sub-cost-center IDs.
-        // For now: assign proportional cost centers to lines based on allocation
-        foreach (var line in journal.Lines)
+        foreach (var originalLine in originalLines)
         {
-            // Assign main cost center — budget validation uses this
-            // GL reporting will filter by sub-CCs via the distribution query
-            line.CostCenterId = costCenterId;
+            // Calculate proportional amounts per child CC
+            var lineDebit = originalLine.IsDebit ? originalLine.Amount : 0m;
+            var lineCredit = originalLine.IsDebit ? 0m : originalLine.Amount;
+
+            decimal totalDistributed = 0m;
+
+            for (int i = 0; i < distribution.Count; i++)
+            {
+                var (childCcId, pctDebit, pctCredit) = distribution[i];
+                // Use the distribution ratios: pctDebit/pctCredit are already scaled to total=1
+                var distAmount = originalLine.IsDebit
+                    ? Math.Round(originalLine.Amount * pctDebit, 4)
+                    : Math.Round(originalLine.Amount * pctCredit, 4);
+
+                if (i == 0)
+                {
+                    // Reuse the original line for the first child CC
+                    originalLine.CostCenterId = childCcId;
+                    // Amount stays the same for now — will be adjusted for remainder below
+                    totalDistributed += distAmount;
+                }
+                else if (distAmount > 0)
+                {
+                    // Add new distributed lines for remaining child CCs
+                    journal.AddLine(originalLine.AccountId, distAmount, originalLine.IsDebit, originalLine.Description);
+                    var newLine = journal.Lines[^1];
+                    newLine.CostCenterId = childCcId;
+                    newLine.AccountCurrency = originalLine.AccountCurrency;
+                    newLine.ExchangeRate = originalLine.ExchangeRate;
+                    newLine.FinanceBook = originalLine.FinanceBook;
+
+                    totalDistributed += distAmount;
+                }
+            }
+
+            // Adjust first line amount — absorbs rounding remainder per gotcha #418
+            if (distribution.Count > 1)
+            {
+                var firstPortion = originalLine.IsDebit
+                    ? Math.Round(originalLine.Amount * distribution[0].Debit, 4)
+                    : Math.Round(originalLine.Amount * distribution[0].Credit, 4);
+                var remainder = originalLine.Amount - totalDistributed;
+                // First CC line gets its proportional share + any rounding remainder
+                originalLine.Amount = firstPortion + remainder;
+            }
         }
     }
 
@@ -202,7 +252,7 @@ public class AccountingRuleEngine : DomainService
         };
     }
 
-    private Guid ResolveAccountId(AccountingRule rule, Company company)
+    private Guid ResolveAccountId(AccountingRule rule, Company company, Guid? warehouseStockAccountOverride = null)
     {
         switch (rule.AccountSource)
         {
@@ -240,6 +290,16 @@ public class AccountingRuleEngine : DomainService
                 return rule.FixedAccountId
                     ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
                         .WithData("ruleName", rule.Name + " (no tax account configured)");
+
+            case AccountSource.WarehouseStock:
+                // Per ERPNext: full resolution uses WarehouseAccountService with 5-level chain.
+                // When warehouseStockAccountOverride is provided (from AppService via WarehouseAccountService),
+                // use the resolved per-warehouse account. Otherwise fall back to company default.
+                return warehouseStockAccountOverride
+                    ?? company.DefaultInventoryAccountId
+                    ?? rule.FixedAccountId
+                    ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("ruleName", rule.Name + " (no inventory account configured)");
 
             default:
                 return rule.FixedAccountId

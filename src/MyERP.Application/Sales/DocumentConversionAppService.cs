@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
+using MyERP.CRM;
+using MyERP.CRM.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +54,41 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         return customer?.Name;
     }
 
+    /// <summary>
+    /// Per ERPNext get_returned_qty_map(): returns a map of {dn_detail_id: returned_qty}
+    /// from submitted return Delivery Notes referencing this DN.
+    /// Return DN items have negative qty; we use ABS for the returned amount.
+    /// </summary>
+    private async Task<Dictionary<Guid, decimal>> GetReturnedQtyMapAsync(Guid deliveryNoteId)
+    {
+        var result = new Dictionary<Guid, decimal>();
+
+        var queryable = await _deliveryNoteRepository.GetQueryableAsync();
+        var returnDns = queryable
+            .Where(dn => dn.IsReturn && dn.ReturnAgainstId == deliveryNoteId
+                      && dn.Status != Core.DocumentStatus.Draft
+                      && dn.Status != Core.DocumentStatus.Cancelled)
+            .ToList();
+
+        foreach (var returnDn in returnDns)
+        {
+            foreach (var item in returnDn.Items)
+            {
+                // Return items have negative qty; use absolute value for deduction
+                var absQty = Math.Abs(item.Quantity);
+                if (item.SalesOrderItemId.HasValue)
+                {
+                    // Map by the original DN item this return targets
+                    // Use SalesOrderItemId as proxy — in ERPNext uses dn_detail field
+                    var key = item.SalesOrderItemId.Value;
+                    result[key] = result.GetValueOrDefault(key, 0m) + absQty;
+                }
+            }
+        }
+
+        return result;
+    }
+
     [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId)
     {
@@ -60,7 +98,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         if (quotation.ConvertedToSalesOrderId.HasValue)
-            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "Quotation")
+                .WithData("documentNumber", quotation.QuotationNumber)
+                .WithData("reason", "This quotation has already been converted to a Sales Order");
 
         // Block conversion of expired quotations
         if (quotation.IsExpired)
@@ -128,6 +169,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in salesOrder.Items)
         {
+            // Per ERPNext: exclude drop-ship items (delivered by supplier directly, bypass warehouse)
+            if (item.DeliveredBySupplier) continue;
+
             // Only convert pending delivery qty (skip already-delivered items)
             var pendingQty = item.PendingDeliveryQty;
             if (pendingQty > 0)
@@ -143,6 +187,141 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
 
         // Audit trail
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
+
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(deliveryNote);
+    }
+
+    /// <summary>
+    /// Creates a Delivery Note from SO items with delivery date on or before the cutoff.
+    /// Per ERPNext SO→DN mapper: `until_delivery_date` filters which items get delivered.
+    /// Enables scheduled partial deliveries (deliver only items due this week/month).
+    /// Drop-ship items (DeliveredBySupplier=true) are always excluded per ERPNext condition.
+    /// </summary>
+    [Authorize(MyERPPermissions.DeliveryNotes.Create)]
+    public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteByDateAsync(Guid salesOrderId, DateTime untilDeliveryDate)
+    {
+        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
+
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", salesOrder.CompanyId);
+
+        var warehouseId = salesOrder.Items
+            .Where(i => i.WarehouseId.HasValue && !i.DeliveredBySupplier)
+            .Select(i => i.WarehouseId!.Value)
+            .FirstOrDefault();
+
+        if (warehouseId == default)
+            throw new BusinessException("MyERP:01007")
+                .WithData("documentType", "Delivery Note — no warehouse set on eligible Sales Order items");
+
+        var deliveryNote = new DeliveryNote(
+            GuidGenerator.Create(),
+            salesOrder.CompanyId,
+            salesOrder.CustomerId,
+            warehouseId,
+            deliveryNumber,
+            Clock.Now.Date,
+            salesOrder.TenantId);
+
+        deliveryNote.SalesOrderId = salesOrder.Id;
+        deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
+
+        foreach (var item in salesOrder.Items)
+        {
+            // Per ERPNext: exclude drop-ship items (delivered by supplier directly)
+            if (item.DeliveredBySupplier) continue;
+
+            // Per ERPNext: delivery date cutoff filter
+            // Item-level delivery_date takes precedence; falls back to parent SO delivery_date
+            var itemDeliveryDate = item.DeliveryDate ?? salesOrder.DeliveryDate;
+            if (itemDeliveryDate.HasValue && itemDeliveryDate.Value.Date > untilDeliveryDate.Date)
+                continue;
+
+            var pendingQty = item.PendingDeliveryQty;
+            if (pendingQty <= 0) continue;
+
+            deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+            var lastItem = deliveryNote.Items[^1];
+            lastItem.StockUom = item.StockUom;
+            lastItem.ConversionFactor = item.ConversionFactor;
+        }
+
+        if (deliveryNote.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
+                .WithData("reason", $"No items with delivery date on or before {untilDeliveryDate:yyyy-MM-dd} have pending delivery.");
+
+        await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
+
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(deliveryNote);
+    }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Create)]
+    public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto> selectedItems)
+    {
+        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
+
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (selectedItems == null || selectedItems.Count == 0)
+            throw new BusinessException("MyERP:01007")
+                .WithData("documentType", "Delivery Note — no items selected for delivery");
+
+        var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", salesOrder.CompanyId);
+
+        // Resolve warehouse: prefer selection override → SO item warehouse → first available
+        var firstWarehouseId = selectedItems.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+            ?? salesOrder.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+            ?? throw new BusinessException("MyERP:01007")
+                .WithData("documentType", "Delivery Note — no warehouse available");
+
+        var deliveryNote = new DeliveryNote(
+            GuidGenerator.Create(),
+            salesOrder.CompanyId,
+            salesOrder.CustomerId,
+            firstWarehouseId,
+            deliveryNumber,
+            Clock.Now.Date,
+            salesOrder.TenantId);
+
+        deliveryNote.SalesOrderId = salesOrder.Id;
+        deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
+
+        // Map selected items from SO — validate quantities against pending
+        var soItemMap = salesOrder.Items.ToDictionary(i => i.Id);
+        foreach (var sel in selectedItems)
+        {
+            if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem))
+                continue; // Skip invalid item IDs
+
+            var pendingQty = soItem.PendingDeliveryQty;
+            var deliverQty = Math.Min(sel.Quantity, pendingQty); // Cap at pending (prevent over-delivery at conversion time)
+            if (deliverQty <= 0) continue;
+
+            var warehouseId = sel.WarehouseId ?? soItem.WarehouseId;
+            deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, soItem.TaxAmount, soItem.Uom, soItem.Id);
+            var lastItem = deliveryNote.Items[^1];
+            lastItem.StockUom = soItem.StockUom;
+            lastItem.ConversionFactor = soItem.ConversionFactor;
+        }
+
+        if (deliveryNote.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
+                .WithData("reason", "All selected items have been fully delivered or have zero pending quantity.");
+
+        await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
+
         await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
             "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
@@ -203,6 +382,28 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (deliveryNote.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
+        // Per ERPNext DN→SI mapper: pending = qty - invoiced_qty - returned_qty
+        // Get returned qty per DN item (from return DNs referencing this DN)
+        var returnedQtyMap = await GetReturnedQtyMapAsync(deliveryNoteId);
+
+        // Guard: check pending billing qty per DN item to prevent double-billing
+        var hasConvertibleItems = false;
+        foreach (var item in deliveryNote.Items)
+        {
+            var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = item.Quantity - item.BilledQty - returnedQty;
+            if (pendingQty > 0)
+            {
+                hasConvertibleItems = true;
+                break;
+            }
+        }
+        if (!hasConvertibleItems)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "DeliveryNote")
+                .WithData("documentNumber", deliveryNote.DeliveryNumber)
+                .WithData("reason", "All items in this Delivery Note have been fully invoiced or returned. To bill again, create a credit note first.");
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", deliveryNote.CompanyId);
 
         var invoice = new SalesInvoice(
@@ -217,9 +418,15 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in deliveryNote.Items)
         {
-            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            // Per ERPNext: pending = qty - invoiced_qty - returned_qty
+            var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
+            var billingQty = item.Quantity - item.BilledQty - returnedQty;
+            if (billingQty <= 0) continue;
+
+            invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, item.TaxAmount, item.Uom);
             var lastItem = invoice.Items.Last();
             lastItem.SalesOrderItemId = item.SalesOrderItemId;
+            lastItem.DeliveryNoteItemId = item.Id; // Track which DN item is being billed
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;
         }
@@ -233,5 +440,131 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         var siDto2 = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
         siDto2.CustomerName = await ResolveCustomerNameAsync(invoice.CustomerId);
         return siDto2;
+    }
+
+    /// <summary>
+    /// Converts Sales Order items to a Material Request (type=Purchase).
+    /// Per ERPNext SO→MR: delivery_date → schedule_date rename, qty → unfulfilled qty.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Default)]
+    public async Task<Guid> ConvertSalesOrderToMaterialRequestAsync(Guid salesOrderId)
+    {
+        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "SalesOrder");
+        }
+
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        var mrNumber = await _numberGenerator.GenerateAsync("MR", salesOrder.CompanyId);
+
+        var mr = new Purchasing.Entities.MaterialRequest(
+            GuidGenerator.Create(), salesOrder.CompanyId, mrNumber,
+            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow, salesOrder.TenantId);
+
+        foreach (var item in salesOrder.Items.Where(i => i.PendingDeliveryQty > 0))
+        {
+            mr.AddItem(item.ItemId, item.Description ?? string.Empty, item.PendingDeliveryQty,
+                item.StockUom ?? "Unit");
+
+            // Link MR item back to SO
+            var mrItem = mr.Items.Last();
+            mrItem.SalesOrderId = salesOrder.Id;
+        }
+
+        if (!mr.Items.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber)
+                .WithData("reason", "All items in this Sales Order have been fully delivered. No pending items for material request.");
+        }
+
+        await mrRepo.InsertAsync(mr, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "MaterialRequest", mr.Id, salesOrder.OrderNumber, salesOrder.TenantId);
+
+        return mr.Id;
+    }
+
+    /// <summary>
+    /// Creates a Quotation from an Opportunity (CRM → Sales pipeline).
+    /// Per ERPNext: Opportunity "Make Quotation" copies customer, items (if any),
+    /// and opportunity amount. Marks opportunity status as "Quotation".
+    /// This completes: Lead → Opportunity → Quotation → SO → DN → SI → Payment
+    /// </summary>
+    [Authorize(MyERPPermissions.Quotations.Create)]
+    public async Task<QuotationDto> ConvertOpportunityToQuotationAsync(Guid opportunityId)
+    {
+        var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Opportunity, Guid>>();
+        var opp = await oppRepo.GetAsync(opportunityId);
+
+        if (opp.Status is not (OpportunityStatus.Open or OpportunityStatus.Replied))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Opportunity must be Open or Replied to create a Quotation");
+
+        if (!opp.CustomerId.HasValue)
+            throw new BusinessException("MyERP:05010")
+                .WithData("detail", "Opportunity must have a Customer/Lead to create a Quotation");
+
+        // Per ERPNext: check if quotation already exists for this opportunity
+        var existingQuery = await _quotationRepository.GetQueryableAsync();
+        var alreadyExists = existingQuery.Any(q =>
+            q.OpportunityId == opportunityId &&
+            q.Status != Core.DocumentStatus.Cancelled);
+        if (alreadyExists)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("reason", "Quotation already exists for this Opportunity");
+
+        var quotationNumber = await _numberGenerator.GenerateAsync("Quotation", opp.CompanyId);
+
+        var quotation = new Quotation(
+            GuidGenerator.Create(),
+            opp.CompanyId,
+            opp.CustomerId.Value,
+            quotationNumber,
+            Clock.Now.Date,
+            opp.TenantId);
+
+        quotation.OpportunityId = opp.Id;
+
+        // Copy items from opportunity (if any)
+        if (opp.Items.Any())
+        {
+            foreach (var item in opp.Items)
+            {
+                quotation.AddItem(
+                    item.ItemId ?? Guid.Empty,
+                    item.Description,
+                    item.Quantity,
+                    item.UnitPrice,
+                    0m, // taxAmount — resolved later on quotation
+                    item.Uom ?? "Unit");
+            }
+        }
+        else if (opp.OpportunityAmount > 0)
+        {
+            // No items but has an amount — create a single line item
+            quotation.AddItem(
+                Guid.Empty, // placeholder — user will select item
+                opp.Title ?? "Opportunity Item",
+                1,
+                opp.OpportunityAmount,
+                0m,
+                "Unit");
+        }
+
+        await _quotationRepository.InsertAsync(quotation, autoSave: true);
+
+        // Mark opportunity as Quotation status
+        opp.MarkQuotation();
+        await oppRepo.UpdateAsync(opp, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("Opportunity", opp.Id, opp.CompanyId,
+            "Quotation", quotation.Id, opp.OpportunityNumber, opp.TenantId);
+
+        return ObjectMapper.Map<Quotation, QuotationDto>(quotation);
     }
 }

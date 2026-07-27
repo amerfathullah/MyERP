@@ -197,5 +197,71 @@ public class SubscriptionAppService : ApplicationService
             PeriodEnd = sub.CurrentInvoiceEnd,
         };
     }
+
+    /// <summary>
+    /// Generates catch-up invoices for all elapsed billing periods.
+    /// Per ERPNext Subscription 7-state lifecycle: on after_insert, generates invoices for ALL
+    /// elapsed periods via while-loop (with 3 breaks: end date, max periods, current date).
+    /// Called by background job or manual trigger when subscription has gaps.
+    /// Per DO-NOT: "Implement subscription without catch-up invoice generation for past periods"
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<List<GeneratedInvoiceDto>> GenerateCatchUpInvoicesAsync(Guid id)
+    {
+        var sub = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        if (sub.Status != SubscriptionStatus.Active)
+            throw new BusinessException(MyERPDomainErrorCodes.SubscriptionNotActive);
+
+        if (!sub.Plans.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.SubscriptionHasNoPlans);
+
+        var results = new List<GeneratedInvoiceDto>();
+        var today = DateTime.UtcNow.Date;
+        var maxCatchUp = 24; // Safety: max 24 periods to prevent runaway
+
+        // Generate invoices while current period end is in the past
+        while (sub.CurrentInvoiceEnd.HasValue && sub.CurrentInvoiceEnd.Value < today
+            && sub.Status == SubscriptionStatus.Active && results.Count < maxCatchUp)
+        {
+            // Check end date boundary
+            if (sub.EndDate.HasValue && sub.CurrentInvoiceStart.HasValue
+                && sub.CurrentInvoiceStart.Value > sub.EndDate.Value)
+                break;
+
+            var items = _billingEngine.BuildInvoiceItems(sub, sub.CurrentInvoiceStart ?? today);
+            if (!items.Any()) break;
+
+            var invoiceRef = _billingEngine.GenerateInvoiceReference(sub);
+            var invoice = new SalesInvoice(
+                GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
+                sub.CurrentInvoiceStart ?? today, CurrentTenant.Id);
+            invoice.Notes = $"Subscription {sub.SubscriptionNumber} (catch-up) — " +
+                            $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
+
+            foreach (var item in items)
+                invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
+                    item.Qty, item.Rate, 0m);
+
+            await _salesInvoiceRepository.InsertAsync(invoice);
+
+            results.Add(new GeneratedInvoiceDto
+            {
+                InvoiceId = invoice.Id,
+                InvoiceNumber = invoice.InvoiceNumber,
+                GrandTotal = invoice.GrandTotal,
+                PeriodStart = sub.CurrentInvoiceStart,
+                PeriodEnd = sub.CurrentInvoiceEnd,
+            });
+
+            // Advance to next period
+            _billingEngine.AdvancePeriodAndCheckCompletion(sub);
+        }
+
+        if (results.Any())
+            await _repository.UpdateAsync(sub);
+
+        return results;
+    }
 }
 

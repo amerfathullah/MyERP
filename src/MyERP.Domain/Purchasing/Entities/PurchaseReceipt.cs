@@ -68,6 +68,23 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     private readonly List<PurchaseReceiptItem> _items = new();
     public IReadOnlyList<PurchaseReceiptItem> Items => _items.AsReadOnly();
 
+    /// <summary>
+    /// Billing completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
+    /// 0% = not billed, 100% = fully billed.
+    /// </summary>
+    public decimal PerBilled
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            return _items.Min(i =>
+            {
+                var absQty = Math.Abs(i.Quantity);
+                return absQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / absQty * 100);
+            });
+        }
+    }
+
     protected PurchaseReceipt() { }
 
     public PurchaseReceipt(Guid id, Guid companyId, Guid supplierId, Guid warehouseId, string receiptNumber, DateTime postingDate, Guid? tenantId = null)

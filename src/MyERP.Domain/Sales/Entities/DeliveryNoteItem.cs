@@ -41,6 +41,15 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Cost rate at time of delivery (from stock valuation). Used for COGS calculation.</summary>
     public decimal ValuationRate { get; set; }
 
+    /// <summary>
+    /// Quantity already billed against this DN item (via Sales Invoice).
+    /// Per ERPNext: billed_amt tracking enables DN→SI billing status (PerBilled).
+    /// </summary>
+    public decimal BilledQty { get; set; }
+
+    /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
+    public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+
     protected DeliveryNoteItem() { }
 
     public DeliveryNoteItem(

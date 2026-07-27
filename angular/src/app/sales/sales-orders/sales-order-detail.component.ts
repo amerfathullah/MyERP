@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
@@ -22,7 +23,7 @@ import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -40,6 +41,7 @@ export class SalesOrderDetailComponent implements OnInit {
 
   order: SalesOrderDto | null = null;
   deliverySchedule = signal<any[]>([]);
+  orderPayments = signal<any[]>([]);
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   // Print layout data
@@ -53,30 +55,63 @@ export class SalesOrderDetailComponent implements OnInit {
   draftGuardTarget = signal<'DeliveryNote' | 'SalesInvoice' | null>(null);
   private pendingConversionAction: (() => void) | null = null;
 
+  // Delivery Schedule Generator state
+  showScheduleGenerator = signal(false);
+  scheduleFrequency = 'Monthly';
+  scheduleItemId = '';
+  isGeneratingSchedule = signal(false);
+
+  isActiveOrder(): boolean {
+    const s = this.order?.status;
+    return s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill';
+  }
+
+  generateDeliverySchedule(): void {
+    if (!this.order?.id || !this.scheduleItemId) return;
+    this.isGeneratingSchedule.set(true);
+    this.salesOrderService.generateDeliverySchedule(this.order.id, this.scheduleItemId, this.scheduleFrequency).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyGenerated');
+        this.isGeneratingSchedule.set(false);
+        this.showScheduleGenerator.set(false);
+        // Reload schedule entries
+        this.salesOrderService.getDeliverySchedule(this.order!.id!).subscribe({
+          next: (entries) => this.deliverySchedule.set(entries ?? []),
+          error: () => {}
+        });
+      },
+      error: (err: any) => {
+        this.isGeneratingSchedule.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
+    });
+  }
+
   get workflowActions(): WorkflowAction[] {
     if (!this.order) return [];
     const actions: WorkflowAction[] = [];
     const s = this.order.status;
 
     if (s === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
-      actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'local_shipping', color: 'primary' });
+      actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'truck', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
-      actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'receipt', color: 'accent' });
+      actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'file-invoice', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'accent' });
-      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'factory', color: 'accent' });
+      actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'industry', color: 'info' });
+      actions.push({ name: 'material_request', label: 'Material Request', icon: 'box-open', color: 'info' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warn' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (s === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock_open', color: 'primary' });
+      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
     }
     if (s === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -92,7 +127,12 @@ export class SalesOrderDetailComponent implements OnInit {
       // Load delivery schedule entries
       this.salesOrderService.getDeliverySchedule(id).subscribe({
         next: (entries) => this.deliverySchedule.set(entries ?? []),
-        error: () => {} // graceful — schedule is optional
+        error: () => {}
+      });
+      // Load linked payment entries
+      this.salesOrderService.getOrderPayments(id).subscribe({
+        next: (payments) => this.orderPayments.set(payments ?? []),
+        error: () => {}
       });
     });
   }
@@ -125,7 +165,7 @@ export class SalesOrderDetailComponent implements OnInit {
         this.initiateConversion('DeliveryNote', () => {
           this.conversionService.convertSalesOrderToDeliveryNote(id).subscribe({
             next: (dn) => this.router.navigate(['/sales/delivery-notes', dn.id]),
-            error: () => this.toaster.error('::ConversionFailed'),
+            error: (err) => this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed'),
           });
         });
         break;
@@ -133,7 +173,7 @@ export class SalesOrderDetailComponent implements OnInit {
         this.initiateConversion('SalesInvoice', () => {
           this.conversionService.convertSalesOrderToSalesInvoice(id).subscribe({
             next: (inv) => this.router.navigate(['/sales/invoices', inv.id]),
-            error: () => this.toaster.error('::ConversionFailed'),
+            error: (err) => this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed'),
           });
         });
         break;
@@ -145,6 +185,15 @@ export class SalesOrderDetailComponent implements OnInit {
       case 'work_order':
         this.router.navigate(['/manufacturing/work-orders/new'], {
           queryParams: { salesOrderId: id, companyId: this.order!.companyId }
+        });
+        break;
+      case 'material_request':
+        this.conversionService.convertSalesOrderToMaterialRequest(id).subscribe({
+          next: (mrId) => {
+            this.toaster.success('::MaterialRequestCreated');
+            this.router.navigate(['/purchasing/material-requests', mrId]);
+          },
+          error: (err) => this.toaster.error(err?.error?.error?.message || '::ConversionFailed'),
         });
         break;
       case 'close':

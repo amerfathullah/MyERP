@@ -40,6 +40,29 @@
       </div>
     </div>
 
+    <!-- Payment Terms & Due Date -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PaymentTerms' | abpLocalization }}</label>
+            <select class="form-select" formControlName="paymentTermsTemplateId">
+              <option value="">— {{ '::None' | abpLocalization }} —</option>
+              @for (pt of paymentTermsTemplates(); track pt.id) {
+                <option [value]="pt.id">{{ pt.name }}</option>
+              }
+            </select>
+            <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::DueDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="dueDate" />
+            <small class="form-text text-muted">{{ '::DueDateHelp' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Stock Settings -->
     <div class="card mb-4">
       <div class="card-body">
@@ -81,8 +104,20 @@
 
     <!-- Line items -->
     <div class="card mb-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::InvoiceItems' | abpLocalization }}</h5>
+        @if (form.get('customerId')?.value) {
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-success" (click)="loadFromSalesOrders()" [disabled]="isLoadingSoItems()">
+              @if (isLoadingSoItems()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+              {{ '::GetItemsFromSO' | abpLocalization }}
+            </button>
+            <button type="button" class="btn btn-outline-info" (click)="loadFromDeliveryNotes()" [disabled]="isLoadingDnItems()">
+              @if (isLoadingDnItems()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+              {{ '::GetItemsFromDN' | abpLocalization }}
+            </button>
+          </div>
+        }
       </div>
       <div class="card-body">
         <app-invoice-item-grid [items]="items" [availableItems]="availableItems()" />

@@ -75,6 +75,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
           actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
+        if (this.invoice.eInvoiceStatus === 'Valid') {
+          actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
+        }
         break;
       case 'Cancelled':
         actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
@@ -132,6 +135,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'submitLhdn':
         this.submitToLhdn();
         break;
+      case 'cancelLhdn':
+        this.cancelLhdn();
+        break;
       case 'writeOff':
         this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
@@ -164,6 +170,28 @@ export class SalesInvoiceDetailComponent implements OnInit {
       error: (err) => {
         this.toaster.error(err?.error?.error?.message ?? 'LHDN submission failed');
       },
+    });
+  }
+
+  private cancelLhdn(): void {
+    this.confirmation.warn(
+      'Cancel this e-Invoice with LHDN? This is only allowed within 72 hours of submission.',
+      'MyERP::AreYouSure'
+    ).subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        this.eInvoiceService.cancel({
+          submissionId: (this.invoice as any).eInvoiceSubmissionId ?? this.invoice!.id!,
+          reason: 'Cancelled by user',
+        }).subscribe({
+          next: () => {
+            this.toaster.success('e-Invoice cancelled with LHDN successfully.');
+            this.reloadAfterAction();
+          },
+          error: (err) => {
+            this.toaster.error(err?.error?.error?.message ?? 'LHDN cancellation failed (72h window may have expired)');
+          },
+        });
+      }
     });
   }
 
@@ -207,5 +235,14 @@ export class SalesInvoiceDetailComponent implements OnInit {
       next: () => this.router.navigate(['/sales/invoices']),
       error: () => {},
     });
+  }
+
+  isTermOverdue(entry: any): boolean {
+    if (!entry.dueDate || entry.outstanding <= 0.01) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(entry.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
   }
 }

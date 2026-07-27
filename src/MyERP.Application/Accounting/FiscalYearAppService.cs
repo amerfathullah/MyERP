@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -32,7 +33,15 @@ public class CreateFiscalYearDto
 public class FiscalYearAppService : ApplicationService
 {
     private readonly IRepository<FiscalYear, Guid> _repository;
-    public FiscalYearAppService(IRepository<FiscalYear, Guid> repository) => _repository = repository;
+    private readonly FiscalYearCloseService _closeService;
+
+    public FiscalYearAppService(
+        IRepository<FiscalYear, Guid> repository,
+        FiscalYearCloseService closeService)
+    {
+        _repository = repository;
+        _closeService = closeService;
+    }
 
     public async Task<PagedResultDto<FiscalYearDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
@@ -89,22 +98,12 @@ public class FiscalYearAppService : ApplicationService
         if (fy.IsClosed)
             return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy); // Already closed, idempotent
 
-        // Sequential closure enforcement: check if any prior FY for same company is still open
-        var query = await _repository.GetQueryableAsync();
-        var priorOpenFy = query.FirstOrDefault(f =>
-            f.CompanyId == fy.CompanyId
-            && f.EndDate < fy.StartDate
-            && !f.IsClosed);
+        // Delegate sequential closure validation + close to domain service
+        await _closeService.ValidateCanCloseAsync(id);
+        await _closeService.CloseAsync(id);
 
-        if (priorOpenFy != null)
-        {
-            throw new Volo.Abp.BusinessException("MyERP:02011")
-                .WithData("priorFiscalYear", priorOpenFy.Name)
-                .WithData("currentFiscalYear", fy.Name);
-        }
-
-        fy.IsClosed = true;
-        await _repository.UpdateAsync(fy, autoSave: true);
+        // Re-fetch after domain service update
+        fy = await _repository.GetAsync(id);
 
         // Validate trial balance is balanced before finalizing close
         // Per ERPNext: month-end/year-end close should verify GL integrity

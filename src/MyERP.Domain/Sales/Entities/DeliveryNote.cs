@@ -84,6 +84,34 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     private readonly List<DeliveryNoteItem> _items = new();
     public IReadOnlyList<DeliveryNoteItem> Items => _items.AsReadOnly();
 
+    /// <summary>
+    /// Billing completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
+    /// 0% = not billed, 100% = fully billed.
+    /// </summary>
+    public decimal PerBilled
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            return _items.Min(i =>
+            {
+                var absQty = Math.Abs(i.Quantity);
+                return absQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / absQty * 100);
+            });
+        }
+    }
+
+    /// <summary>
+    /// Update billing status. Called by SalesInvoiceAppService on submit/cancel
+    /// when SI items reference DN items.
+    /// Per ERPNext: update_billed_amount_based_on_so updates DN Item billed_amt.
+    /// </summary>
+    public void UpdateBillingStatus()
+    {
+        // Status auto-transition not needed on DN (DN stays Submitted until cancelled)
+        // PerBilled is computed from item-level BilledQty
+    }
+
     protected DeliveryNote() { }
 
     public DeliveryNote(Guid id, Guid companyId, Guid customerId, Guid warehouseId, string deliveryNumber, DateTime postingDate, Guid? tenantId = null)

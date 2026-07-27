@@ -73,3 +73,17 @@ public class CreateUpdateTaxRuleDto
 
     public bool IsActive { get; set; } = true;
 }
+
+/// <summary>
+/// Default tax line for form auto-population.
+/// Returned by GetDefaultTaxLinesAsync for selling/buying transactions.
+/// Frontend uses this to pre-populate tax cascade calculation.
+/// </summary>
+public class DefaultTaxLineDto
+{
+    public string TaxName { get; set; } = null!;
+    public decimal Rate { get; set; }
+    public string ChargeType { get; set; } = "OnNetTotal";
+    public Guid? AccountId { get; set; }
+    public string? TaxCategoryCode { get; set; }
+}

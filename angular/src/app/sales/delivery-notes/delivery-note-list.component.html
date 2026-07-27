@@ -57,10 +57,34 @@
           </button>
         </div>
       } @else {
+        <!-- Batch action bar (visible when selections exist) -->
+        @if (hasSelection()) {
+          <div class="alert alert-info d-flex align-items-center justify-content-between py-2 mb-3">
+            <span>
+              <i class="fa fa-check-circle me-1"></i>
+              {{ selectionCount() }} {{ '::Selected' | abpLocalization }}
+            </span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success btn-sm" (click)="createInvoiceFromSelected()" [disabled]="isCreatingInvoice()">
+                @if (isCreatingInvoice()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fa fa-file-invoice me-1"></i> {{ '::CreateInvoice' | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="clearSelection()">
+                {{ '::ClearSelection' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        }
+
         <div class="table-responsive">
                     <table class="table table-hover w-100">
             <thead>
               <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" class="form-check-input" (change)="toggleSelectAll($event)">
+                </th>
                 <th style="min-width: 150px;">
                   <app-sortable-header field="deliveryNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::DeliveryNumber' | abpLocalization }}
@@ -86,7 +110,12 @@
             </thead>
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
-                <tr>
+                <tr [class.table-primary]="isSelected(row.id)">
+                  <td>
+                    <input type="checkbox" class="form-check-input"
+                      [checked]="isSelected(row.id)"
+                      (change)="toggleSelection(row.id, $event)">
+                  </td>
                   <td class="fw-medium">
                     <a [routerLink]="[row.id]" class="text-primary text-decoration-none">{{ row.deliveryNumber }}</a>
                   </td>

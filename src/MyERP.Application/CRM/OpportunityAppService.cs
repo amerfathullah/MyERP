@@ -1,9 +1,12 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.CRM.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -14,10 +17,14 @@ namespace MyERP.CRM;
 public class OpportunityAppService : ApplicationService, IOpportunityAppService
 {
     private readonly IRepository<Opportunity, Guid> _repository;
+    private readonly IRepository<Quotation, Guid> _quotationRepository;
 
-    public OpportunityAppService(IRepository<Opportunity, Guid> repository)
+    public OpportunityAppService(
+        IRepository<Opportunity, Guid> repository,
+        IRepository<Quotation, Guid> quotationRepository)
     {
         _repository = repository;
+        _quotationRepository = quotationRepository;
     }
 
     public async Task<OpportunityDto> GetAsync(Guid id)
@@ -172,6 +179,22 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     public async Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason)
     {
         var opp = await _repository.GetAsync(id);
+
+        // Per ERPNext PR #57489: block lost declaration when active quotations exist
+        // Active = submitted quotations that are NOT Lost/Cancelled/Expired(Rejected)
+        var quotationQuery = await _quotationRepository.GetQueryableAsync();
+        var hasActiveQuotation = quotationQuery.Any(q =>
+            q.OpportunityId == id &&
+            q.Status != DocumentStatus.Draft &&
+            q.Status != DocumentStatus.Cancelled &&
+            q.Status != DocumentStatus.Rejected); // Rejected = Lost/Expired in our model
+
+        if (hasActiveQuotation)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Cannot declare opportunity as Lost while active quotations exist. Cancel or mark quotations as lost first.");
+        }
+
         opp.DeclareLost(reason);
         await _repository.UpdateAsync(opp);
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);

@@ -46,56 +46,110 @@ public class InvoiceStatusUpdateJob : AsyncBackgroundJob<InvoiceStatusUpdateJobA
             "InvoiceStatusUpdateJob: Recalculating invoice status for company {CompanyId}",
             args.CompanyId);
 
-        int siUpdated = 0;
-        int piUpdated = 0;
+        var today = DateTime.UtcNow.Date;
+        int siOverpaid = 0, piOverpaid = 0;
+        int siOverdue = 0, piOverdue = 0;
+        int siErrors = 0, piErrors = 0;
 
-        // Sales Invoices: only load those with over-payment (AmountPaid > GrandTotal)
+        // --- Sales Invoices ---
         var siQuery = await _siRepository.GetQueryableAsync();
-        var overpaidSalesInvoices = siQuery
+        var postedSalesInvoices = siQuery
             .Where(si => si.CompanyId == args.CompanyId
                       && si.Status == DocumentStatus.Posted
-                      && si.GrandTotal > 0
-                      && si.AmountPaid > si.GrandTotal)
+                      && si.GrandTotal > 0)
             .ToList();
 
-        foreach (var si in overpaidSalesInvoices)
+        foreach (var si in postedSalesInvoices)
         {
-            // OutstandingAmount is a computed property: GrandTotal - AmountPaid
-            // If AmountPaid somehow exceeds GrandTotal (e.g., double payment), cap it
-            if (si.AmountPaid > si.GrandTotal)
+            try
             {
-                si.AmountPaid = si.GrandTotal;
-                await _siRepository.UpdateAsync(si);
-                siUpdated++;
+                // Overdue detection (warning only — the job is a safety net)
+                if (si.DueDate.HasValue && si.DueDate.Value < today && si.OutstandingAmount > 0)
+                {
+                    _logger.LogWarning(
+                        "Overdue invoice {InvoiceNumber}: due {DueDate:yyyy-MM-dd}, outstanding {Outstanding:N2}",
+                        si.InvoiceNumber, si.DueDate.Value, si.OutstandingAmount);
+                    siOverdue++;
+                }
+
+                // Overpayment fix: cap AmountPaid to GrandTotal
+                if (si.AmountPaid > si.GrandTotal)
+                {
+                    _logger.LogWarning(
+                        "Overpaid SI {InvoiceNumber}: AmountPaid={Paid:N2} > GrandTotal={Total:N2}. Capping.",
+                        si.InvoiceNumber, si.AmountPaid, si.GrandTotal);
+                    si.AmountPaid = si.GrandTotal;
+                    await _siRepository.UpdateAsync(si);
+                    siOverpaid++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "InvoiceStatusUpdateJob: Error processing SI {InvoiceNumber}", si.InvoiceNumber);
+                siErrors++;
             }
         }
 
-        // Purchase Invoices: same check — only load over-paid ones
+        // --- Purchase Invoices ---
         var piQuery = await _piRepository.GetQueryableAsync();
-        var overpaidPurchaseInvoices = piQuery
+        var postedPurchaseInvoices = piQuery
             .Where(pi => pi.CompanyId == args.CompanyId
                       && pi.Status == DocumentStatus.Posted
-                      && pi.GrandTotal > 0
-                      && pi.AmountPaid > pi.GrandTotal)
+                      && pi.GrandTotal > 0)
             .ToList();
 
-        foreach (var pi in overpaidPurchaseInvoices)
+        foreach (var pi in postedPurchaseInvoices)
         {
-            if (pi.AmountPaid > pi.GrandTotal)
+            try
             {
-                pi.AmountPaid = pi.GrandTotal;
-                await _piRepository.UpdateAsync(pi);
-                piUpdated++;
+                if (pi.DueDate.HasValue && pi.DueDate.Value < today && pi.OutstandingAmount > 0)
+                {
+                    _logger.LogWarning(
+                        "Overdue invoice {InvoiceNumber}: due {DueDate:yyyy-MM-dd}, outstanding {Outstanding:N2}",
+                        pi.InvoiceNumber, pi.DueDate.Value, pi.OutstandingAmount);
+                    piOverdue++;
+                }
+
+                if (pi.AmountPaid > pi.GrandTotal)
+                {
+                    _logger.LogWarning(
+                        "Overpaid PI {InvoiceNumber}: AmountPaid={Paid:N2} > GrandTotal={Total:N2}. Capping.",
+                        pi.InvoiceNumber, pi.AmountPaid, pi.GrandTotal);
+                    pi.AmountPaid = pi.GrandTotal;
+                    await _piRepository.UpdateAsync(pi);
+                    piOverpaid++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "InvoiceStatusUpdateJob: Error processing PI {InvoiceNumber}", pi.InvoiceNumber);
+                piErrors++;
             }
         }
 
-        if (siUpdated > 0 || piUpdated > 0)
+        // Summary
+        if (siOverpaid > 0 || piOverpaid > 0)
         {
             _logger.LogWarning(
-                "InvoiceStatusUpdateJob: Fixed {SiCount} SI + {PiCount} PI with over-payment. This indicates a bug in payment allocation.",
-                siUpdated, piUpdated);
+                "InvoiceStatusUpdateJob: Fixed overpayment on {SiCount} SI + {PiCount} PI. This indicates a bug in payment allocation.",
+                siOverpaid, piOverpaid);
         }
-        else
+
+        if (siOverdue > 0 || piOverdue > 0)
+        {
+            _logger.LogWarning(
+                "InvoiceStatusUpdateJob: {SiOverdue} SI + {PiOverdue} PI overdue.",
+                siOverdue, piOverdue);
+        }
+
+        if (siErrors > 0 || piErrors > 0)
+        {
+            _logger.LogError(
+                "InvoiceStatusUpdateJob: {SiErrors} SI + {PiErrors} PI failed processing.",
+                siErrors, piErrors);
+        }
+
+        if (siOverpaid == 0 && piOverpaid == 0 && siOverdue == 0 && piOverdue == 0 && siErrors == 0 && piErrors == 0)
         {
             _logger.LogInformation("InvoiceStatusUpdateJob: All invoices consistent. No corrections needed.");
         }

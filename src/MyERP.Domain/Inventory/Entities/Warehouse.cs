@@ -9,6 +9,8 @@ namespace MyERP.Inventory.Entities;
 /// <summary>
 /// Warehouse / storage location.
 /// Maps to ERPNext stock/doctype/warehouse.
+/// Supports tree hierarchy via ParentWarehouseId (NestedSet in ERPNext).
+/// Per ERPNext: group warehouses cannot hold stock, only leaf warehouses.
 /// </summary>
 public class Warehouse : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
@@ -30,6 +32,26 @@ public class Warehouse : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsGroup { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Warehouse type classification. Per ERPNext:
+    /// Transit warehouses are used for inter-warehouse transfers (2-step: Source → Transit → Destination).
+    /// Per Company.create_default_warehouses: "Goods In Transit" created with type=Transit.
+    /// </summary>
+    public WarehouseType WarehouseType { get; set; } = WarehouseType.Standard;
+
+    /// <summary>
+    /// Default GL account for stock in this warehouse (for perpetual inventory).
+    /// Per ERPNext: each warehouse can have its own stock account via WarehouseAccount child table.
+    /// Null = fallback to Company.DefaultInventoryAccountId.
+    /// </summary>
+    public Guid? DefaultAccountId { get; set; }
+
+    /// <summary>
+    /// Whether this warehouse is a transit warehouse (convenience computed property).
+    /// Per DO-NOT: transit transfers must use 2-step process (Send → Receive).
+    /// </summary>
+    public bool IsTransitWarehouse => WarehouseType == WarehouseType.Transit;
 
     protected Warehouse() { }
 

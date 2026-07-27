@@ -21,7 +21,14 @@ public enum AccountSource
     ItemExpense = 4,
 
     /// <summary>Use a tax payable account.</summary>
-    TaxPayable = 5
+    TaxPayable = 5,
+
+    /// <summary>
+    /// Use the stock account from WarehouseAccountService resolution chain.
+    /// Per ERPNext: warehouse-specific → parent warehouse → company default.
+    /// Used for perpetual inventory GL entries on stock documents (PR/DN/SE).
+    /// </summary>
+    WarehouseStock = 6
 }
 
 /// <summary>

@@ -38,6 +38,14 @@ export class PaymentRequestService {
     { apiName: this.apiName,...config });
   
 
+  get = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentRequestDto>({
+      method: 'GET',
+      url: `/api/app/payment-request/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentRequestDto>({
       method: 'POST',

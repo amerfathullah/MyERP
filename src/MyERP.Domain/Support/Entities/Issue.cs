@@ -53,6 +53,38 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Total hold time in hours (deducted from resolution time for SLA).</summary>
     public decimal TotalHoldTime { get; set; }
 
+    /// <summary>When the current hold started (null when not on hold).</summary>
+    public DateTime? HoldStartedOn { get; set; }
+
+    /// <summary>Service Level Agreement entity ID (if assigned).</summary>
+    public Guid? ServiceLevelAgreementId { get; set; }
+
+    /// <summary>SLA breach: true if resolution exceeded target time.</summary>
+    public bool IsSlaBreach { get; set; }
+
+    /// <summary>
+    /// Actual resolution time in hours (excludes hold time).
+    /// Calculated: (ResolutionDate - OpeningDate).TotalHours - TotalHoldTime
+    /// </summary>
+    public decimal ActualResolutionTimeHours
+    {
+        get
+        {
+            if (!ResolutionDate.HasValue) return 0;
+            var totalHours = (decimal)(ResolutionDate.Value - OpeningDate).TotalHours;
+            return Math.Max(0, totalHours - TotalHoldTime);
+        }
+    }
+
+    /// <summary>
+    /// Actual first response time in hours.
+    /// Calculated: (FirstRespondedOn - OpeningDate).TotalHours
+    /// </summary>
+    public decimal ActualFirstResponseTimeHours =>
+        FirstRespondedOn.HasValue
+            ? (decimal)(FirstRespondedOn.Value - OpeningDate).TotalHours
+            : 0;
+
     public string? Resolution { get; set; }
 
     protected Issue() { }
@@ -80,12 +112,21 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = IssueStatus.OnHold;
+        HoldStartedOn = DateTime.UtcNow;
     }
 
     public void Reopen()
     {
         if (Status is not (IssueStatus.Closed or IssueStatus.Replied or IssueStatus.OnHold))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Accumulate hold time if we're coming off a hold
+        if (Status == IssueStatus.OnHold && HoldStartedOn.HasValue)
+        {
+            TotalHoldTime += (decimal)(DateTime.UtcNow - HoldStartedOn.Value).TotalHours;
+            HoldStartedOn = null;
+        }
+
         Status = IssueStatus.Open;
         ResolutionDate = null;
     }
@@ -94,9 +135,21 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // If resolved while on hold, close the hold period first
+        if (Status == IssueStatus.OnHold && HoldStartedOn.HasValue)
+        {
+            TotalHoldTime += (decimal)(DateTime.UtcNow - HoldStartedOn.Value).TotalHours;
+            HoldStartedOn = null;
+        }
+
         Status = IssueStatus.Closed;
         ResolutionDate = DateTime.UtcNow;
         Resolution = resolution;
+
+        // Check SLA breach: actual resolution time > target
+        if (ResolutionTime.HasValue && ActualResolutionTimeHours > ResolutionTime.Value)
+            IsSlaBreach = true;
     }
 
     public void Cancel()
@@ -105,13 +158,4 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = IssueStatus.Cancelled;
     }
-}
-
-public enum IssueStatus
-{
-    Open = 0,
-    Replied = 1,
-    OnHold = 2,
-    Closed = 3,
-    Cancelled = 4,
 }

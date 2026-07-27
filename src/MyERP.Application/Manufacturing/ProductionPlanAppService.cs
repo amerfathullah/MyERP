@@ -246,28 +246,53 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Get items needing MRs (those with PlannedQty > 0 and no MR yet)
+        // Filter out sub-assembly items that need Work Orders (InHouseManufacturing), not Purchase MRs
         var itemsNeedingMr = plan.MaterialRequirements
-            .Where(m => m.PlannedQty > 0 && !m.MaterialRequestId.HasValue)
+            .Where(m => m.PlannedQty > 0 && !m.MaterialRequestId.HasValue
+                && m.ProcurementType != SubAssemblyType.InHouseManufacturing)
             .ToList();
 
         if (!itemsNeedingMr.Any())
             return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
 
-        var mrNumber = await _numberGenerator.GenerateAsync("MR", plan.CompanyId);
-        var mr = new MaterialRequest(
-            GuidGenerator.Create(), plan.CompanyId, mrNumber,
-            MaterialRequestType.Purchase, plan.PostingDate, CurrentTenant.Id)
-        {
-            TargetWarehouseId = plan.ForWarehouseId,
-        };
+        // Resolve default suppliers from ItemDefault for grouping
+        // Per ERPNext: separate MRs per (supplier, warehouse) for procurement routing
+        var itemIds = itemsNeedingMr.Select(m => m.ItemId).Distinct().ToList();
+        var itemDefaultQuery = await LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Inventory.Entities.ItemDefault, Guid>>()
+            .GetQueryableAsync();
+        var supplierMap = itemDefaultQuery
+            .Where(d => itemIds.Contains(d.ItemId) && d.DefaultSupplierId != null && d.CompanyId == plan.CompanyId)
+            .Select(d => new { d.ItemId, d.DefaultSupplierId })
+            .ToDictionary(d => d.ItemId, d => d.DefaultSupplierId);
 
-        foreach (var item in itemsNeedingMr)
+        // Group items by (supplier, warehouse) — items without supplier go to a "general" MR
+        var groups = itemsNeedingMr
+            .GroupBy(m => new
+            {
+                SupplierId = supplierMap.ContainsKey(m.ItemId) ? supplierMap[m.ItemId] : (Guid?)null,
+                WarehouseId = m.WarehouseId ?? plan.ForWarehouseId
+            })
+            .ToList();
+
+        foreach (var group in groups)
         {
-            mr.AddItem(item.ItemId, item.ItemName, item.PlannedQty, item.Uom ?? "Unit", item.WarehouseId);
-            item.MaterialRequestId = mr.Id;
+            var mrNumber = await _numberGenerator.GenerateAsync("MR", plan.CompanyId);
+            var mr = new MaterialRequest(
+                GuidGenerator.Create(), plan.CompanyId, mrNumber,
+                MaterialRequestType.Purchase, plan.PostingDate, CurrentTenant.Id)
+            {
+                TargetWarehouseId = group.Key.WarehouseId,
+            };
+
+            foreach (var item in group)
+            {
+                mr.AddItem(item.ItemId, item.ItemName, item.PlannedQty, item.Uom ?? "Unit", item.WarehouseId);
+                item.MaterialRequestId = mr.Id;
+            }
+
+            await _materialRequestRepository.InsertAsync(mr);
         }
-
-        await _materialRequestRepository.InsertAsync(mr);
 
         if (plan.Status == ProductionPlanStatus.Submitted)
             plan.MarkInProgress();

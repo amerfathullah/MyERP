@@ -24,11 +24,35 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public Guid? QuotationId { get; set; }
     public decimal PerDelivered { get; set; }
     public decimal PerBilled { get; set; }
+    public decimal AdvancePaid { get; set; }
+    public decimal PerAdvancePaid { get; set; }
 
     /// <summary>Warning message if customer has overdue invoices (advisory, not blocking).</summary>
     public string? OverdueWarning { get; set; }
 
     public List<SalesOrderItemDto> Items { get; set; } = new();
+}
+
+/// <summary>Payment entries linked to this Sales Order (advance payments).</summary>
+public class OrderPaymentDto
+{
+    public Guid PaymentEntryId { get; set; }
+    public string PaymentNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public decimal PaidAmount { get; set; }
+    public string PaymentType { get; set; } = null!;
+    public string? ReferenceNumber { get; set; }
+    public string Status { get; set; } = null!;
+}
+
+/// <summary>Purchase Receipt entries linked to a Purchase Order (receipt tracking).</summary>
+public class OrderReceiptDto
+{
+    public Guid PurchaseReceiptId { get; set; }
+    public string ReceiptNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public string Status { get; set; } = null!;
+    public int ItemCount { get; set; }
 }
 
 public class SalesOrderItemDto

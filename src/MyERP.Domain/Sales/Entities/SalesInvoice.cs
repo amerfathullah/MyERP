@@ -40,7 +40,11 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
-    public decimal OutstandingAmount => GrandTotal - AmountPaid;
+    /// <summary>
+    /// Outstanding amount = GrandTotal - AmountPaid - WriteOffAmount - TotalAdvance.
+    /// Per ERPNext: outstanding_amount considers advances and write-offs.
+    /// </summary>
+    public decimal OutstandingAmount => GrandTotal - AmountPaid - WriteOffAmount - TotalAdvance;
 
     // Discount on grand total
     /// <summary>Additional discount percentage applied on net total.</summary>
@@ -81,6 +85,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
+    /// <summary>Link to the Delivery Note that triggered this credit note (return flow).</summary>
+    public Guid? DeliveryNoteId { get; set; }
+
     // Amendment (cancel-and-amend workflow)
     /// <summary>Reference to the cancelled invoice this was amended from.</summary>
     public Guid? AmendedFromId { get; set; }
@@ -97,11 +104,19 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public string? LhdnLongId { get; set; }
     public DateTime? LhdnValidationDate { get; set; }
     public string? QrCodeUrl { get; set; }
+    public Guid? LhdnSubmissionId { get; set; }
+    public DateTime? LhdnSubmittedAt { get; set; }
 
     public string? Notes { get; set; }
 
     /// <summary>Link to project for timesheet-based billing.</summary>
     public Guid? ProjectId { get; set; }
+
+    /// <summary>
+    /// If this is a POS invoice, the consolidated Sales Invoice it was merged into.
+    /// Set during POS Closing to prevent re-consolidation.
+    /// </summary>
+    public Guid? ConsolidatedSalesInvoiceId { get; set; }
 
     // Loyalty Points Redemption
     /// <summary>Loyalty points redeemed on this invoice (reduces grand total).</summary>
@@ -118,6 +133,45 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     /// <summary>Linked loyalty program for this invoice's customer.</summary>
     public Guid? LoyaltyProgramId { get; set; }
+
+    // Advance payment tracking — per ERPNext set_advances()
+    /// <summary>Total advance payments allocated against this invoice.</summary>
+    public decimal TotalAdvance { get; set; }
+
+    /// <summary>Write-off amount (bad debt or rounding tolerance). Reduces outstanding without payment.</summary>
+    public decimal WriteOffAmount { get; set; }
+
+    /// <summary>Write-off GL account (expense account for bad debt posting).</summary>
+    public Guid? WriteOffAccountId { get; set; }
+
+    /// <summary>Write-off cost center for GL posting.</summary>
+    public Guid? WriteOffCostCenterId { get; set; }
+
+    // Rounded total — per ERPNext round_floats_in_doc()
+    /// <summary>Grand total rounded to nearest whole number (configurable via Global Defaults).</summary>
+    public decimal RoundedTotal { get; set; }
+
+    /// <summary>Rounding adjustment = RoundedTotal - GrandTotal. Can be positive or negative.</summary>
+    public decimal RoundingAdjustment { get; set; }
+
+    /// <summary>
+    /// Whether the invoice is overdue (past due date with outstanding balance).
+    /// Per ERPNext: overdue detection is AMOUNT-based for payment schedules.
+    /// </summary>
+    public bool IsOverdue => Status == DocumentStatus.Posted
+        && !IsReturn
+        && OutstandingAmount > 0.01m
+        && DueDate.HasValue
+        && DueDate.Value.Date < DateTime.UtcNow.Date;
+
+    /// <summary>Base currency rounded total.</summary>
+    public decimal BaseRoundedTotal { get; set; }
+
+    /// <summary>Base currency rounding adjustment.</summary>
+    public decimal BaseRoundingAdjustment { get; set; }
+
+    /// <summary>Whether rounding is disabled for this invoice (per company/global setting).</summary>
+    public bool DisableRoundedTotal { get; set; }
 
     // Line items
     private readonly List<SalesInvoiceItem> _items = new();
@@ -192,6 +246,52 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
         Status = DocumentStatus.Cancelled;
         AddLocalEvent(new SalesInvoiceCancelledEvent(this));
+    }
+
+    /// <summary>
+    /// Apply rounding to GrandTotal. Call after tax cascade.
+    /// Per ERPNext: round_off_totals() uses Math.Round(GrandTotal, 0) when enabled.
+    /// </summary>
+    public void ApplyRounding()
+    {
+        if (DisableRoundedTotal)
+        {
+            RoundedTotal = GrandTotal;
+            RoundingAdjustment = 0;
+            BaseRoundedTotal = BaseGrandTotal;
+            BaseRoundingAdjustment = 0;
+            return;
+        }
+
+        RoundedTotal = Math.Round(GrandTotal, 0, MidpointRounding.AwayFromZero);
+        RoundingAdjustment = RoundedTotal - GrandTotal;
+        BaseRoundedTotal = Math.Round(BaseGrandTotal, 0, MidpointRounding.AwayFromZero);
+        BaseRoundingAdjustment = BaseRoundedTotal - BaseGrandTotal;
+    }
+
+    /// <summary>
+    /// Record write-off amount against this invoice.
+    /// Per ERPNext: write-off reduces outstanding without requiring payment.
+    /// </summary>
+    public void SetWriteOff(decimal amount, Guid? writeOffAccountId = null, Guid? writeOffCostCenterId = null)
+    {
+        if (amount < 0) throw new ArgumentException("Write-off amount cannot be negative.", nameof(amount));
+        if (amount > OutstandingAmount + WriteOffAmount) // can increase existing write-off
+            throw new ArgumentException("Write-off amount exceeds outstanding.", nameof(amount));
+
+        WriteOffAmount = amount;
+        WriteOffAccountId = writeOffAccountId;
+        WriteOffCostCenterId = writeOffCostCenterId;
+    }
+
+    /// <summary>
+    /// Record advance payment allocation against this invoice.
+    /// Per ERPNext: set_advances() links unreconciled advances.
+    /// </summary>
+    public void SetTotalAdvance(decimal amount)
+    {
+        if (amount < 0) throw new ArgumentException("Advance amount cannot be negative.", nameof(amount));
+        TotalAdvance = amount;
     }
 
     private void RecalculateTotals()

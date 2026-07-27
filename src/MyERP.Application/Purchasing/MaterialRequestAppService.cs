@@ -179,5 +179,49 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
+
+    /// <summary>
+    /// Gets the fulfillment status of a Material Request.
+    /// Per ERPNext: MR is fully fulfilled when all items are ordered/transferred at ≥99.99%.
+    /// </summary>
+    public async Task<MrFulfillmentStatusDto> GetFulfillmentStatusAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        var mrManager = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
+
+        var isFullyFulfilled = mrManager.IsFullyFulfilled(entity);
+
+        var items = entity.Items.Select(item => new MrItemFulfillmentDto
+        {
+            ItemId = item.ItemId,
+            RequestedQty = item.Quantity,
+            OrderedQty = item.OrderedQuantity,
+            PendingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item),
+            PerOrdered = item.Quantity > 0 ? Math.Round(item.OrderedQuantity / item.Quantity * 100, 2) : 0,
+        }).ToList();
+
+        return new MrFulfillmentStatusDto
+        {
+            MaterialRequestId = entity.Id,
+            IsFullyFulfilled = isFullyFulfilled,
+            Items = items,
+        };
+    }
 }
 
+public class MrFulfillmentStatusDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public bool IsFullyFulfilled { get; set; }
+    public List<MrItemFulfillmentDto> Items { get; set; } = new();
+}
+
+public class MrItemFulfillmentDto
+{
+    public Guid ItemId { get; set; }
+    public decimal RequestedQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal PendingQty { get; set; }
+    public decimal PerOrdered { get; set; }
+}

@@ -169,7 +169,7 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
           <app-voucher-ledger
             [voucherType]="'PaymentEntry'"
             [voucherId]="entry()!.id!"
-            [companyId]="entry()!.companyId!" />
+            [showAccounting]="true" />
         }
 
         <!-- Print Layout (hidden on screen, rendered on print) -->

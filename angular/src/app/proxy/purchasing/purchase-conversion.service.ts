@@ -1,4 +1,4 @@
-import type { PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto } from './models';
+import type { PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto, SupplierQuotationDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,6 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class PurchaseConversionService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  convertRfqToSupplierQuotation = (rfqId: string, supplierId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SupplierQuotationDto>({
+      method: 'POST',
+      url: '/api/app/purchase-conversion/convert-rfq-to-supplier-quotation',
+      params: { rfqId, supplierId },
+    },
+    { apiName: this.apiName,...config });
   
 
   convertMaterialRequestToPurchaseOrder = (materialRequestId: string, supplierId: string, config?: Partial<Rest.Config>) =>

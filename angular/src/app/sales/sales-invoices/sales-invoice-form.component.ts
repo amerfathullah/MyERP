@@ -10,6 +10,7 @@ import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import type { CreateSalesInvoiceDto, SalesInvoiceItemDto } from '../../proxy/sales/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -40,10 +41,14 @@ export class SalesInvoiceFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private paymentTermsService = inject(PaymentTermsTemplateService);
 
   customers = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  paymentTermsTemplates = signal<any[]>([]);
+  isLoadingSoItems = signal(false);
+  isLoadingDnItems = signal(false);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -53,6 +58,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     buyerTin: [''],
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
+    paymentTermsTemplateId: [''],
     currencyCode: ['MYR'],
     notes: [''],
     isReturn: [false],
@@ -90,15 +96,19 @@ export class SalesInvoiceFormComponent implements OnInit {
 
     // Load customer list for dropdown
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
-      .subscribe(res => this.customers.set(res.items ?? []));
+      .subscribe({ next: res => this.customers.set(res.items ?? []), error: () => {} });
 
     // Load items for grid dropdown
     this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
-      .subscribe(res => this.availableItems.set(res.items ?? []));
+      .subscribe({ next: res => this.availableItems.set(res.items ?? []), error: () => {} });
 
     // Load warehouses for UpdateStock option
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
-      .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+      .subscribe({ next: res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)), error: () => {} });
+
+    // Load payment terms templates
+    this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((invoice) => {
@@ -175,6 +185,58 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.calcResult = this.taxCalc.calculate(itemValues, []);
   }
 
+  loadFromSalesOrders(): void {
+    const customerId = this.form.get('customerId')?.value;
+    const companyId = this.form.get('companyId')?.value;
+    if (!customerId) return;
+    this.isLoadingSoItems.set(true);
+    this.service.getUnbilledOrderItems(customerId, companyId || undefined).subscribe({
+      next: (items: any[]) => {
+        this.isLoadingSoItems.set(false);
+        if (!items?.length) return;
+        // Clear existing items and load from SO
+        this.items.clear();
+        items.forEach((item: any) => {
+          this.addItemRow({
+            itemId: item.itemId,
+            description: item.itemName ?? item.description,
+            quantity: item.unbilledQty ?? item.quantity,
+            unitPrice: item.rate ?? item.unitPrice ?? 0,
+            uom: item.uom ?? 'EA',
+          } as any);
+        });
+        this.recalculate();
+      },
+      error: () => this.isLoadingSoItems.set(false),
+    });
+  }
+
+  loadFromDeliveryNotes(): void {
+    const customerId = this.form.get('customerId')?.value;
+    const companyId = this.form.get('companyId')?.value;
+    if (!customerId) return;
+    this.isLoadingDnItems.set(true);
+    this.service.getUnbilledDeliveryItems(customerId, companyId || undefined).subscribe({
+      next: (items: any[]) => {
+        this.isLoadingDnItems.set(false);
+        if (!items?.length) return;
+        // Clear existing items and load from DN
+        this.items.clear();
+        items.forEach((item: any) => {
+          this.addItemRow({
+            itemId: item.itemId,
+            description: item.itemName ?? item.description,
+            quantity: item.unbilledQty ?? item.quantity,
+            unitPrice: item.rate ?? item.unitPrice ?? 0,
+            uom: item.uom ?? 'EA',
+          } as any);
+        });
+        this.recalculate();
+      },
+      error: () => this.isLoadingDnItems.set(false),
+    });
+  }
+
   /** Used by unsaved-changes route guard */
   hasUnsavedChanges(): boolean {
     return this.form.dirty;
@@ -196,6 +258,10 @@ export class SalesInvoiceFormComponent implements OnInit {
     // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
     const dto: CreateSalesInvoiceDto = {
       ...raw,
+      paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
+      dueDate: raw.dueDate || undefined,
+      warehouseId: raw.warehouseId || undefined,
+      returnAgainstId: raw.returnAgainstId || undefined,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         description: item.description || item.itemName || '',

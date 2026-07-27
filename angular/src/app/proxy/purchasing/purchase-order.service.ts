@@ -79,6 +79,22 @@ export class PurchaseOrderService {
     { apiName: this.apiName,...config });
   
 
+  getOrderReceipts = (orderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/purchase-order/${orderId}/order-receipts`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/purchase-order/${orderId}/order-payments`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',

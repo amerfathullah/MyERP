@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
@@ -234,6 +235,61 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     /// Per DO-NOT: concurrency=1 for BOM Update Log.
     /// </summary>
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    /// <summary>
+    /// Gets BOM raw materials for a given FG item (used by subcontracting PO form to auto-populate supplied items).
+    /// Returns the default active BOM items for the specified item, or empty if no BOM exists.
+    /// Per ERPNext: subcontracting PO auto-loads BOM components as raw materials to supply.
+    /// </summary>
+    public async Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1)
+    {
+        var query = await _bomRepository.GetQueryableAsync();
+        var bom = query
+            .Where(b => b.ItemId == itemId && b.CompanyId == companyId && b.IsActive)
+            .OrderByDescending(b => b.IsDefault)
+            .ThenByDescending(b => b.CreationTime)
+            .FirstOrDefault();
+
+        if (bom == null)
+            return new SubcontractingBomItemsDto { Items = new(), BomId = null, BomNumber = null };
+
+        // BOM items are auto-included via EF
+        var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+        var ratio = fgQty / bomQty;
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemIds = bom.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemLookup = itemQuery.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemName, i.ItemCode, i.Uom })
+            .ToList();
+        var itemNames = itemLookup.ToDictionary(i => i.Id, i => (ItemName: i.ItemName, ItemCode: i.ItemCode, Uom: i.Uom));
+
+        var items = bom.Items.Select(bi =>
+        {
+            itemNames.TryGetValue(bi.ItemId, out var resolved);
+            return new SubcontractingBomItemLineDto
+            {
+                ItemId = bi.ItemId,
+                ItemName = resolved.ItemName ?? bi.ItemName,
+                ItemCode = resolved.ItemCode ?? "",
+                RequiredQty = Math.Round(bi.Quantity * ratio, 4),
+                Rate = bi.Rate,
+                Uom = bi.Uom ?? resolved.Uom ?? "Unit",
+                SourceWarehouseId = bom.SourceWarehouseId,
+            };
+        }).ToList();
+
+        return new SubcontractingBomItemsDto
+        {
+            BomId = bom.Id,
+            BomNumber = bom.BomNumber,
+            FgItemId = bom.ItemId,
+            FgQty = fgQty,
+            Items = items,
+            SourceWarehouseId = bom.SourceWarehouseId,
+        };
+    }
+
     public async Task<BomDto> UpdateBomCostAsync(Guid bomId)
     {
         var bom = await _bomRepository.GetAsync(bomId, includeDetails: true);
@@ -390,6 +446,54 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
+    /// <summary>
+    /// Pre-flight material availability check before starting production.
+    /// Per ERPNext: shows per-item required vs available qty with shortage highlighting.
+    /// Returns list of materials with stock status — enables informed production decisions.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Default)]
+    public async Task<List<MaterialAvailabilityDto>> GetMaterialAvailabilityAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+        var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        var result = new List<MaterialAvailabilityDto>();
+        foreach (var item in wo.RequiredItems)
+        {
+            var itemEntity = await itemRepo.FindAsync(item.ItemId);
+            var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId ?? Guid.Empty;
+
+            decimal available = 0;
+            try
+            {
+                var bin = await binService.GetBalanceAsync(item.ItemId, warehouseId);
+                available = bin.ActualQty;
+            }
+            catch { /* warehouse may not have bin yet */ }
+
+            var required = item.RequiredQuantity;
+            var transferred = item.TransferredQuantity;
+            var pending = Math.Max(0, required - transferred);
+
+            result.Add(new MaterialAvailabilityDto
+            {
+                ItemId = item.ItemId,
+                ItemName = itemEntity?.ItemName ?? item.ItemName ?? "—",
+                ItemCode = itemEntity?.ItemCode ?? "—",
+                RequiredQty = required,
+                TransferredQty = transferred,
+                PendingQty = pending,
+                AvailableQty = available,
+                Shortage = Math.Max(0, pending - available),
+                HasSufficientStock = available >= pending,
+                WarehouseId = warehouseId,
+            });
+        }
+
+        return result;
+    }
+
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<WorkOrderDto> StartWorkOrderAsync(Guid id)
     {
@@ -476,10 +580,15 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         // Receive finished goods (excluding process loss qty — only good items enter stock)
-        // FG rate = total consumed RM cost / produced qty (per ERPNext absorption costing)
+        // When BOM has secondary items with cost allocation: FG gets only its allocated share
+        // Per DO-NOT: "Skip FG cost_allocation_per validation (FG + all secondary items MUST total exactly 100%)"
+        var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
+        var fgCostAllocationPct = bom.FgCostAllocationPercentage;
+        var fgAllocatedCost = totalRmCost * (fgCostAllocationPct / 100m);
+
         if (productionParams.TargetWarehouseId.HasValue && quantity > 0)
         {
-            var fgRate = totalRmCost / quantity;
+            var fgRate = fgAllocatedCost / quantity;
 
             await _valuationService.CreateLedgerEntryAsync(
                 wo.CompanyId, wo.ItemId, productionParams.TargetWarehouseId.Value,
@@ -488,10 +597,39 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 tenantId: wo.TenantId);
 
             await _binService.ApplyStockMovementAsync(
-                wo.ItemId, productionParams.TargetWarehouseId.Value, quantity, totalRmCost, wo.TenantId);
+                wo.ItemId, productionParams.TargetWarehouseId.Value, quantity, fgAllocatedCost, wo.TenantId);
 
             await _binService.UpdatePlannedQtyAsync(
                 wo.ItemId, productionParams.TargetWarehouseId.Value, -quantity, wo.TenantId);
+        }
+
+        // Produce secondary items (co-products, by-products, scrap) when BOM defines them
+        // Per gotcha #85: v16 secondary items replace v15 scrap items
+        // Per gotcha #518: cost distributed by CostAllocationPercentage
+        foreach (var secItem in bom.SecondaryItems)
+        {
+            var secQty = secItem.EffectiveQuantity * (productionParams.TotalFgQty / bom.Quantity);
+            if (secQty <= 0) continue;
+
+            var secCost = totalRmCost * (secItem.CostAllocationPercentage / 100m);
+            var secRate = secCost / secQty;
+
+            // Scrap goes to scrap warehouse; co-products/by-products go to FG warehouse
+            var secWarehouseId = secItem.SecondaryItemType == SecondaryItemType.Scrap
+                ? (wo.ScrapWarehouseId ?? bom.ScrapWarehouseId ?? productionParams.TargetWarehouseId)
+                : productionParams.TargetWarehouseId;
+
+            if (secWarehouseId.HasValue)
+            {
+                await _valuationService.CreateLedgerEntryAsync(
+                    wo.CompanyId, secItem.ItemId, secWarehouseId.Value,
+                    DateTime.UtcNow, secQty, secRate,
+                    voucherType: "WorkOrder", voucherId: wo.Id,
+                    tenantId: wo.TenantId);
+
+                await _binService.ApplyStockMovementAsync(
+                    secItem.ItemId, secWarehouseId.Value, secQty, secCost, wo.TenantId);
+            }
         }
 
         // Process loss: consumed materials but no FG output for the loss portion
@@ -738,6 +876,228 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await _materialRequestRepository.InsertAsync(mr);
 
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(mr);
+    }
+
+    /// <summary>
+    /// Creates a Material Transfer for Manufacture Stock Entry from a Work Order.
+    /// Transfers raw materials from source warehouse to WIP warehouse.
+    /// 
+    /// Per ERPNext WO → SE mapper:
+    /// - Purpose = "Material Transfer for Manufacture"
+    /// - Items come from WO.RequiredItems with pending qty (required - already_transferred)
+    /// - Source warehouse from WO item or WO.SourceWarehouse
+    /// - Target warehouse = WO.WipWarehouse
+    /// - Per DO-NOT: "Allow excess material transfer beyond required_qty - already_transferred_qty"
+    ///   (exceptions: returns and "Material Transferred" backflush mode)
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+
+        if (wo.Status is not (WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted or WorkOrderStatus.InProcess))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Work Order must be Submitted or In Process to transfer materials");
+
+        var wipWarehouseId = wo.WipWarehouseId ?? wo.SourceWarehouseId;
+        if (!wipWarehouseId.HasValue)
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("field", "WIP Warehouse");
+
+        // Calculate pending qty per item: required - already_transferred
+        var pendingItems = wo.RequiredItems
+            .Where(i => i.RequiredQuantity - i.TransferredQuantity > 0)
+            .ToList();
+
+        if (!pendingItems.Any())
+            throw new BusinessException("MyERP:10017")
+                .WithData("reason", "All required materials have already been transferred");
+
+        // Create Stock Entry
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId,
+            StockEntryType.MaterialTransferForManufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            Notes = $"Material Transfer for Manufacture — WO {wo.WorkOrderNumber}",
+        };
+
+        foreach (var item in pendingItems)
+        {
+            var sourceWarehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+            if (!sourceWarehouseId.HasValue)
+                continue;
+
+            var pendingQty = item.RequiredQuantity - item.TransferredQuantity;
+
+            // Validate stock availability before adding to entry
+            var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, sourceWarehouseId.Value);
+            var transferQty = Math.Min(pendingQty, balance.Quantity); // Cap at available
+            if (transferQty <= 0) continue;
+
+            entry.AddItem(
+                itemId: item.ItemId,
+                quantity: transferQty,
+                sourceWarehouseId: sourceWarehouseId.Value,
+                targetWarehouseId: wipWarehouseId.Value,
+                valuationRate: balance.ValuationRate);
+        }
+
+        if (!entry.Items.Any())
+            throw new BusinessException("MyERP:10018")
+                .WithData("reason", "No materials available for transfer (insufficient stock)");
+
+        await seRepo.InsertAsync(entry);
+
+        return new StockEntryResultDto
+        {
+            StockEntryId = entry.Id,
+            EntryNumber = entry.EntryNumber,
+            EntryType = StockEntryType.MaterialTransferForManufacture.ToString(),
+            ItemCount = entry.Items.Count,
+            TotalValue = entry.TotalIncomingValue,
+        };
+    }
+
+    /// <summary>
+    /// Creates a Manufacture Stock Entry from a Work Order.
+    /// Consumes raw materials from WIP warehouse and produces finished goods.
+    /// 
+    /// Per ERPNext WO → SE mapper (purpose = "Manufacture"):
+    /// - Outgoing items (RM): from WIP warehouse, quantities from WO.RequiredItems × ratio
+    /// - Incoming item (FG): to FG warehouse, qty = fg_completed_qty
+    /// - FG rate = sum(RM consumed value) / fg_qty (cost rollup)
+    /// - Process loss absorbed into FG rate (no separate entry)
+    /// Per DO-NOT: "Allow multiple different FG items in Manufacture stock entry (only ONE unique FG allowed)"
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<StockEntryResultDto> CreateManufactureStockEntryAsync(CreateManufactureStockEntryDto input)
+    {
+        var wo = await _workOrderRepository.GetAsync(input.WorkOrderId, includeDetails: true);
+
+        if (wo.Status != WorkOrderStatus.InProcess)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Work Order must be In Process to record manufacture");
+
+        if (input.FgQuantity <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "FG Quantity");
+
+        // Overproduction check
+        var settings = await GetManufacturingSettingsAsync(wo.CompanyId);
+        var overproductionPct = settings?.OverproductionPercentage ?? 5m;
+        var maxAllowed = wo.Quantity * (1 + overproductionPct / 100m);
+        if (wo.ProducedQuantity + input.FgQuantity > maxAllowed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("maxAllowed", maxAllowed)
+                .WithData("produced", wo.ProducedQuantity)
+                .WithData("attempted", input.FgQuantity);
+        }
+
+        var fgWarehouseId = wo.FgWarehouseId ?? wo.WipWarehouseId;
+        var wipWarehouseId = wo.WipWarehouseId ?? wo.SourceWarehouseId;
+        if (!fgWarehouseId.HasValue)
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("field", "FG Warehouse");
+
+        // Create Manufacture Stock Entry
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId,
+            StockEntryType.Manufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            FgCompletedQty = input.FgQuantity,
+            ProcessLossQty = input.ProcessLossQty,
+            Notes = $"Manufacture — WO {wo.WorkOrderNumber}",
+        };
+
+        // Add RM consumption items (outgoing from WIP)
+        decimal totalRmCost = 0;
+        var ratio = input.FgQuantity / (wo.Quantity > 0 ? wo.Quantity : 1m);
+
+        foreach (var woItem in wo.RequiredItems)
+        {
+            var consumeQty = Math.Round(woItem.RequiredQuantity * ratio, 4);
+            if (consumeQty <= 0) continue;
+
+            var sourceWh = wipWarehouseId ?? woItem.SourceWarehouseId;
+            if (!sourceWh.HasValue) continue;
+
+            var balance = await _valuationService.GetCurrentBalanceAsync(woItem.ItemId, sourceWh.Value);
+            var rate = balance.ValuationRate;
+            totalRmCost += consumeQty * rate;
+
+            entry.AddItem(
+                itemId: woItem.ItemId,
+                quantity: consumeQty,
+                sourceWarehouseId: sourceWh.Value,
+                targetWarehouseId: null,
+                valuationRate: rate);
+        }
+
+        // Add FG production item (incoming to FG warehouse)
+        // FG rate = total RM cost / fg_qty (absorbed costing)
+        var fgRate = input.FgQuantity > 0 ? totalRmCost / input.FgQuantity : 0m;
+        entry.AddItem(
+            itemId: wo.ItemId,
+            quantity: input.FgQuantity,
+            sourceWarehouseId: null,
+            targetWarehouseId: fgWarehouseId.Value,
+            valuationRate: fgRate);
+
+        await seRepo.InsertAsync(entry);
+
+        return new StockEntryResultDto
+        {
+            StockEntryId = entry.Id,
+            EntryNumber = entry.EntryNumber,
+            EntryType = StockEntryType.Manufacture.ToString(),
+            ItemCount = entry.Items.Count,
+            TotalValue = totalRmCost,
+        };
+    }
+
+    private async Task<ManufacturingSettings?> GetManufacturingSettingsAsync(Guid companyId)
+    {
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var q = await settingsRepo.GetQueryableAsync();
+        return q.FirstOrDefault(s => s.CompanyId == companyId);
+    }
+
+    /// <summary>
+    /// Returns Job Cards linked to a Work Order for operations progress display.
+    /// Per ERPNext: WO detail shows per-operation Job Card status with completed qty and time.
+    /// </summary>
+    public async Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId)
+    {
+        var jobCardRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        var query = (await jobCardRepo.GetQueryableAsync())
+            .Where(j => j.WorkOrderId == workOrderId)
+            .OrderBy(j => j.SequenceId);
+
+        var totalCount = query.Count();
+        var items = query.Take(50).ToList();
+
+        var result = items.Select(jc => new WorkOrderJobCardDto
+        {
+            Id = jc.Id,
+            SequenceId = jc.SequenceId,
+            OperationId = jc.OperationId,
+            Status = (int)jc.Status,
+            ForQuantity = jc.ForQuantity,
+            CompletedQty = jc.CompletedQty,
+            TotalTimeInMins = jc.TotalTimeInMins,
+            PlannedTimeInMins = jc.PlannedTimeInMins,
+        }).ToList();
+
+        return new PagedResultDto<WorkOrderJobCardDto>(totalCount, result);
     }
 }
 
