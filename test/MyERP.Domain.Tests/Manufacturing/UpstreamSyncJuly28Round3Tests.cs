@@ -121,7 +121,7 @@ public class UpstreamSyncJuly28Round3Tests
         // Only non-corrective, non-cancelled, submitted JCs count
         var jc1Qty = 50m;
         var jc2Qty = 50m;
-        var correctiveQty = 10m; // should NOT be included
+        // correctiveQty = 10m — should NOT be included in aggregate
         var total = jc1Qty + jc2Qty; // corrective excluded
         Assert.Equal(100m, total);
     }

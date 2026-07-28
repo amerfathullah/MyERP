@@ -146,7 +146,7 @@ public class PlByCostCenterAndBankBalanceTests
     {
         var produceQty = 10m;
         // FG item always has qty = produceQty
-        Assert.Equal(produceQty, 10m);
+        Assert.Equal(10m, produceQty);
     }
 
     [Fact]

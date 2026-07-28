@@ -101,7 +101,7 @@ public class AgingSummaryAndTaxRowTests
     {
         // Actual charge type = fixed amount regardless of net total
         decimal actualAmount = 50m;
-        decimal netTotal = 5000m;
+        // netTotal = 5000m — Actual doesn't depend on net total
         // Actual doesn't depend on net total — same amount whether net is 1000 or 50000
         Assert.Equal(50m, actualAmount);
         Assert.Equal(50m, actualAmount); // Same even if net changes

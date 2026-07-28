@@ -160,11 +160,12 @@ public class I18nLocalizationCompleteness2Tests
     [InlineData(3, "Completed")]
     [InlineData(4, "On Hold")]
     [InlineData(5, "Cancelled")]
-    public void JobCard_StatusLabels_ExistInLocalization(int _status, string expectedLabel)
+    public void JobCard_StatusLabels_ExistInLocalization(int status, string expectedLabel)
     {
         var texts = LoadLocalizationTexts();
         var key = expectedLabel.Replace(" ", "");
         // Status labels like "WorkInProgress", "OnHold" must exist
+        Assert.True(status >= 0, $"Status value {status} should be non-negative");
         Assert.True(texts.ContainsKey(key), $"Missing status label key: {key}");
     }
 

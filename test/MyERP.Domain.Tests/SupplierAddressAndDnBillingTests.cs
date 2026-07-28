@@ -85,7 +85,7 @@ public class SupplierAddressAndDnBillingTests
     public void DnItem_Pending_WhenBilledQtyIsZero()
     {
         decimal billedQty = 0;
-        decimal quantity = 10;
+        // quantity = 10 — item has 10 qty total
         bool isPending = billedQty == 0;
         Assert.True(isPending);
     }

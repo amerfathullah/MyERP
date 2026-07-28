@@ -54,7 +54,7 @@ public class PricingRuleAutoApplyAndExchangeRateTests
         // When item has zero rate, discount amount → percentage would be Infinity
         // Guard: skip when currentRate = 0
         decimal rate = 0m;
-        decimal discountAmount = 40m;
+        // discountAmount = 40m — cannot convert to percentage when rate is 0
         var shouldSkip = rate <= 0;
         Assert.True(shouldSkip);
     }
@@ -142,7 +142,7 @@ public class PricingRuleAutoApplyAndExchangeRateTests
     {
         // If user already entered a rate, backend response doesn't overwrite
         decimal existingRate = 50m;
-        decimal resolvedRate = 45.50m;
+        // resolvedRate = 45.50m — would be applied only if existingRate == 0
         // Only patch if current rate is 0/empty
         var shouldPatch = existingRate == 0;
         Assert.False(shouldPatch);

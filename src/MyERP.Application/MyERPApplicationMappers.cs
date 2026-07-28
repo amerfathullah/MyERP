@@ -187,7 +187,9 @@ public partial class PricingRuleMapper : MapperBase<Sales.Entities.PricingRule, 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class IssueMapper : MapperBase<Support.Entities.Issue, Support.IssueDto>
 {
+    [MapperIgnoreTarget(nameof(Support.IssueDto.TotalHoldTimeSeconds))]
     public override partial Support.IssueDto Map(Support.Entities.Issue source);
+    [MapperIgnoreTarget(nameof(Support.IssueDto.TotalHoldTimeSeconds))]
     public override partial void Map(Support.Entities.Issue source, Support.IssueDto destination);
 }
 
@@ -594,8 +596,10 @@ public partial class PaymentEntryMapper : MapperBase<Accounting.Entities.Payment
 public partial class PeriodClosingVoucherMapper : MapperBase<Accounting.Entities.PeriodClosingVoucher, Accounting.PeriodClosingVoucherDto>
 {
     [MapperIgnoreTarget(nameof(Accounting.PeriodClosingVoucherDto.EntryCount))]
+    [MapperIgnoreTarget(nameof(Accounting.PeriodClosingVoucherDto.ClosingAccountName))]
     public override partial Accounting.PeriodClosingVoucherDto Map(Accounting.Entities.PeriodClosingVoucher source);
     [MapperIgnoreTarget(nameof(Accounting.PeriodClosingVoucherDto.EntryCount))]
+    [MapperIgnoreTarget(nameof(Accounting.PeriodClosingVoucherDto.ClosingAccountName))]
     public override partial void Map(Accounting.Entities.PeriodClosingVoucher source, Accounting.PeriodClosingVoucherDto destination);
 
     public override void AfterMap(Accounting.Entities.PeriodClosingVoucher source, Accounting.PeriodClosingVoucherDto destination)
@@ -672,8 +676,10 @@ public partial class SupplierScorecardMapper : MapperBase<Purchasing.Entities.Su
 public partial class DunningMapper : MapperBase<Sales.Entities.Dunning, Sales.DunningDto>
 {
     [MapperIgnoreTarget(nameof(Sales.DunningDto.OverduePaymentCount))]
+    [MapperIgnoreTarget(nameof(Sales.DunningDto.OverduePayments))]
     public override partial Sales.DunningDto Map(Sales.Entities.Dunning source);
     [MapperIgnoreTarget(nameof(Sales.DunningDto.OverduePaymentCount))]
+    [MapperIgnoreTarget(nameof(Sales.DunningDto.OverduePayments))]
     public override partial void Map(Sales.Entities.Dunning source, Sales.DunningDto destination);
 
     public override void AfterMap(Sales.Entities.Dunning source, Sales.DunningDto destination)
