@@ -662,5 +662,105 @@ public class PurchaseOrderAppService : ApplicationService
             }
         }
     }
+
+    /// <summary>
+    /// Records supplier confirmation/acknowledgment of a purchase order.
+    /// Per ERPNext: suppliers confirm receipt, provide their reference number and promised delivery date.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<PurchaseOrderDto> RecordSupplierConfirmationAsync(Guid id, RecordSupplierConfirmationDto input)
+    {
+        var po = await _repository.GetAsync(id);
+        po.RecordSupplierConfirmation(
+            input.ConfirmationNumber,
+            input.ConfirmationDate ?? DateTime.UtcNow,
+            input.PromisedDeliveryDate);
+        await _repository.UpdateAsync(po);
+
+        // Activity log
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            Guid.NewGuid(), "PurchaseOrder", id,
+            "SupplierConfirmed", po.CompanyId,
+            po.OrderNumber, po.Status.ToString(), po.Status.ToString(),
+            CurrentUser.Id ?? Guid.Empty,
+            $"Supplier confirmed: {input.ConfirmationNumber ?? "N/A"}, Promised: {input.PromisedDeliveryDate?.ToString("yyyy-MM-dd") ?? "N/A"}",
+            po.TenantId));
+
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    /// <summary>
+    /// Gets pending Material Request items (Purchase type) that haven't been fully ordered.
+    /// Used by PO form "Get Items from Material Request" button.
+    /// Per ERPNext: MR items with PendingQty = Quantity - OrderedQuantity > 0.
+    /// </summary>
+    public async Task<List<PendingMaterialRequestItemDto>> GetPendingMaterialRequestItemsAsync(
+        Guid? companyId = null, Guid? supplierId = null)
+    {
+        var mrQuery = await _materialRequestRepository.GetQueryableAsync();
+
+        var query = mrQuery.Where(mr =>
+            mr.RequestType == Purchasing.MaterialRequestType.Purchase &&
+            mr.Status != Core.DocumentStatus.Draft &&
+            mr.Status != Core.DocumentStatus.Cancelled);
+
+        if (companyId.HasValue)
+            query = query.Where(mr => mr.CompanyId == companyId.Value);
+
+        var requests = query.ToList();
+
+        // Batch-resolve item names
+        var allItemIds = requests.SelectMany(mr => mr.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemNames = itemQuery
+            .Where(i => allItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList()
+            .ToDictionary(i => i.Id, i => $"{i.ItemCode} - {i.ItemName}");
+
+        var result = new List<PendingMaterialRequestItemDto>();
+        foreach (var mr in requests)
+        {
+            foreach (var item in mr.Items)
+            {
+                var pendingQty = item.Quantity - item.OrderedQuantity;
+                if (pendingQty > 0)
+                {
+                    result.Add(new PendingMaterialRequestItemDto
+                    {
+                        MaterialRequestId = mr.Id,
+                        MaterialRequestNumber = mr.RequestNumber,
+                        RequestDate = mr.RequestDate,
+                        RequiredByDate = mr.RequiredByDate,
+                        MaterialRequestItemId = item.Id,
+                        ItemId = item.ItemId,
+                        ItemName = itemNames.GetValueOrDefault(item.ItemId) ?? item.ItemName,
+                        PendingQty = pendingQty,
+                        Uom = item.Uom,
+                        WarehouseId = item.WarehouseId,
+                    });
+                }
+            }
+        }
+
+        return result.OrderBy(r => r.RequestDate).ThenBy(r => r.ItemName).ToList();
+    }
+}
+
+/// <summary>DTO for pending Material Request items available for PO creation.</summary>
+public class PendingMaterialRequestItemDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public string MaterialRequestNumber { get; set; } = null!;
+    public DateTime RequestDate { get; set; }
+    public DateTime? RequiredByDate { get; set; }
+    public Guid MaterialRequestItemId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = null!;
+    public decimal PendingQty { get; set; }
+    public string Uom { get; set; } = "Unit";
+    public Guid? WarehouseId { get; set; }
 }
 

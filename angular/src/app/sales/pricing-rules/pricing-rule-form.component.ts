@@ -15,7 +15,7 @@ import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">{{ 'Title' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.title" placeholder="e.g., 10% Off Bulk Orders" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.title" [placeholder]="'::Placeholder:PricingRuleTitle' | abpLocalization" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'ApplyOn' | abpLocalization }}</label>

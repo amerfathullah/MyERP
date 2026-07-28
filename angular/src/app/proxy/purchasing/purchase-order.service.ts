@@ -118,4 +118,20 @@ export class PurchaseOrderService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  recordSupplierConfirmation = (id: string, input: any, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: `/api/app/purchase-order/${id}/record-supplier-confirmation`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getPendingMaterialRequestItems = (companyId?: string, supplierId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: '/api/app/purchase-order/pending-material-request-items',
+      params: { companyId, supplierId },
+    },
+    { apiName: this.apiName,...config });
 }

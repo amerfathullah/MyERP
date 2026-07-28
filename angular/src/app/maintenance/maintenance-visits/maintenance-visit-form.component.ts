@@ -33,14 +33,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Customer' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="customerId" placeholder="Customer ID" />
+              <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:CustomerId' | abpLocalization" />
             </div>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::MaintenanceSchedule' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="maintenanceScheduleId" placeholder="Schedule ID (optional)" />
+              <input type="text" class="form-control" formControlName="maintenanceScheduleId" [placeholder]="'::Placeholder:ScheduleId' | abpLocalization" />
             </div>
           </div>
 

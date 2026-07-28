@@ -472,3 +472,15 @@ export interface UpdateEmailTemplateDto {
   body?: string;
   documentType?: string | null;
 }
+
+export interface CashFlowSnapshotDto {
+  expectedInflows30Days?: number;
+  expectedOutflows30Days?: number;
+  netCashFlow30Days?: number;
+  inflowInvoiceCount?: number;
+  outflowInvoiceCount?: number;
+  overdueReceivables?: number;
+  overduePayables?: number;
+  overdueReceivableCount?: number;
+  overduePayableCount?: number;
+}

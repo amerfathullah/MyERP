@@ -73,7 +73,7 @@ export class JobCardDetailComponent implements OnInit {
 
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 
   action(type: string) {
@@ -85,7 +85,7 @@ export class JobCardDetailComponent implements OnInit {
       hold: (i) => this.service.hold(i),
       resume: (i) => this.service.resume(i),
     };
-    (actions[type]?.(id) ?? this.service.get(id)).subscribe(() => this.load());
+    (actions[type]?.(id) ?? this.service.get(id)).subscribe({ next: () => this.load(), error: () => {} });
   }
 
   statusLabel(s: number | undefined) { return ['Open', 'Work In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][s ?? 0]; }

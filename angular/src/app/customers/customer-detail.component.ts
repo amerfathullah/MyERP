@@ -5,11 +5,13 @@ import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../shared/components/activity-log/activity-log.component';
+import { AddressManagerComponent } from '../shared/components/address-manager/address-manager.component';
+import { ContactManagerComponent } from '../shared/components/contact-manager/contact-manager.component';
 
 @Component({
   selector: 'app-customer-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, AddressManagerComponent, ContactManagerComponent],
   template: `
     <app-breadcrumb />
 
@@ -261,6 +263,16 @@ import { ActivityLogComponent } from '../shared/components/activity-log/activity
               <i class="fas fa-scroll me-1"></i> {{ '::ViewStatement' | abpLocalization }}
             </a>
           </div>
+        </div>
+      </div>
+
+      <!-- Addresses & Contacts -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <app-address-manager [partyType]="'Customer'" [partyId]="entityId" />
+        </div>
+        <div class="col-md-6">
+          <app-contact-manager [partyType]="'Customer'" [partyId]="entityId" />
         </div>
       </div>
 

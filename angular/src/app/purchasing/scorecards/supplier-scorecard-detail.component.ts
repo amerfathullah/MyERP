@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
@@ -8,7 +9,7 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
 @Component({
   selector: 'app-supplier-scorecard-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, BreadcrumbComponent],
+  imports: [CommonModule, RouterModule, PageModule, BreadcrumbComponent, LocalizationPipe],
   template: `
     <app-breadcrumb />
     <abp-page [title]="scorecard?.supplierName ?? 'Supplier Scorecard'">
@@ -41,7 +42,7 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
                 <span class="badge bg-danger me-1">Blocks RFQ</span>
               }
               @if (!scorecard.preventPurchaseOrders && !scorecard.preventRfqs) {
-                <span class="badge bg-success">No Restrictions</span>
+                <span class="badge bg-success">{{ '::NoRestrictions' | abpLocalization }}</span>
               }
             </div></div>
           </div>

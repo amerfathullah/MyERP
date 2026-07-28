@@ -84,19 +84,28 @@ public class ItemDetailsResolverService : DomainService
         // STEP 6: Warehouse resolution — 6-level chain per ERPNext
         result.WarehouseId = ResolveWarehouse(context, defaults, item);
 
-        // STEP 7: Price resolution — selling vs buying
+        // STEP 7: Price resolution — priority chain per ERPNext get_price_list_rate_for():
+        // 1. Party-specific Item Price (supplier for buying, customer for selling)
+        // 2. Generic Item Price from the applicable price list
+        // 3. Standard buying/selling price from Item master
+        // 4. Last purchase rate (buying only, from SLE)
+        var priceFromItemPrice = await ResolveItemPriceRateAsync(
+            item.Id, context.TransactionType, context.PartyId, context.PriceListId, context.TransactionDate);
+
         if (context.TransactionType == TransactionType.Selling)
         {
-            result.Rate = item.StandardSellingPrice ?? 0;
+            result.Rate = priceFromItemPrice
+                ?? item.StandardSellingPrice
+                ?? 0;
         }
         else
         {
-            result.Rate = item.StandardBuyingPrice ?? 0;
             // Per ERPNext: last_purchase_rate from actual purchase transactions
             result.LastPurchaseRate = await GetLastPurchaseRateAsync(item.Id, context.CompanyId);
-            // If no standard rate is set but last_purchase_rate exists, use it
-            if (result.Rate == 0 && result.LastPurchaseRate > 0)
-                result.Rate = result.LastPurchaseRate;
+
+            result.Rate = priceFromItemPrice
+                ?? item.StandardBuyingPrice
+                ?? (result.LastPurchaseRate > 0 ? result.LastPurchaseRate : 0);
         }
 
         // STEP 7b: Material Request rate override — per ERPNext: MR forces rate=0
@@ -251,6 +260,67 @@ public class ItemDetailsResolverService : DomainService
         result.CompanyTotalStock = binQuery
             .Where(b => b.ItemId == result.ItemId)
             .Sum(b => (decimal?)b.ActualQty) ?? 0;
+    }
+
+    /// <summary>
+    /// Resolves the best Item Price rate for the given item and context.
+    /// Per ERPNext get_price_list_rate_for() priority:
+    /// 1. Party-specific Item Price (supplier/customer + date-valid + min-qty match)
+    /// 2. Generic Item Price (no party, from applicable price list)
+    /// Returns null when no matching Item Price is found (caller falls back to standard rate).
+    /// </summary>
+    private async Task<decimal?> ResolveItemPriceRateAsync(
+        Guid itemId, TransactionType txType, Guid? partyId, Guid? priceListId, DateTime? transactionDate)
+    {
+        try
+        {
+            var itemPriceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemPrice, Guid>>();
+            var query = await itemPriceRepo.GetQueryableAsync();
+            var asOfDate = transactionDate ?? DateTime.UtcNow.Date;
+
+            // Base filter: item + active + date-valid
+            var candidates = query.Where(p =>
+                p.ItemId == itemId &&
+                (!p.ValidFrom.HasValue || p.ValidFrom.Value <= asOfDate) &&
+                (!p.ValidUpto.HasValue || p.ValidUpto.Value >= asOfDate));
+
+            // Filter by price list if specified
+            if (priceListId.HasValue)
+                candidates = candidates.Where(p => p.PriceListId == priceListId.Value);
+
+            // Priority 1: party-specific price (supplier for buying, customer for selling)
+            if (partyId.HasValue)
+            {
+                var partyPrice = txType == TransactionType.Buying
+                    ? candidates.Where(p => p.SupplierId == partyId.Value)
+                        .OrderByDescending(p => p.ValidFrom)
+                        .ThenByDescending(p => p.MinQty)
+                        .Select(p => (decimal?)p.PriceListRate)
+                        .FirstOrDefault()
+                    : candidates.Where(p => p.CustomerId == partyId.Value)
+                        .OrderByDescending(p => p.ValidFrom)
+                        .ThenByDescending(p => p.MinQty)
+                        .Select(p => (decimal?)p.PriceListRate)
+                        .FirstOrDefault();
+
+                if (partyPrice.HasValue && partyPrice.Value > 0)
+                    return partyPrice.Value;
+            }
+
+            // Priority 2: generic price (no party filter)
+            var genericPrice = candidates
+                .Where(p => p.CustomerId == null && p.SupplierId == null)
+                .OrderByDescending(p => p.ValidFrom)
+                .ThenByDescending(p => p.MinQty)
+                .Select(p => (decimal?)p.PriceListRate)
+                .FirstOrDefault();
+
+            return genericPrice.HasValue && genericPrice.Value > 0 ? genericPrice.Value : null;
+        }
+        catch
+        {
+            return null; // Graceful fallback — ItemPrice resolution failure shouldn't block item selection
+        }
     }
 
     /// <summary>

@@ -485,6 +485,81 @@ public class DashboardAppService : ApplicationService
             },
         };
     }
+
+    /// <summary>
+    /// Returns a 30-day cash flow snapshot for the dashboard.
+    /// Shows expected inflows (from SI due dates) vs outflows (from PI due dates) for the next 30 days,
+    /// enabling quick assessment of upcoming cash position.
+    /// Per ERPNext: Cash Flow Forecast uses invoice DueDate for projection.
+    /// </summary>
+    public async Task<CashFlowSnapshotDto> GetCashFlowSnapshotAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var thirtyDaysAhead = today.AddDays(30);
+
+        // Expected inflows: outstanding SI due within next 30 days
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var upcomingReceivables = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn &&
+                         si.OutstandingAmount > 0 &&
+                         si.DueDate.HasValue &&
+                         si.DueDate.Value >= today &&
+                         si.DueDate.Value <= thirtyDaysAhead)
+            .Select(si => si.OutstandingAmount)
+            .ToList();
+
+        // Expected outflows: outstanding PI due within next 30 days
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+        var upcomingPayables = piQuery
+            .Where(pi => pi.CompanyId == companyId &&
+                         pi.Status == DocumentStatus.Posted &&
+                         !pi.IsReturn &&
+                         pi.OutstandingAmount > 0 &&
+                         pi.DueDate.HasValue &&
+                         pi.DueDate.Value >= today &&
+                         pi.DueDate.Value <= thirtyDaysAhead)
+            .Select(pi => pi.OutstandingAmount)
+            .ToList();
+
+        // Overdue amounts (already past due date but still outstanding)
+        var overdueReceivables = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn &&
+                         si.OutstandingAmount > 0 &&
+                         si.DueDate.HasValue &&
+                         si.DueDate.Value < today)
+            .Select(si => si.OutstandingAmount)
+            .ToList();
+
+        var overduePayables = piQuery
+            .Where(pi => pi.CompanyId == companyId &&
+                         pi.Status == DocumentStatus.Posted &&
+                         !pi.IsReturn &&
+                         pi.OutstandingAmount > 0 &&
+                         pi.DueDate.HasValue &&
+                         pi.DueDate.Value < today)
+            .Select(pi => pi.OutstandingAmount)
+            .ToList();
+
+        var totalInflows = upcomingReceivables.Sum();
+        var totalOutflows = upcomingPayables.Sum();
+
+        return new CashFlowSnapshotDto
+        {
+            ExpectedInflows30Days = totalInflows,
+            ExpectedOutflows30Days = totalOutflows,
+            NetCashFlow30Days = totalInflows - totalOutflows,
+            InflowInvoiceCount = upcomingReceivables.Count,
+            OutflowInvoiceCount = upcomingPayables.Count,
+            OverdueReceivables = overdueReceivables.Sum(),
+            OverduePayables = overduePayables.Sum(),
+            OverdueReceivableCount = overdueReceivables.Count,
+            OverduePayableCount = overduePayables.Count,
+        };
+    }
 }
 
 public class AgingSummaryWidgetDto
@@ -586,4 +661,22 @@ public class BankAccountBalanceDto
     public string AccountCode { get; set; } = null!;
     public decimal Balance { get; set; }
     public string AccountType { get; set; } = null!;
+}
+
+public class CashFlowSnapshotDto
+{
+    /// <summary>Expected collections from customers in next 30 days (from SI due dates).</summary>
+    public decimal ExpectedInflows30Days { get; set; }
+    /// <summary>Expected payments to suppliers in next 30 days (from PI due dates).</summary>
+    public decimal ExpectedOutflows30Days { get; set; }
+    /// <summary>Net position = Inflows - Outflows (positive = surplus, negative = shortfall).</summary>
+    public decimal NetCashFlow30Days { get; set; }
+    public int InflowInvoiceCount { get; set; }
+    public int OutflowInvoiceCount { get; set; }
+    /// <summary>Past-due receivables (overdue SI outstanding).</summary>
+    public decimal OverdueReceivables { get; set; }
+    /// <summary>Past-due payables (overdue PI outstanding).</summary>
+    public decimal OverduePayables { get; set; }
+    public int OverdueReceivableCount { get; set; }
+    public int OverduePayableCount { get; set; }
 }

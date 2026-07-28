@@ -2,7 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
 import type { LeaveApplicationDto } from '../../proxy/human-resources/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -99,16 +100,26 @@ export class LeaveListComponent implements OnInit {
     });
   }
 
+  private localization = inject(LocalizationService);
+  private toaster = inject(ToasterService);
+
   getStatus(s: number | undefined): string {
-    return ['Open', 'Approved', 'Rejected', 'Cancelled'][s ?? 0] ?? 'Open';
+    const keys = ['Open', 'Approved', 'Rejected', 'Cancelled'];
+    return this.localization.instant('::' + (keys[s ?? 0] ?? 'Open'));
   }
 
   approve(id: string) {
-    this.service.approve(id).subscribe(() => this.load());
+    this.service.approve(id).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyApproved'); this.load(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+    });
   }
 
   reject(id: string) {
-    this.service.reject(id).subscribe(() => this.load());
+    this.service.reject(id).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyRejected'); this.load(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+    });
   }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }

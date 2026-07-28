@@ -586,6 +586,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var fgCostAllocationPct = bom.FgCostAllocationPercentage;
         var fgAllocatedCost = totalRmCost * (fgCostAllocationPct / 100m);
 
+        // Per PR #57334: when consumed RM cost is known to be zero (free inputs),
+        // the FG rate should also be zero — don't fall back to BOM cost/valuation rate.
+        // has_consumption_basis = true when any RM was consumed (even at zero rate)
+        var hasConsumptionBasis = consumptionItems.Any();
+
         if (productionParams.TargetWarehouseId.HasValue && quantity > 0)
         {
             var fgRate = fgAllocatedCost / quantity;
@@ -1044,7 +1049,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         // Add FG production item (incoming to FG warehouse)
         // FG rate = total RM cost / fg_qty (absorbed costing)
+        // Per PR #57334: when consumed cost is known (RM rows present) but zero (free inputs),
+        // preserve zero rate — do NOT fall back to BOM cost or existing valuation rate.
+        // has_consumption_basis = true when any RM row has a source warehouse
+        var hasConsumptionBasis = entry.Items.Any(i => i.SourceWarehouseId.HasValue);
         var fgRate = input.FgQuantity > 0 ? totalRmCost / input.FgQuantity : 0m;
+        // If rate is zero but consumption basis exists, it's a REAL zero cost — don't override
         entry.AddItem(
             itemId: wo.ItemId,
             quantity: input.FgQuantity,

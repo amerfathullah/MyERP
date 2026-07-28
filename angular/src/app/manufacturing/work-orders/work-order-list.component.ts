@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { WorkOrderStore } from '../store/work-order.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -50,8 +50,11 @@ export class WorkOrderListComponent implements OnInit {
     this.loadData();
   }
 
+  private localization = inject(LocalizationService);
+
   getStatusLabel(status: number): string {
-    return ['Draft', 'Submitted', 'Not Started', 'In Process', 'Completed', 'Stopped', 'Cancelled'][status] ?? 'Draft';
+    const keys = ['Draft', 'Submitted', 'NotStarted', 'InProcess', 'Completed', 'Stopped', 'Cancelled'];
+    return this.localization.instant('::' + (keys[status] ?? 'Draft'));
   }
 
   onPageChange(event: any): void {

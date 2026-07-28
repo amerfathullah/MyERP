@@ -5,11 +5,13 @@ import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../shared/components/activity-log/activity-log.component';
+import { AddressManagerComponent } from '../shared/components/address-manager/address-manager.component';
+import { ContactManagerComponent } from '../shared/components/contact-manager/contact-manager.component';
 
 @Component({
   selector: 'app-supplier-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, AddressManagerComponent, ContactManagerComponent],
   template: `
     <app-breadcrumb />
 
@@ -144,7 +146,7 @@ import { ActivityLogComponent } from '../shared/components/activity-log/activity
                 <div class="fs-5 fw-bold">{{ supplier.scorecardStanding }}</div>
                 <div class="text-muted small">{{ '::Standing' | abpLocalization }}</div>
               </div>
-              @if (supplier.scorecardScore != null) {
+              @if (supplier.scorecardScore !== null) {
                 <div class="col-sm-4">
                   <div class="fs-5 fw-bold">{{ supplier.scorecardScore | number:'1.1-1' }}%</div>
                   <div class="text-muted small">{{ '::Score' | abpLocalization }}</div>
@@ -247,6 +249,16 @@ import { ActivityLogComponent } from '../shared/components/activity-log/activity
       </div>
 
       <!-- Activity Log -->
+      <!-- Addresses & Contacts -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <app-address-manager [partyType]="'Supplier'" [partyId]="entityId" />
+        </div>
+        <div class="col-md-6">
+          <app-contact-manager [partyType]="'Supplier'" [partyId]="entityId" />
+        </div>
+      </div>
+
       <app-activity-log [documentType]="'Supplier'" [documentId]="entityId" />
     }
   `,

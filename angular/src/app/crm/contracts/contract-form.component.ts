@@ -32,7 +32,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Party' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="partyId" placeholder="Party ID" />
+              <input type="text" class="form-control" formControlName="partyId" [placeholder]="'::Placeholder:PartyId' | abpLocalization" />
             </div>
           </div>
 

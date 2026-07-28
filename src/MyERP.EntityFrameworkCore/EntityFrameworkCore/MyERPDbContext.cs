@@ -227,6 +227,8 @@ public class MyERPDbContext :
     public DbSet<ItemTaxTemplate> ItemTaxTemplates { get; set; }
     public DbSet<ItemTaxTemplateDetail> ItemTaxTemplateDetails { get; set; }
     public DbSet<TaxWithholdingEntry> TaxWithholdingEntries { get; set; }
+    public DbSet<TaxChargesTemplate> TaxChargesTemplates { get; set; }
+    public DbSet<TaxChargesTemplateRow> TaxChargesTemplateRows { get; set; }
 
     // E-Invoice
     public DbSet<EInvoiceSubmission> EInvoiceSubmissions { get; set; }
@@ -756,6 +758,26 @@ public class MyERPDbContext :
             b.Property(x => x.BaseTaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.BaseTotal).HasColumnType("decimal(18,4)");
             b.HasIndex(x => new { x.ParentType, x.ParentId });
+        });
+
+        builder.Entity<TaxChargesTemplate>(b =>
+        {
+            b.ToTable("Tax_ChargesTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasMany(x => x.Rows).WithOne().HasForeignKey(x => x.TaxChargesTemplateId);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.TemplateType, x.IsDefault });
+        });
+
+        builder.Entity<TaxChargesTemplateRow>(b =>
+        {
+            b.ToTable("Tax_ChargesTemplateRows", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ChargeType).IsRequired().HasMaxLength(30);
+            b.Property(x => x.TaxCategory).IsRequired().HasMaxLength(30);
+            b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Description).HasMaxLength(200);
+            b.Property(x => x.AccountName).HasMaxLength(200);
         });
 
         // Accounting Rules & Journal Entries

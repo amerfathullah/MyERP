@@ -115,4 +115,21 @@ export class PurchaseInvoiceListComponent implements OnInit {
     }));
     exportToCsv('purchase-invoices.csv', data, ['Invoice #', 'Date', 'Total', 'Status']);
   }
+
+  // ── Outstanding & Overdue Helpers ──
+
+  getOutstanding(inv: any): number {
+    const outstanding = (inv.grandTotal ?? 0) - (inv.amountPaid ?? 0) - (inv.writeOffAmount ?? 0) - (inv.totalAdvance ?? 0);
+    return Math.max(0, outstanding);
+  }
+
+  isInvoiceOverdue(inv: any): boolean {
+    if (inv.status !== 'Posted' || inv.isReturn) return false;
+    if (!inv.dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(inv.dueDate);
+    due.setHours(0, 0, 0, 0);
+    return due < today && this.getOutstanding(inv) > 0.01;
+  }
 }

@@ -2,9 +2,9 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FinancialReportTemplateService } from '../../proxy/accounting/financial-report-template.service';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface FinancialReportTemplateDto {
@@ -21,7 +21,7 @@ interface FinancialReportTemplateDto {
 @Component({
   standalone: true,
   selector: 'app-financial-report-template-list',
-  imports: [CommonModule, FormsModule, LocalizationPipe, PaginationComponent],
+  imports: [CommonModule, FormsModule, LocalizationPipe, PaginationComponent, RouterLink],
   template: `
     <div class="container-fluid py-3">
       <div class="card">
@@ -126,6 +126,7 @@ interface FinancialReportTemplateDto {
 export class FinancialReportTemplateListComponent implements OnInit {
   private templateService = inject(FinancialReportTemplateService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   private router = inject(Router);
 
   templates = signal<FinancialReportTemplateDto[]>([]);
@@ -177,10 +178,12 @@ export class FinancialReportTemplateListComponent implements OnInit {
   }
 
   remove(t: FinancialReportTemplateDto) {
-    if (!confirm(`Delete template "${t.name}"?`)) return;
-    this.templateService.delete(t.id).subscribe({
-      next: () => { this.toaster.success('Deleted'); this.load(); },
-      error: () => {}
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.templateService.delete(t.id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.load(); },
+        error: () => {}
+      });
     });
   }
 

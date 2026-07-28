@@ -64,11 +64,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">Client ID</label>
-              <input type="text" class="form-control" [(ngModel)]="credentials.clientId" placeholder="LHDN Client ID">
+              <input type="text" class="form-control" [(ngModel)]="credentials.clientId" [placeholder]="'::Placeholder:LhdnClientId' | abpLocalization">
             </div>
             <div class="col-md-4">
               <label class="form-label">Client Secret</label>
-              <input type="password" class="form-control" [(ngModel)]="credentials.clientSecret" placeholder="Leave blank to keep existing">
+              <input type="password" class="form-control" [(ngModel)]="credentials.clientSecret" [placeholder]="'::Placeholder:LeaveBlankToKeepExisting' | abpLocalization">
             </div>
           </div>
           <div class="mt-3 d-flex gap-2">
@@ -99,7 +99,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">Certificate Password</label>
-              <input type="password" class="form-control" [(ngModel)]="certPassword" placeholder="PFX password">
+              <input type="password" class="form-control" [(ngModel)]="certPassword" [placeholder]="'::Placeholder:PfxPassword' | abpLocalization">
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-primary w-100" (click)="uploadCertificate()" [disabled]="!certBase64 || isUploading()">
@@ -127,7 +127,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-5">
               <label class="form-label">ID Value</label>
-              <input type="text" class="form-control" [(ngModel)]="searchIdValue" placeholder="e.g. 202001234567">
+              <input type="text" class="form-control" [(ngModel)]="searchIdValue" [placeholder]="'::Placeholder:TinExample' | abpLocalization">
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" (click)="searchTaxpayer()" [disabled]="!searchIdValue || isSearching()">

@@ -13,7 +13,7 @@
             <input id="name" type="text" class="form-control" formControlName="name"
               [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
             @if (form.get('name')?.errors?.['required'] && form.get('name')?.touched) {
-              <div class="invalid-feedback">Required</div>
+              <div class="invalid-feedback">{{ 'AbpValidation::ThisFieldIsRequired.' | abpLocalization }}</div>
             }
           </div>
 
@@ -34,7 +34,7 @@
               }
             </select>
             @if (form.get('companyId')?.errors?.['required'] && form.get('companyId')?.touched) {
-              <div class="invalid-feedback">Required</div>
+              <div class="invalid-feedback">{{ 'AbpValidation::ThisFieldIsRequired.' | abpLocalization }}</div>
             }
           </div>
 

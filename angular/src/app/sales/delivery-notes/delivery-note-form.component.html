@@ -17,7 +17,7 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-            <select class="form-select" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched">
+            <select class="form-select" formControlName="customerId" (change)="onCustomerChanged()" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched">
               <option value="">Select customer...</option>
               @for (c of customers(); track c.id) {
                 <option [value]="c.id">{{ c.customerName ?? c.name }}</option>
@@ -30,7 +30,20 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SalesOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="salesOrderId" [class.is-invalid]="form.get('salesOrderId')?.invalid && form.get('salesOrderId')?.touched" [placeholder]="'::Placeholder:Optional' | abpLocalization" />
+            <div class="input-group">
+              <select class="form-select" formControlName="salesOrderId" (change)="onSalesOrderChanged()">
+                <option value="">{{ '::Placeholder:SelectSalesOrder' | abpLocalization }}</option>
+                @for (so of availableSOs(); track so.id) {
+                  <option [value]="so.id">{{ so.orderNumber }} — {{ so.orderDate | date:'dd/MM/yyyy' }} ({{ so.grandTotal | number:'1.2-2' }})</option>
+                }
+              </select>
+              @if (isLoadingSOItems()) {
+                <span class="input-group-text"><span class="spinner-border spinner-border-sm"></span></span>
+              }
+            </div>
+            @if (!form.get('customerId')?.value) {
+              <small class="text-muted">{{ '::SelectCustomerToLoadOrders' | abpLocalization }}</small>
+            }
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
@@ -45,7 +58,22 @@
 
         <!-- Line Items -->
         <div class="mt-3">
-          <h6 class="fw-medium mb-2">{{ '::Items' | abpLocalization }}</h6>
+          <div class="d-flex align-items-center mb-2">
+            <h6 class="fw-medium mb-0">{{ '::Items' | abpLocalization }}</h6>
+            <div class="btn-group ms-auto">
+              @if (availablePickLists().length > 0) {
+                <select class="form-select form-select-sm" style="width: auto;" (change)="getItemsFromPickList($any($event.target).value)">
+                  <option value="">{{ '::GetItemsFromPickList' | abpLocalization }}</option>
+                  @for (pl of availablePickLists(); track pl.id) {
+                    <option [value]="pl.id">{{ pl.pickListNumber || pl.id?.substring(0,8) }}</option>
+                  }
+                </select>
+              }
+              @if (isLoadingPickListItems()) {
+                <span class="spinner-border spinner-border-sm ms-2"></span>
+              }
+            </div>
+          </div>
           @for (item of items.controls; track $index; let i = $index) {
             <div [formGroup]="$any(item)" class="row mb-2 align-items-center">
               <div class="col-3">
@@ -63,7 +91,7 @@
                 <input type="number" class="form-control form-control-sm" formControlName="quantity" [placeholder]="'::Placeholder:Qty' | abpLocalization" />
               </div>
               <div class="col-2">
-                <input type="number" class="form-control form-control-sm" formControlName="unitPrice" placeholder="Rate" />
+                <input type="number" class="form-control form-control-sm" formControlName="unitPrice" [placeholder]="'::Rate' | abpLocalization" />
               </div>
               <div class="col-1">
                 <input type="text" class="form-control form-control-sm" formControlName="uom" [placeholder]="'::Placeholder:Uom' | abpLocalization" />

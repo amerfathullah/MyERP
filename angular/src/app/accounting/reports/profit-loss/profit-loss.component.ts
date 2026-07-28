@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ReportingService } from '../../../proxy/accounting/reporting.service';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -13,7 +14,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   selector: 'app-profit-loss',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule],
+    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './profit-loss.component.html',
   styleUrls: ['./profit-loss.component.scss'],
 })

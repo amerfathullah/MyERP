@@ -50,7 +50,7 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
           <div class="row g-3 mt-1">
             <div class="col-md-4">
               <label class="form-label">Description Contains</label>
-              <input type="text" class="form-control form-control-sm" [(ngModel)]="newRule.descriptionContains" placeholder="Match text in description" />
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="newRule.descriptionContains" [placeholder]="'::Placeholder:MatchTextInDescription' | abpLocalization" />
             </div>
             <div class="col-md-3">
               <label class="form-label">Classify As</label>

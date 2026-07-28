@@ -149,9 +149,10 @@ export class TimesheetDetailComponent implements OnInit {
   }
 
   private reload(): void {
-    setTimeout(() => {
-      const id = this.route.snapshot.paramMap.get('id')!;
-      this.timesheetService.get(id).subscribe(data => this.ts.set(data));
-    }, 500);
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.timesheetService.get(id).subscribe({
+      next: (data) => this.ts.set(data),
+      error: () => {}
+    });
   }
 }

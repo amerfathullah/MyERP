@@ -40,6 +40,6 @@ export class HolidayListDetailComponent implements OnInit {
   data: HolidayListDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.data = r);
+    this.service.get(id).subscribe({ next: (r) => this.data = r, error: () => {} });
   }
 }

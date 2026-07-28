@@ -19,7 +19,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Type' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationType" placeholder="e.g., CNC, Lathe" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationType" [placeholder]="'::Placeholder:WorkstationType' | abpLocalization" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Capacity' | abpLocalization }}</label>
@@ -33,7 +33,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
           <tbody>
             @for (c of form.costs; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="c.component" placeholder="e.g., Labor, Electricity" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="c.component" [placeholder]="'::Placeholder:CostComponent' | abpLocalization" /></td>
                 <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="c.operatingCost" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.costs.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -74,6 +74,7 @@ export class InstallationNoteDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(InstallationNoteService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   note: any = null;
   isLoading = false;
@@ -100,11 +101,12 @@ export class InstallationNoteDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (confirm('Cancel this installation note?')) {
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
       this.service.cancel(this.note.id).subscribe({
-        next: () => { this.toaster.success('Cancelled'); this.load(this.note.id); },
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.load(this.note.id); },
         error: () => {}
       });
-    }
+    });
   }
 }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { AccountCategoryService } from '../../proxy/accounting/account-category.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 interface AccountCategoryDto {
   id?: string;
@@ -105,6 +105,7 @@ interface AccountCategoryDto {
 export class AccountCategoryListComponent implements OnInit {
   private accountCategoryService = inject(AccountCategoryService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   categories = signal<AccountCategoryDto[]>([]);
   showCreate = false;
@@ -131,10 +132,12 @@ export class AccountCategoryListComponent implements OnInit {
   }
 
   remove(cat: AccountCategoryDto) {
-    if (!confirm(`Delete category "${cat.name}"?`)) return;
-    this.accountCategoryService.delete(cat.id).subscribe({
-      next: () => { this.toaster.success('Deleted'); this.loadData(); },
-      error: () => {}
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.accountCategoryService.delete(cat.id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+      });
     });
   }
 }

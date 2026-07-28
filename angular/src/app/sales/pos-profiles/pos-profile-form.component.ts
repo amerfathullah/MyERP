@@ -24,11 +24,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
           <div class="row mb-3">
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::ProfileName' | abpLocalization }} *</label>
-              <input type="text" class="form-control" formControlName="profileName" placeholder="e.g., Counter 1" />
+              <input type="text" class="form-control" formControlName="profileName" [placeholder]="'::Placeholder:ProfileName' | abpLocalization" />
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Warehouse' | abpLocalization }} *</label>
-              <input type="text" class="form-control" formControlName="warehouseId" placeholder="Warehouse ID" />
+              <input type="text" class="form-control" formControlName="warehouseId" [placeholder]="'::Placeholder:WarehouseId' | abpLocalization" />
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Currency' | abpLocalization }}</label>
@@ -74,8 +74,8 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <tbody formArrayName="paymentMethods">
               @for (pm of paymentMethods.controls; track $index) {
                 <tr [formGroupName]="$index">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="modeOfPaymentId" placeholder="Mode ID" /></td>
-                  <td><input type="text" class="form-control form-control-sm" formControlName="accountId" placeholder="Account ID" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="modeOfPaymentId" [placeholder]="'::Placeholder:ModeOfPaymentId' | abpLocalization" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="accountId" [placeholder]="'::Placeholder:AccountId' | abpLocalization" /></td>
                   <td class="text-center">
                     <input type="checkbox" class="form-check-input" formControlName="isDefault" />
                   </td>

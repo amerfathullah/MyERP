@@ -296,6 +296,12 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   status?: string;
   perReceived?: number;
   perBilled?: number;
+  notes?: string | null;
+  // Supplier Confirmation Tracking
+  supplierConfirmationNumber?: string | null;
+  supplierConfirmationDate?: string | null;
+  supplierPromisedDate?: string | null;
+  isSupplierConfirmed?: boolean;
   items?: PurchaseOrderItemDto[];
 }
 

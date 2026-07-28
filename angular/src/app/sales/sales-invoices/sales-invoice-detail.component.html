@@ -22,10 +22,73 @@
         <i class="fa fa-copy me-1"></i>{{ 'Duplicate' | abpLocalization }}</button>
       <button class="btn btn-outline-info btn-sm" (click)="printInvoice()">
         <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}</button>
+      <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()">
+        <i class="fa fa-file-pdf me-1"></i>{{ 'Download' | abpLocalization }}</button>
       <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
-        <i class="fa fa-arrow-left me-1"></i>Back
+        <i class="fa fa-arrow-left me-1"></i>{{ '::Back' | abpLocalization }}
       </button>
     </div>
+
+    <!-- Quick Payment Dialog (inline — saves navigating away) -->
+    @if (showQuickPayment()) {
+      <div class="card mb-4 border-success">
+        <div class="card-header bg-success-subtle d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0"><i class="fa fa-money-bill-wave me-2"></i>{{ '::ReceivePayment' | abpLocalization }}</h6>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-link btn-sm text-muted" (click)="goToFullPaymentForm()">
+              <i class="fa fa-expand me-1"></i>{{ '::FullForm' | abpLocalization }}
+            </button>
+            <button type="button" class="btn-close" (click)="cancelQuickPayment()"></button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-3">
+              <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
+              <div class="input-group">
+                <span class="input-group-text">{{ invoice.currencyCode || 'MYR' }}</span>
+                <input type="number" class="form-control" step="0.01" min="0.01"
+                       [ngModel]="quickPaymentAmount()" (ngModelChange)="quickPaymentAmount.set($event)" />
+              </div>
+              @if (getOutstandingAmount() > 0) {
+                <small class="form-text text-muted">{{ '::Outstanding' | abpLocalization }}: {{ getOutstandingAmount() | number:'1.2-2' }}</small>
+              }
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">{{ '::PaymentDate' | abpLocalization }}</label>
+              <input type="date" class="form-control"
+                     [ngModel]="quickPaymentDate()" (ngModelChange)="quickPaymentDate.set($event)" />
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">{{ '::ModeOfPayment' | abpLocalization }}</label>
+              <select class="form-select" [ngModel]="quickPaymentMode()" (ngModelChange)="quickPaymentMode.set($event)">
+                <option value="">— {{ '::Select' | abpLocalization }} —</option>
+                @for (mop of modesOfPayment(); track mop.id) {
+                  <option [value]="mop.id">{{ mop.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">{{ '::ReferenceNumber' | abpLocalization }}</label>
+              <input type="text" class="form-control"
+                     [placeholder]="'::Placeholder:ChequeOrTransferRef' | abpLocalization"
+                     [ngModel]="quickPaymentReference()" (ngModelChange)="quickPaymentReference.set($event)" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary" (click)="cancelQuickPayment()">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+            <button type="button" class="btn btn-success" (click)="submitQuickPayment()" [disabled]="isProcessingPayment() || quickPaymentAmount() <= 0">
+              @if (isProcessingPayment()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              }
+              <i class="fa fa-check me-1"></i>{{ '::ReceivePayment' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (invoice.amendedFromId) {
       <div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
@@ -36,7 +99,7 @@
     @if (invoice.isReturn && invoice.returnAgainstId) {
       <div class="alert alert-warning py-2 d-flex align-items-center gap-2 mb-3">
         <i class="fa fa-rotate-left"></i>
-        <span>Credit Note (Return)</span>
+        <span>{{ '::CreditNoteReturn' | abpLocalization }}</span>
       </div>
     }
 
@@ -55,15 +118,15 @@
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
-            <small class="text-muted d-block">Invoice Number</small>
+            <small class="text-muted d-block">{{ '::InvoiceNumber' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.invoiceNumber }}</span>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <small class="text-muted d-block">Issue Date</small>
+            <small class="text-muted d-block">{{ '::IssueDate' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.issueDate | date:'dd MMM yyyy' }}</span>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <small class="text-muted d-block">Customer</small>
+            <small class="text-muted d-block">{{ '::Customer' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.customerName }}</span>
           </div>
         </div>
@@ -74,7 +137,7 @@
     <div class="card mb-3">
       <div class="card-header">
         <h5 class="card-title mb-0">
-          <i class="fa fa-list me-2"></i>Items
+          <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
         </h5>
       </div>
       <div class="card-body">
@@ -110,18 +173,40 @@
       <div class="card card-narrow">
         <div class="card-body">
           <div class="d-flex justify-content-between mb-2">
-            <span class="text-muted">Net Total</span>
+            <span class="text-muted">{{ '::NetTotal' | abpLocalization }}</span>
             <span class="font-monospace">{{ invoice.netTotal | number:'1.2-2' }}</span>
           </div>
           <div class="d-flex justify-content-between mb-2">
-            <span class="text-muted">Tax</span>
+            <span class="text-muted">{{ '::Tax' | abpLocalization }}</span>
             <span class="font-monospace">{{ invoice.taxAmount | number:'1.2-2' }}</span>
           </div>
+          @if (invoice.discountAmount && invoice.discountAmount > 0) {
+            <div class="d-flex justify-content-between mb-2 text-danger">
+              <span>{{ '::Discount' | abpLocalization }}</span>
+              <span class="font-monospace">-{{ invoice.discountAmount | number:'1.2-2' }}</span>
+            </div>
+          }
           <hr class="my-2" />
           <div class="d-flex justify-content-between">
-            <span class="fw-semibold">Grand Total (MYR)</span>
+            <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</span>
             <span class="font-monospace fw-bold fs-5">{{ invoice.grandTotal | number:'1.2-2' }}</span>
           </div>
+          @if (invoice.status === 'Posted') {
+            <hr class="my-2" />
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-success">{{ '::Paid' | abpLocalization }}</span>
+              <span class="font-monospace text-success">{{ invoice.amountPaid | number:'1.2-2' }}</span>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span [class.text-danger]="getOutstandingAmount() > 0" [class.fw-semibold]="getOutstandingAmount() > 0">{{ '::Outstanding' | abpLocalization }}</span>
+              <span class="font-monospace" [class.text-danger]="getOutstandingAmount() > 0" [class.fw-semibold]="getOutstandingAmount() > 0">{{ getOutstandingAmount() | number:'1.2-2' }}</span>
+            </div>
+            @if (invoice.grandTotal > 0) {
+              <div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar" [class.bg-success]="getPaymentPercent() >= 100" [class.bg-primary]="getPaymentPercent() < 100 && getPaymentPercent() > 0" [style.width.%]="getPaymentPercent()"></div>
+              </div>
+            }
+          }
         </div>
       </div>
     </div>
@@ -143,12 +228,13 @@
                 <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
                 <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
                 <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
+                <th class="text-center">{{ '::EarlyDiscount' | abpLocalization }}</th>
                 <th class="text-center">{{ 'Status' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @for (entry of paymentSchedule(); track entry.id) {
-                <tr [class.table-danger]="isTermOverdue(entry)">
+                <tr [class.table-danger]="isTermOverdue(entry)" [class.table-success]="hasActiveDiscount(entry)">
                   <td>
                     {{ entry.dueDate | date:'dd/MM/yyyy' }}
                     @if (isTermOverdue(entry)) {
@@ -162,6 +248,30 @@
                     {{ entry.outstanding | number:'1.2-2' }}
                   </td>
                   <td class="text-center">
+                    @if (hasActiveDiscount(entry)) {
+                      <div class="d-flex flex-column align-items-center">
+                        <span class="badge bg-success mb-1">
+                          <i class="fa fa-tag me-1"></i>
+                          @if (entry.discountType === 'Percentage') {
+                            {{ entry.discountPercentage }}% {{ '::Off' | abpLocalization }}
+                          } @else {
+                            {{ entry.discountPercentage | number:'1.2-2' }} {{ '::Off' | abpLocalization }}
+                          }
+                        </span>
+                        <small class="text-muted">
+                          {{ '::PayBy' | abpLocalization }} {{ entry.discountValidTill | date:'dd/MM' }}
+                        </small>
+                        <small class="text-success fw-bold">
+                          {{ '::Save' | abpLocalization }} {{ getDiscountSaving(entry) | number:'1.2-2' }}
+                        </small>
+                      </div>
+                    } @else if (entry.discountType && entry.discountValidTill && isDiscountExpired(entry)) {
+                      <span class="badge bg-secondary"><i class="fa fa-clock me-1"></i>{{ '::Expired' | abpLocalization }}</span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td class="text-center">
                     @if (entry.outstanding <= 0.01) {
                       <span class="badge bg-success">{{ 'Paid' | abpLocalization }}</span>
                     } @else {
@@ -172,11 +282,26 @@
               }
             </tbody>
           </table>
+          @if (getTotalDiscountSavings() > 0) {
+            <div class="alert alert-success d-flex align-items-center mt-2 mb-0" role="alert">
+              <i class="fa fa-piggy-bank me-2"></i>
+              <div>
+                <strong>{{ '::EarlyPaymentSavings' | abpLocalization }}:</strong>
+                {{ '::PayBeforeDiscountExpiry' | abpLocalization }}
+                <span class="fw-bold">{{ getTotalDiscountSavings() | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          }
         </div>
       </div>
     }
 
     <app-activity-log [documentType]="'SalesInvoice'" [documentId]="invoice.id!"></app-activity-log>
+
+    <!-- Document connections (payments, linked orders, delivery notes, returns) -->
+    @if (invoice.status !== 'Draft') {
+      <app-document-connections [documentType]="'SalesInvoice'" [documentId]="invoice.id!" />
+    }
 
     <!-- GL + Stock Ledger entries posted by this invoice (per ERPNext "View" buttons) -->
     @if (invoice.status === 'Posted' || invoice.status === 'Cancelled') {
@@ -194,5 +319,42 @@
       [paymentSchedule]="paymentSchedule()"
       [taxLabel]="'SST'"
     ></app-invoice-print-layout>
+
+    <!-- Send Email Dialog -->
+    @if (showEmailDialog) {
+      <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ 'Send Invoice Email' }}</h5>
+              <button type="button" class="btn-close" (click)="cancelEmailDialog()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">{{ 'Recipient Email' }}</label>
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" placeholder="customer@example.com" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">{{ 'CC (comma-separated)' }}</label>
+                <input type="text" class="form-control" [(ngModel)]="emailCc" placeholder="cc1@example.com, cc2@example.com" />
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="attachPdf" [(ngModel)]="emailAttachPdf" />
+                <label class="form-check-label" for="attachPdf">Attach Invoice PDF</label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" (click)="cancelEmailDialog()">{{ 'Cancel' }}</button>
+              <button type="button" class="btn btn-primary" (click)="sendEmail()" [disabled]="emailSending || !emailRecipient">
+                @if (emailSending) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fa fa-paper-plane me-1"></i>{{ 'Send' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   }
 </abp-page>

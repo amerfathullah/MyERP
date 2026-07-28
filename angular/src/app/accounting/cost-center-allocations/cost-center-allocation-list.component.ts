@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import { CostCenterAllocationService } from '../../proxy/accounting/cost-center-allocation.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface AllocationEntry {
@@ -164,6 +164,7 @@ export class CostCenterAllocationListComponent implements OnInit {
   private costCenterService = inject(CostCenterService);
   private costCenterAllocationService = inject(CostCenterAllocationService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
 
   allocations = signal<Allocation[]>([]);
@@ -234,12 +235,13 @@ export class CostCenterAllocationListComponent implements OnInit {
   }
 
   deleteAllocation(id: string) {
-    if (confirm('Delete this allocation?')) {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
       this.costCenterAllocationService.delete(id).subscribe({
         next: () => this.loadAllocations(),
         error: () => {}
       });
-    }
+    });
   }
 
   getCostCenterName(id: string): string {

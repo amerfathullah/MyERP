@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
@@ -213,6 +214,151 @@ public class ItemAppService :
         var variant = await variantService.CreateVariantAsync(templateItemId, attributes);
 
         return ObjectMapper.Map<Item, ItemDto>(variant);
+    }
+
+    /// <summary>
+    /// Get price history for an item — shows how buying/selling rates changed over time.
+    /// Per ERPNext: Item Price records with valid_from dates create a pricing timeline.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<List<ItemPriceHistoryDto>> GetPriceHistoryAsync(Guid itemId)
+    {
+        var priceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemPrice, Guid>>();
+        var priceQuery = await priceRepo.GetQueryableAsync();
+        var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+        var plQuery = await priceListRepo.GetQueryableAsync();
+
+        var prices = priceQuery
+            .Where(p => p.ItemId == itemId)
+            .OrderByDescending(p => p.ValidFrom ?? p.CreationTime)
+            .Take(50)
+            .ToList();
+
+        // Resolve price list names and selling/buying flags
+        var plIds = prices.Select(p => p.PriceListId).Distinct().ToArray();
+        var priceLists = plQuery
+            .Where(pl => plIds.Contains(pl.Id))
+            .ToDictionary(pl => pl.Id, pl => new { pl.Name, pl.IsSelling, pl.IsBuying });
+
+        return prices.Select(p =>
+        {
+            var pl = priceLists.GetValueOrDefault(p.PriceListId);
+            return new ItemPriceHistoryDto
+            {
+                Id = p.Id,
+                PriceListName = pl?.Name,
+                Rate = p.PriceListRate,
+                Currency = p.CurrencyCode,
+                ValidFrom = p.ValidFrom,
+                ValidUpto = p.ValidUpto,
+                IsSelling = pl?.IsSelling ?? false,
+                IsBuying = pl?.IsBuying ?? false,
+                PartyName = null, // Party resolution would need join to Customer/Supplier
+                Uom = p.Uom,
+                CreatedAt = p.CreationTime,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Get recent stock movements for an item (last N SLE entries).
+    /// Provides quick visibility into recent stock activity on the item detail page.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<List<ItemStockMovementDto>> GetRecentMovementsAsync(Guid itemId, int maxCount = 20)
+    {
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var sleQuery = await sleRepo.GetQueryableAsync();
+
+        var entries = sleQuery
+            .Where(s => s.ItemId == itemId)
+            .OrderByDescending(s => s.PostingDate)
+            .ThenByDescending(s => s.CreationTime)
+            .Take(maxCount)
+            .ToList();
+
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouseQuery = await warehouseRepo.GetQueryableAsync();
+        var warehouseIds = entries.Select(e => e.WarehouseId).Distinct().ToArray();
+        var warehouses = warehouseQuery
+            .Where(w => warehouseIds.Contains(w.Id))
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        return entries.Select(e => new ItemStockMovementDto
+        {
+            PostingDate = e.PostingDate,
+            WarehouseName = warehouses.GetValueOrDefault(e.WarehouseId, ""),
+            QuantityChange = e.QuantityChange,
+            ValuationRate = e.ValuationRate,
+            BalanceQty = e.BalanceQuantity,
+            BalanceValue = e.BalanceValue,
+            VoucherType = e.VoucherType ?? "",
+            VoucherId = e.VoucherId,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Get BOM references that use this item as a raw material (Where Used).
+    /// Per ERPNext: item_where_used report (gotcha #5934) — 8-query 2-section architecture.
+    /// Returns BOMs where this item appears as component.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<List<ItemWhereUsedDto>> GetWhereUsedAsync(Guid itemId)
+    {
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
+        var bomQuery = await bomRepo.GetQueryableAsync();
+
+        // Find all active BOMs that contain this item as a raw material
+        var boms = bomQuery
+            .Where(b => b.IsActive && b.Items.Any(i => i.ItemId == itemId))
+            .OrderBy(b => b.BomNumber)
+            .Take(50)
+            .ToList();
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var fgItemIds = boms.Select(b => b.ItemId).Distinct().ToArray();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var fgItems = itemQuery
+            .Where(i => fgItemIds.Contains(i.Id))
+            .ToDictionary(i => i.Id, i => new { i.ItemCode, i.ItemName });
+
+        return boms.Select(b =>
+        {
+            var bomItem = b.Items.First(i => i.ItemId == itemId);
+            var fgItem = fgItems.GetValueOrDefault(b.ItemId);
+            return new ItemWhereUsedDto
+            {
+                BomId = b.Id,
+                BomNumber = b.BomNumber ?? "",
+                FgItemCode = fgItem?.ItemCode ?? "",
+                FgItemName = fgItem?.ItemName ?? "",
+                QuantityPerUnit = b.Quantity > 0 ? bomItem.Quantity / b.Quantity : bomItem.Quantity,
+                BomQuantity = b.Quantity,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Get item variants for a template item.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<List<ItemVariantDto>> GetVariantsAsync(Guid templateItemId)
+    {
+        var queryable = await Repository.GetQueryableAsync();
+        var variants = queryable
+            .Where(i => i.VariantOfId == templateItemId)
+            .OrderBy(i => i.ItemCode)
+            .ToList();
+
+        return variants.Select(v => new ItemVariantDto
+        {
+            Id = v.Id,
+            ItemCode = v.ItemCode,
+            ItemName = v.ItemName,
+            IsActive = v.IsActive,
+            StandardSellingPrice = v.StandardSellingPrice,
+            StandardBuyingPrice = v.StandardBuyingPrice,
+        }).ToList();
     }
 }
 

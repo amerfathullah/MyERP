@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { EmailTemplateService } from '../../proxy/core/email-template.service';
 
 @Component({
@@ -112,6 +112,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
 export class EmailTemplateListComponent implements OnInit {
   private emailTemplateService = inject(EmailTemplateService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   templates: any[] = [];
   isLoading = false;
@@ -179,7 +180,9 @@ export class EmailTemplateListComponent implements OnInit {
   }
 
   deleteTemplate(id: string) {
-    if (!confirm('Delete this template?')) return;
-    this.emailTemplateService.delete(id).subscribe({ next: () => this.loadData() });
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.emailTemplateService.delete(id).subscribe({ next: () => this.loadData() });
+    });
   }
 }

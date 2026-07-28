@@ -1,9 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from '../../sales/sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
@@ -17,6 +18,11 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
 
 @Component({
   selector: 'app-purchase-invoice-form',
@@ -24,6 +30,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     PageModule,
     LocalizationPipe,
     InvoiceItemGridComponent,
@@ -44,13 +51,31 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
   private paymentTermsService = inject(PaymentTermsTemplateService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
+  private partyDetailsService = inject(PartyDetailsService);
+  private taxCategoryService = inject(TaxCategoryService);
+  private taxRuleService = inject(TaxRuleService);
+  private http = inject(HttpClient);
+  private currencyExchangeService = inject(CurrencyExchangeService);
+
+  /** Multi-currency: true when selected currency differs from company base (MYR) */
+  isMultiCurrency = signal(false);
 
   suppliers = signal<any[]>([]);
   availableItems = signal<any[]>([]);
+  taxCategories = signal<any[]>([]);
+  taxTemplates = signal<any[]>([]);
+  selectedTaxRules = signal<TaxRuleModel[]>([]);
+  supplierAddress = signal<string>('');
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
   isLoadingPOItems = signal(false);
   isLoadingPRItems = signal(false);
+
+  // Document-level discount
+  discountOn: 'GrandTotal' | 'NetTotal' = 'GrandTotal';
+  discountPercent = 0;
+  discountAmount = signal(0);
 
   form = this.fb.group({
     invoiceNumber: [''],
@@ -63,6 +88,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     dueDate: [''],
     paymentTermsTemplateId: [''],
     currencyCode: ['MYR'],
+    exchangeRate: [1],
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],
@@ -97,6 +123,21 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     );
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
+
+    // Load tax categories for tax template selector
+    this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => this.taxCategories.set((res.items ?? []).filter((c: any) => c.isActive)), error: () => {} });
+
+    // Load purchase tax templates
+    this.loadTaxTemplates();
+
+    // Auto-resolve supplier details when supplier selection changes
+    this.form.get('supplierId')?.valueChanges.subscribe(supplierId => {
+      if (supplierId) {
+        this.onSupplierChanged(supplierId);
+        this.resolveSupplierDetails(supplierId);
+      }
+    });
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
@@ -152,13 +193,176 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     }));
   }
 
+  /**
+   * Auto-resolves supplier TIN and name when supplier is selected.
+   * Per LHDN: self-billed e-invoices require supplier TIN for submission.
+   * Per ERPNext party.py: supplier details auto-populated on selection.
+   */
+  onSupplierChanged(supplierId: string): void {
+    const supplier = this.suppliers().find((s: any) => s.id === supplierId);
+    if (supplier) {
+      this.form.patchValue({
+        supplierName: supplier.name || supplier.supplierName || '',
+        supplierTin: supplier.tin || supplier.taxIdentificationNumber || '',
+      });
+    }
+  }
+
+  /** Fetches exchange rate from backend when currency changes from MYR. Per ERPNext: foreign purchases auto-resolve rate. */
+  onCurrencyChanged(): void {
+    const currency = this.form.get('currencyCode')?.value;
+    const baseCurrency = 'MYR';
+    if (!currency || currency === baseCurrency) {
+      this.isMultiCurrency.set(false);
+      this.form.patchValue({ exchangeRate: 1 });
+      return;
+    }
+    this.isMultiCurrency.set(true);
+    const issueDate = this.form.get('issueDate')?.value || new Date().toISOString().split('T')[0];
+    this.currencyExchangeService.getRate(currency, baseCurrency, issueDate).subscribe({
+      next: (result) => {
+        if (result?.rate) {
+          this.form.patchValue({ exchangeRate: result.rate });
+        }
+      },
+      error: () => { /* Non-blocking: user can manually enter exchange rate */ }
+    });
+  }
+
   recalculate(): void {
     const itemValues = this.items.controls.map(c => ({
       qty: c.get('quantity')?.value ?? 0,
       rate: c.get('unitPrice')?.value ?? 0,
       discountPercent: 0,
     }));
-    this.calcResult = this.taxCalc.calculate(itemValues, []);
+
+    const taxRules = this.selectedTaxRules().map(r => ({
+      taxName: r.description || `Tax ${r.rate}%`,
+      rate: r.rate ?? 0,
+      chargeType: 'OnNetTotal' as const,
+    }));
+
+    let result = this.taxCalc.calculate(itemValues, taxRules);
+
+    // Apply document-level discount per ERPNext ApplyDiscountOn logic
+    const discountAmt = this.discountAmount();
+    if (discountAmt > 0) {
+      if (this.discountOn === 'NetTotal') {
+        const reducedNet = Math.max(0, result.netTotal - discountAmt);
+        const ratio = result.netTotal > 0 ? reducedNet / result.netTotal : 0;
+        const newTaxLines = result.taxLines.map(t => ({
+          ...t,
+          taxAmount: Math.round(t.taxAmount * ratio * 100) / 100,
+        }));
+        const totalTax = newTaxLines.reduce((s, t) => s + t.taxAmount, 0);
+        result = { ...result, netTotal: reducedNet, taxLines: newTaxLines, totalTax, grandTotal: reducedNet + totalTax };
+      } else {
+        result = { ...result, grandTotal: Math.max(0, result.grandTotal - discountAmt) };
+      }
+    }
+
+    this.calcResult = result;
+  }
+
+  /** Discount percentage changed → compute amount */
+  onDiscountPercentChanged(): void {
+    const base = this.discountOn === 'NetTotal' ? this.calcResult.netTotal : this.calcResult.grandTotal;
+    const amount = Math.round(base * this.discountPercent / 100 * 100) / 100;
+    this.discountAmount.set(amount);
+    this.recalculate();
+  }
+
+  /** Discount amount directly entered */
+  onDiscountAmountChanged(value: string): void {
+    const amount = Math.max(0, parseFloat(value) || 0);
+    this.discountAmount.set(amount);
+    const base = this.discountOn === 'NetTotal' ? this.calcResult.netTotal : this.calcResult.grandTotal;
+    this.discountPercent = base > 0 ? Math.round(amount / base * 100 * 100) / 100 : 0;
+    this.recalculate();
+  }
+
+  /** Discount-On mode changed */
+  onDiscountChanged(): void {
+    if (this.discountPercent > 0) {
+      this.onDiscountPercentChanged();
+    } else {
+      this.recalculate();
+    }
+  }
+
+  onTaxCategoryChanged(categoryId: string): void {
+    if (!categoryId) {
+      this.selectedTaxRules.set([]);
+      this.recalculate();
+      return;
+    }
+    this.taxRuleService.getList(categoryId, { skipCount: 0, maxResultCount: 50, sorting: 'priority asc' })
+      .subscribe({
+        next: res => {
+          const rules = (res.items ?? []).filter(
+            (r: any) => r.isActive
+          );
+          this.selectedTaxRules.set(rules);
+          this.recalculate();
+        },
+        error: () => {},
+      });
+  }
+
+  /** Load available purchase tax templates for this company. */
+  loadTaxTemplates(): void {
+    const companyId = this.companyContext?.currentCompanyId?.() ?? '';
+    const params: any = { skipCount: '0', maxResultCount: '50', templateType: '1' }; // 1 = Buying
+    if (companyId) params.companyId = companyId;
+    this.http.get<any>('/api/app/tax-charges-template', { params }).subscribe({
+      next: res => {
+        const templates = (res.items ?? []).filter((t: any) => t.isEnabled);
+        this.taxTemplates.set(templates);
+        if (!this.isEditMode) {
+          const defaultTmpl = templates.find((t: any) => t.isDefault);
+          if (defaultTmpl) this.applyTaxTemplate(defaultTmpl);
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  /** Apply a tax charges template to populate tax rules. */
+  onTaxTemplateChanged(templateId: string): void {
+    if (!templateId) { this.selectedTaxRules.set([]); this.recalculate(); return; }
+    const template = this.taxTemplates().find((t: any) => t.id === templateId);
+    if (template) this.applyTaxTemplate(template);
+  }
+
+  private applyTaxTemplate(template: any): void {
+    const rules = (template.rows ?? []).map((row: any) => ({
+      id: row.id, rate: row.rate,
+      description: row.description || `Tax @ ${row.rate}%`,
+      chargeType: row.chargeType, taxCategory: row.taxCategory,
+      accountId: row.accountId, accountName: row.accountName,
+      isActive: true,
+    }));
+    this.selectedTaxRules.set(rules);
+    this.recalculate();
+  }
+
+  private resolveSupplierDetails(supplierId: string): void {
+    this.partyDetailsService.getSupplierDetails({ partyType: 'Supplier', partyId: supplierId }).subscribe({
+      next: (details: any) => {
+        if (details.tin) {
+          this.form.patchValue({ supplierTin: details.tin });
+        }
+        if (details.billingAddress) {
+          const addr = details.billingAddress;
+          const parts = [addr.addressLine1, addr.city, addr.state, addr.postalCode].filter(Boolean);
+          this.supplierAddress.set(parts.join(', '));
+        }
+        if (details.defaultPaymentTermsTemplateId && !this.form.get('paymentTermsTemplateId')?.value) {
+          this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
+        }
+      },
+      error: () => {},
+    });
   }
 
   save(): void {
@@ -175,6 +379,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,
       returnAgainstId: raw.returnAgainstId || undefined,
+      discountAmount: this.discountAmount() > 0 ? this.discountAmount() : undefined,
+      applyDiscountOn: this.discountAmount() > 0 ? this.discountOn : undefined,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         description: item.description || item.itemName || '',
@@ -228,7 +434,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           });
         });
         this.recalculate();
-        this.toaster.success(`${items.length} items loaded from Purchase Orders`);
+        this.toaster.success(this.l.instant('::ItemsLoadedFromPO', items.length.toString()));
       },
       error: () => {
         this.isLoadingPOItems.set(false);
@@ -262,7 +468,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           });
         });
         this.recalculate();
-        this.toaster.success(`${items.length} items loaded from Purchase Receipts`);
+        this.toaster.success(this.l.instant('::ItemsLoadedFromPR', items.length.toString()));
       },
       error: () => {
         this.isLoadingPRItems.set(false);

@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PackingSlipService } from '../../proxy/sales/packing-slip.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface PackingSlipDto {
@@ -99,6 +99,7 @@ interface PackingSlipDto {
 export class PackingSlipListComponent implements OnInit {
   private packingSlipService = inject(PackingSlipService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   slips = signal<PackingSlipDto[]>([]);
   totalCount = signal(0);
@@ -122,10 +123,12 @@ export class PackingSlipListComponent implements OnInit {
   }
 
   cancel(slip: PackingSlipDto) {
-    if (!confirm('Cancel this packing slip?')) return;
-    this.packingSlipService.cancel(slip.id).subscribe({
-      next: () => { this.toaster.success('Cancelled'); this.loadData(); },
-      error: () => {}
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.packingSlipService.cancel(slip.id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadData(); },
+        error: () => {}
+      });
     });
   }
 

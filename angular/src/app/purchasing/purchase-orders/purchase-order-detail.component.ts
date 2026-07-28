@@ -1,13 +1,15 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -20,7 +22,7 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent, StatusBadgeComponent],
+    CommonModule, FormsModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent, StatusBadgeComponent, DocumentConnectionsComponent],
   templateUrl: './purchase-order-detail.component.html',
   styleUrls: ['./purchase-order-detail.component.scss'],
 })
@@ -32,11 +34,18 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private store = inject(PurchaseOrderStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   orderReceipts = signal<any[]>([]);
   orderPayments = signal<any[]>([]);
+
+  // Supplier Confirmation
+  showConfirmationForm = signal(false);
+  confirmationNumber = '';
+  promisedDate = '';
+  isRecordingConfirmation = signal(false);
 
   // Company info for print layout
   companyName = '';
@@ -129,14 +138,20 @@ export class PurchaseOrderDetailComponent implements OnInit {
         break;
       case 'payment':
         this.router.navigate(['/accounting/payments/new'], {
-          queryParams: { partyType: 'Supplier', againstOrderType: 'PurchaseOrder', againstOrderId: id }
+          queryParams: {
+            partyType: 'Supplier',
+            partyId: this.order!.supplierId,
+            againstOrderType: 'PurchaseOrder',
+            againstOrderId: id,
+            companyId: this.order!.companyId,
+          }
         });
         break;
       case 'close':
-        this.service.close(id).subscribe(() => this.reloadAfterAction());
+        this.service.close(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
       case 'reopen':
-        this.service.reopen(id).subscribe(() => this.reloadAfterAction());
+        this.service.reopen(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
@@ -155,9 +170,10 @@ export class PurchaseOrderDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
-    }, 500);
+    this.service.get(this.order!.id!).subscribe({
+      next: (r) => { this.order = r; },
+      error: () => {}
+    });
   }
 
   private initiateConversion(targetDocType: 'PurchaseReceipt' | 'PurchaseInvoice', action: () => void): void {
@@ -182,10 +198,34 @@ export class PurchaseOrderDetailComponent implements OnInit {
   }
 
   deleteOrder(): void {
-    if (!confirm('Are you sure you want to delete this draft order?')) return;
-    this.service.delete(this.order!.id!).subscribe({
-      next: () => this.router.navigate(['/purchasing/orders']),
-      error: () => {},
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(this.order!.id!).subscribe({
+        next: () => this.router.navigate(['/purchasing/orders']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
+  }
+
+  /** Records supplier confirmation/acknowledgment of this purchase order. */
+  recordSupplierConfirmation(): void {
+    if (!this.order?.id) return;
+    this.isRecordingConfirmation.set(true);
+    this.service.recordSupplierConfirmation(this.order.id, {
+      confirmationNumber: this.confirmationNumber || undefined,
+      confirmationDate: new Date().toISOString(),
+      promisedDeliveryDate: this.promisedDate || undefined,
+    }).subscribe({
+      next: (updated) => {
+        this.order = updated;
+        this.showConfirmationForm.set(false);
+        this.isRecordingConfirmation.set(false);
+        this.toaster.success(this.l.instant('::SupplierConfirmationRecorded'));
+      },
+      error: (err: any) => {
+        this.isRecordingConfirmation.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 }

@@ -6,12 +6,12 @@
       <div class="input-group flex-grow-1">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input class="form-control" [(ngModel)]="searchQuery"
-          placeholder="Search items or scan barcode..."
+          placeholder="{{ '::SearchItemsOrScanBarcode' | abpLocalization }}"
           (ngModelChange)="onSearchChange($event)" />
       </div>
       <div class="input-group" style="max-width: 220px;">
         <span class="input-group-text"><i class="bi bi-person"></i></span>
-        <input class="form-control" [(ngModel)]="customerName" placeholder="Walk-in" />
+        <input class="form-control" [(ngModel)]="customerName" [placeholder]="'::WalkIn' | abpLocalization" />
       </div>
     </div>
 
@@ -28,7 +28,7 @@
       } @empty {
         <div class="col-12 text-center text-muted py-5">
           <i class="bi bi-box-seam d-block mb-2" style="font-size: 2rem;"></i>
-          <p>No items found</p>
+          <p>{{ '::NoItemsFound' | abpLocalization }}</p>
         </div>
       }
     </div>

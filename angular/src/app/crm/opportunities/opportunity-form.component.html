@@ -11,7 +11,7 @@
             <input type="text" class="form-control" formControlName="title"
               [class.is-invalid]="form.get('title')?.invalid && form.get('title')?.touched" />
             @if (form.get('title')?.errors?.['required'] && form.get('title')?.touched) {
-              <div class="invalid-feedback">Required</div>
+              <div class="invalid-feedback">{{ 'AbpValidation::ThisFieldIsRequired.' | abpLocalization }}</div>
             }
           </div>
           <div class="col-12 col-md-4 mb-3">

@@ -2,14 +2,15 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
+import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ItemService } from '../../proxy/inventory/item.service';
-import type { CreatePurchaseReceiptDto } from '../../proxy/purchasing/models';
+import type { CreatePurchaseReceiptDto, PurchaseOrderDto } from '../../proxy/purchasing/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -31,10 +32,14 @@ export class PurchaseReceiptFormComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
   private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
+  private poService = inject(PurchaseOrderService);
+  private l = inject(LocalizationService);
 
   suppliers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   availableItems = signal<any[]>([]);
+  availablePOs = signal<PurchaseOrderDto[]>([]);
+  isLoadingPOItems = signal(false);
   isEditMode = false;
   isReturn = false;
   entityId: string | null = null;
@@ -65,6 +70,74 @@ export class PurchaseReceiptFormComponent implements OnInit {
   }
 
   removeItem(i: number): void { this.items.removeAt(i); }
+
+  /** Load submitted POs for the selected supplier */
+  onSupplierChanged(): void {
+    const supplierId = this.form.get('supplierId')?.value;
+    if (!supplierId) {
+      this.availablePOs.set([]);
+      return;
+    }
+    const companyId = this.form.get('companyId')?.value || this.companyContext.currentCompanyId();
+    this.poService.getList({
+      skipCount: 0, maxResultCount: 100, sorting: '',
+      companyId: companyId || undefined,
+      status: 'ToDeliverAndBill',
+    } as any).subscribe({
+      next: res => {
+        // Filter client-side by supplierId (backend may not filter by supplier)
+        const pos = (res.items ?? []).filter((po: any) => po.supplierId === supplierId);
+        this.availablePOs.set(pos);
+      },
+      error: () => this.availablePOs.set([]),
+    });
+  }
+
+  /** Auto-populate items from selected Purchase Order */
+  onPurchaseOrderChanged(): void {
+    const poId = this.form.get('purchaseOrderId')?.value;
+    if (!poId) return;
+
+    this.isLoadingPOItems.set(true);
+    this.poService.get(poId).subscribe({
+      next: (po: PurchaseOrderDto) => {
+        // Clear existing items
+        while (this.items.length > 0) this.items.removeAt(0);
+
+        // Auto-fill supplier if not already set
+        if (!this.form.get('supplierId')?.value && po.supplierId) {
+          this.form.patchValue({ supplierId: po.supplierId });
+        }
+
+        // Add only items with pending receipt qty
+        let loadedCount = 0;
+        (po.items ?? []).forEach(item => {
+          const pendingQty = (item.quantity ?? 0) - (item.receivedQty ?? 0);
+          if (pendingQty > 0) {
+            this.items.push(this.fb.group({
+              itemId: [item.itemId ?? '', Validators.required],
+              description: [item.description ?? '', Validators.required],
+              quantity: [pendingQty, [Validators.required, Validators.min(0.01)]],
+              unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+              uom: [item.uom ?? 'EA'],
+            }));
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.toaster.success(this.l.instant('::ItemsLoadedFromPO', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyReceived'));
+        }
+        this.isLoadingPOItems.set(false);
+      },
+      error: () => {
+        this.toaster.error(this.l.instant('::FailedToLoad'));
+        this.isLoadingPOItems.set(false);
+      },
+    });
+  }
 
   onItemSelected(index: number, event: Event): void {
     const itemId = (event.target as HTMLSelectElement).value;

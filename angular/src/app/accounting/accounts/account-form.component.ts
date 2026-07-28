@@ -48,9 +48,9 @@ export class AccountFormComponent implements OnInit {
 
     // Load parent accounts for dropdown
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
-      .subscribe((result) => {
+      .subscribe({ next: (result) => {
         this.parentAccounts = (result.items ?? []).filter(a => a.isGroup);
-      });
+      }, error: () => {} });
 
     if (this.isEditMode) {
       this.accountService.get(this.entityId!).subscribe((account) => {

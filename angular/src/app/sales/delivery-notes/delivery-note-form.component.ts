@@ -1,14 +1,18 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { HttpClient } from '@angular/common/http';
+import type { SalesOrderDto } from '../../proxy/sales/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -33,11 +37,19 @@ export class DeliveryNoteFormComponent implements OnInit {
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
+  private soService = inject(SalesOrderService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
+  private http = inject(HttpClient);
 
   customers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   companies = signal<any[]>([]);
   availableItems = signal<any[]>([]);
+  availableSOs = signal<SalesOrderDto[]>([]);
+  availablePickLists = signal<any[]>([]);
+  isLoadingSOItems = signal(false);
+  isLoadingPickListItems = signal(false);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -69,6 +81,7 @@ export class DeliveryNoteFormComponent implements OnInit {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
       res => this.companies.set(res.items ?? [])
     );
+    this.loadPickLists();
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
@@ -123,6 +136,132 @@ export class DeliveryNoteFormComponent implements OnInit {
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'Unit'],
     }));
+  }
+
+  /** Load active Sales Orders for the selected customer */
+  onCustomerChanged(): void {
+    const customerId = this.form.get('customerId')?.value;
+    if (!customerId) {
+      this.availableSOs.set([]);
+      return;
+    }
+    const companyId = this.form.get('companyId')?.value || this.companyContext.currentCompanyId();
+    this.soService.getList({
+      skipCount: 0, maxResultCount: 100, sorting: '',
+      companyId: companyId || undefined,
+      status: 'ToDeliverAndBill',
+    } as any).subscribe({
+      next: res => {
+        const orders = (res.items ?? []).filter((so: any) => so.customerId === customerId);
+        this.availableSOs.set(orders);
+      },
+      error: () => this.availableSOs.set([]),
+    });
+  }
+
+  /** Auto-populate items from selected Sales Order */
+  onSalesOrderChanged(): void {
+    const soId = this.form.get('salesOrderId')?.value;
+    if (!soId) return;
+
+    this.isLoadingSOItems.set(true);
+    this.soService.get(soId).subscribe({
+      next: (so: SalesOrderDto) => {
+        // Clear existing items
+        while (this.items.length > 0) this.items.removeAt(0);
+
+        // Auto-fill customer if not set
+        if (!this.form.get('customerId')?.value && so.customerId) {
+          this.form.patchValue({ customerId: so.customerId });
+        }
+
+        // Add only items with pending delivery qty
+        let loadedCount = 0;
+        (so.items ?? []).forEach((item: any) => {
+          const pendingQty = (item.quantity ?? 0) - (item.deliveredQty ?? 0);
+          if (pendingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.description,
+              quantity: pendingQty,
+              unitPrice: item.unitPrice ?? 0,
+              uom: item.uom ?? 'Unit',
+            });
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.toaster.success(this.l.instant('::ItemsLoadedFromSO', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyDelivered'));
+        }
+        this.isLoadingSOItems.set(false);
+      },
+      error: () => {
+        this.toaster.error(this.l.instant('::FailedToLoad'));
+        this.isLoadingSOItems.set(false);
+      },
+    });
+  }
+
+  /** Load submitted Pick Lists for Delivery purpose. Per ERPNext: Pick List→DN is primary fulfillment workflow. */
+  loadPickLists(): void {
+    const companyId = this.form.get('companyId')?.value || this.companyContext.currentCompanyId();
+    const params: any = { skipCount: '0', maxResultCount: '50', status: 'Submitted' };
+    if (companyId) params.companyId = companyId;
+    this.http.get<any>('/api/app/pick-list', { params }).subscribe({
+      next: res => {
+        const lists = (res.items ?? []).filter((pl: any) => pl.purpose === 'Delivery' || pl.purpose === 0);
+        this.availablePickLists.set(lists);
+      },
+      error: () => this.availablePickLists.set([]),
+    });
+  }
+
+  /** Auto-populate items from a submitted Pick List. Per ERPNext: creates DN with picked items + quantities. */
+  getItemsFromPickList(pickListId: string): void {
+    if (!pickListId) return;
+    this.isLoadingPickListItems.set(true);
+    this.http.get<any>(`/api/app/pick-list/${pickListId}`).subscribe({
+      next: (pickList: any) => {
+        // Clear existing items
+        while (this.items.length > 0) this.items.removeAt(0);
+
+        // Auto-fill customer from pick list if available
+        if (pickList.customerId && !this.form.get('customerId')?.value) {
+          this.form.patchValue({ customerId: pickList.customerId });
+          this.onCustomerChanged();
+        }
+
+        // Add only items with pending transfer qty (picked - already transferred)
+        let loadedCount = 0;
+        (pickList.items ?? []).forEach((item: any) => {
+          const pendingQty = (item.pickedQty ?? item.quantity ?? 0) - (item.transferredQty ?? 0);
+          if (pendingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.itemName || item.description || '',
+              quantity: pendingQty,
+              unitPrice: item.rate ?? 0,
+              uom: item.uom ?? 'Unit',
+            });
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.toaster.success(this.l.instant('::ItemsLoadedFromPickList', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyTransferred'));
+        }
+        this.isLoadingPickListItems.set(false);
+      },
+      error: () => {
+        this.toaster.error(this.l.instant('::FailedToLoad'));
+        this.isLoadingPickListItems.set(false);
+      },
+    });
   }
 
   removeItem(index: number): void {

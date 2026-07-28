@@ -16,7 +16,7 @@ import type { BomDto } from '../../proxy/manufacturing/models';
     <abp-page [title]="'BillOfMaterials' | abpLocalization">
       <div class="d-flex justify-content-between mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
-          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
+          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
         <a routerLink="/manufacturing/bom/new" class="btn btn-primary">
           <i class="fa fa-plus me-1"></i>{{ 'NewBOM' | abpLocalization }}
         </a>

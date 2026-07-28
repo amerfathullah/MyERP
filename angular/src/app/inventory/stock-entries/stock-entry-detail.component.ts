@@ -196,20 +196,23 @@ export class StockEntryDetailComponent implements OnInit {
   }
 
   private reload(): void {
-    setTimeout(() => {
-      const id = this.route.snapshot.paramMap.get('id')!;
-      this.service.get(id).subscribe(data => {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.get(id).subscribe({
+      next: (data) => {
         this.entry.set(data);
         this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
-      });
-    }, 500);
+      },
+      error: () => {}
+    });
   }
 
   deleteEntry(): void {
-    if (!confirm('Are you sure you want to delete this draft stock entry?')) return;
-    this.service.delete(this.entry()!.id).subscribe({
-      next: () => this.router.navigate(['/inventory/stock-entries']),
-      error: () => {},
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(this.entry()!.id).subscribe({
+        next: () => this.router.navigate(['/inventory/stock-entries']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 }

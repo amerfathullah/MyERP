@@ -66,6 +66,7 @@
                     {{ '::Total' | abpLocalization }} (MYR)
                   </app-sortable-header>
                 </th>
+                <th class="text-end" style="width: 130px;">{{ '::Outstanding' | abpLocalization }}</th>
                 <th>
                   <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::Status' | abpLocalization }}
@@ -82,6 +83,20 @@
                   <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-truncate" style="max-width: 200px;" [title]="inv.supplierName ?? inv.supplierId">{{ inv.supplierName ?? inv.supplierId }}</td>
                   <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
+                  <td class="text-end">
+                    @if (inv.status === 'Posted' && getOutstanding(inv) > 0.01) {
+                      <span class="font-monospace" [class.text-danger]="isInvoiceOverdue(inv)" [class.fw-bold]="isInvoiceOverdue(inv)">
+                        {{ getOutstanding(inv) | number:'1.2-2' }}
+                      </span>
+                      @if (isInvoiceOverdue(inv)) {
+                        <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                      }
+                    } @else if (inv.status === 'Posted') {
+                      <span class="text-success"><i class="fa fa-check-circle"></i></span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td><app-status-badge [status]="inv.status ?? ''" /></td>
                   <td><app-lhdn-status-badge [status]="inv.eInvoiceStatus ?? ''" /></td>
                   <td>

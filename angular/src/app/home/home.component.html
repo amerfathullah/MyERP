@@ -376,6 +376,61 @@
         </div>
       }
 
+      <!-- Cash Flow Snapshot (30 days) -->
+      @if (cashFlowSnapshot()) {
+        <div class="col-12 mb-4">
+          <div class="card border-start border-info border-3">
+            <div class="card-header bg-transparent border-bottom-0 pb-0">
+              <h6 class="card-title mb-0"><i class="fa fa-chart-line text-info me-2"></i>{{ '::CashFlowSnapshot' | abpLocalization }}</h6>
+              <small class="text-muted">{{ '::Next30Days' | abpLocalization }}</small>
+            </div>
+            <div class="card-body pt-2">
+              <div class="row text-center">
+                <div class="col-4">
+                  <div class="p-2 bg-success bg-opacity-10 rounded">
+                    <small class="text-success d-block">{{ '::ExpectedInflows' | abpLocalization }}</small>
+                    <strong class="text-success font-monospace">{{ cashFlowSnapshot()!.expectedInflows30Days | number:'1.0-0' }}</strong>
+                    <small class="text-muted d-block">{{ cashFlowSnapshot()!.inflowInvoiceCount }} {{ '::Invoices' | abpLocalization }}</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 bg-danger bg-opacity-10 rounded">
+                    <small class="text-danger d-block">{{ '::ExpectedOutflows' | abpLocalization }}</small>
+                    <strong class="text-danger font-monospace">{{ cashFlowSnapshot()!.expectedOutflows30Days | number:'1.0-0' }}</strong>
+                    <small class="text-muted d-block">{{ cashFlowSnapshot()!.outflowInvoiceCount }} {{ '::Bills' | abpLocalization }}</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 rounded" [class.bg-success]="cashFlowSnapshot()!.netCashFlow30Days >= 0" [class.bg-danger]="cashFlowSnapshot()!.netCashFlow30Days < 0" [class.bg-opacity-10]="true">
+                    <small class="d-block" [class.text-success]="cashFlowSnapshot()!.netCashFlow30Days >= 0" [class.text-danger]="cashFlowSnapshot()!.netCashFlow30Days < 0">{{ '::NetPosition' | abpLocalization }}</small>
+                    <strong class="font-monospace" [class.text-success]="cashFlowSnapshot()!.netCashFlow30Days >= 0" [class.text-danger]="cashFlowSnapshot()!.netCashFlow30Days < 0">{{ cashFlowSnapshot()!.netCashFlow30Days | number:'1.0-0' }}</strong>
+                    <small class="d-block" [class.text-success]="cashFlowSnapshot()!.netCashFlow30Days >= 0" [class.text-danger]="cashFlowSnapshot()!.netCashFlow30Days < 0">
+                      @if (cashFlowSnapshot()!.netCashFlow30Days >= 0) { {{ '::Surplus' | abpLocalization }} } @else { {{ '::Shortfall' | abpLocalization }} }
+                    </small>
+                  </div>
+                </div>
+              </div>
+              @if (cashFlowSnapshot()!.overdueReceivables > 0 || cashFlowSnapshot()!.overduePayables > 0) {
+              <div class="mt-2 pt-2 border-top">
+                <div class="row">
+                  @if (cashFlowSnapshot()!.overdueReceivables > 0) {
+                  <div class="col-6">
+                    <small class="text-danger"><i class="fa fa-exclamation-triangle me-1"></i>{{ cashFlowSnapshot()!.overdueReceivableCount }} {{ '::Overdue' | abpLocalization }} {{ '::Receivables' | abpLocalization }}: <strong>{{ cashFlowSnapshot()!.overdueReceivables | number:'1.0-0' }}</strong></small>
+                  </div>
+                  }
+                  @if (cashFlowSnapshot()!.overduePayables > 0) {
+                  <div class="col-6">
+                    <small class="text-warning"><i class="fa fa-exclamation-triangle me-1"></i>{{ cashFlowSnapshot()!.overduePayableCount }} {{ '::Overdue' | abpLocalization }} {{ '::Payables' | abpLocalization }}: <strong>{{ cashFlowSnapshot()!.overduePayables | number:'1.0-0' }}</strong></small>
+                  </div>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Recent Activity -->
       @if (recentActivity().length > 0) {
         <div class="card mt-4">

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BudgetService } from '../../proxy/accounting/budget.service';
 import type { BudgetDto } from '../../proxy/dtos/models';
@@ -52,13 +52,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class BudgetDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(BudgetService);
+  private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   budget: BudgetDto | null = null;
   loading = signal(false);
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.budget = r);
+    this.service.get(id).subscribe({ next: (r) => this.budget = r, error: () => {} });
   }
 
   submit() {
@@ -70,16 +71,18 @@ export class BudgetDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (!confirm('Are you sure you want to cancel this budget?')) return;
-    this.loading.set(true);
-    this.service.cancel(this.budget!.id!).subscribe({
-      next: () => { this.toaster.success('Budget cancelled'); this.reload(); },
-      error: () => this.loading.set(false),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.loading.set(true);
+      this.service.cancel(this.budget!.id!).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.reload(); },
+        error: () => this.loading.set(false),
+      });
     });
   }
 
   private reload() {
     this.loading.set(false);
-    this.service.get(this.budget!.id!).subscribe((r) => this.budget = r);
+    this.service.get(this.budget!.id!).subscribe({ next: (r) => this.budget = r, error: () => {} });
   }
 }

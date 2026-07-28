@@ -230,6 +230,10 @@ export interface GetItemDetailsInput {
   transactionType?: string;
   warehouseId?: string | null;
   companyId?: string | null;
+  supplierId?: string | null;
+  customerId?: string | null;
+  priceListId?: string | null;
+  transactionDate?: string | null;
 }
 
 export interface GetItemListDto extends PagedAndSortedResultRequestDto {

@@ -13,6 +13,12 @@ public class PaymentScheduleDto
     public decimal PaymentAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal Outstanding { get; set; }
+
+    // Early Payment Discount fields (per ERPNext payment_schedule.discount_type)
+    public string? DiscountType { get; set; }
+    public decimal DiscountPercentage { get; set; }
+    public DateTime? DiscountValidTill { get; set; }
+    public decimal DiscountedAmount { get; set; }
 }
 
 public class InvoicePaymentHistoryDto

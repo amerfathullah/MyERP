@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { LoanService } from '../../proxy/human-resources/loan.service';
 import type { LoanDto } from '../../proxy/human-resources/models';
@@ -170,6 +170,7 @@ export class LoanDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private loanService = inject(LoanService);
+  private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
   loan: LoanDto | null = null;
@@ -220,11 +221,12 @@ export class LoanDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (confirm('Are you sure you want to cancel this loan?')) {
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
       this.loanService.cancel(this.loan!.id!).subscribe({
-        next: () => { this.toaster.success('Loan cancelled'); this.load(this.loan!.id!); },
-        error: () => {}
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.load(this.loan!.id!); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
-    }
+    });
   }
 }

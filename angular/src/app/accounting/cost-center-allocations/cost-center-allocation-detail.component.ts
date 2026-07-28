@@ -84,10 +84,10 @@ export class CostCenterAllocationDetailComponent implements OnInit {
   private loadCostCenters() {
     this.costCenterService
       .getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any)
-      .subscribe(res => {
+      .subscribe({ next: res => {
         const items = (res.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }));
         this.costCenters.set(items);
-      });
+      }, error: () => {} });
   }
 
   private reload() {

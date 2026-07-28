@@ -35,4 +35,12 @@ export class CurrencyExchangeService {
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
+
+  getRate = (fromCurrency: string, toCurrency: string, transactionDate?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, { rate: number }>({
+      method: 'GET',
+      url: '/api/app/currency-exchange/rate',
+      params: { fromCurrency, toCurrency, transactionDate },
+    },
+    { apiName: this.apiName,...config });
 }

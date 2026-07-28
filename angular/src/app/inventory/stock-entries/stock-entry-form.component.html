@@ -64,6 +64,27 @@
       </div>
     </div>
 
+    <!-- Produce Qty — visible when linked to Work Order (Manufacture/MaterialTransfer) -->
+    @if (linkedWorkOrderId) {
+    <div class="card mb-4 border-start border-primary border-3">
+      <div class="card-body py-2">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <i class="fa fa-industry text-primary me-2"></i>
+            <strong>{{ '::ProduceQty' | abpLocalization }}</strong>
+          </div>
+          <div class="col-auto">
+            <input type="number" class="form-control form-control-sm d-inline-block" style="width: 120px;"
+              [value]="produceQty()" (change)="onProduceQtyChanged($any($event.target).valueAsNumber)" min="0.001" step="1" />
+          </div>
+          <div class="col-auto text-muted small">
+            {{ '::ProduceQtyHelp' | abpLocalization }}
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+
     <!-- Items -->
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">

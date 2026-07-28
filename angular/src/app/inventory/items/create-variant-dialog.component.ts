@@ -1,6 +1,7 @@
 import { Component, inject, Input, Output, EventEmitter, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { ItemAttributeService } from '../../proxy/inventory/item-attribute.service';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -16,7 +17,7 @@ interface AttributeInput {
 @Component({
   selector: 'app-create-variant-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   template: `
     @if (visible) {
       <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
@@ -47,7 +48,7 @@ interface AttributeInput {
                     <label class="form-label fw-medium">{{ attr.attributeName }}</label>
                     @if (attr.isNumeric) {
                       <input type="text" class="form-control" [(ngModel)]="attr.value"
-                        placeholder="Enter numeric value" />
+                        [placeholder]="'::Placeholder:NumericValue' | abpLocalization" />
                     } @else if (attr.options.length > 0) {
                       <select class="form-select" [(ngModel)]="attr.value">
                         <option value="">-- Select --</option>
@@ -57,7 +58,7 @@ interface AttributeInput {
                       </select>
                     } @else {
                       <input type="text" class="form-control" [(ngModel)]="attr.value"
-                        placeholder="Enter value" />
+                        [placeholder]="'::Placeholder:EnterValue' | abpLocalization" />
                     }
                   </div>
                 }

@@ -71,7 +71,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
         <div class="card mb-3"><div class="card-body">
           <h6 class="card-title">{{ 'Countries' | abpLocalization }} (leave empty for global)</h6>
           <div class="d-flex gap-2 align-items-center">
-            <input type="text" class="form-control form-control-sm" style="max-width:100px" placeholder="e.g. MY" #countryInput>
+            <input type="text" class="form-control form-control-sm" style="max-width:100px" [placeholder]="'::Placeholder:CountryCode' | abpLocalization" #countryInput>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCountry(countryInput)">Add</button>
           </div>
           @if (countries.length > 0) {

@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -96,6 +97,7 @@ export class StockReservationListComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private confirmation = inject(ConfirmationService);
 
   itemNames = signal<Record<string, string>>({});
   warehouseNames = signal<Record<string, string>>({});
@@ -133,9 +135,11 @@ export class StockReservationListComponent implements OnInit {
   }
 
   cancelReservation(sre: StockReservationEntryDto): void {
-    if (!confirm('Cancel this reservation?')) return;
-    this.service.cancel(sre.id).subscribe({
-      next: () => this.loadData(),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.cancel(sre.id).subscribe({
+        next: () => this.loadData(),
+      });
     });
   }
 

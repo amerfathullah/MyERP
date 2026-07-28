@@ -623,6 +623,10 @@ export interface PaymentScheduleDto {
   paymentAmount?: number;
   paidAmount?: number;
   outstanding?: number;
+  discountType?: string;
+  discountPercentage?: number;
+  discountValidTill?: string;
+  discountedAmount?: number;
 }
 
 export interface PosClosingDto {

@@ -38,6 +38,31 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Whether this PO is for subcontracted items (links to SCO).</summary>
     public bool IsSubcontracted { get; set; }
 
+    // --- Supplier Confirmation Tracking (per ERPNext PO supplier acknowledgment workflow) ---
+
+    /// <summary>Supplier's own reference/confirmation number for this order.</summary>
+    public string? SupplierConfirmationNumber { get; set; }
+
+    /// <summary>Date when supplier confirmed/acknowledged the order.</summary>
+    public DateTime? SupplierConfirmationDate { get; set; }
+
+    /// <summary>Supplier's promised delivery date (may differ from our expected date).</summary>
+    public DateTime? SupplierPromisedDate { get; set; }
+
+    /// <summary>Whether supplier has confirmed/acknowledged this order.</summary>
+    public bool IsSupplierConfirmed => SupplierConfirmationDate.HasValue;
+
+    /// <summary>Records supplier confirmation with optional reference number and promised date.</summary>
+    public void RecordSupplierConfirmation(string? confirmationNumber, DateTime confirmationDate, DateTime? promisedDate)
+    {
+        if (Status == DocumentStatus.Draft || Status == DocumentStatus.Cancelled)
+            throw new BusinessException("MyERP:01001").WithData("documentType", "PurchaseOrder").WithData("status", Status.ToString());
+
+        SupplierConfirmationNumber = confirmationNumber;
+        SupplierConfirmationDate = confirmationDate;
+        SupplierPromisedDate = promisedDate;
+    }
+
     /// <summary>Source Supplier Quotation that this PO was created from (if any).</summary>
     public Guid? SupplierQuotationId { get; set; }
 

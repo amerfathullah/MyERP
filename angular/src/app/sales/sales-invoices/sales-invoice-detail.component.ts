@@ -1,10 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -23,6 +25,7 @@ export interface DetailWorkflowAction {
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { InvoicePrintLayoutComponent } from '../../shared/components/invoice-print-layout/invoice-print-layout.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -36,6 +39,8 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
     BreadcrumbComponent,
     InvoicePrintLayoutComponent,
     VoucherLedgerComponent,
+    DocumentConnectionsComponent,
+    FormsModule,
     LocalizationPipe],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -49,11 +54,22 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private store = inject(SalesInvoiceStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
+  private localization = inject(LocalizationService);
 
   invoice: SalesInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   paymentSchedule = signal<any[]>([]);
   companyData = signal<any>(null);
+
+  // Quick Payment Dialog state
+  showQuickPayment = signal(false);
+  quickPaymentAmount = signal(0);
+  quickPaymentDate = signal(new Date().toISOString().substring(0, 10));
+  quickPaymentReference = signal('');
+  quickPaymentMode = signal('');
+  isProcessingPayment = signal(false);
+  modesOfPayment = signal<any[]>([]);
 
   get workflowActions(): DetailWorkflowAction[] {
     if (!this.invoice) return [];
@@ -67,6 +83,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
         break;
       case 'Posted':
         actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
+        // Per ERPNext: SI→DN enables goods delivery from an already-posted invoice (service→goods flow)
+        if (!(this.invoice as any).updateStock && !(this.invoice as any).isReturn) {
+          actions.push({ name: 'createDN', label: 'Create Delivery Note', icon: 'fa fa-truck', btnClass: 'btn-outline-info' });
+        }
         actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
         if ((this.invoice as any).outstandingAmount > 0) {
           actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
@@ -78,6 +98,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (this.invoice.eInvoiceStatus === 'Valid') {
           actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
         }
+        actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'fa fa-envelope', btnClass: 'btn-outline-secondary' });
         break;
       case 'Cancelled':
         actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
@@ -123,9 +144,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'payment':
-        this.router.navigate(['/accounting/payments/new'], {
-          queryParams: { partyType: 'Customer', againstInvoiceType: 'SalesInvoice', againstInvoiceId: id }
-        });
+        this.openQuickPayment();
         break;
       case 'return':
         this.router.navigate(['/sales/invoices/new'], {
@@ -153,6 +172,15 @@ export class SalesInvoiceDetailComponent implements OnInit {
           next: (amended) => this.router.navigate(['/sales/invoices', amended.id]),
           error: () => {},
         });
+        break;
+      case 'createDN':
+        // Navigate to DN form with pre-fill from this SI
+        this.router.navigate(['/sales/delivery-notes/new'], {
+          queryParams: { salesInvoiceId: id, customerId: this.invoice!.customerId }
+        });
+        break;
+      case 'sendEmail':
+        this.openSendEmailDialog();
         break;
     }
   }
@@ -207,6 +235,24 @@ export class SalesInvoiceDetailComponent implements OnInit {
     window.print();
   }
 
+  downloadPdf(): void {
+    this.http.get<{ html: string; fileName: string }>(`/api/app/document-print/sales-invoice-print/${this.invoice!.id}`)
+      .subscribe({
+        next: (result) => {
+          // Open in new window for printing/PDF save
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(result.html);
+            printWindow.document.close();
+            printWindow.focus();
+            // Auto-trigger print dialog after content loads
+            printWindow.onload = () => printWindow.print();
+          }
+        },
+        error: () => this.toaster.error('Failed to generate document.'),
+      });
+  }
+
   duplicate(): void {
     this.router.navigate(['/sales/invoices/new'], {
       queryParams: { duplicateFrom: this.invoice!.id }
@@ -221,19 +267,129 @@ export class SalesInvoiceDetailComponent implements OnInit {
     });
   }
 
-  private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.invoice!.id!).subscribe((result) => {
-        this.invoice = result;
+  // --- Quick Payment Dialog ---
+  openQuickPayment(): void {
+    const outstanding = this.getOutstandingAmount();
+    this.quickPaymentAmount.set(outstanding);
+    this.quickPaymentDate.set(new Date().toISOString().substring(0, 10));
+    this.quickPaymentReference.set('');
+    this.quickPaymentMode.set('');
+    this.showQuickPayment.set(true);
+    // Load modes of payment if not yet loaded
+    if (this.modesOfPayment().length === 0) {
+      this.http.get<any>('/api/app/master-data/modes-of-payment').subscribe({
+        next: (res) => this.modesOfPayment.set(res.items ?? res ?? []),
+        error: () => {},
       });
-    }, 500);
+    }
+  }
+
+  cancelQuickPayment(): void {
+    this.showQuickPayment.set(false);
+  }
+
+  submitQuickPayment(): void {
+    const inv = this.invoice;
+    if (!inv) return;
+    const amount = this.quickPaymentAmount();
+    if (amount <= 0) {
+      this.toaster.warn('Amount must be positive');
+      return;
+    }
+    this.isProcessingPayment.set(true);
+    const dto = {
+      companyId: (inv as any).companyId,
+      paymentType: 'Receive',
+      partyType: 'Customer',
+      partyId: inv.customerId,
+      paidAmount: amount,
+      postingDate: this.quickPaymentDate(),
+      referenceNumber: this.quickPaymentReference() || undefined,
+      modeOfPaymentId: this.quickPaymentMode() || undefined,
+      againstInvoiceType: 'SalesInvoice',
+      againstInvoiceId: inv.id,
+      paidFromAccountId: undefined,
+      paidToAccountId: undefined,
+    };
+    this.http.post<any>('/api/app/payment-entry', dto).subscribe({
+      next: (pe) => {
+        // Auto-submit + post the PE
+        this.http.post(`/api/app/payment-entry/${pe.id}/submit`, {}).subscribe({
+          next: () => {
+            this.http.post(`/api/app/payment-entry/${pe.id}/post`, {}).subscribe({
+              next: () => {
+                this.isProcessingPayment.set(false);
+                this.showQuickPayment.set(false);
+                this.toaster.success(this.localization.instant('::PaymentReceivedSuccessfully'));
+                this.reloadAfterAction();
+              },
+              error: () => {
+                this.isProcessingPayment.set(false);
+                this.showQuickPayment.set(false);
+                this.toaster.info('Payment created as draft. Please post it manually.');
+                this.reloadAfterAction();
+              },
+            });
+          },
+          error: () => {
+            this.isProcessingPayment.set(false);
+            this.showQuickPayment.set(false);
+            this.toaster.info('Payment created as draft.');
+            this.reloadAfterAction();
+          },
+        });
+      },
+      error: (err) => {
+        this.isProcessingPayment.set(false);
+        this.toaster.error(err?.error?.error?.message || 'Failed to create payment');
+      },
+    });
+  }
+
+  getOutstandingAmount(): number {
+    if (!this.invoice) return 0;
+    const inv = this.invoice as any;
+    const outstanding = (inv.grandTotal ?? 0) - (inv.amountPaid ?? 0) - (inv.writeOffAmount ?? 0) - (inv.totalAdvance ?? 0);
+    return Math.max(0, outstanding);
+  }
+
+  getPaymentPercent(): number {
+    if (!this.invoice || !this.invoice.grandTotal || this.invoice.grandTotal <= 0) return 0;
+    const paid = (this.invoice as any).amountPaid ?? 0;
+    return Math.min(100, (paid / this.invoice.grandTotal) * 100);
+  }
+
+  goToFullPaymentForm(): void {
+    this.showQuickPayment.set(false);
+    const inv = this.invoice!;
+    const outstanding = Math.max(0, inv.outstandingAmount ?? ((inv.grandTotal ?? 0) - (inv.amountPaid ?? 0)));
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        partyType: 'Customer',
+        partyId: inv.customerId,
+        againstInvoiceType: 'SalesInvoice',
+        againstInvoiceId: inv.id,
+        amount: outstanding > 0 ? outstanding : undefined,
+        companyId: inv.companyId,
+        currency: inv.currencyCode || undefined,
+      }
+    });
+  }
+
+  private reloadAfterAction(): void {
+    this.service.get(this.invoice!.id!).subscribe({
+      next: (result) => { this.invoice = result; },
+      error: () => {}
+    });
   }
 
   deleteInvoice(): void {
-    if (!confirm('Are you sure you want to delete this draft invoice?')) return;
-    this.service.delete(this.invoice!.id!).subscribe({
-      next: () => this.router.navigate(['/sales/invoices']),
-      error: () => {},
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(this.invoice!.id!).subscribe({
+        next: () => this.router.navigate(['/sales/invoices']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 
@@ -244,5 +400,86 @@ export class SalesInvoiceDetailComponent implements OnInit {
     const dueDate = new Date(entry.dueDate);
     dueDate.setHours(0, 0, 0, 0);
     return dueDate < today;
+  }
+
+  /** Whether the entry has an active (non-expired) early payment discount. */
+  hasActiveDiscount(entry: any): boolean {
+    if (!entry.discountType || entry.discountPercentage <= 0 || entry.outstanding <= 0.01) return false;
+    if (!entry.discountValidTill) return true; // No expiry = always available
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const validTill = new Date(entry.discountValidTill);
+    validTill.setHours(0, 0, 0, 0);
+    return today <= validTill;
+  }
+
+  /** Whether the entry's discount has expired (had a discount but window passed). */
+  isDiscountExpired(entry: any): boolean {
+    if (!entry.discountValidTill) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const validTill = new Date(entry.discountValidTill);
+    validTill.setHours(0, 0, 0, 0);
+    return today > validTill;
+  }
+
+  /** Calculate the discount saving for a single payment term entry. */
+  getDiscountSaving(entry: any): number {
+    if (!entry.discountType || entry.discountPercentage <= 0) return 0;
+    if (entry.discountType === 'Percentage') {
+      return entry.paymentAmount * entry.discountPercentage / 100;
+    }
+    return entry.discountPercentage; // Fixed amount discount
+  }
+
+  /** Total savings available across all payment schedule entries with active discounts. */
+  getTotalDiscountSavings(): number {
+    return this.paymentSchedule()
+      .filter(e => this.hasActiveDiscount(e))
+      .reduce((sum, e) => sum + this.getDiscountSaving(e), 0);
+  }
+
+  // --- Send Email Dialog ---
+  showEmailDialog = false;
+  emailRecipient = '';
+  emailCc = '';
+  emailAttachPdf = true;
+  emailSending = false;
+
+  openSendEmailDialog(): void {
+    // Pre-fill with customer email
+    this.emailRecipient = (this.invoice as any)?.customerEmail || '';
+    this.emailCc = '';
+    this.emailAttachPdf = true;
+    this.showEmailDialog = true;
+  }
+
+  sendEmail(): void {
+    if (!this.emailRecipient) {
+      this.toaster.warn('Please enter recipient email address.');
+      return;
+    }
+    this.emailSending = true;
+    const payload = {
+      invoiceId: this.invoice!.id,
+      recipientEmail: this.emailRecipient,
+      ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
+      attachPdf: this.emailAttachPdf,
+    };
+    this.http.post('/api/app/document-email/sales-invoice-email', payload).subscribe({
+      next: () => {
+        this.toaster.success('Email sent successfully.');
+        this.showEmailDialog = false;
+        this.emailSending = false;
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || 'Failed to send email.');
+        this.emailSending = false;
+      },
+    });
+  }
+
+  cancelEmailDialog(): void {
+    this.showEmailDialog = false;
   }
 }

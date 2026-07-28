@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
@@ -103,6 +103,7 @@ export class RfqDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   rfq: any = null;
   isLoading = false;
 
@@ -118,18 +119,20 @@ export class RfqDetailComponent implements OnInit {
   }
 
   createSupplierQuotation(supplierId: string, supplierName: string) {
-    if (!confirm(`Create Supplier Quotation for ${supplierName}?`)) return;
-    this.isLoading = true;
-    this.conversionService.convertRfqToSupplierQuotation(this.rfq.id, supplierId).subscribe({
-      next: (sq) => {
-        this.isLoading = false;
-        this.toaster.success(`Supplier Quotation created for ${supplierName}`);
-        this.router.navigate(['/purchasing/supplier-quotations', sq.id]);
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.toaster.error(err?.error?.error?.message || 'Failed to create Supplier Quotation');
-      },
+    this.confirmation.warn('::CreateConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.isLoading = true;
+      this.conversionService.convertRfqToSupplierQuotation(this.rfq.id, supplierId).subscribe({
+        next: (sq) => {
+          this.isLoading = false;
+          this.toaster.success('::SuccessfullyCreated');
+          this.router.navigate(['/purchasing/supplier-quotations', sq.id]);
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        },
+      });
     });
   }
 }

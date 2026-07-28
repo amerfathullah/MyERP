@@ -498,6 +498,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Warehouses' },
   },
   {
+    path: 'inventory/warehouse-tree',
+    loadComponent: () => import('./inventory/warehouses/warehouse-tree.component').then(c => c.WarehouseTreeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Warehouses' },
+  },
+  {
     path: 'inventory/warehouses/new',
     loadComponent: () => import('./inventory/warehouses/warehouse-form.component').then(c => c.WarehouseFormComponent),
     canActivate: [authGuard, permissionGuard],
@@ -605,7 +611,7 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'inventory/reports/stock-balance',
-    loadComponent: () => import('./inventory/reports/stock-balance.component').then(c => c.StockBalanceComponent),
+    loadComponent: () => import('./inventory/reports/stock-balance/stock-balance-report.component').then(c => c.StockBalanceReportComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Items' },
   },
@@ -860,6 +866,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
+  {
+    path: 'tax/templates',
+    loadComponent: () => import('./tax/tax-charges-template/tax-charges-template-list.component').then(c => c.TaxChargesTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxTemplates' },
+  },
   // CRM
   {
     path: 'crm/leads',
@@ -890,6 +902,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'crm/opportunities',
     loadComponent: () => import('./crm/opportunities/opportunity-list.component').then(c => c.OpportunityListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/opportunity-board',
+    loadComponent: () => import('./crm/pipeline/opportunity-kanban.component').then(c => c.OpportunityKanbanComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Opportunities' },
   },
@@ -1108,6 +1126,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/bom-explorer',
+    loadComponent: () => import('./manufacturing/bom/bom-explorer.component').then(c => c.BomExplorerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/work-orders',
     loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1306,6 +1330,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'purchasing/supplier-quotations',
     loadComponent: () => import('./purchasing/supplier-quotations/supplier-quotation-list.component').then(c => c.SupplierQuotationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/supplier-quotation-comparison',
+    loadComponent: () => import('./purchasing/sq-comparison/sq-comparison.component').then(c => c.SupplierQuotationComparisonComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },

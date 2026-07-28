@@ -5,6 +5,7 @@ using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -60,6 +61,57 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         };
         await _repository.InsertAsync(ws);
         return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
+    }
+
+    /// <summary>
+    /// Updates workstation settings. When hour rate changes, cascades the new rate
+    /// to all BOM Operations referencing this workstation (per PR eb9afa40ea).
+    /// ERPNext: workstation.update_bom_operation() sets both hour_rate AND operating_cost.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<WorkstationDto> UpdateAsync(Guid id, CreateWorkstationDto input)
+    {
+        var ws = await _repository.GetAsync(id);
+        var previousHourRate = ws.HourRate;
+
+        ws.Name = input.Name;
+        ws.WorkstationType = input.WorkstationType;
+        ws.ProductionCapacity = input.ProductionCapacity;
+        ws.Description = input.Description;
+
+        await _repository.UpdateAsync(ws);
+
+        // Per upstream PR eb9afa40ea: propagate hour_rate + operating_cost to BOM Operations
+        if (ws.HourRate != previousHourRate)
+        {
+            await PropagateHourRateToBomOperationsAsync(ws.Id, ws.HourRate);
+        }
+
+        return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
+    }
+
+    /// <summary>
+    /// When workstation hour_rate changes, updates all BOM Operations that reference
+    /// this workstation with: hour_rate = new rate, operating_cost = rate * time_in_mins / 60.
+    /// Per ERPNext workstation.py update_bom_operation() + PR eb9afa40ea fix.
+    /// </summary>
+    private async Task PropagateHourRateToBomOperationsAsync(Guid workstationId, decimal newHourRate)
+    {
+        var bomOpRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BomOperation, Guid>>();
+        var query = await bomOpRepo.GetQueryableAsync();
+        var affectedOps = query.Where(op => op.WorkstationId == workstationId).ToList();
+
+        foreach (var op in affectedOps)
+        {
+            op.CalculateCost(newHourRate);
+        }
+
+        if (affectedOps.Count > 0)
+        {
+            Logger.LogInformation(
+                "Propagated hour rate {Rate} to {Count} BOM operations for workstation {WsId}",
+                newHourRate, affectedOps.Count, workstationId);
+        }
     }
 }
 

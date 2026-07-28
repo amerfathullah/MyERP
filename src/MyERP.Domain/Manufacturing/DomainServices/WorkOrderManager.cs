@@ -147,6 +147,48 @@ public class WorkOrderManager : DomainService
 
         return settings?.BackflushRawMaterialsBasedOn ?? "BOM";
     }
+
+    /// <summary>
+    /// Validates that manufacturing warehouses (WIP, FG, Source, Scrap) belong to the same company
+    /// as the Work Order. Per ERPNext PR #57540: scope manufacturing warehouse filters to company.
+    /// Also validates that group warehouses are not used (per DO-NOT rules).
+    /// </summary>
+    public async Task ValidateWarehouseCompanyAsync(
+        WorkOrder wo,
+        IRepository<Warehouse, Guid> warehouseRepository)
+    {
+        var warehouseIds = new[] { wo.SourceWarehouseId, wo.WipWarehouseId, wo.FgWarehouseId, wo.ScrapWarehouseId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (!warehouseIds.Any()) return;
+
+        var queryable = await warehouseRepository.GetQueryableAsync();
+        var warehouses = queryable
+            .Where(w => warehouseIds.Contains(w.Id))
+            .ToList();
+
+        foreach (var wh in warehouses)
+        {
+            // Company scope check (PR #57540)
+            if (wh.CompanyId != wo.CompanyId)
+            {
+                throw new BusinessException("MyERP:10020")
+                    .WithData("warehouse", wh.Name)
+                    .WithData("warehouseCompany", wh.CompanyId)
+                    .WithData("workOrderCompany", wo.CompanyId);
+            }
+
+            // Group warehouse restriction (per DO-NOT: group warehouses cannot receive stock)
+            if (wh.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                    .WithData("warehouse", wh.Name);
+            }
+        }
+    }
 }
 
 /// <summary>

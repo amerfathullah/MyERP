@@ -15,7 +15,7 @@ import { SalaryStructureService } from '../../proxy/human-resources';
         <div class="row mb-3">
           <div class="col-md-5">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" placeholder="e.g., Executive Grade A" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" [placeholder]="'::Placeholder:SalaryStructureName' | abpLocalization" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'PayrollFrequency' | abpLocalization }}</label>
@@ -39,9 +39,9 @@ import { SalaryStructureService } from '../../proxy/human-resources';
           <tbody>
             @for (d of form.details; track $index) {
               <tr>
-                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.componentName" placeholder="e.g., Basic, HRA" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.componentName" [placeholder]="'::Placeholder:ComponentName' | abpLocalization" /></td>
                 <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.amount" /></td>
-                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.formula" placeholder="e.g., B * 0.4" /></td>
+                <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="d.formula" [placeholder]="'::Placeholder:Formula' | abpLocalization" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.details.splice($index,1)"><i class="fa fa-trash"></i></button></td>
               </tr>
             }

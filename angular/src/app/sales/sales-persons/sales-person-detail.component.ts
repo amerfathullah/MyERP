@@ -62,7 +62,7 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
                   </tr>
                 }
                 @empty {
-                  <tr><td colspan="3" class="text-center text-muted py-3">No targets set</td></tr>
+                  <tr><td colspan="3" class="text-center text-muted py-3">{{ '::NoTargetsSet' | abpLocalization }}</td></tr>
                 }
               </tbody>
             </table>

@@ -68,6 +68,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class TaxTemplates
+    {
+        public const string Default = GroupName + ".TaxTemplates";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class SalesInvoices
     {
         public const string Default = GroupName + ".SalesInvoices";

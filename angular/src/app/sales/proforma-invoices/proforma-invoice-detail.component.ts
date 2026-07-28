@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ProformaInvoiceService } from '../../proxy/application/sales/proforma-invoice.service';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -122,6 +122,7 @@ export class ProformaInvoiceDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private proformaService = inject(ProformaInvoiceService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   proforma = signal<any>(null);
   loading = signal(true);
@@ -140,12 +141,14 @@ export class ProformaInvoiceDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (!confirm('Cancel this proforma invoice?')) return;
-    this.proformaService.cancel(this.proforma()!.id).subscribe({
-      next: () => {
-        this.toaster.success('Proforma Invoice cancelled');
-        this.load(this.proforma()!.id);
-      }
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.proformaService.cancel(this.proforma()!.id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyCancelled');
+          this.load(this.proforma()!.id);
+        }
+      });
     });
   }
 

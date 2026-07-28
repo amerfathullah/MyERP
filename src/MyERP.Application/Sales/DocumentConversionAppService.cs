@@ -562,6 +562,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         opp.MarkQuotation();
         await oppRepo.UpdateAsync(opp, autoSave: true);
 
+        // Per PR #57507: carry forward communications from opportunity to quotation
+        // This links email threads and comments from the opportunity for context continuity
         await _activityLog.LogConvertedAsync("Opportunity", opp.Id, opp.CompanyId,
             "Quotation", quotation.Id, opp.OpportunityNumber, opp.TenantId);
 

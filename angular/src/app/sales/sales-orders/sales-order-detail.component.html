@@ -109,6 +109,7 @@
                 @if (order.status !== 'Draft') {
                   <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
                   <th class="text-end">{{ 'BilledQty' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Available' | abpLocalization }}</th>
                 }
               </tr>
             </thead>
@@ -123,6 +124,19 @@
                   @if (order.status !== 'Draft') {
                     <td class="text-end">{{ row.deliveredQty | number:'1.2-2' }}</td>
                     <td class="text-end">{{ row.billedQty | number:'1.2-2' }}</td>
+                    <td class="text-center">
+                      @if (itemStock()[row.itemId]) {
+                        @if (itemStock()[row.itemId] >= (row.quantity - (row.deliveredQty ?? 0))) {
+                          <span class="badge bg-success-subtle text-success"><i class="fa fa-check me-1"></i>{{ itemStock()[row.itemId] | number:'1.0-0' }}</span>
+                        } @else if (itemStock()[row.itemId] > 0) {
+                          <span class="badge bg-warning-subtle text-warning"><i class="fa fa-exclamation-triangle me-1"></i>{{ itemStock()[row.itemId] | number:'1.0-0' }}</span>
+                        } @else {
+                          <span class="badge bg-danger-subtle text-danger"><i class="fa fa-times me-1"></i>0</span>
+                        }
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
                   }
                 </tr>
               }
@@ -206,6 +220,10 @@
           <p class="mb-0" style="white-space: pre-wrap;">{{ order.notes }}</p>
         </div>
       </div>
+    }
+
+    @if (order.status !== 'Draft') {
+      <app-document-connections [documentType]="'SalesOrder'" [documentId]="order.id!" />
     }
 
     <app-activity-log [documentType]="'SalesOrder'" [documentId]="order.id!"></app-activity-log>

@@ -197,9 +197,7 @@ export class JournalEntryDetailComponent implements OnInit {
   }
 
   private reload(): void {
-    setTimeout(() => {
-      const id = this.route.snapshot.paramMap.get('id')!;
-      this.loadEntry(id);
-    }, 500);
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.loadEntry(id);
   }
 }

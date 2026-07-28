@@ -34,8 +34,9 @@ export class MaterialRequestDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => {
-      this.entity = result;
+    this.service.get(id).subscribe({
+      next: (result) => { this.entity = result; },
+      error: () => {}
     });
   }
 
@@ -48,15 +49,25 @@ export class MaterialRequestDetailComponent implements OnInit {
   }
 
   submit(): void {
-    this.store.submitRequest(this.entity!.id!);
-    this.reloadAfterAction();
+    this.service.submit(this.entity!.id!).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySubmitted');
+        this.reload();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+    });
   }
 
   cancel(): void {
-    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
       if (status === Confirmation.Status.confirm) {
-        this.store.cancelRequest(this.entity!.id!);
-        this.reloadAfterAction();
+        this.service.cancel(this.entity!.id!).subscribe({
+          next: () => {
+            this.toaster.success('::SuccessfullyCancelled');
+            this.reload();
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+        });
       }
     });
   }
@@ -88,11 +99,10 @@ export class MaterialRequestDetailComponent implements OnInit {
     this.router.navigate(['/purchasing/material-requests']);
   }
 
-  private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.entity!.id!).subscribe((result) => {
-        this.entity = result;
-      });
-    }, 500);
+  private reload(): void {
+    this.service.get(this.entity!.id!).subscribe({
+      next: (result) => { this.entity = result; },
+      error: () => {}
+    });
   }
 }

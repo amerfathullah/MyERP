@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
 import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
 import type { CompanyDto } from '../../proxy/core/models';
@@ -29,7 +29,7 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="name" placeholder="FY 2026-27" />
+              <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:FiscalYearExample' | abpLocalization" />
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'StartDate' | abpLocalization }}</label>
@@ -100,6 +100,7 @@ export class FiscalYearListComponent implements OnInit {
   private fiscalYearService = inject(FiscalYearService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   companies = signal<CompanyDto[]>([]);
   fiscalYears = signal<FiscalYearDto[]>([]);
@@ -135,10 +136,12 @@ export class FiscalYearListComponent implements OnInit {
   }
 
   closeFy(id: string): void {
-    if (!confirm('Close this fiscal year? This cannot be undone.')) return;
-    this.fiscalYearService.close(id).subscribe({
-      next: () => { this.toaster.success('Fiscal Year closed'); this.loadFiscalYears(); },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed to close fiscal year'),
+    this.confirmation.warn('::CloseConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.fiscalYearService.close(id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyUpdated'); this.loadFiscalYears(); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+      });
     });
   }
 }

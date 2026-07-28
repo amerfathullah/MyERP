@@ -32,10 +32,10 @@ interface ProjectedQtyRow {
         <h5 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>{{ 'MyERP::ProjectedStockQty' | abpLocalization }}</h5>
         <div class="btn-group btn-group-sm">
           <button class="btn" [class.btn-primary]="!showShortageOnly" [class.btn-outline-primary]="showShortageOnly"
-            (click)="showShortageOnly = false; filterData()">All Items</button>
+            (click)="showShortageOnly = false; filterData()">{{ 'MyERP::AllItems' | abpLocalization }}</button>
           <button class="btn" [class.btn-danger]="showShortageOnly" [class.btn-outline-danger]="!showShortageOnly"
             (click)="showShortageOnly = true; filterData()">
-            <i class="bi bi-exclamation-triangle me-1"></i>Shortage Only ({{ shortageCount }})
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ 'MyERP::ShortageOnly' | abpLocalization }} ({{ shortageCount }})
           </button>
         </div>
       </div>
@@ -44,7 +44,7 @@ interface ProjectedQtyRow {
         <div class="row mb-3 g-2">
           <div class="col-md-3">
             <select class="form-select form-select-sm" [(ngModel)]="filterWarehouse" (change)="loadData()">
-              <option value="">All Warehouses</option>
+              <option value="">{{ 'MyERP::AllWarehouses' | abpLocalization }}</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }
@@ -52,7 +52,7 @@ interface ProjectedQtyRow {
           </div>
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm" [(ngModel)]="searchTerm"
-              placeholder="Search item..." (keyup.enter)="filterData()" />
+              [placeholder]="'MyERP::Placeholder:SearchItem' | abpLocalization" (keyup.enter)="filterData()" />
           </div>
           <div class="col-md-2">
             <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
@@ -70,13 +70,13 @@ interface ProjectedQtyRow {
                 <tr>
                   <th>{{ 'MyERP::Item' | abpLocalization }}</th>
                   <th>{{ 'MyERP::Warehouse' | abpLocalization }}</th>
-                  <th class="text-end">Actual</th>
-                  <th class="text-end">Planned</th>
-                  <th class="text-end">Ordered</th>
-                  <th class="text-end">Reserved</th>
-                  <th class="text-end fw-bold">Projected</th>
-                  <th class="text-end">Reorder Lvl</th>
-                  <th class="text-center">Status</th>
+                  <th class="text-end">{{ 'MyERP::ActualQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'MyERP::PlannedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'MyERP::OrderedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'MyERP::ReservedQty' | abpLocalization }}</th>
+                  <th class="text-end fw-bold">{{ 'MyERP::ProjectedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'MyERP::ReorderLevel' | abpLocalization }}</th>
+                  <th class="text-center">{{ 'MyERP::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,16 +97,16 @@ interface ProjectedQtyRow {
                     <td class="text-end font-monospace">{{ row.reorderLevel | number:'1.2-2' }}</td>
                     <td class="text-center">
                       @if (row.shortageQty > 0) {
-                        <span class="badge bg-danger">Shortage</span>
+                        <span class="badge bg-danger">{{ 'MyERP::Shortage' | abpLocalization }}</span>
                       } @else if (row.projectedQty <= row.reorderLevel && row.reorderLevel > 0) {
-                        <span class="badge bg-warning">Reorder</span>
+                        <span class="badge bg-warning">{{ 'MyERP::Reorder' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-success">OK</span>
+                        <span class="badge bg-success">{{ 'MyERP::OK' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="9" class="text-center text-muted py-4">No data found</td></tr>
+                  <tr><td colspan="9" class="text-center text-muted py-4">{{ 'MyERP::NoRecordsFound' | abpLocalization }}</td></tr>
                 }
               </tbody>
             </table>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { AssetRepairService } from '../../proxy/assets/asset-repair.service';
 import { AssetService } from '../../proxy/assets/asset.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
@@ -94,6 +95,7 @@ export class AssetRepairListComponent implements OnInit {
   private service = inject(AssetRepairService);
   private companyContext = inject(CompanyContextService);
   private assetService = inject(AssetService);
+  private confirmation = inject(ConfirmationService);
 
   assetNames = signal<Record<string, string>>({});
 
@@ -123,16 +125,20 @@ export class AssetRepairListComponent implements OnInit {
   }
 
   completeRepair(repair: AssetRepairDto): void {
-    if (!confirm('Complete this repair?')) return;
-    this.service.complete(repair.id).subscribe({
-      next: () => this.loadData(),
+    this.confirmation.warn('::CompleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.complete(repair.id).subscribe({
+        next: () => this.loadData(),
+      });
     });
   }
 
   cancelRepair(repair: AssetRepairDto): void {
-    if (!confirm('Cancel this repair?')) return;
-    this.service.cancel(repair.id).subscribe({
-      next: () => this.loadData(),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.cancel(repair.id).subscribe({
+        next: () => this.loadData(),
+      });
     });
   }
 

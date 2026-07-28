@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ItemAttributeService } from '../../proxy/inventory/item-attribute.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-item-attribute-list',
@@ -18,7 +18,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
         <div class="row g-2 align-items-end">
           <div class="col-md-3">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input type="text" class="form-control form-control-sm" [(ngModel)]="newName" placeholder="e.g. Color, Size">
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="newName" [placeholder]="'::Placeholder:AttributeName' | abpLocalization">
           </div>
           <div class="col-md-2">
             <div class="form-check mt-4">
@@ -78,8 +78,8 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <span class="badge bg-secondary">{{ v.value }} ({{ v.abbreviation }})</span>
                 }
                 <div class="d-inline-flex gap-1 ms-2">
-                  <input type="text" class="form-control form-control-sm" style="width:80px" placeholder="Value" #valInput>
-                  <input type="text" class="form-control form-control-sm" style="width:50px" placeholder="Abbr" #abbrInput>
+                  <input type="text" class="form-control form-control-sm" style="width:80px" [placeholder]="'::Placeholder:Value' | abpLocalization" #valInput>
+                  <input type="text" class="form-control form-control-sm" style="width:50px" [placeholder]="'::Placeholder:Abbreviation' | abpLocalization" #abbrInput>
                   <button class="btn btn-sm btn-outline-primary" (click)="addValue(attr.id, valInput, abbrInput)">+</button>
                 </div>
               </div>
@@ -93,6 +93,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 export class ItemAttributeListComponent implements OnInit {
   private service = inject(ItemAttributeService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   attributes: any[] = [];
   isLoading = false;
@@ -149,7 +150,9 @@ export class ItemAttributeListComponent implements OnInit {
   }
 
   deleteAttribute(id: string) {
-    if (!confirm('Delete this attribute?')) return;
-    this.service.delete(id).subscribe({ next: () => this.loadData() });
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(id).subscribe({ next: () => this.loadData() });
+    });
   }
 }

@@ -16,7 +16,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
     <abp-page [title]="'JobCards' | abpLocalization">
       <div class="d-flex justify-content-between mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
-          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
+          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
       </div>
       @if (isLoading) { <div class="text-center py-3"><i class="fa fa-spinner fa-spin fa-2x"></i></div> }
       @if (!isLoading && jobCards.length === 0) {

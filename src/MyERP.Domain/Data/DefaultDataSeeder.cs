@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
@@ -45,6 +46,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
     private readonly IRepository<FinancialReportTemplate, Guid> _reportTemplateRepository;
     private readonly MalaysianCoaSeeder _coaSeeder;
     private readonly IGuidGenerator _guidGenerator;
+    private readonly IServiceProvider _serviceProvider;
 
     public DefaultDataSeeder(
         IRepository<ItemGroup, Guid> itemGroupRepository,
@@ -69,7 +71,8 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         IRepository<CurrencyExchange, Guid> currencyExchangeRepository,
         IRepository<FinancialReportTemplate, Guid> reportTemplateRepository,
         MalaysianCoaSeeder coaSeeder,
-        IGuidGenerator guidGenerator)
+        IGuidGenerator guidGenerator,
+        IServiceProvider serviceProvider)
     {
         _itemGroupRepository = itemGroupRepository;
         _mopRepository = mopRepository;
@@ -94,6 +97,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         _reportTemplateRepository = reportTemplateRepository;
         _coaSeeder = coaSeeder;
         _guidGenerator = guidGenerator;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task SeedAsync(DataSeedContext context)
@@ -113,6 +117,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         await SeedUomDataAsync();
         await SeedPeggedCurrenciesAsync();
         await SeedFinancialReportTemplatesAsync();
+        await SeedEmailTemplatesAsync();
     }
 
     private async Task SeedItemGroupsAsync()
@@ -679,5 +684,66 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
             calculationFormula: "TL + TEQ", isBold: true);
 
         await _reportTemplateRepository.InsertAsync(bs, autoSave: true);
+    }
+
+    private async Task SeedEmailTemplatesAsync()
+    {
+        var repo = _serviceProvider.GetRequiredService<IRepository<EmailTemplate, Guid>>();
+        if (await repo.GetCountAsync() > 0) return;
+
+        await repo.InsertAsync(new EmailTemplate(
+            _guidGenerator.Create(),
+            "Sales Invoice Email",
+            "{{ company_name }} - Invoice {{ invoice_number }}",
+            "<p>Dear {{ customer_name }},</p>" +
+            "<p>Please find attached Invoice <strong>{{ invoice_number }}</strong> dated {{ issue_date }} " +
+            "for the amount of <strong>{{ grand_total }}</strong>.</p>" +
+            "<p>Payment is due by {{ due_date }}.</p>" +
+            "<p>If you have already made the payment, please disregard this email.</p>" +
+            "<p>Best regards,<br/>{{ company_name }}</p>")
+        { DocumentType = "SalesInvoice" }, autoSave: true);
+
+        await repo.InsertAsync(new EmailTemplate(
+            _guidGenerator.Create(),
+            "Purchase Order Email",
+            "{{ company_name }} - Purchase Order {{ document_number }}",
+            "<p>Dear {{ party_name }},</p>" +
+            "<p>Please find attached Purchase Order <strong>{{ document_number }}</strong>.</p>" +
+            "<p>Kindly confirm receipt and expected delivery schedule.</p>" +
+            "<p>Best regards,<br/>{{ company_name }}</p>")
+        { DocumentType = "PurchaseOrder" }, autoSave: true);
+
+        await repo.InsertAsync(new EmailTemplate(
+            _guidGenerator.Create(),
+            "Quotation Email",
+            "{{ company_name }} - Quotation {{ document_number }}",
+            "<p>Dear {{ party_name }},</p>" +
+            "<p>Thank you for your enquiry. Please find attached our Quotation " +
+            "<strong>{{ document_number }}</strong> for your review.</p>" +
+            "<p>This quotation is valid until {{ valid_till }}.</p>" +
+            "<p>Please do not hesitate to contact us if you have any questions.</p>" +
+            "<p>Best regards,<br/>{{ company_name }}</p>")
+        { DocumentType = "Quotation" }, autoSave: true);
+
+        await repo.InsertAsync(new EmailTemplate(
+            _guidGenerator.Create(),
+            "Payment Reminder",
+            "Payment Reminder - Invoice {{ invoice_number }} Overdue",
+            "<p>Dear {{ customer_name }},</p>" +
+            "<p>This is a friendly reminder that Invoice <strong>{{ invoice_number }}</strong> " +
+            "for <strong>{{ grand_total }}</strong> was due on {{ due_date }}.</p>" +
+            "<p>If payment has already been made, please disregard this notice.</p>" +
+            "<p>Best regards,<br/>{{ company_name }}</p>")
+        { DocumentType = "PaymentReminder" }, autoSave: true);
+
+        await repo.InsertAsync(new EmailTemplate(
+            _guidGenerator.Create(),
+            "Delivery Note Email",
+            "{{ company_name }} - Delivery Note {{ document_number }}",
+            "<p>Dear {{ party_name }},</p>" +
+            "<p>Your order has been dispatched. Please find the delivery details attached.</p>" +
+            "<p>Delivery Note: <strong>{{ document_number }}</strong></p>" +
+            "<p>Best regards,<br/>{{ company_name }}</p>")
+        { DocumentType = "DeliveryNote" }, autoSave: true);
     }
 }

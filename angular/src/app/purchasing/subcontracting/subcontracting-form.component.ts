@@ -44,7 +44,7 @@ interface ScoFormItem {
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'MyERP::PurchaseOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" [(ngModel)]="form.purchaseOrderId" name="poId" placeholder="Optional PO ID" />
+            <input type="text" class="form-control" [(ngModel)]="form.purchaseOrderId" name="poId" [placeholder]="'::Placeholder:PurchaseOrderId' | abpLocalization" />
           </div>
         </div>
 

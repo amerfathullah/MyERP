@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { FinanceBookService } from '../../proxy/accounting/finance-book.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface FinanceBookDto {
@@ -104,6 +104,7 @@ interface FinanceBookDto {
 export class FinanceBookListComponent implements OnInit {
   private financeBookService = inject(FinanceBookService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
 
   books = signal<FinanceBookDto[]>([]);
@@ -153,12 +154,14 @@ export class FinanceBookListComponent implements OnInit {
   }
 
   remove(id: string) {
-    if (!confirm('Delete this finance book?')) return;
-    this.financeBookService.delete(id).subscribe({
-      next: () => {
-        this.toaster.success('::SuccessfullyDeleted');
-        this.load();
-      }
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.financeBookService.delete(id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.load();
+        }
+      });
     });
   }
 }

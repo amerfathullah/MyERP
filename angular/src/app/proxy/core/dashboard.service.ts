@@ -64,7 +64,14 @@ export class DashboardService {
       url: `/api/app/dashboard/aging-summary-widget/${companyId}`,
     },
     { apiName: this.apiName,...config });
-  
+
+  getCashFlowSnapshot = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/cash-flow-snapshot/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
   getBankBalances = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, any>({
       method: 'GET',

@@ -67,9 +67,9 @@ export class JournalEntryFormComponent implements OnInit {
     if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
 
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
-      .subscribe((res) => this.accounts.set(res.items ?? []));
+      .subscribe({ next: (res) => this.accounts.set(res.items ?? []), error: () => {} });
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe((res) => this.companies.set(res.items ?? []));
+      .subscribe({ next: (res) => this.companies.set(res.items ?? []), error: () => {} });
   }
 
   addLine(): void {

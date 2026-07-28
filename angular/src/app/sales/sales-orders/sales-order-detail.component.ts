@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,6 +17,7 @@ import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendm
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print-layout/so-print-layout.component';
 import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
 
@@ -23,7 +25,7 @@ import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -34,6 +36,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
+  private http = inject(HttpClient);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
@@ -42,6 +45,7 @@ export class SalesOrderDetailComponent implements OnInit {
   order: SalesOrderDto | null = null;
   deliverySchedule = signal<any[]>([]);
   orderPayments = signal<any[]>([]);
+  itemStock = signal<Record<string, number>>({});
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   // Print layout data
@@ -134,6 +138,10 @@ export class SalesOrderDetailComponent implements OnInit {
         next: (payments) => this.orderPayments.set(payments ?? []),
         error: () => {}
       });
+      // Load per-item stock availability for active orders
+      if (result.status !== 'Draft' && result.status !== 'Cancelled' && result.items?.length) {
+        this.loadItemStockAvailability(result.items);
+      }
     });
   }
 
@@ -151,6 +159,27 @@ export class SalesOrderDetailComponent implements OnInit {
         this.companyAddress = company.address || '';
       },
       error: () => {},
+    });
+  }
+
+  private loadItemStockAvailability(items: any[]): void {
+    const itemIds = [...new Set(items.map((i: any) => i.itemId).filter(Boolean))];
+    if (!itemIds.length) return;
+    // Fetch stock balance and aggregate per-item across warehouses
+    this.http.get<any>('/api/app/stock-balance', {
+      params: { maxResultCount: '500', skipCount: '0', sorting: '' }
+    }).subscribe({
+      next: (res: any) => {
+        const stockMap: Record<string, number> = {};
+        for (const bin of (res.items ?? [])) {
+          const key = bin.itemId;
+          if (key && itemIds.includes(key)) {
+            stockMap[key] = (stockMap[key] ?? 0) + (bin.actualQty ?? 0);
+          }
+        }
+        this.itemStock.set(stockMap);
+      },
+      error: () => {}
     });
   }
 
@@ -179,7 +208,13 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'payment':
         this.router.navigate(['/accounting/payments/new'], {
-          queryParams: { partyType: 'Customer', againstOrderType: 'SalesOrder', againstOrderId: id }
+          queryParams: {
+            partyType: 'Customer',
+            partyId: this.order!.customerId,
+            againstOrderType: 'SalesOrder',
+            againstOrderId: id,
+            companyId: this.order!.companyId,
+          }
         });
         break;
       case 'work_order':
@@ -197,10 +232,10 @@ export class SalesOrderDetailComponent implements OnInit {
         });
         break;
       case 'close':
-        this.service.close(id).subscribe(() => this.reloadAfterAction());
+        this.service.close(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
       case 'reopen':
-        this.service.reopen(id).subscribe(() => this.reloadAfterAction());
+        this.service.reopen(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
@@ -219,9 +254,10 @@ export class SalesOrderDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.order!.id!).subscribe((r) => { this.order = r; });
-    }, 500);
+    this.service.get(this.order!.id!).subscribe({
+      next: (r) => { this.order = r; },
+      error: () => {}
+    });
   }
 
   /** Triggers the draft link guard check before executing a conversion action. */
@@ -249,10 +285,12 @@ export class SalesOrderDetailComponent implements OnInit {
   }
 
   deleteOrder(): void {
-    if (!confirm('Are you sure you want to delete this draft order?')) return;
-    this.service.delete(this.order!.id!).subscribe({
-      next: () => this.router.navigate(['/sales/orders']),
-      error: () => {},
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(this.order!.id!).subscribe({
+        next: () => this.router.navigate(['/sales/orders']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 }

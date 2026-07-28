@@ -15,6 +15,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 
 @Component({
   selector: 'app-sales-order-form',
@@ -34,10 +35,12 @@ export class SalesOrderFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private paymentTermsService = inject(PaymentTermsTemplateService);
 
   customers = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  paymentTermsTemplates = signal<any[]>([]);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -49,6 +52,7 @@ export class SalesOrderFormComponent implements OnInit {
     customerId: ['', Validators.required],
     customerName: [''],
     warehouseId: [''],
+    paymentTermsTemplateId: [''],
     couponCode: [''],
     loyaltyPointsToRedeem: [0],
     items: this.fb.array([]),
@@ -73,6 +77,9 @@ export class SalesOrderFormComponent implements OnInit {
 
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+
+    this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
 
     if (this.isEditMode) {
       this.soService.get(this.entityId!).subscribe(so => {

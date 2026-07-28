@@ -257,20 +257,23 @@ export class PaymentEntryDetailComponent implements OnInit {
   }
 
   private reload(): void {
-    setTimeout(() => {
-      const id = this.route.snapshot.paramMap.get('id')!;
-      this.paymentEntryService.get(id).subscribe(data => {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.paymentEntryService.get(id).subscribe({
+      next: (data) => {
         this.entry.set(data);
         this.references.set((data as any).references || []);
-      });
-    }, 500);
+      },
+      error: () => {}
+    });
   }
 
   deleteEntry(): void {
-    if (!confirm('Are you sure you want to delete this draft payment entry?')) return;
-    this.paymentEntryService.delete(this.entry()!.id).subscribe({
-      next: () => this.router.navigate(['/accounting/payments']),
-      error: () => {},
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.paymentEntryService.delete(this.entry()!.id).subscribe({
+        next: () => this.router.navigate(['/accounting/payments']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 

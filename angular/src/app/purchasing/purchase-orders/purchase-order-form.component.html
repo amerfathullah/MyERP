@@ -17,7 +17,7 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
-            <select class="form-select" formControlName="supplierId" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
+            <select class="form-select" formControlName="supplierId" (change)="onSupplierChanged()" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
               @for (s of suppliers(); track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
@@ -31,6 +31,28 @@
             <label class="form-label">{{ '::ExpectedDelivery' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="expectedDeliveryDate" [class.is-invalid]="form.get('expectedDeliveryDate')?.invalid && form.get('expectedDeliveryDate')?.touched" />
           </div>
+          <div class="col-12 col-md-3 col-lg-2 mb-3">
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
+            <select class="form-select" formControlName="currencyCode" (change)="onCurrencyChanged()">
+              <option value="MYR">MYR</option>
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY</option>
+              <option value="CNY">CNY</option>
+              <option value="THB">THB</option>
+              <option value="IDR">IDR</option>
+            </select>
+          </div>
+          @if (isMultiCurrency()) {
+            <div class="col-12 col-md-3 col-lg-2 mb-3">
+              <label class="form-label">{{ '::ExchangeRate' | abpLocalization }} <small class="text-muted">({{ form.get('currencyCode')?.value }} → MYR)</small></label>
+              <input type="number" class="form-control" formControlName="exchangeRate" step="0.000001" min="0.000001" />
+              <small class="form-text text-muted">{{ '::ExchangeRateHelpText' | abpLocalization }}</small>
+            </div>
+          }
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="notes" [class.is-invalid]="form.get('notes')?.invalid && form.get('notes')?.touched" rows="2"></textarea>
@@ -48,10 +70,40 @@
       </div>
     </div>
 
+    <!-- Supplier Address & TIN (auto-filled on supplier selection) -->
+    @if (supplierAddress() || supplierTin()) {
+      <div class="card mb-4 border-start border-4 border-info">
+        <div class="card-body py-2">
+          <div class="row">
+            @if (supplierAddress()) {
+              <div class="col-12 col-md-8">
+                <small class="text-muted"><i class="fa fa-map-marker-alt me-1"></i>{{ '::SupplierAddress' | abpLocalization }}</small>
+                <div class="fw-medium">{{ supplierAddress() }}</div>
+              </div>
+            }
+            @if (supplierTin()) {
+              <div class="col-12 col-md-4">
+                <small class="text-muted"><i class="fa fa-id-card me-1"></i>TIN</small>
+                <div class="fw-medium font-monospace">{{ supplierTin() }}</div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Line Items -->
     <div class="card mb-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+        <button type="button" class="btn btn-sm btn-outline-info" (click)="loadItemsFromMaterialRequest()" [disabled]="isLoadingMrItems()">
+          @if (isLoadingMrItems()) {
+            <span class="spinner-border spinner-border-sm me-1"></span>
+          } @else {
+            <i class="fa fa-file-import me-1"></i>
+          }
+          {{ '::GetItemsFromMR' | abpLocalization }}
+        </button>
       </div>
       <div class="card-body">
         <div class="table-responsive">

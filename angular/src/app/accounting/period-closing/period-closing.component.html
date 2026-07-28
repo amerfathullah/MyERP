@@ -11,20 +11,42 @@
       <div class="card-body border-bottom bg-light">
         <h6>{{ '::CreatePeriodClosingVoucher' | abpLocalization }}</h6>
         <div class="row g-2 align-items-end">
-          <div class="col-md-3">
+          <div class="col-md-2">
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="form.companyId" (change)="onCompanyChanged(form.companyId)">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="form.postingDate" />
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label class="form-label">{{ '::ClosingAccount' | abpLocalization }}</label>
-            <input type="text" class="form-control form-control-sm" [(ngModel)]="form.closingAccountId"
-                   [placeholder]="'::Placeholder:RetainedEarningsAccountId' | abpLocalization" />
+            <select class="form-select form-select-sm" [(ngModel)]="form.closingAccountId">
+              <option value="">{{ '::SelectAccount' | abpLocalization }}</option>
+              @for (a of accounts(); track a.id) {
+                <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::FiscalYear' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="form.fiscalYearId">
+              <option value="">{{ '::SelectFiscalYear' | abpLocalization }}</option>
+              @for (fy of fiscalYears(); track fy.id) {
+                <option [value]="fy.id">{{ fy.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
             <input type="text" class="form-control form-control-sm" [(ngModel)]="form.remarks" />
           </div>
-          <div class="col-md-4">
+          <div class="col-md-2">
             <button class="btn btn-success btn-sm" (click)="create()">
               <i class="fa fa-check me-1"></i>{{ '::Create' | abpLocalization }}
             </button>
@@ -66,7 +88,7 @@
               @for (item of items(); track item.id) {
                 <tr>
                   <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ item.closingAccountId ? (item.closingAccountId | slice:0:8) : '—' }}</td>
+                  <td>{{ getAccountName(item.closingAccountId) }}</td>
                   <td class="text-end fw-bold">{{ item.totalClosingAmount | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="getStatusLabel(item.status)" /></td>
                   <td>{{ item.remarks }}</td>
@@ -92,13 +114,13 @@
                   <tr>
                     <td colspan="6" class="p-0">
                       <div class="bg-light p-3">
-                        <h6 class="mb-2"><i class="fa fa-list-ol me-1"></i>GL Entries ({{ glEntries().length }})</h6>
+                        <h6 class="mb-2"><i class="fa fa-list-ol me-1"></i>{{ '::LedgerEntries' | abpLocalization }} ({{ glEntries().length }})</h6>
                         <table class="table table-sm table-bordered mb-0">
                           <thead class="table-secondary">
                             <tr>
-                              <th>Account</th>
-                              <th class="text-end">Debit</th>
-                              <th class="text-end">Credit</th>
+                              <th>{{ '::Account' | abpLocalization }}</th>
+                              <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
+                              <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
                             </tr>
                           </thead>
                           <tbody>

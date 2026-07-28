@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StockReconciliationService } from '../../proxy/inventory/stock-reconciliation.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import type { StockReconciliationDto } from '../../proxy/dtos/models';
@@ -54,6 +54,7 @@ export class StockReconciliationDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(StockReconciliationService);
   private itemService = inject(ItemService);
+  private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   d: StockReconciliationDto | null = null;
   loading = signal(false);
@@ -61,12 +62,12 @@ export class StockReconciliationDetailComponent implements OnInit {
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
-    this.itemService.getList({ maxResultCount: 500 } as any).subscribe(res => {
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.itemService.getList({ maxResultCount: 500 } as any).subscribe({ next: res => {
       const map: Record<string, string> = {};
       (res.items ?? []).forEach((i: any) => { map[i.id] = i.itemCode || i.itemName || i.id; });
       this.itemNames.set(map);
-    });
+    }, error: () => {} });
   }
 
   submit() {
@@ -78,16 +79,18 @@ export class StockReconciliationDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (!confirm('Are you sure you want to cancel this reconciliation?')) return;
-    this.loading.set(true);
-    this.service.cancel(this.d!.id!).subscribe({
-      next: () => { this.toaster.success('Stock Reconciliation cancelled'); this.reload(); },
-      error: () => this.loading.set(false),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.loading.set(true);
+      this.service.cancel(this.d!.id!).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.reload(); },
+        error: () => this.loading.set(false),
+      });
     });
   }
 
   private reload() {
     this.loading.set(false);
-    this.service.get(this.d!.id!).subscribe((r) => this.d = r);
+    this.service.get(this.d!.id!).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 }

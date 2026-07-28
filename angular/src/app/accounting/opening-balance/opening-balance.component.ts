@@ -85,7 +85,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
               </div>
               <div class="col-md-8">
                 <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="remarks" placeholder="Opening Balance Entry" />
+                <input type="text" class="form-control" formControlName="remarks" [placeholder]="'::Placeholder:OpeningBalanceEntry' | abpLocalization" />
               </div>
             </div>
 

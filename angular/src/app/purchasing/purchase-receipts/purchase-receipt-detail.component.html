@@ -75,6 +75,10 @@
       </button>
     </div>
 
+    @if (receipt.status !== 'Draft') {
+      <app-document-connections [documentType]="'PurchaseReceipt'" [documentId]="receipt.id!" />
+    }
+
     <app-activity-log [documentType]="'PurchaseReceipt'" [documentId]="receipt.id!"></app-activity-log>
 
     <!-- Ledger Views (Stock + Accounting for submitted/posted documents) -->

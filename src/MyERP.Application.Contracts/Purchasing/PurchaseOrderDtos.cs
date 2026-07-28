@@ -20,6 +20,13 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public decimal PerReceived { get; set; }
     public decimal PerBilled { get; set; }
     public string? Notes { get; set; }
+
+    // Supplier Confirmation Tracking
+    public string? SupplierConfirmationNumber { get; set; }
+    public DateTime? SupplierConfirmationDate { get; set; }
+    public DateTime? SupplierPromisedDate { get; set; }
+    public bool IsSupplierConfirmed { get; set; }
+
     public List<PurchaseOrderItemDto> Items { get; set; } = new();
 }
 
@@ -80,4 +87,21 @@ public class DropShipDeliveryItemDto
     /// Per ERPNext: negative cannot exceed current received_qty; positive cannot exceed remaining qty.
     /// </summary>
     [Required] public decimal QtyChange { get; set; }
+}
+
+/// <summary>
+/// Input for recording supplier acknowledgment/confirmation of a purchase order.
+/// Per ERPNext: suppliers confirm receipt of PO and provide their reference number + promised delivery date.
+/// </summary>
+public class RecordSupplierConfirmationDto
+{
+    /// <summary>Supplier's own reference/confirmation number (e.g., their internal order number).</summary>
+    [StringLength(100)]
+    public string? ConfirmationNumber { get; set; }
+
+    /// <summary>Date when supplier confirmed the order. Defaults to today if not provided.</summary>
+    public DateTime? ConfirmationDate { get; set; }
+
+    /// <summary>Supplier's promised delivery date (may differ from PO expected delivery date).</summary>
+    public DateTime? PromisedDeliveryDate { get; set; }
 }

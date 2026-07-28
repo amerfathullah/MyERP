@@ -4,7 +4,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { CompanyService } from '../../proxy/core/company.service';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -33,6 +33,7 @@ export class QuotationDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(QuotationStore);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
@@ -57,7 +58,7 @@ export class QuotationDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => {
+    this.service.get(id).subscribe({ next: (result) => {
       this.quotation = result;
       // Load company data for print layout
       if ((result as any).companyId) {
@@ -66,7 +67,22 @@ export class QuotationDetailComponent implements OnInit {
           error: () => {} // Non-critical — print still works without company header
         });
       }
-    });
+    }, error: () => {} });
+  }
+
+  get isExpired(): boolean {
+    if (!this.quotation) return false;
+    const validUntil = (this.quotation as any).validUntil;
+    if (!validUntil) return false;
+    return new Date(validUntil) < new Date() && this.quotation.status === 'Submitted';
+  }
+
+  get daysUntilExpiry(): number | null {
+    if (!this.quotation) return null;
+    const validUntil = (this.quotation as any).validUntil;
+    if (!validUntil) return null;
+    const diff = new Date(validUntil).getTime() - new Date().getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
   onWorkflowAction(action: string): void {
@@ -82,7 +98,7 @@ export class QuotationDetailComponent implements OnInit {
         });
         break;
       case 'lost':
-        this.service.markLost(id).subscribe(() => this.reloadAfterAction());
+        this.service.markLost(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
@@ -101,9 +117,10 @@ export class QuotationDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.quotation!.id!).subscribe((r) => { this.quotation = r; });
-    }, 500);
+    this.service.get(this.quotation!.id!).subscribe({
+      next: (r) => { this.quotation = r; },
+      error: () => {}
+    });
   }
 
   print(): void {

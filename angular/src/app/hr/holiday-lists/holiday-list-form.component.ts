@@ -15,7 +15,7 @@ import { HolidayListService } from '../../proxy/human-resources';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" placeholder="e.g., Malaysia 2026" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" [placeholder]="'::Placeholder:HolidayListName' | abpLocalization" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'Year' | abpLocalization }}</label>
@@ -23,7 +23,7 @@ import { HolidayListService } from '../../proxy/human-resources';
           </div>
           <div class="col-md-5">
             <label class="form-label">{{ 'WeeklyOff' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.weeklyOff" placeholder="Saturday,Sunday" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.weeklyOff" [placeholder]="'::Placeholder:WeeklyOff' | abpLocalization" />
           </div>
         </div>
 

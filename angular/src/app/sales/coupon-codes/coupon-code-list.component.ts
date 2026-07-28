@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CouponCodeService } from '../../proxy/sales/coupon-code.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface CouponCodeDto {
@@ -153,6 +153,7 @@ interface CouponCodeDto {
 export class CouponCodeListComponent implements OnInit {
   private couponCodeService = inject(CouponCodeService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   coupons = signal<CouponCodeDto[]>([]);
   totalCount = signal(0);
@@ -193,10 +194,12 @@ export class CouponCodeListComponent implements OnInit {
   }
 
   remove(coupon: CouponCodeDto) {
-    if (!confirm('Delete this coupon code?')) return;
-    this.couponCodeService.delete(coupon.id).subscribe({
-      next: () => { this.toaster.success('Deleted'); this.loadData(); },
-      error: () => {}
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.couponCodeService.delete(coupon.id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
+        error: () => {}
+      });
     });
   }
 

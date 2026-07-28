@@ -2,7 +2,8 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ExpenseClaimService } from '../../proxy/human-resources/expense-claim.service';
 import type { ExpenseClaimDto } from '../../proxy/human-resources/models';
 
@@ -55,12 +56,29 @@ export class ExpenseClaimDetailComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
-    this.service.get(this.id).subscribe((r) => this.claim = r);
+    this.service.get(this.id).subscribe({ next: (r) => this.claim = r, error: () => {} });
   }
 
-  approve() { this.service.approve(this.id).subscribe(() => this.load()); }
-  reject() { this.service.reject(this.id).subscribe(() => this.load()); }
+  private toaster = inject(ToasterService);
+  private localization = inject(LocalizationService);
 
-  statusLabel(s: number | undefined) { return ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'][s ?? 0] ?? 'Draft'; }
+  approve() {
+    this.service.approve(this.id).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyApproved'); this.load(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+    });
+  }
+  reject() {
+    this.service.reject(this.id).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyRejected'); this.load(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+    });
+  }
+
+  statusLabel(s: number | undefined) {
+    const keys = ['Draft', 'Submitted', 'Approved', '', 'Cancelled', 'Rejected'];
+    const key = keys[s ?? 0] || 'Draft';
+    return key ? this.localization.instant('::' + key) : '';
+  }
   statusClass(s: number | undefined) { return ['bg-secondary', 'bg-primary', 'bg-success', '', 'bg-danger', 'bg-warning'][s ?? 0] ?? 'bg-secondary'; }
 }

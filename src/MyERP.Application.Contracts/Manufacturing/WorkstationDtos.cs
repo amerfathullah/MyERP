@@ -44,4 +44,5 @@ public interface IWorkstationAppService : IApplicationService
     Task<WorkstationDto> GetAsync(Guid id);
     Task<PagedResultDto<WorkstationDto>> GetListAsync(MyERP.Shared.CompanyFilteredPagedRequestDto input);
     Task<WorkstationDto> CreateAsync(CreateWorkstationDto input);
+    Task<WorkstationDto> UpdateAsync(Guid id, CreateWorkstationDto input);
 }

@@ -2,7 +2,8 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { SubscriptionService } from '../../proxy/sales/subscription.service';
 import type { SubscriptionDto } from '../../proxy/sales/models';
 
@@ -26,7 +27,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="row mt-2">
             <div class="col-md-3"><strong>{{ 'StartDate' | abpLocalization }}:</strong> {{ d.startDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-3">@if (d.endDate) { <strong>{{ 'EndDate' | abpLocalization }}:</strong> {{ d.endDate | date:'dd/MM/yyyy' }} }</div>
-            <div class="col-md-3"><strong>Current Period:</strong> {{ d.currentInvoiceStart | date:'dd/MM' }} – {{ d.currentInvoiceEnd | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-3"><strong>{{ 'CurrentPeriod' | abpLocalization }}:</strong> {{ d.currentInvoiceStart | date:'dd/MM' }} – {{ d.currentInvoiceEnd | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-3"><strong>{{ 'Amount' | abpLocalization }}:</strong> <span class="fw-bold">{{ d.totalPerInterval | number:'1.2-2' }}</span></div>
           </div>
           @if (d.status === 0) {
@@ -58,23 +59,26 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class SubscriptionDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(SubscriptionService);
+  private toaster = inject(ToasterService);
+  private localization = inject(LocalizationService);
   d: SubscriptionDto | null = null;
+  l = (key: string) => this.localization.instant(key);
 
   ngOnInit() { this.load(); }
 
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 
   advancePeriod() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.advancePeriod(id).subscribe(() => this.load());
+    this.service.advancePeriod(id).subscribe({ next: () => this.load(), error: () => {} });
   }
 
   cancel() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.cancel(id).subscribe(() => this.load());
+    this.service.cancel(id).subscribe({ next: () => this.load(), error: () => {} });
   }
 
   generateInvoice() {
@@ -82,9 +86,9 @@ export class SubscriptionDetailComponent implements OnInit {
     this.service.generateInvoice(id).subscribe({
       next: (result: any) => {
         this.load();
-        alert(`Invoice ${result.invoiceNumber} created (${result.grandTotal})`);
+        this.toaster.success(this.l('::InvoiceCreated') + `: ${result.invoiceNumber} (${result.grandTotal})`);
       },
-      error: () => {},
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed')),
     });
   }
 

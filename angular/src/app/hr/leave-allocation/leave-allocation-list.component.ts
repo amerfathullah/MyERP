@@ -10,6 +10,7 @@ import { LeaveService } from '../../proxy/human-resources/leave.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
   standalone: true,
@@ -21,6 +22,8 @@ export class LeaveAllocationListComponent implements OnInit {
   private service = inject(LeaveAllocationService);
   private leaveService = inject(LeaveService);
   private employeeService = inject(EmployeeService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   items = signal<LeaveAllocationDto[]>([]);
   totalCount = signal(0);
@@ -91,8 +94,10 @@ export class LeaveAllocationListComponent implements OnInit {
   }
 
   deleteAllocation(id: string) {
-    if (!confirm('Delete this allocation?')) return;
-    this.service.delete(id).subscribe(() => this.loadData());
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.delete(id).subscribe(() => this.loadData());
+    });
   }
 
   getEmployeeName(id: string | undefined): string {

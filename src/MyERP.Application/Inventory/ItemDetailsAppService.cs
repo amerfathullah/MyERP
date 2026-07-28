@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -32,9 +33,37 @@ public class ItemDetailsAppService : ApplicationService
     /// <summary>
     /// Resolves item defaults for a transaction row.
     /// Per ERPNext: get_basic_details → 45 fields resolved from Item → ItemDefault → ItemGroup → Brand → Company defaults.
+    /// Per PR #57515: item.check_permission() validates caller has read access to the specific item.
     /// </summary>
     public async Task<ItemDetailsDto> GetItemDetailsAsync(GetItemDetailsInput input)
     {
+        // Per PR #57515: verify item exists and user has access (company restriction check)
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var item = await itemRepo.FindAsync(input.ItemId);
+        if (item == null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemInactive)
+                .WithData("itemCode", input.ItemId.ToString())
+                .WithData("itemName", "Unknown");
+        }
+
+        // Company restriction check: if item has RestrictToCompanies and companyId is provided,
+        // verify the item is allowed for this company
+        if (item.RestrictToCompanies && input.CompanyId.HasValue)
+        {
+            var restrictionRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.CompanyRestrictionEntry, Guid>>();
+            var query = await restrictionRepo.GetQueryableAsync();
+            var isAllowed = query.Any(r =>
+                r.ParentType == "Item" &&
+                r.ParentId == input.ItemId &&
+                r.CompanyId == input.CompanyId.Value);
+            if (!isAllowed)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyRestrictionBlocked)
+                    .WithData("masterName", item.ItemName ?? item.ItemCode);
+            }
+        }
+
         var txType = input.TransactionType == "Buying"
             ? TransactionType.Buying
             : TransactionType.Selling;
@@ -45,6 +74,9 @@ public class ItemDetailsAppService : ApplicationService
             CompanyId = input.CompanyId,
             TransactionType = txType,
             WarehouseOverride = input.WarehouseId,
+            PartyId = txType == TransactionType.Buying ? input.SupplierId : input.CustomerId,
+            PriceListId = input.PriceListId,
+            TransactionDate = input.TransactionDate,
         };
 
         var resolved = await _resolver.ResolveAsync(context);
@@ -92,6 +124,14 @@ public class GetItemDetailsInput
     public Guid? WarehouseId { get; set; }
     /// <summary>Optional: company for default resolution.</summary>
     public Guid? CompanyId { get; set; }
+    /// <summary>Optional: supplier ID for supplier-specific pricing on purchase documents.</summary>
+    public Guid? SupplierId { get; set; }
+    /// <summary>Optional: customer ID for customer-specific pricing on sales documents.</summary>
+    public Guid? CustomerId { get; set; }
+    /// <summary>Optional: price list ID for rate lookup.</summary>
+    public Guid? PriceListId { get; set; }
+    /// <summary>Optional: transaction date for date-valid price lookup.</summary>
+    public DateTime? TransactionDate { get; set; }
 }
 
 public class ItemDetailsDto

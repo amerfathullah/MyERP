@@ -231,5 +231,50 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
             _ => query.OrderByDescending(o => o.CreationTime),
         };
     }
+
+    /// <summary>
+    /// Update the sales stage of an opportunity (used by Kanban board drag-and-drop).
+    /// Per ERPNext: Opportunity.sales_stage field drives pipeline position.
+    /// </summary>
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<OpportunityDto> UpdateStageAsync(Guid id, UpdateOpportunityStageDto input)
+    {
+        var opp = await _repository.GetAsync(id);
+
+        // Validate: cannot move lost/closed opportunities
+        if (opp.Status == OpportunityStatus.Lost || opp.Status == OpportunityStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("status", opp.Status.ToString());
+        }
+
+        opp.SalesStage = input.SalesStage;
+
+        // Auto-update probability based on stage (per ERPNext convention)
+        opp.Probability = input.SalesStage switch
+        {
+            "Prospecting" => 10,
+            "Qualification" => 25,
+            "Needs Analysis" => 40,
+            "Proposal" => 60,
+            "Negotiation" => 75,
+            "Won" => 100,
+            "Lost" => 0,
+            _ => opp.Probability,
+        };
+
+        // Auto-transition status for terminal stages using domain methods
+        if (input.SalesStage == "Won" && opp.Status != OpportunityStatus.Converted)
+        {
+            opp.Convert();
+        }
+        else if (input.SalesStage == "Lost")
+        {
+            opp.DeclareLost("Moved to Lost via Kanban");
+        }
+
+        await _repository.UpdateAsync(opp);
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
+    }
 }
 

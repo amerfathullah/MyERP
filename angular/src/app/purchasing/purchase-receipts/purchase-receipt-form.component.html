@@ -6,6 +6,7 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Supplier' | abpLocalization }} <span class="text-danger">*</span></label>
             <select class="form-select" formControlName="supplierId"
+              (change)="onSupplierChanged()"
               [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
               <option value="">Select supplier...</option>
               @for (s of suppliers(); track s.id) {
@@ -29,7 +30,20 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::PurchaseOrder' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="purchaseOrderId" [placeholder]="'::Placeholder:LinkedPurchaseOrderOptional' | abpLocalization" />
+            <div class="input-group">
+              <select class="form-select" formControlName="purchaseOrderId" (change)="onPurchaseOrderChanged()">
+                <option value="">{{ '::Placeholder:SelectPurchaseOrder' | abpLocalization }}</option>
+                @for (po of availablePOs(); track po.id) {
+                  <option [value]="po.id">{{ po.orderNumber }} — {{ po.orderDate | date:'dd/MM/yyyy' }} ({{ po.grandTotal | number:'1.2-2' }})</option>
+                }
+              </select>
+              @if (isLoadingPOItems()) {
+                <span class="input-group-text"><span class="spinner-border spinner-border-sm"></span></span>
+              }
+            </div>
+            @if (!form.get('supplierId')?.value) {
+              <small class="text-muted">{{ '::SelectSupplierToLoadOrders' | abpLocalization }}</small>
+            }
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SupplierDeliveryNote' | abpLocalization }}</label>

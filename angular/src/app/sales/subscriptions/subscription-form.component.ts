@@ -15,7 +15,7 @@ import { SubscriptionService } from '../../proxy/sales/subscription.service';
         <div class="row mb-3">
           <div class="col-md-4">
             <label class="form-label">{{ 'Party' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyName" placeholder="Customer name" />
+            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyName" [placeholder]="'::Placeholder:CustomerName' | abpLocalization" />
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'BillingInterval' | abpLocalization }}</label>

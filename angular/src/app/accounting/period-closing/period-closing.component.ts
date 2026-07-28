@@ -2,11 +2,14 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { PeriodClosingVoucherService, PcvGlEntryDto } from '../../proxy/accounting/period-closing-voucher.service';
 import type { PeriodClosingVoucherDto, CreatePeriodClosingVoucherDto } from '../../proxy/accounting/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   standalone: true,
@@ -16,12 +19,22 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 })
 export class PeriodClosingComponent implements OnInit {
   private service = inject(PeriodClosingVoucherService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
+  private l = inject(LocalizationService);
 
   items = signal<PeriodClosingVoucherDto[]>([]);
   isLoading = signal(false);
   showCreateForm = signal(false);
   expandedPcvId = signal<string | null>(null);
   glEntries = signal<PcvGlEntryDto[]>([]);
+  accounts = signal<any[]>([]);
+  fiscalYears = signal<any[]>([]);
+  companies = signal<any[]>([]);
+  /** Resolved account names for display */
+  accountNames = signal<Record<string, string>>({});
 
   form: CreatePeriodClosingVoucherDto = {
     companyId: '',
@@ -33,6 +46,51 @@ export class PeriodClosingComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
+    // Load companies for dropdown
+    this.http.get<any>('/api/app/company?maxResultCount=50&skipCount=0').subscribe({
+      next: res => this.companies.set(res.items ?? []),
+      error: () => {},
+    });
+    // Auto-fill companyId from context
+    const cid = this.companyContext.currentCompanyId();
+    if (cid) {
+      this.form.companyId = cid;
+      this.loadCompanyAccounts(cid);
+      this.loadFiscalYears(cid);
+    }
+  }
+
+  onCompanyChanged(companyId: string): void {
+    this.form.companyId = companyId;
+    this.form.closingAccountId = '';
+    this.form.fiscalYearId = '';
+    if (companyId) {
+      this.loadCompanyAccounts(companyId);
+      this.loadFiscalYears(companyId);
+    }
+  }
+
+  private loadCompanyAccounts(companyId: string): void {
+    // Load Liability/Equity accounts for closing account selection
+    this.http.get<any>(`/api/app/account?companyId=${companyId}&maxResultCount=500&skipCount=0`).subscribe({
+      next: res => {
+        const accts = (res.items ?? []).filter((a: any) =>
+          a.rootType === 'Liability' || a.rootType === 'Equity');
+        this.accounts.set(accts);
+        // Build name lookup for list display
+        const map: Record<string, string> = {};
+        (res.items ?? []).forEach((a: any) => { map[a.id] = `${a.accountCode} - ${a.accountName}`; });
+        this.accountNames.set(map);
+      },
+      error: () => {},
+    });
+  }
+
+  private loadFiscalYears(companyId: string): void {
+    this.http.get<any>(`/api/app/fiscal-year?companyId=${companyId}&maxResultCount=50&skipCount=0`).subscribe({
+      next: res => this.fiscalYears.set(res.items ?? []),
+      error: () => {},
+    });
   }
 
   loadData() {
@@ -66,12 +124,31 @@ export class PeriodClosingComponent implements OnInit {
   }
 
   submit(id: string) {
-    this.service.submit(id).subscribe(() => this.loadData());
+    this.service.submit(id).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySubmitted');
+        this.loadData();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
   }
 
   cancel(id: string) {
-    if (!confirm('Cancel this Period Closing Voucher?')) return;
-    this.service.cancel(id).subscribe(() => this.loadData());
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.cancel(id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyCancelled');
+          this.loadData();
+        },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
+  }
+
+  getAccountName(id?: string): string {
+    if (!id) return '—';
+    return this.accountNames()[id] || '—';
   }
 
   toggleGlEntries(id: string) {

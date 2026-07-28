@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LandedCostVoucherService } from '../../proxy/inventory/landed-cost-voucher.service';
 import type { LandedCostVoucherDto } from '../../proxy/dtos/models';
@@ -53,13 +53,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class LandedCostDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(LandedCostVoucherService);
+  private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   d: LandedCostVoucherDto | null = null;
   loading = signal(false);
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 
   submit() {
@@ -71,16 +72,18 @@ export class LandedCostDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (!confirm('Are you sure you want to cancel this voucher?')) return;
-    this.loading.set(true);
-    this.service.cancel(this.d!.id!).subscribe({
-      next: () => { this.toaster.success('Landed Cost Voucher cancelled'); this.reload(); },
-      error: () => this.loading.set(false),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.loading.set(true);
+      this.service.cancel(this.d!.id!).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.reload(); },
+        error: () => this.loading.set(false),
+      });
     });
   }
 
   private reload() {
     this.loading.set(false);
-    this.service.get(this.d!.id!).subscribe((r) => this.d = r);
+    this.service.get(this.d!.id!).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 }

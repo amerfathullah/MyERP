@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ProductionPlanStore } from '../store/production-plan.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -26,10 +26,13 @@ export class ProductionPlanDetailComponent implements OnInit {
     if (id) this.store.loadOne(id);
   }
 
+  private localization = inject(LocalizationService);
+
   get plan() { return this.store.selectedPlan(); }
 
   getStatusLabel(status: number | undefined): string {
-    return ['Draft', 'Submitted', 'In Progress', 'Completed', 'Cancelled'][status ?? 0] ?? 'Draft';
+    const keys = ['Draft', 'Submitted', 'InProcess', 'Completed', 'Cancelled'];
+    return this.localization.instant('::' + (keys[status ?? 0] ?? 'Draft'));
   }
 
   submit(): void {

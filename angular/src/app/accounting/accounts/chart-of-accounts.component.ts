@@ -52,10 +52,10 @@ export class ChartOfAccountsComponent implements OnInit {
 
   ngOnInit(): void {
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
-      .subscribe((result) => {
+      .subscribe({ next: (result) => {
         const accs = result.items ?? [];
         this.accounts.set(this.buildTree(accs));
-      });
+      }, error: () => {} });
   }
 
   private buildTree(accounts: AccountDto[]): AccountNode[] {

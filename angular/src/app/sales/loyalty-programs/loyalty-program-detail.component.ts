@@ -65,7 +65,7 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
                   </tr>
                 }
                 @empty {
-                  <tr><td colspan="4" class="text-center text-muted py-3">No tiers configured</td></tr>
+                  <tr><td colspan="4" class="text-center text-muted py-3">{{ '::NoTiersConfigured' | abpLocalization }}</td></tr>
                 }
               </tbody>
             </table>

@@ -184,13 +184,25 @@ export class PaymentEntryFormComponent implements OnInit {
       return;
     }
 
-    // Pre-fill from query params (from "Make Payment" buttons)
+    // Pre-fill from query params (from "Make Payment" buttons on SI/PI/SO/PO detail)
     const params = this.route.snapshot.queryParams;
     if (params['partyType']) {
       this.form.patchValue({ partyType: params['partyType'] });
       if (params['partyType'] === 'Supplier') {
         this.form.patchValue({ paymentType: 'Pay' });
       }
+    }
+    if (params['partyId']) {
+      this.form.patchValue({ partyId: params['partyId'] });
+    }
+    if (params['amount']) {
+      this.form.patchValue({ amount: parseFloat(params['amount']) });
+    }
+    if (params['companyId']) {
+      this.form.patchValue({ companyId: params['companyId'] });
+    }
+    if (params['currency'] && params['currency'] !== 'MYR') {
+      this.form.patchValue({ currency: params['currency'] });
     }
     if (params['againstInvoiceId']) {
       this.form.patchValue({ againstInvoiceId: params['againstInvoiceId'] });
@@ -204,9 +216,33 @@ export class PaymentEntryFormComponent implements OnInit {
       this.linkedDocLabel.set(`Advance against ${params['againstOrderType'] ?? 'Order'}`);
     }
 
-    // Fetch outstanding invoices when party info is available
-    if (params['partyType'] && params['partyType'] !== 'InternalTransfer') {
+    // Fetch outstanding invoices when party info is available from query params
+    // partyId is now pre-filled, so loadOutstandingInvoices will succeed
+    if (params['partyType'] && params['partyId'] && params['partyType'] !== 'InternalTransfer') {
       this.loadOutstandingInvoices(params['partyType']);
+    }
+  }
+
+  /**
+   * After outstanding invoices load, auto-select the specific invoice if navigated from "Make Payment" button.
+   * Sets allocation to the invoice's outstanding amount and auto-fills the payment amount.
+   */
+  private autoSelectInvoiceFromParams(): void {
+    const invoiceId = this.form.get('againstInvoiceId')?.value;
+    if (!invoiceId) return;
+
+    const invoices = this.outstandingInvoices();
+    const match = invoices.find((inv: any) => inv.invoiceId === invoiceId);
+    if (match) {
+      const newMap = new Map<string, number>();
+      newMap.set(match.invoiceId, match.outstanding);
+      this.allocations.set(newMap);
+      // Auto-fill amount if not already set by user or query param
+      const currentAmount = this.form.get('amount')?.value ?? 0;
+      if (currentAmount <= 0) {
+        this.form.patchValue({ amount: match.outstanding });
+      }
+      this.linkedDocLabel.set(`Against ${match.invoiceType ?? 'Invoice'}: ${match.invoiceNumber}`);
     }
   }
 
@@ -218,7 +254,11 @@ export class PaymentEntryFormComponent implements OnInit {
       return;
     }
     this.paymentService.getOutstandingForParty(partyType, partyId, companyId || '').subscribe({
-      next: (invoices) => this.outstandingInvoices.set(invoices ?? []),
+      next: (invoices) => {
+        this.outstandingInvoices.set(invoices ?? []);
+        // After loading, auto-select invoice if navigated from "Make Payment" button
+        this.autoSelectInvoiceFromParams();
+      },
       error: () => {},
     });
   }

@@ -55,6 +55,7 @@
                 <th>{{ '::Description' | abpLocalization }}</th>
                 <th>{{ '::Quantity' | abpLocalization }}</th>
                 <th>{{ '::UOM' | abpLocalization }}</th>
+                <th class="text-end">{{ '::BillingStatus' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -63,6 +64,15 @@
                   <td>{{ row.description }}</td>
                   <td>{{ row.quantity | number:'1.2-2' }}</td>
                   <td>{{ row.uom }}</td>
+                  <td class="text-end">
+                    @if ((row.billedQty ?? 0) >= (row.quantity ?? 0)) {
+                      <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Billed' | abpLocalization }}</span>
+                    } @else if ((row.billedQty ?? 0) > 0) {
+                      <span class="badge bg-warning text-dark">{{ row.billedQty | number:'1.0-0' }} / {{ row.quantity | number:'1.0-0' }}</span>
+                    } @else {
+                      <span class="badge bg-secondary">{{ '::Pending' | abpLocalization }}</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
@@ -76,6 +86,10 @@
         <p class="fs-5 fw-bold">{{ '::GrandTotal' | abpLocalization }}: {{ deliveryNote.grandTotal | number:'1.2-2' }}</p>
       </div>
     </div>
+
+    @if (deliveryNote.status !== 'Draft') {
+      <app-document-connections [documentType]="'DeliveryNote'" [documentId]="deliveryNote.id!" />
+    }
 
     <app-activity-log [documentType]="'DeliveryNote'" [documentId]="deliveryNote.id!"></app-activity-log>
 

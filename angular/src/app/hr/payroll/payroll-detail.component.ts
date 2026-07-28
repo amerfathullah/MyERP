@@ -51,8 +51,9 @@ export class PayrollDetailComponent implements OnInit {
     } else if (action === 'cancel') {
       this.store.cancelEntry(id);
     }
-    setTimeout(() => {
-      this.service.get(id).subscribe(r => { this.entry = r; });
-    }, 500);
+    this.service.get(id).subscribe({
+      next: (r) => { this.entry = r; },
+      error: () => {}
+    });
   }
 }

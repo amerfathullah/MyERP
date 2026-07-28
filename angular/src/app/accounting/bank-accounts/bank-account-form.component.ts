@@ -25,12 +25,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::AccountName' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="accountName"
-                placeholder="e.g., CIMB Current Account" />
+                [placeholder]="'::Placeholder:BankAccountName' | abpLocalization" />
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::BankName' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="bankName"
-                placeholder="e.g., CIMB Bank" />
+                [placeholder]="'::Placeholder:BankName' | abpLocalization" />
             </div>
           </div>
 
@@ -61,7 +61,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::GLAccount' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="accountId"
-                placeholder="GL Account ID" />
+                [placeholder]="'::Placeholder:GLAccountId' | abpLocalization" />
             </div>
           </div>
 
@@ -96,7 +96,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ 'MyERP::Party' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="partyId" placeholder="Party ID" />
+                <input type="text" class="form-control" formControlName="partyId" [placeholder]="'::Placeholder:PartyId' | abpLocalization" />
               </div>
             </div>
           }

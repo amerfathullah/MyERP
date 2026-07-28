@@ -20,11 +20,11 @@ import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
           <form [formGroup]="form" (ngSubmit)="addRate()" class="row g-3 align-items-end">
             <div class="col-md-2">
               <label class="form-label">{{ 'FromCurrency' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="fromCurrency" maxlength="3" placeholder="USD" />
+              <input type="text" class="form-control" formControlName="fromCurrency" maxlength="3" [placeholder]="'::Placeholder:FromCurrency' | abpLocalization" />
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'ToCurrency' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="toCurrency" maxlength="3" placeholder="MYR" />
+              <input type="text" class="form-control" formControlName="toCurrency" maxlength="3" [placeholder]="'::Placeholder:ToCurrency' | abpLocalization" />
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'ExchangeRate' | abpLocalization }}</label>

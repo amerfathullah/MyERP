@@ -51,6 +51,6 @@ export class QualityInspectionDetailComponent implements OnInit {
   d: QualityInspectionDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
 }

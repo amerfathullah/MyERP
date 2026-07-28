@@ -10,8 +10,11 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -33,14 +36,23 @@ export class PurchaseOrderFormComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private companyService = inject(CompanyService);
   private itemService = inject(ItemService);
+  private itemDetailsService = inject(ItemDetailsService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
   private warehouseService = inject(WarehouseService);
+  private partyDetailsService = inject(PartyDetailsService);
+  private currencyExchangeService = inject(CurrencyExchangeService);
+
+  /** Multi-currency: true when selected currency differs from company base (MYR) */
+  isMultiCurrency = signal(false);
 
   companies = signal<CompanyDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  isLoadingMrItems = signal(false);
+  supplierAddress = signal<string>('');
+  supplierTin = signal<string>('');
   isEditMode = false;
   entityId: string | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal', 'actions'];
@@ -50,6 +62,8 @@ export class PurchaseOrderFormComponent implements OnInit {
     supplierId: ['', Validators.required],
     orderDate: [new Date().toISOString().split('T')[0], Validators.required],
     expectedDeliveryDate: [''],
+    currencyCode: ['MYR'],
+    exchangeRate: [1],
     notes: [''],
     warehouseId: [''],
     items: this.fb.array([], Validators.minLength(1)),
@@ -112,9 +126,28 @@ export class PurchaseOrderFormComponent implements OnInit {
 
   onItemSelected(index: number, itemId: string): void {
     const item = this.availableItems().find((i: any) => i.id === itemId);
+    const row = this.items.at(index) as FormGroup;
     if (item) {
-      const row = this.items.at(index) as FormGroup;
       row.patchValue({ description: item.itemName || item.itemCode });
+    }
+    // Auto-resolve last purchase rate + UOM from backend (with supplier-specific pricing)
+    if (itemId) {
+      this.itemDetailsService.getItemDetails({
+        itemId,
+        transactionType: 'Buying',
+        companyId: this.form.get('companyId')?.value || undefined,
+        supplierId: this.form.get('supplierId')?.value || undefined,
+      }).subscribe({
+        next: (details) => {
+          if (details) {
+            const patch: any = {};
+            if (details.rate > 0 && !row.get('unitPrice')?.value) patch.unitPrice = details.rate;
+            if (details.description && !row.get('description')?.value) patch.description = details.description;
+            if (Object.keys(patch).length > 0) row.patchValue(patch);
+          }
+        },
+        error: () => {} // Graceful fallback
+      });
     }
   }
 
@@ -123,6 +156,43 @@ export class PurchaseOrderFormComponent implements OnInit {
     const price = row.get('unitPrice')?.value ?? 0;
     const tax = row.get('taxAmount')?.value ?? 0;
     return qty * price + tax;
+  }
+
+  onSupplierChanged(): void {
+    const supplierId = this.form.get('supplierId')?.value;
+    this.supplierAddress.set('');
+    this.supplierTin.set('');
+    if (!supplierId) return;
+
+    this.partyDetailsService.getSupplierDetails({ partyType: 'Supplier', partyId: supplierId }).subscribe({
+      next: (details: any) => {
+        if (details?.tin) this.supplierTin.set(details.tin);
+        const parts = [details?.addressLine1, details?.city, details?.state, details?.postalCode].filter(Boolean);
+        if (parts.length > 0) this.supplierAddress.set(parts.join(', '));
+      },
+      error: () => {}
+    });
+  }
+
+  /** Fetches exchange rate when currency changes from MYR. Per ERPNext: foreign POs auto-resolve rate. */
+  onCurrencyChanged(): void {
+    const currency = this.form.get('currencyCode')?.value;
+    const baseCurrency = 'MYR';
+    if (!currency || currency === baseCurrency) {
+      this.isMultiCurrency.set(false);
+      this.form.patchValue({ exchangeRate: 1 });
+      return;
+    }
+    this.isMultiCurrency.set(true);
+    const orderDate = this.form.get('orderDate')?.value || new Date().toISOString().split('T')[0];
+    this.currencyExchangeService.getRate(currency, baseCurrency, orderDate).subscribe({
+      next: (result) => {
+        if (result?.rate) {
+          this.form.patchValue({ exchangeRate: result.rate });
+        }
+      },
+      error: () => { /* Non-blocking: user can manually enter exchange rate */ }
+    });
   }
 
   get netTotal(): number {
@@ -139,6 +209,42 @@ export class PurchaseOrderFormComponent implements OnInit {
   }
 
   get grandTotal(): number { return this.netTotal + this.taxTotal; }
+
+  /** Load pending items from Material Requests (Purchase type) for this company. */
+  loadItemsFromMaterialRequest(): void {
+    const companyId = this.form.get('companyId')?.value || undefined;
+    if (!companyId) {
+      this.toaster.warn('Please select a company first');
+      return;
+    }
+    this.isLoadingMrItems.set(true);
+    this.service.getPendingMaterialRequestItems(companyId).subscribe({
+      next: (mrItems: any[]) => {
+        this.isLoadingMrItems.set(false);
+        if (!mrItems || mrItems.length === 0) {
+          this.toaster.info('No pending Material Request items found');
+          return;
+        }
+        // Clear existing items and load from MR
+        while (this.items.length > 0) this.items.removeAt(0);
+        mrItems.forEach(mrItem => {
+          this.items.push(this.fb.group({
+            itemId: [mrItem.itemId, Validators.required],
+            description: [mrItem.itemName, Validators.required],
+            quantity: [mrItem.pendingQty, [Validators.required, Validators.min(0.01)]],
+            unitPrice: [0, [Validators.required, Validators.min(0)]],
+            taxAmount: [0, Validators.min(0)],
+            uom: [mrItem.uom || 'Unit'],
+          }));
+        });
+        this.toaster.success(`${mrItems.length} items loaded from Material Requests`);
+      },
+      error: () => {
+        this.isLoadingMrItems.set(false);
+        this.toaster.error('Failed to load Material Request items');
+      },
+    });
+  }
 
   save(): void {
     if (this.form.invalid || this.items.length === 0) {

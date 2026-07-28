@@ -16,13 +16,14 @@ import { DocumentConversionService } from '../../proxy/sales/document-conversion
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import type { DeliveryNoteDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
@@ -136,11 +137,10 @@ export class DeliveryNoteDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.deliveryNote!.id!).subscribe((result) => {
-        this.deliveryNote = result;
-      });
-    }, 500);
+    this.service.get(this.deliveryNote!.id!).subscribe({
+      next: (result) => { this.deliveryNote = result; },
+      error: () => {}
+    });
   }
 
   onDraftGuardProceed(): void {

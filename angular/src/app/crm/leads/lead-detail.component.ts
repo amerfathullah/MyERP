@@ -75,11 +75,10 @@ export class LeadDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.lead!.id!).subscribe((result) => {
-        this.lead = result;
-      });
-    }, 500);
+    this.service.get(this.lead!.id!).subscribe({
+      next: (result) => { this.lead = result; },
+      error: () => {}
+    });
   }
 
   getStatusLabel(): string {

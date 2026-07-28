@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { AccountingDimensionService } from '../../proxy/accounting/accounting-dimension.service';
 import type { AccountingDimensionDto } from '../../proxy/accounting/models';
 
@@ -35,7 +35,7 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
             </div>
             <div class="col-md-3">
               <label class="form-label">{{ 'Label' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="label" placeholder="e.g. Branch" />
+              <input type="text" class="form-control" formControlName="label" [placeholder]="'::Placeholder:DimensionExample' | abpLocalization" />
             </div>
             <div class="col-md-2">
               <div class="form-check mt-4">
@@ -127,6 +127,7 @@ export class AccountingDimensionsComponent implements OnInit {
   private dimensionService = inject(AccountingDimensionService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   dimensions = signal<AccountingDimensionDto[]>([]);
   loading = signal(true);
@@ -176,12 +177,14 @@ export class AccountingDimensionsComponent implements OnInit {
   }
 
   remove(dim: AccountingDimensionDto) {
-    if (!confirm(`Delete dimension "${dim.label}"?`)) return;
-    this.dimensionService.delete(dim.id!).subscribe({
-      next: () => {
-        this.toaster.success('Dimension deleted');
-        this.loadDimensions();
-      }
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.dimensionService.delete(dim.id!).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.loadDimensions();
+        }
+      });
     });
   }
 }

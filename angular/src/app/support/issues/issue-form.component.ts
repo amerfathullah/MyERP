@@ -69,7 +69,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="row g-3 mt-2">
               <div class="col-md-6">
                 <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="customerId" placeholder="Customer ID (optional)">
+                <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:CustomerId' | abpLocalization">
               </div>
             </div>
           </div>

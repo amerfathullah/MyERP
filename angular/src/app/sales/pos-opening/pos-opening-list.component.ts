@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
@@ -39,7 +39,7 @@ interface PosOpeningDto {
               <div class="col-md-4">
                 <label class="form-label small">{{ '::PaymentMode' | abpLocalization }}</label>
                 <input type="text" class="form-control form-control-sm" [(ngModel)]="newPayment.modeName"
-                  placeholder="Cash">
+                  [placeholder]="'::Placeholder:PaymentMode' | abpLocalization">
               </div>
               <div class="col-md-3">
                 <label class="form-label small">{{ '::OpeningAmount' | abpLocalization }}</label>
@@ -128,6 +128,7 @@ interface PosOpeningDto {
 export class PosOpeningListComponent implements OnInit {
   private posOpeningService = inject(PosOpeningService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
 
   entries = signal<PosOpeningDto[]>([]);
@@ -182,12 +183,14 @@ export class PosOpeningListComponent implements OnInit {
   }
 
   cancel(id: string) {
-    if (!confirm('Cancel this POS session?')) return;
-    this.posOpeningService.cancel(id).subscribe({
-      next: () => {
-        this.toaster.success('::SuccessfullyCancelled');
-        this.load();
-      }
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.posOpeningService.cancel(id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyCancelled');
+          this.load();
+        }
+      });
     });
   }
 

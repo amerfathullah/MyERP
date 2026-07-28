@@ -39,11 +39,11 @@ export class IssueDetailComponent implements OnInit {
   d: IssueDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((r) => this.d = r);
+    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
   action(type: string) {
     const id = this.route.snapshot.paramMap.get('id')!;
-    if (type === 'reply') this.service.reply(id).subscribe(() => this.ngOnInit());
-    else if (type === 'resolve') this.service.resolve(id).subscribe(() => this.ngOnInit());
+    if (type === 'reply') this.service.reply(id).subscribe({ next: () => this.ngOnInit(), error: () => {} });
+    else if (type === 'resolve') this.service.resolve(id).subscribe({ next: () => this.ngOnInit(), error: () => {} });
   }
 }

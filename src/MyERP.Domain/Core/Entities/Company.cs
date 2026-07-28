@@ -115,6 +115,16 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Stock Delivered But Not Billed (SDBNB) account for perpetual inventory.</summary>
     public Guid? StockDeliveredButNotBilledAccountId { get; set; }
 
+    /// <summary>
+    /// Expenses Added To Stock account — captures additional purchase costs into stock valuation.
+    /// Per PR #57190: two-level gate (Accounts Settings + this account must be configured).
+    /// 4-level resolution chain: Item → ItemGroup → Brand → Company.
+    /// </summary>
+    public Guid? ExpensesAddedToStockAccountId { get; set; }
+
+    /// <summary>Contra account for Expenses Added To Stock entries.</summary>
+    public Guid? ExpensesAddedToStockContraAccountId { get; set; }
+
     /// <summary>Reporting currency for financial reports (default: same as CurrencyCode).</summary>
     public string? ReportingCurrency { get; set; }
 

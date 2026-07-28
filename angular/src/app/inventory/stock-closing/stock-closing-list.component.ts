@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StockClosingService } from '../../proxy/inventory/stock-closing.service';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -83,6 +83,7 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
 export class StockClosingListComponent implements OnInit {
   private service = inject(StockClosingService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
 
   items: any[] = [];
@@ -121,10 +122,12 @@ export class StockClosingListComponent implements OnInit {
   }
 
   cancelEntry(id: string) {
-    if (!confirm('Cancel this stock closing entry?')) return;
-    this.service.cancel(id).subscribe({
-      next: () => { this.toaster.success('Cancelled'); this.loadData(); },
-      error: () => {}
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.cancel(id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadData(); },
+        error: () => {}
+      });
     });
   }
 

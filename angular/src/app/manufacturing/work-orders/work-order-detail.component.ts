@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -53,7 +53,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="col-md-3">
             <div class="card">
               <div class="card-body text-center">
-                <small class="text-muted">Produced</small>
+                <small class="text-muted">{{ '::Produced' | abpLocalization }}</small>
                 <div class="fw-bold mt-1">{{ w.producedQuantity | number:'1.2-2' }} / {{ w.quantity | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -62,19 +62,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 
         <div class="d-flex gap-2 mb-3">
           @if (wo()!.status === 1) {
-            <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>Start Production</button>
+            <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
           }
           @if (wo()!.status === 3) {
-            <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>Record Production</button>
-            <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>Record Consumption</button>
-            <button class="btn btn-outline-primary btn-sm" (click)="createManufactureEntry()"><i class="fa fa-industry me-1"></i>Manufacture</button>
-            <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>Stop</button>
+            <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
+            <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>{{ '::RecordConsumption' | abpLocalization }}</button>
+            <button class="btn btn-outline-primary btn-sm" (click)="createManufactureEntry()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
+            <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>{{ '::Stop' | abpLocalization }}</button>
           }
           @if (wo()!.status === 5) {
-            <button class="btn btn-primary btn-sm" (click)="unstop()"><i class="fa fa-play me-1"></i>Resume</button>
+            <button class="btn btn-primary btn-sm" (click)="unstop()"><i class="fa fa-play me-1"></i>{{ '::Resume' | abpLocalization }}</button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
-            <button class="btn btn-outline-secondary btn-sm" (click)="createStockEntry()"><i class="fa fa-truck me-1"></i>Material Transfer</button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="createStockEntry()"><i class="fa fa-truck me-1"></i>{{ '::MaterialTransfer' | abpLocalization }}</button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! <= 3) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
@@ -240,15 +240,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 
         @if (w.requiredItems && w.requiredItems.length > 0) {
           <div class="card">
-            <div class="card-header fw-bold">Required Materials</div>
+            <div class="card-header fw-bold">{{ '::RequiredMaterials' | abpLocalization }}</div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead>
                   <tr>
                     <th>{{ 'Manufacturing:Item' | abpLocalization }}</th>
-                    <th class="text-end">Required</th>
-                    <th class="text-end">Transferred</th>
-                    <th class="text-end">Consumed</th>
+                    <th class="text-end">{{ '::Required' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Transferred' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Consumed' | abpLocalization }}</th>
                     <th style="width: 140px;">{{ 'Manufacturing:TransferProgress' | abpLocalization }}</th>
                   </tr>
                 </thead>
@@ -287,6 +287,7 @@ export class WorkOrderDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private service = inject(ManufacturingService);
+  private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private manufacturingService = inject(ManufacturingService);
   private http = inject(HttpClient);
@@ -341,7 +342,7 @@ export class WorkOrderDetailComponent implements OnInit {
     if (!qty || isNaN(+qty) || +qty <= 0) return;
     this.service.recordProduction(id, +qty).subscribe({
       next: w => { this.wo.set(w); this.toaster.success(`Recorded ${qty} units`); },
-      error: () => this.toaster.error('Failed to record production'),
+      error: () => this.toaster.error(this.l.instant('::OperationFailed')),
     });
   }
 
@@ -362,11 +363,13 @@ export class WorkOrderDetailComponent implements OnInit {
   }
 
   cancel() {
-    if (!confirm('Are you sure you want to cancel this Work Order?')) return;
-    const id = this.wo()!.id!;
-    this.service.cancelWorkOrder(id).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success('Work Order cancelled'); },
-      error: () => this.toaster.error('Failed to cancel. Cancel all linked Stock Entries first.'),
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      const id = this.wo()!.id!;
+      this.service.cancelWorkOrder(id).subscribe({
+        next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyCancelled'); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 
@@ -374,10 +377,11 @@ export class WorkOrderDetailComponent implements OnInit {
     const wo = this.wo()!;
     const items = wo.requiredItems ?? [];
     if (!items.length) {
-      this.toaster.warn('No raw materials defined for this Work Order');
+      this.toaster.warn('::NoRawMaterialsDefined');
       return;
     }
-    if (!confirm('Record actual material consumption for this Work Order?')) return;
+    this.confirmation.warn('::RecordConsumptionConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
 
     // Build consumption items from WO BOM items (use transferred qty as max)
     const consumptionItems = items
@@ -388,7 +392,7 @@ export class WorkOrderDetailComponent implements OnInit {
       }));
 
     if (!consumptionItems.length) {
-      this.toaster.warn('No materials have been transferred yet. Transfer materials first.');
+      this.toaster.warn('::NoMaterialsTransferredYet');
       return;
     }
 
@@ -403,16 +407,18 @@ export class WorkOrderDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.message || 'Failed to record material consumption');
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
       },
     });
+    }); // end confirmation subscribe
   }
 
   createStockEntry() {
     const woId = this.wo()!.id!;
-    if (!confirm('Create Material Transfer Stock Entry for all pending materials?')) return;
-    this.isLoading.set(true);
-    this.manufacturingService.createMaterialTransferForManufacture(woId).subscribe({
+    this.confirmation.warn('::CreateMaterialTransferConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.isLoading.set(true);
+      this.manufacturingService.createMaterialTransferForManufacture(woId).subscribe({
       next: (se) => {
         this.isLoading.set(false);
         this.toaster.success(`Material Transfer created: ${se.entryNumber}`);
@@ -420,9 +426,10 @@ export class WorkOrderDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.message || 'Failed to create material transfer');
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
       },
     });
+    }); // end confirmation subscribe
   }
 
   createManufactureEntry() {
@@ -445,13 +452,14 @@ export class WorkOrderDetailComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.message || 'Failed to create manufacture entry');
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
       },
     });
   }
 
   getStatus(s: number | undefined): string {
-    return ['Draft', 'Submitted', 'Not Started', 'In Process', 'Completed', 'Stopped', 'Cancelled'][s ?? 0] ?? 'Draft';
+    const keys = ['::Draft', '::Submitted', '::NotStarted', '::InProcess', '::Completed', '::Stopped', '::Cancelled'];
+    return this.l.instant(keys[s ?? 0] ?? '::Draft');
   }
 
   getTransferPct(item: { requiredQuantity?: number; transferredQuantity?: number }): number {
@@ -461,7 +469,8 @@ export class WorkOrderDetailComponent implements OnInit {
   }
 
   getJcStatusLabel(status: number | undefined): string {
-    return ['Open', 'In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][status ?? 0] ?? 'Open';
+    const keys = ['::Open', '::InProgress', '::MaterialTransferred', '::Completed', '::OnHold', '::Cancelled'];
+    return this.l.instant(keys[status ?? 0] ?? '::Open');
   }
 
   getJcStatusClass(status: number | undefined): string {

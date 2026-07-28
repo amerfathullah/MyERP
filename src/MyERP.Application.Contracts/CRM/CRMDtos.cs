@@ -313,3 +313,11 @@ public class ConvertLeadToCustomerDto
     /// <summary>Sales territory to assign.</summary>
     public Guid? TerritoryId { get; set; }
 }
+
+/// <summary>DTO for updating opportunity stage from Kanban board drag-and-drop.</summary>
+public class UpdateOpportunityStageDto
+{
+    [Required]
+    [StringLength(50)]
+    public string SalesStage { get; set; } = null!;
+}

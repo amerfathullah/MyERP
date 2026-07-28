@@ -29,6 +29,7 @@ export class HomeComponent implements OnInit {
   overdueAlerts = signal<{ overdueReceivableCount: number; overdueReceivableAmount: number; overduePayableCount: number; overduePayableAmount: number; pendingApprovalCount: number } | null>(null);
   agingSummary = signal<any | null>(null);
   bankBalances = signal<any | null>(null);
+  cashFlowSnapshot = signal<any | null>(null);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -70,6 +71,8 @@ export class HomeComponent implements OnInit {
         this.loadOverdueAlerts(companyId);
         this.dashboardService.getAgingSummaryWidget(companyId)
           .subscribe({ next: data => this.agingSummary.set(data), error: () => {} });
+        this.dashboardService.getCashFlowSnapshot(companyId)
+          .subscribe({ next: data => this.cashFlowSnapshot.set(data), error: () => {} });
         this.dashboardService.getBankBalances(companyId)
           .subscribe({ next: data => this.bankBalances.set(data), error: () => {} });
       }

@@ -142,6 +142,67 @@
       </div>
     </div>
 
+    <!-- Supplier Confirmation Tracking -->
+    @if (order.status !== 'Draft' && order.status !== 'Cancelled') {
+      <div class="card mt-4" [class.border-success]="order.isSupplierConfirmed">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-handshake me-2"></i>{{ '::SupplierConfirmation' | abpLocalization }}</h6>
+          @if (order.isSupplierConfirmed) {
+            <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::SupplierConfirmed' | abpLocalization }}</span>
+          } @else {
+            <span class="badge bg-secondary">{{ '::NotConfirmed' | abpLocalization }}</span>
+          }
+        </div>
+        <div class="card-body">
+          @if (order.isSupplierConfirmed) {
+            <div class="row">
+              <div class="col-md-4">
+                <small class="text-muted d-block">{{ '::ConfirmationNumber' | abpLocalization }}</small>
+                <strong>{{ order.supplierConfirmationNumber || '—' }}</strong>
+              </div>
+              <div class="col-md-4">
+                <small class="text-muted d-block">{{ '::ConfirmationDate' | abpLocalization }}</small>
+                <strong>{{ order.supplierConfirmationDate | date:'dd/MM/yyyy' }}</strong>
+              </div>
+              <div class="col-md-4">
+                <small class="text-muted d-block">{{ '::PromisedDeliveryDate' | abpLocalization }}</small>
+                <strong [class.text-danger]="order.supplierPromisedDate && order.supplierPromisedDate < order.expectedDeliveryDate">
+                  {{ order.supplierPromisedDate ? (order.supplierPromisedDate | date:'dd/MM/yyyy') : '—' }}
+                </strong>
+              </div>
+            </div>
+          } @else {
+            @if (!showConfirmationForm()) {
+              <button type="button" class="btn btn-outline-success btn-sm" (click)="showConfirmationForm.set(true)">
+                <i class="fa fa-plus me-1"></i>{{ '::RecordConfirmation' | abpLocalization }}
+              </button>
+            } @else {
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">{{ '::ConfirmationNumber' | abpLocalization }}</label>
+                  <input type="text" class="form-control form-control-sm" [(ngModel)]="confirmationNumber"
+                         [placeholder]="'::Placeholder:SupplierReference' | abpLocalization">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">{{ '::PromisedDeliveryDate' | abpLocalization }}</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="promisedDate">
+                </div>
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                  <button type="button" class="btn btn-success btn-sm" (click)="recordSupplierConfirmation()" [disabled]="isRecordingConfirmation()">
+                    @if (isRecordingConfirmation()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                    {{ '::Save' | abpLocalization }}
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="showConfirmationForm.set(false)">
+                    {{ '::Cancel' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
+
     <!-- Goods Received History -->
     @if (orderReceipts().length > 0) {
       <div class="card mt-4">
@@ -218,6 +279,10 @@
           </div>
         </div>
       </div>
+    }
+
+    @if (order.status !== 'Draft') {
+      <app-document-connections [documentType]="'PurchaseOrder'" [documentId]="order.id!" />
     }
 
     <app-activity-log [documentType]="'PurchaseOrder'" [documentId]="order.id!"></app-activity-log>

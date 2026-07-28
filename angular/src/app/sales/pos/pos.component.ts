@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
@@ -34,7 +35,7 @@ interface HeldOrder {
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageModule],
+  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './pos.component.html',
   styleUrls: ['./pos.component.scss'],
 })

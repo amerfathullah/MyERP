@@ -95,6 +95,14 @@ public class SupplierQuotationItem : FullAuditedEntity<Guid>
     /// <summary>Link to Material Request item (if applicable).</summary>
     public Guid? MaterialRequestItemId { get; set; }
 
+    /// <summary>Supplier-quoted lead time in days for this item.</summary>
+    public int? LeadTimeDays { get; set; }
+
+    // Aliases for unified access across comparison/conversion services
+    public decimal UnitPrice => Rate;
+    public decimal Quantity => Qty;
+    public string Description => ItemName ?? "";
+
     protected SupplierQuotationItem() { }
 
     public SupplierQuotationItem(Guid id, Guid sqId, Guid itemId,

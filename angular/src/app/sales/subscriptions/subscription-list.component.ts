@@ -16,7 +16,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
     <abp-page [title]="'Subscriptions' | abpLocalization">
       <div class="d-flex justify-content-between gap-2 mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
-          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
+          [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
         <button class="btn btn-primary btn-sm" routerLink="/sales/subscriptions/new">
           <i class="fa fa-plus me-1"></i>{{ 'NewSubscription' | abpLocalization }}
         </button>

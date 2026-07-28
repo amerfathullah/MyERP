@@ -18,7 +18,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         <div class="card-header d-flex justify-content-between align-items-center">
           <div class="d-flex align-items-center gap-2">
             <input type="text" class="form-control form-control-sm" style="width:200px"
-              [(ngModel)]="searchTerm" (keyup.enter)="loadData()" placeholder="Search...">
+              [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
           </div>
           <a routerLink="/purchasing/rfq/new" class="btn btn-sm btn-primary">
             <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}

@@ -36,6 +36,16 @@
               }
             </select>
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::PaymentTerms' | abpLocalization }}</label>
+            <select class="form-select" formControlName="paymentTermsTemplateId">
+              <option value="">— {{ '::None' | abpLocalization }} —</option>
+              @for (pt of paymentTermsTemplates(); track pt.id) {
+                <option [value]="pt.id">{{ pt.name }}</option>
+              }
+            </select>
+            <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
+          </div>
         </div>
       </div>
     </div>

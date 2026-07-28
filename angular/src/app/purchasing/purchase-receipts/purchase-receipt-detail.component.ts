@@ -14,6 +14,7 @@ import type { PurchaseReceiptDto } from '../../proxy/purchasing/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { PurchaseReceiptPrintLayoutComponent } from '../../shared/components/pr-print-layout/pr-print-layout.component';
 import { CompanyService } from '../../proxy/core/company.service';
 
@@ -21,7 +22,7 @@ import { CompanyService } from '../../proxy/core/company.service';
   selector: 'app-purchase-receipt-detail',
   standalone: true,
   imports: [
-    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent, VoucherLedgerComponent, PurchaseReceiptPrintLayoutComponent],
+    BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent, VoucherLedgerComponent, PurchaseReceiptPrintLayoutComponent, DocumentConnectionsComponent],
   templateUrl: './purchase-receipt-detail.component.html',
   styleUrls: ['./purchase-receipt-detail.component.scss'],
 })
@@ -113,8 +114,9 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    setTimeout(() => {
-      this.service.get(this.receipt!.id!).subscribe(r => { this.receipt = r; });
-    }, 500);
+    this.service.get(this.receipt!.id!).subscribe({
+      next: (r) => { this.receipt = r; },
+      error: () => {}
+    });
   }
 }

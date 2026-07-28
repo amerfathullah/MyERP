@@ -3,6 +3,19 @@
     <app-loading-overlay />
   } @else {
     <app-breadcrumb />
+
+    @if (isExpired) {
+      <div class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+        <i class="fa fa-clock me-2"></i>
+        <div>{{ '::QuotationExpired' | abpLocalization }}</div>
+      </div>
+    } @else if (daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+      <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+        <i class="fa fa-clock me-2"></i>
+        <div>{{ '::QuotationExpiringSoon' | abpLocalization }} ({{ daysUntilExpiry }} {{ '::Days' | abpLocalization }})</div>
+      </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center mb-3">
       <app-document-workflow
         [currentStatus]="quotation.status!"

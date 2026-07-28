@@ -112,9 +112,12 @@ public class JobCardManager : DomainService
     {
         var queryable = await _jobCardRepository.GetQueryableAsync();
 
+        // Per PR bde118e7cf: exclude corrective job cards from the aggregate
+        // Corrective JCs represent rework/repair, not new production output
         var perOperationQty = queryable
             .Where(jc => jc.WorkOrderId == workOrderId
-                && jc.Status != JobCardStatus.Cancelled)
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
             .GroupBy(jc => jc.OperationId)
             .Select(g => g.Sum(jc => jc.CompletedQty))
             .ToList();
@@ -123,5 +126,32 @@ public class JobCardManager : DomainService
 
         // Bottleneck: minimum across all operations
         return perOperationQty.Min();
+    }
+
+    /// <summary>
+    /// Aggregates semi-FG produced qty across split job cards for a specific operation.
+    /// Per PR #5548f0726a: previously assigned single JC's manufactured_qty, overwriting prior JCs.
+    /// Now sums MAX(manufactured_qty, total_completed_qty) across ALL submitted non-corrective JCs.
+    /// Per PR #bde118e7cf: corrective JCs are excluded from the aggregate.
+    /// </summary>
+    public async Task<(decimal completedQty, decimal manufacturedQty)> GetSemiFgAggregatedQtyAsync(
+        Guid workOrderId, Guid operationId)
+    {
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+
+        var jobCards = queryable
+            .Where(jc => jc.WorkOrderId == workOrderId
+                && jc.OperationId == operationId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .Select(jc => new { jc.CompletedQty, ManufacturedQty = jc.CompletedQty }) // CompletedQty serves as manufactured_qty in our model
+            .ToList();
+
+        if (jobCards.Count == 0) return (0, 0);
+
+        var completedQty = jobCards.Sum(jc => Math.Max(jc.ManufacturedQty, jc.CompletedQty));
+        var manufacturedQty = jobCards.Sum(jc => jc.ManufacturedQty);
+
+        return (completedQty, manufacturedQty);
     }
 }
