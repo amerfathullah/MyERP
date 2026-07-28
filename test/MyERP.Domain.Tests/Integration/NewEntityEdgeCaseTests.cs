@@ -55,8 +55,12 @@ public class NewEntityEdgeCaseTests
     {
         var bom = new BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-E-002", Guid.NewGuid());
         bom.AddOperation(new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 20, 10m));
+        // Equal sequence is allowed (parallel scheduling per ERPNext)
+        bom.AddOperation(new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 20, 5m));
+        Assert.Equal(2, bom.Operations.Count);
+        // But LOWER sequence must throw
         Assert.Throws<Volo.Abp.BusinessException>(() =>
-            bom.AddOperation(new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 20, 5m)));
+            bom.AddOperation(new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 10, 5m)));
     }
 
     #endregion

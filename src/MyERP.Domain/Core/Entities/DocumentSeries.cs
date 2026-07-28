@@ -82,6 +82,16 @@ public class DocumentSeries : FullAuditedAggregateRoot<Guid>, IMultiTenant
         _lastFiscalYear = fiscalYear;
 
         CurrentNumber++;
+
+        // When prefix has no explicit year token (.YYYY., .FY., .TFY., .YY.),
+        // auto-insert fiscal year between prefix and number: "{prefix}{year}-{paddedNumber}"
+        var hasYearToken = Prefix.Contains(".YYYY.") || Prefix.Contains(".FY.")
+            || Prefix.Contains(".TFY.") || Prefix.Contains(".YY.");
+        if (!hasYearToken)
+        {
+            return $"{Prefix}{fiscalYear}-{CurrentNumber.ToString().PadLeft(NumberPadding, '0')}";
+        }
+
         return ResolveTemplate(Prefix, CurrentNumber, fiscalYear, null);
     }
 

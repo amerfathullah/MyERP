@@ -501,7 +501,8 @@ public class WorkflowLifecycleTests
     {
         var q = new Quotation(Guid.NewGuid(), CompanyId, CustomerId, "QTN-002", DateTime.Today);
         q.AddItem(ItemId, "Widget", 1, 100, 0);
-        q.ValidUntil = DateTime.Today.AddDays(-1);
+        // Use UtcNow for consistency with entity's IsExpired check, and -2 days for timezone safety
+        q.ValidUntil = DateTime.UtcNow.Date.AddDays(-2);
         q.Submit();
         Assert.True(q.IsExpired);
     }
