@@ -31,7 +31,7 @@ export const PayrollStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load payroll entries');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -44,7 +44,7 @@ export const PayrollStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as PayrollEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Payroll created and calculated');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -59,7 +59,7 @@ export const PayrollStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id! as EntityId, changes: updated as PayrollEntity }));
-          toaster.success('Payroll submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Submit failed');
@@ -73,7 +73,7 @@ export const PayrollStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id! as EntityId, changes: updated as PayrollEntity }));
-          toaster.success('Payroll cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');

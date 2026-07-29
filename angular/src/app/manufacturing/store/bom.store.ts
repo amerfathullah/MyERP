@@ -22,7 +22,7 @@ export const BomStore = signalStore(
           patchState(store, setAllEntities((result.items ?? []) as BomEntity[], { selectId: (e) => e.id! }));
           patchState(store, { totalCount: result.totalCount ?? 0, isLoading: false });
         }),
-        catchError(() => { patchState(store, { isLoading: false }); toaster.error('Failed to load BOMs'); return EMPTY; }),
+        catchError(() => { patchState(store, { isLoading: false }); toaster.error('::FailedToLoad'); return EMPTY; }),
       )
     ),
     create: rxMethod<any>(
@@ -30,7 +30,7 @@ export const BomStore = signalStore(
         switchMap((input) => service.createBom(input)),
         tap((created) => {
           patchState(store, addEntity(created as BomEntity, { selectId: (e) => e.id! }));
-          toaster.success('BOM created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Create failed'); return EMPTY; }),
       )
@@ -40,7 +40,7 @@ export const BomStore = signalStore(
         switchMap(({ id, input }) => service.updateBom(id, input)),
         tap((updated) => {
           patchState(store, updateEntity({ id: (updated as BomEntity).id!, changes: updated as BomEntity }));
-          toaster.success('BOM updated');
+          toaster.success('::SuccessfullyUpdated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Update failed'); return EMPTY; }),
       )
@@ -49,9 +49,9 @@ export const BomStore = signalStore(
       pipe(
         switchMap((id) => service.deleteBom(id).pipe(tap(() => {
           patchState(store, removeEntity(id));
-          toaster.success('BOM deleted');
+          toaster.success('::SuccessfullyDeleted');
         }))),
-        catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Delete failed'); return EMPTY; }),
+        catchError((err) => { toaster.error(err?.error?.error?.message ?? '::DeleteFailed'); return EMPTY; }),
       )
     ),
   })),

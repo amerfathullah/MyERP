@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -31,6 +31,7 @@ export class MaterialRequestDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
 
   entity: MaterialRequestDto | null = null;
+  actionLoading = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -49,12 +50,14 @@ export class MaterialRequestDetailComponent implements OnInit {
   }
 
   submit(): void {
+    this.actionLoading.set(true);
     this.service.submit(this.entity!.id!).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySubmitted');
+        this.actionLoading.set(false);
         this.reload();
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+      error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
     });
   }
 
@@ -80,7 +83,7 @@ export class MaterialRequestDetailComponent implements OnInit {
         this.toaster.success('Purchase Order created: ' + po.orderNumber);
         this.router.navigate(['/purchasing/orders', po.id]);
       },
-      error: () => this.toaster.error('Conversion failed'),
+      error: () => this.toaster.error('::ConversionFailed'),
     });
   }
 

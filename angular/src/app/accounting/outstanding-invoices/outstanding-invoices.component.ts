@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +24,7 @@ interface OutstandingInvoice {
 @Component({
   selector: 'app-outstanding-invoices',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './outstanding-invoices.component.html',
   styleUrls: ['./outstanding-invoices.component.scss'],
 })

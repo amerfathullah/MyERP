@@ -34,7 +34,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               @for (b of items; track b.id) {
                 <tr>
                   <td class="font-monospace">{{ b.batchNo }}</td>
-                  <td>{{ itemNames()[b.itemId ?? ''] || (b.itemId | slice:0:8) + '…' }}</td>
+                  <td>{{ itemNames()[b.itemId ?? ''] || '—' }}</td>
                   <td>{{ b.expiryDate ? (b.expiryDate | date:'dd/MM/yyyy') : '—' }}</td>
                   <td><span class="badge" [class]="b.isDisabled ? 'bg-danger' : 'bg-success'">{{ b.isDisabled ? 'Disabled' : 'Active' }}</span></td>
                 </tr>

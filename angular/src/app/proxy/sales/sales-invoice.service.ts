@@ -1,4 +1,4 @@
-import type { CreateSalesInvoiceDto, PaymentScheduleDto, SalesInvoiceDto } from './models';
+import type { CreateSalesInvoiceDto, PaymentScheduleDto, SalesInvoiceDto, SalesInvoiceListSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -25,6 +25,15 @@ export class SalesInvoiceService {
       method: 'POST',
       url: '/api/app/sales-invoice/bulk-submit',
       body: ids,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getListSummary = (companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceListSummaryDto>({
+      method: 'GET',
+      url: '/api/app/sales-invoice/list-summary',
+      params: { companyId },
     },
     { apiName: this.apiName,...config });
   

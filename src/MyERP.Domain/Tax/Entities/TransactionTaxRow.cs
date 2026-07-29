@@ -56,6 +56,13 @@ public class TransactionTaxRow : Entity<Guid>, IMultiTenant
     /// <summary>If true, this tax is included in the item's print rate (tax-inclusive pricing).</summary>
     public bool IncludedInPrintRate { get; set; }
 
+    /// <summary>
+    /// Whether this tax row adds to or deducts from the total.
+    /// Values: "Add" (default) or "Deduct".
+    /// Per ERPNext: add_deduct_tax field on Sales/Purchase Taxes and Charges.
+    /// </summary>
+    public string AddDeductTax { get; set; } = "Add";
+
     /// <summary>Calculated tax amount (populated by TaxesAndTotalsService).</summary>
     public decimal TaxAmount { get; set; }
 

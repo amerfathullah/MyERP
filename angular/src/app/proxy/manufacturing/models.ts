@@ -410,6 +410,7 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   bomId?: string;
   quantity?: number;
   producedQuantity?: number;
+  disassembledQuantity?: number;
   materialTransferred?: number;
   processLossQty?: number;
   processLossPercentage?: number;

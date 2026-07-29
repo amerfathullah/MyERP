@@ -12,12 +12,12 @@
       <app-date-presets (dateRange)="onDatePreset($event)" />
       <select class="form-select form-select-sm" style="width: 160px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
         <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
-        <option value="Draft">Draft</option>
-        <option value="ToDeliverAndBill">To Deliver & Bill</option>
-        <option value="ToDeliver">To Deliver</option>
-        <option value="ToBill">To Bill</option>
-        <option value="Completed">Completed</option>
-        <option value="Closed">Closed</option>
+        <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
+        <option value="ToDeliverAndBill">{{ '::ToDeliverAndBill' | abpLocalization }}</option>
+        <option value="ToDeliver">{{ '::ToDeliver' | abpLocalization }}</option>
+        <option value="ToBill">{{ '::ToBill' | abpLocalization }}</option>
+        <option value="Completed">{{ '::Completed' | abpLocalization }}</option>
+        <option value="Closed">{{ '::Closed' | abpLocalization }}</option>
       </select>
       <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
     </div>
@@ -54,6 +54,15 @@
             <span class="fw-medium">{{ selectedIds.size }} {{ '::Selected' | abpLocalization }}</span>
             <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
               <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-success" (click)="bulkCreateDN()" [disabled]="isBulkProcessing">
+              <i class="fa fa-truck me-1"></i> {{ '::BatchCreateDN' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-info" (click)="bulkCreateSI()" [disabled]="isBulkProcessing">
+              <i class="fa fa-file-invoice me-1"></i> {{ '::BatchCreateSI' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-dark" (click)="bulkClose()" [disabled]="isBulkProcessing">
+              <i class="fa fa-lock me-1"></i> {{ '::BatchClose' | abpLocalization }}
             </button>
             <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
               <i class="fa fa-times me-1"></i> {{ '::ClearSelection' | abpLocalization }}

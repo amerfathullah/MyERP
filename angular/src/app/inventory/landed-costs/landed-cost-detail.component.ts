@@ -66,7 +66,7 @@ export class LandedCostDetailComponent implements OnInit {
   submit() {
     this.loading.set(true);
     this.service.submit(this.d!.id!).subscribe({
-      next: () => { this.toaster.success('Landed Cost Voucher submitted'); this.reload(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.reload(); },
       error: () => this.loading.set(false),
     });
   }

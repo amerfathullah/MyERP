@@ -60,6 +60,19 @@ export interface AgingReportDto {
   bucketTotals?: number[];
   totalOutstanding?: number;
   invoiceCount?: number;
+  details?: AgingDetailEntryDto[];
+}
+
+export interface AgingDetailEntryDto {
+  partyId?: string;
+  partyName?: string;
+  documentId?: string;
+  documentNumber?: string;
+  postingDate?: string;
+  dueDate?: string;
+  outstandingAmount?: number;
+  ageDays?: number;
+  bucketLabel?: string;
 }
 
 export interface AgingReportRequestDto {
@@ -426,6 +439,7 @@ export interface CreateJournalEntryDto {
   companyId: string;
   fiscalYearId: string;
   postingDate: string;
+  voucherType?: number;
   referenceType?: string | null;
   referenceId?: string | null;
   referenceNumber?: string | null;
@@ -743,6 +757,7 @@ export interface JournalEntryDto extends EntityDto<string> {
   fiscalYearId?: string;
   entryNumber?: string | null;
   postingDate?: string;
+  voucherType?: number;
   referenceType?: string | null;
   referenceId?: string | null;
   referenceNumber?: string | null;
@@ -968,12 +983,18 @@ export interface ProfitLossReportDto {
   totalRevenue?: number;
   totalExpense?: number;
   netProfitOrLoss?: number;
+  previousTotalRevenue?: number | null;
+  previousTotalExpense?: number | null;
+  previousNetProfitOrLoss?: number | null;
+  previousFromDate?: string | null;
+  previousToDate?: string | null;
 }
 
 export interface ProfitLossRequestDto {
   companyId: string;
   fromDate: string;
   toDate: string;
+  includeComparison?: boolean;
 }
 
 export interface ProfitLossRowDto {
@@ -982,6 +1003,8 @@ export interface ProfitLossRowDto {
   accountName?: string;
   accountType?: string;
   amount?: number;
+  previousPeriodAmount?: number | null;
+  growthPercentage?: number | null;
   level?: number;
   isGroup?: boolean;
 }

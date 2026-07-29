@@ -2,7 +2,7 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex align-items-end gap-2">
-        <div><label class="form-label">As of Date</label><input type="date" class="form-control" formControlName="asOfDate" /></div>
+                <div><label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label><input type="date" class="form-control" formControlName="asOfDate" /></div>
         <button class="btn btn-primary" (click)="generate()">
           <i class="fa fa-sync me-1"></i>{{ '::Generate' | abpLocalization }}</button>
       </form>
@@ -14,7 +14,7 @@
       <!-- Assets -->
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Assets</h5></div>
+                    <div class="card-header"><h5 class="card-title mb-0">{{ '::Assets' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             @for (row of assets(); track row.accountName) {
               <div class="d-flex justify-content-between py-2 border-bottom">
@@ -23,7 +23,7 @@
               </div>
             }
             <div class="d-flex justify-content-between py-2 fw-bold text-primary">
-              <span>Total Assets</span>
+                            <span>{{ '::TotalAssets' | abpLocalization }}</span>
               <span class="font-monospace">{{ totalAssets() | number:'1.2-2' }}</span>
             </div>
           </div>
@@ -33,7 +33,7 @@
       <!-- Liabilities + Equity -->
       <div class="col-12 col-md-6 d-flex flex-column gap-3">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Liabilities</h5></div>
+                    <div class="card-header"><h5 class="card-title mb-0">{{ '::Liabilities' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             @for (row of liabilities(); track row.accountName) {
               <div class="d-flex justify-content-between py-2 border-bottom">
@@ -42,14 +42,14 @@
               </div>
             }
             <div class="d-flex justify-content-between py-2 fw-bold text-danger">
-              <span>Total Liabilities</span>
+                            <span>{{ '::TotalLiabilities' | abpLocalization }}</span>
               <span class="font-monospace">{{ totalLiabilities() | number:'1.2-2' }}</span>
             </div>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Equity</h5></div>
+                    <div class="card-header"><h5 class="card-title mb-0">{{ '::Equity' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             @for (row of equity(); track row.accountName) {
               <div class="d-flex justify-content-between py-2 border-bottom">
@@ -58,7 +58,7 @@
               </div>
             }
             <div class="d-flex justify-content-between py-2 fw-bold text-success">
-              <span>Total Equity</span>
+                            <span>{{ '::TotalEquity' | abpLocalization }}</span>
               <span class="font-monospace">{{ totalEquity() | number:'1.2-2' }}</span>
             </div>
           </div>
@@ -67,7 +67,7 @@
         <div class="card">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center fw-bold fs-5">
-              <span>Liabilities + Equity</span>
+              <span>{{ '::LiabilitiesPlusEquity' | abpLocalization }}</span>
               <span class="font-monospace">{{ totalLiabilities() + totalEquity() | number:'1.2-2' }}</span>
             </div>
           </div>

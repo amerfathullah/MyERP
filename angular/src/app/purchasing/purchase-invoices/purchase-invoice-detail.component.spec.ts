@@ -12,11 +12,11 @@ function getWorkflowActions(status: string, outstandingAmount: number = 0): { na
   }
   if (status === 'Posted') {
     actions.push({ name: 'payment', label: 'Make Payment', color: 'primary' });
-    actions.push({ name: 'return', label: 'Create Return', color: 'accent' });
+    actions.push({ name: 'return', label: 'Create Return', color: 'warning' });
     if (outstandingAmount > 0) {
-      actions.push({ name: 'writeOff', label: 'Write Off', color: 'accent' });
+      actions.push({ name: 'writeOff', label: 'Write Off', color: 'secondary' });
     }
-    actions.push({ name: 'cancel', label: 'Cancel', color: 'warn' });
+    actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
   }
   if (status === 'Cancelled') {
     actions.push({ name: 'amend', label: 'Amend', color: 'primary' });

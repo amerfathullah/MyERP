@@ -227,4 +227,54 @@ public class AutoRepeatTests
             new AutoRepeat(Guid.NewGuid(), _companyId, "", _docId,
                 RepeatFrequency.Monthly, DateTime.Today));
     }
+
+    // --- Recurring from document pattern tests ---
+
+    [Fact]
+    public void AutoRepeat_SalesInvoiceDocType_TracksReference()
+    {
+        var invoiceId = Guid.NewGuid();
+        var ar = new AutoRepeat(Guid.NewGuid(), _companyId, "SalesInvoice", invoiceId,
+            RepeatFrequency.Monthly, new DateTime(2026, 2, 1));
+        Assert.Equal("SalesInvoice", ar.ReferenceDocumentType);
+        Assert.Equal(invoiceId, ar.ReferenceDocumentId);
+    }
+
+    [Fact]
+    public void AutoRepeat_JournalEntryDocType_ValidFrequencies()
+    {
+        var jeId = Guid.NewGuid();
+        var ar = new AutoRepeat(Guid.NewGuid(), _companyId, "JournalEntry", jeId,
+            RepeatFrequency.Yearly, new DateTime(2026, 1, 1));
+        Assert.Equal("JournalEntry", ar.ReferenceDocumentType);
+        Assert.Equal(RepeatFrequency.Yearly, ar.Frequency);
+    }
+
+    [Fact]
+    public void AutoRepeat_QuarterlyEndOfMonthClamping()
+    {
+        // May 31 + 3 months = Aug 31 (valid), Aug 31 + 3 months = Nov 30 (clamped)
+        var ar = CreateAutoRepeat(RepeatFrequency.Quarterly, new DateTime(2026, 5, 31));
+        var next1 = ar.CalculateNextDate(new DateTime(2026, 5, 31));
+        Assert.Equal(new DateTime(2026, 8, 31), next1);
+        var next2 = ar.CalculateNextDate(new DateTime(2026, 8, 31));
+        Assert.Equal(new DateTime(2026, 11, 30), next2);
+    }
+
+    [Fact]
+    public void AutoRepeat_CanSetReferenceDocumentNumber()
+    {
+        var ar = CreateAutoRepeat();
+        ar.ReferenceDocumentNumber = "SI-2026-00042";
+        Assert.Equal("SI-2026-00042", ar.ReferenceDocumentNumber);
+    }
+
+    [Fact]
+    public void AutoRepeat_NotifyByEmail_DefaultsToFalse()
+    {
+        var ar = CreateAutoRepeat();
+        Assert.False(ar.NotifyByEmail);
+        ar.NotifyByEmail = true;
+        Assert.True(ar.NotifyByEmail);
+    }
 }

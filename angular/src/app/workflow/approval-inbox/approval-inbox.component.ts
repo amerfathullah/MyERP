@@ -22,13 +22,13 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
           }
         </h5>
         <select class="form-select form-select-sm" style="width: 180px;" [(ngModel)]="filterDocType" (change)="loadData()">
-          <option value="">All Document Types</option>
-          <option value="SalesInvoice">Sales Invoice</option>
-          <option value="PurchaseInvoice">Purchase Invoice</option>
-          <option value="PaymentEntry">Payment Entry</option>
-          <option value="JournalEntry">Journal Entry</option>
-          <option value="StockEntry">Stock Entry</option>
-          <option value="ExpenseClaim">Expense Claim</option>
+          <option value="">{{ 'MyERP::AllDocumentTypes' | abpLocalization }}</option>
+          <option value="SalesInvoice">{{ 'MyERP::SalesInvoice' | abpLocalization }}</option>
+          <option value="PurchaseInvoice">{{ 'MyERP::PurchaseInvoice' | abpLocalization }}</option>
+          <option value="PaymentEntry">{{ 'MyERP::PaymentEntry' | abpLocalization }}</option>
+          <option value="JournalEntry">{{ 'MyERP::JournalEntry' | abpLocalization }}</option>
+          <option value="StockEntry">{{ 'MyERP::StockEntry' | abpLocalization }}</option>
+          <option value="ExpenseClaim">{{ 'MyERP::ExpenseClaim' | abpLocalization }}</option>
         </select>
       </div>
       <div class="card-body">
@@ -52,7 +52,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                     <td>
                       <a [routerLink]="getDocumentLink(request)" class="text-decoration-none">
                         <span class="badge bg-light text-dark me-1">{{ request.documentType }}</span>
-                        <span class="small text-muted">{{ request.documentId | slice:0:8 }}...</span>
+                        <span class="small text-muted">{{ request.documentNumber || '—' }}</span>
                       </a>
                     </td>
                     <td><span class="badge bg-info">Level {{ request.level }}</span></td>
@@ -66,7 +66,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                       @if (request.status === 0) {
                         <div class="btn-group btn-group-sm">
                           <button class="btn btn-success" (click)="approve(request)" title="Approve">
-                            <i class="bi bi-check-lg"></i> Approve
+                            <i class="bi bi-check-lg"></i> {{ 'MyERP::Approve' | abpLocalization }}
                           </button>
                           <button class="btn btn-outline-danger" (click)="reject(request)" title="Reject">
                             <i class="bi bi-x-lg"></i>
@@ -79,7 +79,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                   <tr>
                     <td colspan="5" class="text-center text-muted py-5">
                       <i class="bi bi-check-circle d-block mb-2" style="font-size: 2rem;"></i>
-                      <p>No pending approvals</p>
+                      <p>{{ 'MyERP::NoPendingApprovals' | abpLocalization }}</p>
                     </td>
                   </tr>
                 }
@@ -133,7 +133,7 @@ export class ApprovalInboxComponent implements OnInit {
   approve(request: ApprovalRequestDto) {
     this.service.approve(request.id).subscribe({
       next: () => {
-        this.toaster.success('Approved successfully');
+        this.toaster.success('::SuccessfullyApproved');
         this.loadData();
         this.pendingCount.update(c => Math.max(0, c - 1));
       },
@@ -141,11 +141,11 @@ export class ApprovalInboxComponent implements OnInit {
   }
 
   reject(request: ApprovalRequestDto) {
-    this.confirmation.warn('Reject this approval request?', 'MyERP::AreYouSure').subscribe((status) => {
+    this.confirmation.warn('::RejectConfirmation', '::AreYouSure').subscribe((status) => {
       if (status === Confirmation.Status.confirm) {
         this.service.reject(request.id, 'Rejected by approver').subscribe({
           next: () => {
-            this.toaster.success('Rejected');
+            this.toaster.success('::SuccessfullyRejected');
             this.loadData();
             this.pendingCount.update(c => Math.max(0, c - 1));
           },

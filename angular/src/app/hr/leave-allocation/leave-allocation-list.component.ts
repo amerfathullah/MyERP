@@ -96,7 +96,10 @@ export class LeaveAllocationListComponent implements OnInit {
   deleteAllocation(id: string) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.service.delete(id).subscribe(() => this.loadData());
+      this.service.delete(id).subscribe({
+        next: () => this.loadData(),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::DeleteFailed'),
+      });
     });
   }
 

@@ -218,7 +218,7 @@ export class CostCenterAllocationListComponent implements OnInit {
     };
     this.costCenterAllocationService.create(dto as any).subscribe({
       next: () => {
-        this.toaster.success('Cost center allocation created');
+        this.toaster.success('::SuccessfullyCreated');
         this.showCreateForm = false;
         this.newAllocation = { mainCostCenterId: '', validFrom: new Date().toISOString().split('T')[0], entries: [{ childCostCenterId: '', percentage: 0 }] };
         this.loadAllocations();
@@ -245,6 +245,6 @@ export class CostCenterAllocationListComponent implements OnInit {
   }
 
   getCostCenterName(id: string): string {
-    return this.costCenters().find(cc => cc.id === id)?.name || id?.slice(0, 8) || '—';
+    return this.costCenters().find(cc => cc.id === id)?.name || '—';
   }
 }

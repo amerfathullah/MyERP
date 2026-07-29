@@ -91,6 +91,27 @@ public class DocumentEmailService : DomainService
     }
 
     /// <summary>
+    /// Send a Sales Order confirmation email to the customer.
+    /// </summary>
+    public async Task SendSalesOrderEmailAsync(SendSalesOrderEmailInput input)
+    {
+        var template = await ResolveTemplateAsync("SalesOrder", input.TemplateId);
+
+        var subject = SubstituteVariables(template.Subject, input.Variables);
+        var body = SubstituteVariables(template.Body, input.Variables);
+
+        byte[]? pdfBytes = null;
+        string? attachmentName = null;
+        if (input.AttachPdf && input.PdfData != null)
+        {
+            pdfBytes = await _pdfService.GenerateSalesOrderPdfAsync(input.PdfData);
+            attachmentName = $"{input.Variables.GetValueOrDefault("order_number", "SalesOrder")}.html";
+        }
+
+        await SendEmailAsync(input.RecipientEmail, subject, body, pdfBytes, attachmentName, input.CcEmails);
+    }
+
+    /// <summary>
     /// Send a Quotation email to the customer/prospect.
     /// </summary>
     public async Task SendQuotationEmailAsync(SendQuotationEmailInput input)
@@ -234,6 +255,16 @@ public class SendQuotationEmailInput
     public Dictionary<string, string> Variables { get; set; } = new();
     public bool AttachPdf { get; set; } = true;
     public QuotationPdfData? PdfData { get; set; }
+}
+
+public class SendSalesOrderEmailInput
+{
+    public string RecipientEmail { get; set; } = "";
+    public string[]? CcEmails { get; set; }
+    public Guid? TemplateId { get; set; }
+    public Dictionary<string, string> Variables { get; set; } = new();
+    public bool AttachPdf { get; set; } = true;
+    public SalesOrderPdfData? PdfData { get; set; }
 }
 
 public class SendPaymentReminderInput

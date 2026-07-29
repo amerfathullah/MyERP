@@ -11,6 +11,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 
+const VOUCHER_TYPE_LABELS: Record<number, string> = {
+  0: 'Journal Entry', 1: 'Inter Company Journal Entry', 2: 'Bank Entry', 3: 'Cash Entry',
+  4: 'Credit Card Entry', 5: 'Debit Note', 6: 'Credit Note', 7: 'Contra Entry',
+  8: 'Excise Entry', 9: 'Write Off Entry', 10: 'Opening Entry', 11: 'Depreciation Entry',
+  12: 'Exchange Rate Revaluation', 13: 'Exchange Gain Or Loss', 14: 'Deferred Revenue',
+  15: 'Deferred Expense', 16: 'Reversal', 17: 'Period Closing',
+};
+
 @Component({
   selector: 'app-journal-entry-detail',
   standalone: true,
@@ -60,6 +68,7 @@ import { JournalEntryService } from '../../proxy/accounting/journal-entry.servic
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ 'EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ je()!.entryNumber }}</td></tr>
+                  <tr><td class="text-muted">{{ 'EntryType' | abpLocalization }}</td><td>{{ voucherTypeLabel(je()!.voucherType) }}</td></tr>
                   <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="je()!.status" /></td></tr>
                   <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ je()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
@@ -144,6 +153,10 @@ export class JournalEntryDetailComponent implements OnInit {
   totalCredit = signal(0);
   difference = signal(0);
 
+  voucherTypeLabel(type: number | undefined): string {
+    return VOUCHER_TYPE_LABELS[type ?? 0] ?? 'Journal Entry';
+  }
+
   get workflowActions(): WorkflowAction[] {
     const j = this.je();
     if (!j) return [];
@@ -167,7 +180,7 @@ export class JournalEntryDetailComponent implements OnInit {
     switch (action) {
       case 'post':
         this.journalEntryService.post(id).subscribe({
-          next: () => { this.toaster.success('Journal entry posted.'); this.reload(); },
+          next: () => { this.toaster.success('::SuccessfullyPosted'); this.reload(); },
           error: () => {},
         });
         break;

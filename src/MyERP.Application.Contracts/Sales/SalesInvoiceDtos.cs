@@ -181,3 +181,28 @@ public class CreateInvoiceFromDeliveryNotesDto
     public string? Notes { get; set; }
 }
 
+/// <summary>
+/// KPI summary for the Sales Invoice list page.
+/// Enables dashboard-style cards (outstanding, overdue, monthly revenue) without fetching all invoices.
+/// </summary>
+public class SalesInvoiceListSummaryDto
+{
+    /// <summary>Total outstanding amount across all posted non-return invoices.</summary>
+    public decimal TotalOutstanding { get; set; }
+
+    /// <summary>Number of invoices with outstanding > 0 and past due date.</summary>
+    public int OverdueCount { get; set; }
+
+    /// <summary>Total overdue amount (sum of outstanding on past-due invoices).</summary>
+    public decimal OverdueAmount { get; set; }
+
+    /// <summary>Revenue posted this month (sum of GrandTotal for invoices posted this calendar month).</summary>
+    public decimal MonthlyRevenue { get; set; }
+
+    /// <summary>Number of invoices posted this month.</summary>
+    public int MonthlyInvoiceCount { get; set; }
+
+    /// <summary>Total number of posted invoices (all time for this company).</summary>
+    public int PostedInvoiceCount { get; set; }
+}
+

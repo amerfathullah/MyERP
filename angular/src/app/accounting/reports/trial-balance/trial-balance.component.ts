@@ -70,7 +70,7 @@ export class TrialBalanceComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.message ?? 'Failed to generate report');
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToGenerateReport');
       },
     });
   }

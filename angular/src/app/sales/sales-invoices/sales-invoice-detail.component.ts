@@ -26,6 +26,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { InvoicePrintLayoutComponent } from '../../shared/components/invoice-print-layout/invoice-print-layout.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -40,6 +41,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
     InvoicePrintLayoutComponent,
     VoucherLedgerComponent,
     DocumentConnectionsComponent,
+    CompanyCurrencyPipe,
     FormsModule,
     LocalizationPipe],
   templateUrl: './sales-invoice-detail.component.html',
@@ -99,6 +101,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
           actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
         }
         actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'fa fa-envelope', btnClass: 'btn-outline-secondary' });
+        actions.push({ name: 'setRecurring', label: 'Set Recurring', icon: 'fa fa-repeat', btnClass: 'btn-outline-info' });
         break;
       case 'Cancelled':
         actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
@@ -161,7 +164,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
         this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
             this.service.writeOff(id).subscribe({
-              next: () => { this.toaster.success('Invoice written off.'); this.reloadAfterAction(); },
+              next: () => { this.toaster.success('::SuccessfullyUpdated'); this.reloadAfterAction(); },
               error: () => {},
             });
           }
@@ -181,6 +184,15 @@ export class SalesInvoiceDetailComponent implements OnInit {
         break;
       case 'sendEmail':
         this.openSendEmailDialog();
+        break;
+      case 'setRecurring':
+        this.router.navigate(['/settings/auto-repeat'], {
+          queryParams: {
+            docType: 'SalesInvoice',
+            docId: id,
+            docNumber: this.invoice!.invoiceNumber
+          }
+        });
         break;
     }
   }
@@ -212,11 +224,11 @@ export class SalesInvoiceDetailComponent implements OnInit {
           reason: 'Cancelled by user',
         }).subscribe({
           next: () => {
-            this.toaster.success('e-Invoice cancelled with LHDN successfully.');
+            this.toaster.success('::LhdnInvoiceCancelled');
             this.reloadAfterAction();
           },
           error: (err) => {
-            this.toaster.error(err?.error?.error?.message ?? 'LHDN cancellation failed (72h window may have expired)');
+            this.toaster.error(err?.error?.error?.message || '::LhdnCancelFailed');
           },
         });
       }
@@ -249,7 +261,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
             printWindow.onload = () => printWindow.print();
           }
         },
-        error: () => this.toaster.error('Failed to generate document.'),
+        error: () => this.toaster.error('::OperationFailed'),
       });
   }
 
@@ -293,7 +305,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
     if (!inv) return;
     const amount = this.quickPaymentAmount();
     if (amount <= 0) {
-      this.toaster.warn('Amount must be positive');
+      this.toaster.warn('::AmountMustBePositive');
       return;
     }
     this.isProcessingPayment.set(true);
@@ -326,7 +338,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
               error: () => {
                 this.isProcessingPayment.set(false);
                 this.showQuickPayment.set(false);
-                this.toaster.info('Payment created as draft. Please post it manually.');
+                this.toaster.info('::PaymentCreatedAsDraft');
                 this.reloadAfterAction();
               },
             });
@@ -334,14 +346,14 @@ export class SalesInvoiceDetailComponent implements OnInit {
           error: () => {
             this.isProcessingPayment.set(false);
             this.showQuickPayment.set(false);
-            this.toaster.info('Payment created as draft.');
+            this.toaster.info('::PaymentCreatedAsDraft');
             this.reloadAfterAction();
           },
         });
       },
       error: (err) => {
         this.isProcessingPayment.set(false);
-        this.toaster.error(err?.error?.error?.message || 'Failed to create payment');
+        this.toaster.error(err?.error?.error?.message || '::FailedToCreatePaymentEntry');
       },
     });
   }
@@ -357,6 +369,26 @@ export class SalesInvoiceDetailComponent implements OnInit {
     if (!this.invoice || !this.invoice.grandTotal || this.invoice.grandTotal <= 0) return 0;
     const paid = (this.invoice as any).amountPaid ?? 0;
     return Math.min(100, (paid / this.invoice.grandTotal) * 100);
+  }
+
+  /** LHDN QR code URL generated from longId (per myinvois get_status.py pattern) */
+  getLhdnQrCodeUrl(): string {
+    const inv = this.invoice as any;
+    if (inv?.qrCodeUrl) return inv.qrCodeUrl;
+    if (inv?.lhdnLongId) {
+      const verifyUrl = `https://myinvois.hasil.gov.my/${inv.lhdnLongId}/share`;
+      return `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(verifyUrl)}`;
+    }
+    return '';
+  }
+
+  /** LHDN MyInvois verification portal URL */
+  getLhdnVerificationUrl(): string {
+    const inv = this.invoice as any;
+    if (inv?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${inv.lhdnLongId}/share`;
+    }
+    return '';
   }
 
   goToFullPaymentForm(): void {
@@ -456,7 +488,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
 
   sendEmail(): void {
     if (!this.emailRecipient) {
-      this.toaster.warn('Please enter recipient email address.');
+      this.toaster.warn('::PleaseEnterRecipientEmail');
       return;
     }
     this.emailSending = true;
@@ -468,12 +500,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
     };
     this.http.post('/api/app/document-email/sales-invoice-email', payload).subscribe({
       next: () => {
-        this.toaster.success('Email sent successfully.');
+        this.toaster.success('::SuccessfullySent');
         this.showEmailDialog = false;
         this.emailSending = false;
       },
       error: (err: any) => {
-        this.toaster.error(err?.error?.error?.message || 'Failed to send email.');
+        this.toaster.error(err?.error?.error?.message || '::FailedToSendEmail');
         this.emailSending = false;
       },
     });

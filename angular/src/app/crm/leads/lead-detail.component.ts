@@ -56,7 +56,7 @@ export class LeadDetailComponent implements OnInit {
       opportunityAmount: 0,
     }).subscribe({
       next: (opp) => {
-        this.toaster.success('Lead converted to opportunity');
+        this.toaster.success('::SuccessfullyConverted');
         this.router.navigate(['/crm/opportunities', opp.id]);
       },
       error: (err) => {

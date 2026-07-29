@@ -28,7 +28,7 @@ export const AutomationRuleStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load automation rules');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -40,7 +40,7 @@ export const AutomationRuleStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as AutomationRuleEntity, { selectId: (e) => e.id }));
           patchState(store, { totalCount: store.totalCount() + 1 });
-          toaster.success('Automation rule created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Create failed');
@@ -55,11 +55,11 @@ export const AutomationRuleStore = signalStore(
           tap(() => {
             patchState(store, removeEntity(id));
             patchState(store, { totalCount: store.totalCount() - 1 });
-            toaster.success('Deleted');
+            toaster.success('::SuccessfullyDeleted');
           }),
         )),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )

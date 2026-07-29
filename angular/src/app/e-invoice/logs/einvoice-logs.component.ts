@@ -40,7 +40,7 @@ export class EinvoiceLogsComponent implements OnInit {
       },
       error: () => {
         this.isLoading = false;
-        this.toaster.error('Failed to load submission logs');
+        this.toaster.error('::FailedToLoad');
       },
     });
   }
@@ -51,6 +51,6 @@ export class EinvoiceLogsComponent implements OnInit {
 
   refreshStatus(id: string): void {
     // Will be wired when dedicated EInvoiceService proxy is generated
-    this.toaster.info('Status refresh will be available once e-invoice API is deployed');
+    this.toaster.info('::EInvoiceStatusRefreshNotAvailable');
   }
 }

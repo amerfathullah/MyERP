@@ -234,7 +234,7 @@ export class DunningFormComponent implements OnInit {
       })),
     };
     this.service.create(dto).subscribe({
-      next: () => { this.toaster.success('Dunning created successfully'); this.router.navigate(['/sales/dunnings']); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/dunnings']); },
       error: () => this.saving = false,
     });
   }

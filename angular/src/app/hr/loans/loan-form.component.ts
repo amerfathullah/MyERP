@@ -124,7 +124,7 @@ export class LoanFormComponent implements OnInit {
     };
     this.loanService.create(dto as any).subscribe({
       next: created => {
-        this.toaster.success('Loan created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/hr/loans', created.id]);
       },
       error: () => { this.saving = false; }

@@ -45,7 +45,7 @@
           </div>
           <div class="col-12 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ order.supplierName || order.supplierId }}</span>
+            <span class="fw-semibold">{{ order.supplierName || '—' }}</span>
           </div>
           <div class="col-12 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::OrderDate' | abpLocalization }}</small>
@@ -91,6 +91,18 @@
       </div>
     }
 
+    <!-- Overdue Delivery Alert -->
+    @if (isOverdue()) {
+      <div class="alert alert-danger d-flex align-items-center mt-4" role="alert">
+        <i class="fa fa-triangle-exclamation me-2 fs-5"></i>
+        <div>
+          <strong>{{ '::DeliveryOverdue' | abpLocalization }}</strong> —
+          {{ '::ExpectedBy' | abpLocalization }} {{ order.expectedDeliveryDate | date:'dd/MM/yyyy' }}
+          ({{ overdueDays() }} {{ '::DaysOverdue' | abpLocalization }})
+        </div>
+      </div>
+    }
+
     <!-- Line items -->
     <div class="card mt-4">
       <div class="card-header">
@@ -107,8 +119,8 @@
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
                 @if (order.status !== 'Draft') {
-                  <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'BilledQty' | abpLocalization }}</th>
+                  <th style="min-width: 140px;">{{ '::ReceiptProgress' | abpLocalization }}</th>
+                  <th style="min-width: 140px;">{{ '::BillingProgress' | abpLocalization }}</th>
                 }
               </tr>
             </thead>
@@ -121,8 +133,26 @@
                   <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.lineTotal | number:'1.2-2' }}</td>
                   @if (order.status !== 'Draft') {
-                    <td class="text-end">{{ row.receivedQty | number:'1.2-2' }}</td>
-                    <td class="text-end">{{ row.billedQty | number:'1.2-2' }}</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 6px;">
+                          <div class="progress-bar bg-info" [style.width.%]="getItemReceiptPct(row)"></div>
+                        </div>
+                        <small class="text-nowrap" [class.text-success]="getItemReceiptPct(row) >= 100" [class.fw-bold]="getItemReceiptPct(row) >= 100">
+                          {{ row.receivedQty | number:'1.0-1' }}/{{ row.quantity }}
+                        </small>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 6px;">
+                          <div class="progress-bar bg-success" [style.width.%]="getItemBilledPct(row)"></div>
+                        </div>
+                        <small class="text-nowrap" [class.text-success]="getItemBilledPct(row) >= 100" [class.fw-bold]="getItemBilledPct(row) >= 100">
+                          {{ row.billedQty | number:'1.0-1' }}/{{ row.quantity }}
+                        </small>
+                      </div>
+                    </td>
                   }
                 </tr>
               }
@@ -286,6 +316,41 @@
     }
 
     <app-activity-log [documentType]="'PurchaseOrder'" [documentId]="order.id!"></app-activity-log>
+
+    <!-- Send Email Dialog -->
+    @if (showEmailDialog) {
+      <div class="modal d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ '::SendPurchaseOrder' | abpLocalization }}</h5>
+              <button type="button" class="btn-close" (click)="cancelEmailDialog()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'Placeholder:Email' | abpLocalization">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'Placeholder:CommaSeparatedEmails' | abpLocalization">
+              </div>
+              <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="attachPdf" [(ngModel)]="emailAttachPdf">
+                <label class="form-check-label" for="attachPdf">{{ '::AttachPdf' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" (click)="cancelEmailDialog()">{{ '::Cancel' | abpLocalization }}</button>
+              <button class="btn btn-primary" [disabled]="emailSending" (click)="sendEmail()">
+                @if (emailSending) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                <i class="fa fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Print Layout (hidden on screen, shown only in print) -->
     <app-po-print-layout

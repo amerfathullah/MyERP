@@ -14,6 +14,29 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
+/**
+ * Journal Entry voucher types — per ERPNext's 18 voucher_type values.
+ * Each type determines validation rules and which accounts can be debited/credited.
+ */
+const VOUCHER_TYPES: { value: number; key: string; label: string }[] = [
+  { value: 0, key: 'JournalEntry', label: 'Journal Entry' },
+  { value: 1, key: 'InterCompanyJournalEntry', label: 'Inter Company Journal Entry' },
+  { value: 2, key: 'BankEntry', label: 'Bank Entry' },
+  { value: 3, key: 'CashEntry', label: 'Cash Entry' },
+  { value: 4, key: 'CreditCardEntry', label: 'Credit Card Entry' },
+  { value: 5, key: 'DebitNote', label: 'Debit Note' },
+  { value: 6, key: 'CreditNote', label: 'Credit Note' },
+  { value: 7, key: 'ContraEntry', label: 'Contra Entry' },
+  { value: 8, key: 'ExciseEntry', label: 'Excise Entry' },
+  { value: 9, key: 'WriteOffEntry', label: 'Write Off Entry' },
+  { value: 10, key: 'OpeningEntry', label: 'Opening Entry' },
+  { value: 11, key: 'DepreciationEntry', label: 'Depreciation Entry' },
+  { value: 12, key: 'ExchangeRateRevaluation', label: 'Exchange Rate Revaluation' },
+  { value: 13, key: 'ExchangeGainOrLoss', label: 'Exchange Gain Or Loss' },
+  { value: 14, key: 'DeferredRevenue', label: 'Deferred Revenue' },
+  { value: 15, key: 'DeferredExpense', label: 'Deferred Expense' },
+];
+
 @Component({
   selector: 'app-journal-entry-form',
   standalone: true,
@@ -38,9 +61,11 @@ export class JournalEntryFormComponent implements OnInit {
 
   accounts = signal<AccountDto[]>([]);
   companies = signal<any[]>([]);
+  voucherTypes = VOUCHER_TYPES;
 
   form = this.fb.group({
     companyId: [''],
+    voucherType: [0],
     entryDate: [new Date(), Validators.required],
     reference: [''],
     narration: [''],
@@ -98,13 +123,13 @@ export class JournalEntryFormComponent implements OnInit {
       return;
     }
     if (!this.isBalanced) {
-      this.toaster.error('Journal entry must be balanced (Debit = Credit)');
+      this.toaster.error('::JournalEntryMustBeBalanced');
       return;
     }
     const dto = this.form.getRawValue() as any;
     this.journalEntryService.create(dto).subscribe({
       next: () => {
-        this.toaster.success('Journal entry created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/accounting/journal-entries']);
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),

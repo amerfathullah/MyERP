@@ -95,7 +95,7 @@ export class InstallationNoteDetailComponent implements OnInit {
 
   submit() {
     this.service.submit(this.note.id).subscribe({
-      next: () => { this.toaster.success('Installation Note submitted'); this.load(this.note.id); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.load(this.note.id); },
       error: () => {}
     });
   }

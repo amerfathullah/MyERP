@@ -18,24 +18,24 @@ describe('SalesOrderDetailComponent Logic', () => {
     const actions: WorkflowAction[] = [];
 
     if (status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (status === 'ToDeliverAndBill' || status === 'ToDeliver') {
-      actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'local_shipping', color: 'primary' });
+      actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'truck', color: 'primary' });
     }
     if (status === 'ToDeliverAndBill' || status === 'ToBill') {
-      actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'receipt', color: 'accent' });
+      actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'file-invoice', color: 'info' });
     }
     if (status === 'ToDeliverAndBill' || status === 'ToDeliver' || status === 'ToBill') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'payment', color: 'accent' });
-      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'factory', color: 'accent' });
+      actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'industry', color: 'info' });
     }
     if (status !== 'Draft' && status !== 'Cancelled' && status !== 'Completed' && status !== 'Closed') {
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warn' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (status === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock_open', color: 'primary' });
+      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
     }
     if (status === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });

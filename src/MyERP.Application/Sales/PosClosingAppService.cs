@@ -86,6 +86,15 @@ public class PosClosingAppService : ApplicationService
     public async Task<PosClosingDto> SubmitAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // PR #57203: idempotent recovery — if already submitted (failed consolidation),
+        // skip Submit() and retry consolidation only
+        if (entry.Status == PosClosingStatus.Submitted)
+        {
+            // Already submitted, just return current state (retry consolidation separately)
+            return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
+        }
+
         entry.Submit();
 
         // POS Consolidation: merge individual POS invoices into consolidated SI for GL posting

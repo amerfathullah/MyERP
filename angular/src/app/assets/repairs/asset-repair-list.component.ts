@@ -48,7 +48,7 @@ import type { AssetRepairDto } from '../../proxy/assets/models';
               <tbody>
                 @for (r of items(); track r.id) {
                   <tr>
-                    <td>{{ assetNames()[r.assetId ?? ''] || (r.assetId | slice:0:8) + '…' }}</td>
+                    <td>{{ assetNames()[r.assetId ?? ''] || '—' }}</td>
                     <td class="text-truncate" style="max-width:200px">{{ r.repairDescription ?? '—' }}</td>
                     <td>{{ r.failureDate ? (r.failureDate | date:'dd/MM/yyyy') : '—' }}</td>
                     <td class="text-end fw-semibold">{{ r.repairCost | number:'1.2-2' }}</td>

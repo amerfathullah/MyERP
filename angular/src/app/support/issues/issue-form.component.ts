@@ -120,7 +120,7 @@ export class IssueFormComponent {
       customerId: val.customerId || undefined,
     }).subscribe({
       next: (created) => {
-        this.toaster.success('Issue created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/support/issues']);
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),

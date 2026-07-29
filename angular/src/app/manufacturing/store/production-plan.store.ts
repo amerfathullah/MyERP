@@ -22,7 +22,7 @@ export const ProductionPlanStore = signalStore(
           patchState(store, setAllEntities((result.items ?? []) as PPEntity[], { selectId: (e) => e.id! }));
           patchState(store, { totalCount: result.totalCount ?? 0, isLoading: false });
         }),
-        catchError(() => { patchState(store, { isLoading: false }); toaster.error('Failed to load'); return EMPTY; }),
+        catchError(() => { patchState(store, { isLoading: false }); toaster.error('::FailedToLoad'); return EMPTY; }),
       )
     ),
     loadOne: rxMethod<string>(
@@ -30,13 +30,13 @@ export const ProductionPlanStore = signalStore(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) => service.get(id)),
         tap((plan) => patchState(store, { selectedPlan: plan, isLoading: false })),
-        catchError(() => { patchState(store, { isLoading: false }); toaster.error('Failed to load plan'); return EMPTY; }),
+        catchError(() => { patchState(store, { isLoading: false }); toaster.error('::FailedToLoad'); return EMPTY; }),
       )
     ),
     create: rxMethod<any>(
       pipe(
         switchMap((input) => service.create(input)),
-        tap((created) => { patchState(store, addEntity(created as PPEntity, { selectId: (e) => e.id! })); toaster.success('Production Plan created'); }),
+        tap((created) => { patchState(store, addEntity(created as PPEntity, { selectId: (e) => e.id! })); toaster.success('::SuccessfullyCreated'); }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Create failed'); return EMPTY; }),
       )
     ),
@@ -46,7 +46,7 @@ export const ProductionPlanStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });
-          toaster.success('Plan submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Submit failed'); return EMPTY; }),
       )
@@ -57,7 +57,7 @@ export const ProductionPlanStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });
-          toaster.success('Materials calculated');
+          toaster.success('::SuccessfullyCalculated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Calculation failed'); return EMPTY; }),
       )
@@ -68,7 +68,7 @@ export const ProductionPlanStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });
-          toaster.success('Work Orders generated');
+          toaster.success('::SuccessfullyGenerated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Generation failed'); return EMPTY; }),
       )
@@ -79,7 +79,7 @@ export const ProductionPlanStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });
-          toaster.success('Material Requests generated');
+          toaster.success('::SuccessfullyGenerated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Generation failed'); return EMPTY; }),
       )
@@ -90,7 +90,7 @@ export const ProductionPlanStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PPEntity }));
           patchState(store, { selectedPlan: updated });
-          toaster.success('Plan cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Cancel failed'); return EMPTY; }),
       )

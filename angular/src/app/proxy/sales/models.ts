@@ -967,3 +967,12 @@ export interface UpdateSalesPersonDto {
   employeeId?: string | null;
   commissionRate?: number;
 }
+
+export interface SalesInvoiceListSummaryDto {
+  totalOutstanding: number;
+  overdueCount: number;
+  overdueAmount: number;
+  monthlyRevenue: number;
+  monthlyInvoiceCount: number;
+  postedInvoiceCount: number;
+}

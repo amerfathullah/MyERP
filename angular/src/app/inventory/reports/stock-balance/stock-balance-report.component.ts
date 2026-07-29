@@ -295,7 +295,7 @@ export class StockBalanceReportComponent implements OnInit {
 
         this.loading.set(false);
       },
-      error: () => { this.loading.set(false); this.toaster.error('Failed to load stock balance.'); }
+      error: () => { this.loading.set(false); this.toaster.error('::FailedToLoad'); }
     });
   }
 

@@ -82,8 +82,8 @@ export class CompanySettingsComponent implements OnInit {
     this.isLoading.set(true);
     const values = this.form.getRawValue();
     this.companyService.updateSettings(company.id!, values as any).subscribe({
-      next: () => { this.toaster.success('Settings saved'); this.isLoading.set(false); },
-      error: () => { this.toaster.error('Failed to save'); this.isLoading.set(false); },
+      next: () => { this.toaster.success('::SuccessfullySaved'); this.isLoading.set(false); },
+      error: () => { this.toaster.error('::SaveFailed'); this.isLoading.set(false); },
     });
   }
 }

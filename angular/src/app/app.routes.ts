@@ -379,6 +379,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'sales/reports/analytics',
+    loadComponent: () => import('./sales/reports/sales-analytics/sales-analytics.component').then(c => c.SalesAnalyticsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/pending-delivery',
     loadComponent: () => import('./sales/pending-delivery/pending-delivery.component').then(c => c.PendingDeliveryComponent),
     canActivate: [authGuard, permissionGuard],
@@ -401,6 +407,18 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./purchasing/reports/upcoming-payments-due/upcoming-payments-due.component').then(c => c.UpcomingPaymentsDueComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
+  },
+  {
+    path: 'purchasing/reports/supplier-payment-summary',
+    loadComponent: () => import('./purchasing/reports/supplier-payment-summary/supplier-payment-summary.component').then(c => c.SupplierPaymentSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
+  },
+  {
+    path: 'purchasing/reports/delivery-performance',
+    loadComponent: () => import('./purchasing/reports/supplier-delivery-performance/supplier-delivery-performance.component').then(c => c.SupplierDeliveryPerformanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
     path: 'settings',
@@ -458,6 +476,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'settings/notification-logs',
     loadComponent: () => import('./settings/notification-logs/notification-log-list.component').then(c => c.NotificationLogListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AutomationRules' },
+  },
+  {
+    path: 'settings/auto-repeat',
+    loadComponent: () => import('./settings/auto-repeat/auto-repeat-list.component').then(c => c.AutoRepeatListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.AutomationRules' },
   },
@@ -1863,6 +1887,24 @@ export const APP_ROUTES: Routes = [
   {
     path: 'inventory/reports/aging',
     loadComponent: () => import('./inventory/inventory-aging/inventory-aging.component').then(c => c.InventoryAgingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/turnover',
+    loadComponent: () => import('./inventory/reports/inventory-turnover/inventory-turnover.component').then(c => c.InventoryTurnoverComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/stock-movement',
+    loadComponent: () => import('./inventory/reports/stock-movement-summary/stock-movement-summary.component').then(c => c.StockMovementSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/batch-wise-balance',
+    loadComponent: () => import('./inventory/reports/batch-wise-balance/batch-wise-balance.component').then(c => c.BatchWiseBalanceComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },

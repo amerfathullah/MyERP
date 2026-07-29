@@ -40,7 +40,7 @@
                   <td class="text-truncate" style="max-width: 200px;" [title]="w.name">
                     <a [routerLink]="['/inventory/warehouses', w.id, 'edit']" class="text-primary text-decoration-none">{{ w.name }}</a>
                   </td>
-                  <td>{{ w.branchId }}</td>
+                  <td>{{ w.branchId ? (branchNames()[w.branchId] || '—') : '—' }}</td>
                   <td><app-status-badge [status]="w.isActive ? 'Active' : 'Inactive'" /></td>
                 </tr>
               }

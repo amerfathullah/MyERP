@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation } from '@abp/ng.theme.shared';
 
 interface AddressDto {
   id: string;
@@ -278,23 +279,27 @@ export class AddressManagerComponent implements OnInit {
 
     request$.subscribe({
       next: () => {
-        this.toaster.success(this.editingId() ? 'Address updated.' : 'Address added.');
+        this.toaster.success(this.editingId() ? '::SuccessfullyUpdated' : '::SuccessfullyCreated');
         this.showForm.set(false);
         this.saving.set(false);
         this.loadAddresses();
       },
       error: (err: any) => {
-        this.toaster.error(err?.error?.error?.message || 'Failed to save address.');
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
         this.saving.set(false);
       },
     });
   }
 
+  private confirmation = inject(ConfirmationService);
+
   deleteAddress(id: string): void {
-    if (!confirm('Delete this address?')) return;
-    this.http.delete(`/api/app/address/${id}`).subscribe({
-      next: () => { this.toaster.success('Address deleted.'); this.loadAddresses(); },
-      error: () => this.toaster.error('Failed to delete address.'),
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.http.delete(`/api/app/address/${id}`).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadAddresses(); },
+        error: () => this.toaster.error('::OperationFailed'),
+      });
     });
   }
 

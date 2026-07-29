@@ -2,14 +2,16 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LocalizationPipe } from '@abp/ng.core';
+import { FormsModule } from '@angular/forms';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-item-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, FormsModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
 
@@ -202,22 +204,78 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
       <div class="card mb-4">
         <div class="card-body">
           <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-success" (click)="showTransferForm.set(true)" [disabled]="showTransferForm()">
+              <i class="fas fa-right-left me-1"></i> {{ '::QuickTransfer' | abpLocalization }}
+            </button>
             <a [routerLink]="['/inventory/stock-entries/new']" [queryParams]="{ itemCode: item.itemCode }" class="btn btn-outline-primary">
               <i class="fas fa-exchange-alt me-1"></i> {{ '::CreateStockEntry' | abpLocalization }}
             </a>
             <a [routerLink]="['/inventory/reports/stock-ledger']" [queryParams]="{ itemId: entityId }" class="btn btn-outline-secondary">
               <i class="fas fa-book me-1"></i> {{ '::ViewStockLedger' | abpLocalization }}
             </a>
+            @if (isLowStock()) {
+              <a [routerLink]="['/purchasing/orders/new']" [queryParams]="{ itemId: entityId }" class="btn btn-outline-warning">
+                <i class="fas fa-cart-plus me-1"></i> {{ '::CreatePurchaseOrder' | abpLocalization }}
+              </a>
+            }
           </div>
         </div>
       </div>
+
+      <!-- Quick Stock Transfer Form -->
+      @if (showTransferForm()) {
+        <div class="card mb-4 border-success">
+          <div class="card-header bg-success-subtle d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-right-left me-2"></i>{{ '::QuickStockTransfer' | abpLocalization }}</span>
+            <button type="button" class="btn-close" (click)="cancelTransfer()"></button>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
+                <select class="form-select" [(ngModel)]="transferSourceWarehouse">
+                  <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+                  @for (w of transferWarehouses(); track w.id) {
+                    <option [value]="w.id">{{ w.name }} ({{ getWarehouseQty(w.id) }})</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
+                <select class="form-select" [(ngModel)]="transferTargetWarehouse">
+                  <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+                  @for (w of transferWarehouses(); track w.id) {
+                    <option [value]="w.id" [disabled]="w.id === transferSourceWarehouse">{{ w.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::Qty' | abpLocalization }}</label>
+                <input type="number" class="form-control" [(ngModel)]="transferQty" min="0.01" step="1" />
+              </div>
+              <div class="col-md-4 d-flex align-items-end gap-2">
+                <button class="btn btn-success" (click)="submitTransfer()" [disabled]="isTransferring() || !canTransfer()">
+                  @if (isTransferring()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  <i class="fas fa-check me-1"></i>{{ '::Transfer' | abpLocalization }}
+                </button>
+                <button class="btn btn-outline-secondary" (click)="cancelTransfer()">{{ '::Cancel' | abpLocalization }}</button>
+              </div>
+            </div>
+            @if (transferSourceWarehouse) {
+              <div class="mt-2">
+                <small class="text-muted">{{ '::AvailableInSource' | abpLocalization }}: <strong>{{ getWarehouseQty(transferSourceWarehouse) }}</strong></small>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
       <!-- Recent Stock Movements -->
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span><i class="fas fa-history me-2"></i>{{ '::RecentStockMovements' | abpLocalization }}</span>
           <a [routerLink]="['/inventory/reports/stock-ledger']" [queryParams]="{ itemId: entityId }" class="btn btn-link btn-sm p-0">
-            View All →
+            {{ '::ViewAll' | abpLocalization }} →
           </a>
         </div>
         <div class="card-body p-0">
@@ -307,7 +365,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           @if (whereUsedLoading()) {
             <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
           } @else if (whereUsed().length === 0) {
-            <div class="text-center text-muted py-3">Not used in any Bill of Materials</div>
+            <div class="text-center text-muted py-3">{{ '::NotUsedInAnyBOM' | abpLocalization }}</div>
           } @else {
             <div class="table-responsive">
               <table class="table table-sm table-hover mb-0">
@@ -376,6 +434,9 @@ export class ItemDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
 
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
+
   entity = signal<any>(null);
   entityId = '';
   loading = signal(true);
@@ -389,6 +450,14 @@ export class ItemDetailComponent implements OnInit {
   whereUsed = signal<any[]>([]);
   variants = signal<any[]>([]);
 
+  // Quick Transfer
+  showTransferForm = signal(false);
+  transferWarehouses = signal<any[]>([]);
+  transferSourceWarehouse = '';
+  transferTargetWarehouse = '';
+  transferQty = 1;
+  isTransferring = signal(false);
+
   ngOnInit() {
     this.entityId = this.route.snapshot.params['id'];
     this.loadEntity();
@@ -396,6 +465,7 @@ export class ItemDetailComponent implements OnInit {
     this.loadRecentMovements();
     this.loadPriceHistory();
     this.loadWhereUsed();
+    this.loadWarehouses();
   }
 
   private loadEntity() {
@@ -451,6 +521,67 @@ export class ItemDetailComponent implements OnInit {
     this.http.get<any[]>(`/api/app/item/${this.entityId}/variants`).subscribe({
       next: (data) => this.variants.set(data ?? []),
       error: () => {},
+    });
+  }
+
+  private loadWarehouses() {
+    this.http.get<any>('/api/app/warehouse', { params: { maxResultCount: '200' } }).subscribe({
+      next: (data) => this.transferWarehouses.set((data?.items ?? []).filter((w: any) => !w.isGroup)),
+      error: () => {},
+    });
+  }
+
+  getWarehouseQty(warehouseId: string): number {
+    const row = this.stockBalance().find(b => b.warehouseId === warehouseId);
+    return row?.actualQty ?? 0;
+  }
+
+  isLowStock(): boolean {
+    const item = this.entity();
+    if (!item?.reorderLevel || item.reorderLevel <= 0) return false;
+    const totalStock = this.stockBalance().reduce((sum: number, b: any) => sum + (b.actualQty ?? 0), 0);
+    return totalStock <= item.reorderLevel;
+  }
+
+  canTransfer(): boolean {
+    return !!this.transferSourceWarehouse && !!this.transferTargetWarehouse
+      && this.transferSourceWarehouse !== this.transferTargetWarehouse
+      && this.transferQty > 0;
+  }
+
+  cancelTransfer(): void {
+    this.showTransferForm.set(false);
+    this.transferSourceWarehouse = '';
+    this.transferTargetWarehouse = '';
+    this.transferQty = 1;
+  }
+
+  submitTransfer(): void {
+    if (!this.canTransfer()) return;
+    this.isTransferring.set(true);
+    const dto = {
+      companyId: this.entity()?.companyId,
+      entryType: 2, // MaterialTransfer
+      postingDate: new Date().toISOString().substring(0, 10),
+      items: [{
+        itemId: this.entityId,
+        quantity: this.transferQty,
+        sourceWarehouseId: this.transferSourceWarehouse,
+        targetWarehouseId: this.transferTargetWarehouse,
+      }],
+    };
+    this.http.post('/api/app/stock-entry', dto).subscribe({
+      next: () => {
+        this.isTransferring.set(false);
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        this.cancelTransfer();
+        this.loadStockBalance();
+        this.loadRecentMovements();
+      },
+      error: (err) => {
+        this.isTransferring.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
     });
   }
 }

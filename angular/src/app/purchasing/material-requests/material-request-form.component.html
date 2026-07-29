@@ -54,9 +54,25 @@
           </div>
         </div>
 
-        <h5 class="card-title mt-3">
-          <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
-        </h5>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <h5 class="card-title mb-0">
+            <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
+          </h5>
+          <div class="d-flex gap-2 align-items-center">
+            @if (salesOrders().length > 0) {
+              <select class="form-select form-select-sm" style="width: 250px;"
+                (change)="getItemsFromSalesOrder($any($event.target).value)">
+                <option value="">{{ '::GetItemsFromSO' | abpLocalization }}</option>
+                @for (so of salesOrders(); track so.id) {
+                  <option [value]="so.id">{{ so.orderNumber || so.id }} — {{ so.customerName || '' }}</option>
+                }
+              </select>
+            }
+            @if (isLoadingSoItems()) {
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            }
+          </div>
+        </div>
         <div class="table-responsive">
           <table class="table table-hover w-100">
             <thead>

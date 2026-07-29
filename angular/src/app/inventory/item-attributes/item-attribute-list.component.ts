@@ -127,7 +127,7 @@ export class ItemAttributeListComponent implements OnInit {
     }
     this.service.create(dto).subscribe({
       next: () => {
-        this.toaster.success('Attribute created');
+        this.toaster.success('::SuccessfullyCreated');
         this.newName = '';
         this.isNumeric = false;
         this.loadData();

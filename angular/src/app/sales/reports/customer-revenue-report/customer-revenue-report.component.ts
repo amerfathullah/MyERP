@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import type { CustomerRevenueLineDto } from '../../../proxy/sales/models';
 @Component({
   selector: 'app-customer-revenue-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './customer-revenue-report.component.html',
   styleUrls: ['./customer-revenue-report.component.scss'],
 })

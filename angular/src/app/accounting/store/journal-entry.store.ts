@@ -40,7 +40,7 @@ export const JournalEntryStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load journal entries');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -53,7 +53,7 @@ export const JournalEntryStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as JournalEntryEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Journal entry created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -68,7 +68,7 @@ export const JournalEntryStore = signalStore(
         switchMap((id) => service.post(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as JournalEntryEntity }));
-          toaster.success('Journal entry posted');
+          toaster.success('::SuccessfullyPosted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Post failed');
@@ -82,7 +82,7 @@ export const JournalEntryStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as JournalEntryEntity }));
-          toaster.success('Journal entry cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');

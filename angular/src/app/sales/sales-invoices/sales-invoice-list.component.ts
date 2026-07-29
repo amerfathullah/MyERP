@@ -14,6 +14,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import type { SalesInvoiceListSummaryDto } from '../../proxy/sales/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
@@ -54,8 +55,26 @@ export class SalesInvoiceListComponent implements OnInit {
   toDate = '';
   private searchTimeout: any;
 
+  /** KPI summary for the list page header */
+  summary = signal<SalesInvoiceListSummaryDto | null>(null);
+  summaryLoading = signal(false);
+
   ngOnInit(): void {
     this.loadData();
+    this.loadSummary();
+  }
+
+  /** Loads aggregate KPIs (outstanding, overdue, monthly revenue) via single API call. */
+  loadSummary(): void {
+    this.summaryLoading.set(true);
+    const companyId = this.companyContext.currentCompanyId() || undefined;
+    this.invoiceService.getListSummary(companyId).subscribe({
+      next: (result) => {
+        this.summary.set(result);
+        this.summaryLoading.set(false);
+      },
+      error: () => this.summaryLoading.set(false),
+    });
   }
 
   loadData(): void {
@@ -201,7 +220,7 @@ export class SalesInvoiceListComponent implements OnInit {
       },
       error: () => {
         this.isBulkProcessing = false;
-        this.toaster.error('Bulk operation failed', 'Error');
+        this.toaster.error('::BulkOperationFailed');
       },
     });
   }

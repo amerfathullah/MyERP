@@ -244,7 +244,7 @@ export class PaymentEntryDetailComponent implements OnInit {
         this.paymentEntryService.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
         break;
       case 'post':
-        this.paymentEntryService.post(id).subscribe({ next: () => { this.toaster.success('Payment posted.'); this.reload(); }, error: () => {} });
+        this.paymentEntryService.post(id).subscribe({ next: () => { this.toaster.success('::SuccessfullyPosted'); this.reload(); }, error: () => {} });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {

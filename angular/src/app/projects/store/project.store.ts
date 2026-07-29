@@ -32,7 +32,7 @@ export const ProjectStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error('Failed to load projects');
+          toaster.error('::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -43,7 +43,7 @@ export const ProjectStore = signalStore(
         switchMap((input) => service.create(input)),
         tap((created) => {
           patchState(store, addEntity(created as ProjectEntity, { selectId: (e) => e.id! }));
-          toaster.success('Project created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Create failed');
@@ -57,7 +57,7 @@ export const ProjectStore = signalStore(
         switchMap(({ id, input }) => service.update(id, input)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as ProjectEntity }));
-          toaster.success('Project updated');
+          toaster.success('::SuccessfullyUpdated');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Update failed');
@@ -72,11 +72,11 @@ export const ProjectStore = signalStore(
           tap(() => {
             patchState(store, removeEntity(id));
             patchState(store, { totalCount: store.totalCount() - 1 });
-            toaster.success('Project deleted');
+            toaster.success('::SuccessfullyDeleted');
           }),
         )),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )

@@ -372,6 +372,46 @@ public class DashboardAppService : ApplicationService
         };
     }
 
+    public async Task<TodaysActivityDto> GetTodaysActivityAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        var siQ = await _salesInvoiceRepo.GetQueryableAsync();
+        var invoicesToday = siQ.Where(i => i.CompanyId == companyId && i.CreationTime >= today && i.CreationTime < tomorrow && !i.IsReturn);
+        var invoiceCount = invoicesToday.Count();
+        var totalInvoiced = invoicesToday.Where(i => i.Status == DocumentStatus.Posted).Sum(i => i.GrandTotal);
+
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentEntry, Guid>>();
+        var peQ = await peRepo.GetQueryableAsync();
+        var paymentsToday = peQ.Where(p => p.CompanyId == companyId && p.CreationTime >= today && p.CreationTime < tomorrow);
+        var paymentCount = paymentsToday.Count();
+        var totalCollected = paymentsToday.Where(p => p.Status == DocumentStatus.Posted && p.PaymentType == MyERP.Accounting.PaymentType.Receive).Sum(p => p.PaidAmount);
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var soQ = await soRepo.GetQueryableAsync();
+        var ordersToday = soQ.Count(o => o.CompanyId == companyId && o.CreationTime >= today && o.CreationTime < tomorrow);
+
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.DeliveryNote, Guid>>();
+        var dnQ = await dnRepo.GetQueryableAsync();
+        var deliveriesToday = dnQ.Count(d => d.CompanyId == companyId && d.CreationTime >= today && d.CreationTime < tomorrow && !d.IsReturn);
+
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>();
+        var prQ = await prRepo.GetQueryableAsync();
+        var receiptsToday = prQ.Count(r => r.CompanyId == companyId && r.CreationTime >= today && r.CreationTime < tomorrow && !r.IsReturn);
+
+        return new TodaysActivityDto
+        {
+            InvoicesCreated = invoiceCount,
+            PaymentsReceived = paymentCount,
+            OrdersPlaced = ordersToday,
+            DeliveriesMade = deliveriesToday,
+            ReceiptsProcessed = receiptsToday,
+            TotalInvoiced = totalInvoiced,
+            TotalCollected = totalCollected,
+        };
+    }
+
     /// <summary>
     /// Returns bank and cash account balances for the dashboard cash position widget.
     /// Queries GL (JournalEntryLine) for Bank and Cash accounts to show current balances.
@@ -560,6 +600,242 @@ public class DashboardAppService : ApplicationService
             OverduePayableCount = overduePayables.Count,
         };
     }
+
+    /// <summary>
+    /// Returns quotations expiring within the next N days (default 7) for the sales pipeline widget.
+    /// Per ERPNext: quotation list shows validity status for collections management.
+    /// </summary>
+    public async Task<List<ExpiringQuotationDto>> GetExpiringQuotationsAsync(Guid companyId, int daysAhead = 7)
+    {
+        var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.Quotation, Guid>>();
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+
+        var today = DateTime.UtcNow.Date;
+        var cutoff = today.AddDays(daysAhead);
+
+        var qQuery = await quotationRepo.GetQueryableAsync();
+        var expiring = qQuery
+            .Where(q => q.CompanyId == companyId &&
+                        q.Status == DocumentStatus.Submitted &&
+                        q.ValidUntil.HasValue &&
+                        q.ValidUntil.Value >= today &&
+                        q.ValidUntil.Value <= cutoff)
+            .OrderBy(q => q.ValidUntil)
+            .Take(20)
+            .ToList();
+
+        if (expiring.Count == 0) return new List<ExpiringQuotationDto>();
+
+        // Resolve customer names
+        var customerIds = expiring.Select(q => q.CustomerId).Distinct().ToList();
+        var custQuery = await customerRepo.GetQueryableAsync();
+        var customers = custQuery.Where(c => customerIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        return expiring.Select(q => new ExpiringQuotationDto
+        {
+            QuotationId = q.Id,
+            QuotationNumber = q.QuotationNumber,
+            CustomerName = customers.GetValueOrDefault(q.CustomerId) ?? "—",
+            GrandTotal = q.GrandTotal,
+            ValidUntil = q.ValidUntil!.Value,
+            DaysRemaining = (int)(q.ValidUntil!.Value - today).TotalDays,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Returns top 5 customers ranked by revenue for the current month.
+    /// Per ERPNext: Customer Acquisition report shows revenue ranking for sales management.
+    /// </summary>
+    public async Task<List<TopCustomerDto>> GetTopCustomersAsync(Guid companyId)
+    {
+        var now = DateTime.UtcNow;
+        var monthStart = new DateTime(now.Year, now.Month, 1);
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var customerQuery = await _customerRepo.GetQueryableAsync();
+
+        // Group posted SI by customer for this month (exclude returns)
+        var customerRevenue = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         si.IssueDate >= monthStart &&
+                         !si.IsReturn)
+            .GroupBy(si => si.CustomerId)
+            .Select(g => new { CustomerId = g.Key, Revenue = g.Sum(si => si.GrandTotal), InvoiceCount = g.Count() })
+            .OrderByDescending(g => g.Revenue)
+            .Take(5)
+            .ToList();
+
+        if (!customerRevenue.Any()) return new List<TopCustomerDto>();
+
+        var customerIds = customerRevenue.Select(c => c.CustomerId).ToHashSet();
+        var customerNames = customerQuery
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToList()
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        return customerRevenue.Select(c => new TopCustomerDto
+        {
+            CustomerId = c.CustomerId,
+            CustomerName = customerNames.GetValueOrDefault(c.CustomerId) ?? "—",
+            Revenue = c.Revenue,
+            InvoiceCount = c.InvoiceCount,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Returns pending order counts by status for SO and PO pipelines.
+    /// Per ERPNext: dashboard shows order pipeline for operations visibility.
+    /// </summary>
+    public async Task<PendingOrdersSummaryDto> GetPendingOrdersSummaryAsync(Guid companyId)
+    {
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var soQuery = await soRepo.GetQueryableAsync();
+        var poQuery = await _purchaseOrderRepo.GetQueryableAsync();
+
+        var soToDeliverAndBill = soQuery.Count(s => s.CompanyId == companyId && s.Status == DocumentStatus.ToDeliverAndBill);
+        var soToDeliver = soQuery.Count(s => s.CompanyId == companyId && s.Status == DocumentStatus.ToDeliver);
+        var soToBill = soQuery.Count(s => s.CompanyId == companyId && s.Status == DocumentStatus.ToBill);
+
+        var poToReceiveAndBill = poQuery.Count(p => p.CompanyId == companyId && p.Status == DocumentStatus.ToDeliverAndBill);
+        var poToReceive = poQuery.Count(p => p.CompanyId == companyId && p.Status == DocumentStatus.ToDeliver);
+        var poToBill = poQuery.Count(p => p.CompanyId == companyId && p.Status == DocumentStatus.ToBill);
+
+        return new PendingOrdersSummaryDto
+        {
+            SalesOrdersToDeliverAndBill = soToDeliverAndBill,
+            SalesOrdersToDeliver = soToDeliver,
+            SalesOrdersToBill = soToBill,
+            TotalActiveSalesOrders = soToDeliverAndBill + soToDeliver + soToBill,
+            PurchaseOrdersToReceiveAndBill = poToReceiveAndBill,
+            PurchaseOrdersToReceive = poToReceive,
+            PurchaseOrdersToBill = poToBill,
+            TotalActivePurchaseOrders = poToReceiveAndBill + poToReceive + poToBill,
+        };
+    }
+
+    /// <summary>
+    /// Returns production summary — work orders grouped by status for manufacturing visibility.
+    /// Per ERPNext: manufacturing dashboard shows WO pipeline counts.
+    /// </summary>
+    public async Task<ProductionSummaryDto> GetProductionSummaryAsync(Guid companyId)
+    {
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid>>();
+        var woQuery = await woRepo.GetQueryableAsync();
+
+        var companyWos = woQuery.Where(w => w.CompanyId == companyId);
+
+        return new ProductionSummaryDto
+        {
+            Draft = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.Draft),
+            NotStarted = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.Submitted || w.Status == Manufacturing.WorkOrderStatus.NotStarted),
+            InProcess = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.InProcess),
+            Completed = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.Completed),
+            Stopped = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.Stopped),
+            TotalActiveOrders = companyWos.Count(w => w.Status == Manufacturing.WorkOrderStatus.Submitted || w.Status == Manufacturing.WorkOrderStatus.NotStarted || w.Status == Manufacturing.WorkOrderStatus.InProcess || w.Status == Manufacturing.WorkOrderStatus.Stopped),
+            TotalProducedThisMonth = companyWos
+                .Where(w => w.Status == Manufacturing.WorkOrderStatus.Completed && w.PlannedStartDate >= new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1))
+                .Sum(w => w.ProducedQuantity),
+        };
+    }
+
+    /// <summary>
+    /// Returns batches expiring within the next N days (default 30).
+    /// Per ERPNext batch-serial-number: prevents shipping expired stock (compliance-critical).
+    /// </summary>
+    public async Task<List<ExpiringBatchDto>> GetExpiringBatchesAsync(Guid companyId, int daysAhead = 30)
+    {
+        var batchRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Batch, Guid>>();
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+
+        var today = DateTime.UtcNow.Date;
+        var cutoff = today.AddDays(daysAhead);
+
+        var batchQuery = await batchRepo.GetQueryableAsync();
+        var expiringBatches = batchQuery
+            .Where(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value >= today && b.ExpiryDate.Value <= cutoff && !b.IsDisabled)
+            .OrderBy(b => b.ExpiryDate)
+            .Take(50)
+            .ToList();
+
+        if (!expiringBatches.Any()) return new List<ExpiringBatchDto>();
+
+        var itemIds = expiringBatches.Select(b => b.ItemId).Distinct().ToList();
+        var itemQuery = await _itemRepo.GetQueryableAsync();
+        var items = itemQuery.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList()
+            .ToDictionary(i => i.Id);
+
+        // Get stock per batch from Bin (aggregate across warehouses)
+        var binQuery = await _binRepo.GetQueryableAsync();
+        var warehouseQuery = await warehouseRepo.GetQueryableAsync();
+        var companyWhIds = warehouseQuery.Where(w => w.CompanyId == companyId).Select(w => w.Id).ToHashSet();
+        var batchItemIds = expiringBatches.Select(b => b.ItemId).ToHashSet();
+        var stockByItem = binQuery
+            .Where(b => companyWhIds.Contains(b.WarehouseId) && batchItemIds.Contains(b.ItemId) && b.ActualQty > 0)
+            .GroupBy(b => b.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(b => b.ActualQty));
+
+        return expiringBatches.Select(b => new ExpiringBatchDto
+        {
+            BatchId = b.Id,
+            BatchNo = b.BatchNo,
+            ItemCode = items.TryGetValue(b.ItemId, out var info) ? info.ItemCode : "—",
+            ItemName = items.TryGetValue(b.ItemId, out var info2) ? info2.ItemName : "—",
+            ExpiryDate = b.ExpiryDate!.Value,
+            DaysUntilExpiry = (int)(b.ExpiryDate!.Value - today).TotalDays,
+            StockQty = stockByItem.GetValueOrDefault(b.ItemId, 0),
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Top 5 customers by outstanding amount — collections management priority list.
+    /// Per ERPNext: Accounts Receivable Summary shows customers ranked by total outstanding.
+    /// </summary>
+    public async Task<List<TopDebtorDto>> GetTopDebtorsAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var customerQuery = await _customerRepo.GetQueryableAsync();
+
+        var debtors = siQuery
+            .Where(si => si.CompanyId == companyId &&
+                         si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn &&
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
+            .GroupBy(si => si.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                TotalOutstanding = g.Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance),
+                InvoiceCount = g.Count(),
+                OldestDueDate = g.Min(si => si.DueDate),
+            })
+            .OrderByDescending(g => g.TotalOutstanding)
+            .Take(5)
+            .ToList();
+
+        if (!debtors.Any()) return new List<TopDebtorDto>();
+
+        var customerIds = debtors.Select(d => d.CustomerId).ToList();
+        var names = customerQuery
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        return debtors.Select(d => new TopDebtorDto
+        {
+            CustomerId = d.CustomerId,
+            CustomerName = names.GetValueOrDefault(d.CustomerId, "—"),
+            TotalOutstanding = d.TotalOutstanding,
+            InvoiceCount = d.InvoiceCount,
+            OldestDueDate = d.OldestDueDate,
+            DaysOverdue = d.OldestDueDate.HasValue && d.OldestDueDate.Value < today
+                ? (int)(today - d.OldestDueDate.Value).TotalDays : 0,
+        }).ToList();
+    }
 }
 
 public class AgingSummaryWidgetDto
@@ -599,6 +875,37 @@ public class FinancialKpiDto
     public int InvoiceCount { get; set; }
     public int BillCount { get; set; }
     public string PeriodLabel { get; set; } = null!;
+}
+
+public class TopCustomerDto
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = "—";
+    public decimal Revenue { get; set; }
+    public int InvoiceCount { get; set; }
+}
+
+public class PendingOrdersSummaryDto
+{
+    public int SalesOrdersToDeliverAndBill { get; set; }
+    public int SalesOrdersToDeliver { get; set; }
+    public int SalesOrdersToBill { get; set; }
+    public int TotalActiveSalesOrders { get; set; }
+    public int PurchaseOrdersToReceiveAndBill { get; set; }
+    public int PurchaseOrdersToReceive { get; set; }
+    public int PurchaseOrdersToBill { get; set; }
+    public int TotalActivePurchaseOrders { get; set; }
+}
+
+public class ProductionSummaryDto
+{
+    public int Draft { get; set; }
+    public int NotStarted { get; set; }
+    public int InProcess { get; set; }
+    public int Completed { get; set; }
+    public int Stopped { get; set; }
+    public int TotalActiveOrders { get; set; }
+    public decimal TotalProducedThisMonth { get; set; }
 }
 
 /// <summary>
@@ -679,4 +986,35 @@ public class CashFlowSnapshotDto
     public decimal OverduePayables { get; set; }
     public int OverdueReceivableCount { get; set; }
     public int OverduePayableCount { get; set; }
+}
+
+public class ExpiringQuotationDto
+{
+    public Guid QuotationId { get; set; }
+    public string QuotationNumber { get; set; } = null!;
+    public string CustomerName { get; set; } = null!;
+    public decimal GrandTotal { get; set; }
+    public DateTime ValidUntil { get; set; }
+    public int DaysRemaining { get; set; }
+}
+
+public class TodaysActivityDto
+{
+    public int InvoicesCreated { get; set; }
+    public int PaymentsReceived { get; set; }
+    public int OrdersPlaced { get; set; }
+    public int DeliveriesMade { get; set; }
+    public int ReceiptsProcessed { get; set; }
+    public decimal TotalInvoiced { get; set; }
+    public decimal TotalCollected { get; set; }
+}
+
+public class TopDebtorDto
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = "—";
+    public decimal TotalOutstanding { get; set; }
+    public int InvoiceCount { get; set; }
+    public DateTime? OldestDueDate { get; set; }
+    public int DaysOverdue { get; set; }
 }

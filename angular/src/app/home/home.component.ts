@@ -1,21 +1,24 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService, LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import { DocumentActivityLogService } from '../proxy/core/document-activity-log.service';
 import type { DashboardSummaryDto } from '../proxy/core/models';
 import { CompanyContextService } from '../shared/services/company-context.service';
+import { CompanyCurrencyPipe } from '../shared/pipes/company-currency.pipe';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, LocalizationPipe],
+  imports: [CommonModule, RouterModule, LocalizationPipe, CompanyCurrencyPipe],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
 })
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
+  private http = inject(HttpClient);
   private dashboardService = inject(DashboardService);
   private activityLogService = inject(DocumentActivityLogService);
   private companyContext = inject(CompanyContextService);
@@ -30,6 +33,13 @@ export class HomeComponent implements OnInit {
   agingSummary = signal<any | null>(null);
   bankBalances = signal<any | null>(null);
   cashFlowSnapshot = signal<any | null>(null);
+  expiringQuotations = signal<any[]>([]);
+  topCustomers = signal<any[]>([]);
+  pendingOrders = signal<any | null>(null);
+  productionSummary = signal<any | null>(null);
+  todaysActivity = signal<any | null>(null);
+  expiringBatches = signal<any[]>([]);
+  topDebtors = signal<any[]>([]);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -47,6 +57,14 @@ export class HomeComponent implements OnInit {
       });
       this.dashboardService.getLowStockItems()
         .subscribe({ next: items => this.lowStockItems.set(items ?? []), error: () => {} });
+      // Load batches expiring within 30 days for compliance alert
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) {
+        this.dashboardService.getExpiringBatches(cid, 30)
+          .subscribe({ next: batches => this.expiringBatches.set(batches ?? []), error: () => {} });
+        this.dashboardService.getTopDebtors(cid)
+          .subscribe({ next: data => this.topDebtors.set(data ?? []), error: () => {} });
+      }
       this.dashboardService.getRevenueTrend()
         .subscribe({
           next: data => {
@@ -75,6 +93,16 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: data => this.cashFlowSnapshot.set(data), error: () => {} });
         this.dashboardService.getBankBalances(companyId)
           .subscribe({ next: data => this.bankBalances.set(data), error: () => {} });
+        this.dashboardService.getExpiringQuotations(companyId)
+          .subscribe({ next: data => this.expiringQuotations.set(data ?? []), error: () => {} });
+        this.dashboardService.getTopCustomers(companyId)
+          .subscribe({ next: data => this.topCustomers.set(data ?? []), error: () => {} });
+        this.dashboardService.getPendingOrdersSummary(companyId)
+          .subscribe({ next: data => this.pendingOrders.set(data), error: () => {} });
+        this.dashboardService.getProductionSummary(companyId)
+          .subscribe({ next: data => this.productionSummary.set(data), error: () => {} });
+        this.http.get(`/api/app/dashboard/todays-activity`, { params: { companyId } })
+          .subscribe({ next: (data: any) => this.todaysActivity.set(data), error: () => {} });
       }
     }
   }

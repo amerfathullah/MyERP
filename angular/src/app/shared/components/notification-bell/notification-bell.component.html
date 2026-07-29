@@ -26,7 +26,7 @@
           [class.bg-light]="!notif.isRead"
           (click)="markAsRead(notif.id!)">
           <div class="d-flex align-items-start gap-2">
-            <i class="fa" [class]="getSeverityColor(notif.severity!) + ' ' + getSeverityIcon(notif.severity!)"></i>
+            <i class="fa" [ngClass]="[getSeverityColor(notif.severity!), getSeverityIcon(notif.severity!)]"></i>
             <div class="flex-grow-1 overflow-hidden">
               <p class="small fw-medium text-truncate mb-0" [class.fw-bold]="!notif.isRead">{{ notif.subject }}</p>
               <p class="small text-muted mb-0">{{ notif.creationTime | date:'short' }}</p>

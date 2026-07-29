@@ -56,12 +56,12 @@ export class NotificationBellComponent implements OnInit {
   }
 
   getSeverityIcon(severity: number): string {
-    const map: Record<number, string> = { 0: 'info', 1: 'check_circle', 2: 'warning', 3: 'error' };
-    return map[severity] ?? 'info';
+    const map: Record<number, string> = { 0: 'fa-circle-info', 1: 'fa-circle-check', 2: 'fa-triangle-exclamation', 3: 'fa-circle-xmark' };
+    return map[severity] ?? 'fa-circle-info';
   }
 
   getSeverityColor(severity: number): string {
-    const map: Record<number, string> = { 0: 'text-blue-500', 1: 'text-green-500', 2: 'text-yellow-500', 3: 'text-red-500' };
-    return map[severity] ?? 'text-blue-500';
+    const map: Record<number, string> = { 0: 'text-info', 1: 'text-success', 2: 'text-warning', 3: 'text-danger' };
+    return map[severity] ?? 'text-info';
   }
 }

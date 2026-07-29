@@ -9,13 +9,14 @@ import { PayrollStore } from '../store/payroll.store';
 import type { PayrollEntryDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { LocalizationPipe } from '@abp/ng.core';
 
 @Component({
   selector: 'app-payroll-detail',
   standalone: true,
   imports: [
     BreadcrumbComponent, CommonModule, PageModule,
-    DocumentWorkflowComponent, LoadingOverlayComponent],
+    DocumentWorkflowComponent, LoadingOverlayComponent, LocalizationPipe],
   templateUrl: './payroll-detail.component.html',
   styleUrls: ['./payroll-detail.component.scss'],
 })
@@ -31,10 +32,10 @@ export class PayrollDetailComponent implements OnInit {
     if (!this.entry) return [];
     const actions: WorkflowAction[] = [];
     if (this.entry.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.entry.status === 'Submitted') {
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;
   }

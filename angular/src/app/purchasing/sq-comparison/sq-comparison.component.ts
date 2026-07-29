@@ -213,7 +213,7 @@ export class SupplierQuotationComparisonComponent implements OnInit {
       params: { skipCount: '0', maxResultCount: '100', sorting: 'transactionDate desc' }
     }).subscribe({
       next: res => this.availableQuotations.set(res.items ?? []),
-      error: () => this.toaster.error('Failed to load quotations'),
+      error: () => this.toaster.error('::FailedToLoad'),
     });
   }
 
@@ -240,14 +240,14 @@ export class SupplierQuotationComparisonComponent implements OnInit {
       this.http.get<ComparisonResult>(`/api/app/supplier-quotation-comparison/by-rfq/${this.rfqId}`)
         .subscribe({
           next: result => { this.comparison.set(result); this.isLoading.set(false); },
-          error: () => { this.toaster.error('Failed to load comparison'); this.isLoading.set(false); },
+          error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); },
         });
     } else {
       const ids = Array.from(this.selectedIds());
       this.http.post<ComparisonResult>('/api/app/supplier-quotation-comparison/by-ids', ids)
         .subscribe({
           next: result => { this.comparison.set(result); this.isLoading.set(false); },
-          error: () => { this.toaster.error('Failed to load comparison'); this.isLoading.set(false); },
+          error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); },
         });
     }
   }

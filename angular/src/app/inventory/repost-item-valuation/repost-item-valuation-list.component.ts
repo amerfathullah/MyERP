@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { RepostItemValuationService } from '../../proxy/inventory/repost-item-valuation.service';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -141,8 +141,11 @@ export class RepostItemValuationListComponent implements OnInit {
     return ['Item + Warehouse', 'Item Wise', 'Entire Company'][basedOn] ?? 'Unknown';
   }
 
+  private l = inject(LocalizationService);
+
   getStatusLabel(status: number): string {
-    return ['Queued', 'In Progress', 'Completed', 'Failed', 'Skipped'][status] ?? 'Unknown';
+    const keys = ['::Queued', '::InProcess', '::Completed', '::Failed', '::Skipped'];
+    return keys[status] ? this.l.instant(keys[status]) : this.l.instant('::Unknown');
   }
 
   getProgress(entry: RepostItemValuationDto): number {

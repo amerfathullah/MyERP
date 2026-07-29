@@ -131,7 +131,7 @@ export class ManufacturingSettingsComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     this.settings.companyId = companyId;
     this.settingsService.save(this.settings).subscribe({
-      next: () => { this.toaster.success('Manufacturing settings saved'); this.saving = false; },
+      next: () => { this.toaster.success('::SuccessfullySaved'); this.saving = false; },
       error: () => { this.saving = false; }
     });
   }

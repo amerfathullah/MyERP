@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -19,13 +19,14 @@ import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print-layout/so-print-layout.component';
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './sales-order-detail.component.html',
   styleUrls: ['./sales-order-detail.component.scss'],
 })
@@ -41,6 +42,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
   private salesOrderService = inject(SalesOrderService);
+  private l = inject(LocalizationService);
 
   order: SalesOrderDto | null = null;
   deliverySchedule = signal<any[]>([]);
@@ -59,15 +61,38 @@ export class SalesOrderDetailComponent implements OnInit {
   draftGuardTarget = signal<'DeliveryNote' | 'SalesInvoice' | null>(null);
   private pendingConversionAction: (() => void) | null = null;
 
+  // Partial Delivery Selection state
+  showDeliverySelection = signal(false);
+  deliverySelectionItems = signal<{ itemId: string; description: string; pendingQty: number; deliverQty: number; selected: boolean }[]>([]);
+  isCreatingDN = signal(false);
+
   // Delivery Schedule Generator state
   showScheduleGenerator = signal(false);
   scheduleFrequency = 'Monthly';
   scheduleItemId = '';
   isGeneratingSchedule = signal(false);
 
+  showEmailDialog = false;
+  emailRecipient = '';
+  emailCc = '';
+  emailAttachPdf = true;
+  emailSending = false;
+
   isActiveOrder(): boolean {
     const s = this.order?.status;
     return s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill';
+  }
+
+  /** Per-item delivery progress percentage (capped at 100%) */
+  getItemDeliveryPct(row: any): number {
+    if (!row.quantity || row.quantity <= 0) return 0;
+    return Math.min(100, ((row.deliveredQty ?? 0) / row.quantity) * 100);
+  }
+
+  /** Per-item billing progress percentage (capped at 100%) */
+  getItemBilledPct(row: any): number {
+    if (!row.quantity || row.quantity <= 0) return 0;
+    return Math.min(100, ((row.billedQty ?? 0) / row.quantity) * 100);
   }
 
   generateDeliverySchedule(): void {
@@ -107,8 +132,12 @@ export class SalesOrderDetailComponent implements OnInit {
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
       actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+      actions.push({ name: 'pick_list', label: this.l.instant('::CreatePickList'), icon: 'clipboard-list', color: 'info' });
       actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'industry', color: 'info' });
       actions.push({ name: 'material_request', label: 'Material Request', icon: 'box-open', color: 'info' });
+    }
+    if (s !== 'Draft' && s !== 'Cancelled') {
+      actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
       actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
@@ -191,12 +220,7 @@ export class SalesOrderDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'delivery':
-        this.initiateConversion('DeliveryNote', () => {
-          this.conversionService.convertSalesOrderToDeliveryNote(id).subscribe({
-            next: (dn) => this.router.navigate(['/sales/delivery-notes', dn.id]),
-            error: (err) => this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed'),
-          });
-        });
+        this.openDeliverySelection();
         break;
       case 'invoice':
         this.initiateConversion('SalesInvoice', () => {
@@ -231,6 +255,11 @@ export class SalesOrderDetailComponent implements OnInit {
           error: (err) => this.toaster.error(err?.error?.error?.message || '::ConversionFailed'),
         });
         break;
+      case 'pick_list':
+        this.router.navigate(['/inventory/pick-lists/new'], {
+          queryParams: { salesOrderId: id, customerId: this.order!.customerId, companyId: this.order!.companyId }
+        });
+        break;
       case 'close':
         this.service.close(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
         break;
@@ -249,6 +278,9 @@ export class SalesOrderDetailComponent implements OnInit {
         this.amendmentService.amend(id).subscribe({
           next: (amendedId) => this.router.navigate(['/sales/orders', amendedId]),
         });
+        break;
+      case 'sendEmail':
+        this.openSendEmailDialog();
         break;
     }
   }
@@ -290,6 +322,148 @@ export class SalesOrderDetailComponent implements OnInit {
       this.service.delete(this.order!.id!).subscribe({
         next: () => this.router.navigate(['/sales/orders']),
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
+  }
+
+  openSendEmailDialog(): void {
+    this.emailRecipient = (this.order as any)?.customerEmail || '';
+    this.emailCc = '';
+    this.emailAttachPdf = true;
+    this.showEmailDialog = true;
+  }
+
+  sendEmail(): void {
+    if (!this.emailRecipient) {
+      this.toaster.warn('::PleaseEnterRecipientEmail');
+      return;
+    }
+    this.emailSending = true;
+    this.http.post('/api/app/document-email/sales-order-email', {
+      documentId: this.order!.id,
+      recipientEmail: this.emailRecipient,
+      ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
+      attachPdf: this.emailAttachPdf,
+    }).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySent');
+        this.showEmailDialog = false;
+        this.emailSending = false;
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.emailSending = false;
+      },
+    });
+  }
+
+  cancelEmailDialog(): void {
+    this.showEmailDialog = false;
+  }
+
+  // --- Partial Delivery Selection ---
+
+  /** Opens the per-item delivery selection panel */
+  openDeliverySelection(): void {
+    if (!this.order?.items?.length) return;
+    const items = this.order.items
+      .filter((i: any) => {
+        const pending = (i.quantity ?? 0) - (i.deliveredQty ?? 0);
+        return pending > 0;
+      })
+      .map((i: any) => ({
+        itemId: i.itemId ?? i.id,
+        description: i.description || i.itemName || '—',
+        pendingQty: Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0)),
+        deliverQty: Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0)), // default: deliver all pending
+        selected: true,
+      }));
+    if (items.length === 0) {
+      this.toaster.info('::AllItemsAlreadyDelivered');
+      return;
+    }
+    this.deliverySelectionItems.set(items);
+    this.showDeliverySelection.set(true);
+  }
+
+  /** Toggles select-all for delivery items */
+  toggleAllDeliveryItems(checked: boolean): void {
+    this.deliverySelectionItems.update(items =>
+      items.map(i => ({ ...i, selected: checked, deliverQty: checked ? i.pendingQty : 0 }))
+    );
+  }
+
+  /** Toggles individual delivery item selection */
+  toggleDeliveryItem(index: number, checked: boolean): void {
+    this.deliverySelectionItems.update(items =>
+      items.map((item, i) => i === index ? { ...item, selected: checked, deliverQty: checked ? item.pendingQty : 0 } : item)
+    );
+  }
+
+  /** Updates deliver qty for an item */
+  updateDeliverQty(index: number, qty: number): void {
+    this.deliverySelectionItems.update(items =>
+      items.map((item, i) => i === index ? { ...item, deliverQty: Math.min(Math.max(0, qty), item.pendingQty), selected: qty > 0 } : item)
+    );
+  }
+
+  /** Whether any items are selected for delivery */
+  hasDeliverySelection(): boolean {
+    return this.deliverySelectionItems().some(i => i.selected && i.deliverQty > 0);
+  }
+
+  /** Cancel partial delivery selection */
+  cancelDeliverySelection(): void {
+    this.showDeliverySelection.set(false);
+    this.deliverySelectionItems.set([]);
+  }
+
+  /** Execute partial delivery: create DN with selected items */
+  confirmPartialDelivery(): void {
+    const selectedItems = this.deliverySelectionItems()
+      .filter(i => i.selected && i.deliverQty > 0)
+      .map(i => ({ salesOrderItemId: i.itemId, quantity: i.deliverQty }));
+
+    if (!selectedItems.length) {
+      this.toaster.warn('::NoItemsSelected');
+      return;
+    }
+
+    this.isCreatingDN.set(true);
+    const id = this.order!.id!;
+
+    // Use draft link guard check before creating
+    this.initiateConversion('DeliveryNote', () => {
+      this.http.post<any>(`/api/app/document-conversion/convert-sales-order-to-delivery-note/${id}`, selectedItems).subscribe({
+        next: (dn) => {
+          this.isCreatingDN.set(false);
+          this.showDeliverySelection.set(false);
+          this.toaster.success('::SuccessfullyCreated');
+          this.router.navigate(['/sales/delivery-notes', dn.id]);
+        },
+        error: (err) => {
+          this.isCreatingDN.set(false);
+          this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed');
+        },
+      });
+    });
+  }
+
+  /** Quick action: deliver ALL pending items without selection */
+  deliverAll(): void {
+    const id = this.order!.id!;
+    this.isCreatingDN.set(true);
+    this.initiateConversion('DeliveryNote', () => {
+      this.conversionService.convertSalesOrderToDeliveryNote(id).subscribe({
+        next: (dn) => {
+          this.isCreatingDN.set(false);
+          this.showDeliverySelection.set(false);
+          this.router.navigate(['/sales/delivery-notes', dn.id]);
+        },
+        error: (err) => {
+          this.isCreatingDN.set(false);
+          this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed');
+        },
       });
     });
   }

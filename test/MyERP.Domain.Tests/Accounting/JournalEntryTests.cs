@@ -96,6 +96,40 @@ public class JournalEntryTests
             journal.AddLine(Guid.NewGuid(), 50m, isDebit: true));
     }
 
+    [Fact]
+    public void VoucherType_DefaultsToJournalEntry()
+    {
+        var journal = CreateJournalEntry();
+        journal.VoucherType.ShouldBe(JournalEntryVoucherType.JournalEntry);
+    }
+
+    [Theory]
+    [InlineData(JournalEntryVoucherType.BankEntry)]
+    [InlineData(JournalEntryVoucherType.CashEntry)]
+    [InlineData(JournalEntryVoucherType.CreditNote)]
+    [InlineData(JournalEntryVoucherType.DebitNote)]
+    [InlineData(JournalEntryVoucherType.ContraEntry)]
+    [InlineData(JournalEntryVoucherType.WriteOffEntry)]
+    [InlineData(JournalEntryVoucherType.OpeningEntry)]
+    [InlineData(JournalEntryVoucherType.InterCompanyJournalEntry)]
+    public void VoucherType_CanBeSetToAllUserSelectableTypes(JournalEntryVoucherType voucherType)
+    {
+        var journal = CreateJournalEntry();
+        journal.VoucherType = voucherType;
+        journal.VoucherType.ShouldBe(voucherType);
+    }
+
+    [Fact]
+    public void VoucherType_ReversalType_SetByReversalFlow()
+    {
+        // Reversal type is set programmatically, not by user selection
+        var journal = CreateJournalEntry();
+        journal.VoucherType = JournalEntryVoucherType.Reversal;
+        journal.ReversalOfId = Guid.NewGuid();
+        journal.VoucherType.ShouldBe(JournalEntryVoucherType.Reversal);
+        journal.ReversalOfId.ShouldNotBeNull();
+    }
+
     private static JournalEntry CreateJournalEntry()
     {
         return new JournalEntry(

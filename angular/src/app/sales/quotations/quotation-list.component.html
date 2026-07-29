@@ -35,23 +35,49 @@
         </div>
       } @else {
         <div class="table-responsive">
-                    <table class="table table-hover w-100">
+          <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 150px;">{{ '::QuotationNumber' | abpLocalization }}</th>
-                <th style="width: 110px;">{{ '::IssueDate' | abpLocalization }}</th>
-                <th class="text-end" style="width: 130px;">{{ '::GrandTotal' | abpLocalization }}</th>
-                <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
-                <th class="text-end" style="width: 100px;"></th>
+                <th style="min-width: 140px;">{{ '::QuotationNumber' | abpLocalization }}</th>
+                <th style="min-width: 120px;">{{ '::Customer' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::IssueDate' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::ValidUntil' | abpLocalization }}</th>
+                <th class="text-end" style="width: 120px;">{{ '::GrandTotal' | abpLocalization }}</th>
+                <th style="width: 110px;">{{ '::Status' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::Validity' | abpLocalization }}</th>
+                <th class="text-end" style="width: 80px;"></th>
               </tr>
             </thead>
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
-                <tr>
+                <tr [class.table-warning]="isExpiringSoon(row)" [class.table-danger]="isExpired(row)">
                   <td class="fw-medium"><a [routerLink]="['/sales/quotations', row.id]" class="text-decoration-none">{{ row.quotationNumber }}</a></td>
+                  <td>{{ row.customerName || '—' }}</td>
                   <td>{{ row.issueDate | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    @if (row.validUntil) {
+                      <span [class.text-danger]="isExpired(row)" [class.text-warning]="isExpiringSoon(row)">
+                        {{ row.validUntil | date:'dd/MM/yyyy' }}
+                      </span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td>
+                    @if (row.status === 'Submitted') {
+                      @if (isExpired(row)) {
+                        <span class="badge bg-danger"><i class="fa fa-clock me-1"></i>{{ '::Expired' | abpLocalization }}</span>
+                      } @else if (isExpiringSoon(row)) {
+                        <span class="badge bg-warning text-dark"><i class="fa fa-exclamation-triangle me-1"></i>{{ getDaysRemaining(row) }}d</span>
+                      } @else if (row.validUntil) {
+                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ getDaysRemaining(row) }}d</span>
+                      }
+                    } @else if (row.convertedToSalesOrderId) {
+                      <span class="badge bg-info"><i class="fa fa-check-double me-1"></i>{{ '::Ordered' | abpLocalization }}</span>
+                    }
+                  </td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" [routerLink]="[row.id]"

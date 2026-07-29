@@ -15,11 +15,11 @@
             <input type="date" class="form-control" formControlName="orderDate" [class.is-invalid]="form.get('orderDate')?.invalid && form.get('orderDate')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">Delivery Date</label>
+            <label class="form-label">{{ '::DeliveryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="deliveryDate" [class.is-invalid]="form.get('deliveryDate')?.invalid && form.get('deliveryDate')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
-            <label class="form-label">Customer</label>
+            <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
             <select class="form-select" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched">
               <option value="">— Select Customer —</option>
               @for (c of customers(); track c.id) {

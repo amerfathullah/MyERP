@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -29,7 +30,7 @@ interface PartyOption {
 @Component({
   selector: 'app-party-ledger',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './party-ledger.component.html',
   styleUrls: ['./party-ledger.component.scss'],
 })

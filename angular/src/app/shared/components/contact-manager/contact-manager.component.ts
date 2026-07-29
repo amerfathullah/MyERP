@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation } from '@abp/ng.theme.shared';
 
 interface ContactDto {
   id: string;
@@ -239,23 +240,27 @@ export class ContactManagerComponent implements OnInit {
 
     request$.subscribe({
       next: () => {
-        this.toaster.success(this.editingId() ? 'Contact updated.' : 'Contact added.');
+        this.toaster.success(this.editingId() ? '::SuccessfullyUpdated' : '::SuccessfullyCreated');
         this.showForm.set(false);
         this.saving.set(false);
         this.loadContacts();
       },
       error: (err: any) => {
-        this.toaster.error(err?.error?.error?.message || 'Failed to save contact.');
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
         this.saving.set(false);
       },
     });
   }
 
+  private confirmation = inject(ConfirmationService);
+
   deleteContact(id: string): void {
-    if (!confirm('Delete this contact?')) return;
-    this.http.delete(`/api/app/contact/${id}`).subscribe({
-      next: () => { this.toaster.success('Contact deleted.'); this.loadContacts(); },
-      error: () => this.toaster.error('Failed to delete contact.'),
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.http.delete(`/api/app/contact/${id}`).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadContacts(); },
+        error: () => this.toaster.error('::OperationFailed'),
+      });
     });
   }
 

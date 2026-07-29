@@ -1,9 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { HttpClient } from '@angular/common/http';
 import { exportToCsv } from '../../shared/utils/csv-export';
@@ -55,6 +56,15 @@ interface PendingDeliveryReport {
                 <option [ngValue]="true">{{ 'OverdueOnly' | abpLocalization }}</option>
               </select>
             </div>
+            <div class="col-auto">
+              <label class="form-label small mb-0">{{ 'Customer' | abpLocalization }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="customerFilter" (change)="loadReport()">
+                <option value="">{{ 'AllCustomers' | abpLocalization }}</option>
+                @for (c of uniqueCustomers(); track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
+            </div>
             <div class="col-auto ms-auto">
               <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()" [disabled]="!report()">
                 <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
@@ -63,6 +73,28 @@ interface PendingDeliveryReport {
           </div>
         </div>
       </div>
+
+      <!-- Batch Action Bar -->
+      @if (selectedCount() > 0) {
+        <div class="alert alert-info d-flex align-items-center mb-3 py-2">
+          <i class="fa fa-check-circle me-2"></i>
+          <span class="flex-grow-1">
+            <strong>{{ selectedCount() }}</strong> {{ 'ItemsSelected' | abpLocalization }}
+            ({{ selectedCustomerCount() }} {{ 'Customers' | abpLocalization }})
+          </span>
+          <button class="btn btn-sm btn-success me-2" (click)="createDeliveryNotes()" [disabled]="isCreatingDN()">
+            @if (isCreatingDN()) {
+              <i class="fa fa-spinner fa-spin me-1"></i>
+            } @else {
+              <i class="fa fa-truck me-1"></i>
+            }
+            {{ 'CreateDeliveryNotes' | abpLocalization }}
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
+            <i class="fa fa-times me-1"></i>{{ 'ClearSelection' | abpLocalization }}
+          </button>
+        </div>
+      }
 
       @if (loading()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
@@ -110,6 +142,7 @@ interface PendingDeliveryReport {
               <table class="table table-sm table-hover mb-0">
                 <thead class="table-light">
                   <tr>
+                    <th style="width: 30px;"><input type="checkbox" class="form-check-input" [checked]="isAllSelected()" (change)="toggleSelectAll($event)" /></th>
                     <th>{{ 'OrderNumber' | abpLocalization }}</th>
                     <th>{{ 'Customer' | abpLocalization }}</th>
                     <th>{{ 'Item' | abpLocalization }}</th>
@@ -121,7 +154,8 @@ interface PendingDeliveryReport {
                 </thead>
                 <tbody>
                   @for (item of report()!.items; track item.salesOrderId + item.itemId) {
-                    <tr [class.table-danger]="item.isOverdue" [class.table-warning]="item.daysUntilDue <= 3 && !item.isOverdue">
+                    <tr [class.table-danger]="item.isOverdue" [class.table-warning]="item.daysUntilDue <= 3 && !item.isOverdue" [class.table-primary]="isSelected(item)">
+                      <td><input type="checkbox" class="form-check-input" [checked]="isSelected(item)" (change)="toggleItem(item)" /></td>
                       <td>
                         <a [routerLink]="['/sales/orders', item.salesOrderId]" class="text-decoration-none">
                           {{ item.orderNumber }}
@@ -147,7 +181,7 @@ interface PendingDeliveryReport {
                     </tr>
                   }
                   @if (!report()!.items.length) {
-                    <tr><td colspan="7" class="text-center text-muted py-4">{{ 'NoPendingDeliveries' | abpLocalization }}</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">{{ 'NoPendingDeliveries' | abpLocalization }}</td></tr>
                   }
                 </tbody>
               </table>
@@ -166,13 +200,130 @@ interface PendingDeliveryReport {
 export class PendingDeliveryComponent implements OnInit {
   private http = inject(HttpClient);
   private companyContext = inject(CompanyContextService);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   report = signal<PendingDeliveryReport | null>(null);
   loading = signal(false);
+  isCreatingDN = signal(false);
   overdueOnly = false;
+  customerFilter = '';
+
+  // Selection state — key = salesOrderId::itemId
+  private selectedItems = signal<Set<string>>(new Set());
+
+  selectedCount = computed(() => this.selectedItems().size);
+  selectedCustomerCount = computed(() => {
+    const customers = new Set<string>();
+    for (const key of this.selectedItems()) {
+      const item = this.report()?.items.find(i => this.getKey(i) === key);
+      if (item) customers.add(item.customerId);
+    }
+    return customers.size;
+  });
+
+  uniqueCustomers = computed(() => {
+    if (!this.report()) return [];
+    const map = new Map<string, string>();
+    for (const item of this.report()!.items) {
+      if (!map.has(item.customerId)) {
+        map.set(item.customerId, item.customerName);
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  });
 
   ngOnInit() {
     this.loadReport();
+  }
+
+  getKey(item: PendingDeliveryItem): string {
+    return `${item.salesOrderId}::${item.itemId}`;
+  }
+
+  isSelected(item: PendingDeliveryItem): boolean {
+    return this.selectedItems().has(this.getKey(item));
+  }
+
+  isAllSelected(): boolean {
+    const items = this.report()?.items ?? [];
+    return items.length > 0 && items.every(i => this.isSelected(i));
+  }
+
+  toggleItem(item: PendingDeliveryItem): void {
+    const key = this.getKey(item);
+    const current = new Set(this.selectedItems());
+    if (current.has(key)) {
+      current.delete(key);
+    } else {
+      current.add(key);
+    }
+    this.selectedItems.set(current);
+  }
+
+  toggleSelectAll(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const items = this.report()?.items ?? [];
+    if (checked) {
+      this.selectedItems.set(new Set(items.map(i => this.getKey(i))));
+    } else {
+      this.selectedItems.set(new Set());
+    }
+  }
+
+  clearSelection(): void {
+    this.selectedItems.set(new Set());
+  }
+
+  createDeliveryNotes(): void {
+    if (this.selectedCount() === 0) return;
+
+    this.isCreatingDN.set(true);
+
+    // Group selected items by customer (one DN per customer per ERPNext pattern)
+    const byCustomer = new Map<string, { salesOrderId: string; itemId: string; quantity: number }[]>();
+    for (const key of this.selectedItems()) {
+      const item = this.report()?.items.find(i => this.getKey(i) === key);
+      if (!item) continue;
+      if (!byCustomer.has(item.customerId)) {
+        byCustomer.set(item.customerId, []);
+      }
+      byCustomer.get(item.customerId)!.push({
+        salesOrderId: item.salesOrderId,
+        itemId: item.itemId,
+        quantity: item.pendingQty
+      });
+    }
+
+    const companyId = this.companyContext.currentCompanyId();
+    const requests: { customerId: string; companyId: string; items: { salesOrderId: string; itemId: string; quantity: number }[] }[] = [];
+    for (const [customerId, items] of byCustomer) {
+      requests.push({ customerId, companyId: companyId!, items });
+    }
+
+    // Create DNs sequentially per customer (avoids race conditions on SO fulfillment counters)
+    this.createDNsSequentially(requests, 0);
+  }
+
+  private createDNsSequentially(requests: any[], index: number): void {
+    if (index >= requests.length) {
+      this.isCreatingDN.set(false);
+      this.toaster.success(this.l.instant('::DeliveryNotesCreated', requests.length.toString()));
+      this.clearSelection();
+      this.loadReport(); // Refresh to show updated pending quantities
+      return;
+    }
+
+    this.http.post<any>('/api/app/pending-delivery/create-delivery-note', requests[index]).subscribe({
+      next: () => {
+        this.createDNsSequentially(requests, index + 1);
+      },
+      error: (err: any) => {
+        this.isCreatingDN.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      }
+    });
   }
 
   loadReport() {
@@ -180,9 +331,10 @@ export class PendingDeliveryComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.get<PendingDeliveryReport>('/api/app/pending-delivery/report', {
-      params: { companyId, overdueOnly: this.overdueOnly.toString() }
-    }).subscribe({
+    const params: any = { companyId, overdueOnly: this.overdueOnly.toString() };
+    if (this.customerFilter) params.customerId = this.customerFilter;
+
+    this.http.get<PendingDeliveryReport>('/api/app/pending-delivery/report', { params }).subscribe({
       next: (data) => {
         this.report.set(data);
         this.loading.set(false);

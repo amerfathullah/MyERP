@@ -155,11 +155,11 @@ export class EmailTemplateListComponent implements OnInit {
   saveTemplate() {
     if (this.editing) {
       this.emailTemplateService.update(this.editing.id, this.formData).subscribe({
-        next: () => { this.toaster.success('Template updated'); this.cancelEdit(); this.loadData(); }
+        next: () => { this.toaster.success('::SuccessfullyUpdated'); this.cancelEdit(); this.loadData(); }
       });
     } else {
       this.emailTemplateService.create(this.formData).subscribe({
-        next: () => { this.toaster.success('Template created'); this.cancelEdit(); this.loadData(); }
+        next: () => { this.toaster.success('::SuccessfullyCreated'); this.cancelEdit(); this.loadData(); }
       });
     }
   }

@@ -9,8 +9,8 @@ function getWorkflowActions(status: string): { name: string; label: string; colo
   }
   if (status === 'Submitted') {
     actions.push({ name: 'convert', label: 'Convert to SO', color: 'primary' });
-    actions.push({ name: 'lost', label: 'Mark Lost', color: 'warn' });
-    actions.push({ name: 'cancel', label: 'Cancel', color: 'warn' });
+    actions.push({ name: 'lost', label: 'Mark Lost', color: 'warning' });
+    actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
   }
   if (status === 'Cancelled' || status === 'Rejected') {
     actions.push({ name: 'amend', label: 'Amend', color: 'success' });

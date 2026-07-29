@@ -124,7 +124,7 @@ export class ProductionPlanFormComponent implements OnInit {
 
     this.service.create(dto).subscribe({
       next: (created) => {
-        this.toaster.success('Production Plan created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/manufacturing/production-plans', created.id]);
       },
       error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),

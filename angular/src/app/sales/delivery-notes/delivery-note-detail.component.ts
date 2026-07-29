@@ -17,13 +17,14 @@ import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import type { DeliveryNoteDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
@@ -56,12 +57,13 @@ export class DeliveryNoteDetailComponent implements OnInit {
     const actions: WorkflowAction[] = [];
     switch (this.deliveryNote.status) {
       case 'Draft':
-        actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+        actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
         break;
       case 'Submitted':
-        actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'primary' });
+        actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
+        actions.push({ name: 'packing_slip', label: 'Packing Slip', icon: 'box', color: 'info' });
         actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
-        actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+        actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
         break;
       case 'Cancelled':
         actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -121,6 +123,11 @@ export class DeliveryNoteDetailComponent implements OnInit {
             this.store.cancelNote(id);
             this.reloadAfterAction();
           }
+        });
+        break;
+      case 'packing_slip':
+        this.router.navigate(['/sales/packing-slips/new'], {
+          queryParams: { deliveryNoteId: id }
         });
         break;
       case 'return':

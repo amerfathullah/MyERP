@@ -78,7 +78,7 @@ export class PaymentReconciliationComponent {
       allocations,
     } as any).subscribe({
       next: () => {
-        this.toaster.success('Payment reconciled successfully');
+        this.toaster.success('::SuccessfullyReconciled');
         this.successMessage.set('Payment reconciled successfully');
         this.reconciling.set(false);
         this.fetchOutstanding();

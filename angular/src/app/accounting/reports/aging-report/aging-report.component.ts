@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -8,12 +9,12 @@ import { AgingReportService } from '../../../proxy/accounting/aging-report.servi
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
-import type { AgingReportDto } from '../../../proxy/accounting/models';
+import type { AgingReportDto, AgingDetailEntryDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-aging-report',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './aging-report.component.html',
   styleUrls: ['./aging-report.component.scss'],
 })
@@ -68,9 +69,37 @@ export class AgingReportComponent implements OnInit {
   exportCsv(): void {
     const r = this.report();
     if (!r) return;
-    const row = r.bucketLabels.reduce((obj: any, label, i) => {
-      obj[label] = r.bucketTotals[i]; return obj;
-    }, { total: r.totalOutstanding });
-    exportToCsv(`${r.reportType}-aging.csv`, [row], [...r.bucketLabels, 'total']);
+    const details = r.details ?? [];
+    if (details.length) {
+      exportToCsv(`${r.reportType}-aging-detail.csv`, details.map(d => ({
+        party: d.partyName,
+        invoice: d.documentNumber,
+        postingDate: d.postingDate,
+        dueDate: d.dueDate,
+        outstanding: d.outstandingAmount,
+        ageDays: d.ageDays,
+        bucket: d.bucketLabel,
+      })), ['party', 'invoice', 'postingDate', 'dueDate', 'outstanding', 'ageDays', 'bucket']);
+    } else {
+      const row = r.bucketLabels!.reduce((obj: any, label, i) => {
+        obj[label] = r.bucketTotals![i]; return obj;
+      }, { total: r.totalOutstanding });
+      exportToCsv(`${r.reportType}-aging.csv`, [row], [...r.bucketLabels!, 'total']);
+    }
+  }
+
+  getInvoiceRoute(entry: AgingDetailEntryDto): string[] {
+    const type = this.filters.get('reportType')?.value;
+    return type === 'receivables'
+      ? ['/sales/invoices', entry.documentId ?? '']
+      : ['/purchasing/invoices', entry.documentId ?? ''];
+  }
+
+  isOverdue(entry: AgingDetailEntryDto): boolean {
+    return (entry.ageDays ?? 0) > 30;
+  }
+
+  isSeverelyOverdue(entry: AgingDetailEntryDto): boolean {
+    return (entry.ageDays ?? 0) > 90;
   }
 }

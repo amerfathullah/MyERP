@@ -13,6 +13,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { HttpClient } from '@angular/common/http';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -35,6 +36,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
+  private http = inject(HttpClient);
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -51,6 +53,13 @@ export class PurchaseOrderDetailComponent implements OnInit {
   companyName = '';
   companyTin = '';
   companySst = '';
+
+  // Send Email dialog state
+  showEmailDialog = false;
+  emailRecipient = '';
+  emailCc = '';
+  emailAttachPdf = true;
+  emailSending = false;
 
   // Draft Link Guard state
   showDraftGuard = signal(false);
@@ -73,6 +82,9 @@ export class PurchaseOrderDetailComponent implements OnInit {
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
       actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+    }
+    if (s !== 'Draft' && s !== 'Cancelled') {
+      actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
       actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
@@ -166,6 +178,9 @@ export class PurchaseOrderDetailComponent implements OnInit {
           next: (amended) => this.router.navigate(['/purchasing/orders', amended.id]),
         });
         break;
+      case 'sendEmail':
+        this.openSendEmailDialog();
+        break;
     }
   }
 
@@ -227,5 +242,72 @@ export class PurchaseOrderDetailComponent implements OnInit {
         this.toaster.error(err?.error?.error?.message || '::OperationFailed');
       },
     });
+  }
+
+  /** Per-item receipt progress percentage (capped at 100%) */
+  getItemReceiptPct(row: any): number {
+    if (!row.quantity || row.quantity <= 0) return 0;
+    return Math.min(100, ((row.receivedQty ?? 0) / row.quantity) * 100);
+  }
+
+  /** Per-item billing progress percentage (capped at 100%) */
+  getItemBilledPct(row: any): number {
+    if (!row.quantity || row.quantity <= 0) return 0;
+    return Math.min(100, ((row.billedQty ?? 0) / row.quantity) * 100);
+  }
+
+  /** Whether the PO expected delivery date is overdue */
+  isOverdue(): boolean {
+    if (!this.order?.expectedDeliveryDate) return false;
+    if (this.order.status === 'Completed' || this.order.status === 'Closed' || this.order.status === 'Cancelled' || this.order.status === 'Draft') return false;
+    const expectedDate = new Date(this.order.expectedDeliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expectedDate < today;
+  }
+
+  openSendEmailDialog(): void {
+    this.emailRecipient = (this.order as any)?.supplierEmail || '';
+    this.emailCc = '';
+    this.emailAttachPdf = true;
+    this.showEmailDialog = true;
+  }
+
+  sendEmail(): void {
+    if (!this.emailRecipient) {
+      this.toaster.warn('::PleaseEnterRecipientEmail');
+      return;
+    }
+    this.emailSending = true;
+    this.http.post('/api/app/document-email/purchase-order-email', {
+      documentId: this.order!.id,
+      recipientEmail: this.emailRecipient,
+      ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
+      attachPdf: this.emailAttachPdf,
+    }).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySent');
+        this.showEmailDialog = false;
+        this.emailSending = false;
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.emailSending = false;
+      },
+    });
+  }
+
+  cancelEmailDialog(): void {
+    this.showEmailDialog = false;
+  }
+
+  /** Number of days past the expected delivery date */
+  overdueDays(): number {
+    if (!this.order?.expectedDeliveryDate) return 0;
+    const expectedDate = new Date(this.order.expectedDeliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = today.getTime() - expectedDate.getTime();
+    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
   }
 }

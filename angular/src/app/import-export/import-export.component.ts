@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ImportExportService } from '../proxy/import-export/import-export.service';
@@ -91,7 +91,7 @@ export class ImportExportComponent implements OnInit {
         a.download = result.fileName;
         a.click();
         URL.revokeObjectURL(url);
-        this.toaster.success('Export downloaded');
+        this.toaster.success('::SuccessfullyExported');
       },
       error: (err) => {
         this.isExporting.set(false);
@@ -112,9 +112,11 @@ export class ImportExportComponent implements OnInit {
     this.loadHistory();
   }
 
+  private l = inject(LocalizationService);
+
   getStatusLabel(status: number): string {
-    const map: Record<number, string> = { 0: 'Pending', 1: 'Processing', 2: 'Completed', 3: 'Failed', 4: 'Partial' };
-    return map[status] ?? 'Unknown';
+    const keys: Record<number, string> = { 0: '::Pending', 1: '::Processing', 2: '::Completed', 3: '::Failed', 4: '::Partial' };
+    return keys[status] ? this.l.instant(keys[status]) : this.l.instant('::Unknown');
   }
 
   getStatusColor(status: number): string {

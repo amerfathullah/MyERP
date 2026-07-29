@@ -22,7 +22,7 @@
           <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-start p-2"
             style="height: 5.5rem;" (click)="addToCart(item)">
             <span class="fw-medium small text-truncate w-100">{{ item.itemName }}</span>
-            <span class="small text-muted font-monospace mt-auto">MYR {{ item.sellingPrice | number:'1.2-2' }}</span>
+            <span class="small text-muted font-monospace mt-auto">{{ "" | companyCurrency }} {{ item.sellingPrice | number:'1.2-2' }}</span>
           </button>
         </div>
       } @empty {
@@ -36,19 +36,19 @@
     <!-- Held orders toggle -->
     @if (heldOrders.length > 0) {
       <button class="btn btn-sm btn-outline-info" (click)="showHeldOrders = !showHeldOrders">
-        <i class="bi bi-pause-circle me-1"></i>Held Orders ({{ heldOrders.length }})
+        <i class="bi bi-pause-circle me-1"></i>{{ '::HeldOrders' | abpLocalization }} ({{ heldOrders.length }})
       </button>
     }
     @if (showHeldOrders) {
       <div class="card">
         <div class="card-body p-2">
           <table class="table table-sm table-hover mb-0">
-            <thead><tr><th>Customer</th><th>Items</th><th>Time</th><th></th></tr></thead>
+            <thead><tr><th>{{ '::Customer' | abpLocalization }}</th><th>{{ '::Items' | abpLocalization }}</th><th>{{ '::Time' | abpLocalization }}</th><th></th></tr></thead>
             <tbody>
               @for (order of heldOrders; track order.id; let i = $index) {
                 <tr>
                   <td>{{ order.customer }}</td>
-                  <td>{{ order.items.length }} items</td>
+                  <td>{{ order.items.length }} {{ '::Items' | abpLocalization | lowercase }}</td>
                   <td class="small text-muted">{{ order.heldAt | date:'HH:mm' }}</td>
                   <td class="text-end">
                     <button class="btn btn-sm btn-outline-success me-1" (click)="resumeOrder(i)">Resume</button>
@@ -80,7 +80,7 @@
 
       <div class="card-body flex-grow-1 overflow-auto p-2" style="max-height: 38vh;">
         @if (cart.length === 0) {
-          <p class="text-center text-muted py-4">Cart is empty</p>
+          <p class="text-center text-muted py-4">{{ '::CartIsEmpty' | abpLocalization }}</p>
         } @else {
           @for (item of cart; track item.itemId; let i = $index) {
             <div class="d-flex align-items-start gap-2 py-2 border-bottom">
@@ -105,12 +105,12 @@
       <hr class="m-0">
       <div class="p-3">
         <div class="d-flex justify-content-between small mb-1">
-          <span class="text-muted">Subtotal</span>
+          <span class="text-muted">{{ '::Subtotal' | abpLocalization }}</span>
           <span class="font-monospace">{{ netTotal | number:'1.2-2' }}</span>
         </div>
         @if (discountTotal > 0) {
           <div class="d-flex justify-content-between small mb-1 text-success">
-            <span>Discount</span><span class="font-monospace">-{{ discountTotal | number:'1.2-2' }}</span>
+            <span>{{ '::Discount' | abpLocalization }}</span><span class="font-monospace">-{{ discountTotal | number:'1.2-2' }}</span>
           </div>
         }
         <div class="d-flex justify-content-between small mb-1">
@@ -118,21 +118,21 @@
           <span class="font-monospace">{{ taxTotal | number:'1.2-2' }}</span>
         </div>
         <div class="d-flex justify-content-between fs-5 fw-bold mb-3 pt-1 border-top">
-          <span>Total</span><span class="font-monospace">MYR {{ grandTotal | number:'1.2-2' }}</span>
+          <span>{{ '::Total' | abpLocalization }}</span><span class="font-monospace">{{ "" | companyCurrency }} {{ grandTotal | number:'1.2-2' }}</span>
         </div>
 
         <!-- Multi-payment -->
         <div class="mb-3">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="small fw-medium">Payment</span>
-            <button class="btn btn-sm btn-link p-0" (click)="addPaymentRow()"><i class="bi bi-plus-circle me-1"></i>Split</button>
+            <span class="small fw-medium">{{ '::Payment' | abpLocalization }}</span>
+            <button class="btn btn-sm btn-link p-0" (click)="addPaymentRow()"><i class="bi bi-plus-circle me-1"></i>{{ '::Split' | abpLocalization }}</button>
           </div>
           @for (payment of payments; track $index; let i = $index) {
             <div class="input-group input-group-sm mb-1">
               <select class="form-select" style="max-width: 120px;" [(ngModel)]="payment.mode">
                 @for (mode of paymentModes; track mode) { <option [value]="mode">{{ mode }}</option> }
               </select>
-              <span class="input-group-text">MYR</span>
+              <span class="input-group-text">{{ "" | companyCurrency }}</span>
               <input class="form-control" type="number" [(ngModel)]="payment.amount" step="0.01" />
               @if (payments.length > 1) {
                 <button class="btn btn-outline-danger" (click)="removePaymentRow(i)"><i class="bi bi-x"></i></button>
@@ -143,19 +143,19 @@
 
         @if (changeAmount > 0) {
           <div class="d-flex justify-content-between mb-2 text-success fw-bold">
-            <span>Change</span><span class="font-monospace">MYR {{ changeAmount | number:'1.2-2' }}</span>
+            <span>{{ '::Change' | abpLocalization }}</span><span class="font-monospace">{{ "" | companyCurrency }} {{ changeAmount | number:'1.2-2' }}</span>
           </div>
         }
         @if (outstandingAmount > 0.01) {
           <div class="d-flex justify-content-between mb-2 text-danger fw-bold">
-            <span>Outstanding</span><span class="font-monospace">MYR {{ outstandingAmount | number:'1.2-2' }}</span>
+            <span>{{ '::Outstanding' | abpLocalization }}</span><span class="font-monospace">{{ "" | companyCurrency }} {{ outstandingAmount | number:'1.2-2' }}</span>
           </div>
         }
 
         <button class="btn btn-primary w-100 py-2"
           [disabled]="cart.length === 0 || isProcessing || outstandingAmount > 0.01" (click)="completeSale()">
           <i class="bi bi-check-circle me-1"></i>
-          {{ isProcessing ? 'Processing...' : 'Complete Sale' }}
+          {{ isProcessing ? ('::Processing' | abpLocalization) : ('::CompleteSale' | abpLocalization) }}
         </button>
         @if (lastInvoice) {
           <p class="text-center small text-muted mt-2"><i class="bi bi-receipt me-1"></i>{{ lastInvoice }}</p>

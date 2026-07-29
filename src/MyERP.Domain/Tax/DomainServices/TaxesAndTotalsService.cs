@@ -187,7 +187,9 @@ public class TaxesAndTotalsService : DomainService
             "Actual" => netTotal != 0
                 ? (item.NetAmount / netTotal) * effectiveRate
                 : 0,
-            _ => 0,
+            // Custom charge type (PR #56175): rate applies to a resolver-provided base.
+            // Default: use item.NetAmount (same as On Net Total) — override via hook.
+            _ => (effectiveRate / 100m) * item.NetAmount,
         };
     }
 
@@ -261,16 +263,23 @@ public class TaxesAndTotalsService : DomainService
     /// Calculates exclusive (tax-free) rates for items when taxes are included in print rate.
     /// Per ERPNext taxes_and_totals.py determine_exclusive_rate():
     /// When IncludedInPrintRate=true, the item rate already contains the tax.
-    /// This method calculates the cumulative tax fraction and backs out the tax
-    /// to derive the exclusive rate.
     ///
-    /// Formula: cumulative_tax_fraction = SUM(tax_rate / 100) for all "On Net Total" inclusive taxes
-    /// exclusive_rate = rate / (1 + cumulative_tax_fraction)
-    /// exclusive_amount = exclusive_rate × qty
+    /// Per PR #56175 (slope+intercept model):
+    /// tax = slope × net + intercept
+    /// net_amount = (amount - total_intercept) / (1 + total_slope)
+    ///
+    /// This supports custom charge types where the tax base is NOT the net amount
+    /// (e.g., tax on MRP, tax on gross amount).
+    ///
+    /// Standard charge type decomposition:
+    /// - On Net Total: slope = rate/100, intercept = 0
+    /// - On Previous Row Amount: slope = rate/100 × prev_row_slope, intercept = rate/100 × prev_row_intercept
+    /// - On Previous Row Total: slope = rate/100 × prev_row_grand_slope, intercept = rate/100 × prev_row_grand_intercept
+    /// - On Item Quantity: slope = 0, intercept = rate (fixed per-qty amount)
+    /// - Custom: slope = 0, intercept = rate/100 × resolved_base / qty (hook-extensible)
     /// </summary>
     private static void CalculateExclusiveRates(List<TransactionItem> items, List<TransactionTaxRow> taxRows)
     {
-        // Find inclusive taxes (included_in_print_rate)
         var inclusiveTaxes = taxRows
             .Where(t => t.IncludedInPrintRate)
             .OrderBy(t => t.RowIndex)
@@ -278,32 +287,94 @@ public class TaxesAndTotalsService : DomainService
 
         if (!inclusiveTaxes.Any()) return;
 
-        // Calculate cumulative tax fraction for "On Net Total" inclusive taxes
-        // Per gotcha #2614: inclusive tax feeds back into discount base
-        decimal cumulativeFraction = 0m;
-        foreach (var tax in inclusiveTaxes)
-        {
-            if (tax.ChargeType == "On Net Total")
-            {
-                cumulativeFraction += tax.Rate / 100m;
-            }
-            // Per gotcha #732: "On Previous Row Amount/Total" inclusive taxes use
-            // the referenced row's fraction recursively — simplified here to cumulative
-        }
-
-        if (cumulativeFraction <= 0) return;
-
-        // Back-calculate exclusive rates for all items
         foreach (var item in items)
         {
-            if (item.Rate <= 0) continue;
+            if (item.Rate <= 0 || item.Qty <= 0) continue;
 
-            var exclusiveRate = item.Rate / (1 + cumulativeFraction);
-            var inclusiveTaxAmount = item.Rate - exclusiveRate;
+            decimal totalSlope = 0m;
+            decimal totalIntercept = 0m;
 
-            // Store the original rate and set NetAmount to exclusive
-            item.InclusiveTaxAmount = Math.Round(inclusiveTaxAmount * item.Qty, 2);
-            item.NetAmount = Math.Round(exclusiveRate * item.Qty, 2);
+            // Per-tax slope and intercept arrays for cascade
+            var taxSlopes = new decimal[inclusiveTaxes.Count];
+            var taxIntercepts = new decimal[inclusiveTaxes.Count];
+            var grandSlopes = new decimal[inclusiveTaxes.Count];
+            var grandIntercepts = new decimal[inclusiveTaxes.Count];
+
+            for (int i = 0; i < inclusiveTaxes.Count; i++)
+            {
+                var tax = inclusiveTaxes[i];
+                decimal taxRate = tax.Rate;
+
+                // Per-item override from Item Tax Template
+                if (item.ItemTaxRateOverrides != null && tax.AccountId.HasValue
+                    && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate))
+                {
+                    if (overrideRate == decimal.MinValue) continue; // N/A sentinel
+                    taxRate = overrideRate;
+                }
+
+                decimal slope = 0m;
+                decimal intercept = 0m;
+
+                switch (tax.ChargeType)
+                {
+                    case "On Net Total":
+                        slope = taxRate / 100m;
+                        break;
+
+                    case "On Previous Row Amount" when tax.ReferenceRowIndex.HasValue:
+                        int prevIdx = tax.ReferenceRowIndex.Value - 1;
+                        if (prevIdx >= 0 && prevIdx < i)
+                        {
+                            slope = (taxRate / 100m) * taxSlopes[prevIdx];
+                            intercept = (taxRate / 100m) * taxIntercepts[prevIdx];
+                        }
+                        break;
+
+                    case "On Previous Row Total" when tax.ReferenceRowIndex.HasValue:
+                        int prevTotalIdx = tax.ReferenceRowIndex.Value - 1;
+                        if (prevTotalIdx >= 0 && prevTotalIdx < i)
+                        {
+                            slope = (taxRate / 100m) * grandSlopes[prevTotalIdx];
+                            intercept = (taxRate / 100m) * grandIntercepts[prevTotalIdx];
+                        }
+                        break;
+
+                    case "On Item Quantity":
+                        intercept = taxRate; // Fixed per-qty amount
+                        break;
+
+                    default:
+                        // Custom charge type: treat as fixed intercept (extensible via override)
+                        break;
+                }
+
+                if (tax.AddDeductTax == "Deduct")
+                {
+                    slope *= -1m;
+                    intercept *= -1m;
+                }
+
+                taxSlopes[i] = slope;
+                taxIntercepts[i] = intercept;
+
+                // Grand totals (cumulative for cascade)
+                grandSlopes[i] = (i == 0) ? (1m + slope) : (grandSlopes[i - 1] + slope);
+                grandIntercepts[i] = (i == 0) ? intercept : (grandIntercepts[i - 1] + intercept);
+
+                totalSlope += slope;
+                totalIntercept += intercept * item.Qty;
+            }
+
+            if (totalSlope == 0 && totalIntercept == 0) continue;
+
+            // Per PR #56175 formula: net = (amount - total_intercept) / (1 + total_slope)
+            decimal amount = item.Amount;
+            decimal netAmount = (amount - totalIntercept) / (1m + totalSlope);
+            decimal inclusiveTaxAmount = amount - netAmount;
+
+            item.InclusiveTaxAmount = Math.Round(inclusiveTaxAmount, 2);
+            item.NetAmount = Math.Round(netAmount, 2);
         }
     }
 }

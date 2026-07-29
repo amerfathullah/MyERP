@@ -113,6 +113,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             input.PostingDate);
 
         entry.EntryNumber = entryNumber;
+        entry.VoucherType = input.VoucherType;
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
         entry.ReferenceNumber = input.ReferenceNumber;

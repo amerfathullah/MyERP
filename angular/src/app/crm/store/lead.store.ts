@@ -44,7 +44,7 @@ export const LeadStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message ?? 'Load failed' });
-          toaster.error('Failed to load leads');
+          toaster.error('::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -57,7 +57,7 @@ export const LeadStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as LeadEntity, { selectId: (e) => e.id! }));
           patchState(store, { isLoading: false });
-          toaster.success('Lead created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message });
@@ -74,7 +74,7 @@ export const LeadStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as LeadEntity }));
           patchState(store, { isLoading: false });
-          toaster.success('Lead updated');
+          toaster.success('::SuccessfullyUpdated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message });
@@ -90,11 +90,11 @@ export const LeadStore = signalStore(
           tap(() => {
             patchState(store, removeEntity(id));
             patchState(store, { totalCount: store.totalCount() - 1 });
-            toaster.success('Lead deleted');
+            toaster.success('::SuccessfullyDeleted');
           }),
         )),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )
@@ -105,7 +105,7 @@ export const LeadStore = signalStore(
         switchMap((id) => service.qualify(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as LeadEntity }));
-          toaster.success('Lead qualified');
+          toaster.success('::SuccessfullyQualified');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Qualify failed');
@@ -119,7 +119,7 @@ export const LeadStore = signalStore(
         switchMap((id) => service.markLost(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as LeadEntity }));
-          toaster.success('Lead marked as lost');
+          toaster.success('::MarkedLost');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Operation failed');

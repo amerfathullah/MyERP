@@ -107,7 +107,7 @@ export class LeaveTypeListComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.http.delete(`/api/app/leave-type/${id}`).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyDeleted')); this.load(); },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Delete failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::DeleteFailed'),
       });
     });
   }

@@ -88,7 +88,7 @@ export class PayrollListComponent implements OnInit {
     }
     this.payrollService.create(this.createForm.getRawValue() as any).subscribe({
       next: () => {
-        this.toaster.success('Payroll created successfully');
+        this.toaster.success('::SuccessfullyCreated');
         this.showCreateForm = false;
         this.loadData();
       },

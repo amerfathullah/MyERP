@@ -113,15 +113,15 @@ export class CurrencyExchangeComponent implements OnInit {
     if (this.form.invalid) return;
     this.currencyExchangeService.create(this.form.getRawValue() as any)
       .subscribe({
-        next: () => { this.toaster.success('Rate added'); this.loadRates(); },
-        error: () => this.toaster.error('Failed to add rate'),
+        next: () => { this.toaster.success('::SuccessfullyCreated'); this.loadRates(); },
+        error: () => this.toaster.error('::FailedToCreate'),
       });
   }
 
   deleteRate(id: string): void {
     this.currencyExchangeService.delete(id).subscribe({
-      next: () => { this.toaster.success('Rate deleted'); this.loadRates(); },
-      error: () => this.toaster.error('Failed to delete'),
+      next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadRates(); },
+      error: () => this.toaster.error('::FailedToDelete'),
     });
   }
 }

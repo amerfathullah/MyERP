@@ -22,20 +22,20 @@ export const AssetStore = signalStore(
           patchState(store, setAllEntities((result.items ?? []) as AssetEntity[], { selectId: (e) => e.id! }));
           patchState(store, { totalCount: result.totalCount ?? 0, isLoading: false });
         }),
-        catchError(() => { patchState(store, { isLoading: false }); toaster.error('Failed to load assets'); return EMPTY; }),
+        catchError(() => { patchState(store, { isLoading: false }); toaster.error('::FailedToLoad'); return EMPTY; }),
       )
     ),
     create: rxMethod<any>(
       pipe(
         switchMap((input) => service.create(input)),
-        tap((created) => { patchState(store, addEntity(created as AssetEntity, { selectId: (e) => e.id! })); toaster.success('Asset created'); }),
+        tap((created) => { patchState(store, addEntity(created as AssetEntity, { selectId: (e) => e.id! })); toaster.success('::SuccessfullyCreated'); }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Create failed'); return EMPTY; }),
       )
     ),
     remove: rxMethod<string>(
       pipe(
-        switchMap((id) => service.delete(id).pipe(tap(() => { patchState(store, removeEntity(id)); toaster.success('Asset deleted'); }))),
-        catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Delete failed'); return EMPTY; }),
+        switchMap((id) => service.delete(id).pipe(tap(() => { patchState(store, removeEntity(id)); toaster.success('::SuccessfullyDeleted'); }))),
+        catchError((err) => { toaster.error(err?.error?.error?.message ?? '::DeleteFailed'); return EMPTY; }),
       )
     ),
   })),

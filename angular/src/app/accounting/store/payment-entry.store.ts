@@ -40,7 +40,7 @@ export const PaymentEntryStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load payments');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -53,7 +53,7 @@ export const PaymentEntryStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as PaymentEntryEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Payment entry created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -68,7 +68,7 @@ export const PaymentEntryStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PaymentEntryEntity }));
-          toaster.success('Payment submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Submit failed');

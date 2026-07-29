@@ -201,21 +201,21 @@ export class LoanDetailComponent implements OnInit {
 
   sanction() {
     this.loanService.sanction(this.loan!.id!).subscribe({
-      next: () => { this.toaster.success('Loan sanctioned'); this.load(this.loan!.id!); },
+      next: () => { this.toaster.success('::SuccessfullyUpdated'); this.load(this.loan!.id!); },
       error: () => {}
     });
   }
 
   disburse() {
     this.loanService.disburse(this.loan!.id!, { disbursementDate: this.disburseDate } as any).subscribe({
-      next: () => { this.showDisburseModal = false; this.toaster.success('Loan disbursed'); this.load(this.loan!.id!); },
+      next: () => { this.showDisburseModal = false; this.toaster.success('::SuccessfullyDisbursed'); this.load(this.loan!.id!); },
       error: () => {}
     });
   }
 
   recordRepayment() {
     this.loanService.recordRepayment(this.loan!.id!, { paymentDate: this.repaymentDate, amount: this.repaymentAmount } as any).subscribe({
-      next: () => { this.showRepaymentModal = false; this.toaster.success('Repayment recorded'); this.load(this.loan!.id!); },
+      next: () => { this.showRepaymentModal = false; this.toaster.success('::SuccessfullyCreated'); this.load(this.loan!.id!); },
       error: () => {}
     });
   }

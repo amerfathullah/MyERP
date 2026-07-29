@@ -267,18 +267,24 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                 await _warehouseRepository.InsertAsync(allWarehouses, autoSave: true);
 
                 // Child warehouses under root
-                await _warehouseRepository.InsertAsync(new Warehouse(
+                var stores = await _warehouseRepository.InsertAsync(new Warehouse(
                     _guidGenerator.Create(), company.Id, "Stores")
                     { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
-                await _warehouseRepository.InsertAsync(new Warehouse(
+                var fgWarehouse = await _warehouseRepository.InsertAsync(new Warehouse(
                     _guidGenerator.Create(), company.Id, "Finished Goods")
                     { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
-                await _warehouseRepository.InsertAsync(new Warehouse(
+                var wipWarehouse = await _warehouseRepository.InsertAsync(new Warehouse(
                     _guidGenerator.Create(), company.Id, "Work In Progress")
                     { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
                 await _warehouseRepository.InsertAsync(new Warehouse(
                     _guidGenerator.Create(), company.Id, "Goods In Transit")
-                    { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+                    { ParentWarehouseId = allWarehouses.Id, IsActive = true,
+                      WarehouseType = WarehouseType.Transit }, autoSave: true);
+
+                // Assign warehouse defaults to company (per PR #57571)
+                company.DefaultWarehouseId = stores.Id;
+                company.DefaultFgWarehouseId = fgWarehouse.Id;
+                company.DefaultWipWarehouseId = wipWarehouse.Id;
             }
 
             // Seed Manufacturing Settings (per-company singleton)

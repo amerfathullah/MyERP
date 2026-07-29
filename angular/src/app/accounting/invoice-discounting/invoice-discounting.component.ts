@@ -127,14 +127,14 @@ export class InvoiceDiscountingComponent implements OnInit {
 
   disburse(id: string) {
     this.invoiceDiscountingService.disburseById(id).subscribe({
-      next: () => { this.toaster.success('Disbursed'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyDisbursed'); this.loadData(); },
       error: () => {}
     });
   }
 
   settle(id: string) {
     this.invoiceDiscountingService.settleById(id).subscribe({
-      next: () => { this.toaster.success('Settled'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyClosed'); this.loadData(); },
       error: () => {}
     });
   }

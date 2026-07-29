@@ -41,7 +41,7 @@ export const PurchaseInvoiceStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load purchase invoices');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -54,7 +54,7 @@ export const PurchaseInvoiceStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as PurchaseInvoiceEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Purchase invoice created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -69,7 +69,7 @@ export const PurchaseInvoiceStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PurchaseInvoiceEntity }));
-          toaster.success('Purchase invoice submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Submit failed');
@@ -83,7 +83,7 @@ export const PurchaseInvoiceStore = signalStore(
         switchMap((id) => service.post(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PurchaseInvoiceEntity }));
-          toaster.success('Purchase invoice posted');
+          toaster.success('::SuccessfullyPosted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Post failed');
@@ -97,7 +97,7 @@ export const PurchaseInvoiceStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as PurchaseInvoiceEntity }));
-          toaster.success('Purchase invoice cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');

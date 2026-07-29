@@ -43,12 +43,12 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     if (!this.receipt) return [];
     const actions: WorkflowAction[] = [];
     if (this.receipt.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.receipt.status === 'Submitted') {
-      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'receipt', color: 'primary' });
+      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
       actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (this.receipt.status === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });

@@ -77,18 +77,54 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
     public async Task<ProfitLossReportDto> GetProfitLossAsync(ProfitLossRequestDto input)
     {
-        // Get Revenue and Expense accounts
+        var result = await BuildProfitLossForPeriodAsync(input.CompanyId, input.FromDate, input.ToDate);
+
+        if (input.IncludeComparison)
+        {
+            // Calculate previous period with same duration immediately before
+            var duration = input.ToDate - input.FromDate;
+            var prevTo = input.FromDate.AddDays(-1);
+            var prevFrom = prevTo - duration;
+
+            var prevResult = await BuildProfitLossForPeriodAsync(input.CompanyId, prevFrom, prevTo);
+
+            // Merge previous period data into rows
+            var prevRevenueMap = prevResult.RevenueRows.ToDictionary(r => r.AccountId, r => r.Amount);
+            var prevExpenseMap = prevResult.ExpenseRows.ToDictionary(r => r.AccountId, r => r.Amount);
+
+            foreach (var row in result.RevenueRows)
+            {
+                row.PreviousPeriodAmount = prevRevenueMap.GetValueOrDefault(row.AccountId, 0m);
+                row.GrowthPercentage = CalculateGrowth(row.Amount, row.PreviousPeriodAmount.Value);
+            }
+            foreach (var row in result.ExpenseRows)
+            {
+                row.PreviousPeriodAmount = prevExpenseMap.GetValueOrDefault(row.AccountId, 0m);
+                row.GrowthPercentage = CalculateGrowth(row.Amount, row.PreviousPeriodAmount.Value);
+            }
+
+            result.PreviousTotalRevenue = prevResult.TotalRevenue;
+            result.PreviousTotalExpense = prevResult.TotalExpense;
+            result.PreviousNetProfitOrLoss = prevResult.NetProfitOrLoss;
+            result.PreviousFromDate = prevFrom;
+            result.PreviousToDate = prevTo;
+        }
+
+        return result;
+    }
+
+    private async Task<ProfitLossReportDto> BuildProfitLossForPeriodAsync(Guid companyId, DateTime fromDate, DateTime toDate)
+    {
         var accounts = await _accountRepository.GetListAsync(
-            a => a.CompanyId == input.CompanyId && !a.IsGroup
+            a => a.CompanyId == companyId && !a.IsGroup
                 && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
 
         var journalEntries = await _journalEntryRepository.GetListAsync(
-            je => je.CompanyId == input.CompanyId
+            je => je.CompanyId == companyId
                 && je.Status == DocumentStatus.Posted
-                && je.PostingDate >= input.FromDate
-                && je.PostingDate <= input.ToDate);
+                && je.PostingDate >= fromDate
+                && je.PostingDate <= toDate);
 
-        // Lines are already loaded via AutoInclude — no separate query needed
         var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
 
         var linesByAccount = allLines.GroupBy(l => l.AccountId)
@@ -103,8 +139,6 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
             var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
 
-            // Revenue: credit - debit (normal credit balance)
-            // Expense: debit - credit (normal debit balance)
             var amount = account.AccountType == AccountType.Revenue
                 ? credit - debit
                 : debit - credit;
@@ -133,15 +167,21 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
         return new ProfitLossReportDto
         {
-            FromDate = input.FromDate,
-            ToDate = input.ToDate,
-            CompanyId = input.CompanyId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            CompanyId = companyId,
             RevenueRows = revenueRows,
             ExpenseRows = expenseRows,
             TotalRevenue = totalRevenue,
             TotalExpense = totalExpense,
             NetProfitOrLoss = totalRevenue - totalExpense,
         };
+    }
+
+    private static decimal? CalculateGrowth(decimal current, decimal previous)
+    {
+        if (previous == 0) return current > 0 ? 100m : current < 0 ? -100m : null;
+        return Math.Round((current - previous) / Math.Abs(previous) * 100m, 1);
     }
 
     public async Task<BalanceSheetReportDto> GetBalanceSheetAsync(BalanceSheetRequestDto input)

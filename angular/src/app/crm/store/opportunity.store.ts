@@ -45,7 +45,7 @@ export const OpportunityStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message ?? 'Load failed' });
-          toaster.error('Failed to load opportunities');
+          toaster.error('::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -58,7 +58,7 @@ export const OpportunityStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as OpportunityEntity, { selectId: (e) => e.id! }));
           patchState(store, { isLoading: false });
-          toaster.success('Opportunity created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message });
@@ -75,7 +75,7 @@ export const OpportunityStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as OpportunityEntity }));
           patchState(store, { isLoading: false });
-          toaster.success('Opportunity updated');
+          toaster.success('::SuccessfullyUpdated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false, error: err?.error?.error?.message });
@@ -91,11 +91,11 @@ export const OpportunityStore = signalStore(
           tap(() => {
             patchState(store, removeEntity(id));
             patchState(store, { totalCount: store.totalCount() - 1 });
-            toaster.success('Opportunity deleted');
+            toaster.success('::SuccessfullyDeleted');
           }),
         )),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )
@@ -106,7 +106,7 @@ export const OpportunityStore = signalStore(
         switchMap((id) => service.convert(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as OpportunityEntity }));
-          toaster.success('Opportunity converted');
+          toaster.success('::SuccessfullyConverted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Convert failed');
@@ -120,7 +120,7 @@ export const OpportunityStore = signalStore(
         switchMap(({ id, reason }) => service.declareLost(id, reason)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as OpportunityEntity }));
-          toaster.success('Opportunity marked as lost');
+          toaster.success('::MarkedLost');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Operation failed');

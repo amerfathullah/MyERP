@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { EmployeeStore } from '../store/employee.store';
@@ -27,6 +28,7 @@ export class EmployeeFormComponent implements OnInit {
   private store = inject(EmployeeStore);
   private service = inject(EmployeeService);
   private companyService = inject(CompanyService);
+  private toaster = inject(ToasterService);
 
   companies = signal<CompanyDto[]>([]);
   isEditMode = false;
@@ -79,13 +81,14 @@ export class EmployeeFormComponent implements OnInit {
     const dto = this.form.getRawValue() as any;
 
     if (this.isEditMode) {
-      this.service.update(this.entityId!, dto).subscribe(() => {
-        this.router.navigate(['/hr/employees']);
+      this.service.update(this.entityId!, dto).subscribe({
+        next: () => this.router.navigate(['/hr/employees']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
       this.service.create(dto).subscribe({
         next: () => this.router.navigate(['/hr/employees']),
-        error: () => { /* handled by global error interceptor */ },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }
   }

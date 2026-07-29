@@ -62,8 +62,8 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
               <tbody>
                 @for (sre of items(); track sre.id) {
                   <tr>
-                    <td class="text-truncate" style="max-width:150px">{{ itemNames()[sre.itemId ?? ''] || (sre.itemId | slice:0:8) + '…' }}</td>
-                    <td class="text-truncate" style="max-width:150px">{{ warehouseNames()[sre.warehouseId ?? ''] || (sre.warehouseId | slice:0:8) + '…' }}</td>
+                    <td class="text-truncate" style="max-width:150px">{{ itemNames()[sre.itemId ?? ''] || '—' }}</td>
+                    <td class="text-truncate" style="max-width:150px">{{ warehouseNames()[sre.warehouseId ?? ''] || '—' }}</td>
                     <td><span class="badge bg-info">{{ sre.voucherType }}</span></td>
                     <td class="text-end fw-semibold">{{ sre.reservedQty | number:'1.2-2' }}</td>
                     <td class="text-end">{{ sre.deliveredQty | number:'1.2-2' }}</td>

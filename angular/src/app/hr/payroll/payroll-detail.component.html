@@ -14,7 +14,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <p class="fs-4 fw-bold font-monospace mb-0">{{ entry.totalGrossSalary | number:'1.2-2' }}</p>
-            <small class="text-muted">Total Gross</small>
+            <small class="text-muted">{{ '::TotalGross' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -22,7 +22,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <p class="fs-4 fw-bold font-monospace text-danger mb-0">{{ entry.totalDeductions | number:'1.2-2' }}</p>
-            <small class="text-muted">Total Deductions</small>
+            <small class="text-muted">{{ '::TotalDeductions' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -30,7 +30,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <p class="fs-4 fw-bold font-monospace text-success mb-0">{{ entry.totalNetSalary | number:'1.2-2' }}</p>
-            <small class="text-muted">Total Net Pay</small>
+            <small class="text-muted">{{ '::TotalNetPay' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -38,7 +38,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <p class="fs-4 fw-bold font-monospace text-primary mb-0">{{ entry.totalEmployerContributions | number:'1.2-2' }}</p>
-            <small class="text-muted">Employer Cost</small>
+            <small class="text-muted">{{ '::EmployerCost' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -54,14 +54,14 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
-                <th>Employee</th>
-                <th class="text-end">Gross</th>
-                <th class="text-end">EPF</th>
-                <th class="text-end">SOCSO</th>
-                <th class="text-end">EIS</th>
-                <th class="text-end">PCB</th>
-                <th class="text-end">Deductions</th>
-                <th class="text-end">Net Pay</th>
+                <th>{{ '::Employee' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Gross' | abpLocalization }}</th>
+                <th class="text-end">{{ '::EPF' | abpLocalization }}</th>
+                <th class="text-end">{{ '::SOCSO' | abpLocalization }}</th>
+                <th class="text-end">{{ '::EIS' | abpLocalization }}</th>
+                <th class="text-end">{{ '::PCB' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Deductions' | abpLocalization }}</th>
+                <th class="text-end">{{ '::NetPay' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>

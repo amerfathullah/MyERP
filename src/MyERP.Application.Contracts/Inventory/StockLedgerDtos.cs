@@ -61,3 +61,29 @@ public class VoucherStockLedgerDto
     public decimal TotalQtyOut { get; set; }
     public decimal TotalValueDifference { get; set; }
 }
+
+public class StockMovementItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "";
+    public string ItemName { get; set; } = "";
+    public decimal OpeningQty { get; set; }
+    public decimal StockInQty { get; set; }
+    public decimal StockOutQty { get; set; }
+    public decimal ClosingQty { get; set; }
+    public decimal StockInValue { get; set; }
+    public decimal StockOutValue { get; set; }
+    public decimal NetMovement => StockInQty - StockOutQty;
+}
+
+public class StockMovementSummaryDto
+{
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public int TotalItems { get; set; }
+    public decimal TotalStockIn { get; set; }
+    public decimal TotalStockOut { get; set; }
+    public decimal TotalStockInValue { get; set; }
+    public decimal TotalStockOutValue { get; set; }
+    public List<StockMovementItemDto> Items { get; set; } = new();
+}

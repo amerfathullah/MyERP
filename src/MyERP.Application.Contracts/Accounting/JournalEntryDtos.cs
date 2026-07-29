@@ -11,6 +11,7 @@ public class JournalEntryDto : EntityDto<Guid>
     public Guid FiscalYearId { get; set; }
     public string? EntryNumber { get; set; }
     public DateTime PostingDate { get; set; }
+    public JournalEntryVoucherType VoucherType { get; set; }
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
     public string? ReferenceNumber { get; set; }
@@ -37,6 +38,7 @@ public class CreateJournalEntryDto
     [Required] public Guid CompanyId { get; set; }
     [Required] public Guid FiscalYearId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
+    public JournalEntryVoucherType VoucherType { get; set; } = JournalEntryVoucherType.JournalEntry;
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
     [StringLength(100)] public string? ReferenceNumber { get; set; }

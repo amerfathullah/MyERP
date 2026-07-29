@@ -191,7 +191,7 @@ export class EInvoiceSettingsComponent implements OnInit {
     this.isSaving.set(true);
     this.einvoiceService.saveCredentials(this.credentials as any).subscribe({
       next: () => {
-        this.toaster.success('Credentials saved successfully');
+        this.toaster.success('::SuccessfullySaved');
         this.isSaving.set(false);
         this.loadStatus();
       },
@@ -204,7 +204,7 @@ export class EInvoiceSettingsComponent implements OnInit {
     this.einvoiceService.connect().subscribe({
       next: (res: any) => {
         if (res.isSuccess) {
-          this.toaster.success('Connected to LHDN successfully');
+          this.toaster.success('::SuccessfullyUpdated');
         } else {
           this.toaster.error(res.errorMessage || 'Connection failed');
         }
@@ -234,7 +234,7 @@ export class EInvoiceSettingsComponent implements OnInit {
       certificatePassword: this.certPassword || null,
     } as any).subscribe({
       next: () => {
-        this.toaster.success('Certificate uploaded successfully');
+        this.toaster.success('::SuccessfullyUpdated');
         this.isUploading.set(false);
         this.certBase64 = '';
         this.certPassword = '';

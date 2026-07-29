@@ -160,7 +160,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
       rows: []
     }).subscribe({
       next: () => {
-        this.toaster.success('Template created');
+        this.toaster.success('::SuccessfullyCreated');
         this.showCreateForm = false;
         this.newName = '';
         this.newDescription = '';

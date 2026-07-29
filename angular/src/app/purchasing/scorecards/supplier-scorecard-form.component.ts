@@ -160,7 +160,7 @@ export class SupplierScorecardFormComponent implements OnInit {
     if (!this.form.valid) return;
     this.saving = true;
     this.scorecardService.create(this.form.value as any).subscribe({
-      next: () => { this.toaster.success('Scorecard created'); this.router.navigate(['/purchasing/scorecards']); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/purchasing/scorecards']); },
       error: () => { this.saving = false; }
     });
   }

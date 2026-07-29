@@ -73,7 +73,7 @@ export class StockLedgerComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.message ?? 'Failed to load report');
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
       },
     });
   }

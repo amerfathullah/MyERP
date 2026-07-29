@@ -11,6 +11,9 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationService } from '@abp/ng.core';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 @Component({
@@ -24,6 +27,9 @@ export class SalesOrderListComponent implements OnInit {
   readonly store = inject(SalesOrderStore);
   private companyContext = inject(CompanyContextService);
   private soService = inject(SalesOrderService);
+  private conversionService = inject(DocumentConversionService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   displayedColumns = ['select', 'orderNumber', 'orderDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
   pageSize = 20;
@@ -135,5 +141,113 @@ export class SalesOrderListComponent implements OnInit {
       },
       error: () => { this.isBulkProcessing = false; },
     });
+  }
+
+  bulkCreateDN(): void {
+    const activeIds = this.store.entities()
+      .filter(o => o.id && this.selectedIds.has(o.id) &&
+        ['ToDeliverAndBill', 'ToDeliver'].includes(o.status ?? ''))
+      .map(o => o.id!);
+    if (activeIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyForDelivery'));
+      return;
+    }
+
+    this.isBulkProcessing = true;
+    let created = 0;
+    let failed = 0;
+    let remaining = activeIds.length;
+
+    for (const soId of activeIds) {
+      this.conversionService.convertSalesOrderToDeliveryNote(soId).subscribe({
+        next: () => { created++; this.checkBulkDNComplete(--remaining, created, failed); },
+        error: () => { failed++; this.checkBulkDNComplete(--remaining, created, failed); },
+      });
+    }
+  }
+
+  private checkBulkDNComplete(remaining: number, created: number, failed: number): void {
+    if (remaining > 0) return;
+    this.isBulkProcessing = false;
+    this.selectedIds.clear();
+    if (created > 0) {
+      this.toaster.success(`${created} ${this.l.instant('::DeliveryNotesCreated')}`);
+    }
+    if (failed > 0) {
+      this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`);
+    }
+    this.loadData();
+  }
+
+  bulkCreateSI(): void {
+    const billableIds = this.store.entities()
+      .filter(o => o.id && this.selectedIds.has(o.id) &&
+        ['ToDeliverAndBill', 'ToBill'].includes(o.status ?? ''))
+      .map(o => o.id!);
+    if (billableIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyForBilling'));
+      return;
+    }
+
+    this.isBulkProcessing = true;
+    let created = 0;
+    let failed = 0;
+    let remaining = billableIds.length;
+
+    for (const soId of billableIds) {
+      this.conversionService.convertSalesOrderToSalesInvoice(soId).subscribe({
+        next: () => { created++; this.checkBulkSIComplete(--remaining, created, failed); },
+        error: () => { failed++; this.checkBulkSIComplete(--remaining, created, failed); },
+      });
+    }
+  }
+
+  private checkBulkSIComplete(remaining: number, created: number, failed: number): void {
+    if (remaining > 0) return;
+    this.isBulkProcessing = false;
+    this.selectedIds.clear();
+    if (created > 0) {
+      this.toaster.success(`${created} ${this.l.instant('::InvoicesCreated')}`);
+    }
+    if (failed > 0) {
+      this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`);
+    }
+    this.loadData();
+  }
+
+  bulkClose(): void {
+    const closableStatuses = ['ToDeliverAndBill', 'ToDeliver', 'ToBill', 'Completed'];
+    const closableIds = this.store.entities()
+      .filter(o => o.id && this.selectedIds.has(o.id) && closableStatuses.includes(o.status ?? ''))
+      .map(o => o.id!);
+    if (closableIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyToClose'));
+      return;
+    }
+
+    this.isBulkProcessing = true;
+    let closed = 0;
+    let failed = 0;
+    let remaining = closableIds.length;
+
+    for (const soId of closableIds) {
+      this.soService.close(soId).subscribe({
+        next: () => { closed++; this.checkBulkCloseComplete(--remaining, closed, failed); },
+        error: () => { failed++; this.checkBulkCloseComplete(--remaining, closed, failed); },
+      });
+    }
+  }
+
+  private checkBulkCloseComplete(remaining: number, created: number, failed: number): void {
+    if (remaining > 0) return;
+    this.isBulkProcessing = false;
+    this.selectedIds.clear();
+    if (created > 0) {
+      this.toaster.success(`${created} ${this.l.instant('::SuccessfullyClosed')}`);
+    }
+    if (failed > 0) {
+      this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`);
+    }
+    this.loadData();
   }
 }

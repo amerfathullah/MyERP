@@ -23,7 +23,7 @@ export const MaterialRequestStore = signalStore(
           patchState(store, setAllEntities((result.items ?? []) as MREntity[], { selectId: (e) => e.id! }));
           patchState(store, { totalCount: result.totalCount ?? 0, isLoading: false });
         }),
-        catchError(() => { patchState(store, { isLoading: false }); toaster.error('Failed to load'); return EMPTY; }),
+        catchError(() => { patchState(store, { isLoading: false }); toaster.error('::FailedToLoad'); return EMPTY; }),
       )
     ),
     create: rxMethod<any>(
@@ -31,7 +31,7 @@ export const MaterialRequestStore = signalStore(
         switchMap((input) => service.create(input)),
         tap((created) => {
           patchState(store, addEntity(created as MREntity, { selectId: (e) => e.id! }));
-          toaster.success('Material Request created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Create failed'); return EMPTY; }),
       )
@@ -41,7 +41,7 @@ export const MaterialRequestStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as MREntity }));
-          toaster.success('Material Request submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Submit failed'); return EMPTY; }),
       )
@@ -51,7 +51,7 @@ export const MaterialRequestStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as MREntity }));
-          toaster.success('Material Request cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Cancel failed'); return EMPTY; }),
       )
@@ -59,9 +59,9 @@ export const MaterialRequestStore = signalStore(
     remove: rxMethod<string>(
       pipe(
         switchMap((id) => service.delete(id).pipe(
-          tap(() => { patchState(store, removeEntity(id)); toaster.success('Deleted'); }),
+          tap(() => { patchState(store, removeEntity(id)); toaster.success('::SuccessfullyDeleted'); }),
         )),
-        catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Delete failed'); return EMPTY; }),
+        catchError((err) => { toaster.error(err?.error?.error?.message ?? '::DeleteFailed'); return EMPTY; }),
       )
     ),
   })),

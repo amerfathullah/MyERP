@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 import { AccountType } from '../../proxy/accounting/account-type.enum';
@@ -26,6 +27,7 @@ export class AccountFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private accountService = inject(AccountService);
+  private toaster = inject(ToasterService);
 
   form = this.fb.group({
     accountCode: ['', [Validators.required, Validators.maxLength(20)]],
@@ -76,12 +78,14 @@ export class AccountFormComponent implements OnInit {
     const dto = this.form.getRawValue() as any;
 
     if (this.isEditMode) {
-      this.accountService.update(this.entityId!, dto).subscribe(() => {
-        this.router.navigate(['/accounting/accounts']);
+      this.accountService.update(this.entityId!, dto).subscribe({
+        next: () => this.router.navigate(['/accounting/accounts']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
-      this.accountService.create(dto).subscribe(() => {
-        this.router.navigate(['/accounting/accounts']);
+      this.accountService.create(dto).subscribe({
+        next: () => this.router.navigate(['/accounting/accounts']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }
   }

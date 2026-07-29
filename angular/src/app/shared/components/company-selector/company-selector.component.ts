@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CompanyContextService } from '../../services/company-context.service';
+import { CompanyContextService, CompanyOption } from '../../services/company-context.service';
 
 @Component({
   selector: 'app-company-selector',
@@ -28,7 +28,7 @@ export class CompanySelectorComponent implements OnInit {
 
   ngOnInit(): void { this.ctx.load(); }
 
-  select(company: { id: string; name: string }): void {
-    this.ctx.selectCompany(company.id, company.name);
+  select(company: CompanyOption): void {
+    this.ctx.selectCompany(company.id, company.name, company.currencyCode);
   }
 }

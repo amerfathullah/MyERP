@@ -64,6 +64,12 @@
     </div>
 
     <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">{{ 'AgingSummary' | abpLocalization }}</h6>
+        <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+        </button>
+      </div>
       <div class="card-body">
         <table class="table table-hover">
           <thead>
@@ -87,5 +93,56 @@
         </table>
       </div>
     </div>
+
+    @if (r.details && r.details.length) {
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="fa fa-list me-2"></i>{{ 'InvoiceDetails' | abpLocalization }} ({{ r.details.length }})</h6>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ 'Party' | abpLocalization }}</th>
+                  <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ 'PostingDate' | abpLocalization }}</th>
+                  <th>{{ 'DueDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'AgeDays' | abpLocalization }}</th>
+                  <th>{{ 'AgingBucket' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of r.details; track d.documentId) {
+                  <tr [class.table-danger]="isSeverelyOverdue(d)" [class.table-warning]="isOverdue(d) && !isSeverelyOverdue(d)">
+                    <td class="small">{{ d.partyName || '—' }}</td>
+                    <td>
+                      <a [routerLink]="getInvoiceRoute(d)" class="text-decoration-none fw-medium">
+                        {{ d.documentNumber }}
+                      </a>
+                    </td>
+                    <td class="small text-muted">{{ d.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="small" [class.text-danger]="isOverdue(d)">
+                      {{ d.dueDate | date:'dd/MM/yyyy' }}
+                      @if (isOverdue(d)) {
+                        <span class="badge bg-danger ms-1">{{ 'Overdue' | abpLocalization }}</span>
+                      }
+                    </td>
+                    <td class="text-end fw-medium">{{ d.outstandingAmount | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-danger]="isSeverelyOverdue(d)" [class.fw-bold]="isSeverelyOverdue(d)">
+                      {{ d.ageDays }}
+                    </td>
+                    <td><span class="badge" [class.bg-success]="(d.ageDays ?? 0) <= 30"
+                      [class.bg-warning]="(d.ageDays ?? 0) > 30 && (d.ageDays ?? 0) <= 90"
+                      [class.bg-danger]="(d.ageDays ?? 0) > 90">{{ d.bucketLabel }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
   }
 </abp-page>

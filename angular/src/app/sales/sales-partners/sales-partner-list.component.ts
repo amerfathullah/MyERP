@@ -154,7 +154,7 @@ export class SalesPartnerListComponent implements OnInit {
 
   create() {
     this.http.post('/api/app/sales-partner', this.newPartner).subscribe({
-      next: () => { this.toaster.success('Sales Partner created'); this.showCreateForm = false; this.loadData();
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData();
         this.newPartner = { name: '', partnerType: 0, commissionRate: 0, website: '' }; },
       error: () => {}
     });
@@ -171,7 +171,7 @@ export class SalesPartnerListComponent implements OnInit {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
       this.http.delete(`/api/app/sales-partner/${p.id}`).subscribe({
-        next: () => { this.toaster.success('Deleted'); this.loadData(); },
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
         error: () => {}
       });
     });

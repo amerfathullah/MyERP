@@ -33,7 +33,7 @@ export const PurchaseOrderStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load purchase orders');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -46,7 +46,7 @@ export const PurchaseOrderStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as PurchaseOrderEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Purchase order created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -61,7 +61,7 @@ export const PurchaseOrderStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id! as EntityId, changes: updated as PurchaseOrderEntity }));
-          toaster.success('Purchase order submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Submit failed');
@@ -75,7 +75,7 @@ export const PurchaseOrderStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id! as EntityId, changes: updated as PurchaseOrderEntity }));
-          toaster.success('Purchase order cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');
@@ -89,10 +89,10 @@ export const PurchaseOrderStore = signalStore(
         switchMap((id) => service.cancel(id).pipe(tap(() => {
           patchState(store, removeEntity(id as EntityId));
           patchState(store, { totalCount: store.totalCount() - 1 });
-          toaster.success('Deleted');
+          toaster.success('::SuccessfullyDeleted');
         }))),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )

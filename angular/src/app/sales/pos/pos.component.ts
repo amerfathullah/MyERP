@@ -1,7 +1,8 @@
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
@@ -35,13 +36,14 @@ interface HeldOrder {
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './pos.component.html',
   styleUrls: ['./pos.component.scss'],
 })
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
   private toaster = inject(ToasterService);
+  private localization = inject(LocalizationService);
 
   // Search & Items
   searchQuery = '';
@@ -188,7 +190,7 @@ export class PosComponent implements OnInit {
     this.heldOrders.push(order);
     sessionStorage.setItem('pos_held_orders', JSON.stringify(this.heldOrders));
     this.clearCart();
-    this.toaster.info('Order held');
+    this.toaster.info('::OrderHeld');
   }
 
   resumeOrder(index: number): void {
@@ -221,12 +223,12 @@ export class PosComponent implements OnInit {
 
   completeSale(): void {
     if (this.cart.length === 0) {
-      this.toaster.warn('Cart is empty');
+      this.toaster.warn('::CartIsEmpty');
       return;
     }
 
     if (this.outstandingAmount > 0.01) {
-      this.toaster.warn('Payment amount is less than total');
+      this.toaster.warn('::PaymentAmountLessThanTotal');
       return;
     }
 
@@ -248,12 +250,12 @@ export class PosComponent implements OnInit {
       next: (result) => {
         this.isProcessing = false;
         this.lastInvoice = result.invoiceNumber ?? null;
-        this.toaster.success(`Sale completed: ${this.lastInvoice}`);
+        this.toaster.success(this.localization.instant('::SaleCompleted'));
         this.clearCart();
       },
       error: (err) => {
         this.isProcessing = false;
-        this.toaster.error(err?.error?.error?.message ?? 'Sale failed');
+        this.toaster.error(err?.error?.error?.message || '::SaleFailed');
       },
     });
   }

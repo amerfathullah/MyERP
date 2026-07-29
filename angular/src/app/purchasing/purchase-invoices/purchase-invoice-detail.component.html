@@ -41,7 +41,7 @@
             <div class="col-12 col-md-3">
               <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
               <div class="input-group">
-                <span class="input-group-text">{{ invoice.currencyCode || 'MYR' }}</span>
+                <span class="input-group-text">{{ invoice.currencyCode || ('' | companyCurrency) }}</span>
                 <input type="number" class="form-control" step="0.01" min="0.01"
                        [ngModel]="quickPaymentAmount()" (ngModelChange)="quickPaymentAmount.set($event)" />
               </div>
@@ -86,7 +86,7 @@
         <div class="row">
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ invoice.supplierName || invoice.supplierId }}</span>
+            <span class="fw-semibold">{{ invoice.supplierName || '—' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::IssueDate' | abpLocalization }}</small>
@@ -308,6 +308,61 @@
               </div>
             </div>
           }
+        </div>
+      </div>
+    }
+
+    <!-- Tax Withholding (TDS/WHT) — Malaysia Section 107A compliance -->
+    @if (taxWithholdingEntries().length > 0) {
+      <div class="card mb-3 border-warning">
+        <div class="card-header bg-warning bg-opacity-10 d-flex align-items-center gap-2">
+          <i class="fa fa-shield-halved text-warning"></i>
+          <h6 class="card-title mb-0">{{ '::TaxWithholding' | abpLocalization }}</h6>
+          <span class="badge bg-warning text-dark ms-auto">{{ taxWithholdingEntries().length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr class="table-light">
+                  <th>{{ '::TaxCategory' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Rate' | abpLocalization }} (%)</th>
+                  <th class="text-end">{{ '::TaxableAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::WithheldAmount' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of taxWithholdingEntries(); track entry.id) {
+                  <tr>
+                    <td>
+                      {{ entry.taxCategory || '—' }}
+                      @if (entry.hasLDC) {
+                        <span class="badge bg-info ms-1" title="Lower Deduction Certificate">LDC {{ entry.ldcRate }}%</span>
+                      }
+                    </td>
+                    <td class="text-end font-monospace">{{ entry.withholdingRate | number:'1.1-1' }}%</td>
+                    <td class="text-end font-monospace">{{ entry.taxableAmount | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace fw-bold text-danger">{{ entry.withheldAmount | number:'1.2-2' }}</td>
+                    <td>{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td>
+                      <span class="badge" [class.bg-success]="entry.status === 'Submitted'" [class.bg-secondary]="entry.status === 'Draft'">
+                        {{ entry.status }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="table-warning">
+                  <td colspan="3" class="fw-bold text-end">{{ '::TotalWithheld' | abpLocalization }}</td>
+                  <td class="text-end font-monospace fw-bold text-danger">{{ getTotalWithheld() | number:'1.2-2' }}</td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </div>
     }

@@ -46,6 +46,8 @@ public class ProfitLossRequestDto
     [Required] public Guid CompanyId { get; set; }
     [Required] public DateTime FromDate { get; set; }
     [Required] public DateTime ToDate { get; set; }
+    /// <summary>When true, includes previous period data for comparison (same duration, immediately preceding).</summary>
+    public bool IncludeComparison { get; set; }
 }
 
 public class ProfitLossRowDto
@@ -55,6 +57,10 @@ public class ProfitLossRowDto
     public string AccountName { get; set; } = null!;
     public string AccountType { get; set; } = null!;
     public decimal Amount { get; set; }
+    /// <summary>Amount from the previous comparison period (null when comparison not requested).</summary>
+    public decimal? PreviousPeriodAmount { get; set; }
+    /// <summary>Growth percentage vs previous period. Null when no comparison or previous was zero.</summary>
+    public decimal? GrowthPercentage { get; set; }
     public int Level { get; set; }
     public bool IsGroup { get; set; }
 }
@@ -69,6 +75,13 @@ public class ProfitLossReportDto
     public decimal TotalRevenue { get; set; }
     public decimal TotalExpense { get; set; }
     public decimal NetProfitOrLoss { get; set; }
+    /// <summary>Previous period totals (populated when IncludeComparison=true).</summary>
+    public decimal? PreviousTotalRevenue { get; set; }
+    public decimal? PreviousTotalExpense { get; set; }
+    public decimal? PreviousNetProfitOrLoss { get; set; }
+    /// <summary>Previous period date range for display.</summary>
+    public DateTime? PreviousFromDate { get; set; }
+    public DateTime? PreviousToDate { get; set; }
 }
 
 // --- Balance Sheet ---

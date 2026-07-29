@@ -47,6 +47,15 @@
             <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
               <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
             </button>
+            <button class="btn btn-sm btn-outline-success" (click)="bulkCreatePR()" [disabled]="isBulkProcessing">
+              <i class="fa fa-box-open me-1"></i> {{ '::BatchCreatePR' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-info" (click)="bulkCreatePI()" [disabled]="isBulkProcessing">
+              <i class="fa fa-file-invoice me-1"></i> {{ '::BatchCreatePI' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-dark" (click)="bulkClose()" [disabled]="isBulkProcessing">
+              <i class="fa fa-lock me-1"></i> {{ '::BatchClose' | abpLocalization }}
+            </button>
             <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
               <i class="fa fa-times me-1"></i> {{ '::ClearSelection' | abpLocalization }}
             </button>

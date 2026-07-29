@@ -81,7 +81,7 @@ export class StockEntryFormComponent implements OnInit {
     entryType: ['MaterialReceipt', Validators.required],
     entryDate: [new Date(), Validators.required],
     sourceWarehouse: [''],
-    targetWarehouse: ['', Validators.required],
+    targetWarehouse: [''],
     remarks: [''],
     items: this.fb.array([]),
   });
@@ -201,7 +201,7 @@ export class StockEntryFormComponent implements OnInit {
       },
       error: () => {
         this.isLoadingBOM = false;
-        this.toaster.warn('Could not load BOM items — add manually');
+        this.toaster.warn('::CouldNotLoadBomItems');
       },
     });
   }
@@ -242,9 +242,43 @@ export class StockEntryFormComponent implements OnInit {
         this.toaster.success(`${result.items?.length ?? 0} items loaded from Material Request`);
       },
       error: () => {
-        this.toaster.warn('Could not load Material Request items');
+        this.toaster.warn('::CouldNotLoadMaterialRequestItems');
       },
     });
+  }
+
+  /** Returns true when entry type consumes stock from source warehouse (needs availability check) */
+  isStockOutType(): boolean {
+    const type = this.form.get('entryType')?.value;
+    return ['MaterialIssue', 'MaterialTransfer', 'MaterialTransferForManufacture',
+      'SendToSubcontractor', 'MaterialConsumptionForManufacture', 'SendToWarehouse',
+      'SubcontractingDelivery'].includes(type);
+  }
+
+  /**
+   * Per ERPNext: Source Warehouse is shown for types that consume/move stock.
+   * Hidden for: MaterialReceipt, ReceiveAtWarehouse, Adjustment
+   */
+  showSourceWarehouse(): boolean {
+    const type = this.form.get('entryType')?.value;
+    return !['MaterialReceipt', 'ReceiveAtWarehouse', 'Adjustment'].includes(type);
+  }
+
+  /**
+   * Per ERPNext: Target Warehouse is shown for types that receive stock.
+   * Hidden for: MaterialIssue, MaterialConsumptionForManufacture
+   */
+  showTargetWarehouse(): boolean {
+    const type = this.form.get('entryType')?.value;
+    return !['MaterialIssue', 'MaterialConsumptionForManufacture'].includes(type);
+  }
+
+  /** Returns available qty for item at given row index (from source warehouse), or null if not loaded */
+  getItemAvailableQty(index: number): number | null {
+    const itemId = this.items.at(index)?.get('itemId')?.value;
+    if (!itemId) return null;
+    const info = this.itemStockInfo();
+    return info[itemId]?.availableQty ?? null;
   }
 
   addItem(): void {
@@ -373,12 +407,12 @@ export class StockEntryFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => { this.toaster.success('Stock Entry updated'); this.router.navigate(['/inventory/stock-entries', this.entityId]); },
+        next: () => { this.toaster.success('::SuccessfullyUpdated'); this.router.navigate(['/inventory/stock-entries', this.entityId]); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Update failed'),
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => { this.toaster.success('Stock Entry created'); this.router.navigate(['/inventory/stock-entries']); },
+        next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/inventory/stock-entries']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
       });
     }

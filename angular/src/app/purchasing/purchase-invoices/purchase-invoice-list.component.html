@@ -1,4 +1,65 @@
 <abp-page [title]="'::PurchaseInvoices' | abpLocalization">
+  <!-- KPI Summary Cards (server-side aggregate — accurate across all invoices) -->
+  @if (summary()) {
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card border-start border-4 border-danger h-100">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small">{{ '::TotalPayable' | abpLocalization }}</div>
+          <div class="fs-5 fw-bold text-danger">{{ summary().totalPayable | number:'1.2-2' }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-start border-4 border-warning h-100">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small">{{ '::Overdue' | abpLocalization }}</div>
+          <div class="fs-5 fw-bold text-warning">{{ summary().overdueCount }}
+            <span class="fw-normal fs-6 text-muted ms-1">({{ summary().overdueAmount | number:'1.2-2' }})</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-start border-4 border-info h-100">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small">{{ '::MonthlySpend' | abpLocalization }}</div>
+          <div class="fs-5 fw-bold text-info">{{ summary().monthlySpend | number:'1.2-2' }}</div>
+          <div class="text-muted small">{{ summary().monthlyInvoiceCount }} {{ '::Invoices' | abpLocalization }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-start border-4 border-primary h-100">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small">{{ '::PostedInvoices' | abpLocalization }}</div>
+          <div class="fs-5 fw-bold text-primary">{{ summary().postedInvoiceCount }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Due This Week Alert Banner (AP payment priority) -->
+  @if (dueThisWeekCount() > 0) {
+    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+      <i class="fa fa-clock me-2"></i>
+      <div>
+        <strong>{{ dueThisWeekCount() }}</strong> {{ '::InvoicesDueThisWeek' | abpLocalization }}
+        — {{ '::TotalAmount' | abpLocalization }}: <strong class="text-danger">{{ dueThisWeekTotal() | number:'1.2-2' }}</strong>
+      </div>
+    </div>
+  }
+  @if (overdueCount() > 0) {
+    <div class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      <div>
+        <strong>{{ overdueCount() }}</strong> {{ '::OverdueInvoices' | abpLocalization }}
+        — {{ '::TotalAmount' | abpLocalization }}: <strong>{{ overdueTotal() | number:'1.2-2' }}</strong>
+      </div>
+    </div>
+  }
+
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="d-flex gap-2 align-items-center">
       <input type="text" class="form-control form-control-sm" style="width: 200px;"

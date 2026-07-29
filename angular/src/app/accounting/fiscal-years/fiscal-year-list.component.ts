@@ -130,8 +130,8 @@ export class FiscalYearListComponent implements OnInit {
   create(): void {
     if (this.form.invalid) return;
     this.fiscalYearService.create(this.form.getRawValue() as any).subscribe({
-      next: () => { this.toaster.success('Fiscal Year created'); this.loadFiscalYears(); this.form.reset(); },
-      error: () => this.toaster.error('Failed to create'),
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.loadFiscalYears(); this.form.reset(); },
+      error: () => this.toaster.error('::FailedToCreate'),
     });
   }
 

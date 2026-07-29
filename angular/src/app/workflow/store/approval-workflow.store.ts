@@ -34,7 +34,7 @@ export const ApprovalWorkflowStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load approval rules');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -53,7 +53,7 @@ export const ApprovalWorkflowStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error('Failed to load pending approvals');
+          toaster.error('::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -67,7 +67,7 @@ export const ApprovalWorkflowStore = signalStore(
             pendingApprovals: store.pendingApprovals().filter(a => a.id !== result.id),
             pendingCount: store.pendingCount() - 1,
           });
-          toaster.success('Approved successfully');
+          toaster.success('::SuccessfullyApproved');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Approve failed');
@@ -84,7 +84,7 @@ export const ApprovalWorkflowStore = signalStore(
             pendingApprovals: store.pendingApprovals().filter(a => a.id !== result.id),
             pendingCount: store.pendingCount() - 1,
           });
-          toaster.success('Rejected');
+          toaster.success('::SuccessfullyRejected');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Reject failed');

@@ -102,7 +102,7 @@ export const LhdnDashboardStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error('Failed to load dashboard data');
+          toaster.error('::FailedToLoad');
           return EMPTY;
         }),
       )

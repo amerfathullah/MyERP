@@ -54,4 +54,24 @@ export class QuotationListComponent implements OnInit {
     this.currentPage = event.pageIndex;
     this.loadData();
   }
+
+  /** Returns true when quotation is past its validUntil date and still Submitted */
+  isExpired(row: any): boolean {
+    if (row.status !== 'Submitted' || !row.validUntil) return false;
+    return new Date(row.validUntil) < new Date();
+  }
+
+  /** Returns true when quotation expires within 7 days */
+  isExpiringSoon(row: any): boolean {
+    if (row.status !== 'Submitted' || !row.validUntil) return false;
+    const days = this.getDaysRemaining(row);
+    return days > 0 && days <= 7;
+  }
+
+  /** Returns number of days until expiry (negative = expired) */
+  getDaysRemaining(row: any): number {
+    if (!row.validUntil) return 999;
+    const diff = new Date(row.validUntil).getTime() - new Date().getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
 }

@@ -65,7 +65,7 @@
       <div class="card">
         <div class="card-body text-center py-3">
           <p class="fs-3 fw-bold font-monospace">{{ summary().unreconciledBalance ?? 0 | number:'1.2-2' }}</p>
-          <small class="text-muted">Balance</small>
+                    <small class="text-muted">{{ '::Balance' | abpLocalization }}</small>
         </div>
       </div>
     </div>
@@ -85,8 +85,8 @@
             <tr>
               <th>{{ '::PostingDate' | abpLocalization }}</th>
               <th>{{ '::Description' | abpLocalization }}</th>
-              <th>Amount</th>
-              <th>Matched</th>
+              <th>{{ '::Amount' | abpLocalization }}</th>
+              <th>{{ '::Matched' | abpLocalization }}</th>
               <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
@@ -99,7 +99,7 @@
                 <td class="font-monospace"
                   [class.text-success]="(t.amount ?? 0) > 0"
                   [class.text-danger]="(t.amount ?? 0) < 0">
-                  MYR {{ t.amount | number:'1.2-2' }}
+                  {{ "" | companyCurrency }} {{ t.amount | number:'1.2-2' }}
                 </td>
                 <td>{{ t.matchedDocumentRef ?? '—' }}</td>
                 <td>
@@ -225,7 +225,7 @@
           <div class="alert alert-light border">
             <strong>{{ tx.description }}</strong>
             <span class="ms-2 badge" [class]="(tx.amount ?? 0) > 0 ? 'bg-success' : 'bg-danger'">
-              MYR {{ tx.amount | number:'1.2-2' }}
+              {{ "" | companyCurrency }} {{ tx.amount | number:'1.2-2' }}
             </span>
             <span class="ms-2 text-muted">{{ tx.transactionDate | date:'dd/MM/yyyy' }}</span>
           </div>
@@ -234,8 +234,8 @@
             <div class="col-md-4">
               <label class="form-label">{{ '::PartyType' | abpLocalization }}</label>
               <select class="form-select" [ngModel]="pePartyType()" (ngModelChange)="pePartyType.set($event)">
-                <option value="Customer">Customer</option>
-                <option value="Supplier">Supplier</option>
+                <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+                <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-8">
@@ -258,13 +258,21 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ '::BankAccount' | abpLocalization }}</label>
-              <input class="form-control" [ngModel]="peBankAccountId()" (ngModelChange)="peBankAccountId.set($event)"
-                     [placeholder]="'Bank GL Account ID'">
+              <select class="form-select" [ngModel]="peBankAccountId()" (ngModelChange)="peBankAccountId.set($event)">
+                <option value="">{{ '::SelectBankAccount' | abpLocalization }}</option>
+                @for (a of bankAccounts(); track a.id) {
+                  <option [value]="a.id">{{ a.accountCode }} — {{ a.accountName }}</option>
+                }
+              </select>
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ '::PartyAccount' | abpLocalization }}</label>
-              <input class="form-control" [ngModel]="pePartyAccountId()" (ngModelChange)="pePartyAccountId.set($event)"
-                     [placeholder]="'Receivable/Payable Account ID'">
+              <select class="form-select" [ngModel]="pePartyAccountId()" (ngModelChange)="pePartyAccountId.set($event)">
+                <option value="">{{ '::SelectAccount' | abpLocalization }}</option>
+                @for (a of partyAccounts(); track a.id) {
+                  <option [value]="a.id">{{ a.accountCode }} — {{ a.accountName }}</option>
+                }
+              </select>
             </div>
           </div>
 

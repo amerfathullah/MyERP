@@ -82,7 +82,7 @@ export class SalesPersonFormComponent implements OnInit {
     const dto = { ...this.form.value };
     if (!dto.parentSalesPersonId) dto.parentSalesPersonId = null;
     this.service.create(dto as any).subscribe({
-      next: () => { this.toaster.success('Sales person created'); this.router.navigate(['/sales/sales-persons']); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/sales-persons']); },
       error: () => { this.saving = false; }
     });
   }

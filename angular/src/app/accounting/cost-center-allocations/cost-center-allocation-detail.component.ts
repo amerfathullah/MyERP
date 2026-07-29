@@ -49,7 +49,7 @@ export class CostCenterAllocationDetailComponent implements OnInit {
 
   getCostCenterName(id?: string): string {
     if (!id) return '—';
-    return this.costCenters().find(cc => cc.id === id)?.name ?? id.slice(0, 8);
+    return this.costCenters().find(cc => cc.id === id)?.name ?? '—';
   }
 
   toggleActive() {

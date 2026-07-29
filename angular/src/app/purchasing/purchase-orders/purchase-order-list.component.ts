@@ -10,7 +10,10 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationService } from '@abp/ng.core';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 @Component({
@@ -26,6 +29,9 @@ export class PurchaseOrderListComponent implements OnInit {
   readonly store = inject(PurchaseOrderStore);
   private companyContext = inject(CompanyContextService);
   private poService = inject(PurchaseOrderService);
+  private conversionService = inject(PurchaseConversionService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   displayedColumns = ['select', 'orderNumber', 'orderDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
   pageSize = 20;
@@ -140,5 +146,72 @@ export class PurchaseOrderListComponent implements OnInit {
       },
       error: () => { this.isBulkProcessing = false; },
     });
+  }
+
+  bulkCreatePR(): void {
+    const activeIds = this.store.entities()
+      .filter(po => po.id && this.selectedIds.has(po.id) &&
+        ['ToDeliverAndBill', 'ToDeliver'].includes(po.status ?? ''))
+      .map(po => po.id!);
+    if (activeIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyForReceipt'));
+      return;
+    }
+    this.isBulkProcessing = true;
+    let created = 0, failed = 0, remaining = activeIds.length;
+    for (const poId of activeIds) {
+      this.conversionService.convertPurchaseOrderToReceipt(poId).subscribe({
+        next: () => { created++; if (--remaining === 0) this.finishBulk(created, failed, '::ReceiptsCreated'); },
+        error: () => { failed++; if (--remaining === 0) this.finishBulk(created, failed, '::ReceiptsCreated'); },
+      });
+    }
+  }
+
+  bulkCreatePI(): void {
+    const billableIds = this.store.entities()
+      .filter(po => po.id && this.selectedIds.has(po.id) &&
+        ['ToDeliverAndBill', 'ToBill'].includes(po.status ?? ''))
+      .map(po => po.id!);
+    if (billableIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyForBilling'));
+      return;
+    }
+    this.isBulkProcessing = true;
+    let created = 0, failed = 0, remaining = billableIds.length;
+    for (const poId of billableIds) {
+      this.conversionService.convertPurchaseOrderToInvoice(poId).subscribe({
+        next: () => { created++; if (--remaining === 0) this.finishBulk(created, failed, '::InvoicesCreated'); },
+        error: () => { failed++; if (--remaining === 0) this.finishBulk(created, failed, '::InvoicesCreated'); },
+      });
+    }
+  }
+
+  private finishBulk(created: number, failed: number, successKey: string): void {
+    this.isBulkProcessing = false;
+    this.selectedIds.clear();
+    if (created > 0) this.toaster.success(`${created} ${this.l.instant(successKey)}`);
+    if (failed > 0) this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`);
+    this.loadData();
+  }
+
+  bulkClose(): void {
+    const closableStatuses = ['ToDeliverAndBill', 'ToDeliver', 'ToBill', 'Completed'];
+    const closableIds = this.store.entities()
+      .filter(o => o.id && this.selectedIds.has(o.id) && closableStatuses.includes(o.status ?? ''))
+      .map(o => o.id!);
+    if (closableIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyToClose'));
+      return;
+    }
+    this.isBulkProcessing = true;
+    let closed = 0;
+    let failed = 0;
+    let remaining = closableIds.length;
+    for (const poId of closableIds) {
+      this.poService.close(poId).subscribe({
+        next: () => { closed++; if (--remaining === 0) { this.isBulkProcessing = false; this.selectedIds.clear(); if (closed > 0) this.toaster.success(`${closed} ${this.l.instant('::SuccessfullyClosed')}`); if (failed > 0) this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`); this.loadData(); } },
+        error: () => { failed++; if (--remaining === 0) { this.isBulkProcessing = false; this.selectedIds.clear(); if (closed > 0) this.toaster.success(`${closed} ${this.l.instant('::SuccessfullyClosed')}`); if (failed > 0) this.toaster.warn(`${failed} ${this.l.instant('::OrdersSkipped')}`); this.loadData(); } },
+      });
+    }
   }
 }

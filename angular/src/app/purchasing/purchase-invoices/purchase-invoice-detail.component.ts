@@ -18,6 +18,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { PurchaseInvoicePrintLayoutComponent } from '../../shared/components/purchase-invoice-print-layout/purchase-invoice-print-layout.component';
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 @Component({
@@ -25,7 +26,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   standalone: true,
   imports: [
     CommonModule, PageModule, LocalizationPipe, FormsModule,
-    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent, PurchaseInvoicePrintLayoutComponent, DocumentConnectionsComponent],
+    DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent, PurchaseInvoicePrintLayoutComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],
 })
@@ -48,6 +49,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
   // 3-Way Matching data
   matchingData = signal<any[]>([]);
+
+  // Tax Withholding (TDS/WHT) data — Malaysia Section 107A compliance
+  taxWithholdingEntries = signal<any[]>([]);
 
   // Quick Payment Dialog state
   showQuickPayment = signal(false);
@@ -93,6 +97,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       // Load 3-way matching data for posted invoices with PO-linked items
       if (result.status === 'Posted' || result.status === 'Submitted') {
         this.loadThreeWayMatching(id);
+        this.loadTaxWithholding(id);
       }
       // Load company data for print layout
       if (result.companyId) {
@@ -112,9 +117,22 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     });
   }
 
+  /** Loads tax withholding (TDS/WHT) entries for the invoice — Malaysia Section 107A */
+  private loadTaxWithholding(invoiceId: string): void {
+    this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/tax-withholding-entries`).subscribe({
+      next: (data) => this.taxWithholdingEntries.set(data ?? []),
+      error: () => {} // Non-critical — withholding is advisory display
+    });
+  }
+
   /** Returns true if any matching row has a discrepancy */
   hasMatchingDiscrepancy(): boolean {
     return this.matchingData().some(m => m.hasDiscrepancy);
+  }
+
+  /** Total tax withheld across all entries — displayed in TWE footer */
+  getTotalWithheld(): number {
+    return this.taxWithholdingEntries().reduce((sum: number, e: any) => sum + (e.withheldAmount ?? 0), 0);
   }
 
   onWorkflowAction(action: string): void {
@@ -206,7 +224,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     const inv = this.invoice;
     if (!inv) return;
     const amount = this.quickPaymentAmount();
-    if (amount <= 0) { this.toaster.warn('Amount must be positive'); return; }
+    if (amount <= 0) { this.toaster.warn('::AmountMustBePositive'); return; }
     this.isProcessingPayment.set(true);
     const dto = {
       companyId: (inv as any).companyId,
@@ -233,15 +251,15 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
                 this.toaster.success(this.localization.instant('::PaymentReceivedSuccessfully'));
                 this.reloadAfterAction();
               },
-              error: () => { this.isProcessingPayment.set(false); this.showQuickPayment.set(false); this.toaster.info('Payment created as draft.'); this.reloadAfterAction(); },
+              error: () => { this.isProcessingPayment.set(false); this.showQuickPayment.set(false); this.toaster.info('::PaymentCreatedAsDraft'); this.reloadAfterAction(); },
             });
           },
-          error: () => { this.isProcessingPayment.set(false); this.showQuickPayment.set(false); this.toaster.info('Payment created as draft.'); this.reloadAfterAction(); },
+          error: () => { this.isProcessingPayment.set(false); this.showQuickPayment.set(false); this.toaster.info('::PaymentCreatedAsDraft'); this.reloadAfterAction(); },
         });
       },
       error: (err) => {
         this.isProcessingPayment.set(false);
-        this.toaster.error(err?.error?.error?.message || 'Failed to create payment');
+        this.toaster.error(err?.error?.error?.message || '::FailedToCreatePaymentEntry');
       },
     });
   }

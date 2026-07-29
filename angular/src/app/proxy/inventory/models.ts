@@ -332,6 +332,12 @@ export interface ItemDetailsDto {
   companyTotalStock?: number;
   lastPurchaseRate?: number;
   minOrderQty?: number;
+  defaultSupplierId?: string | null;
+  defaultDiscountPercentage?: number;
+  blanketOrderId?: string | null;
+  blanketOrderNumber?: string | null;
+  blanketOrderRate?: number | null;
+  blanketOrderRemainingQty?: number | null;
 }
 
 export interface ItemDto extends FullAuditedEntityDto<string> {

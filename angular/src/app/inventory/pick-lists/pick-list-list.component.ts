@@ -64,7 +64,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <tbody>
                 @for (item of items(); track item.id) {
                   <tr>
-                    <td><a [routerLink]="['/inventory/pick-lists', item.id]">{{ item.pickListNumber || item.id | slice:0:8 }}</a></td>
+                    <td><a [routerLink]="['/inventory/pick-lists', item.id]">{{ item.pickListNumber || '—' }}</a></td>
                     <td>{{ item.purpose || 'Delivery' }}</td>
                     <td><app-status-badge [status]="item.status || 'Draft'" /></td>
                     <td class="text-end">{{ item.items?.length || 0 }}</td>

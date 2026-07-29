@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -34,10 +35,12 @@ export class PurchaseOrderFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(PurchaseOrderService);
   private supplierService = inject(SupplierService);
+  private supplierQuotationService = inject(SupplierQuotationService);
   private companyService = inject(CompanyService);
   private itemService = inject(ItemService);
   private itemDetailsService = inject(ItemDetailsService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   private companyContext = inject(CompanyContextService);
   private warehouseService = inject(WarehouseService);
   private partyDetailsService = inject(PartyDetailsService);
@@ -51,6 +54,8 @@ export class PurchaseOrderFormComponent implements OnInit {
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   isLoadingMrItems = signal(false);
+  isLoadingSqItems = signal(false);
+  supplierQuotations = signal<any[]>([]);
   supplierAddress = signal<string>('');
   supplierTin = signal<string>('');
   isEditMode = false;
@@ -162,7 +167,10 @@ export class PurchaseOrderFormComponent implements OnInit {
     const supplierId = this.form.get('supplierId')?.value;
     this.supplierAddress.set('');
     this.supplierTin.set('');
+    this.supplierQuotations.set([]);
     if (!supplierId) return;
+
+    this.loadSupplierQuotations();
 
     this.partyDetailsService.getSupplierDetails({ partyType: 'Supplier', partyId: supplierId }).subscribe({
       next: (details: any) => {
@@ -214,7 +222,7 @@ export class PurchaseOrderFormComponent implements OnInit {
   loadItemsFromMaterialRequest(): void {
     const companyId = this.form.get('companyId')?.value || undefined;
     if (!companyId) {
-      this.toaster.warn('Please select a company first');
+      this.toaster.warn('::PleaseSelectCompanyFirst');
       return;
     }
     this.isLoadingMrItems.set(true);
@@ -222,7 +230,7 @@ export class PurchaseOrderFormComponent implements OnInit {
       next: (mrItems: any[]) => {
         this.isLoadingMrItems.set(false);
         if (!mrItems || mrItems.length === 0) {
-          this.toaster.info('No pending Material Request items found');
+          this.toaster.info('::NoPendingMaterialRequestItems');
           return;
         }
         // Clear existing items and load from MR
@@ -241,15 +249,63 @@ export class PurchaseOrderFormComponent implements OnInit {
       },
       error: () => {
         this.isLoadingMrItems.set(false);
-        this.toaster.error('Failed to load Material Request items');
+        this.toaster.error('::FailedToLoad');
       },
+    });
+  }
+
+  /** Load items from a Supplier Quotation (SQ→PO pipeline). Per ERPNext: most common PO creation for negotiated purchases. */
+  loadItemsFromSupplierQuotation(sqId: string): void {
+    if (!sqId) return;
+    this.isLoadingSqItems.set(true);
+    this.supplierQuotationService.get(sqId).subscribe({
+      next: (sq: any) => {
+        this.isLoadingSqItems.set(false);
+        if (!sq?.items || sq.items.length === 0) {
+          this.toaster.info(this.l.instant('::NoItemsInQuotation'));
+          return;
+        }
+        // Auto-fill supplier from SQ if not already set
+        if (sq.supplierId && !this.form.get('supplierId')?.value) {
+          this.form.patchValue({ supplierId: sq.supplierId });
+          this.onSupplierChanged();
+        }
+        // Clear existing items and load from SQ
+        while (this.items.length > 0) this.items.removeAt(0);
+        sq.items.forEach((sqItem: any) => {
+          this.items.push(this.fb.group({
+            itemId: [sqItem.itemId, Validators.required],
+            description: [sqItem.description || sqItem.itemName, Validators.required],
+            quantity: [sqItem.quantity, [Validators.required, Validators.min(0.01)]],
+            unitPrice: [sqItem.rate || sqItem.unitPrice || 0, [Validators.required, Validators.min(0)]],
+            taxAmount: [0, Validators.min(0)],
+            uom: [sqItem.uom || 'Unit'],
+          }));
+        });
+        this.toaster.success(this.l.instant('::ItemsLoadedFromSQ', sq.items.length.toString()));
+      },
+      error: () => {
+        this.isLoadingSqItems.set(false);
+        this.toaster.error(this.l.instant('::FailedToLoad'));
+      },
+    });
+  }
+
+  /** Load submitted SQs for the selected supplier (for dropdown selection). */
+  loadSupplierQuotations(): void {
+    const supplierId = this.form.get('supplierId')?.value;
+    const companyId = this.form.get('companyId')?.value;
+    if (!supplierId) return;
+    this.supplierQuotationService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'creationTime desc', status: 'Submitted', supplierId, companyId } as any).subscribe({
+      next: (res) => this.supplierQuotations.set(res.items ?? []),
+      error: () => {},
     });
   }
 
   save(): void {
     if (this.form.invalid || this.items.length === 0) {
       this.form.markAllAsTouched();
-      if (this.items.length === 0) this.toaster.warn('Add at least one item');
+      if (this.items.length === 0) this.toaster.warn('::PleaseFillAllRequiredFields');
       return;
     }
     const raw = this.form.getRawValue() as any;

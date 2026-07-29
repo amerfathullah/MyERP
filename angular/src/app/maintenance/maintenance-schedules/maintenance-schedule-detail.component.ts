@@ -25,6 +25,7 @@ export class MaintenanceScheduleDetailComponent implements OnInit {
 
   schedule = signal<MaintenanceScheduleDto | null>(null);
   loading = signal(true);
+  actionLoading = signal(false);
   itemName = signal('—');
   customerName = signal('—');
 
@@ -66,12 +67,14 @@ export class MaintenanceScheduleDetailComponent implements OnInit {
   }
 
   submit() {
+    this.actionLoading.set(true);
     this.service.submitSchedule(this.id).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySubmitted');
+        this.actionLoading.set(false);
         this.load();
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
+      error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
     });
   }
 

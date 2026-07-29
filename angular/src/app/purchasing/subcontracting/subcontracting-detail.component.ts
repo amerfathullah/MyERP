@@ -29,7 +29,7 @@ import { SubcontractingService } from '../../proxy/purchasing/subcontracting.ser
               </div>
               <div class="card-body">
                 <div class="row g-3">
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? (order()!.supplierId | slice:0:8) }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'Date' | abpLocalization }}</small><strong>{{ order()!.orderDate | date:'dd/MM/yyyy' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'GrandTotal' | abpLocalization }}</small><strong class="fs-5">{{ order()!.grandTotal | number:'1.2-2' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'Currency' | abpLocalization }}</small><strong>{{ order()!.currencyCode ?? 'MYR' }}</strong></div>

@@ -524,3 +524,12 @@ export interface SupplierQuotationItemDto {
   rate?: number;
   amount?: number;
 }
+
+export interface PurchaseInvoiceListSummaryDto {
+  totalPayable: number;
+  overdueCount: number;
+  overdueAmount: number;
+  monthlySpend: number;
+  monthlyInvoiceCount: number;
+  postedInvoiceCount: number;
+}

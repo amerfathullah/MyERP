@@ -2,32 +2,119 @@
   <!-- Filters -->
   <div class="card mb-4">
     <div class="card-body">
-      <form [formGroup]="filters" class="d-flex align-items-end gap-2">
-        <div><label class="form-label">From Date</label><input type="date" class="form-control" formControlName="fromDate" /></div>
-
-        <div><label class="form-label">To Date</label><input type="date" class="form-control" formControlName="toDate" /></div>
-
+      <form [formGroup]="filters" class="d-flex align-items-end gap-2 flex-wrap">
+        <div><label class="form-label">{{ '::From' | abpLocalization }}</label><input type="date" class="form-control" formControlName="fromDate" /></div>
+        <div><label class="form-label">{{ '::To' | abpLocalization }}</label><input type="date" class="form-control" formControlName="toDate" /></div>
+        <div class="form-check mt-4">
+          <input type="checkbox" class="form-check-input" id="includeComparison" formControlName="includeComparison" />
+          <label class="form-check-label" for="includeComparison">{{ '::ComparePreviousPeriod' | abpLocalization }}</label>
+        </div>
         <button class="btn btn-primary" (click)="generate()">
           <i class="fa fa-sync me-1"></i>{{ '::Generate' | abpLocalization }}</button>
       </form>
     </div>
   </div>
 
-  @if (revenue.length > 0 || expenses.length > 0) {
+  @if (revenue().length > 0 || expenses().length > 0) {
+    <!-- KPI Summary Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card border-start border-success border-4">
+          <div class="card-body py-3">
+            <div class="text-muted small">{{ '::TotalRevenue' | abpLocalization }}</div>
+            <div class="fs-4 fw-bold text-success">{{ "" | companyCurrency }} {{ totalRevenue() | number:'1.2-2' }}</div>
+            @if (previousTotalRevenue() !== null) {
+              <div class="small mt-1">
+                <span class="text-muted">{{ '::PreviousPeriod' | abpLocalization }}:</span>
+                <span class="ms-1">{{ previousTotalRevenue() | number:'1.2-2' }}</span>
+                @if (revenueGrowth() !== null) {
+                  <span class="ms-2 badge" [class]="revenueGrowth()! >= 0 ? 'bg-success' : 'bg-danger'">
+                    <i class="fa" [class]="revenueGrowth()! >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"></i>
+                    {{ revenueGrowth() | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-start border-danger border-4">
+          <div class="card-body py-3">
+            <div class="text-muted small">{{ '::TotalExpenses' | abpLocalization }}</div>
+            <div class="fs-4 fw-bold text-danger">{{ "" | companyCurrency }} {{ totalExpenses() | number:'1.2-2' }}</div>
+            @if (previousTotalExpense() !== null) {
+              <div class="small mt-1">
+                <span class="text-muted">{{ '::PreviousPeriod' | abpLocalization }}:</span>
+                <span class="ms-1">{{ previousTotalExpense() | number:'1.2-2' }}</span>
+                @if (expenseGrowth() !== null) {
+                  <span class="ms-2 badge" [class]="expenseGrowth()! <= 0 ? 'bg-success' : 'bg-danger'">
+                    <i class="fa" [class]="expenseGrowth()! <= 0 ? 'fa-arrow-down' : 'fa-arrow-up'"></i>
+                    {{ expenseGrowth() | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-start border-4" [class]="netProfit() >= 0 ? 'border-primary' : 'border-warning'">
+          <div class="card-body py-3">
+            <div class="text-muted small">{{ '::NetProfitLoss' | abpLocalization }}</div>
+            <div class="fs-4 fw-bold" [class]="netProfit() >= 0 ? 'text-primary' : 'text-warning'">
+              {{ "" | companyCurrency }} {{ netProfit() | number:'1.2-2' }}
+            </div>
+            @if (previousNetProfit() !== null) {
+              <div class="small mt-1">
+                <span class="text-muted">{{ '::PreviousPeriod' | abpLocalization }}:</span>
+                <span class="ms-1">{{ previousNetProfit() | number:'1.2-2' }}</span>
+                @if (netProfitGrowth() !== null) {
+                  <span class="ms-2 badge" [class]="netProfitGrowth()! >= 0 ? 'bg-success' : 'bg-danger'">
+                    <i class="fa" [class]="netProfitGrowth()! >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"></i>
+                    {{ netProfitGrowth() | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @if (previousFromDate()) {
+      <div class="alert alert-info small mb-3">
+        <i class="fa fa-info-circle me-1"></i>
+        {{ '::ComparingWith' | abpLocalization }}: {{ previousFromDate() | date:'dd/MM/yyyy' }} — {{ previousToDate() | date:'dd/MM/yyyy' }}
+      </div>
+    }
+
     <div class="row g-4">
       <!-- Revenue -->
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Revenue</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::Revenue' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             @for (row of revenue(); track row.accountName) {
-              <div class="d-flex justify-content-between py-2 border-bottom">
+              <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
                 <span>{{ row.accountName }}</span>
-                <span class="font-monospace text-success">{{ row.amount | number:'1.2-2' }}</span>
+                <div class="text-end">
+                  <span class="font-monospace text-success">{{ row.amount | number:'1.2-2' }}</span>
+                  @if (row.previousPeriodAmount !== null && row.previousPeriodAmount !== undefined) {
+                    <div class="small text-muted">
+                      {{ '::Prev' | abpLocalization }}: {{ row.previousPeriodAmount | number:'1.2-2' }}
+                      @if (row.growthPercentage !== null && row.growthPercentage !== undefined) {
+                        <span class="ms-1" [class]="row.growthPercentage >= 0 ? 'text-success' : 'text-danger'">
+                          ({{ row.growthPercentage > 0 ? '+' : '' }}{{ row.growthPercentage | number:'1.1-1' }}%)
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
             }
             <div class="d-flex justify-content-between py-2 fw-bold">
-              <span>Total Revenue</span>
+              <span>{{ '::TotalRevenue' | abpLocalization }}</span>
               <span class="font-monospace text-success">{{ totalRevenue() | number:'1.2-2' }}</span>
             </div>
           </div>
@@ -37,16 +124,28 @@
       <!-- Expenses -->
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Expenses</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::Expenses' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             @for (row of expenses(); track row.accountName) {
-              <div class="d-flex justify-content-between py-2 border-bottom">
+              <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
                 <span>{{ row.accountName }}</span>
-                <span class="font-monospace text-danger">{{ row.amount | number:'1.2-2' }}</span>
+                <div class="text-end">
+                  <span class="font-monospace text-danger">{{ row.amount | number:'1.2-2' }}</span>
+                  @if (row.previousPeriodAmount !== null && row.previousPeriodAmount !== undefined) {
+                    <div class="small text-muted">
+                      {{ '::Prev' | abpLocalization }}: {{ row.previousPeriodAmount | number:'1.2-2' }}
+                      @if (row.growthPercentage !== null && row.growthPercentage !== undefined) {
+                        <span class="ms-1" [class]="row.growthPercentage <= 0 ? 'text-success' : 'text-danger'">
+                          ({{ row.growthPercentage > 0 ? '+' : '' }}{{ row.growthPercentage | number:'1.1-1' }}%)
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
             }
             <div class="d-flex justify-content-between py-2 fw-bold">
-              <span>Total Expenses</span>
+              <span>{{ '::TotalExpenses' | abpLocalization }}</span>
               <span class="font-monospace text-danger">{{ totalExpenses() | number:'1.2-2' }}</span>
             </div>
           </div>
@@ -58,9 +157,9 @@
     <div class="card mt-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center fs-4">
-          <span class="fw-bold">Net Profit / (Loss)</span>
+          <span class="fw-bold">{{ '::NetProfitLoss' | abpLocalization }}</span>
           <span class="font-monospace fw-bold" [class]="netProfit() >= 0 ? 'text-success' : 'text-danger'">
-            MYR {{ netProfit() | number:'1.2-2' }}
+            {{ "" | companyCurrency }} {{ netProfit() | number:'1.2-2' }}
           </span>
         </div>
       </div>

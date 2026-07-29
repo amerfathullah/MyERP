@@ -34,12 +34,12 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
   get statusCards(): StatCard[] {
     const stats = this.store.salesStats();
     return [
-      { label: 'Valid', count: stats.valid, textClass: 'text-green-600', icon: 'verified' },
-      { label: 'Invalid', count: stats.invalid, textClass: 'text-red-600', icon: 'error' },
-      { label: 'Submitted', count: stats.submitted, textClass: 'text-blue-600', icon: 'schedule' },
-      { label: 'Cancelled', count: stats.cancelled, textClass: 'text-gray-500', icon: 'cancel' },
-      { label: 'Failed', count: stats.failed, textClass: 'text-orange-600', icon: 'warning' },
-      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-gray-400', icon: 'draft' }];
+      { label: 'Valid', count: stats.valid, textClass: 'text-success', icon: 'fa-circle-check' },
+      { label: 'Invalid', count: stats.invalid, textClass: 'text-danger', icon: 'fa-circle-xmark' },
+      { label: 'Submitted', count: stats.submitted, textClass: 'text-primary', icon: 'fa-clock' },
+      { label: 'Cancelled', count: stats.cancelled, textClass: 'text-secondary', icon: 'fa-ban' },
+      { label: 'Failed', count: stats.failed, textClass: 'text-warning', icon: 'fa-triangle-exclamation' },
+      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-muted', icon: 'fa-file' }];
   }
 
   constructor() {

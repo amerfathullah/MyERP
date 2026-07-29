@@ -20,6 +20,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid BomId { get; set; }
     public decimal Quantity { get; set; }
     public decimal ProducedQuantity { get; set; }
+    public decimal DisassembledQuantity { get; set; }
     public decimal MaterialTransferred { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal ProcessLossPercentage { get; set; }
@@ -131,6 +132,18 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         MaterialTransferred += quantity;
         if (Status == WorkOrderStatus.Submitted)
             Status = WorkOrderStatus.NotStarted;
+    }
+
+    /// <summary>Records disassembly qty against produced goods. Per ERPNext: disassembled_qty tracked on WO.</summary>
+    public void RecordDisassembly(decimal quantity)
+    {
+        if (quantity <= 0) return;
+        var availableForDisassembly = ProducedQuantity - DisassembledQuantity;
+        if (quantity > availableForDisassembly)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("maxAllowed", availableForDisassembly)
+                .WithData("attempted", quantity);
+        DisassembledQuantity += quantity;
     }
 
     public void Stop()

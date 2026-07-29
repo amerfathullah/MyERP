@@ -45,10 +45,10 @@ export class ApprovalRuleFormComponent {
     const dto = this.form.getRawValue() as unknown as CreateApprovalRuleDto;
     this.service.createRule(dto).subscribe({
       next: () => {
-        this.toaster.success('Approval Rule created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/workflow/rules']);
       },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to create'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::FailedToCreate'),
     });
   }
 

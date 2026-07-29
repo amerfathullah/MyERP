@@ -65,4 +65,16 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
         TaxAmount = taxAmount;
         Uom = uom;
     }
+
+    /// <summary>
+    /// Clears all deferred expense fields when EnableDeferredExpense is unchecked.
+    /// Per ERPNext PR #57140: clear deferred revenue/expense fields on uncheck.
+    /// </summary>
+    public void ClearDeferredFields()
+    {
+        EnableDeferredExpense = false;
+        DeferredExpenseAccountId = null;
+        ServiceStartDate = null;
+        ServiceEndDate = null;
+    }
 }

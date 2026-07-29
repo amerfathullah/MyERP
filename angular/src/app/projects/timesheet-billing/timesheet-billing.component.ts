@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ interface CustomerOption {
 @Component({
   selector: 'app-timesheet-billing',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './timesheet-billing.component.html',
   styleUrls: ['./timesheet-billing.component.scss'],
 })
@@ -65,7 +66,7 @@ export class TimesheetBillingComponent implements OnInit {
       },
       error: () => {
         this.isLoading.set(false);
-        this.toaster.error('Failed to load unbilled timesheets');
+        this.toaster.error('::FailedToLoad');
       },
     });
   }
@@ -73,7 +74,7 @@ export class TimesheetBillingComponent implements OnInit {
   createInvoice(): void {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId || !this.customerId) {
-      this.toaster.warn('Please select a company and customer');
+      this.toaster.warn('::PleaseSelectCompanyAndCustomer');
       return;
     }
 
@@ -90,7 +91,7 @@ export class TimesheetBillingComponent implements OnInit {
       },
       error: (err) => {
         this.isBilling.set(false);
-        this.toaster.error(err?.error?.error?.message ?? 'Failed to create invoice');
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToCreate');
       },
     });
   }

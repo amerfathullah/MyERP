@@ -97,6 +97,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                 });
 
+                // Enqueue recurring journal entry generation (monthly accruals: rent, insurance, etc.)
+                await jobManager.EnqueueAsync(new Core.BackgroundJobs.RecurringJournalEntryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
                 // Enqueue ledger health check (per DO-NOT: must run daily to detect GL inconsistencies)
                 await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.LedgerHealthCheckJobArgs
                 {

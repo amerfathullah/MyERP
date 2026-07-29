@@ -31,6 +31,9 @@ public interface IDocumentPdfService
     /// <summary>Generate PDF bytes for a Quotation.</summary>
     Task<byte[]> GenerateQuotationPdfAsync(QuotationPdfData data);
 
+    /// <summary>Generate PDF bytes for a Sales Order.</summary>
+    Task<byte[]> GenerateSalesOrderPdfAsync(SalesOrderPdfData data);
+
     /// <summary>Generate PDF from any document using a named template.</summary>
     Task<byte[]> GenerateFromTemplateAsync(string templateName, Dictionary<string, object> data);
 }
@@ -67,6 +70,12 @@ public class DocumentPdfService : IDocumentPdfService, ITransientDependency
     public Task<byte[]> GenerateQuotationPdfAsync(QuotationPdfData data)
     {
         var html = RenderQuotationHtml(data);
+        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+    }
+
+    public Task<byte[]> GenerateSalesOrderPdfAsync(SalesOrderPdfData data)
+    {
+        var html = $"<html><body><h1>Sales Order {data.OrderNumber}</h1><p>Customer: {data.CustomerName}</p><p>Date: {data.OrderDate:dd/MM/yyyy}</p><p>Grand Total: {data.Currency} {data.GrandTotal:N2}</p></body></html>";
         return Task.FromResult(Encoding.UTF8.GetBytes(html));
     }
 
@@ -318,6 +327,23 @@ public class QuotationPdfData
     public DateTime TransactionDate { get; set; }
     public DateTime? ValidTill { get; set; }
     public string PartyName { get; set; } = "";
+    public string Currency { get; set; } = "MYR";
+    public decimal NetTotal { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal GrandTotal { get; set; }
+    public string? Terms { get; set; }
+    public List<PdfLineItem> Items { get; set; } = new();
+}
+
+public class SalesOrderPdfData
+{
+    public string CompanyName { get; set; } = "";
+    public string? CompanyAddress { get; set; }
+    public string OrderNumber { get; set; } = "";
+    public DateTime OrderDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string CustomerName { get; set; } = "";
+    public string? CustomerAddress { get; set; }
     public string Currency { get; set; } = "MYR";
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }

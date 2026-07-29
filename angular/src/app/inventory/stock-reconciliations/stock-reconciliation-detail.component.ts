@@ -39,7 +39,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th class="text-end">{{ 'CurrentQty' | abpLocalization }}</th><th class="text-end">{{ 'NewQty' | abpLocalization }}</th><th class="text-end">{{ 'Difference' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (i of d.items ?? []; track i.id) {
-                <tr><td>{{ itemNames()[i.itemId ?? ''] || (i.itemId | slice:0:8) + '…' }}</td><td class="text-end">{{ i.currentQuantity }}</td><td class="text-end">{{ i.newQuantity }}</td>
+                <tr><td>{{ itemNames()[i.itemId ?? ''] || '—' }}</td><td class="text-end">{{ i.currentQuantity }}</td><td class="text-end">{{ i.newQuantity }}</td>
                 <td class="text-end" [class]="(i.quantityDifference ?? 0) < 0 ? 'text-danger' : 'text-success'">{{ i.quantityDifference }}</td></tr>
               }
             </tbody>
@@ -73,7 +73,7 @@ export class StockReconciliationDetailComponent implements OnInit {
   submit() {
     this.loading.set(true);
     this.service.submit(this.d!.id!).subscribe({
-      next: () => { this.toaster.success('Stock Reconciliation submitted'); this.reload(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.reload(); },
       error: () => this.loading.set(false),
     });
   }

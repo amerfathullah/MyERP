@@ -277,6 +277,27 @@
       </div>
     }
 
+    <!-- Customer Credit Exposure -->
+    @if (customerOutstanding() > 0 || showCreditWarning()) {
+      <div class="alert mb-4" [class.alert-warning]="showCreditWarning()" [class.alert-info]="!showCreditWarning()">
+        <div class="d-flex align-items-center gap-3">
+          <i class="fa" [class.fa-triangle-exclamation]="showCreditWarning()" [class.fa-info-circle]="!showCreditWarning()"></i>
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center">
+              <small class="fw-medium">{{ '::CustomerOutstanding' | abpLocalization }}</small>
+              <span class="fw-bold">{{ customerOutstanding() | number:'1.2-2' }}</span>
+            </div>
+            @if (customerCreditLimit() > 0) {
+              <div class="progress mt-1" style="height: 4px;">
+                <div class="progress-bar" [class.bg-danger]="creditUtilizationPct() >= 90" [class.bg-warning]="creditUtilizationPct() >= 80 && creditUtilizationPct() < 90" [class.bg-info]="creditUtilizationPct() < 80" [style.width.%]="creditUtilizationPct()"></div>
+              </div>
+              <small class="text-muted">{{ '::CreditLimit' | abpLocalization }}: {{ customerCreditLimit() | number:'1.2-2' }} ({{ creditUtilizationPct() }}% {{ '::Used' | abpLocalization }})</small>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Totals -->
     <div class="card mb-4">
       <div class="card-body">

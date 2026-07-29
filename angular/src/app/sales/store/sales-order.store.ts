@@ -41,7 +41,7 @@ export const SalesOrderStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load sales orders');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -54,7 +54,7 @@ export const SalesOrderStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as SalesOrderEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Sales order created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -69,7 +69,7 @@ export const SalesOrderStore = signalStore(
         switchMap((id) => service.submit(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as SalesOrderEntity }));
-          toaster.success('Sales order submitted');
+          toaster.success('::SuccessfullySubmitted');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Submit failed');
@@ -83,7 +83,7 @@ export const SalesOrderStore = signalStore(
         switchMap((id) => service.cancel(id)),
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as SalesOrderEntity }));
-          toaster.success('Sales order cancelled');
+          toaster.success('::SuccessfullyCancelled');
         }),
         catchError((err) => {
           toaster.error(err?.error?.error?.message ?? 'Cancel failed');

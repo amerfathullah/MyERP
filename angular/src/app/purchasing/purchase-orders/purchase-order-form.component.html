@@ -96,14 +96,27 @@
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
-        <button type="button" class="btn btn-sm btn-outline-info" (click)="loadItemsFromMaterialRequest()" [disabled]="isLoadingMrItems()">
-          @if (isLoadingMrItems()) {
-            <span class="spinner-border spinner-border-sm me-1"></span>
-          } @else {
-            <i class="fa fa-file-import me-1"></i>
+        <div class="btn-group btn-group-sm">
+          <!-- Get Items from Supplier Quotation -->
+          @if (supplierQuotations().length > 0) {
+            <select class="form-select form-select-sm" style="max-width: 200px"
+              (change)="loadItemsFromSupplierQuotation($any($event.target).value); $any($event.target).value = ''">
+              <option value="">{{ '::GetItemsFromSQ' | abpLocalization }}</option>
+              @for (sq of supplierQuotations(); track sq.id) {
+                <option [value]="sq.id">{{ sq.quotationNumber || sq.id?.slice(0,8) }}</option>
+              }
+            </select>
           }
-          {{ '::GetItemsFromMR' | abpLocalization }}
-        </button>
+          <!-- Get Items from Material Request -->
+          <button type="button" class="btn btn-sm btn-outline-info" (click)="loadItemsFromMaterialRequest()" [disabled]="isLoadingMrItems()">
+            @if (isLoadingMrItems()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-file-import me-1"></i>
+            }
+            {{ '::GetItemsFromMR' | abpLocalization }}
+          </button>
+        </div>
       </div>
       <div class="card-body">
         <div class="table-responsive">

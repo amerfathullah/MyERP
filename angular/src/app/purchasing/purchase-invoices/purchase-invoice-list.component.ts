@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-ba
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
@@ -32,6 +33,7 @@ export class PurchaseInvoiceListComponent implements OnInit {
   readonly store = inject(PurchaseInvoiceStore);
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
+  private invoiceService = inject(PurchaseInvoiceService);
   displayedColumns = ['orderNumber', 'orderDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
   pageSize = 20;
@@ -42,8 +44,20 @@ export class PurchaseInvoiceListComponent implements OnInit {
   fromDate = '';
   toDate = '';
 
+  /** Server-side KPI summary (accurate across ALL invoices, not just current page) */
+  summary = signal<any>(null);
+
   ngOnInit(): void {
     this.loadData();
+    this.loadSummary();
+  }
+
+  loadSummary(): void {
+    const companyId = this.companyContext.currentCompanyId() || undefined;
+    this.invoiceService.getListSummary(companyId).subscribe({
+      next: (result) => this.summary.set(result),
+      error: () => {},
+    });
   }
 
   loadData(): void {
@@ -131,5 +145,38 @@ export class PurchaseInvoiceListComponent implements OnInit {
     const due = new Date(inv.dueDate);
     due.setHours(0, 0, 0, 0);
     return due < today && this.getOutstanding(inv) > 0.01;
+  }
+
+  isDueThisWeek(inv: any): boolean {
+    if (inv.status !== 'Posted' || inv.isReturn) return false;
+    if (!inv.dueDate) return false;
+    if (this.getOutstanding(inv) <= 0.01) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDays = new Date(today);
+    sevenDays.setDate(sevenDays.getDate() + 7);
+    const due = new Date(inv.dueDate);
+    due.setHours(0, 0, 0, 0);
+    return due >= today && due <= sevenDays;
+  }
+
+  dueThisWeekCount(): number {
+    return (this.store.entities() ?? []).filter((inv: any) => this.isDueThisWeek(inv)).length;
+  }
+
+  dueThisWeekTotal(): number {
+    return (this.store.entities() ?? [])
+      .filter((inv: any) => this.isDueThisWeek(inv))
+      .reduce((sum: number, inv: any) => sum + this.getOutstanding(inv), 0);
+  }
+
+  overdueCount(): number {
+    return (this.store.entities() ?? []).filter((inv: any) => this.isInvoiceOverdue(inv)).length;
+  }
+
+  overdueTotal(): number {
+    return (this.store.entities() ?? [])
+      .filter((inv: any) => this.isInvoiceOverdue(inv))
+      .reduce((sum: number, inv: any) => sum + this.getOutstanding(inv), 0);
   }
 }

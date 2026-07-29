@@ -85,4 +85,48 @@ export class DashboardService {
       url: '/api/app/dashboard/summary',
     },
     { apiName: this.apiName,...config });
+
+  getExpiringQuotations = (companyId: string, daysAhead: number = 7, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/dashboard/expiring-quotations/${companyId}`,
+      params: { daysAhead },
+    },
+    { apiName: this.apiName,...config });
+
+  getTopCustomers = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/dashboard/top-customers/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  getPendingOrdersSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/pending-orders-summary/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  getProductionSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/production-summary/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  getExpiringBatches = (companyId: string, daysAhead: number = 30, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/dashboard/expiring-batches/${companyId}`,
+      params: { daysAhead },
+    },
+    { apiName: this.apiName,...config });
+
+  getTopDebtors = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any[]>({
+      method: 'GET',
+      url: `/api/app/dashboard/top-debtors/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
 }

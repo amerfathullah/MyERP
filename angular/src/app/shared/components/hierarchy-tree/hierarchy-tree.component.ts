@@ -195,8 +195,8 @@ export class HierarchyTreeComponent implements OnInit {
         : this.type === 'SupplierGroup' ? this.service.deleteSupplierGroup(node.id)
         : this.service.deleteTerritory(node.id);
       obs.subscribe({
-        next: () => { this.toaster.success('Deleted'); this.loadData(); },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Delete failed'),
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::DeleteFailed'),
       });
     });
   }

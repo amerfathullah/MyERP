@@ -31,7 +31,7 @@ export const EmployeeStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load employees');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -44,7 +44,7 @@ export const EmployeeStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as EmployeeEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Employee created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -59,10 +59,10 @@ export const EmployeeStore = signalStore(
         switchMap((id) => service.delete(id).pipe(tap(() => {
           patchState(store, removeEntity(id as EntityId));
           patchState(store, { totalCount: store.totalCount() - 1 });
-          toaster.success('Employee deleted');
+          toaster.success('::SuccessfullyDeleted');
         }))),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )

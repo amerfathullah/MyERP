@@ -149,7 +149,7 @@ export class ShipmentFormComponent implements OnInit {
     };
     this.http.post<any>('/api/app/shipment', dto).subscribe({
       next: (result) => {
-        this.toaster.success('Shipment created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/shipments', result.id]);
       },
       error: () => this.saving.set(false)

@@ -1,21 +1,21 @@
 <abp-page [title]="plan?.planNumber ?? ('ProductionPlans' | abpLocalization)">
   <div class="d-flex justify-content-end gap-2 mb-3">
     @if (plan?.status === 0) {
-      <button class="btn btn-info btn-sm" (click)="calculateMaterials()">
+      <button class="btn btn-info btn-sm" (click)="calculateMaterials()" [disabled]="actionLoading()">
         <i class="fa fa-calculator me-1"></i>{{ 'CalculateMaterials' | abpLocalization }}
       </button>
-      <button class="btn btn-success btn-sm" (click)="submit()">
+      <button class="btn btn-success btn-sm" (click)="submit()" [disabled]="actionLoading()">
         <i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}
       </button>
     }
     @if (plan?.status === 1 || plan?.status === 2) {
-      <button class="btn btn-primary btn-sm" (click)="generateWorkOrders()">
+      <button class="btn btn-primary btn-sm" (click)="generateWorkOrders()" [disabled]="actionLoading()">
         <i class="fa fa-industry me-1"></i>{{ 'GenerateWorkOrders' | abpLocalization }}
       </button>
-      <button class="btn btn-warning btn-sm" (click)="generateMaterialRequests()">
+      <button class="btn btn-warning btn-sm" (click)="generateMaterialRequests()" [disabled]="actionLoading()">
         <i class="fa fa-boxes-stacked me-1"></i>{{ 'GenerateMaterialRequests' | abpLocalization }}
       </button>
-      <button class="btn btn-outline-danger btn-sm" (click)="cancel()">
+      <button class="btn btn-outline-danger btn-sm" (click)="cancel()" [disabled]="actionLoading()">
         <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
       </button>
     }

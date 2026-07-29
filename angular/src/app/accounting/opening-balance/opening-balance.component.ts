@@ -267,7 +267,7 @@ export class OpeningBalanceComponent implements OnInit {
       .filter(l => l.accountId && (l.debit > 0 || l.credit > 0));
 
     if (lines.length === 0) {
-      this.toaster.warn('Please add at least one line with a debit or credit amount.');
+      this.toaster.warn('::PleaseAddAtLeastOneLine');
       return;
     }
 

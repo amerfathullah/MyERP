@@ -73,6 +73,12 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           @if (wo()!.status === 5) {
             <button class="btn btn-primary btn-sm" (click)="unstop()"><i class="fa fa-play me-1"></i>{{ '::Resume' | abpLocalization }}</button>
           }
+          @if (wo()!.status === 4 && (wo()!.producedQuantity ?? 0) > (wo()!.disassembledQuantity ?? 0)) {
+            <button class="btn btn-outline-warning btn-sm" (click)="disassemble()" [disabled]="isDisassembling()">
+              @if (isDisassembling()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-rotate-left me-1"></i>{{ '::Disassemble' | abpLocalization }}
+            </button>
+          }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
             <button class="btn btn-outline-secondary btn-sm" (click)="createStockEntry()"><i class="fa fa-truck me-1"></i>{{ '::MaterialTransfer' | abpLocalization }}</button>
           }
@@ -299,6 +305,7 @@ export class WorkOrderDetailComponent implements OnInit {
   isLoading = signal(false);
   materialAvailability = signal<any[]>([]);
   isCheckingMaterials = signal(false);
+  isDisassembling = signal(false);
 
   hasShortage(): boolean {
     return this.materialAvailability().some(m => !m.hasSufficientStock);
@@ -331,8 +338,8 @@ export class WorkOrderDetailComponent implements OnInit {
   start() {
     const id = this.wo()!.id!;
     this.service.startWorkOrder(id).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success('Work Order started'); },
-      error: () => this.toaster.error('Failed to start'),
+      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyStarted'); },
+      error: () => this.toaster.error('::OperationFailed'),
     });
   }
 
@@ -349,16 +356,43 @@ export class WorkOrderDetailComponent implements OnInit {
   stop() {
     const id = this.wo()!.id!;
     this.service.stopWorkOrder(id).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success('Work Order stopped'); },
-      error: () => this.toaster.error('Failed to stop'),
+      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyStopped'); },
+      error: () => this.toaster.error('::OperationFailed'),
     });
   }
 
   unstop() {
     const id = this.wo()!.id!;
     this.manufacturingService.unstopWorkOrder(id).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success('Work Order resumed'); },
-      error: () => this.toaster.error('Failed to resume'),
+      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyUpdated'); },
+      error: () => this.toaster.error('::OperationFailed'),
+    });
+  }
+
+  disassemble() {
+    const wo = this.wo()!;
+    const available = (wo.producedQuantity ?? 0) - (wo.disassembledQuantity ?? 0);
+    const qty = prompt(this.l.instant('::EnterDisassemblyQty') + ` (max: ${available})`, String(available));
+    if (!qty) return;
+    const parsedQty = parseFloat(qty);
+    if (isNaN(parsedQty) || parsedQty <= 0 || parsedQty > available) {
+      this.toaster.warn(this.l.instant('::InvalidQuantity'));
+      return;
+    }
+    this.isDisassembling.set(true);
+    this.http.post<any>('/api/app/manufacturing/work-order/disassembly', {
+      workOrderId: wo.id, quantity: parsedQty
+    }).subscribe({
+      next: (result) => {
+        this.isDisassembling.set(false);
+        this.toaster.success(this.l.instant('::DisassemblyCreated') + ` — ${result.itemCount} items`);
+        // Reload WO data to show updated disassembled qty
+        this.service.getWorkOrder(wo.id!).subscribe(w => this.wo.set(w));
+      },
+      error: (err: any) => {
+        this.isDisassembling.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
     });
   }
 

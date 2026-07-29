@@ -175,17 +175,26 @@ export class DeliveryNoteFormComponent implements OnInit {
           this.form.patchValue({ customerId: so.customerId });
         }
 
+        // Auto-fill warehouse from first pending item's warehouse (per ERPNext SO→DN mapper)
+        let warehouseSet = false;
+
         // Add only items with pending delivery qty
         let loadedCount = 0;
         (so.items ?? []).forEach((item: any) => {
           const pendingQty = (item.quantity ?? 0) - (item.deliveredQty ?? 0);
           if (pendingQty > 0) {
+            // Auto-set DN-level warehouse from first item's warehouse
+            if (!warehouseSet && item.warehouseId && !this.form.get('warehouseId')?.value) {
+              this.form.patchValue({ warehouseId: item.warehouseId });
+              warehouseSet = true;
+            }
             this.addItemRow({
               itemId: item.itemId,
               description: item.description,
               quantity: pendingQty,
               unitPrice: item.unitPrice ?? 0,
               uom: item.uom ?? 'Unit',
+              warehouseId: item.warehouseId,
             });
             loadedCount++;
           }

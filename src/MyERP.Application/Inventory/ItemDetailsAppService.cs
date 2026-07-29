@@ -109,6 +109,34 @@ public class ItemDetailsAppService : ApplicationService
             DefaultDiscountPercentage = resolved.DefaultDiscountPercentage,
         };
 
+        // Blanket Order rate resolution per ERPNext update_party_blanket_order
+        if (input.CompanyId.HasValue && (input.CustomerId.HasValue || input.SupplierId.HasValue))
+        {
+            try
+            {
+                var boRateService = LazyServiceProvider
+                    .LazyGetRequiredService<Sales.DomainServices.BlanketOrderRateService>();
+                var partyId = input.CustomerId ?? input.SupplierId!.Value;
+                var orderType = txType == TransactionType.Selling ? "Selling" : "Buying";
+                var txDate = input.TransactionDate ?? DateTime.UtcNow;
+
+                var boResult = await boRateService.GetRateAsync(
+                    input.CompanyId.Value, partyId, input.ItemId, orderType, txDate);
+
+                if (boResult != null)
+                {
+                    result.BlanketOrderId = boResult.BlanketOrderId;
+                    result.BlanketOrderNumber = boResult.BlanketOrderNumber;
+                    result.BlanketOrderRate = boResult.Rate;
+                    result.BlanketOrderRemainingQty = boResult.RemainingQty;
+                    // BO rate takes precedence over standard rate
+                    if (boResult.Rate > 0)
+                        result.Rate = boResult.Rate;
+                }
+            }
+            catch { /* Non-blocking: BO resolution failure doesn't prevent item selection */ }
+        }
+
         return result;
     }
 }
@@ -167,4 +195,13 @@ public class ItemDetailsDto
     public Guid? DefaultSupplierId { get; set; }
     /// <summary>Resolved default discount percentage (from ItemDefault per company).</summary>
     public decimal DefaultDiscountPercentage { get; set; }
+
+    /// <summary>Active Blanket Order ID if item has a contracted rate.</summary>
+    public Guid? BlanketOrderId { get; set; }
+    /// <summary>Blanket Order number for display.</summary>
+    public string? BlanketOrderNumber { get; set; }
+    /// <summary>Contracted rate from the Blanket Order (takes precedence over standard rate).</summary>
+    public decimal? BlanketOrderRate { get; set; }
+    /// <summary>Remaining qty available on the Blanket Order line.</summary>
+    public decimal? BlanketOrderRemainingQty { get; set; }
 }

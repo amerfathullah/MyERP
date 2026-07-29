@@ -27,4 +27,10 @@ public interface ISalesInvoiceAppService : IApplicationService
     /// Per ERPNext: primary billing workflow for goods-based businesses that deliver daily but invoice weekly/monthly.
     /// </summary>
     Task<SalesInvoiceDto> CreateFromDeliveryNotesAsync(CreateInvoiceFromDeliveryNotesDto input);
+
+    /// <summary>
+    /// Returns aggregate KPI summary for the SI list page: outstanding, overdue, monthly revenue.
+    /// Enables dashboard-style cards without fetching all invoices.
+    /// </summary>
+    Task<SalesInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
 }

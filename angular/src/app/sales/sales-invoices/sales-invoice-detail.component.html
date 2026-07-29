@@ -46,7 +46,7 @@
             <div class="col-12 col-md-3">
               <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
               <div class="input-group">
-                <span class="input-group-text">{{ invoice.currencyCode || 'MYR' }}</span>
+                <span class="input-group-text">{{ invoice.currencyCode || ('' | companyCurrency) }}</span>
                 <input type="number" class="form-control" step="0.01" min="0.01"
                        [ngModel]="quickPaymentAmount()" (ngModelChange)="quickPaymentAmount.set($event)" />
               </div>
@@ -149,7 +149,7 @@
                 <th class="text-end" style="width: 80px;">Qty</th>
                 <th class="text-end" style="width: 110px;">Rate</th>
                 <th class="text-end" style="width: 80px;">Disc %</th>
-                <th class="text-end" style="width: 120px;">Amount</th>
+                <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -188,7 +188,7 @@
           }
           <hr class="my-2" />
           <div class="d-flex justify-content-between">
-            <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</span>
+            <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }} ({{ invoice.currencyCode || ('' | companyCurrency) }})</span>
             <span class="font-monospace fw-bold fs-5">{{ invoice.grandTotal | number:'1.2-2' }}</span>
           </div>
           @if (invoice.status === 'Posted') {
@@ -297,6 +297,51 @@
     }
 
     <app-activity-log [documentType]="'SalesInvoice'" [documentId]="invoice.id!"></app-activity-log>
+
+    <!-- LHDN e-Invoice Verification Section (visible when submitted to LHDN) -->
+    @if (invoice.eInvoiceStatus && invoice.eInvoiceStatus !== 'NotSubmitted') {
+      <div class="card mb-3 border-start border-4 border-primary">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+          <h6 class="card-title mb-0">
+            <i class="fa fa-file-shield me-2 text-primary"></i>{{ '::EInvoice' | abpLocalization }}
+          </h6>
+          <app-lhdn-status-badge [status]="invoice.eInvoiceStatus" />
+        </div>
+        <div class="card-body">
+          <div class="row align-items-center">
+            <!-- QR Code (when LHDN has provided longId) -->
+            @if (invoice.lhdnLongId) {
+              <div class="col-auto">
+                <a [href]="getLhdnVerificationUrl()" target="_blank" title="Verify on MyInvois Portal">
+                  <img [src]="getLhdnQrCodeUrl()" alt="LHDN QR" width="96" height="96" class="border rounded" />
+                </a>
+              </div>
+            }
+            <div class="col">
+              @if (invoice.lhdnUuid) {
+                <div class="mb-1">
+                  <small class="text-muted d-block">{{ '::LhdnUuid' | abpLocalization }}</small>
+                  <code class="small">{{ invoice.lhdnUuid }}</code>
+                </div>
+              }
+              @if (invoice.lhdnSubmittedAt) {
+                <div class="mb-1">
+                  <small class="text-muted d-block">{{ '::SubmittedAt' | abpLocalization }}</small>
+                  <span>{{ invoice.lhdnSubmittedAt | date:'dd MMM yyyy, HH:mm' }}</span>
+                </div>
+              }
+              @if (invoice.lhdnLongId) {
+                <div>
+                  <a [href]="getLhdnVerificationUrl()" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+                    <i class="fa fa-external-link-alt me-1"></i>{{ '::VerifyOnLhdn' | abpLocalization }}
+                  </a>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Document connections (payments, linked orders, delivery notes, returns) -->
     @if (invoice.status !== 'Draft') {

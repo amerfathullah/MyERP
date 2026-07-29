@@ -65,7 +65,7 @@ export class BudgetDetailComponent implements OnInit {
   submit() {
     this.loading.set(true);
     this.service.submit(this.budget!.id!).subscribe({
-      next: () => { this.toaster.success('Budget submitted'); this.reload(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.reload(); },
       error: () => this.loading.set(false),
     });
   }

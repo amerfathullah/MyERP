@@ -36,8 +36,8 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               @for (sn of items; track sn.id) {
                 <tr>
                   <td class="font-monospace">{{ sn.serialNumber }}</td>
-                  <td>{{ itemNames()[sn.itemId ?? ''] || (sn.itemId | slice:0:8) + '…' }}</td>
-                  <td>{{ sn.warehouseId ? (warehouseNames()[sn.warehouseId] || (sn.warehouseId | slice:0:8) + '…') : '—' }}</td>
+                  <td>{{ itemNames()[sn.itemId ?? ''] || '—' }}</td>
+                  <td>{{ sn.warehouseId ? (warehouseNames()[sn.warehouseId] || '—') : '—' }}</td>
                   <td>{{ sn.maintenanceStatus }}</td>
                   <td><span class="badge" [ngClass]="{'bg-success':sn.status===0, 'bg-info':sn.status===1, 'bg-secondary':sn.status===2}">
                     {{ ['Active','Delivered','Inactive'][sn.status ?? 0] ?? 'Active' }}

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import type { SupplierDto } from '../proxy/purchasing/models';
@@ -28,6 +28,7 @@ export class SupplierListComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   suppliers: SupplierDto[] = [];
   totalCount = 0;
@@ -78,9 +79,9 @@ export class SupplierListComponent implements OnInit {
   delete(id: string): void {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
       if (status === Confirmation.Status.confirm) {
-        this.supplierService.delete(id).subscribe(() => {
-          this.suppliers = this.suppliers.filter(s => s.id !== id);
-          this.totalCount--;
+        this.supplierService.delete(id).subscribe({
+          next: () => { this.suppliers = this.suppliers.filter(s => s.id !== id); this.totalCount--; },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
         });
       }
     });

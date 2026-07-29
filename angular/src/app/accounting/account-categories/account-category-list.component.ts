@@ -122,7 +122,7 @@ export class AccountCategoryListComponent implements OnInit {
   create() {
     this.accountCategoryService.create(this.newCategory as any).subscribe({
       next: () => {
-        this.toaster.success('Category created');
+        this.toaster.success('::SuccessfullyCreated');
         this.showCreate = false;
         this.newCategory = { name: '', rootType: 'Asset', description: '' };
         this.loadData();

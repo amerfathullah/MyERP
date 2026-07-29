@@ -30,7 +30,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       } else if (error.status === 429) {
         toaster.warn('Too many requests. Please wait a moment.', 'Rate Limited');
       } else if (error.status >= 500) {
-        toaster.error('An unexpected error occurred. Please try again.', 'Server Error');
+        toaster.error('::OperationFailed');
       }
 
       return throwError(() => error);

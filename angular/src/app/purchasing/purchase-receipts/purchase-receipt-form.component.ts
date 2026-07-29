@@ -229,18 +229,18 @@ export class PurchaseReceiptFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => {
-          this.toaster.success('Purchase Receipt updated');
+          this.toaster.success('::SuccessfullyUpdated');
           this.router.navigate(['/purchasing/receipts', this.entityId]);
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to update'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::FailedToUpdate'),
       });
     } else {
       this.service.create(dto).subscribe({
         next: () => {
-          this.toaster.success('Purchase Receipt created');
+          this.toaster.success('::SuccessfullyCreated');
           this.router.navigate(['/purchasing/receipts']);
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to create'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::FailedToCreate'),
       });
     }
   }

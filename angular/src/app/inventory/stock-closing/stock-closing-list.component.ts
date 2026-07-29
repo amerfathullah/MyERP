@@ -107,16 +107,16 @@ export class StockClosingListComponent implements OnInit {
 
   createNew() {
     const cid = this.companyContext.currentCompanyId();
-    if (!cid) { this.toaster.warn('Select a company first'); return; }
+    if (!cid) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
     this.service.generate({ companyId: cid, postingDate: new Date().toISOString().slice(0, 10) } as any).subscribe({
-      next: () => { this.toaster.success('Stock Closing entry created'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.loadData(); },
       error: () => {}
     });
   }
 
   submit(id: string) {
     this.service.submit(id).subscribe({
-      next: () => { this.toaster.success('Stock Closing submitted'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.loadData(); },
       error: () => {}
     });
   }

@@ -124,4 +124,82 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
             TotalValueDifference = rows.Sum(r => r.StockValueDifference),
         };
     }
+
+    /// <summary>
+    /// Summarizes stock movements per item for a period: opening, in, out, closing qty + value.
+    /// Per ERPNext Stock Ledger / Stock Balance Analysis report pattern.
+    /// </summary>
+    public async Task<StockMovementSummaryDto> GetStockMovementSummaryAsync(
+        Guid companyId, DateTime fromDate, DateTime toDate, Guid? warehouseId = null)
+    {
+        var query = await _ledgerRepository.GetQueryableAsync();
+
+        // Opening balance: SLEs before period start
+        var openingQuery = query.Where(e => e.CompanyId == companyId && e.PostingDate < fromDate);
+        if (warehouseId.HasValue)
+            openingQuery = openingQuery.Where(e => e.WarehouseId == warehouseId.Value);
+
+        var openingByItem = openingQuery
+            .GroupBy(e => e.ItemId)
+            .Select(g => new { ItemId = g.Key, Qty = g.Sum(e => e.QuantityChange), Value = g.Sum(e => e.StockValue) })
+            .ToList()
+            .ToDictionary(x => x.ItemId);
+
+        // Period movements: SLEs within period
+        var periodQuery = query.Where(e => e.CompanyId == companyId && e.PostingDate >= fromDate && e.PostingDate <= toDate);
+        if (warehouseId.HasValue)
+            periodQuery = periodQuery.Where(e => e.WarehouseId == warehouseId.Value);
+
+        var movementsByItem = periodQuery
+            .GroupBy(e => e.ItemId)
+            .Select(g => new
+            {
+                ItemId = g.Key,
+                StockIn = g.Where(e => e.QuantityChange > 0).Sum(e => e.QuantityChange),
+                StockOut = g.Where(e => e.QuantityChange < 0).Sum(e => e.QuantityChange),
+                ValueIn = g.Where(e => e.QuantityChange > 0).Sum(e => e.StockValue),
+                ValueOut = g.Where(e => e.QuantityChange < 0).Sum(e => e.StockValue),
+            })
+            .ToList();
+
+        var allItemIds = openingByItem.Keys.Union(movementsByItem.Select(m => m.ItemId)).Distinct().ToList();
+        var itemNames = (await _itemRepository.GetListAsync(i => allItemIds.Contains(i.Id)))
+            .ToDictionary(i => i.Id, i => new { i.ItemCode, i.ItemName });
+
+        var rows = allItemIds.Select(itemId =>
+        {
+            var opening = openingByItem.GetValueOrDefault(itemId);
+            var movement = movementsByItem.FirstOrDefault(m => m.ItemId == itemId);
+            var openingQty = opening?.Qty ?? 0;
+            var stockIn = movement?.StockIn ?? 0;
+            var stockOut = Math.Abs(movement?.StockOut ?? 0);
+            var item = itemNames.GetValueOrDefault(itemId);
+            return new StockMovementItemDto
+            {
+                ItemId = itemId,
+                ItemCode = item?.ItemCode ?? "",
+                ItemName = item?.ItemName ?? "",
+                OpeningQty = openingQty,
+                StockInQty = stockIn,
+                StockOutQty = stockOut,
+                ClosingQty = openingQty + stockIn - stockOut,
+                StockInValue = movement?.ValueIn ?? 0,
+                StockOutValue = Math.Abs(movement?.ValueOut ?? 0),
+            };
+        }).Where(r => r.OpeningQty != 0 || r.StockInQty != 0 || r.StockOutQty != 0)
+          .OrderByDescending(r => r.StockInQty + r.StockOutQty)
+          .ToList();
+
+        return new StockMovementSummaryDto
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
+            TotalItems = rows.Count,
+            TotalStockIn = rows.Sum(r => r.StockInQty),
+            TotalStockOut = rows.Sum(r => r.StockOutQty),
+            TotalStockInValue = rows.Sum(r => r.StockInValue),
+            TotalStockOutValue = rows.Sum(r => r.StockOutValue),
+            Items = rows,
+        };
+    }
 }

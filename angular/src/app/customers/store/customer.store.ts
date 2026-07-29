@@ -38,7 +38,7 @@ export const CustomerStore = signalStore(
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
-          toaster.error(err?.error?.error?.message ?? 'Failed to load customers');
+          toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
           return EMPTY;
         }),
       )
@@ -51,7 +51,7 @@ export const CustomerStore = signalStore(
         tap((created) => {
           patchState(store, addEntity(created as CustomerEntity));
           patchState(store, { isLoading: false });
-          toaster.success('Customer created');
+          toaster.success('::SuccessfullyCreated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -68,7 +68,7 @@ export const CustomerStore = signalStore(
         tap((updated) => {
           patchState(store, updateEntity({ id: updated.id!, changes: updated as CustomerEntity }));
           patchState(store, { isLoading: false });
-          toaster.success('Customer updated');
+          toaster.success('::SuccessfullyUpdated');
         }),
         catchError((err) => {
           patchState(store, { isLoading: false });
@@ -84,11 +84,11 @@ export const CustomerStore = signalStore(
           tap(() => {
             patchState(store, removeEntity(id));
             patchState(store, { totalCount: store.totalCount() - 1 });
-            toaster.success('Customer deleted');
+            toaster.success('::SuccessfullyDeleted');
           }),
         )),
         catchError((err) => {
-          toaster.error(err?.error?.error?.message ?? 'Delete failed');
+          toaster.error(err?.error?.error?.message ?? '::DeleteFailed');
           return EMPTY;
         }),
       )

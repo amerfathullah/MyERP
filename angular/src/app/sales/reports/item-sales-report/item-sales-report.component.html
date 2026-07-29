@@ -31,7 +31,7 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-body text-center py-3">
-            <p class="fs-3 fw-bold text-success font-monospace">MYR {{ totalRevenue() | number:'1.2-2' }}</p>
+            <p class="fs-3 fw-bold text-success font-monospace">{{ "" | companyCurrency }} {{ totalRevenue() | number:'1.2-2' }}</p>
             <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
           </div>
         </div>
@@ -85,7 +85,7 @@
                   <td class="text-muted">{{ i + 1 }}</td>
                   <td class="fw-medium">{{ item.itemName }}</td>
                   <td class="text-end">{{ item.totalQty | number:'1.0-2' }}</td>
-                  <td class="text-end font-monospace fw-bold text-success">MYR {{ item.totalRevenue | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold text-success">{{ "" | companyCurrency }} {{ item.totalRevenue | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ item.averageRate | number:'1.2-2' }}</td>
                   <td class="text-end">{{ item.invoiceCount }}</td>
                 </tr>
@@ -95,7 +95,7 @@
               <tr class="fw-bold border-top-2">
                 <td colspan="2">{{ '::Total' | abpLocalization }}</td>
                 <td class="text-end">{{ totalQty() | number:'1.0-2' }}</td>
-                <td class="text-end font-monospace text-success">MYR {{ totalRevenue() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace text-success">{{ "" | companyCurrency }} {{ totalRevenue() | number:'1.2-2' }}</td>
                 <td></td>
                 <td></td>
               </tr>

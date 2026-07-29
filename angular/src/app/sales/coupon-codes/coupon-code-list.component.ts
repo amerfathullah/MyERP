@@ -181,7 +181,7 @@ export class CouponCodeListComponent implements OnInit {
       validUpto: this.newCoupon.validUpto || undefined,
     };
     this.couponCodeService.create(dto as any).subscribe({
-      next: () => { this.toaster.success('Coupon created'); this.showCreateForm = false; this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData(); },
       error: () => {}
     });
   }

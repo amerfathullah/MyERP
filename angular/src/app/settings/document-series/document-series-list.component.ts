@@ -93,7 +93,7 @@ export class DocumentSeriesListComponent implements OnInit {
   save() {
     if (!this.newItem.documentType || !this.newItem.prefix) return;
     this.http.post('/api/app/document-series', this.newItem).subscribe({
-      next: () => { this.toaster.success('Saved'); this.showForm = false; this.newItem = { documentType: '', prefix: '', paddedDigits: 5, resetOnFiscalYear: true }; this.load(); },
+      next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.newItem = { documentType: '', prefix: '', paddedDigits: 5, resetOnFiscalYear: true }; this.load(); },
       error: () => {}
     });
   }

@@ -109,7 +109,7 @@ export class SalaryComponentListComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.service.delete(id).subscribe({
         next: () => { this.toaster.success('MyERP::SuccessfullyDeleted'); this.load(); },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Delete failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::DeleteFailed'),
       });
     });
   }

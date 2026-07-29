@@ -119,7 +119,7 @@ export class LoyaltyProgramFormComponent implements OnInit {
     if (!this.form.valid) return;
     this.saving = true;
     this.service.create(this.form.value as any).subscribe({
-      next: () => { this.toaster.success('Loyalty program created'); this.router.navigate(['/sales/loyalty-programs']); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/loyalty-programs']); },
       error: () => { this.saving = false; }
     });
   }

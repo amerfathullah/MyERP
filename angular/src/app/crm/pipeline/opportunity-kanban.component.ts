@@ -259,7 +259,7 @@ export class OpportunityKanbanComponent implements OnInit {
         this.toaster.success(`Moved to ${targetStage}`);
       },
       error: () => {
-        this.toaster.error('Failed to update stage. Reverting...');
+        this.toaster.error('::OperationFailed');
         this.loadOpportunities(); // Revert to server state
       },
     });

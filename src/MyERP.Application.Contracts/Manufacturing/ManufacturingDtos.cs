@@ -134,6 +134,7 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public Guid BomId { get; set; }
     public decimal Quantity { get; set; }
     public decimal ProducedQuantity { get; set; }
+    public decimal DisassembledQuantity { get; set; }
     public decimal MaterialTransferred { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal ProcessLossPercentage { get; set; }
@@ -207,6 +208,24 @@ public class MaterialConsumptionResultDto
     public int ItemCount { get; set; }
 }
 
+/// <summary>Input for creating a Disassembly Stock Entry from Work Order.</summary>
+public class CreateDisassemblyDto
+{
+    [Required] public Guid WorkOrderId { get; set; }
+    [Required] [Range(0.0001, double.MaxValue)] public decimal Quantity { get; set; }
+    public Guid? SourceStockEntryId { get; set; }
+}
+
+/// <summary>Result DTO for Disassembly Stock Entry creation.</summary>
+public class DisassemblyResultDto
+{
+    public Guid StockEntryId { get; set; }
+    public string EntryNumber { get; set; } = null!;
+    public decimal DisassembledQty { get; set; }
+    public int ItemCount { get; set; }
+    public decimal RemainingDisassemblable { get; set; }
+}
+
 /// <summary>Result DTO for Stock Entry creation from Work Order.</summary>
 public class StockEntryResultDto
 {
@@ -258,6 +277,9 @@ public interface IManufacturingAppService : IApplicationService
 
     // Job Cards for Work Order
     Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId);
+
+    // Disassembly
+    Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync(CreateDisassemblyDto input);
 }
 
 /// <summary>

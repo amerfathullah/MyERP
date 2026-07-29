@@ -23,7 +23,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   imports: [CommonModule, LocalizationPipe],
   styles: [`
     :host { display: block; }
-    .print-invoice { font-family: 'Segoe UI', sans-serif; color: #333; max-width: 210mm; margin: 0 auto; padding: 15mm; }
+    .print-invoice { font-family: 'Segoe UI', sans-serif; color: #333; max-width: 210mm; margin: 0 auto; padding: 15mm; position: relative; overflow: hidden; }
     .print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1976d2; padding-bottom: 12px; margin-bottom: 20px; }
     .company-info h1 { font-size: 20pt; color: #1976d2; margin: 0 0 4px; }
     .company-info p { margin: 2px 0; font-size: 9pt; color: #555; }
@@ -53,9 +53,22 @@ import { LocalizationPipe } from '@abp/ng.core';
     .footer .notes { margin-bottom: 8px; }
     .footer .bank-details { margin-bottom: 8px; }
     .footer .thank-you { text-align: center; font-style: italic; margin-top: 16px; }
+    .footer .computer-generated { text-align: center; font-size: 7.5pt; color: #999; margin-top: 4px; }
     .badge-doc-type { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: 600; text-transform: uppercase; }
     .badge-invoice { background: #e3f2fd; color: #1565c0; }
     .badge-credit-note { background: #fff3e0; color: #e65100; }
+
+    /* LHDN e-Invoice QR Code */
+    .einvoice-section { display: flex; align-items: center; gap: 16px; margin: 20px 0; padding: 12px; border: 1px dashed #1976d2; border-radius: 4px; background: #f8fbff; }
+    .einvoice-qr { flex-shrink: 0; }
+    .qr-image { width: 80px; height: 80px; }
+    .einvoice-info { font-size: 8.5pt; color: #555; }
+    .einvoice-label { font-weight: 600; color: #1976d2; margin: 0 0 4px; font-size: 9pt; }
+    .einvoice-uuid { margin: 2px 0; font-family: monospace; font-size: 7.5pt; color: #666; word-break: break-all; }
+    .einvoice-link a { color: #1976d2; text-decoration: underline; font-size: 8pt; }
+
+    /* Document Status Watermark */
+    .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); font-size: 72pt; font-weight: 900; color: rgba(200, 50, 50, 0.08); text-transform: uppercase; pointer-events: none; z-index: 0; letter-spacing: 8px; white-space: nowrap; }
 
     @media screen {
       :host { display: none; }
@@ -215,6 +228,29 @@ import { LocalizationPipe } from '@abp/ng.core';
             </table>
           </div>
         }
+        <!-- LHDN e-Invoice QR Code Section (Malaysia tax compliance) -->
+        @if (invoice.lhdnLongId || invoice.qrCodeUrl) {
+          <div class="einvoice-section">
+            <div class="einvoice-qr">
+              <img [src]="getQrCodeUrl()" alt="LHDN e-Invoice QR" class="qr-image" />
+            </div>
+            <div class="einvoice-info">
+              <p class="einvoice-label">{{ 'PrintLayout:LhdnVerification' | abpLocalization }}</p>
+              @if (invoice.lhdnUuid) {
+                <p class="einvoice-uuid">UUID: {{ invoice.lhdnUuid }}</p>
+              }
+              <p class="einvoice-link">
+                <a [href]="getLhdnVerificationUrl()" target="_blank">{{ 'PrintLayout:VerifyOnLhdn' | abpLocalization }}</a>
+              </p>
+            </div>
+          </div>
+        }
+
+        <!-- Document Status Watermark (Draft/Cancelled overlays) -->
+        @if (showWatermark) {
+          <div class="watermark">{{ watermarkText }}</div>
+        }
+
         <!-- Footer -->
         <div class="footer">
           @if (invoice.notes) {
@@ -228,7 +264,10 @@ import { LocalizationPipe } from '@abp/ng.core';
               {{ bankDetails }}
             </div>
           }
-          <div class="thank-you">Thank you for your business</div>
+          <div class="thank-you">{{ 'PrintLayout:ThankYou' | abpLocalization }}</div>
+          @if (invoice.lhdnLongId) {
+            <div class="computer-generated">{{ 'PrintLayout:ComputerGenerated' | abpLocalization }}</div>
+          }
         </div>
       </div>
     }
@@ -240,6 +279,40 @@ export class InvoicePrintLayoutComponent {
   @Input() paymentSchedule: any[] = [];
   @Input() bankDetails: string = '';
   @Input() taxLabel: string = 'SST (6%)';
+
+  /** Whether to show a status watermark (Draft/Cancelled) */
+  get showWatermark(): boolean {
+    if (!this.invoice) return false;
+    const status = this.invoice.status;
+    return status === 0 || status === 'Draft' || status === 4 || status === 'Cancelled';
+  }
+
+  get watermarkText(): string {
+    if (!this.invoice) return '';
+    const status = this.invoice.status;
+    if (status === 0 || status === 'Draft') return 'DRAFT';
+    if (status === 4 || status === 'Cancelled') return 'CANCELLED';
+    return '';
+  }
+
+  /** QR code URL for LHDN e-Invoice verification (per myinvois get_status.py) */
+  getQrCodeUrl(): string {
+    if (this.invoice?.qrCodeUrl) return this.invoice.qrCodeUrl;
+    if (this.invoice?.lhdnLongId) {
+      // Generate QR via QR Server API (same approach as myinvois generate_qr_code)
+      const verifyUrl = `https://myinvois.hasil.gov.my/${this.invoice.lhdnLongId}/share`;
+      return `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(verifyUrl)}`;
+    }
+    return '';
+  }
+
+  /** LHDN verification portal URL */
+  getLhdnVerificationUrl(): string {
+    if (this.invoice?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${this.invoice.lhdnLongId}/share`;
+    }
+    return '';
+  }
 
   formatCurrency(amount: number | undefined): string {
     if (amount == null) return '0.00';

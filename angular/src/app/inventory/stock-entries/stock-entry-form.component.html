@@ -38,6 +38,7 @@
             <label class="form-label">{{ '::EntryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="entryDate" [class.is-invalid]="form.get('entryDate')?.invalid && form.get('entryDate')?.touched" />
           </div>
+          @if (showSourceWarehouse()) {
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="sourceWarehouse" [class.is-invalid]="form.get('sourceWarehouse')?.invalid && form.get('sourceWarehouse')?.touched">
@@ -47,6 +48,8 @@
               }
             </select>
           </div>
+          }
+          @if (showTargetWarehouse()) {
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="targetWarehouse" [class.is-invalid]="form.get('targetWarehouse')?.invalid && form.get('targetWarehouse')?.touched">
@@ -56,6 +59,7 @@
               }
             </select>
           </div>
+          }
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="remarks" [class.is-invalid]="form.get('remarks')?.invalid && form.get('remarks')?.touched" />
@@ -106,6 +110,9 @@
                 <th>{{ '::Item' | abpLocalization }}</th>
                 <th style="width: 110px">{{ '::Qty' | abpLocalization }}</th>
                 <th style="width: 100px">{{ '::UoM' | abpLocalization }}</th>
+                @if (isStockOutType()) {
+                  <th style="width: 90px" class="text-end">{{ '::Available' | abpLocalization }}</th>
+                }
                 <th style="width: 50px"></th>
               </tr>
             </thead>
@@ -122,6 +129,15 @@
                   </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="qty" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  @if (isStockOutType()) {
+                    <td class="text-end align-middle">
+                      @if (getItemAvailableQty(i) !== null) {
+                        <span class="badge" [class.bg-success]="getItemAvailableQty(i)! >= ($any(row).get('qty')?.value ?? 0)" [class.bg-danger]="getItemAvailableQty(i)! < ($any(row).get('qty')?.value ?? 0)">
+                          {{ getItemAvailableQty(i) | number:'1.0-2' }}
+                        </span>
+                      }
+                    </td>
+                  }
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">
                       <i class="fa fa-trash"></i>

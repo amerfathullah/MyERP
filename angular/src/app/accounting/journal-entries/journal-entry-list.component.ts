@@ -10,6 +10,14 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
+const VOUCHER_TYPE_LABELS: Record<number, string> = {
+  0: 'Journal Entry', 1: 'Inter Company', 2: 'Bank Entry', 3: 'Cash Entry',
+  4: 'Credit Card', 5: 'Debit Note', 6: 'Credit Note', 7: 'Contra Entry',
+  8: 'Excise Entry', 9: 'Write Off', 10: 'Opening Entry', 11: 'Depreciation',
+  12: 'Revaluation', 13: 'Gain/Loss', 14: 'Deferred Revenue', 15: 'Deferred Expense',
+  16: 'Reversal', 17: 'Period Closing',
+};
+
 @Component({
   selector: 'app-journal-entry-list',
   standalone: true,
@@ -80,5 +88,9 @@ export class JournalEntryListComponent implements OnInit {
   onPageChange(event: any): void {
     this.currentPage = event.pageIndex;
     this.loadData();
+  }
+
+  voucherTypeLabel(type: number | undefined): string {
+    return VOUCHER_TYPE_LABELS[type ?? 0] ?? 'Journal Entry';
   }
 }

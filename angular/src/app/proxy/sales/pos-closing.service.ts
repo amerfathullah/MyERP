@@ -20,6 +20,14 @@ export class PosClosingService {
     { apiName: this.apiName,...config });
   
 
+  retry = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosClosingDto>({
+      method: 'POST',
+      url: `/api/app/pos-closing/${id}/retry`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreatePosClosingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',

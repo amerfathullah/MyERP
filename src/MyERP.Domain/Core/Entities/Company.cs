@@ -143,6 +143,23 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool EnableProformaInvoice { get; set; }
 
+    // --- Warehouse Defaults (moved from Stock Settings to Company per PR #57571) ---
+
+    /// <summary>Default warehouse for transactions. Per PR #57571: now per-company, not global.</summary>
+    public Guid? DefaultWarehouseId { get; set; }
+
+    /// <summary>Sample retention warehouse for QC samples. Per PR #57571: now per-company.</summary>
+    public Guid? SampleRetentionWarehouseId { get; set; }
+
+    /// <summary>Default WIP warehouse for manufacturing operations.</summary>
+    public Guid? DefaultWipWarehouseId { get; set; }
+
+    /// <summary>Default Finished Goods warehouse for manufacturing output.</summary>
+    public Guid? DefaultFgWarehouseId { get; set; }
+
+    /// <summary>Default Scrap/Secondary Items warehouse for manufacturing waste.</summary>
+    public Guid? DefaultScrapWarehouseId { get; set; }
+
     protected Company() { } // EF Core constructor
 
     public Company(Guid id, string name, Guid? tenantId = null) : base(id)

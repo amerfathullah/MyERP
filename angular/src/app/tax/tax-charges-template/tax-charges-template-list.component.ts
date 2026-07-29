@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
@@ -366,7 +367,7 @@ export class TaxChargesTemplateListComponent implements OnInit {
         this.loadTemplates();
       },
       error: (err: any) => {
-        this.toaster.error(err?.error?.error?.message || 'Failed to save template.');
+        this.toaster.error(err?.error?.error?.message || '::SaveFailed');
         this.saving.set(false);
       },
     });
@@ -379,15 +380,19 @@ export class TaxChargesTemplateListComponent implements OnInit {
   toggleEnabled(t: TaxTemplate): void {
     this.http.post(`/api/app/tax-charges-template/${t.id}/toggle-enabled`, {}).subscribe({
       next: () => { this.loadTemplates(); },
-      error: () => this.toaster.error('Failed to toggle template.'),
+      error: () => this.toaster.error('::OperationFailed'),
     });
   }
 
+  private confirmation = inject(ConfirmationService);
+
   deleteTemplate(id: string): void {
-    if (!confirm('Delete this template?')) return;
-    this.http.delete(`/api/app/tax-charges-template/${id}`).subscribe({
-      next: () => { this.toaster.success('Template deleted.'); this.loadTemplates(); },
-      error: () => this.toaster.error('Failed to delete template.'),
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.http.delete(`/api/app/tax-charges-template/${id}`).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadTemplates(); },
+        error: () => this.toaster.error('::OperationFailed'),
+      });
     });
   }
 }

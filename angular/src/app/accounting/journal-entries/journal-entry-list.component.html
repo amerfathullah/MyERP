@@ -61,7 +61,7 @@
               <tr>
                 <th style="min-width: 150px;">{{ '::EntryNumber' | abpLocalization }}</th>
                 <th style="width: 110px;">{{ '::PostingDate' | abpLocalization }}</th>
-                <th>{{ '::ReferenceType' | abpLocalization }}</th>
+                <th>{{ '::EntryType' | abpLocalization }}</th>
                 <th class="text-end" style="width: 130px;">{{ '::TotalDebit' | abpLocalization }}</th>
                 <th style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
                 <th class="text-end" style="width: 100px;"></th>
@@ -72,7 +72,7 @@
                 <tr>
                   <td class="fw-medium"><a [routerLink]="['/accounting/journal-entries', row.id]" class="text-decoration-none">{{ row.entryNumber ?? '—' }}</a></td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ row.referenceType ?? '::Manual' | abpLocalization }}</td>
+                  <td><span class="badge bg-light text-dark">{{ voucherTypeLabel(row.voucherType) }}</span></td>
                   <td class="text-end font-monospace">{{ row.totalDebit | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
                   <td class="text-end">

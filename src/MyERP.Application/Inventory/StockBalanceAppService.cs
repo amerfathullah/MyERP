@@ -17,15 +17,21 @@ public class StockBalanceAppService : ApplicationService
     private readonly IRepository<Bin, Guid> _binRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
+    private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
+    private readonly IRepository<Batch, Guid> _batchRepository;
 
     public StockBalanceAppService(
         IRepository<Bin, Guid> binRepository,
         IRepository<Item, Guid> itemRepository,
-        IRepository<Warehouse, Guid> warehouseRepository)
+        IRepository<Warehouse, Guid> warehouseRepository,
+        IRepository<StockLedgerEntry, Guid> sleRepository,
+        IRepository<Batch, Guid> batchRepository)
     {
         _binRepository = binRepository;
         _itemRepository = itemRepository;
         _warehouseRepository = warehouseRepository;
+        _sleRepository = sleRepository;
+        _batchRepository = batchRepository;
     }
 
     /// <summary>
@@ -143,6 +149,92 @@ public class StockBalanceAppService : ApplicationService
 
         return grouped;
     }
+
+    /// <summary>
+    /// Batch-Wise Stock Balance: shows per-batch qty across warehouses.
+    /// Per ERPNext stock/report/batch_wise_balance_history: aggregates SLE by batch.
+    /// </summary>
+    public async Task<BatchWiseBalanceReportDto> GetBatchWiseBalanceAsync(GetBatchWiseBalanceRequestDto input)
+    {
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        sleQuery = sleQuery.Where(s => s.BatchId != null && !s.IsCancelled);
+
+        if (input.ItemId.HasValue)
+            sleQuery = sleQuery.Where(s => s.ItemId == input.ItemId.Value);
+        if (input.WarehouseId.HasValue)
+            sleQuery = sleQuery.Where(s => s.WarehouseId == input.WarehouseId.Value);
+        if (input.FromDate.HasValue)
+            sleQuery = sleQuery.Where(s => s.PostingDate >= input.FromDate.Value);
+        if (input.ToDate.HasValue)
+            sleQuery = sleQuery.Where(s => s.PostingDate <= input.ToDate.Value);
+
+        // Aggregate by (item, batch, warehouse) — net qty from SLE
+        var grouped = sleQuery
+            .GroupBy(s => new { s.ItemId, s.BatchId, s.WarehouseId })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                BatchId = g.Key.BatchId!.Value,
+                g.Key.WarehouseId,
+                Balance = g.Sum(s => s.QuantityChange),
+                StockValue = g.Sum(s => s.QuantityChange * s.ValuationRate),
+            })
+            .ToList();
+
+        // Filter out zero-balance batches unless requested
+        if (!input.IncludeZeroBalance)
+            grouped = grouped.Where(g => g.Balance != 0).ToList();
+
+        // Resolve names
+        var itemIds = grouped.Select(g => g.ItemId).Distinct().ToList();
+        var batchIds = grouped.Select(g => g.BatchId).Distinct().ToList();
+        var warehouseIds = grouped.Select(g => g.WarehouseId).Distinct().ToList();
+
+        var itemQ = await _itemRepository.GetQueryableAsync();
+        var itemMap = itemQ.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList()
+            .ToDictionary(i => i.Id, i => $"{i.ItemCode} — {i.ItemName}");
+
+        var batchQ = await _batchRepository.GetQueryableAsync();
+        var batchMap = batchQ.Where(b => batchIds.Contains(b.Id))
+            .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled }).ToList()
+            .ToDictionary(b => b.Id);
+
+        var whQ = await _warehouseRepository.GetQueryableAsync();
+        var whMap = whQ.Where(w => warehouseIds.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name }).ToList()
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        var rows = grouped.Select(g =>
+        {
+            var batch = batchMap.GetValueOrDefault(g.BatchId);
+            return new BatchWiseBalanceRowDto
+            {
+                ItemId = g.ItemId,
+                ItemName = itemMap.GetValueOrDefault(g.ItemId, "—"),
+                BatchId = g.BatchId,
+                BatchNo = batch?.BatchNo ?? "—",
+                WarehouseId = g.WarehouseId,
+                WarehouseName = whMap.GetValueOrDefault(g.WarehouseId, "—"),
+                Balance = g.Balance,
+                StockValue = g.StockValue,
+                ExpiryDate = batch?.ExpiryDate,
+                IsExpired = batch?.ExpiryDate.HasValue == true && batch.ExpiryDate < DateTime.UtcNow.Date,
+                IsDisabled = batch?.IsDisabled ?? false,
+            };
+        })
+        .OrderBy(r => r.ItemName).ThenBy(r => r.BatchNo).ThenBy(r => r.WarehouseName)
+        .ToList();
+
+        return new BatchWiseBalanceReportDto
+        {
+            Rows = rows,
+            TotalBatches = rows.Select(r => r.BatchId).Distinct().Count(),
+            TotalQuantity = rows.Sum(r => r.Balance),
+            TotalStockValue = rows.Sum(r => r.StockValue),
+            ExpiredBatchCount = rows.Count(r => r.IsExpired),
+        };
+    }
 }
 
 // DTOs
@@ -189,4 +281,39 @@ public class ItemAvailabilityDto
     public decimal ProjectedQty { get; set; }
     /// <summary>Available for new orders = Actual - Reserved</summary>
     public decimal AvailableQty { get; set; }
+}
+
+// --- Batch-Wise Balance Report DTOs ---
+
+public class GetBatchWiseBalanceRequestDto
+{
+    public Guid? ItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public bool IncludeZeroBalance { get; set; }
+}
+
+public class BatchWiseBalanceReportDto
+{
+    public List<BatchWiseBalanceRowDto> Rows { get; set; } = new();
+    public int TotalBatches { get; set; }
+    public decimal TotalQuantity { get; set; }
+    public decimal TotalStockValue { get; set; }
+    public int ExpiredBatchCount { get; set; }
+}
+
+public class BatchWiseBalanceRowDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = "";
+    public Guid BatchId { get; set; }
+    public string BatchNo { get; set; } = "";
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = "";
+    public decimal Balance { get; set; }
+    public decimal StockValue { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public bool IsExpired { get; set; }
+    public bool IsDisabled { get; set; }
 }

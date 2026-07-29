@@ -35,6 +35,14 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
               </button>
             }
+            @if (entry()!.status === 'Failed') {
+              <button class="btn btn-outline-primary btn-sm" (click)="retry()">
+                <i class="fa fa-rotate-right me-1"></i>{{ '::Retry' | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-danger btn-sm" (click)="cancelEntry()">
+                <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
+              </button>
+            }
             <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
               <i class="fa fa-arrow-left me-1"></i>{{ '::Back' | abpLocalization }}
             </button>
@@ -203,6 +211,16 @@ export class PosClosingDetailComponent implements OnInit {
         },
         error: () => {},
       });
+    });
+  }
+
+  retry() {
+    this.service.retry(this.entryId).subscribe({
+      next: () => {
+        this.toaster.success(this.l('::SuccessfullySubmitted'));
+        this.loadEntry();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
     });
   }
 

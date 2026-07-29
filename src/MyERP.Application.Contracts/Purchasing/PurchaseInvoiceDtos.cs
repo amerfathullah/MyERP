@@ -71,6 +71,21 @@ public class ThreeWayMatchingItemDto
     public bool HasRateDiscrepancy { get; set; }
 }
 
+/// <summary>Tax withholding (TDS/WHT) entry for a purchase invoice — per Malaysia Section 107A.</summary>
+public class TaxWithholdingEntryDto
+{
+    public Guid Id { get; set; }
+    public string? TaxCategory { get; set; }
+    public decimal WithholdingRate { get; set; }
+    public decimal TaxableAmount { get; set; }
+    public decimal WithheldAmount { get; set; }
+    public DateTime PostingDate { get; set; }
+    public bool HasLDC { get; set; }
+    public decimal? LdcRate { get; set; }
+    public string? CertificateNumber { get; set; }
+    public string? Status { get; set; }
+}
+
 public class CreatePurchaseInvoiceDto
 {
     [Required] public Guid CompanyId { get; set; }
@@ -109,4 +124,29 @@ public class CreatePurchaseInvoiceItemDto
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
+}
+
+/// <summary>
+/// KPI summary for the Purchase Invoice list page.
+/// Provides at-a-glance payables visibility: total payable, overdue, monthly spend.
+/// </summary>
+public class PurchaseInvoiceListSummaryDto
+{
+    /// <summary>Total outstanding amount across all posted non-return purchase invoices.</summary>
+    public decimal TotalPayable { get; set; }
+
+    /// <summary>Number of invoices past due date with outstanding > 0.</summary>
+    public int OverdueCount { get; set; }
+
+    /// <summary>Total overdue amount.</summary>
+    public decimal OverdueAmount { get; set; }
+
+    /// <summary>Total spend this month (sum of GrandTotal for PIs posted this calendar month).</summary>
+    public decimal MonthlySpend { get; set; }
+
+    /// <summary>Number of invoices posted this month.</summary>
+    public int MonthlyInvoiceCount { get; set; }
+
+    /// <summary>Total number of posted purchase invoices.</summary>
+    public int PostedInvoiceCount { get; set; }
 }

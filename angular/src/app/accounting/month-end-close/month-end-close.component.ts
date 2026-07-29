@@ -169,7 +169,7 @@ export class MonthEndCloseComponent {
 
   validateReadiness() {
     const companyId = this.companyContext.currentCompanyId();
-    if (!companyId) { this.toaster.warn('Select a company first'); return; }
+    if (!companyId) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
 
     this.loading.set(true);
     this.monthEndCloseService.validateReadiness({
@@ -183,7 +183,7 @@ export class MonthEndCloseComponent {
 
   checkStatus() {
     const companyId = this.companyContext.currentCompanyId();
-    if (!companyId) { this.toaster.warn('Select a company first'); return; }
+    if (!companyId) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
 
     this.loading.set(true);
     this.monthEndCloseService.getCloseStatus({
@@ -197,13 +197,13 @@ export class MonthEndCloseComponent {
 
   freezeAccounts() {
     const companyId = this.companyContext.currentCompanyId();
-    if (!companyId) { this.toaster.warn('Select a company first'); return; }
+    if (!companyId) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
 
     this.monthEndCloseService.freeze({
       companyId,
       freezeUpTo: this.freezeDate
     }).subscribe({
-      next: () => { this.toaster.success('Accounting period frozen'); },
+      next: () => { this.toaster.success('::SuccessfullyUpdated'); },
       error: () => {}
     });
   }

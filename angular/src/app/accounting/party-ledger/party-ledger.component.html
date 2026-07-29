@@ -47,7 +47,7 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-body text-center py-2">
-            <p class="fs-5 fw-bold text-primary font-monospace mb-0">MYR {{ totalDebit() | number:'1.2-2' }}</p>
+            <p class="fs-5 fw-bold text-primary font-monospace mb-0">{{ "" | companyCurrency }} {{ totalDebit() | number:'1.2-2' }}</p>
             <small class="text-muted">{{ '::TotalDebit' | abpLocalization }}</small>
           </div>
         </div>
@@ -55,7 +55,7 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-body text-center py-2">
-            <p class="fs-5 fw-bold text-success font-monospace mb-0">MYR {{ totalCredit() | number:'1.2-2' }}</p>
+            <p class="fs-5 fw-bold text-success font-monospace mb-0">{{ "" | companyCurrency }} {{ totalCredit() | number:'1.2-2' }}</p>
             <small class="text-muted">{{ '::TotalCredit' | abpLocalization }}</small>
           </div>
         </div>
@@ -64,7 +64,7 @@
         <div class="card">
           <div class="card-body text-center py-2">
             <p class="fs-5 fw-bold font-monospace mb-0" [class.text-danger]="closingBalance() > 0" [class.text-success]="closingBalance() <= 0">
-              MYR {{ closingBalance() | number:'1.2-2' }}
+              {{ "" | companyCurrency }} {{ closingBalance() | number:'1.2-2' }}
             </p>
             <small class="text-muted">{{ '::ClosingBalance' | abpLocalization }}</small>
           </div>

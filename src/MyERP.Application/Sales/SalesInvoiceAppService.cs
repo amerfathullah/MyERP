@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
@@ -215,6 +216,55 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         return new PagedResultDto<SalesInvoiceDto>(totalCount, dtos);
+    }
+
+    /// <summary>
+    /// Returns aggregate KPI summary: outstanding, overdue, monthly revenue.
+    /// Uses IQueryable for server-side aggregation (no full entity materialization).
+    /// </summary>
+    public async Task<SalesInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId)
+    {
+        var queryable = await _repository.GetQueryableAsync();
+        var posted = queryable.Where(i => i.Status == DocumentStatus.Posted && !i.IsReturn);
+
+        if (companyId.HasValue)
+            posted = posted.Where(i => i.CompanyId == companyId.Value);
+
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+
+        // Total outstanding (server-side SUM)
+        var totalOutstanding = posted
+            .Select(i => i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance)
+            .Where(o => o > 0)
+            .Sum();
+
+        // Overdue: past due date with outstanding > 0
+        var overdueInvoices = posted
+            .Where(i => i.DueDate != null && i.DueDate < today)
+            .Where(i => (i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance) > 0.01m);
+        var overdueCount = overdueInvoices.Count();
+        var overdueAmount = overdueInvoices
+            .Select(i => i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance)
+            .Sum();
+
+        // Monthly revenue (invoices posted this calendar month)
+        var monthlyInvoices = posted.Where(i => i.IssueDate >= monthStart);
+        var monthlyRevenue = monthlyInvoices.Sum(i => i.GrandTotal);
+        var monthlyCount = monthlyInvoices.Count();
+
+        // Total posted count
+        var postedCount = posted.Count();
+
+        return new SalesInvoiceListSummaryDto
+        {
+            TotalOutstanding = Math.Max(0, totalOutstanding),
+            OverdueCount = overdueCount,
+            OverdueAmount = Math.Max(0, overdueAmount),
+            MonthlyRevenue = monthlyRevenue,
+            MonthlyInvoiceCount = monthlyCount,
+            PostedInvoiceCount = postedCount,
+        };
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]

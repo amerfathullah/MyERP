@@ -36,7 +36,7 @@
         <div class="row">
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Customer' | abpLocalization }}</small>
-            <span class="fw-semibold">{{ order.customerName || order.customerId }}</span>
+            <span class="fw-semibold">{{ order.customerName || '—' }}</span>
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::OrderDate' | abpLocalization }}</small>
@@ -107,8 +107,8 @@
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Total' | abpLocalization }}</th>
                 @if (order.status !== 'Draft') {
-                  <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'BilledQty' | abpLocalization }}</th>
+                  <th style="min-width: 130px;">{{ '::DeliveryProgress' | abpLocalization }}</th>
+                  <th style="min-width: 130px;">{{ '::BillingProgress' | abpLocalization }}</th>
                   <th class="text-center">{{ '::Available' | abpLocalization }}</th>
                 }
               </tr>
@@ -122,8 +122,26 @@
                   <td class="text-end">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.lineTotal | number:'1.2-2' }}</td>
                   @if (order.status !== 'Draft') {
-                    <td class="text-end">{{ row.deliveredQty | number:'1.2-2' }}</td>
-                    <td class="text-end">{{ row.billedQty | number:'1.2-2' }}</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 6px;">
+                          <div class="progress-bar bg-info" [style.width.%]="getItemDeliveryPct(row)"></div>
+                        </div>
+                        <small class="text-nowrap" [class.text-success]="getItemDeliveryPct(row) >= 100" [class.fw-bold]="getItemDeliveryPct(row) >= 100">
+                          {{ row.deliveredQty ?? 0 | number:'1.0-1' }}/{{ row.quantity }}
+                        </small>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 6px;">
+                          <div class="progress-bar bg-success" [style.width.%]="getItemBilledPct(row)"></div>
+                        </div>
+                        <small class="text-nowrap" [class.text-success]="getItemBilledPct(row) >= 100" [class.fw-bold]="getItemBilledPct(row) >= 100">
+                          {{ row.billedQty ?? 0 | number:'1.0-1' }}/{{ row.quantity }}
+                        </small>
+                      </div>
+                    </td>
                     <td class="text-center">
                       @if (itemStock()[row.itemId]) {
                         @if (itemStock()[row.itemId] >= (row.quantity - (row.deliveredQty ?? 0))) {
@@ -226,6 +244,68 @@
       <app-document-connections [documentType]="'SalesOrder'" [documentId]="order.id!" />
     }
 
+    <!-- Partial Delivery Selection Panel -->
+    @if (showDeliverySelection()) {
+      <div class="card mt-4 border-primary">
+        <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-truck me-2"></i>{{ '::SelectItemsToDeliver' | abpLocalization }}</h6>
+          <button class="btn btn-sm btn-outline-secondary" (click)="cancelDeliverySelection()">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">{{ '::PartialDeliveryHelp' | abpLocalization }}</p>
+          <table class="table table-sm table-hover mb-3">
+            <thead>
+              <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" class="form-check-input" [checked]="deliverySelectionItems().every(i => i.selected)"
+                    (change)="toggleAllDeliveryItems($any($event.target).checked)" />
+                </th>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th class="text-end" style="width: 100px;">{{ '::Pending' | abpLocalization }}</th>
+                <th class="text-end" style="width: 120px;">{{ '::DeliverQty' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of deliverySelectionItems(); track item.itemId; let i = $index) {
+                <tr [class.table-primary]="item.selected">
+                  <td>
+                    <input type="checkbox" class="form-check-input" [checked]="item.selected"
+                      (change)="toggleDeliveryItem(i, $any($event.target).checked)" />
+                  </td>
+                  <td>{{ item.description }}</td>
+                  <td class="text-end font-monospace">{{ item.pendingQty | number:'1.0-2' }}</td>
+                  <td>
+                    <input type="number" class="form-control form-control-sm text-end" [value]="item.deliverQty"
+                      (change)="updateDeliverQty(i, $any($event.target).valueAsNumber)"
+                      [max]="item.pendingQty" min="0" step="1" [disabled]="!item.selected" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted small">
+              {{ deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length }} {{ '::Items' | abpLocalization }}
+            </span>
+            <div class="btn-group">
+              <button class="btn btn-outline-info btn-sm" (click)="deliverAll()" [disabled]="isCreatingDN()">
+                <i class="fa fa-boxes-stacked me-1"></i>{{ '::DeliverAll' | abpLocalization }}
+              </button>
+              <button class="btn btn-primary btn-sm" (click)="confirmPartialDelivery()"
+                [disabled]="!hasDeliverySelection() || isCreatingDN()">
+                @if (isCreatingDN()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fa fa-truck me-1"></i>{{ '::CreateDeliveryNote' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <app-activity-log [documentType]="'SalesOrder'" [documentId]="order.id!"></app-activity-log>
 
     <!-- Delivery Schedule Generator (when no schedule exists and order is active) -->
@@ -325,6 +405,41 @@
       </button>
     </div>
 
+    <!-- Send Email Dialog -->
+    @if (showEmailDialog) {
+      <div class="modal d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ '::SendSalesOrder' | abpLocalization }}</h5>
+              <button type="button" class="btn-close" (click)="cancelEmailDialog()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'Placeholder:Email' | abpLocalization">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'Placeholder:CommaSeparatedEmails' | abpLocalization">
+              </div>
+              <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="soAttachPdf" [(ngModel)]="emailAttachPdf">
+                <label class="form-check-label" for="soAttachPdf">{{ '::AttachPdf' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" (click)="cancelEmailDialog()">{{ '::Cancel' | abpLocalization }}</button>
+              <button class="btn btn-primary" [disabled]="emailSending" (click)="sendEmail()">
+                @if (emailSending) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                <i class="fa fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Print Layout (hidden on screen, visible on print) -->
     <app-so-print-layout
       [salesOrder]="order"
@@ -333,6 +448,6 @@
       [companySst]="companySst"
       [companyAddress]="companyAddress"
       [customerName]="order.customerName || ''"
-      [currency]="order.currencyCode || 'MYR'" />
+      [currency]="order.currencyCode || ('' | companyCurrency)" />
   }
 </abp-page>

@@ -129,7 +129,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
 
   getEligibleAccounts() {
     const cid = this.companyContext.currentCompanyId();
-    if (!cid) { this.toaster.warn('Select a company first'); return; }
+    if (!cid) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
     this.isLoading = true;
     this.revaluationService.getEligibleAccounts(cid, '', this.postingDate).subscribe({
       next: accounts => {
@@ -149,7 +149,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
       companyId: cid, postingDate: this.postingDate, roundingLossAllowance: this.roundingAllowance
     } as any).subscribe({
       next: () => {
-        this.toaster.success('Revaluation entry created');
+        this.toaster.success('::SuccessfullyCreated');
         this.isCreating = false;
         this.eligibleAccounts = [];
         this.loadHistory();

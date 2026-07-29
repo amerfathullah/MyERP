@@ -155,7 +155,7 @@ export class LeaveFormComponent implements OnInit {
       halfDay: val.halfDay,
       reason: val.reason || undefined,
     }).subscribe({
-      next: () => { this.toaster.success('Leave application submitted'); this.router.navigate(['/hr/leave']); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.router.navigate(['/hr/leave']); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
   }

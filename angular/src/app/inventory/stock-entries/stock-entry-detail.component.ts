@@ -183,7 +183,7 @@ export class StockEntryDetailComponent implements OnInit {
         this.service.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
         break;
       case 'post':
-        this.service.post(id).subscribe({ next: () => { this.toaster.success('Stock entry posted.'); this.reload(); }, error: () => {} });
+        this.service.post(id).subscribe({ next: () => { this.toaster.success('::SuccessfullyPosted'); this.reload(); }, error: () => {} });
         break;
       case 'cancel':
         this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(s => {

@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import type { ItemSalesLineDto } from '../../../proxy/sales/models';
 @Component({
   selector: 'app-item-sales-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './item-sales-report.component.html',
   styleUrls: ['./item-sales-report.component.scss'],
 })

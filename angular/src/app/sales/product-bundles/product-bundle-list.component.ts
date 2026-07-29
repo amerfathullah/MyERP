@@ -47,7 +47,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   <tr>
                     <td>
                       <a [routerLink]="['/sales/product-bundles', bundle.id]">
-                        {{ bundle.parentItemName || bundle.parentItemId | slice:0:8 }}
+                        {{ bundle.parentItemName || '—' }}
                       </a>
                     </td>
                     <td class="text-end">{{ bundle.items?.length || 0 }}</td>

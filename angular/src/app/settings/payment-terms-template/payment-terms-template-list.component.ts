@@ -107,7 +107,7 @@ export class PaymentTermsTemplateListComponent implements OnInit {
     if (!this.form.valid) return;
     const dto = { ...this.form.value, terms: this.termsArray.value };
     this.http.post('/api/app/payment-terms-template', dto).subscribe({
-      next: () => { this.toaster.success('Saved'); this.showForm = false; this.termsArray.clear(); this.form.reset(); this.load(); },
+      next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.termsArray.clear(); this.form.reset(); this.load(); },
       error: () => {}
     });
   }

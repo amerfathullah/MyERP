@@ -107,10 +107,10 @@ export class WorkOrderFormComponent implements OnInit {
     const dto = this.form.getRawValue() as unknown as CreateWorkOrderDto;
     this.service.createWorkOrder(dto).subscribe({
       next: () => {
-        this.toaster.success('Work Order created');
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/manufacturing/work-orders']);
       },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed to create'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::FailedToCreate'),
     });
   }
 

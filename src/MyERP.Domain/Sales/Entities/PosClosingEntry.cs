@@ -36,6 +36,9 @@ public class PosClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public PosClosingStatus Status { get; private set; } = PosClosingStatus.Draft;
 
+    /// <summary>Error message when consolidation fails (Status=Failed).</summary>
+    public string? ErrorMessage { get; private set; }
+
     /// <summary>Consolidated Sales Invoice ID created on submit.</summary>
     public Guid? ConsolidatedSalesInvoiceId { get; set; }
 
@@ -95,9 +98,33 @@ public class PosClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Cancel()
     {
-        if (Status != PosClosingStatus.Submitted)
+        // Per PR #57203: Failed entries can be cancelled without cancellability check
+        if (Status != PosClosingStatus.Submitted && Status != PosClosingStatus.Failed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = PosClosingStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Marks this entry as Failed (consolidation error during submit).
+    /// Failed entries can be retried or cancelled.
+    /// </summary>
+    public void MarkFailed(string? errorMessage = null)
+    {
+        if (Status != PosClosingStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = PosClosingStatus.Failed;
+        ErrorMessage = errorMessage;
+    }
+
+    /// <summary>
+    /// Retries consolidation on a Failed entry.
+    /// </summary>
+    public void Retry()
+    {
+        if (Status != PosClosingStatus.Failed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = PosClosingStatus.Submitted;
+        ErrorMessage = null;
     }
 
     /// <summary>Total variance across all payment modes.</summary>
@@ -150,4 +177,5 @@ public enum PosClosingStatus
     Draft = 0,
     Submitted = 1,
     Cancelled = 2,
+    Failed = 3,
 }

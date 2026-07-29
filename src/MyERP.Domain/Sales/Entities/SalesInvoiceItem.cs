@@ -62,6 +62,18 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Delivery Note item (for DN billing status tracking, per ERPNext dn_detail).</summary>
     public Guid? DeliveryNoteItemId { get; set; }
 
+    /// <summary>
+    /// Clears all deferred revenue fields when the user unchecks EnableDeferredRevenue.
+    /// Per PR #57140: prevents orphaned account/date fields when deferred is disabled.
+    /// </summary>
+    public void ClearDeferredRevenueFields()
+    {
+        EnableDeferredRevenue = false;
+        DeferredRevenueAccountId = null;
+        ServiceStartDate = null;
+        ServiceEndDate = null;
+    }
+
     protected SalesInvoiceItem() { }
 
     public SalesInvoiceItem(
@@ -81,5 +93,17 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
         UnitPrice = unitPrice;
         TaxAmount = taxAmount;
         Uom = uom;
+    }
+
+    /// <summary>
+    /// Clears all deferred revenue fields when EnableDeferredRevenue is unchecked.
+    /// Per ERPNext PR #57140: clear deferred revenue/expense fields on uncheck.
+    /// </summary>
+    public void ClearDeferredFields()
+    {
+        EnableDeferredRevenue = false;
+        DeferredRevenueAccountId = null;
+        ServiceStartDate = null;
+        ServiceEndDate = null;
     }
 }

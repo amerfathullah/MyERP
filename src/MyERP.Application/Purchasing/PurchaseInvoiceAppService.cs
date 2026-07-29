@@ -91,6 +91,34 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             .Select(ObjectMapper.Map<Accounting.Entities.PaymentScheduleEntry, Sales.PaymentScheduleDto>).ToList();
     }
 
+    /// <summary>
+    /// Returns tax withholding (TDS/WHT) entries for a purchase invoice.
+    /// Per Malaysia Section 107A: withholding tax on payments to non-resident suppliers.
+    /// Per ERPNext: PI detail shows withholding entries for audit + compliance.
+    /// </summary>
+    public async Task<List<TaxWithholdingEntryDto>> GetTaxWithholdingEntriesAsync(Guid invoiceId)
+    {
+        var tweRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Tax.Entities.TaxWithholdingEntry, Guid>>();
+        var query = await tweRepo.GetQueryableAsync();
+        return query
+            .Where(e => e.VoucherId == invoiceId && e.VoucherType == "PurchaseInvoice")
+            .OrderByDescending(e => e.PostingDate)
+            .Select(e => new TaxWithholdingEntryDto
+            {
+                Id = e.Id,
+                TaxCategory = e.TaxCategory,
+                WithholdingRate = e.WithholdingRate,
+                TaxableAmount = e.TaxableAmount,
+                WithheldAmount = e.WithheldAmount,
+                PostingDate = e.PostingDate,
+                HasLDC = e.HasLDC,
+                LdcRate = e.LdcRate,
+                CertificateNumber = e.CertificateNumber,
+                Status = e.Status.ToString()
+            }).ToList();
+    }
+
     public async Task<List<ThreeWayMatchingItemDto>> GetThreeWayMatchingAsync(Guid invoiceId)
     {
         var pi = await _repository.GetAsync(invoiceId);
@@ -228,6 +256,50 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         return new PagedResultDto<PurchaseInvoiceDto>(totalCount, dtos);
+    }
+
+    /// <summary>
+    /// Returns aggregate KPI summary: total payable, overdue, monthly spend.
+    /// </summary>
+    public async Task<PurchaseInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId)
+    {
+        var queryable = await _repository.GetQueryableAsync();
+        var posted = queryable.Where(i => i.Status == Core.DocumentStatus.Posted && !i.IsReturn);
+
+        if (companyId.HasValue)
+            posted = posted.Where(i => i.CompanyId == companyId.Value);
+
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+
+        var totalPayable = posted
+            .Select(i => i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance)
+            .Where(o => o > 0)
+            .Sum();
+
+        var overdueInvoices = posted
+            .Where(i => i.DueDate != null && i.DueDate < today)
+            .Where(i => (i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance) > 0.01m);
+        var overdueCount = overdueInvoices.Count();
+        var overdueAmount = overdueInvoices
+            .Select(i => i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance)
+            .Sum();
+
+        var monthlyInvoices = posted.Where(i => i.IssueDate >= monthStart);
+        var monthlySpend = monthlyInvoices.Sum(i => i.GrandTotal);
+        var monthlyCount = monthlyInvoices.Count();
+
+        var postedCount = posted.Count();
+
+        return new PurchaseInvoiceListSummaryDto
+        {
+            TotalPayable = Math.Max(0, totalPayable),
+            OverdueCount = overdueCount,
+            OverdueAmount = Math.Max(0, overdueAmount),
+            MonthlySpend = monthlySpend,
+            MonthlyInvoiceCount = monthlyCount,
+            PostedInvoiceCount = postedCount,
+        };
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]

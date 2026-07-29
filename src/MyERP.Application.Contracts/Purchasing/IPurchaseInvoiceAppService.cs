@@ -22,4 +22,10 @@ public interface IPurchaseInvoiceAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId);
     Task<List<ThreeWayMatchingItemDto>> GetThreeWayMatchingAsync(Guid invoiceId);
+    Task<List<TaxWithholdingEntryDto>> GetTaxWithholdingEntriesAsync(Guid invoiceId);
+
+    /// <summary>
+    /// Returns aggregate KPI summary for the PI list page: total payables, overdue, monthly spend.
+    /// </summary>
+    Task<PurchaseInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
 }

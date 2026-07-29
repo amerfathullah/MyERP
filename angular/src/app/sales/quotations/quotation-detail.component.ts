@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { CompanyService } from '../../proxy/core/company.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -16,12 +18,14 @@ import type { QuotationDto } from '../../proxy/sales/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { QuotationPrintLayoutComponent } from '../../shared/components/quotation-print-layout/quotation-print-layout.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 
 @Component({
   selector: 'app-quotation-detail',
   standalone: true,
   imports: [
-    BreadcrumbComponent, CommonModule, RouterModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, ActivityLogComponent, QuotationPrintLayoutComponent],
+    BreadcrumbComponent, CommonModule, FormsModule, RouterModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, ActivityLogComponent, QuotationPrintLayoutComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './quotation-detail.component.html',
   styleUrls: ['./quotation-detail.component.scss'],
 })
@@ -34,21 +38,30 @@ export class QuotationDetailComponent implements OnInit {
   private store = inject(QuotationStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
+  private http = inject(HttpClient);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
+  showEmailDialog = false;
+  emailRecipient = '';
+  emailCc = '';
+  emailAttachPdf = true;
+  emailSending = false;
+
   get workflowActions(): WorkflowAction[] {
     if (!this.quotation) return [];
     const actions: WorkflowAction[] = [];
     if (this.quotation.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'send', color: 'primary' });
+      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.quotation.status === 'Submitted') {
-      actions.push({ name: 'convert', label: 'Convert to SO', icon: 'transform', color: 'primary' });
-      actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumb_down', color: 'warn' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'cancel', color: 'warn' });
+      actions.push({ name: 'convert', label: 'Convert to SO', icon: 'arrow-right-arrow-left', color: 'success' });
+      actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
+      actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumbs-down', color: 'warning' });
+      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (this.quotation.status === 'Cancelled' || this.quotation.status === 'Rejected') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -113,6 +126,9 @@ export class QuotationDetailComponent implements OnInit {
           next: (amended) => this.router.navigate(['/sales/quotations', amended.id]),
         });
         break;
+      case 'sendEmail':
+        this.openSendEmailDialog();
+        break;
     }
   }
 
@@ -125,5 +141,40 @@ export class QuotationDetailComponent implements OnInit {
 
   print(): void {
     window.print();
+  }
+
+  openSendEmailDialog(): void {
+    this.emailRecipient = (this.quotation as any)?.customerEmail || '';
+    this.emailCc = '';
+    this.emailAttachPdf = true;
+    this.showEmailDialog = true;
+  }
+
+  sendEmail(): void {
+    if (!this.emailRecipient) {
+      this.toaster.warn('::PleaseEnterRecipientEmail');
+      return;
+    }
+    this.emailSending = true;
+    this.http.post('/api/app/document-email/quotation-email', {
+      documentId: this.quotation!.id,
+      recipientEmail: this.emailRecipient,
+      ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
+      attachPdf: this.emailAttachPdf,
+    }).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySent');
+        this.showEmailDialog = false;
+        this.emailSending = false;
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.emailSending = false;
+      },
+    });
+  }
+
+  cancelEmailDialog(): void {
+    this.showEmailDialog = false;
   }
 }

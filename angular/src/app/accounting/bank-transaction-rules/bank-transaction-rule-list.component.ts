@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
@@ -81,7 +81,7 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
               <th style="width:50px">{{ 'Priority' | abpLocalization }}</th>
               <th>{{ 'Name' | abpLocalization }}</th>
               <th>{{ 'TransactionType' | abpLocalization }}</th>
-              <th>Classify As</th>
+              <th>{{ '::ClassifyAs' | abpLocalization }}</th>
               <th>{{ 'Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
@@ -121,6 +121,7 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
 export class BankTransactionRuleListComponent implements OnInit {
   private bankTransactionRuleService = inject(BankTransactionRuleService);
   private toaster = inject(ToasterService);
+  private localization = inject(LocalizationService);
   private companyContext = inject(CompanyContextService);
 
   items: any[] = [];
@@ -146,10 +147,10 @@ export class BankTransactionRuleListComponent implements OnInit {
 
   createRule() {
     const cid = this.companyContext.currentCompanyId();
-    if (!cid) { this.toaster.warn('Select a company first'); return; }
+    if (!cid) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
     const dto = { ...this.newRule, companyId: cid, transactionType: Number(this.newRule.transactionType), classifyAs: Number(this.newRule.classifyAs) };
     this.bankTransactionRuleService.create(dto as any).subscribe({
-      next: () => { this.toaster.success('Rule created'); this.showCreateForm = false; this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData(); },
       error: () => {}
     });
   }
@@ -159,16 +160,16 @@ export class BankTransactionRuleListComponent implements OnInit {
       ? this.bankTransactionRuleService.disable(rule.id)
       : this.bankTransactionRuleService.enable(rule.id);
     action$.subscribe({
-      next: () => { this.toaster.success(rule.isEnabled ? 'Rule disabled' : 'Rule enabled'); this.loadData(); },
+      next: () => { this.toaster.success(rule.isEnabled ? '::Deactivated' : '::Activated'); this.loadData(); },
       error: () => {}
     });
   }
 
   evaluateRules() {
     const cid = this.companyContext.currentCompanyId();
-    if (!cid) { this.toaster.warn('Select a company first'); return; }
+    if (!cid) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
     this.bankTransactionRuleService.evaluateRules({ companyId: cid } as any).subscribe({
-      next: (res: any) => { this.toaster.success(`Matched ${res?.matchedCount ?? 0} transactions`); },
+      next: (res: any) => { this.toaster.success(this.localization.instant('::TransactionsMatched', (res?.matchedCount ?? 0).toString())); },
       error: () => {}
     });
   }

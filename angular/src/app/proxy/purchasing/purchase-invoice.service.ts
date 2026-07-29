@@ -1,4 +1,4 @@
-import type { CreatePurchaseInvoiceDto, PurchaseInvoiceDto } from './models';
+import type { CreatePurchaseInvoiceDto, PurchaseInvoiceDto, PurchaseInvoiceListSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -67,6 +67,15 @@ export class PurchaseInvoiceService {
     this.restService.request<any, PaymentScheduleDto[]>({
       method: 'GET',
       url: `/api/app/purchase-invoice/payment-schedule/${invoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getListSummary = (companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceListSummaryDto>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/list-summary',
+      params: { companyId },
     },
     { apiName: this.apiName,...config });
   

@@ -137,7 +137,7 @@ export class CreateVariantDialogComponent implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        this.toaster.error(err?.error?.error?.message ?? 'Failed to create variant');
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToCreate');
       },
     });
   }

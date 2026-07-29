@@ -70,20 +70,23 @@ export class TaxCategoriesComponent implements OnInit {
 
   saveCategory(): void {
     if (this.categoryForm.invalid) { this.categoryForm.markAllAsTouched(); return; }
-    this.categoryService.create(this.categoryForm.getRawValue() as any).subscribe(() => {
-      this.toaster.success('Tax category created');
-      this.showCategoryForm = false;
-      this.categoryForm.reset({ taxType: 'Sales', isActive: true });
-      this.loadCategories();
+    this.categoryService.create(this.categoryForm.getRawValue() as any).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyCreated');
+        this.showCategoryForm = false;
+        this.categoryForm.reset({ taxType: 'Sales', isActive: true });
+        this.loadCategories();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }
 
   deleteCategory(id: string): void {
     this.confirmation.warn('::AreYouSureToDelete', '::AreYouSure').subscribe(status => {
       if (status === Confirmation.Status.confirm) {
-        this.categoryService.delete(id).subscribe(() => {
-          this.toaster.success('Deleted');
-          this.loadCategories();
+        this.categoryService.delete(id).subscribe({
+          next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadCategories(); },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
         });
       }
     });
@@ -96,17 +99,20 @@ export class TaxCategoriesComponent implements OnInit {
 
   saveRule(): void {
     if (this.ruleForm.invalid) { this.ruleForm.markAllAsTouched(); return; }
-    this.ruleService.create(this.ruleForm.getRawValue() as any).subscribe(() => {
-      this.toaster.success('Tax rule added');
-      this.loadRules(this.showRuleForm!);
-      this.showRuleForm = null;
+    this.ruleService.create(this.ruleForm.getRawValue() as any).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyCreated');
+        this.loadRules(this.showRuleForm!);
+        this.showRuleForm = null;
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }
 
   deleteRule(id: string, categoryId: string): void {
-    this.ruleService.delete(id).subscribe(() => {
-      this.toaster.success('Rule deleted');
-      this.loadRules(categoryId);
+    this.ruleService.delete(id).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadRules(categoryId); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }
 }

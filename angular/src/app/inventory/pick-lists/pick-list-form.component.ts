@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
@@ -120,6 +120,7 @@ import { HttpClient } from '@angular/common/http';
 export class PickListFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private service = inject(PickListService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -144,6 +145,11 @@ export class PickListFormComponent implements OnInit {
   ngOnInit() {
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
+
+    const params = this.route.snapshot.queryParams;
+    if (params['salesOrderId']) this.form.patchValue({ salesOrderId: params['salesOrderId'] });
+    if (params['customerId']) this.form.patchValue({ customerId: params['customerId'] });
+    if (params['companyId']) this.form.patchValue({ companyId: params['companyId'] });
 
     this.http.get<any>('/api/app/customer?maxResultCount=200').subscribe({
       next: (res) => this.customers.set((res.items || []).map((c: any) => ({ id: c.id, name: c.name || c.customerName }))),

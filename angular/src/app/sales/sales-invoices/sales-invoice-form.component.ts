@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -63,6 +63,14 @@ export class SalesInvoiceFormComponent implements OnInit {
   selectedTaxRules = signal<TaxRuleModel[]>([]);
   billingAddress = signal<string>('');
   partyTin = signal<string>('');
+  customerOutstanding = signal<number>(0);
+  customerCreditLimit = signal<number>(0);
+  creditUtilizationPct = computed(() => {
+    const limit = this.customerCreditLimit();
+    if (limit <= 0) return 0; // 0 = unlimited
+    return Math.min(100, Math.round((this.customerOutstanding() / limit) * 100));
+  });
+  showCreditWarning = computed(() => this.creditUtilizationPct() >= 80);
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
   isLoadingSoItems = signal(false);
@@ -363,6 +371,9 @@ export class SalesInvoiceFormComponent implements OnInit {
           const parts = [addr.addressLine1, addr.city, addr.state, addr.postalCode].filter(Boolean);
           this.billingAddress.set(parts.join(', '));
         }
+        // Credit exposure tracking
+        this.customerOutstanding.set(details.outstandingAmount ?? 0);
+        this.customerCreditLimit.set(details.creditLimit ?? 0);
         if (details.defaultPaymentTermsTemplateId && !this.form.get('paymentTermsTemplateId')?.value) {
           this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
           this.onPaymentTermsChanged();

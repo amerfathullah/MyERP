@@ -11,7 +11,7 @@ function getWorkflowActions(status: string): { name: string; label: string; colo
     case 'Submitted':
       actions.push({ name: 'invoice', label: 'Make Invoice', color: 'primary' });
       actions.push({ name: 'return', label: 'Create Return', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', color: 'warn' });
+      actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
       break;
     case 'Cancelled':
       actions.push({ name: 'amend', label: 'Amend', color: 'success' });

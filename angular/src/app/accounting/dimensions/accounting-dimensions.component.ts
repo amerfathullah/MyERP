@@ -159,7 +159,7 @@ export class AccountingDimensionsComponent implements OnInit {
     this.saving.set(true);
     this.dimensionService.create(this.form.value as any).subscribe({
       next: () => {
-        this.toaster.success('Dimension created successfully');
+        this.toaster.success('::SuccessfullyCreated');
         this.form.reset({ documentType: '', label: '', isMandatory: false });
         this.saving.set(false);
         this.loadDimensions();

@@ -1,3 +1,4 @@
+import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,7 +16,7 @@ import { HttpClient } from '@angular/common/http';
 @Component({
   selector: 'app-bank-reconciliation',
   standalone: true,
-  imports: [
+  imports: [CompanyCurrencyPipe, 
     CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './bank-reconciliation.component.html',
   styleUrls: ['./bank-reconciliation.component.scss'],
@@ -44,6 +45,7 @@ export class BankReconciliationComponent implements OnInit {
 
   // Bank account selector
   bankAccounts = signal<any[]>([]);
+  partyAccounts = signal<any[]>([]);
   bankAccountId = '';
 
   // Date range filter
@@ -53,6 +55,7 @@ export class BankReconciliationComponent implements OnInit {
   ngOnInit(): void {
     this.companyContext.load();
     this.loadBankAccounts();
+    this.loadPartyAccounts();
   }
 
   loadBankAccounts(): void {
@@ -69,6 +72,18 @@ export class BankReconciliationComponent implements OnInit {
           this.bankAccountId = bankAccts[0].id;
           this.onBankAccountChanged();
         }
+      },
+      error: () => {},
+    });
+  }
+
+  loadPartyAccounts(): void {
+    this.http.get<any>('/api/app/account', { params: { skipCount: 0, maxResultCount: 200, sorting: '' } }).subscribe({
+      next: (res) => {
+        const partyAccts = (res.items ?? []).filter((a: any) =>
+          a.accountSubType === 1 /* Receivable */ || a.accountSubType === 2 /* Payable */
+        );
+        this.partyAccounts.set(partyAccts);
       },
       error: () => {},
     });
@@ -97,7 +112,7 @@ export class BankReconciliationComponent implements OnInit {
       },
       error: () => {
         this.isLoading.set(false);
-        this.toaster.error('Failed to load transactions');
+        this.toaster.error('::FailedToLoadTransactions');
       },
     });
   }
@@ -111,7 +126,7 @@ export class BankReconciliationComponent implements OnInit {
   reconcile(transactionId: string): void {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) {
-      this.toaster.warn('Please select a company first');
+      this.toaster.warn('::PleaseSelectCompanyFirst');
       return;
     }
     this.selectedTransactionId.set(transactionId);
@@ -120,7 +135,7 @@ export class BankReconciliationComponent implements OnInit {
 
     this.service.getMatchCandidates(transactionId, companyId).subscribe({
       next: (candidates) => this.matchCandidates.set(candidates),
-      error: () => this.toaster.error('Failed to load match candidates'),
+      error: () => this.toaster.error('::FailedToLoadMatchCandidates'),
     });
   }
 
@@ -136,10 +151,10 @@ export class BankReconciliationComponent implements OnInit {
       next: (updated) => {
         this.transactions.update(txs => txs.map(t => t.id === txId ? updated : t));
         this.showMatchPanel.set(false);
-        this.toaster.success('Reconciled');
+        this.toaster.success('::SuccessfullyReconciled');
         this.loadSummary();
       },
-      error: () => this.toaster.error('Failed to reconcile'),
+      error: () => this.toaster.error('::ReconcileFailed'),
     });
   }
 
@@ -152,10 +167,10 @@ export class BankReconciliationComponent implements OnInit {
     this.service.unreconcile(id).subscribe({
       next: (updated) => {
         this.transactions.update(txs => txs.map(t => t.id === id ? updated : t));
-        this.toaster.success('Unreconciled');
+        this.toaster.success('::SuccessfullyUnreconciled');
         this.loadSummary();
       },
-      error: () => this.toaster.error('Failed to unreconcile'),
+      error: () => this.toaster.error('::UnreconcileFailed'),
     });
   }
 
@@ -165,7 +180,7 @@ export class BankReconciliationComponent implements OnInit {
 
   autoMatch(): void {
     if (!this.bankAccountId) {
-      this.toaster.warn('Please select a bank account first');
+      this.toaster.warn('::SelectBankAccountToViewTransactions');
       return;
     }
     const companyId = this.companyContext.currentCompanyId();
@@ -182,12 +197,12 @@ export class BankReconciliationComponent implements OnInit {
           this.loadTransactions(0, 20);
           this.loadSummary();
         } else {
-          this.toaster.info('No new matches found via reference number');
+          this.toaster.info('::NoNewMatchesFound');
         }
       },
       error: () => {
         this.isMatching.set(false);
-        this.toaster.error('Auto-match failed');
+        this.toaster.error('::AutoMatchFailed');
       },
     });
   }
@@ -220,15 +235,12 @@ export class BankReconciliationComponent implements OnInit {
       mirrorTransactionId: mirror?.transactionId,
     }).subscribe({
       next: (result) => {
-        const msg = mirror
-          ? `Internal transfer created (PE: ${result.paymentNumber}). Both sides reconciled.`
-          : `Internal transfer created (PE: ${result.paymentNumber}).`;
-        this.toaster.success(msg);
+        this.toaster.success('::SuccessfullyCreated');
         this.showTransferPanel.set(false);
         this.loadTransactions(0, 20);
         this.loadSummary();
       },
-      error: () => this.toaster.error('Failed to create internal transfer'),
+      error: () => this.toaster.error('::FailedToCreateTransfer'),
     });
   }
 
@@ -280,7 +292,7 @@ export class BankReconciliationComponent implements OnInit {
     const tx = this.createPeTransaction();
     const companyId = this.companyContext.currentCompanyId();
     if (!tx || !companyId || !this.pePartyId() || !this.peBankAccountId() || !this.pePartyAccountId()) {
-      this.toaster.warn('Please fill all required fields');
+      this.toaster.warn('::PleaseFillAllRequiredFields');
       return;
     }
 
@@ -305,7 +317,7 @@ export class BankReconciliationComponent implements OnInit {
       },
       error: (err) => {
         this.isCreatingPe.set(false);
-        const msg = err?.error?.error?.message || 'Failed to create payment entry';
+        const msg = err?.error?.error?.message || '::FailedToCreatePaymentEntry';
         this.toaster.error(msg);
       },
     });

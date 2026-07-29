@@ -117,7 +117,7 @@ export class PackingSlipListComponent implements OnInit {
 
   submit(slip: PackingSlipDto) {
     this.packingSlipService.submit(slip.id).subscribe({
-      next: () => { this.toaster.success('Submitted'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.loadData(); },
       error: () => {}
     });
   }
