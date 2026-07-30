@@ -157,7 +157,7 @@
                 <tbody>
                   @for (bin of stockLevels(); track bin.id) {
                     <tr>
-                      <td>{{ bin.warehouseId }}</td>
+                      <td>{{ bin.warehouseName || '—' }}</td>
                       <td class="text-end font-monospace">{{ bin.actualQty | number:'1.2-2' }}</td>
                       <td class="text-end font-monospace">{{ bin.reservedQty | number:'1.2-2' }}</td>
                       <td class="text-end font-monospace">{{ bin.orderedQty | number:'1.2-2' }}</td>

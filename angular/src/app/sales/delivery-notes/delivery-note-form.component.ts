@@ -18,12 +18,13 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
+import { BatchExpiryWarningComponent } from '../../shared/components/batch-expiry-warning/batch-expiry-warning.component';
 
 @Component({
   selector: 'app-delivery-note-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
+    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, BatchExpiryWarningComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
   styleUrls: ['./delivery-note-form.component.scss'],
 })
@@ -303,4 +304,10 @@ export class DeliveryNoteFormComponent implements OnInit {
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }
+
+  getItemIds(): string[] {
+    return this.items.controls
+      .map(c => c.get('itemId')?.value as string)
+      .filter(id => !!id);
+  }
 }

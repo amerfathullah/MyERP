@@ -82,4 +82,29 @@ public class OutstandingInvoiceForPaymentDto
     public decimal Outstanding { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public string InvoiceType { get; set; } = null!;
+    public int DaysOverdue { get; set; }
+    public bool IsOverdue { get; set; }
+}
+
+/// <summary>Outstanding order available for advance payment allocation.</summary>
+public class OutstandingOrderForPaymentDto
+{
+    public Guid OrderId { get; set; }
+    public string OrderNumber { get; set; } = null!;
+    public DateTime OrderDate { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal AdvancePaid { get; set; }
+    public decimal PendingAdvance { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public string OrderType { get; set; } = null!;
+    public string? PartyName { get; set; }
+}
+
+/// <summary>Combined response for PE allocation: invoices + orders for a party.</summary>
+public class PartyOutstandingDto
+{
+    public List<OutstandingInvoiceForPaymentDto> Invoices { get; set; } = [];
+    public List<OutstandingOrderForPaymentDto> Orders { get; set; } = [];
+    public decimal TotalInvoiceOutstanding { get; set; }
+    public decimal TotalOrderPending { get; set; }
 }

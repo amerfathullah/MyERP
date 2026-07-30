@@ -10,6 +10,7 @@ public class GetItemListDto : PagedAndSortedResultRequestDto
 {
     public string? Filter { get; set; }
     public Guid? CompanyId { get; set; }
+    public string? ItemType { get; set; }
 }
 
 /// <summary>

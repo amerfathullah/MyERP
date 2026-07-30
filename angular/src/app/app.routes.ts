@@ -1156,6 +1156,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/dashboard',
+    loadComponent: () => import('./manufacturing/manufacturing-dashboard/manufacturing-dashboard.component').then(c => c.ManufacturingDashboardComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/work-orders',
     loadComponent: () => import('./manufacturing/work-orders/work-order-list.component').then(c => c.WorkOrderListComponent),
     canActivate: [authGuard, permissionGuard],

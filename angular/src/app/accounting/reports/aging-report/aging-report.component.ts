@@ -1,9 +1,10 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { AgingReportService } from '../../../proxy/accounting/aging-report.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
@@ -23,6 +24,9 @@ export class AgingReportComponent implements OnInit {
   private agingReportService = inject(AgingReportService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   filters = this.fb.group({
     companyId: ['', Validators.required],
@@ -101,5 +105,37 @@ export class AgingReportComponent implements OnInit {
 
   isSeverelyOverdue(entry: AgingDetailEntryDto): boolean {
     return (entry.ageDays ?? 0) > 90;
+  }
+
+  recordPayment(entry: AgingDetailEntryDto): void {
+    const type = this.filters.get('reportType')?.value;
+    const partyType = type === 'receivables' ? 'Customer' : 'Supplier';
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        partyType,
+        againstInvoiceId: entry.documentId,
+        amount: entry.outstandingAmount,
+        companyId: this.filters.get('companyId')?.value,
+      },
+    });
+  }
+
+  sendReminder(entry: AgingDetailEntryDto): void {
+    const type = this.filters.get('reportType')?.value;
+    if (type !== 'receivables') return;
+    this.router.navigate(['/sales/dunnings/new'], {
+      queryParams: {
+        customerId: entry.partyId,
+        companyId: this.filters.get('companyId')?.value,
+      },
+    });
+    this.toaster.info(this.l.instant('::DunningInitiated'));
+  }
+
+  getPartyRoute(entry: AgingDetailEntryDto): string[] {
+    const type = this.filters.get('reportType')?.value;
+    return type === 'receivables'
+      ? ['/customers', entry.partyId ?? '']
+      : ['/suppliers', entry.partyId ?? ''];
   }
 }

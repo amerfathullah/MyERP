@@ -12,11 +12,13 @@ import { HttpClient } from '@angular/common/http';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
+import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 
 @Component({
   selector: 'app-work-order-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent],
   template: `
     <abp-page [title]="wo()?.workOrderNumber ?? ('Manufacturing:WorkOrders' | abpLocalization)">
   <app-breadcrumb />
@@ -60,6 +62,40 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         </div>
 
+        <!-- Material Readiness Banner (auto-populated) -->
+        @if (materialAvailability().length > 0 && !hasShortage()) {
+          <div class="alert alert-success py-2 d-flex align-items-center mb-3">
+            <i class="fa fa-check-circle me-2"></i>
+            <span>{{ '::AllMaterialsReady' | abpLocalization }}</span>
+          </div>
+        }
+        @if (materialAvailability().length > 0 && hasShortage()) {
+          <div class="alert alert-warning py-2 d-flex align-items-center mb-3">
+            <i class="fa fa-triangle-exclamation me-2"></i>
+            <span>{{ '::MaterialShortageWarning' | abpLocalization }}</span>
+          </div>
+        }
+
+        <!-- Quality Inspection Advisory (for FG items requiring QI) -->
+        @if (qiRequired() && wo()!.status >= 3) {
+          @if (qiStatus() === 'Accepted') {
+            <div class="alert alert-success py-2 d-flex align-items-center mb-3">
+              <i class="fa fa-microscope me-2"></i>
+              <span>{{ '::QualityInspectionPassed' | abpLocalization }}</span>
+            </div>
+          } @else if (qiStatus() === 'Rejected') {
+            <div class="alert alert-danger py-2 d-flex align-items-center mb-3">
+              <i class="fa fa-microscope me-2"></i>
+              <span>{{ '::QualityInspectionFailed' | abpLocalization }}</span>
+            </div>
+          } @else {
+            <div class="alert alert-warning py-2 d-flex align-items-center mb-3">
+              <i class="fa fa-microscope me-2"></i>
+              <span>{{ '::QualityInspectionPending' | abpLocalization }}</span>
+            </div>
+          }
+        }
+
         <div class="d-flex gap-2 mb-3">
           @if (wo()!.status === 1) {
             <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
@@ -81,6 +117,12 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
             <button class="btn btn-outline-secondary btn-sm" (click)="createStockEntry()"><i class="fa fa-truck me-1"></i>{{ '::MaterialTransfer' | abpLocalization }}</button>
+          }
+          @if (wo()!.status! >= 1 && wo()!.status! <= 3 && jobCards().length === 0) {
+            <button class="btn btn-outline-primary btn-sm" (click)="createJobCards()" [disabled]="isCreatingJobCards()">
+              @if (isCreatingJobCards()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-id-card me-1"></i>{{ '::CreateJobCards' | abpLocalization }}
+            </button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! <= 3) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
@@ -284,7 +326,16 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         }
 
+        <app-document-connections [documentType]="'WorkOrder'" [documentId]="w.id!" />
+
         <app-activity-log documentType="WorkOrder" [documentId]="w.id!" />
+
+        @if (w.status >= 3) {
+          <app-voucher-ledger
+            voucherType="WorkOrder"
+            [voucherId]="w.id!"
+            [companyId]="w.companyId!" />
+        }
       }
     </abp-page>
   `,
@@ -306,6 +357,9 @@ export class WorkOrderDetailComponent implements OnInit {
   materialAvailability = signal<any[]>([]);
   isCheckingMaterials = signal(false);
   isDisassembling = signal(false);
+  isCreatingJobCards = signal(false);
+  qiRequired = signal(false);
+  qiStatus = signal<string>('');
 
   hasShortage(): boolean {
     return this.materialAvailability().some(m => !m.hasSufficientStock);
@@ -329,6 +383,15 @@ export class WorkOrderDetailComponent implements OnInit {
             next: res => this.jobCards.set(res.items ?? []),
             error: () => {},
           });
+          // Auto-check material readiness for production-ready WOs
+          const status = w.status ?? 0;
+          if (status >= 1 && status <= 3) {
+            this.checkMaterialAvailability(true);
+          }
+          // Check QI requirement for FG item (non-blocking advisory)
+          if (w.itemId && status >= 3) {
+            this.loadQiStatus(w.id!, w.itemId);
+          }
         },
         error: () => this.isLoading.set(false),
       });
@@ -345,10 +408,10 @@ export class WorkOrderDetailComponent implements OnInit {
 
   recordProduction() {
     const id = this.wo()!.id!;
-    const qty = prompt('Enter produced quantity:');
+    const qty = prompt(this.l.instant('::EnterProducedQuantity'));
     if (!qty || isNaN(+qty) || +qty <= 0) return;
     this.service.recordProduction(id, +qty).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success(`Recorded ${qty} units`); },
+      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyRecorded'); },
       error: () => this.toaster.error(this.l.instant('::OperationFailed')),
     });
   }
@@ -437,7 +500,7 @@ export class WorkOrderDetailComponent implements OnInit {
     }).subscribe({
       next: (result) => {
         this.isLoading.set(false);
-        this.toaster.success(`Consumption recorded: ${result.itemCount} items, value ${result.totalConsumedValue?.toFixed(2)}`);
+        this.toaster.success('::SuccessfullyRecorded');
       },
       error: (err) => {
         this.isLoading.set(false);
@@ -455,7 +518,7 @@ export class WorkOrderDetailComponent implements OnInit {
       this.manufacturingService.createMaterialTransferForManufacture(woId).subscribe({
       next: (se) => {
         this.isLoading.set(false);
-        this.toaster.success(`Material Transfer created: ${se.entryNumber}`);
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
       },
       error: (err) => {
@@ -481,7 +544,7 @@ export class WorkOrderDetailComponent implements OnInit {
     }).subscribe({
       next: (se) => {
         this.isLoading.set(false);
-        this.toaster.success(`Manufacture entry created: ${se.entryNumber}`);
+        this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
       },
       error: (err) => {
@@ -517,7 +580,7 @@ export class WorkOrderDetailComponent implements OnInit {
     return Math.min(100, ((jc.completedQty ?? 0) / total) * 100);
   }
 
-  checkMaterialAvailability(): void {
+  checkMaterialAvailability(silent = false): void {
     const w = this.wo();
     if (!w?.id) return;
     this.isCheckingMaterials.set(true);
@@ -525,16 +588,57 @@ export class WorkOrderDetailComponent implements OnInit {
       next: (result) => {
         this.materialAvailability.set(result ?? []);
         this.isCheckingMaterials.set(false);
-        if (this.hasShortage()) {
-          this.toaster.warn(this.l.instant('::MaterialShortageDetected'));
-        } else {
-          this.toaster.success(this.l.instant('::AllMaterialsAvailable'));
+        if (!silent) {
+          if (this.hasShortage()) {
+            this.toaster.warn(this.l.instant('::MaterialShortageDetected'));
+          } else {
+            this.toaster.success(this.l.instant('::AllMaterialsAvailable'));
+          }
         }
       },
-      error: (err) => {
+      error: () => {
         this.isCheckingMaterials.set(false);
+      },
+    });
+  }
+
+  createJobCards(): void {
+    const w = this.wo();
+    if (!w?.id) return;
+    this.isCreatingJobCards.set(true);
+    this.http.post<any[]>(`/api/app/manufacturing/work-order/${w.id}/create-job-cards`, {}).subscribe({
+      next: (result) => {
+        this.isCreatingJobCards.set(false);
+        this.jobCards.set(result ?? []);
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+      },
+      error: (err) => {
+        this.isCreatingJobCards.set(false);
         this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
       },
+    });
+  }
+
+  private loadQiStatus(workOrderId: string, itemId: string): void {
+    this.http.get<any>(`/api/app/quality-inspection`, {
+      params: { referenceType: 'WorkOrder', referenceId: workOrderId, itemId }
+    }).subscribe({
+      next: (res) => {
+        const inspections = res?.items ?? [];
+        if (inspections.length === 0) {
+          this.http.get<any>(`/api/app/item/${itemId}`).subscribe({
+            next: (item) => {
+              this.qiRequired.set(item?.inspectionRequiredBeforeDelivery ?? false);
+            },
+            error: () => {},
+          });
+        } else {
+          this.qiRequired.set(true);
+          const latest = inspections[0];
+          this.qiStatus.set(latest.status === 1 ? 'Accepted' : latest.status === 2 ? 'Rejected' : 'Pending');
+        }
+      },
+      error: () => {},
     });
   }
 }

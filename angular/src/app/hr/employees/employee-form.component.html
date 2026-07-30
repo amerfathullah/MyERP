@@ -47,11 +47,11 @@
             <input type="email" class="form-control" formControlName="email" [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
-            <label class="form-label">EPF Number</label>
+            <label class="form-label">{{ '::EPFNumber' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="epfNumber" [class.is-invalid]="form.get('epfNumber')?.invalid && form.get('epfNumber')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
-            <label class="form-label">SOCSO Number</label>
+            <label class="form-label">{{ '::SOCSONumber' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="socsoNumber" [class.is-invalid]="form.get('socsoNumber')?.invalid && form.get('socsoNumber')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">

@@ -72,6 +72,11 @@ public class GeneratedInvoiceDto
     public DateTime? PeriodEnd { get; set; }
 }
 
+public class PlanDimensionsDto
+{
+    public Guid? CostCenterId { get; set; }
+}
+
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
 public class SubscriptionAppService : ApplicationService
 {
@@ -128,7 +133,18 @@ public class SubscriptionAppService : ApplicationService
             TrialPeriodDays = input.TrialPeriodDays,
         };
         foreach (var p in input.Plans)
-            sub.AddPlan(p.ItemId, p.Qty, p.Rate, p.ItemName);
+        {
+            var costCenterId = await ResolvePlanCostCenterAsync(p.ItemId, input.CompanyId, input.PartyType);
+            sub.AddPlan(p.ItemId, p.Qty, p.Rate, p.ItemName, costCenterId);
+        }
+
+        // Per PR #57615: fill subscription-level cost center from first plan with a CC
+        if (!sub.CostCenterId.HasValue)
+        {
+            var firstCc = sub.Plans.FirstOrDefault(pl => pl.CostCenterId.HasValue)?.CostCenterId;
+            if (firstCc.HasValue) sub.CostCenterId = firstCc;
+        }
+
         sub.AdvancePeriod(); // Set initial billing period
         await _repository.InsertAsync(sub);
         return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
@@ -175,6 +191,7 @@ public class SubscriptionAppService : ApplicationService
         var invoice = new SalesInvoice(
             GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
             sub.CurrentInvoiceStart ?? DateTime.UtcNow, CurrentTenant.Id);
+        invoice.CostCenterId = sub.CostCenterId;
         invoice.Notes = $"Subscription {sub.SubscriptionNumber} — " +
                         $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
 
@@ -236,6 +253,7 @@ public class SubscriptionAppService : ApplicationService
             var invoice = new SalesInvoice(
                 GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
                 sub.CurrentInvoiceStart ?? today, CurrentTenant.Id);
+            invoice.CostCenterId = sub.CostCenterId;
             invoice.Notes = $"Subscription {sub.SubscriptionNumber} (catch-up) — " +
                             $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
 
@@ -262,6 +280,31 @@ public class SubscriptionAppService : ApplicationService
             await _repository.UpdateAsync(sub);
 
         return results;
+    }
+
+    /// <summary>
+    /// Resolves a plan's accounting dimensions (cost center) with fallback to item defaults.
+    /// Per ERPNext PR #57615: plan → item defaults (selling CC for Customer, buying CC for Supplier).
+    /// </summary>
+    public async Task<PlanDimensionsDto> GetPlanDimensionsAsync(Guid itemId, Guid companyId, string? partyType = null)
+    {
+        var costCenterId = await ResolvePlanCostCenterAsync(itemId, companyId, partyType);
+        return new PlanDimensionsDto { CostCenterId = costCenterId };
+    }
+
+    private async Task<Guid?> ResolvePlanCostCenterAsync(Guid itemId, Guid companyId, string? partyType)
+    {
+        var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemDefault, Guid>>();
+        var itemDefault = (await itemDefaultRepo.GetQueryableAsync())
+            .FirstOrDefault(d => d.ItemId == itemId && d.CompanyId == companyId);
+
+        if (itemDefault == null) return null;
+
+        // Per PR #57615: Supplier uses buying cost center, Customer uses selling; fallback to other
+        if (partyType == "Supplier")
+            return itemDefault.BuyingCostCenterId ?? itemDefault.SellingCostCenterId;
+
+        return itemDefault.SellingCostCenterId ?? itemDefault.BuyingCostCenterId;
     }
 }
 

@@ -42,6 +42,8 @@ export interface MaterialRequestDto {
   targetWarehouseId?: string | null;
   notes?: string | null;
   creationTime?: string;
+  perOrdered?: number;
+  perReceived?: number;
   items?: MaterialRequestItemDto[];
 }
 

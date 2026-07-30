@@ -1,8 +1,9 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -34,10 +35,15 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
   private companyService = inject(CompanyService);
+  private http = inject(HttpClient);
 
   receipt: PurchaseReceiptDto | null = null;
   companyData = { name: '', tin: '', sst: '', address: '' };
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+
+  // QI status tracking per item
+  qiStatus = signal<Record<string, { status: string; inspectionNumber?: string }>>({});
+  qiLoading = signal(false);
 
   get workflowActions(): WorkflowAction[] {
     if (!this.receipt) return [];
@@ -58,8 +64,39 @@ export class PurchaseReceiptDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe(r => { this.receipt = r; });
+    this.service.get(id).subscribe(r => {
+      this.receipt = r;
+      if (r.status !== 'Draft') {
+        this.loadQiStatus(r);
+      }
+    });
     this.loadCompanyData();
+  }
+
+  private loadQiStatus(receipt: PurchaseReceiptDto): void {
+    const itemIds = (receipt.items ?? []).map((i: any) => i.itemId).filter(Boolean);
+    if (itemIds.length === 0) return;
+    this.qiLoading.set(true);
+    this.http.get<any[]>(`/api/app/quality-inspection`, {
+      params: { maxResultCount: '100', skipCount: '0' }
+    }).subscribe({
+      next: (res: any) => {
+        const items = res?.items ?? res ?? [];
+        const map: Record<string, { status: string; inspectionNumber?: string }> = {};
+        for (const qi of items) {
+          if (itemIds.includes(qi.itemId)) {
+            map[qi.itemId] = { status: qi.status === 1 ? 'Accepted' : qi.status === 2 ? 'Rejected' : 'Pending', inspectionNumber: qi.inspectionNumber };
+          }
+        }
+        this.qiStatus.set(map);
+        this.qiLoading.set(false);
+      },
+      error: () => { this.qiLoading.set(false); }
+    });
+  }
+
+  getQiStatusForItem(itemId: string): { status: string; inspectionNumber?: string } | null {
+    return this.qiStatus()[itemId] ?? null;
   }
 
   printDocument(): void {

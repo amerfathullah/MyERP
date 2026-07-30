@@ -10,13 +10,14 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { StockEntryPrintLayoutComponent } from '../../shared/components/se-print-layout/se-print-layout.component';
 import { CompanyService } from '../../proxy/core/company.service';
 
 @Component({
   selector: 'app-stock-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, RouterLink, StockEntryPrintLayoutComponent],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent, RouterLink, StockEntryPrintLayoutComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.entryNumber || ('StockEntry' | abpLocalization)">
@@ -105,12 +106,14 @@ import { CompanyService } from '../../proxy/core/company.service';
           </div>
         </div>
 
+        <app-document-connections [documentType]="'StockEntry'" [documentId]="entry()!.id!" />
+
         <app-activity-log documentType="StockEntry" [documentId]="entry()!.id" />
 
         <!-- Print Button -->
         <div class="mt-3 text-end">
           <button class="btn btn-outline-secondary btn-sm" (click)="printDocument()">
-            <i class="fa fa-print me-1"></i>Print
+            <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
           </button>
         </div>
 

@@ -134,6 +134,12 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Linked loyalty program for this invoice's customer.</summary>
     public Guid? LoyaltyProgramId { get; set; }
 
+    /// <summary>
+    /// Cost center for GL posting. Per PR #57615: auto-filled from subscription plan or item defaults.
+    /// Used by IAccountableDocument for AccountingRuleEngine GL entry assignment.
+    /// </summary>
+    public Guid? CostCenterId { get; set; }
+
     // Advance payment tracking — per ERPNext set_advances()
     /// <summary>Total advance payments allocated against this invoice.</summary>
     public decimal TotalAdvance { get; set; }
@@ -182,6 +188,7 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     Guid? IAccountableDocument.CustomerId => CustomerId;
     Guid? IAccountableDocument.SupplierId => null;
     DateTime IAccountableDocument.PostingDate => IssueDate;
+    Guid? IAccountableDocument.CostCenterId => CostCenterId;
 
     protected SalesInvoice() { }
 

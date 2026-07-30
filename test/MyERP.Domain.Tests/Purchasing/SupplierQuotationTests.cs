@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using MyERP.Purchasing.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -71,5 +72,71 @@ public class SupplierQuotationTests
         sq.AddItem(Guid.NewGuid(), 10, 5m);
         sq.Submit();
         Should.Throw<BusinessException>(() => sq.AddItem(Guid.NewGuid(), 5, 3m));
+    }
+
+    [Fact]
+    public void Submit_SetsStatusToSubmitted()
+    {
+        var sq = CreateSQ();
+        sq.AddItem(Guid.NewGuid(), 5, 100m);
+        sq.Submit();
+        sq.Status.ShouldBe(Core.DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void Cancel_FromDraft_Throws()
+    {
+        var sq = CreateSQ();
+        sq.AddItem(Guid.NewGuid(), 1, 10m);
+        Should.Throw<BusinessException>(() => sq.Cancel());
+    }
+
+    [Fact]
+    public void GrandTotal_EqualsNetTotal_WhenNoTax()
+    {
+        var sq = CreateSQ();
+        sq.AddItem(Guid.NewGuid(), 10, 100m); // Net = 1000
+        sq.GrandTotal.ShouldBe(1000m);
+    }
+
+    [Fact]
+    public void ValidTill_DefaultsToNull()
+    {
+        var sq = CreateSQ();
+        sq.ValidTill.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ValidTill_CanBeSet()
+    {
+        var sq = CreateSQ();
+        var future = DateTime.UtcNow.AddDays(30);
+        sq.ValidTill = future;
+        sq.ValidTill.ShouldBe(future);
+    }
+
+    [Fact]
+    public void SupplierQuotationId_OnPO_TracksSource()
+    {
+        var poId = Guid.NewGuid();
+        var sqId = Guid.NewGuid();
+        var po = new PurchaseOrder(poId, Guid.NewGuid(), Guid.NewGuid(), "PO-0001", DateTime.UtcNow);
+        po.SupplierQuotationId = sqId;
+        po.SupplierQuotationId.ShouldBe(sqId);
+    }
+
+    [Theory]
+    [InlineData("PurchaseOrderCreated")]
+    [InlineData("CreatePurchaseOrder")]
+    [InlineData("ValidTill")]
+    [InlineData("SupplierQuotations")]
+    public void LocalizationKey_ExistsInEnJson(string key)
+    {
+        var enJsonPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "MyERP.Domain.Shared", "Localization", "MyERP", "en.json");
+        var content = File.ReadAllText(enJsonPath);
+        Assert.Contains($"\"{key}\"", content);
     }
 }

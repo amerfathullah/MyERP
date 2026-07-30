@@ -21,6 +21,8 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public Guid? ConvertedToSalesOrderId { get; set; }
+    /// <summary>SO conversion completion %. 0 = not ordered, 100 = fully ordered.</summary>
+    public decimal PerOrdered { get; set; }
     public List<QuotationItemDto> Items { get; set; } = new();
 }
 
@@ -34,6 +36,7 @@ public class QuotationItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal OrderedQty { get; set; }
 }
 
 public class CreateQuotationDto

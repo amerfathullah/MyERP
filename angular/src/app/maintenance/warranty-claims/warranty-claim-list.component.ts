@@ -205,12 +205,21 @@ export class WarrantyClaimListComponent implements OnInit {
     });
   }
 
+  showResolutionInput = signal(false);
+  resolutionText = '';
+  closingClaimId: string | null = null;
+
   close(c: any) {
-    const resolution = prompt('Enter resolution details:');
-    if (resolution === null) return;
-    this.http.post(`/api/app/warranty-claim/${c.id}/close`, JSON.stringify(resolution),
+    this.closingClaimId = c.id;
+    this.resolutionText = '';
+    this.showResolutionInput.set(true);
+  }
+
+  confirmClose(): void {
+    if (!this.closingClaimId) return;
+    this.http.post(`/api/app/warranty-claim/${this.closingClaimId}/close`, JSON.stringify(this.resolutionText),
       { headers: { 'Content-Type': 'application/json' } }).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyClosed'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyClosed'); this.showResolutionInput.set(false); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }

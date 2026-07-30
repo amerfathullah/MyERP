@@ -19,7 +19,7 @@
             <input type="text" class="form-control" formControlName="name" [class.is-invalid]="form.get('name')?.invalid && form.get('name')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
-            <label class="form-label">Code</label>
+            <label class="form-label">{{ '::Code' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="warehouseCode" [class.is-invalid]="form.get('warehouseCode')?.invalid && form.get('warehouseCode')?.touched" />
           </div>
           <div class="col-12 col-md-8 mb-3">
@@ -46,11 +46,11 @@
             <div class="d-flex align-items-center gap-3">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" formControlName="isGroup" id="isGroup" />
-                <label class="form-check-label" for="isGroup">Is Group</label>
+                <label class="form-check-label" for="isGroup">{{ '::IsGroup' | abpLocalization }}</label>
               </div>
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" formControlName="isActive" id="whIsActive" />
-                <label class="form-check-label" for="whIsActive">Active</label>
+                <label class="form-check-label" for="whIsActive">{{ '::Active' | abpLocalization }}</label>
               </div>
             </div>
           </div>

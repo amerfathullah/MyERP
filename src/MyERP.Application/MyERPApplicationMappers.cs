@@ -15,7 +15,11 @@ namespace MyERP;
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class ItemToItemDtoMapper : MapperBase<Inventory.Entities.Item, Inventory.ItemDto>
 {
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
     public override partial Inventory.ItemDto Map(Inventory.Entities.Item source);
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
     public override partial void Map(Inventory.Entities.Item source, Inventory.ItemDto destination);
 }
 
@@ -460,8 +464,12 @@ public partial class MaterialRequestMapper : MapperBase<Purchasing.Entities.Mate
 public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.PurchaseInvoice, Purchasing.PurchaseInvoiceDto>
 {
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
     public override partial Purchasing.PurchaseInvoiceDto Map(Purchasing.Entities.PurchaseInvoice source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
     public override partial void Map(Purchasing.Entities.PurchaseInvoice source, Purchasing.PurchaseInvoiceDto destination);
     private partial Purchasing.PurchaseInvoiceItemDto MapChild(Purchasing.Entities.PurchaseInvoiceItem source);
 }
@@ -807,8 +815,12 @@ public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 public partial class SalesInvoiceMapper : MapperBase<Sales.Entities.SalesInvoice, Sales.SalesInvoiceDto>
 {
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.DaysOverdue))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsOverdue))]
     public override partial Sales.SalesInvoiceDto Map(Sales.Entities.SalesInvoice source);
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.DaysOverdue))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsOverdue))]
     public override partial void Map(Sales.Entities.SalesInvoice source, Sales.SalesInvoiceDto destination);
     private partial Sales.SalesInvoiceItemDto MapChild(Sales.Entities.SalesInvoiceItem source);
 }

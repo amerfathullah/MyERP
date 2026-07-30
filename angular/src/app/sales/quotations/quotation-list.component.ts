@@ -7,23 +7,28 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { QuotationStore } from '../store/quotation.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import type { QuotationDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-quotation-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent, SortableHeaderComponent],
   templateUrl: './quotation-list.component.html',
   styleUrls: ['./quotation-list.component.scss'],
 })
 export class QuotationListComponent implements OnInit {
   readonly store = inject(QuotationStore);
   private companyContext = inject(CompanyContextService);
-  displayedColumns = ['quotationNumber', 'issueDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
   pageSize = 20;
   searchTerm = '';
   statusFilter = '';
+  sortField: string | null = 'issueDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  fromDate = '';
+  toDate = '';
 
   ngOnInit(): void {
     this.loadData();
@@ -33,14 +38,17 @@ export class QuotationListComponent implements OnInit {
     this.store.load({
       skipCount: this.currentPage * this.pageSize,
       maxResultCount: this.pageSize,
-      sorting: 'issueDate DESC',
+      sorting: this.sortField ? `${this.sortField} ${this.sortDirection}` : 'issueDate DESC',
       filter: this.searchTerm || undefined,
       status: this.statusFilter || undefined,
+      fromDate: this.fromDate || undefined,
+      toDate: this.toDate || undefined,
       companyId: this.companyContext.currentCompanyId() || undefined,
     });
   }
 
-  onSearch(): void {
+  onSearch(term: string): void {
+    this.searchTerm = term;
     this.currentPage = 0;
     this.loadData();
   }
@@ -50,26 +58,35 @@ export class QuotationListComponent implements OnInit {
     this.loadData();
   }
 
+  onDateChange(): void {
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onSort(event: SortEvent): void {
+    this.sortField = event.field;
+    this.sortDirection = event.direction;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
   onPageChange(event: any): void {
     this.currentPage = event.pageIndex;
     this.loadData();
   }
 
-  /** Returns true when quotation is past its validUntil date and still Submitted */
-  isExpired(row: any): boolean {
+  isExpired(row: QuotationDto): boolean {
     if (row.status !== 'Submitted' || !row.validUntil) return false;
     return new Date(row.validUntil) < new Date();
   }
 
-  /** Returns true when quotation expires within 7 days */
-  isExpiringSoon(row: any): boolean {
+  isExpiringSoon(row: QuotationDto): boolean {
     if (row.status !== 'Submitted' || !row.validUntil) return false;
     const days = this.getDaysRemaining(row);
     return days > 0 && days <= 7;
   }
 
-  /** Returns number of days until expiry (negative = expired) */
-  getDaysRemaining(row: any): number {
+  getDaysRemaining(row: QuotationDto): number {
     if (!row.validUntil) return 999;
     const diff = new Date(row.validUntil).getTime() - new Date().getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));

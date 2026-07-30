@@ -69,4 +69,12 @@ export class PurchaseReceiptService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/bulk-submit`,
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
 }

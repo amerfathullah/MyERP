@@ -17,9 +17,14 @@ import type { StatementOfAccountsDto } from '../../proxy/accounting/models';
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">{{ 'StatementOfAccounts' | abpLocalization }}</h5>
         @if (result()) {
-          <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
-          </button>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-primary" (click)="printStatement()">
+              <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+            </button>
+          </div>
         }
       </div>
       <div class="card-body">
@@ -178,5 +183,9 @@ export class StatementOfAccountsComponent implements OnInit {
     }));
     exportToCsv(`statement-of-accounts-${this.fromDate}-to-${this.toDate}.csv`,
       rows, ['Date', 'Type', 'Number', 'Debit', 'Credit', 'Balance']);
+  }
+
+  printStatement(): void {
+    window.print();
   }
 }

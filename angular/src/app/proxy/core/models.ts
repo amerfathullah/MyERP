@@ -484,3 +484,16 @@ export interface CashFlowSnapshotDto {
   overdueReceivableCount?: number;
   overduePayableCount?: number;
 }
+
+export interface UpcomingPaymentDuesDto {
+  receivablesDueIn7Days?: number;
+  receivablesDueIn14Days?: number;
+  receivablesDueIn30Days?: number;
+  receivablesOverdue?: number;
+  payablesDueIn7Days?: number;
+  payablesDueIn14Days?: number;
+  payablesDueIn30Days?: number;
+  payablesOverdue?: number;
+  receivableInvoiceCount?: number;
+  payableInvoiceCount?: number;
+}

@@ -365,6 +365,8 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   minOrderQty?: number;
   inspectionRequiredBeforePurchase?: boolean;
   inspectionRequiredBeforeDelivery?: boolean;
+  totalStockQty?: number;
+  isLowStock?: boolean;
 }
 
 export interface ItemGroupDto extends EntityDto<string> {

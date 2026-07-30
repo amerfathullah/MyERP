@@ -3,7 +3,7 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="loadReport()" class="row g-3 align-items-end">
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
           <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
             @for (c of companies(); track c.id) {
@@ -11,17 +11,35 @@
             }
           </select>
         </div>
-        <div class="col-12 col-md-3">
-          <label class="form-label">From Date</label>
+        <div class="col-12 col-md-2">
+          <label class="form-label">{{ '::From' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
         </div>
-        <div class="col-12 col-md-3">
-          <label class="form-label">To Date</label>
+        <div class="col-12 col-md-2">
+          <label class="form-label">{{ '::To' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
-        <div class="col-12 col-md-3">
-          <button class="btn btn-primary" type="submit">
-            <i class="fa fa-search me-1"></i> Load
+        <div class="col-12 col-md-2">
+          <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (item of items(); track item.id) {
+              <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+          <select class="form-select" formControlName="warehouseId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (wh of warehouses(); track wh.id) {
+              <option [value]="wh.id">{{ wh.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="fa fa-search me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
         </div>
       </form>
@@ -35,7 +53,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <span class="fs-5 fw-bold text-success font-monospace d-block">{{ totalIn() | number:'1.2-2' }}</span>
-            <small class="text-muted">Total Stock In</small>
+            <small class="text-muted">{{ '::TotalStockIn' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -43,7 +61,7 @@
         <div class="card">
           <div class="card-body text-center py-3">
             <span class="fs-5 fw-bold text-danger font-monospace d-block">{{ totalOut() | number:'1.2-2' }}</span>
-            <small class="text-muted">Total Stock Out</small>
+            <small class="text-muted">{{ '::TotalStockOut' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -84,17 +102,22 @@
               <tr>
                 <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                 <td class="fw-medium">{{ row.itemName }}</td>
-                <td>{{ row.itemName }}</td>
+                <td>{{ row.warehouseName || '—' }}</td>
                 <td class="text-end font-monospace"
-          [class.text-success]="(row.quantityChange ?? 0) >
-                  0"
+                  [class.text-success]="(row.quantityChange ?? 0) > 0"
                   [class.text-danger]="(row.quantityChange ?? 0) < 0">
                   {{ (row.quantityChange ?? 0) > 0 ? '+' : '' }}{{ (row.quantityChange ?? 0) | number:'1.2-2' }}
                 </td>
                 <td class="text-end font-monospace">{{ row.valuationRate | number:'1.2-2' }}</td>
                 <td class="text-end font-monospace fw-bold">{{ row.balanceQuantity | number:'1.2-2' }}</td>
                 <td class="text-end font-monospace">{{ row.balanceValue | number:'1.2-2' }}</td>
-                <td class="small text-muted">{{ row.voucherType ?? '—' }}</td>
+                <td class="small">
+                  @if (row.voucherId) {
+                    <a class="text-primary text-decoration-none" [routerLink]="getVoucherRoute(row)">{{ row.voucherType }}</a>
+                  } @else {
+                    <span class="text-muted">{{ row.voucherType ?? '—' }}</span>
+                  }
+                </td>
               </tr>
             }
           </tbody>

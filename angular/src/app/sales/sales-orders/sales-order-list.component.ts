@@ -250,4 +250,14 @@ export class SalesOrderListComponent implements OnInit {
     }
     this.loadData();
   }
+
+  isDeliveryOverdue(row: any): boolean {
+    if (!row.deliveryDate) return false;
+    const active = row.status === 'ToDeliverAndBill' || row.status === 'ToDeliver';
+    if (!active) return false;
+    const dd = new Date(row.deliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return dd < today;
+  }
 }

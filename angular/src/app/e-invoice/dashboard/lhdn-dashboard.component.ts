@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
+import { LocalizationPipe } from '@abp/ng.core';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
 import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController } from 'chart.js';
 
@@ -18,7 +19,8 @@ interface StatCard {
   standalone: true,
   imports: [
     CommonModule,
-    PageModule],
+    PageModule,
+    LocalizationPipe],
   templateUrl: './lhdn-dashboard.component.html',
   styleUrls: ['./lhdn-dashboard.component.scss'],
 })

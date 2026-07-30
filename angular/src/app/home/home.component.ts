@@ -26,6 +26,7 @@ export class HomeComponent implements OnInit {
   summary = signal<DashboardSummaryDto | null>(null);
   lowStockItems = signal<any[]>([]);
   revenueTrend = signal<{ month: string; amount: number; heightPct: number }[]>([]);
+  profitMarginTrend = signal<{ month: string; marginPct: number; revenue: number; cost: number; grossProfit: number }[]>([]);
   recentActivity = signal<any[]>([]);
   financialKpis = signal<any | null>(null);
   stockValuation = signal<any | null>(null);
@@ -40,10 +41,14 @@ export class HomeComponent implements OnInit {
   todaysActivity = signal<any | null>(null);
   expiringBatches = signal<any[]>([]);
   topDebtors = signal<any[]>([]);
+  upcomingDues = signal<any | null>(null);
+  pendingMRs = signal<any[]>([]);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
   }
+
+  today(): Date { return new Date(); }
 
   ngOnInit(): void {
     if (this.hasLoggedIn) {
@@ -64,6 +69,10 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: batches => this.expiringBatches.set(batches ?? []), error: () => {} });
         this.dashboardService.getTopDebtors(cid)
           .subscribe({ next: data => this.topDebtors.set(data ?? []), error: () => {} });
+        this.dashboardService.getUpcomingPaymentDues(cid)
+          .subscribe({ next: data => this.upcomingDues.set(data), error: () => {} });
+        this.http.get<any[]>(`/api/app/dashboard/pending-material-requests?companyId=${cid}`)
+          .subscribe({ next: data => this.pendingMRs.set(data ?? []), error: () => {} });
       }
       this.dashboardService.getRevenueTrend()
         .subscribe({
@@ -86,6 +95,12 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: kpis => this.financialKpis.set(kpis), error: () => {} });
         this.dashboardService.getStockValuationSummary(companyId)
           .subscribe({ next: data => this.stockValuation.set(data), error: () => {} });
+        this.http.get<any[]>(`/api/app/dashboard/profit-margin-trend?companyId=${companyId}`).subscribe({
+          next: data => this.profitMarginTrend.set((data ?? []).map(d => ({
+            month: d.month, marginPct: d.marginPercentage, revenue: d.revenue, cost: d.cost, grossProfit: d.grossProfit
+          }))),
+          error: () => {}
+        });
         this.loadOverdueAlerts(companyId);
         this.dashboardService.getAgingSummaryWidget(companyId)
           .subscribe({ next: data => this.agingSummary.set(data), error: () => {} });
@@ -115,6 +130,7 @@ export class HomeComponent implements OnInit {
   }
 
   isLoading = signal(false);
+  isCreatingReorderMR = signal(false);
 
   quickLinks = [
     { labelKey: '::NewSalesInvoice', icon: 'fa-file-invoice', route: '/sales/invoices/new' },
@@ -123,6 +139,48 @@ export class HomeComponent implements OnInit {
     { labelKey: '::LHDNDashboard', icon: 'fa-cloud-arrow-up', route: '/e-invoice/dashboard' },
     { labelKey: '::RunPayroll', icon: 'fa-money-bills', route: '/hr/payroll' },
     { labelKey: '::StockLedger', icon: 'fa-boxes-stacked', route: '/inventory/reports/stock-ledger' }];
+
+  getReorderQty(item: any): number {
+    return Math.max(0, (item.reorderLevel || 0) - (item.projectedQty || 0));
+  }
+
+  createSingleReorderMR(item: any) {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+    const reorderQty = this.getReorderQty(item);
+    if (reorderQty <= 0) return;
+    this.http.post('/api/app/material-request', {
+      companyId,
+      requestType: 0,
+      items: [{ itemId: item.itemId, quantity: reorderQty }],
+    }).subscribe({
+      next: () => {
+        this.lowStockItems.update(items => items.filter(i => i.itemId !== item.itemId));
+      },
+      error: () => {},
+    });
+  }
+
+  createBulkReorderMR() {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+    const items = this.lowStockItems()
+      .map(item => ({ itemId: item.itemId, quantity: this.getReorderQty(item) }))
+      .filter(i => i.quantity > 0);
+    if (!items.length) return;
+    this.isCreatingReorderMR.set(true);
+    this.http.post('/api/app/material-request', {
+      companyId,
+      requestType: 0,
+      items,
+    }).subscribe({
+      next: () => {
+        this.lowStockItems.set([]);
+        this.isCreatingReorderMR.set(false);
+      },
+      error: () => this.isCreatingReorderMR.set(false),
+    });
+  }
 
   login() {
     this.authService.navigateToLogin();

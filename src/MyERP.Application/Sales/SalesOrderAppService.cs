@@ -149,6 +149,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.CurrencyCode = input.CurrencyCode;
         order.Terms = input.Terms;
         order.Notes = input.Notes;
+        order.CostCenterId = input.CostCenterId;
+        order.ProjectId = input.ProjectId;
 
         // Auto-fill addresses from customer master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();

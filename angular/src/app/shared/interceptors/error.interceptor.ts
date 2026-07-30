@@ -26,9 +26,9 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         // ABP business exception with structured message
         toaster.error(abpError.message, abpError.code ?? 'Error');
       } else if (error.status === 403) {
-        toaster.warn('You do not have permission to perform this action.', 'Access Denied');
+        toaster.warn('::AccessDenied', '::Error');
       } else if (error.status === 429) {
-        toaster.warn('Too many requests. Please wait a moment.', 'Rate Limited');
+        toaster.warn('::RateLimited', '::Error');
       } else if (error.status >= 500) {
         toaster.error('::OperationFailed');
       }

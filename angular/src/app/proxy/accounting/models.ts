@@ -897,6 +897,27 @@ export interface OutstandingInvoiceForPaymentDto {
   outstanding?: number;
   currencyCode?: string;
   invoiceType?: string;
+  daysOverdue?: number;
+  isOverdue?: boolean;
+}
+
+export interface OutstandingOrderForPaymentDto {
+  orderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  grandTotal?: number;
+  advancePaid?: number;
+  pendingAdvance?: number;
+  currencyCode?: string;
+  orderType?: string;
+  partyName?: string;
+}
+
+export interface PartyOutstandingDto {
+  invoices?: OutstandingInvoiceForPaymentDto[];
+  orders?: OutstandingOrderForPaymentDto[];
+  totalInvoiceOutstanding?: number;
+  totalOrderPending?: number;
 }
 
 export interface PaymentEntryDto extends EntityDto<string> {

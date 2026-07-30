@@ -117,6 +117,13 @@
           </button>
         </div>
 
+        <!-- Batch Expiry Warning (per DO-NOT: prevent shipping expired stock) -->
+        @if (!isReturn && items.length > 0) {
+          <app-batch-expiry-warning
+            [itemIds]="getItemIds()"
+            [companyId]="form.get('companyId')?.value || ''" />
+        }
+
         <div class="d-flex justify-content-end gap-2 pt-3">
           <button type="button" class="btn btn-outline-secondary" routerLink="/sales/delivery-notes"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
           </button>

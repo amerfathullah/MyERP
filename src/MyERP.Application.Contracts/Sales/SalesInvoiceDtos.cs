@@ -60,6 +60,13 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
     public Guid DebitToAccountId { get; set; }
+
+    /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
+    public int DaysOverdue { get; set; }
+
+    /// <summary>True when posted, has outstanding, past due date, and not a return.</summary>
+    public bool IsOverdue { get; set; }
+
     public List<SalesInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -73,6 +80,8 @@ public class SalesInvoiceItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal ValuationRate { get; set; }
+    public decimal GrossProfit { get; set; }
 }
 
 public class CreateSalesInvoiceDto
@@ -99,6 +108,9 @@ public class CreateSalesInvoiceDto
 
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
     public bool IsOpening { get; set; }
+
+    /// <summary>Cost center for departmental P&L attribution (per ERPNext: mandatory for P&L accounts).</summary>
+    public Guid? CostCenterId { get; set; }
 
     /// <summary>Link to project for timesheet-based billing (auto-fetches unbilled timesheets).</summary>
     public Guid? ProjectId { get; set; }

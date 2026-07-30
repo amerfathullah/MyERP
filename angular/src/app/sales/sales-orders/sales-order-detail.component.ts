@@ -83,6 +83,23 @@ export class SalesOrderDetailComponent implements OnInit {
     return s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill';
   }
 
+  isDeliveryOverdue(): boolean {
+    if (!this.order?.deliveryDate || !this.isActiveOrder()) return false;
+    if (this.order.status === 'ToBill') return false; // already delivered
+    const deliveryDate = new Date(this.order.deliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return deliveryDate < today;
+  }
+
+  overdueDays(): number {
+    if (!this.order?.deliveryDate) return 0;
+    const deliveryDate = new Date(this.order.deliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.floor((today.getTime() - deliveryDate.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
   /** Per-item delivery progress percentage (capped at 100%) */
   getItemDeliveryPct(row: any): number {
     if (!row.quantity || row.quantity <= 0) return 0;
@@ -93,6 +110,19 @@ export class SalesOrderDetailComponent implements OnInit {
   getItemBilledPct(row: any): number {
     if (!row.quantity || row.quantity <= 0) return 0;
     return Math.min(100, ((row.billedQty ?? 0) / row.quantity) * 100);
+  }
+
+  getTimelineSteps(): { label: string; icon: string; completed: boolean; active: boolean; date?: string }[] {
+    const o = this.order;
+    if (!o) return [];
+    const perDel = o.perDelivered ?? 0;
+    const perBill = o.perBilled ?? 0;
+    return [
+      { label: this.l.instant('::Ordered'), icon: 'fa fa-clipboard-check', completed: true, active: false, date: o.orderDate },
+      { label: this.l.instant('::Delivered'), icon: 'fa fa-truck', completed: perDel >= 100, active: perDel > 0 && perDel < 100, date: undefined },
+      { label: this.l.instant('::Billed'), icon: 'fa fa-file-invoice', completed: perBill >= 100, active: perBill > 0 && perBill < 100, date: undefined },
+      { label: this.l.instant('::Paid'), icon: 'fa fa-circle-check', completed: o.status === 'Completed', active: (o as any).advancePaid > 0 && o.status !== 'Completed', date: undefined },
+    ];
   }
 
   generateDeliverySchedule(): void {

@@ -23,7 +23,7 @@
     <div class="row g-4 mb-4">
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Current Month Breakdown</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::CurrentMonthBreakdown' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             <canvas #pieCanvas height="200"></canvas>
           </div>
@@ -32,7 +32,7 @@
 
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Sales vs Purchase Submissions</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::SalesVsPurchaseSubmissions' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             <canvas #barCanvas height="200"></canvas>
           </div>
@@ -44,23 +44,23 @@
     <div class="row g-4">
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Sales Submissions</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::SalesSubmissions' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             <div class="d-flex flex-column gap-2">
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Total Submissions</span>
+                <span class="small text-muted">{{ '::TotalSubmissions' | abpLocalization }}</span>
                 <span class="fw-semibold">{{ store.totalSalesSubmissions() }}</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Success Rate</span>
+                <span class="small text-muted">{{ '::SuccessRate' | abpLocalization }}</span>
                 <span class="fw-semibold text-success">{{ store.salesSuccessRate() }}%</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Pending</span>
+                <span class="small text-muted">{{ '::Pending' | abpLocalization }}</span>
                 <span class="fw-semibold text-primary">{{ store.salesStats().submitted }}</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Not Submitted</span>
+                <span class="small text-muted">{{ '::NotSubmitted' | abpLocalization }}</span>
                 <span class="fw-semibold text-muted">{{ store.salesStats().notSubmitted }}</span>
               </div>
             </div>
@@ -70,23 +70,23 @@
 
       <div class="col-12 col-md-6">
         <div class="card">
-          <div class="card-header"><h5 class="card-title mb-0">Purchase Submissions</h5></div>
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::PurchaseSubmissions' | abpLocalization }}</h5></div>
           <div class="card-body pt-3">
             <div class="d-flex flex-column gap-2">
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Total Submissions</span>
+                <span class="small text-muted">{{ '::TotalSubmissions' | abpLocalization }}</span>
                 <span class="fw-semibold">{{ store.totalPurchaseSubmissions() }}</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Valid</span>
+                <span class="small text-muted">{{ '::Valid' | abpLocalization }}</span>
                 <span class="fw-semibold text-success">{{ store.purchaseStats().valid }}</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Pending</span>
+                <span class="small text-muted">{{ '::Pending' | abpLocalization }}</span>
                 <span class="fw-semibold text-primary">{{ store.purchaseStats().submitted }}</span>
               </div>
               <div class="d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Not Submitted</span>
+                <span class="small text-muted">{{ '::NotSubmitted' | abpLocalization }}</span>
                 <span class="fw-semibold text-muted">{{ store.purchaseStats().notSubmitted }}</span>
               </div>
             </div>

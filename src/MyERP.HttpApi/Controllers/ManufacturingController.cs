@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Manufacturing;
 using MyERP.Shared;
@@ -47,6 +48,9 @@ public class ManufacturingController : MyERPController
     [HttpDelete("bom/{id}")]
     public Task DeleteBomAsync(Guid id) => _service.DeleteBomAsync(id);
 
+    [HttpPost("bom/{id}/update-cost")]
+    public Task<BomDto> UpdateBomCostAsync(Guid id) => _service.UpdateBomCostAsync(id);
+
     // Work Order
     [HttpGet("work-order/{id}")]
     public Task<WorkOrderDto> GetWorkOrderAsync(Guid id) => _service.GetWorkOrderAsync(id);
@@ -90,4 +94,8 @@ public class ManufacturingController : MyERPController
     [HttpGet("work-order/{workOrderId}/job-cards")]
     public Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId)
         => _service.GetWorkOrderJobCardsAsync(workOrderId);
+
+    [HttpPost("work-order/{workOrderId}/create-job-cards")]
+    public Task<List<WorkOrderJobCardDto>> CreateJobCardsForWorkOrderAsync(Guid workOrderId)
+        => _service.CreateJobCardsForWorkOrderAsync(workOrderId);
 }

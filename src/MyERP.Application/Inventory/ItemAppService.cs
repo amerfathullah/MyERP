@@ -144,6 +144,11 @@ public class ItemAppService :
                 || i.ItemName.Contains(filter));
         }
 
+        if (!string.IsNullOrWhiteSpace(input.ItemType) && Enum.TryParse<ItemType>(input.ItemType, true, out var itemType))
+        {
+            queryable = queryable.Where(i => i.ItemType == itemType);
+        }
+
         var totalCount = queryable.Count();
         var items = queryable
             .OrderBy(i => i.ItemName)
@@ -151,9 +156,26 @@ public class ItemAppService :
             .Take(input.MaxResultCount)
             .ToList();
 
-        return new PagedResultDto<ItemDto>(
-            totalCount,
-            items.Select(ObjectMapper.Map<Item, ItemDto>).ToList());
+        var dtos = items.Select(ObjectMapper.Map<Item, ItemDto>).ToList();
+
+        // Resolve stock levels from Bin
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var itemIds = items.Select(i => i.Id).ToList();
+        var stockByItem = binQuery
+            .Where(b => itemIds.Contains(b.ItemId))
+            .GroupBy(b => b.ItemId)
+            .Select(g => new { ItemId = g.Key, TotalQty = g.Sum(b => b.ActualQty) })
+            .ToDictionary(x => x.ItemId, x => x.TotalQty);
+
+        foreach (var dto in dtos)
+        {
+            if (stockByItem.TryGetValue(dto.Id, out var qty))
+                dto.TotalStockQty = qty;
+            dto.IsLowStock = dto.MaintainStock && dto.ReorderLevel > 0 && dto.TotalStockQty <= dto.ReorderLevel;
+        }
+
+        return new PagedResultDto<ItemDto>(totalCount, dtos);
     }
 
     protected override Item MapToEntity(CreateUpdateItemDto input)

@@ -215,6 +215,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Calculate overdue indicators per invoice
+        var today = DateTime.UtcNow.Date;
+        foreach (var dto in dtos)
+        {
+            if (dto.DueDate.HasValue && dto.OutstandingAmount > 0.01m
+                && dto.Status == "Posted" && !dto.IsReturn
+                && dto.DueDate.Value.Date < today)
+            {
+                dto.DaysOverdue = (int)(today - dto.DueDate.Value.Date).TotalDays;
+                dto.IsOverdue = true;
+            }
+        }
+
         return new PagedResultDto<SalesInvoiceDto>(totalCount, dtos);
     }
 
@@ -383,9 +396,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Accounting dimensions
+        invoice.CostCenterId = input.CostCenterId;
+        invoice.ProjectId = input.ProjectId;
+
         // Timesheet-in-SI auto-fetch: when project is set, populate unbilled timesheet entries
         // Per ERPNext Projects Settings.fetch_timesheet_in_sales_invoice
-        invoice.ProjectId = input.ProjectId;
         if (input.ProjectId.HasValue && !invoice.IsReturn)
         {
             var tsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Timesheet, Guid>>();
@@ -1290,6 +1306,25 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         catch { /* non-blocking */ }
 
         return result;
+    }
+
+    public async Task<List<Purchasing.InvoicePaymentDto>> GetPaymentsAsync(Guid id)
+    {
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentEntry, Guid>>();
+        var peQuery = await peRepo.GetQueryableAsync();
+        var payments = peQuery
+            .Where(pe => pe.AgainstInvoiceId == id
+                         || pe.References.Any(r => r.ReferenceType == "SalesInvoice" && r.ReferenceId == id))
+            .OrderByDescending(pe => pe.PostingDate)
+            .Select(pe => new Purchasing.InvoicePaymentDto
+            {
+                Id = pe.Id,
+                PaymentNumber = pe.PaymentNumber ?? pe.Id.ToString().Substring(0, 8),
+                PostingDate = pe.PostingDate,
+                Amount = pe.PaidAmount,
+                Status = pe.Status.ToString()
+            }).ToList();
+        return payments;
     }
 }
 

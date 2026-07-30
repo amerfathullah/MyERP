@@ -173,6 +173,8 @@ public static class MyERPDomainErrorCodes
     public const string DropShipItemNotFound = "MyERP:04016";
     public const string DropShipQtyReductionExceeded = "MyERP:04017";
     public const string DropShipQtyIncreaseExceeded = "MyERP:04018";
+    public const string UpdateItemsQtyBelowReceived = "MyERP:04019";
+    public const string UpdateItemsRateBelowBilled = "MyERP:04020";
 
     // Bank Transaction
     public const string BankTransactionCurrencyMismatch = "MyERP:02022";

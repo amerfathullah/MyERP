@@ -28,6 +28,15 @@ export class PurchaseConversionService {
     { apiName: this.apiName,...config });
   
 
+  convertSupplierQuotationToPurchaseOrder = (supplierQuotationId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: '/api/app/purchase-conversion/convert-supplier-quotation-to-purchase-order',
+      params: { supplierQuotationId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   convertPurchaseOrderToInvoice = (purchaseOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',

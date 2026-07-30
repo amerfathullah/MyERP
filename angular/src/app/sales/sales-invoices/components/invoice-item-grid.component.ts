@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -24,12 +24,16 @@ export class InvoiceItemGridComponent {
   @Input() companyId: string = '';
   @Input() customerId: string = '';
   @Input() supplierId: string = '';
+  @Input() showStockAvailability: boolean = true;
   @Output() rowChanged = new EventEmitter<void>();
 
   private fb = inject(FormBuilder);
   private taxCalc = inject(TaxCalculationService);
   private itemDetailsService = inject(ItemDetailsService);
   private pricingRuleService = inject(PricingRuleService);
+
+  /** Per-item stock availability: { [itemId]: { actualQty, projectedQty } } */
+  stockInfo = signal<Record<string, { actualQty: number; projectedQty: number }>>({});
 
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
@@ -73,6 +77,17 @@ export class InvoiceItemGridComponent {
             if (details.description) patch.itemName = details.description;
             if (Object.keys(patch).length > 0) row.patchValue(patch);
             this.recalculateRow(index);
+
+            // Capture stock availability for inline display
+            if (this.showStockAvailability && details.actualQty !== undefined) {
+              this.stockInfo.update(m => ({
+                ...m,
+                [selectedId]: {
+                  actualQty: details.actualQty ?? 0,
+                  projectedQty: details.projectedQty ?? 0,
+                },
+              }));
+            }
           }
           // After item details, apply pricing rules (auto-discount/rate)
           this.applyPricingRule(index);
@@ -98,6 +113,18 @@ export class InvoiceItemGridComponent {
     });
     row.get('amount')!.setValue(calc.amount, { emitEvent: false });
     this.rowChanged.emit();
+  }
+
+  getStockForItem(itemId: string): { actualQty: number; projectedQty: number } | null {
+    return this.stockInfo()[itemId] ?? null;
+  }
+
+  isLowStock(index: number): boolean {
+    const row = this.items.at(index) as FormGroup;
+    const itemId = row.get('itemId')?.value;
+    const qty = row.get('qty')?.value ?? 0;
+    const stock = this.stockInfo()[itemId];
+    return !!stock && stock.actualQty < qty;
   }
 
   /** Auto-apply highest-priority matching pricing rule for the item */

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ConfirmationService } from '@abp/ng.theme.shared';
 import { Confirmation } from '@abp/ng.theme.shared';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -40,6 +40,7 @@ export class SalesInvoiceListComponent implements OnInit {
   private router = inject(Router);
   private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
+  private l = inject(LocalizationService);
   private invoiceService = inject(SalesInvoiceService);
   private toaster = inject(ToasterService);
   displayedColumns = ['select', 'invoiceNumber', 'issueDate', 'customerName', 'grandTotal', 'status', 'eInvoiceStatus', 'actions'];
@@ -221,6 +222,25 @@ export class SalesInvoiceListComponent implements OnInit {
       error: () => {
         this.isBulkProcessing = false;
         this.toaster.error('::BulkOperationFailed');
+      },
+    });
+  }
+
+  bulkCreatePayment(): void {
+    const postedWithOutstanding = this.store.entities()
+      .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && this.getOutstanding(inv) > 0);
+    if (postedWithOutstanding.length === 0) {
+      this.toaster.info(this.l.instant('::NoInvoicesSelected'));
+      return;
+    }
+    const totalAmount = postedWithOutstanding.reduce((sum, inv) => sum + this.getOutstanding(inv), 0);
+    const invoiceIds = postedWithOutstanding.map(inv => inv.id!).join(',');
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        partyType: 'Customer',
+        amount: totalAmount.toFixed(2),
+        invoiceIds,
+        companyId: this.companyContext.currentCompanyId(),
       },
     });
   }

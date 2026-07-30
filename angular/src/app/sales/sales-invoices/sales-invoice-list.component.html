@@ -112,6 +112,9 @@
             <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
               <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
             </button>
+            <button class="btn btn-sm btn-success" (click)="bulkCreatePayment()" [disabled]="isBulkProcessing">
+              <i class="fa fa-money-bill me-1"></i> {{ '::BulkCreatePayment' | abpLocalization }}
+            </button>
             <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
               <i class="fa fa-times me-1"></i> {{ '::ClearSelection' | abpLocalization }}
             </button>
@@ -178,7 +181,7 @@
                         {{ getOutstanding(inv) | number:'1.2-2' }}
                       </span>
                       @if (isInvoiceOverdue(inv)) {
-                        <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                        <span class="badge bg-danger ms-1">{{ inv.daysOverdue || '' }} {{ '::Overdue' | abpLocalization }}</span>
                       }
                     } @else if (inv.status === 'Posted') {
                       <span class="text-success"><i class="fa fa-check-circle"></i></span>

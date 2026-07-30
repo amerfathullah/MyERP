@@ -60,6 +60,18 @@
       </div>
     </div>
 
+    <!-- Overdue Delivery Warning -->
+    @if (isDeliveryOverdue()) {
+      <div class="alert alert-danger mt-3 d-flex align-items-center">
+        <i class="fa fa-exclamation-triangle me-2 fs-5"></i>
+        <div>
+          <strong>{{ '::OverdueDelivery' | abpLocalization }}</strong>
+          <span class="ms-1">{{ '::DeliveryOverdueBy' | abpLocalization }} {{ overdueDays() }} {{ '::Days' | abpLocalization }}</span>
+          <small class="d-block text-muted">{{ '::ExpectedDate' | abpLocalization }}: {{ order.deliveryDate | date:'dd/MM/yyyy' }}</small>
+        </div>
+      </div>
+    }
+
     <!-- Fulfillment Progress -->
     @if (order.status !== 'Draft') {
       <div class="row mt-4">
@@ -87,6 +99,33 @@
                 <div class="progress-bar bg-success" [style.width.%]="order.perBilled ?? 0"></div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Fulfillment Timeline -->
+    @if (order.status !== 'Draft') {
+      <div class="card mt-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0"><i class="fa fa-timeline me-2"></i>{{ '::FulfillmentTimeline' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between position-relative" style="padding: 0 2rem;">
+            <div class="position-absolute" style="top: 50%; left: 2rem; right: 2rem; height: 3px; background: #dee2e6; transform: translateY(-50%); z-index: 0;"></div>
+            @for (step of getTimelineSteps(); track step.label) {
+              <div class="text-center position-relative" style="z-index: 1; min-width: 80px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1"
+                     [class]="step.completed ? 'bg-success text-white' : (step.active ? 'bg-primary text-white' : 'bg-light text-muted border')"
+                     style="width: 36px; height: 36px;">
+                  <i [class]="step.icon"></i>
+                </div>
+                <small class="d-block fw-semibold" [class.text-success]="step.completed" [class.text-primary]="step.active && !step.completed">{{ step.label }}</small>
+                @if (step.date) {
+                  <small class="text-muted d-block" style="font-size: 0.7rem;">{{ step.date | date:'dd/MM/yyyy' }}</small>
+                }
+              </div>
+            }
           </div>
         </div>
       </div>

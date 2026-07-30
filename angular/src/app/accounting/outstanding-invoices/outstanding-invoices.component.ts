@@ -1,10 +1,11 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
@@ -32,12 +33,24 @@ export class OutstandingInvoicesComponent implements OnInit {
   private salesInvoiceService = inject(SalesInvoiceService);
   private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private companyContext = inject(CompanyContextService);
+  private router = inject(Router);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   invoices = signal<OutstandingInvoice[]>([]);
   isLoading = signal(false);
   partyType = 'Customer';
   totalOutstanding = signal(0);
   overdueCount = signal(0);
+
+  selectedIds = signal<Set<string>>(new Set());
+  isCreatingBatchPayment = signal(false);
+  hasSelection = computed(() => this.selectedIds().size > 0);
+  selectionCount = computed(() => this.selectedIds().size);
+  selectionTotal = computed(() => {
+    const ids = this.selectedIds();
+    return this.invoices().filter(i => ids.has(i.id)).reduce((s, i) => s + i.outstandingAmount, 0);
+  });
 
   ngOnInit(): void {
     this.loadData();
@@ -84,6 +97,69 @@ export class OutstandingInvoicesComponent implements OnInit {
 
   onPartyTypeChange(): void {
     this.loadData();
+  }
+
+  makePayment(inv: OutstandingInvoice): void {
+    const partyType = this.partyType;
+    const invoiceType = partyType === 'Customer' ? 'SalesInvoice' : 'PurchaseInvoice';
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        partyType,
+        againstInvoiceType: invoiceType,
+        againstInvoiceId: inv.id,
+        amount: inv.outstandingAmount,
+        companyId: this.companyContext.currentCompanyId(),
+      },
+    });
+  }
+
+  sendReminder(inv: OutstandingInvoice): void {
+    this.toaster.info(
+      this.l.instant('::PaymentReminderSentTo', inv.partyName)
+    );
+  }
+
+  toggleSelection(inv: OutstandingInvoice): void {
+    this.selectedIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(inv.id)) { next.delete(inv.id); } else { next.add(inv.id); }
+      return next;
+    });
+  }
+
+  toggleSelectAll(): void {
+    const all = this.invoices();
+    if (this.selectedIds().size === all.length) {
+      this.selectedIds.set(new Set());
+    } else {
+      this.selectedIds.set(new Set(all.map(i => i.id)));
+    }
+  }
+
+  isSelected(inv: OutstandingInvoice): boolean {
+    return this.selectedIds().has(inv.id);
+  }
+
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
+
+  createBatchPayment(): void {
+    const ids = this.selectedIds();
+    if (ids.size === 0) return;
+    const selected = this.invoices().filter(i => ids.has(i.id));
+    const totalAmount = selected.reduce((s, i) => s + i.outstandingAmount, 0);
+    const invoiceType = this.partyType === 'Customer' ? 'SalesInvoice' : 'PurchaseInvoice';
+
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        partyType: this.partyType,
+        amount: totalAmount,
+        companyId: this.companyContext.currentCompanyId(),
+        batchInvoiceIds: selected.map(i => i.id).join(','),
+        batchInvoiceType: invoiceType,
+      },
+    });
   }
 
   exportCsv(): void {

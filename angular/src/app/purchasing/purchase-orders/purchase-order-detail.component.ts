@@ -42,12 +42,15 @@ export class PurchaseOrderDetailComponent implements OnInit {
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   orderReceipts = signal<any[]>([]);
   orderPayments = signal<any[]>([]);
+  supplierContact = signal<{ phone?: string; email?: string; contactPerson?: string } | null>(null);
 
   // Supplier Confirmation
   showConfirmationForm = signal(false);
   confirmationNumber = '';
   promisedDate = '';
   isRecordingConfirmation = signal(false);
+
+  supplierPerformance = signal<any>(null);
 
   // Company info for print layout
   companyName = '';
@@ -65,6 +68,11 @@ export class PurchaseOrderDetailComponent implements OnInit {
   showDraftGuard = signal(false);
   draftGuardTarget = signal<'PurchaseReceipt' | 'PurchaseInvoice' | null>(null);
   private pendingConversionAction: (() => void) | null = null;
+
+  // Update Items inline editing state
+  isEditingItems = signal(false);
+  editableItems = signal<Array<{ itemId: string; quantity: number; unitPrice: number; description: string; receivedQty: number }>>([]);
+  isSavingItems = signal(false);
 
   get workflowActions(): WorkflowAction[] {
     if (!this.order) return [];
@@ -103,9 +111,19 @@ export class PurchaseOrderDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((result) => {
       this.order = result;
-      // Load linked receipts and payments
       if (result.status !== 'Draft') {
         this.loadReceiptsAndPayments(id);
+      }
+      // Load supplier performance metrics + contact info
+      if ((result as any).supplierId) {
+        this.http.get<any>(`/api/app/party-performance/supplier/${(result as any).supplierId}`).subscribe({
+          next: (perf) => this.supplierPerformance.set(perf),
+          error: () => {}
+        });
+        this.http.get<any>(`/api/app/supplier/${(result as any).supplierId}`).subscribe({
+          next: (s) => this.supplierContact.set({ phone: s?.phone, email: s?.email, contactPerson: s?.contactPerson }),
+          error: () => {}
+        });
       }
     });
   }
@@ -309,5 +327,56 @@ export class PurchaseOrderDetailComponent implements OnInit {
     today.setHours(0, 0, 0, 0);
     const diff = today.getTime() - expectedDate.getTime();
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+  }
+
+  /** Whether Update Items button should be visible (active submitted orders only) */
+  canUpdateItems(): boolean {
+    if (!this.order) return false;
+    const s = this.order.status;
+    return s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill';
+  }
+
+  /** Enter inline item editing mode */
+  startEditingItems(): void {
+    if (!this.order?.items) return;
+    this.editableItems.set(this.order.items.map(item => ({
+      itemId: item.id,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      description: item.description,
+      receivedQty: item.receivedQty ?? 0,
+    })));
+    this.isEditingItems.set(true);
+  }
+
+  /** Cancel inline editing */
+  cancelEditingItems(): void {
+    this.isEditingItems.set(false);
+    this.editableItems.set([]);
+  }
+
+  /** Save updated items to backend */
+  saveItemUpdates(): void {
+    if (!this.order?.id) return;
+    this.isSavingItems.set(true);
+    const payload = {
+      items: this.editableItems().map(item => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+    };
+    this.service.updateItems(this.order.id, payload).subscribe({
+      next: (result) => {
+        this.toaster.success(this.l.instant('::ItemsUpdatedSuccessfully'));
+        this.isEditingItems.set(false);
+        this.isSavingItems.set(false);
+        this.reloadAfterAction();
+      },
+      error: (err: any) => {
+        this.isSavingItems.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
+    });
   }
 }

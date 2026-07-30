@@ -41,6 +41,12 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Shipping charge calculated from ShippingRule.</summary>
     public decimal ShippingCharge { get; set; }
 
+    /// <summary>Cost center for departmental tracking.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise tracking.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Total advance payment received against this order.</summary>
     public decimal AdvancePaid { get; set; }
 

@@ -44,7 +44,10 @@ export class PaymentEntryFormComponent implements OnInit {
   projects = signal<{ id: string; name: string }[]>([]);
   linkedDocLabel = signal('');
   outstandingInvoices = signal<any[]>([]);
+  outstandingOrders = signal<any[]>([]);
   allocations = signal<Map<string, number>>(new Map());
+  totalInvoiceOutstanding = signal(0);
+  totalOrderPending = signal(0);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -251,15 +254,21 @@ export class PaymentEntryFormComponent implements OnInit {
     const partyId = this.form.get('partyId')?.value;
     if (!partyId) {
       this.outstandingInvoices.set([]);
+      this.outstandingOrders.set([]);
       return;
     }
-    this.paymentService.getOutstandingForParty(partyType, partyId, companyId || '').subscribe({
-      next: (invoices) => {
-        this.outstandingInvoices.set(invoices ?? []);
-        // After loading, auto-select invoice if navigated from "Make Payment" button
+    this.paymentService.getPartyOutstanding(partyType, partyId, companyId || '').subscribe({
+      next: (result) => {
+        this.outstandingInvoices.set(result?.invoices ?? []);
+        this.outstandingOrders.set(result?.orders ?? []);
+        this.totalInvoiceOutstanding.set(result?.totalInvoiceOutstanding ?? 0);
+        this.totalOrderPending.set(result?.totalOrderPending ?? 0);
         this.autoSelectInvoiceFromParams();
       },
-      error: () => {},
+      error: () => {
+        this.outstandingInvoices.set([]);
+        this.outstandingOrders.set([]);
+      },
     });
   }
 
@@ -416,8 +425,19 @@ export class PaymentEntryFormComponent implements OnInit {
       this.resolveAccounts();
     } else {
       this.outstandingInvoices.set([]);
+      this.outstandingOrders.set([]);
       this.allocations.set(new Map());
     }
+  }
+
+  selectOrder(order: any): void {
+    this.form.patchValue({
+      againstOrderId: order.orderId,
+      againstOrderType: order.orderType,
+      amount: order.pendingAdvance,
+    });
+    this.allocations.set(new Map());
+    this.linkedDocLabel.set(`Advance against ${order.orderType}: ${order.orderNumber}`);
   }
 
   /** Auto-allocate payment amount FIFO across outstanding invoices (oldest first) */

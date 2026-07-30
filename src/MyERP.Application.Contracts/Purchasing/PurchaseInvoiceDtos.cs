@@ -34,6 +34,13 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
     public Guid CreditToAccountId { get; set; }
+
+    /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
+    public int DaysOverdue { get; set; }
+
+    /// <summary>True when posted, has outstanding, past due date, and not a return.</summary>
+    public bool IsOverdue { get; set; }
+
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -96,6 +103,12 @@ public class CreatePurchaseInvoiceDto
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
     [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
     public string? Notes { get; set; }
+
+    /// <summary>Cost center for departmental P&L attribution.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise expense tracking.</summary>
+    public Guid? ProjectId { get; set; }
 
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
     public bool IsOpening { get; set; }

@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
+import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
@@ -32,6 +33,7 @@ export class DeliveryNoteListComponent implements OnInit {
   readonly store = inject(DeliveryNoteStore);
   private companyContext = inject(CompanyContextService);
   private http = inject(HttpClient);
+  private dnService = inject(DeliveryNoteService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -49,6 +51,7 @@ export class DeliveryNoteListComponent implements OnInit {
   // Batch invoicing selection
   selectedDnIds = signal<Set<string>>(new Set());
   isCreatingInvoice = signal(false);
+  isSubmitting = signal(false);
 
   hasSelection = computed(() => this.selectedDnIds().size > 0);
   selectionCount = computed(() => this.selectedDnIds().size);
@@ -141,6 +144,29 @@ export class DeliveryNoteListComponent implements OnInit {
 
   clearSelection(): void {
     this.selectedDnIds.set(new Set());
+  }
+
+  bulkSubmitSelected(): void {
+    const draftIds = Array.from(this.selectedDnIds())
+      .filter(id => {
+        const dn: any = this.store.entities().find((e: any) => e.id === id);
+        return dn && (dn.status === 'Draft' || dn.status === 0);
+      });
+    if (draftIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoOrdersReadyForBilling'));
+      return;
+    }
+    this.isSubmitting.set(true);
+    this.dnService.bulkSubmit(draftIds).subscribe({
+      next: (result: any) => {
+        this.isSubmitting.set(false);
+        this.clearSelection();
+        if (result.succeeded > 0) this.toaster.success(`${result.succeeded} ${this.l.instant('::SuccessfullySubmitted')}`);
+        if (result.failed > 0) this.toaster.warn(`${result.failed} ${this.l.instant('::OperationFailed')}`);
+        this.loadData();
+      },
+      error: () => { this.isSubmitting.set(false); this.toaster.error(this.l.instant('::BulkOperationFailed')); },
+    });
   }
 
   createInvoiceFromSelected(): void {

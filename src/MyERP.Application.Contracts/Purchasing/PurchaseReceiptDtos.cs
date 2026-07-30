@@ -23,6 +23,8 @@ public class PurchaseReceiptDto : EntityDto<Guid>
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public string Status { get; set; } = null!;
+    /// <summary>Billing completion %. 0 = not billed, 100 = fully billed.</summary>
+    public decimal PerBilled { get; set; }
     public List<PurchaseReceiptItemDto> Items { get; set; } = new();
 }
 

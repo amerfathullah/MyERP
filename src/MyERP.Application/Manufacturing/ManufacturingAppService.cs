@@ -447,6 +447,115 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     }
 
     /// <summary>
+    /// Creates Job Cards for a Work Order from its BOM operations.
+    /// Splits by batch_size per operation. Per ERPNext: WO detail → "Create Job Cards" button.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<List<WorkOrderJobCardDto>> CreateJobCardsForWorkOrderAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+        if (wo.Status == WorkOrderStatus.Draft) throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+            .WithData("documentType", "WorkOrder").WithData("status", "Draft");
+
+        var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
+        if (bom.RoutingId == null)
+            throw new BusinessException("MyERP:10017").WithData("reason", "BOM has no routing configured");
+
+        var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
+        var routing = await routingRepo.GetAsync(bom.RoutingId.Value, includeDetails: true);
+
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.JobCardManager>();
+        var jobCards = await jobCardManager.CreateJobCardsFromWorkOrderAsync(wo, routing, CurrentTenant.Id);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WorkOrder", wo.Id,
+            "JobCardsCreated", wo.CompanyId,
+            wo.WorkOrderNumber, null, null, CurrentUser.Id,
+            $"{jobCards.Length} job cards created", CurrentTenant.Id));
+
+        return jobCards.Select(jc => new WorkOrderJobCardDto
+        {
+            Id = jc.Id,
+            SequenceId = jc.SequenceId,
+            OperationName = routing.Operations.FirstOrDefault(o => o.Id == jc.BomOperationId)?.Description,
+            ForQuantity = jc.ForQuantity,
+            CompletedQty = 0,
+            TotalTimeInMins = 0,
+            Status = 0,
+            PlannedTimeInMins = jc.PlannedTimeInMins
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Batch material readiness check for all active WOs (dashboard use).
+    /// Per ERPNext Shop Floor: shows which WOs can start production immediately.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Default)]
+    public async Task<List<WorkOrderMaterialReadinessDto>> GetBatchMaterialReadinessAsync(Guid? companyId)
+    {
+        var query = await _workOrderRepository.GetQueryableAsync();
+        var activeOrders = query
+            .Where(wo => wo.Status == WorkOrderStatus.NotStarted || wo.Status == WorkOrderStatus.InProcess)
+            .Where(wo => companyId == null || wo.CompanyId == companyId)
+            .OrderBy(wo => wo.PlannedStartDate)
+            .Take(50)
+            .ToList();
+
+        if (!activeOrders.Any())
+            return new List<WorkOrderMaterialReadinessDto>();
+
+        var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
+        var result = new List<WorkOrderMaterialReadinessDto>();
+
+        foreach (var wo in activeOrders)
+        {
+            int totalMaterials = wo.RequiredItems.Count;
+            int available = 0;
+            int shortage = 0;
+            decimal totalShortageValue = 0;
+
+            foreach (var item in wo.RequiredItems)
+            {
+                var pending = Math.Max(0, item.RequiredQuantity - item.TransferredQuantity);
+                if (pending <= 0) { available++; continue; }
+
+                var warehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId ?? Guid.Empty;
+                decimal stockQty = 0;
+                try
+                {
+                    var bin = await binService.GetBalanceAsync(item.ItemId, warehouseId);
+                    stockQty = bin.ActualQty;
+                }
+                catch { /* no bin = zero stock */ }
+
+                if (stockQty >= pending) { available++; }
+                else
+                {
+                    shortage++;
+                    totalShortageValue += (pending - stockQty);
+                }
+            }
+
+            result.Add(new WorkOrderMaterialReadinessDto
+            {
+                WorkOrderId = wo.Id,
+                WorkOrderNumber = wo.WorkOrderNumber ?? "—",
+                ItemName = wo.RequiredItems.FirstOrDefault()?.ItemName ?? "—",
+                TotalMaterials = totalMaterials,
+                MaterialsAvailable = available,
+                MaterialsShort = shortage,
+                TotalShortageValue = totalShortageValue,
+                IsReady = totalMaterials > 0 && shortage == 0,
+                IsPartial = available > 0 && shortage > 0,
+                HasShortage = shortage > 0,
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Pre-flight material availability check before starting production.
     /// Per ERPNext: shows per-item required vs available qty with shortage highlighting.
     /// Returns list of materials with stock status — enables informed production decisions.
@@ -577,6 +686,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 await _binService.UpdateReservedQtyForProductionAsync(
                     rmItem.ItemId, warehouseId.Value, -rmItem.Quantity, wo.TenantId);
             }
+
+            // Track consumed qty on Work Order item (per ERPNext work_order.py update_consumed_qty)
+            var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == rmItem.ItemId);
+            if (woItem != null)
+            {
+                woItem.ConsumedQuantity += rmItem.Quantity;
+            }
         }
 
         // Receive finished goods (excluding process loss qty — only good items enter stock)
@@ -590,6 +706,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // the FG rate should also be zero — don't fall back to BOM cost/valuation rate.
         // has_consumption_basis = true when any RM was consumed (even at zero rate)
         var hasConsumptionBasis = consumptionItems.Any();
+
+        // Quality Inspection gate: validate FG item has passed QI before entering stock
+        var qiEnforcement = LazyServiceProvider
+            .LazyGetRequiredService<QualityInspectionEnforcementService>();
+        await qiEnforcement.ValidateForManufactureAsync(wo.Id, wo.ItemId, wo.TenantId);
 
         if (productionParams.TargetWarehouseId.HasValue && quantity > 0)
         {
@@ -956,6 +1077,17 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("reason", "No materials available for transfer (insufficient stock)");
 
         await seRepo.InsertAsync(entry);
+
+        // Update WO item transferred quantities (per ERPNext update_transferred_qty)
+        foreach (var seItem in entry.Items)
+        {
+            var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == seItem.ItemId);
+            if (woItem != null)
+            {
+                woItem.TransferredQuantity += seItem.Quantity;
+            }
+        }
+        await _workOrderRepository.UpdateAsync(wo);
 
         return new StockEntryResultDto
         {

@@ -94,6 +94,9 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public EInvoiceDocumentType? EInvoiceDocType { get; set; }
     public EInvoiceStatus EInvoiceStatus { get; set; } = EInvoiceStatus.NotSubmitted;
     public string? LhdnUuid { get; set; }
+    public Guid? LhdnSubmissionId { get; set; }
+    public DateTime? LhdnSubmittedAt { get; set; }
+    public string? LhdnLongId { get; set; }
 
     public string? Notes { get; set; }
 
@@ -109,6 +112,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
 
     /// <summary>Write-off cost center.</summary>
     public Guid? WriteOffCostCenterId { get; set; }
+
+    /// <summary>Cost center for departmental expense attribution.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise cost tracking.</summary>
+    public Guid? ProjectId { get; set; }
 
     // Rounded total
     /// <summary>Grand total rounded to nearest whole number.</summary>

@@ -27,4 +27,12 @@ export class PosService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  scanBarcode = (input: { barcode: string; companyId?: string }, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: '/api/app/pos/scan-barcode',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
 }

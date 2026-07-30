@@ -134,4 +134,12 @@ export class PurchaseOrderService {
       params: { companyId, supplierId },
     },
     { apiName: this.apiName,...config });
+
+  updateItems = (id: string, input: { items: Array<{ itemId: string; quantity: number; unitPrice: number; deliveryDate?: string; warehouseId?: string }> }, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, { itemsUpdated: number; newGrandTotal: number; previousGrandTotal: number; warnings: string[] }>({
+      method: 'PUT',
+      url: `/api/app/purchase-order/${id}/update-items`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
 }

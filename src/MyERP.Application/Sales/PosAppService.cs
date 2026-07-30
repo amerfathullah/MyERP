@@ -160,5 +160,31 @@ public class PosAppService : ApplicationService, IPosAppService
                 Barcode = i.Barcode,
             }).ToList());
     }
+
+    public async Task<BarcodeScanResultDto> ScanBarcodeAsync(ScanBarcodeInput input)
+    {
+        var query = await _itemRepository.GetQueryableAsync();
+        var barcode = input.Barcode?.Trim();
+        if (string.IsNullOrEmpty(barcode))
+            return new BarcodeScanResultDto { Found = false };
+
+        // Per ERPNext barcode_scanner.js: search barcode → item code → serial no
+        var item = query.FirstOrDefault(i =>
+            i.IsActive && (i.Barcode == barcode || i.ItemCode == barcode));
+
+        if (item == null)
+            return new BarcodeScanResultDto { Found = false };
+
+        return new BarcodeScanResultDto
+        {
+            Found = true,
+            ItemId = item.Id,
+            ItemCode = item.ItemCode,
+            ItemName = item.ItemName,
+            Rate = item.StandardSellingPrice ?? 0,
+            Uom = item.Uom,
+            Barcode = item.Barcode,
+        };
+    }
 }
 

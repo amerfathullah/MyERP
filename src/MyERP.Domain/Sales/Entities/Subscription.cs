@@ -47,6 +47,9 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public SubscriptionStatus Status { get; private set; } = SubscriptionStatus.Active;
     public decimal TotalPerInterval { get; set; }
 
+    /// <summary>Per PR #57615: auto-filled from plan item's company default cost center.</summary>
+    public Guid? CostCenterId { get; set; }
+
     private readonly List<SubscriptionPlan> _plans = new();
     public IReadOnlyList<SubscriptionPlan> Plans => _plans.AsReadOnly();
 
@@ -63,10 +66,15 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddPlan(Guid itemId, decimal qty, decimal rate, string? itemName = null)
+    public void AddPlan(Guid itemId, decimal qty, decimal rate, string? itemName = null, Guid? costCenterId = null)
     {
-        _plans.Add(new SubscriptionPlan(Guid.NewGuid(), Id, itemId, qty, rate, itemName));
+        var plan = new SubscriptionPlan(Guid.NewGuid(), Id, itemId, qty, rate, itemName);
+        plan.CostCenterId = costCenterId;
+        _plans.Add(plan);
         TotalPerInterval = _plans.Sum(p => p.Amount);
+        // Per PR #57615: fill-empty-only — first plan with a cost center sets subscription-level CC
+        if (CostCenterId == null && costCenterId != null)
+            CostCenterId = costCenterId;
     }
 
     public void Cancel()
@@ -123,6 +131,9 @@ public class SubscriptionPlan : FullAuditedEntity<Guid>
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount => Qty * Rate;
+
+    /// <summary>Per PR #57615: cost center from plan item defaults (selling/buying by party type).</summary>
+    public Guid? CostCenterId { get; set; }
 
     protected SubscriptionPlan() { }
 

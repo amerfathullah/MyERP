@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -25,7 +25,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
   selector: 'app-purchase-invoice-detail',
   standalone: true,
   imports: [
-    CommonModule, PageModule, LocalizationPipe, FormsModule,
+    CommonModule, PageModule, LocalizationPipe, FormsModule, RouterLink,
     DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent, PurchaseInvoicePrintLayoutComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './purchase-invoice-detail.component.html',
   styleUrls: ['./purchase-invoice-detail.component.scss'],
@@ -45,7 +45,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   invoice: PurchaseInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   paymentSchedule = signal<any[]>([]);
+  linkedPayments = signal<any[]>([]);
   companyData = signal<any>(null);
+  supplierHoldType = signal<string | null>(null);
 
   // 3-Way Matching data
   matchingData = signal<any[]>([]);
@@ -80,6 +82,12 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
         actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
       }
+      if (this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
+        actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', color: 'info' });
+      }
+      if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
+        actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', color: 'warning' });
+      }
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', color: 'danger' });
     }
     if (this.invoice.status === 'Cancelled') {
@@ -94,10 +102,18 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       this.invoice = result;
       this.service.getPaymentSchedule(id)
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
+      // Load supplier hold status for payment warning
+      if (result.supplierId) {
+        this.http.get<any>(`/api/app/supplier/${result.supplierId}`).subscribe({
+          next: (s) => this.supplierHoldType.set(s?.holdType > 0 ? this.getHoldLabel(s.holdType) : null),
+          error: () => {},
+        });
+      }
       // Load 3-way matching data for posted invoices with PO-linked items
       if (result.status === 'Posted' || result.status === 'Submitted') {
         this.loadThreeWayMatching(id);
         this.loadTaxWithholding(id);
+        this.loadLinkedPayments(id);
       }
       // Load company data for print layout
       if (result.companyId) {
@@ -121,8 +137,19 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   private loadTaxWithholding(invoiceId: string): void {
     this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/tax-withholding-entries`).subscribe({
       next: (data) => this.taxWithholdingEntries.set(data ?? []),
-      error: () => {} // Non-critical — withholding is advisory display
+      error: () => {}
     });
+  }
+
+  private loadLinkedPayments(invoiceId: string): void {
+    this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/payments`).subscribe({
+      next: (payments) => this.linkedPayments.set(payments ?? []),
+      error: () => {}
+    });
+  }
+
+  getTotalPaid(): number {
+    return this.linkedPayments().reduce((sum, p) => sum + (p.paidAmount ?? 0), 0);
   }
 
   /** Returns true if any matching row has a discrepancy */
@@ -181,6 +208,12 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'submitLhdn':
         this.submitToLhdn();
         break;
+      case 'refreshLhdn':
+        this.refreshLhdnStatus();
+        break;
+      case 'cancelLhdn':
+        this.cancelLhdn();
+        break;
     }
   }
 
@@ -198,6 +231,54 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         this.toaster.error(err?.error?.error?.message || '::LhdnSubmissionFailed');
       },
     });
+  }
+
+  private refreshLhdnStatus(): void {
+    const submissionId = (this.invoice as any).lhdnSubmissionId ?? this.invoice!.id!;
+    this.eInvoiceService.getStatus(submissionId).subscribe({
+      next: () => {
+        this.toaster.success('::LhdnStatusRefreshed');
+        this.reloadAfterAction();
+      },
+      error: () => this.toaster.error('::LhdnRefreshFailed'),
+    });
+  }
+
+  private cancelLhdn(): void {
+    this.confirmation.warn(
+      '::LhdnCancelConfirmation',
+      '::AreYouSure'
+    ).subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        const submissionId = (this.invoice as any).lhdnSubmissionId ?? this.invoice!.id!;
+        this.eInvoiceService.cancel({ submissionId, reason: 'Cancelled by user' }).subscribe({
+          next: () => {
+            this.toaster.success('::LhdnInvoiceCancelled');
+            this.reloadAfterAction();
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::LhdnCancelFailed'),
+        });
+      }
+    });
+  }
+
+  isWithin72HourWindow(): boolean {
+    const submittedAt = (this.invoice as any)?.lhdnSubmittedAt;
+    if (!submittedAt) return false;
+    const hoursSince = (Date.now() - new Date(submittedAt).getTime()) / (1000 * 60 * 60);
+    return hoursSince <= 72;
+  }
+
+  getLhdnQrCodeUrl(): string {
+    const longId = (this.invoice as any)?.lhdnLongId;
+    if (!longId) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?data=https://myinvois.hasil.gov.my/${longId}/share&size=96x96`;
+  }
+
+  getLhdnVerificationUrl(): string {
+    const longId = (this.invoice as any)?.lhdnLongId;
+    if (!longId) return '';
+    return `https://myinvois.hasil.gov.my/${longId}/share`;
   }
 
   // --- Quick Payment Dialog ---
@@ -264,6 +345,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     });
   }
 
+  isMultiCurrency(): boolean {
+    const inv = this.invoice as any;
+    return inv?.exchangeRate != null && inv.exchangeRate !== 1 && inv.exchangeRate > 0;
+  }
+
   getOutstandingAmount(): number {
     if (!this.invoice) return 0;
     const inv = this.invoice as any;
@@ -294,8 +380,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    this.service.get(this.invoice!.id!).subscribe({
-      next: (r) => { this.invoice = r; },
+    const id = this.invoice!.id!;
+    this.service.get(id).subscribe({
+      next: (r) => { this.invoice = r; this.loadLinkedPayments(id); },
       error: () => {}
     });
   }
@@ -364,5 +451,14 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     return this.paymentSchedule()
       .filter(e => this.hasActiveDiscount(e))
       .reduce((sum, e) => sum + this.getDiscountSaving(e), 0);
+  }
+
+  private getHoldLabel(holdType: number): string {
+    switch (holdType) {
+      case 1: return 'All Transactions';
+      case 2: return 'Invoices';
+      case 3: return 'Payments';
+      default: return 'On Hold';
+    }
   }
 }

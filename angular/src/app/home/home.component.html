@@ -165,14 +165,14 @@
                 <div class="text-center">
                   <small class="text-muted d-block">{{ '::Revenue' | abpLocalization }}</small>
                   <h5 class="text-success mb-0">{{ financialKpis().monthlyRevenue | number:'1.0-0' }}</h5>
-                  <small class="text-muted">{{ financialKpis().invoiceCount }} invoices</small>
+                  <small class="text-muted">{{ financialKpis().invoiceCount }} {{ '::Invoices' | abpLocalization | lowercase }}</small>
                 </div>
               </div>
               <div class="col-6 col-md-4 col-lg-2">
                 <div class="text-center">
                   <small class="text-muted d-block">{{ '::Expenses' | abpLocalization }}</small>
                   <h5 class="text-danger mb-0">{{ financialKpis().monthlyExpenses | number:'1.0-0' }}</h5>
-                  <small class="text-muted">{{ financialKpis().billCount }} bills</small>
+                  <small class="text-muted">{{ financialKpis().billCount }} {{ '::Bills' | abpLocalization | lowercase }}</small>
                 </div>
               </div>
               <div class="col-6 col-md-4 col-lg-2">
@@ -181,7 +181,7 @@
                   <h5 [class]="financialKpis().netProfit >= 0 ? 'text-success mb-0' : 'text-danger mb-0'">
                     {{ financialKpis().netProfit | number:'1.0-0' }}
                   </h5>
-                  <small class="text-muted">{{ financialKpis().profitMargin }}% margin</small>
+                  <small class="text-muted">{{ financialKpis().profitMargin }}% {{ '::Margin' | abpLocalization | lowercase }}</small>
                 </div>
               </div>
               <div class="col-6 col-md-4 col-lg-2">
@@ -225,6 +225,34 @@
                   <div class="bg-primary rounded-top w-100" [style.height.%]="bar.heightPct" style="min-height: 4px; transition: height 0.3s;"></div>
                   <small class="text-muted mt-1">{{ bar.month }}</small>
                   <small class="fw-bold">{{ bar.amount | number:'1.0-0' }}</small>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Profit Margin Trend (6 months) -->
+      @if (profitMarginTrend().length > 0) {
+        <div class="card mt-4 mb-4">
+          <div class="card-header">
+            <h6 class="card-title mb-0"><i class="fa fa-chart-line text-success me-2"></i>{{ '::ProfitMarginTrend' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body">
+            <div class="d-flex align-items-end gap-2" style="height: 160px;">
+              @for (pt of profitMarginTrend(); track pt.month) {
+                <div class="d-flex flex-column align-items-center flex-fill">
+                  <div class="rounded-top w-100"
+                       [class.bg-success]="pt.marginPct >= 20"
+                       [class.bg-warning]="pt.marginPct >= 0 && pt.marginPct < 20"
+                       [class.bg-danger]="pt.marginPct < 0"
+                       [style.height.%]="pt.marginPct > 0 ? pt.marginPct * 2 : 4"
+                       style="min-height: 4px; max-height: 100%; transition: height 0.3s;">
+                  </div>
+                  <small class="text-muted mt-1">{{ pt.month }}</small>
+                  <small class="fw-bold" [class.text-success]="pt.marginPct >= 20" [class.text-danger]="pt.marginPct < 0">
+                    {{ pt.marginPct | number:'1.1-1' }}%
+                  </small>
                 </div>
               }
             </div>
@@ -394,6 +422,7 @@
                     <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Invoices' | abpLocalization }}</th>
                     <th class="text-end">{{ '::DaysOverdue' | abpLocalization }}</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -415,6 +444,11 @@
                           <span class="text-muted">—</span>
                         }
                       </td>
+                      <td class="text-end">
+                        <a [routerLink]="['/accounting/reports/statement-of-accounts']" [queryParams]="{customerId: d.customerId}" class="btn btn-sm btn-outline-secondary" title="View Statement">
+                          <i class="fa fa-file-lines"></i>
+                        </a>
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -425,6 +459,61 @@
       }
 
       <!-- Production Summary Widget -->
+      <!-- Upcoming Payment Dues -->
+      @if (upcomingDues()) {
+        <div class="card mb-4 border-start border-4 border-info">
+          <div class="card-header">
+            <h6 class="card-title mb-0"><i class="fa fa-calendar-day text-info me-2"></i>{{ '::UpcomingPaymentDues' | abpLocalization }}</h6>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <h6 class="text-muted small mb-2">{{ '::Receivables' | abpLocalization }}</h6>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next7Days' | abpLocalization }}</span>
+                  <span class="fw-bold text-success font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.receivablesDueIn7Days | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next14Days' | abpLocalization }}</span>
+                  <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.receivablesDueIn14Days | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next30Days' | abpLocalization }}</span>
+                  <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.receivablesDueIn30Days | number:'1.2-2' }}</span>
+                </div>
+                @if (upcomingDues()!.receivablesOverdue > 0) {
+                  <div class="d-flex justify-content-between text-danger">
+                    <span class="small fw-bold">{{ '::Overdue' | abpLocalization }}</span>
+                    <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.receivablesOverdue | number:'1.2-2' }}</span>
+                  </div>
+                }
+              </div>
+              <div class="col-md-6">
+                <h6 class="text-muted small mb-2">{{ '::Payables' | abpLocalization }}</h6>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next7Days' | abpLocalization }}</span>
+                  <span class="fw-bold text-danger font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.payablesDueIn7Days | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next14Days' | abpLocalization }}</span>
+                  <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.payablesDueIn14Days | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="small">{{ '::Next30Days' | abpLocalization }}</span>
+                  <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.payablesDueIn30Days | number:'1.2-2' }}</span>
+                </div>
+                @if (upcomingDues()!.payablesOverdue > 0) {
+                  <div class="d-flex justify-content-between text-danger">
+                    <span class="small fw-bold">{{ '::Overdue' | abpLocalization }}</span>
+                    <span class="fw-bold font-monospace">{{ "" | companyCurrency }} {{ upcomingDues()!.payablesOverdue | number:'1.2-2' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
       @if (productionSummary() && productionSummary()!.totalActiveOrders > 0) {
         <div class="card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -485,19 +574,19 @@
                 <div class="row g-2">
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">0-30</small>
-                    <span class="fw-bold text-success">{{ agingSummary()!.receivables?.current | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ agingSummary()!.receivables?.current | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">31-60</small>
-                    <span class="fw-bold text-warning">{{ agingSummary()!.receivables?.thirtyOneToSixty | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ agingSummary()!.receivables?.thirtyOneToSixty | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">61-90</small>
-                    <span class="fw-bold text-danger">{{ agingSummary()!.receivables?.sixtyOneToNinety | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.receivables?.sixtyOneToNinety | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">91+</small>
-                    <span class="fw-bold text-danger">{{ agingSummary()!.receivables?.ninetyPlus | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.receivables?.ninetyPlus | number:'1.0-0' }}</a>
                   </div>
                 </div>
                 <div class="text-end mt-1">
@@ -510,19 +599,19 @@
                 <div class="row g-2">
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">0-30</small>
-                    <span class="fw-bold text-success">{{ agingSummary()!.payables?.current | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ agingSummary()!.payables?.current | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">31-60</small>
-                    <span class="fw-bold text-warning">{{ agingSummary()!.payables?.thirtyOneToSixty | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ agingSummary()!.payables?.thirtyOneToSixty | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">61-90</small>
-                    <span class="fw-bold text-danger">{{ agingSummary()!.payables?.sixtyOneToNinety | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.payables?.sixtyOneToNinety | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">91+</small>
-                    <span class="fw-bold text-danger">{{ agingSummary()!.payables?.ninetyPlus | number:'1.0-0' }}</span>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.payables?.ninetyPlus | number:'1.0-0' }}</a>
                   </div>
                 </div>
                 <div class="text-end mt-1">
@@ -699,8 +788,13 @@
       @if (lowStockItems().length > 0) {
         <div class="card mt-4">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="card-title mb-0"><i class="fa fa-triangle-exclamation text-warning me-2"></i>{{ '::LowStockAlerts' | abpLocalization }}</h6>
-            <a routerLink="/inventory/reports/stock-balance" class="btn btn-sm btn-outline-primary">{{ '::ViewAll' | abpLocalization }}</a>
+            <h6 class="card-title mb-0"><i class="fa fa-triangle-exclamation text-warning me-2"></i>{{ '::LowStockAlerts' | abpLocalization }} <span class="badge bg-warning text-dark ms-2">{{ lowStockItems().length }}</span></h6>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-success" (click)="createBulkReorderMR()" [disabled]="isCreatingReorderMR()">
+                <i class="fa fa-cart-plus me-1"></i>{{ '::CreateReorderMR' | abpLocalization }}
+              </button>
+              <a routerLink="/inventory/reports/stock-balance" class="btn btn-sm btn-outline-primary">{{ '::ViewAll' | abpLocalization }}</a>
+            </div>
           </div>
           <div class="card-body p-0">
             <table class="table table-sm mb-0">
@@ -709,19 +803,29 @@
                   <th class="ps-3">{{ '::Item' | abpLocalization }}</th>
                   <th class="text-end">{{ '::CurrentStock' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ReorderLevel' | abpLocalization }}</th>
-                  <th class="text-end pe-3">{{ '::ProjectedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ProjectedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ReorderQty' | abpLocalization }}</th>
+                  <th class="text-center pe-3"></th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of lowStockItems(); track item.itemId) {
-                  <tr>
+                  <tr [class.table-danger]="item.currentStock <= 0">
                     <td class="ps-3">
-                      <strong>{{ item.itemCode }}</strong>
+                      <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">
+                        <strong>{{ item.itemCode }}</strong>
+                      </a>
                       <small class="text-muted d-block">{{ item.itemName }}</small>
                     </td>
                     <td class="text-end font-monospace" [class.text-danger]="item.currentStock <= 0">{{ item.currentStock | number:'1.0-0' }}</td>
                     <td class="text-end font-monospace">{{ item.reorderLevel | number:'1.0-0' }}</td>
-                    <td class="text-end pe-3 font-monospace" [class.text-danger]="item.projectedQty < 0">{{ item.projectedQty | number:'1.0-0' }}</td>
+                    <td class="text-end font-monospace" [class.text-danger]="item.projectedQty < 0">{{ item.projectedQty | number:'1.0-0' }}</td>
+                    <td class="text-end font-monospace text-primary fw-bold">{{ getReorderQty(item) | number:'1.0-0' }}</td>
+                    <td class="text-center pe-3">
+                      <button class="btn btn-sm btn-outline-success py-0 px-2" (click)="createSingleReorderMR(item)" [title]="'::CreateMR' | abpLocalization">
+                        <i class="fa fa-cart-plus"></i>
+                      </button>
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -765,6 +869,48 @@
                       } @else {
                         <span class="badge bg-info">{{ batch.daysUntilExpiry }}d</span>
                       }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Pending Material Requests -->
+      @if (pendingMRs().length > 0) {
+        <div class="card mt-4" style="border-left: 4px solid var(--bs-warning);">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-clipboard-list text-warning me-2"></i>{{ '::PendingMaterialRequests' | abpLocalization }} <span class="badge bg-warning text-dark ms-2">{{ pendingMRs().length }}</span></h6>
+            <a routerLink="/purchasing/material-requests" class="btn btn-sm btn-outline-primary">{{ '::ViewAll' | abpLocalization }}</a>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th class="ps-3">{{ '::RequestNumber' | abpLocalization }}</th>
+                  <th>{{ '::RequestDate' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Items' | abpLocalization }}</th>
+                  <th>{{ '::RequiredBy' | abpLocalization }}</th>
+                  <th class="text-center pe-3">{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (mr of pendingMRs(); track mr.id) {
+                  <tr [class.table-warning]="mr.requiredByDate && mr.requiredByDate < today()">
+                    <td class="ps-3"><a [routerLink]="['/purchasing/material-requests', mr.id]" class="text-decoration-none fw-semibold">{{ mr.requestNumber }}</a></td>
+                    <td>{{ mr.requestDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-center"><span class="badge bg-secondary">{{ mr.itemCount }}</span></td>
+                    <td>
+                      @if (mr.requiredByDate) {
+                        <span [class.text-danger]="mr.requiredByDate < today()" [class.fw-bold]="mr.requiredByDate < today()">{{ mr.requiredByDate | date:'dd/MM/yyyy' }}</span>
+                        @if (mr.requiredByDate < today()) { <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span> }
+                      } @else { <span class="text-muted">—</span> }
+                    </td>
+                    <td class="text-center pe-3">
+                      @if (mr.status === 0 || mr.status === 'Draft') { <span class="badge bg-secondary">{{ '::Draft' | abpLocalization }}</span> }
+                      @else { <span class="badge bg-primary">{{ '::Submitted' | abpLocalization }}</span> }
                     </td>
                   </tr>
                 }

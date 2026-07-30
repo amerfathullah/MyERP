@@ -1,4 +1,4 @@
-import type { AgingSummaryWidgetDto, DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto, StockValuationWidgetDto } from './models';
+import type { AgingSummaryWidgetDto, DashboardSummaryDto, FinancialKpiDto, LowStockItemDto, OperationalMetricsDto, RevenueTrendDto, StockValuationWidgetDto, UpcomingPaymentDuesDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,7 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class DashboardService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
+
 
   getFinancialKpis = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, FinancialKpiDto>({
@@ -16,7 +16,7 @@ export class DashboardService {
       url: `/api/app/dashboard/financial-kpis/${companyId}`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   getLowStockItems = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, LowStockItemDto[]>({
@@ -24,7 +24,7 @@ export class DashboardService {
       url: '/api/app/dashboard/low-stock-items',
     },
     { apiName: this.apiName,...config });
-  
+
 
   getOperationalMetrics = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OperationalMetricsDto>({
@@ -32,7 +32,7 @@ export class DashboardService {
       url: `/api/app/dashboard/operational-metrics/${companyId}`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   getRevenueTrend = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, RevenueTrendDto[]>({
@@ -40,7 +40,7 @@ export class DashboardService {
       url: '/api/app/dashboard/revenue-trend',
     },
     { apiName: this.apiName,...config });
-  
+
 
   getStockValuationSummary = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockValuationWidgetDto>({
@@ -48,7 +48,7 @@ export class DashboardService {
       url: `/api/app/dashboard/stock-valuation-summary/${companyId}`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   getOverdueAlerts = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, any>({
@@ -56,7 +56,7 @@ export class DashboardService {
       url: `/api/app/dashboard/overdue-alerts/${companyId}`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   getAgingSummaryWidget = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AgingSummaryWidgetDto>({
@@ -127,6 +127,13 @@ export class DashboardService {
     this.restService.request<any, any[]>({
       method: 'GET',
       url: `/api/app/dashboard/top-debtors/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  getUpcomingPaymentDues = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UpcomingPaymentDuesDto>({
+      method: 'GET',
+      url: `/api/app/dashboard/upcoming-payment-dues/${companyId}`,
     },
     { apiName: this.apiName,...config });
 }

@@ -65,6 +65,12 @@
               {{ selectionCount() }} {{ '::Selected' | abpLocalization }}
             </span>
             <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" (click)="bulkSubmitSelected()" [disabled]="isSubmitting()">
+                @if (isSubmitting()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
+              </button>
               <button class="btn btn-success btn-sm" (click)="createInvoiceFromSelected()" [disabled]="isCreatingInvoice()">
                 @if (isCreatingInvoice()) {
                   <span class="spinner-border spinner-border-sm me-1"></span>
@@ -100,6 +106,7 @@
                     {{ '::GrandTotal' | abpLocalization }}
                   </app-sortable-header>
                 </th>
+                <th style="width: 110px;">{{ '::Billed' | abpLocalization }}</th>
                 <th style="width: 120px;">
                   <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::Status' | abpLocalization }}
@@ -121,6 +128,18 @@
                   </td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
+                  <td>
+                    @if (row.status === 'Draft' || row.status === 'Cancelled') {
+                      <span class="text-muted">—</span>
+                    } @else {
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-success" [style.width.%]="row.perBilled ?? 0"></div>
+                        </div>
+                        <small [class.text-success]="(row.perBilled ?? 0) >= 100" [class.fw-bold]="(row.perBilled ?? 0) >= 100">{{ row.perBilled ?? 0 | number:'1.0-0' }}%</small>
+                      </div>
+                    }
+                  </td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">

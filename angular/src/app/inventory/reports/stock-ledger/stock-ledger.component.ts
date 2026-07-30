@@ -1,9 +1,11 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
@@ -15,7 +17,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   selector: 'app-stock-ledger',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './stock-ledger.component.html',
   styleUrls: ['./stock-ledger.component.scss'],
 })
@@ -25,8 +27,11 @@ export class StockLedgerComponent implements OnInit {
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
   companies = signal<CompanyDto[]>([]);
+  items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  warehouses = signal<{ id: string; name: string }[]>([]);
   rows = signal<StockLedgerRowDto[]>([]);
   totalIn = signal(0);
   totalOut = signal(0);
@@ -35,9 +40,9 @@ export class StockLedgerComponent implements OnInit {
     companyId: ['', Validators.required],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], Validators.required],
     toDate: [new Date().toISOString().split('T')[0], Validators.required],
+    itemId: [''],
+    warehouseId: [''],
   });
-
-  constructor() {}
 
   ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
@@ -51,6 +56,22 @@ export class StockLedgerComponent implements OnInit {
           this.loadReport();
         }
       });
+    this.loadItems();
+    this.loadWarehouses();
+  }
+
+  private loadItems(): void {
+    this.http.get<any>('/api/app/item', { params: { skipCount: '0', maxResultCount: '500', sorting: '' } }).subscribe({
+      next: (res) => this.items.set((res.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))),
+      error: () => {},
+    });
+  }
+
+  private loadWarehouses(): void {
+    this.http.get<any>('/api/app/warehouse', { params: { skipCount: '0', maxResultCount: '200', sorting: '' } }).subscribe({
+      next: (res) => this.warehouses.set((res.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))),
+      error: () => {},
+    });
   }
 
   loadReport(): void {
@@ -64,6 +85,8 @@ export class StockLedgerComponent implements OnInit {
       companyId: value.companyId!,
       fromDate: value.fromDate!,
       toDate: value.toDate!,
+      itemId: value.itemId || undefined,
+      warehouseId: value.warehouseId || undefined,
     }).subscribe({
       next: (report) => {
         this.rows.set(report.rows ?? []);
@@ -76,6 +99,20 @@ export class StockLedgerComponent implements OnInit {
         this.toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
       },
     });
+  }
+
+  getVoucherRoute(row: StockLedgerRowDto): string[] {
+    const id = row.voucherId;
+    if (!id) return ['/'];
+    switch (row.voucherType) {
+      case 'StockEntry': return ['/inventory/stock-entries', id];
+      case 'DeliveryNote': return ['/sales/delivery-notes', id];
+      case 'PurchaseReceipt': return ['/purchasing/receipts', id];
+      case 'SalesInvoice': return ['/sales/invoices', id];
+      case 'PurchaseInvoice': return ['/purchasing/invoices', id];
+      case 'StockReconciliation': return ['/inventory/stock-reconciliation', id];
+      default: return ['/'];
+    }
   }
 
   exportCsv(): void {

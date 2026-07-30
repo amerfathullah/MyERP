@@ -11,6 +11,7 @@ public interface IPosAppService : IApplicationService
 {
     Task<PosInvoiceDto> CompleteSaleAsync(CreatePosInvoiceDto input);
     Task<PagedResultDto<PosItemDto>> SearchItemsAsync(PosItemSearchDto input);
+    Task<BarcodeScanResultDto> ScanBarcodeAsync(ScanBarcodeInput input);
 }
 
 public class CreatePosInvoiceDto
@@ -68,4 +69,22 @@ public class PosItemSearchDto
 {
     public string? Search { get; set; }
     public int MaxResultCount { get; set; } = 20;
+}
+
+public class ScanBarcodeInput
+{
+    [Required]
+    public string Barcode { get; set; } = null!;
+    public Guid? CompanyId { get; set; }
+}
+
+public class BarcodeScanResultDto
+{
+    public bool Found { get; set; }
+    public Guid? ItemId { get; set; }
+    public string? ItemCode { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public string? Barcode { get; set; }
 }

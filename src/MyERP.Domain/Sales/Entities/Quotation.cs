@@ -47,6 +47,16 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     private readonly List<QuotationItem> _items = new();
     public IReadOnlyList<QuotationItem> Items => _items.AsReadOnly();
 
+    /// <summary>SO conversion completion %. MIN% formula per ERPNext StatusUpdater.</summary>
+    public decimal PerOrdered
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            return _items.Min(i => i.Quantity == 0 ? 100 : Math.Min(100, i.OrderedQty / i.Quantity * 100));
+        }
+    }
+
     protected Quotation() { }
 
     public Quotation(Guid id, Guid companyId, Guid customerId, string quotationNumber, DateTime issueDate, Guid? tenantId = null)
@@ -124,6 +134,8 @@ public class QuotationItem : CreationAuditedEntity<Guid>
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+    /// <summary>Qty converted to Sales Order. Tracked by document conversion.</summary>
+    public decimal OrderedQty { get; set; }
 
     protected QuotationItem() { }
     public QuotationItem(Guid id, Guid quotationId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)

@@ -393,6 +393,19 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         await _repository.UpdateAsync(receipt, autoSave: true);
 
+        // Auto-evaluate supplier scorecard after goods receipt
+        // Per ERPNext supplier_scorecard.py: recalculates delivery performance on PR submit
+        try
+        {
+            var scorecardService = LazyServiceProvider
+                .LazyGetRequiredService<DomainServices.SupplierScorecardEvaluationService>();
+            await scorecardService.EvaluateAndUpdateAsync(receipt.SupplierId, receipt.CompanyId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Supplier scorecard evaluation failed for supplier {SupplierId} — non-blocking", receipt.SupplierId);
+        }
+
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PurchaseReceipt", receipt.Id, "Submitted",
@@ -575,6 +588,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        return results;
+    }
+
+    [Authorize(MyERPPermissions.PurchaseReceipts.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await SubmitAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
         return results;
     }
 }

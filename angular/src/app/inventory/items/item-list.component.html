@@ -7,10 +7,18 @@
 
   <div class="card">
     <div class="card-body">
-      <!-- Search -->
+      <!-- Search + Filters -->
       <div class="row mb-3 align-items-center">
         <div class="col">
           <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+        </div>
+        <div class="col-auto">
+          <select class="form-select form-select-sm" [(ngModel)]="typeFilter" (change)="onTypeChange()">
+            <option value="">{{ '::AllTypes' | abpLocalization }}</option>
+            <option value="0">{{ '::Goods' | abpLocalization }}</option>
+            <option value="1">{{ '::Service' | abpLocalization }}</option>
+            <option value="2">{{ '::FixedAsset' | abpLocalization }}</option>
+          </select>
         </div>
         <div class="col-auto">
           <div class="input-group input-group-sm" style="width: 250px;">
@@ -48,6 +56,7 @@
                 <th>{{ '::Group' | abpLocalization }}</th>
                 <th>{{ '::UoM' | abpLocalization }}</th>
                 <th class="text-end">{{ '::SellingPrice' | abpLocalization }}</th>
+                <th class="text-end">{{ '::StockQty' | abpLocalization }}</th>
                 <th>{{ '::Status' | abpLocalization }}</th>
                 <th class="text-end" style="width: 90px;"></th>
               </tr>
@@ -60,6 +69,16 @@
                   <td>{{ item.itemGroup }}</td>
                   <td>{{ item.uom }}</td>
                   <td class="font-monospace text-end">{{ item.standardSellingPrice | number:'1.2-2' }}</td>
+                  <td class="font-monospace text-end">
+                    @if (item.maintainStock) {
+                      <span [class.text-danger]="item.isLowStock" [class.fw-bold]="item.isLowStock">{{ item.totalStockQty | number:'1.0-2' }}</span>
+                      @if (item.isLowStock) {
+                        <span class="badge bg-danger-subtle text-danger ms-1"><i class="fa fa-triangle-exclamation"></i></span>
+                      }
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td><app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'" /></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">

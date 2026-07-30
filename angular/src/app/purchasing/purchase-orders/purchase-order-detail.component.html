@@ -56,6 +56,22 @@
             <span class="fw-semibold">{{ order.expectedDeliveryDate | date:'dd/MM/yyyy' }}</span>
           </div>
         </div>
+        @if (supplierContact(); as contact) {
+          @if (contact.phone || contact.email || contact.contactPerson) {
+            <hr class="my-2" />
+            <div class="d-flex flex-wrap gap-3 text-muted small">
+              @if (contact.contactPerson) {
+                <span><i class="fa fa-user me-1"></i>{{ contact.contactPerson }}</span>
+              }
+              @if (contact.phone) {
+                <a [href]="'tel:' + contact.phone" class="text-decoration-none"><i class="fa fa-phone me-1"></i>{{ contact.phone }}</a>
+              }
+              @if (contact.email) {
+                <a [href]="'mailto:' + contact.email" class="text-decoration-none"><i class="fa fa-envelope me-1"></i>{{ contact.email }}</a>
+              }
+            </div>
+          }
+        }
       </div>
     </div>
 
@@ -103,13 +119,100 @@
       </div>
     }
 
+    <!-- Supplier Performance Card -->
+    @if (supplierPerformance(); as perf) {
+      <div class="card mt-4 border-start border-4"
+           [class.border-success]="(perf.onTimeDeliveryRate ?? 0) >= 80"
+           [class.border-warning]="(perf.onTimeDeliveryRate ?? 0) >= 50 && (perf.onTimeDeliveryRate ?? 0) < 80"
+           [class.border-danger]="(perf.onTimeDeliveryRate ?? 0) < 50">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-gauge-simple me-2"></i>{{ '::SupplierPerformance' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body py-2">
+          <div class="row text-center">
+            <div class="col-3">
+              <small class="text-muted d-block">{{ '::TotalOrders' | abpLocalization }}</small>
+              <span class="fw-bold">{{ perf.totalOrders ?? 0 }}</span>
+            </div>
+            <div class="col-3">
+              <small class="text-muted d-block">{{ '::OnTimeDelivery' | abpLocalization }}</small>
+              <span class="badge"
+                    [class.bg-success]="(perf.onTimeDeliveryRate ?? 0) >= 80"
+                    [class.bg-warning]="(perf.onTimeDeliveryRate ?? 0) >= 50 && (perf.onTimeDeliveryRate ?? 0) < 80"
+                    [class.bg-danger]="(perf.onTimeDeliveryRate ?? 0) < 50">
+                {{ perf.onTimeDeliveryRate ?? 0 | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="col-3">
+              <small class="text-muted d-block">{{ '::AvgOrderValue' | abpLocalization }}</small>
+              <span class="fw-bold">{{ perf.averageOrderValue ?? 0 | number:'1.0-0' }}</span>
+            </div>
+            <div class="col-3">
+              <small class="text-muted d-block">{{ '::TotalSpend' | abpLocalization }}</small>
+              <span class="fw-bold">{{ perf.totalSpend ?? 0 | number:'1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Line items -->
     <div class="card mt-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+        @if (canUpdateItems() && !isEditingItems()) {
+          <button class="btn btn-sm btn-outline-warning" (click)="startEditingItems()">
+            <i class="fa fa-pen me-1"></i>{{ '::UpdateItems' | abpLocalization }}
+          </button>
+        }
+        @if (isEditingItems()) {
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-success" (click)="saveItemUpdates()" [disabled]="isSavingItems()">
+              @if (isSavingItems()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+              {{ '::Save' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary" (click)="cancelEditingItems()" [disabled]="isSavingItems()">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+          </div>
+        }
       </div>
       <div class="card-body">
-        <div class="table-responsive">
+        @if (isEditingItems()) {
+          <div class="alert alert-info py-2 mb-3">
+            <i class="fa fa-info-circle me-1"></i>{{ '::UpdateItemsHelp' | abpLocalization }}
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm w-100">
+              <thead>
+                <tr>
+                  <th>{{ '::Description' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 130px;">{{ '::UnitPrice' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
+                  <th class="text-muted" style="width: 100px;">{{ '::Received' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of editableItems(); track item.itemId; let i = $index) {
+                  <tr>
+                    <td class="text-muted">{{ item.description }}</td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm text-end" [min]="item.receivedQty"
+                        step="1" [(ngModel)]="editableItems()[i].quantity">
+                    </td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm text-end"
+                        min="0" step="0.01" [(ngModel)]="editableItems()[i].unitPrice">
+                    </td>
+                    <td class="text-end font-monospace">{{ (item.quantity * item.unitPrice) | number:'1.2-2' }}</td>
+                    <td class="text-muted small">{{ item.receivedQty | number:'1.0-1' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
           <table class="table table-sm w-100">
             <thead>
               <tr>
@@ -158,7 +261,7 @@
               }
             </tbody>
           </table>
-        </div>
+        }
       </div>
     </div>
 

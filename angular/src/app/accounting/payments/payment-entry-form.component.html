@@ -160,7 +160,10 @@
     @if ((outstandingInvoices() ?? []).length > 0) {
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::OutstandingInvoices' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0">
+            <i class="fa fa-file-invoice me-2"></i>{{ '::OutstandingInvoices' | abpLocalization }}
+            <span class="badge bg-danger ms-2">{{ totalInvoiceOutstanding() | number:'1.2-2' }}</span>
+          </h6>
           <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-success btn-sm" (click)="autoAllocate()" [disabled]="!form.get('amount')?.value || form.get('amount')?.value <= 0">
               <i class="fa fa-wand-magic-sparkles me-1"></i>{{ '::AllocateAutomatically' | abpLocalization }}
@@ -178,24 +181,37 @@
               <tr>
                 <th style="width: 40px;"></th>
                 <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
-                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::DueDate' | abpLocalization }}</th>
                 <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th class="text-end" style="width: 150px;">{{ '::AllocatedAmount' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @for (inv of outstandingInvoices(); track inv.invoiceId) {
-                <tr [class.table-active]="isInvoiceSelected(inv.invoiceId)">
+                <tr [class.table-active]="isInvoiceSelected(inv.invoiceId)" [class.table-danger]="inv.isOverdue && !isInvoiceSelected(inv.invoiceId)">
                   <td class="text-center">
                     <input type="checkbox" class="form-check-input"
                            [checked]="isInvoiceSelected(inv.invoiceId)"
                            (change)="toggleInvoice(inv, $event)" />
                   </td>
                   <td>{{ inv.invoiceNumber }}</td>
-                  <td>{{ inv.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    {{ inv.dueDate | date:'dd/MM/yyyy' }}
+                    @if (inv.isOverdue) {
+                      <span class="badge bg-danger ms-1">{{ inv.daysOverdue }}d</span>
+                    }
+                  </td>
                   <td class="text-end">{{ inv.grandTotal | number:'1.2-2' }}</td>
                   <td class="text-end fw-bold text-danger">{{ inv.outstanding | number:'1.2-2' }}</td>
+                  <td>
+                    @if (inv.isOverdue) {
+                      <span class="badge bg-danger"><i class="fa fa-clock me-1"></i>{{ '::Overdue' | abpLocalization }}</span>
+                    } @else {
+                      <span class="badge bg-secondary">{{ '::Pending' | abpLocalization }}</span>
+                    }
+                  </td>
                   <td class="text-end">
                     @if (isInvoiceSelected(inv.invoiceId)) {
                       <input type="number" class="form-control form-control-sm text-end"
@@ -203,6 +219,49 @@
                              (change)="updateAllocation(inv.invoiceId, $event)"
                              [max]="inv.outstanding" min="0.01" step="0.01" />
                     }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Outstanding Orders — Advance Payment -->
+    @if ((outstandingOrders() ?? []).length > 0) {
+      <div class="card mb-4 border-info">
+        <div class="card-header bg-info bg-opacity-10">
+          <h6 class="card-title mb-0">
+            <i class="fa fa-receipt me-2 text-info"></i>{{ '::AdvancePaymentAgainstOrders' | abpLocalization }}
+            <span class="badge bg-info ms-2">{{ totalOrderPending() | number:'1.2-2' }}</span>
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AdvancePaid' | abpLocalization }}</th>
+                <th class="text-end">{{ '::PendingAdvance' | abpLocalization }}</th>
+                <th style="width: 120px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of outstandingOrders(); track order.orderId) {
+                <tr [class.table-active]="form.get('againstOrderId')?.value === order.orderId">
+                  <td>{{ order.orderNumber }}</td>
+                  <td>{{ order.orderDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end">{{ order.grandTotal | number:'1.2-2' }}</td>
+                  <td class="text-end text-success">{{ order.advancePaid | number:'1.2-2' }}</td>
+                  <td class="text-end fw-bold text-info">{{ order.pendingAdvance | number:'1.2-2' }}</td>
+                  <td class="text-end">
+                    <button type="button" class="btn btn-outline-info btn-sm" (click)="selectOrder(order)"
+                            [disabled]="form.get('againstOrderId')?.value === order.orderId">
+                      <i class="fa fa-hand-holding-dollar me-1"></i>{{ '::PayAdvance' | abpLocalization }}
+                    </button>
                   </td>
                 </tr>
               }

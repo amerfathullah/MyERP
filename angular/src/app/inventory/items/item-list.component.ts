@@ -32,6 +32,7 @@ export class ItemListComponent implements OnInit {
   currentPage = 0;
   pageSize = 20;
   searchTerm = '';
+  typeFilter = '';
   private searchTimeout: any;
 
   ngOnInit(): void {
@@ -45,6 +46,7 @@ export class ItemListComponent implements OnInit {
       sorting: '',
       filter: this.searchTerm || undefined,
       companyId: this.companyContext.currentCompanyId() || undefined,
+      itemType: this.typeFilter || undefined,
     } as any);
   }
 
@@ -55,6 +57,11 @@ export class ItemListComponent implements OnInit {
       this.currentPage = 0;
       this.loadData();
     }, 400);
+  }
+
+  onTypeChange(): void {
+    this.currentPage = 0;
+    this.loadData();
   }
 
   onPageChange(event: any): void {

@@ -98,6 +98,12 @@ public class CreateSalesOrderDto
     /// <summary>Source quotation ID when converting from quotation.</summary>
     public Guid? QuotationId { get; set; }
 
+    /// <summary>Cost center for departmental P&L attribution.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise cost tracking.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Shipping destination country code (for shipping rule matching).</summary>
     public string? ShippingCountry { get; set; }
 

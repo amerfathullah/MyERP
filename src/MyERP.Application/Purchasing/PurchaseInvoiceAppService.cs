@@ -255,6 +255,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Calculate overdue indicators per invoice
+        var today = DateTime.UtcNow.Date;
+        foreach (var dto in dtos)
+        {
+            if (dto.DueDate.HasValue && dto.OutstandingAmount > 0.01m
+                && dto.Status == "Posted" && !dto.IsReturn
+                && dto.DueDate.Value.Date < today)
+            {
+                dto.DaysOverdue = (int)(today - dto.DueDate.Value.Date).TotalDays;
+                dto.IsOverdue = true;
+            }
+        }
+
         return new PagedResultDto<PurchaseInvoiceDto>(totalCount, dtos);
     }
 
@@ -341,6 +354,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
+        invoice.CostCenterId = input.CostCenterId;
+        invoice.ProjectId = input.ProjectId;
 
         // Duplicate supplier invoice detection (early — block before DB insert)
         if (!invoice.IsReturn && !string.IsNullOrWhiteSpace(input.SupplierInvoiceNumber))

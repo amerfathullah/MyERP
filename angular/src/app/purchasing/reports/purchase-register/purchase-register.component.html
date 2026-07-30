@@ -50,7 +50,7 @@
                 <tr [class.text-danger]="item.isReturn">
                   <td class="ps-3">
                     {{ item.invoiceNumber }}
-                    @if (item.isReturn) { <span class="badge bg-info ms-1">Debit Note</span> }
+                    @if (item.isReturn) { <span class="badge bg-info ms-1">{{ '::DebitNote' | abpLocalization }}</span> }
                   </td>
                   <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ item.netTotal | number:'1.2-2' }}</td>

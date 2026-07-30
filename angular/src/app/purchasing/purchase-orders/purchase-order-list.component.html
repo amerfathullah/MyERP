@@ -94,12 +94,15 @@
                     {{ '::Status' | abpLocalization }}
                   </app-sortable-header>
                 </th>
+                <th style="width: 100px;">{{ '::Received' | abpLocalization }}</th>
+                <th style="width: 100px;">{{ '::Billed' | abpLocalization }}</th>
                 <th class="text-end" style="width: 100px;"></th>
               </tr>
             </thead>
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
-                <tr [class.table-active]="selectedIds.has(row.id)">
+                <tr [class.table-active]="selectedIds.has(row.id)"
+                    [class.table-warning]="isReceiptOverdue(row)">
                   <td>
                     <input type="checkbox" class="form-check-input"
                       [checked]="selectedIds.has(row.id)"
@@ -109,11 +112,46 @@
                     <a [routerLink]="[row.id]" class="text-primary text-decoration-none">
                       <span class="d-inline-block text-truncate" style="max-width: 150px;" [title]="row.orderNumber">{{ row.orderNumber }}</span>
                     </a>
+                    @if (isReceiptOverdue(row)) {
+                      <span class="badge bg-danger ms-1" style="font-size: 0.65rem">{{ '::Overdue' | abpLocalization }}</span>
+                    }
                   </td>
                   <td class="text-truncate" style="max-width: 160px;">{{ row.supplierName || '—' }}</td>
                   <td>{{ row.orderDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td>
+                    @if (row.status !== 'Draft' && row.status !== 'Cancelled') {
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-info" [style.width.%]="row.perReceived ?? 0"></div>
+                        </div>
+                        <small class="text-nowrap" style="font-size: 0.7rem"
+                          [class.text-success]="(row.perReceived ?? 0) >= 100"
+                          [class.fw-bold]="(row.perReceived ?? 0) >= 100">
+                          {{ row.perReceived ?? 0 | number:'1.0-0' }}%
+                        </small>
+                      </div>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td>
+                    @if (row.status !== 'Draft' && row.status !== 'Cancelled') {
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-success" [style.width.%]="row.perBilled ?? 0"></div>
+                        </div>
+                        <small class="text-nowrap" style="font-size: 0.7rem"
+                          [class.text-success]="(row.perBilled ?? 0) >= 100"
+                          [class.fw-bold]="(row.perBilled ?? 0) >= 100">
+                          {{ row.perBilled ?? 0 | number:'1.0-0' }}%
+                        </small>
+                      </div>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" [routerLink]="[row.id]"

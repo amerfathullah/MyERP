@@ -1,64 +1,126 @@
 <abp-page [title]="'::MaterialRequests' | abpLocalization">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2 align-items-center">
-      <input type="text" class="form-control form-control-sm" style="width: 200px;"
-        [placeholder]="'::Search' | abpLocalization" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
-      <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
-        <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
-        <option value="Draft">Draft</option>
-        <option value="Submitted">Submitted</option>
-        <option value="Cancelled">Cancelled</option>
-      </select>
-      <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
-    </div>
+    <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
     <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
       <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
     </button>
   </div>
 
-  @if (store.isLoading()) {
-    <app-loading-overlay />
-  } @else if (store.entities().length === 0) {
-    <div class="text-center py-5">
-      <i class="fa fa-clipboard-list fa-3x text-muted mb-3 d-block"></i>
-      <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-      <p class="text-muted small mb-3">{{ '::NoMaterialRequestsYet' | abpLocalization }}</p>
-      <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
-        <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
-      </button>
-    </div>
-  } @else {
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
+  <div class="card">
+    <div class="card-body">
+      <!-- Filter row -->
+      <div class="row mb-3 align-items-center">
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 260px;">
+            <span class="input-group-text"><i class="fa fa-calendar"></i></span>
+            <input type="date" class="form-control" [(ngModel)]="fromDate" (change)="onDateChange()">
+            <span class="input-group-text">–</span>
+            <input type="date" class="form-control" [(ngModel)]="toDate" (change)="onDateChange()">
+          </div>
+        </div>
+        <div class="col-auto">
+          <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
+            <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+            <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
+            <option value="Submitted">{{ '::Submitted' | abpLocalization }}</option>
+            <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input type="text" class="form-control"
+              [placeholder]="'::Search' | abpLocalization"
+              [ngModel]="searchTerm"
+              (ngModelChange)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      @if (store.isLoading()) {
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      } @else if (store.entities().length === 0) {
+        <div class="text-center py-5">
+          <i class="fa fa-clipboard-list fa-3x text-muted mb-3 d-block"></i>
+          <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
+          <p class="text-muted small mb-3">{{ '::NoMaterialRequestsYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" routerLink="/purchasing/material-requests/new">
-            <i class="fa fa-plus me-1"></i> {{ '::NewMaterialRequest' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewMaterialRequest' | abpLocalization }}
           </button>
         </div>
+      } @else {
         <div class="table-responsive">
           <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th>{{ '::RequestNumber' | abpLocalization }}</th>
+                <th style="min-width: 150px;">
+                  <app-sortable-header field="requestNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::RequestNumber' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
                 <th>{{ '::RequestType' | abpLocalization }}</th>
-                <th>{{ '::RequestDate' | abpLocalization }}</th>
-                <th>{{ '::RequiredByDate' | abpLocalization }}</th>
-                <th>{{ '::Status' | abpLocalization }}</th>
-                <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+                <th style="width: 110px;">
+                  <app-sortable-header field="requestDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::RequestDate' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th style="width: 110px;">{{ '::RequiredBy' | abpLocalization }}</th>
+                <th style="width: 110px;">{{ '::Ordered' | abpLocalization }}</th>
+                <th style="width: 110px;">{{ '::Received' | abpLocalization }}</th>
+                <th style="width: 120px;">
+                  <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
+                    {{ '::Status' | abpLocalization }}
+                  </app-sortable-header>
+                </th>
+                <th class="text-end" style="width: 80px;"></th>
               </tr>
             </thead>
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
-                <tr>
-                  <td>
-                    <a [routerLink]="['/purchasing/material-requests', row.id]" class="text-decoration-none d-inline-block text-truncate" style="max-width: 180px;" [title]="row.requestNumber">
-                      {{ row.requestNumber }}
-                    </a>
+                <tr [class.table-warning]="isOverdue(row)">
+                  <td class="fw-medium">
+                    <a [routerLink]="['/purchasing/material-requests', row.id]" class="text-primary text-decoration-none">{{ row.requestNumber }}</a>
                   </td>
                   <td>{{ getTypeLabel(row.requestType!) }}</td>
                   <td>{{ row.requestDate | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ row.requiredByDate ? (row.requiredByDate | date:'dd/MM/yyyy') : '—' }}</td>
+                  <td>
+                    @if (row.requiredByDate) {
+                      <span>{{ row.requiredByDate | date:'dd/MM/yyyy' }}</span>
+                      @if (isOverdue(row)) {
+                        <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                      }
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td>
+                    @if (row.status === 0 || row.status === 4) {
+                      <span class="text-muted">—</span>
+                    } @else {
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-primary" [style.width.%]="row.perOrdered ?? 0"></div>
+                        </div>
+                        <small [class.text-success]="(row.perOrdered ?? 0) >= 100" [class.fw-bold]="(row.perOrdered ?? 0) >= 100">{{ row.perOrdered ?? 0 | number:'1.0-0' }}%</small>
+                      </div>
+                    }
+                  </td>
+                  <td>
+                    @if (row.status === 0 || row.status === 4) {
+                      <span class="text-muted">—</span>
+                    } @else {
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-success" [style.width.%]="row.perReceived ?? 0"></div>
+                        </div>
+                        <small [class.text-success]="(row.perReceived ?? 0) >= 100" [class.fw-bold]="(row.perReceived ?? 0) >= 100">{{ row.perReceived ?? 0 | number:'1.0-0' }}%</small>
+                      </div>
+                    }
+                  </td>
                   <td><app-status-badge [status]="getStatusLabel(row.status!)" /></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
@@ -79,13 +141,13 @@
             </tbody>
           </table>
         </div>
-      </div>
+      }
     </div>
-  }
+  </div>
 
   <app-pagination
     [totalCount]="store.totalCount()"
-    [pageSize]="20"
-    [currentPage]="0"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
     (pageChange)="onPageChange($event)" />
 </abp-page>

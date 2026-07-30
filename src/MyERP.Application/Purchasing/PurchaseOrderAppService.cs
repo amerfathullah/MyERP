@@ -158,6 +158,8 @@ public class PurchaseOrderAppService : ApplicationService
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
         po.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
         po.Notes = input.Notes;
+        po.CostCenterId = input.CostCenterId;
+        po.ProjectId = input.ProjectId;
 
         // Auto-fill billing address from supplier master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
@@ -336,6 +338,36 @@ public class PurchaseOrderAppService : ApplicationService
 
         await _repository.UpdateAsync(po, autoSave: true);
 
+        // Auto-create Subcontracting Order for subcontracted POs
+        // Per ERPNext PO.on_submit: auto_create_subcontracting_order creates SCO with RM from BOM
+        if (po.IsSubcontracted)
+        {
+            try
+            {
+                var scoService = LazyServiceProvider.LazyGetRequiredService<SubcontractingAppService>();
+                var scoDto = new CreateSubcontractingOrderDto
+                {
+                    CompanyId = po.CompanyId,
+                    SupplierId = po.SupplierId,
+                    PurchaseOrderId = po.Id,
+                    OrderDate = po.OrderDate,
+                    Items = po.Items.Select(i => new CreateScoItemDto
+                    {
+                        ItemId = i.ItemId,
+                        ItemName = i.Description ?? "—",
+                        Qty = i.Quantity,
+                        Rate = i.UnitPrice,
+                    }).ToList(),
+                };
+                var sco = await scoService.CreateOrderAsync(scoDto);
+                Logger.LogInformation("Auto-created SCO {ScoId} from subcontracted PO {PoNumber}", sco.Id, po.OrderNumber);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Auto-create SCO failed for PO {PoId} — create manually", po.Id);
+            }
+        }
+
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PurchaseOrder", po.Id, "Submitted",
@@ -497,6 +529,90 @@ public class PurchaseOrderAppService : ApplicationService
 
         await _repository.UpdateAsync(order, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(order);
+    }
+
+    /// <summary>
+    /// Update items on a submitted Purchase Order without cancel/amend cycle.
+    /// Per ERPNext update_child_qty_rate: modifies qty/rate on active orders with guards.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<UpdateOrderItemsResultDto> UpdateItemsAsync(Guid id, UpdateOrderItemsDto input)
+    {
+        var po = await _repository.GetAsync(id);
+
+        // Only active submitted orders can have items updated
+        if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+
+        var previousGrandTotal = po.GrandTotal;
+        var warnings = new List<string>();
+        var updatedCount = 0;
+
+        foreach (var update in input.Items)
+        {
+            var poItem = po.Items.FirstOrDefault(i => i.ItemId == update.ItemId);
+            if (poItem == null)
+            {
+                warnings.Add($"Item {update.ItemId} not found on this order — skipped.");
+                continue;
+            }
+
+            // Guard: cannot reduce qty below already received
+            if (update.Quantity < poItem.ReceivedQty)
+                throw new BusinessException("MyERP:04019")
+                    .WithData("itemId", poItem.ItemId)
+                    .WithData("receivedQty", poItem.ReceivedQty)
+                    .WithData("requestedQty", update.Quantity);
+
+            // Guard: cannot reduce rate below billed amount per unit
+            if (poItem.BilledQty > 0 && update.UnitPrice < poItem.UnitPrice)
+            {
+                var minRate = poItem.BilledQty > 0 ? (poItem.BilledQty * poItem.UnitPrice) / poItem.BilledQty : 0;
+                if (update.UnitPrice < minRate && update.UnitPrice != 0)
+                    throw new BusinessException("MyERP:04020")
+                        .WithData("itemId", poItem.ItemId)
+                        .WithData("billedRate", minRate)
+                        .WithData("requestedRate", update.UnitPrice);
+            }
+
+            // Track old qty for Bin ordered qty adjustment
+            var oldStockQty = poItem.StockQty;
+
+            // Update fields
+            poItem.Quantity = update.Quantity;
+            poItem.UnitPrice = update.UnitPrice;
+            if (update.WarehouseId.HasValue)
+                poItem.WarehouseId = update.WarehouseId;
+
+            // Adjust Bin.OrderedQty for qty changes (delta in stock UOM)
+            var newStockQty = poItem.StockQty;
+            var qtyDelta = newStockQty - oldStockQty;
+            if (qtyDelta != 0 && poItem.WarehouseId.HasValue)
+            {
+                await _binService.UpdateOrderedQtyAsync(
+                    poItem.ItemId, poItem.WarehouseId.Value, qtyDelta, po.TenantId);
+            }
+
+            updatedCount++;
+        }
+
+        await _repository.UpdateAsync(po, autoSave: true);
+
+        // Audit trail
+        await _activityLogRepository.InsertAsync(new DocumentActivityLog(
+            GuidGenerator.Create(), "PurchaseOrder", po.Id, "ItemsUpdated",
+            po.CompanyId, po.OrderNumber, po.Status.ToString(), po.Status.ToString(),
+            CurrentUser.Id, $"Updated {updatedCount} items. Grand total: {previousGrandTotal} → {po.GrandTotal}",
+            tenantId: po.TenantId));
+
+        return new UpdateOrderItemsResultDto
+        {
+            ItemsUpdated = updatedCount,
+            NewGrandTotal = po.GrandTotal,
+            PreviousGrandTotal = previousGrandTotal,
+            Warnings = warnings,
+        };
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Delete)]

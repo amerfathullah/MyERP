@@ -7,6 +7,7 @@ import { RouterModule } from '@angular/router';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { StockEntryStore } from '../store/stock-entry.store';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
@@ -15,7 +16,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   standalone: true,
   imports: [
     CommonModule, FormsModule, PageModule, LocalizationPipe,
-    RouterModule, StatusBadgeComponent, PaginationComponent, DatePresetsComponent],
+    RouterModule, StatusBadgeComponent, PaginationComponent, SortableHeaderComponent, DatePresetsComponent],
   templateUrl: './stock-entry-list.component.html',
   styleUrls: ['./stock-entry-list.component.scss'],
 })
@@ -27,6 +28,9 @@ export class StockEntryListComponent implements OnInit {
   pageSize = 20;
   searchTerm = '';
   statusFilter = '';
+  entryTypeFilter = '';
+  sortField: string | null = 'postingDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
   fromDate = '';
   toDate = '';
 
@@ -38,9 +42,10 @@ export class StockEntryListComponent implements OnInit {
     this.store.load({
       skipCount: this.currentPage * this.pageSize,
       maxResultCount: this.pageSize,
-      sorting: 'postingDate DESC',
+      sorting: this.sortField ? `${this.sortField} ${this.sortDirection}` : 'postingDate DESC',
       filter: this.searchTerm || undefined,
       status: this.statusFilter || undefined,
+      entryType: this.entryTypeFilter || undefined,
       fromDate: this.fromDate || undefined,
       toDate: this.toDate || undefined,
       companyId: this.companyContext.currentCompanyId() || undefined,
@@ -55,6 +60,19 @@ export class StockEntryListComponent implements OnInit {
 
   onStatusChange(status: string): void {
     this.statusFilter = status;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onTypeChange(type: string): void {
+    this.entryTypeFilter = type;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onSort(event: SortEvent): void {
+    this.sortField = event.field;
+    this.sortDirection = event.direction;
     this.currentPage = 0;
     this.loadData();
   }

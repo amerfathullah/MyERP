@@ -2,14 +2,16 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 
 @Component({
   selector: 'app-bom-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DocumentConnectionsComponent],
   template: `
     <div class="container-fluid">
       <app-breadcrumb />
@@ -28,7 +30,16 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               }
             </h5>
             <div class="btn-group btn-group-sm">
-              <a [routerLink]="['/manufacturing/bom', b.id]" class="btn btn-outline-primary">
+              <button class="btn btn-outline-info" (click)="updateCost()" [disabled]="isUpdatingCost()">
+                @if (isUpdatingCost()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fas fa-calculator me-1"></i>{{ 'UpdateCost' | abpLocalization }}
+              </button>
+              <a [routerLink]="['/manufacturing/bom/explorer']" [queryParams]="{bomId: b.id}" class="btn btn-outline-secondary">
+                <i class="fas fa-sitemap me-1"></i>{{ 'Manufacturing:BOMExplorer' | abpLocalization }}
+              </a>
+              <a [routerLink]="['/manufacturing/bom', b.id, 'edit']" class="btn btn-outline-primary">
                 <i class="fas fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
               </a>
             </div>
@@ -73,7 +84,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                     <tr>
                       <td class="text-muted">{{ i + 1 }}</td>
                       <td>
-                        {{ item.description || item.itemId }}
+                        <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">{{ item.description || item.itemId }}</a>
                         @if (item.isPhantom) {
                           <span class="badge bg-warning text-dark ms-1">Phantom</span>
                         }
@@ -164,6 +175,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         </div>
 
+        <app-document-connections [documentType]="'BillOfMaterials'" [documentId]="bomId" />
+
         <app-activity-log documentType="BillOfMaterials" [documentId]="bomId" />
       } @else {
         <div class="text-center py-5">
@@ -177,12 +190,33 @@ export class BomDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private manufacturingService = inject(ManufacturingService);
+  private toaster = inject(ToasterService);
 
   bom = signal<any>(null);
   bomId = '';
+  isUpdatingCost = signal(false);
 
   ngOnInit(): void {
     this.bomId = this.route.snapshot.paramMap.get('id') ?? '';
+    this.loadBom();
+  }
+
+  updateCost(): void {
+    this.isUpdatingCost.set(true);
+    this.manufacturingService.updateBomCost(this.bomId).subscribe({
+      next: () => {
+        this.toaster.success('::CostUpdatedSuccessfully');
+        this.isUpdatingCost.set(false);
+        this.loadBom();
+      },
+      error: () => {
+        this.isUpdatingCost.set(false);
+        this.toaster.error('::OperationFailed');
+      }
+    });
+  }
+
+  private loadBom(): void {
     this.manufacturingService.getBom(this.bomId).subscribe({
       next: (data) => this.bom.set(data),
       error: () => this.router.navigate(['/manufacturing/bom'])

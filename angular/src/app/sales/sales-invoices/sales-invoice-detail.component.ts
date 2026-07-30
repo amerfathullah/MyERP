@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -43,6 +43,7 @@ import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
     DocumentConnectionsComponent,
     CompanyCurrencyPipe,
     FormsModule,
+    RouterLink,
     LocalizationPipe],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -62,6 +63,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   invoice: SalesInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   paymentSchedule = signal<any[]>([]);
+  linkedPayments = signal<any[]>([]);
   companyData = signal<any>(null);
 
   // Quick Payment Dialog state
@@ -117,11 +119,15 @@ export class SalesInvoiceDetailComponent implements OnInit {
       // Load payment schedule
       this.service.getPaymentSchedule(id)
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
+      // Load linked payments for posted invoices
+      if (result.status === 'Posted' || result.status === 'Submitted') {
+        this.loadLinkedPayments(id);
+      }
       // Load company data for print layout
       if ((result as any).companyId) {
         this.companyService.get((result as any).companyId).subscribe({
           next: (company) => this.companyData.set(company),
-          error: () => {} // Non-critical — print layout shows without company header
+          error: () => {}
         });
       }
     });
@@ -204,11 +210,11 @@ export class SalesInvoiceDetailComponent implements OnInit {
       sourceDocumentId: this.invoice!.id!,
     }).subscribe({
       next: (submission) => {
-        this.toaster.success('Submitted to LHDN successfully. UUID: ' + (submission.documentUuid ?? 'pending'));
+        this.toaster.success('::LhdnSubmissionSuccessful');
         this.reloadAfterAction();
       },
       error: (err) => {
-        this.toaster.error(err?.error?.error?.message ?? 'LHDN submission failed');
+        this.toaster.error(err?.error?.error?.message ?? '::LhdnSubmissionFailed');
       },
     });
   }
@@ -358,6 +364,11 @@ export class SalesInvoiceDetailComponent implements OnInit {
     });
   }
 
+  isMultiCurrency(): boolean {
+    const inv = this.invoice as any;
+    return inv?.exchangeRate != null && inv.exchangeRate !== 1 && inv.exchangeRate > 0;
+  }
+
   getOutstandingAmount(): number {
     if (!this.invoice) return 0;
     const inv = this.invoice as any;
@@ -409,10 +420,25 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   private reloadAfterAction(): void {
-    this.service.get(this.invoice!.id!).subscribe({
-      next: (result) => { this.invoice = result; },
+    const id = this.invoice!.id!;
+    this.service.get(id).subscribe({
+      next: (result) => {
+        this.invoice = result;
+        this.loadLinkedPayments(id);
+      },
       error: () => {}
     });
+  }
+
+  private loadLinkedPayments(invoiceId: string): void {
+    this.http.get<any[]>(`/api/app/sales-invoice/${invoiceId}/payments`).subscribe({
+      next: (payments) => this.linkedPayments.set(payments ?? []),
+      error: () => {}
+    });
+  }
+
+  getTotalPaid(): number {
+    return this.linkedPayments().reduce((sum, p) => sum + (p.paidAmount ?? 0), 0);
   }
 
   deleteInvoice(): void {
@@ -513,5 +539,25 @@ export class SalesInvoiceDetailComponent implements OnInit {
 
   cancelEmailDialog(): void {
     this.showEmailDialog = false;
+  }
+
+  hasGrossProfitData(): boolean {
+    return (this.invoice?.items ?? []).some((i: any) => i.valuationRate > 0);
+  }
+
+  getItemMarginPct(item: any): number {
+    if (!item.unitPrice || item.unitPrice <= 0) return 0;
+    return ((item.unitPrice - (item.valuationRate ?? 0)) / item.unitPrice) * 100;
+  }
+
+  getTotalGrossProfit(): number {
+    return (this.invoice?.items ?? []).reduce((sum: number, i: any) =>
+      sum + ((i.unitPrice ?? 0) - (i.valuationRate ?? 0)) * (i.quantity ?? 0), 0);
+  }
+
+  getOverallMarginPct(): number {
+    const net = this.invoice?.netTotal ?? 0;
+    if (net <= 0) return 0;
+    return (this.getTotalGrossProfit() / net) * 100;
   }
 }

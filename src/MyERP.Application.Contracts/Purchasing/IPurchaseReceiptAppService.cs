@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
@@ -14,4 +15,5 @@ public interface IPurchaseReceiptAppService : IApplicationService
     Task<PurchaseReceiptDto> UpdateAsync(Guid id, CreatePurchaseReceiptDto input);
     Task<PurchaseReceiptDto> SubmitAsync(Guid id);
     Task<PurchaseReceiptDto> CancelAsync(Guid id);
+    Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
 }

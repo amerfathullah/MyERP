@@ -69,4 +69,12 @@ export class DeliveryNoteService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: `/api/app/delivery-note/bulk-submit`,
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
 }

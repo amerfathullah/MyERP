@@ -412,9 +412,33 @@ public class DashboardAppService : ApplicationService
         };
     }
 
+    public async Task<List<PendingMaterialRequestDto>> GetPendingMaterialRequestsAsync(Guid companyId)
+    {
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.MaterialRequest, Guid>>();
+        var mrQuery = await mrRepo.GetQueryableAsync();
+
+        var recentMrs = mrQuery
+            .Where(mr => mr.CompanyId == companyId &&
+                         (mr.Status == DocumentStatus.Draft || mr.Status == DocumentStatus.Submitted) &&
+                         mr.RequestType == MyERP.Purchasing.MaterialRequestType.Purchase)
+            .OrderByDescending(mr => mr.CreationTime)
+            .Take(10)
+            .Select(mr => new PendingMaterialRequestDto
+            {
+                Id = mr.Id,
+                RequestNumber = mr.RequestNumber ?? "—",
+                RequestDate = mr.RequestDate,
+                Status = mr.Status,
+                ItemCount = mr.Items.Count,
+                RequiredByDate = mr.RequiredByDate,
+            })
+            .ToList();
+
+        return recentMrs;
+    }
+
     /// <summary>
     /// Returns bank and cash account balances for the dashboard cash position widget.
-    /// Queries GL (JournalEntryLine) for Bank and Cash accounts to show current balances.
     /// </summary>
     public async Task<BankBalanceWidgetDto> GetBankBalancesAsync(Guid companyId)
     {
@@ -836,6 +860,217 @@ public class DashboardAppService : ApplicationService
                 ? (int)(today - d.OldestDueDate.Value).TotalDays : 0,
         }).ToList();
     }
+
+    public async Task<UpcomingPaymentDuesDto> GetUpcomingPaymentDuesAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var in7 = today.AddDays(7);
+        var in14 = today.AddDays(14);
+        var in30 = today.AddDays(30);
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+
+        var outstandingSi = siQuery
+            .Where(si => si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
+                         !si.IsReturn && si.DueDate.HasValue &&
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
+            .Select(si => new { si.DueDate, Outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance })
+            .ToList();
+
+        var outstandingPi = piQuery
+            .Where(pi => pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted &&
+                         !pi.IsReturn && pi.DueDate.HasValue &&
+                         (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0.01m)
+            .Select(pi => new { pi.DueDate, Outstanding = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance })
+            .ToList();
+
+        return new UpcomingPaymentDuesDto
+        {
+            ReceivablesDueIn7Days = outstandingSi.Where(s => s.DueDate >= today && s.DueDate <= in7).Sum(s => s.Outstanding),
+            ReceivablesDueIn14Days = outstandingSi.Where(s => s.DueDate >= today && s.DueDate <= in14).Sum(s => s.Outstanding),
+            ReceivablesDueIn30Days = outstandingSi.Where(s => s.DueDate >= today && s.DueDate <= in30).Sum(s => s.Outstanding),
+            ReceivablesOverdue = outstandingSi.Where(s => s.DueDate < today).Sum(s => s.Outstanding),
+            PayablesDueIn7Days = outstandingPi.Where(p => p.DueDate >= today && p.DueDate <= in7).Sum(p => p.Outstanding),
+            PayablesDueIn14Days = outstandingPi.Where(p => p.DueDate >= today && p.DueDate <= in14).Sum(p => p.Outstanding),
+            PayablesDueIn30Days = outstandingPi.Where(p => p.DueDate >= today && p.DueDate <= in30).Sum(p => p.Outstanding),
+            PayablesOverdue = outstandingPi.Where(p => p.DueDate < today).Sum(p => p.Outstanding),
+            ReceivableInvoiceCount = outstandingSi.Count(s => s.DueDate >= today && s.DueDate <= in30),
+            PayableInvoiceCount = outstandingPi.Count(p => p.DueDate >= today && p.DueDate <= in30),
+        };
+    }
+    public async Task<List<ProfitMarginTrendDto>> GetProfitMarginTrendAsync(Guid companyId)
+    {
+        var now = DateTime.UtcNow;
+        var sixMonthsAgo = new DateTime(now.Year, now.Month, 1).AddMonths(-5);
+        var result = new List<ProfitMarginTrendDto>();
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var invoices = siQuery
+            .Where(si => si.CompanyId == companyId && si.Status == DocumentStatus.Posted && si.IssueDate >= sixMonthsAgo)
+            .Select(si => new { si.IssueDate, si.NetTotal, Items = si.Items.Select(i => new { i.UnitPrice, i.ValuationRate, i.Quantity }) })
+            .ToList();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var monthStart = new DateTime(now.Year, now.Month, 1).AddMonths(-5 + i);
+            var monthEnd = monthStart.AddMonths(1);
+            var monthLabel = monthStart.ToString("MMM yyyy");
+
+            var monthInvoices = invoices.Where(inv => inv.IssueDate >= monthStart && inv.IssueDate < monthEnd).ToList();
+            var revenue = monthInvoices.Sum(inv => inv.NetTotal);
+            var cost = monthInvoices.Sum(inv => inv.Items.Sum(item => item.ValuationRate * item.Quantity));
+            var grossProfit = revenue - cost;
+            var marginPct = revenue > 0 ? Math.Round(grossProfit / revenue * 100, 1) : 0;
+
+            result.Add(new ProfitMarginTrendDto { Month = monthLabel, Revenue = revenue, Cost = cost, GrossProfit = grossProfit, MarginPercentage = marginPct });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// PO delivery due date alerts — shows overdue and upcoming deliveries.
+    /// Per ERPNext: critical for procurement follow-up with suppliers.
+    /// </summary>
+    public async Task<DeliveryDueAlertDto> GetDeliveryDueAlertsAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var in7Days = today.AddDays(7);
+
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+        var poQuery = await poRepo.GetQueryableAsync();
+
+        var activePOs = poQuery
+            .Where(po => po.CompanyId == companyId &&
+                         po.ExpectedDeliveryDate.HasValue &&
+                         (po.Status == DocumentStatus.Submitted ||
+                          po.Status == DocumentStatus.ToDeliverAndBill ||
+                          po.Status == DocumentStatus.ToDeliver))
+            .Select(po => new { po.Id, po.OrderNumber, po.SupplierId, po.ExpectedDeliveryDate, po.GrandTotal, po.Status })
+            .ToList();
+
+        var overdue = activePOs.Where(po => po.ExpectedDeliveryDate!.Value < today).ToList();
+        var dueThisWeek = activePOs.Where(po => po.ExpectedDeliveryDate!.Value >= today && po.ExpectedDeliveryDate!.Value <= in7Days).ToList();
+
+        var supplierIds = activePOs.Select(po => po.SupplierId).Distinct().ToList();
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+        var supplierQuery = await supplierRepo.GetQueryableAsync();
+        var supplierNames = supplierQuery.Where(s => supplierIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name }).ToList().ToDictionary(s => s.Id, s => s.Name);
+
+        return new DeliveryDueAlertDto
+        {
+            OverdueCount = overdue.Count,
+            DueThisWeekCount = dueThisWeek.Count,
+            DueNext7DaysCount = dueThisWeek.Count,
+            OverdueTotalValue = overdue.Sum(po => po.GrandTotal),
+            OverdueOrders = overdue.OrderBy(po => po.ExpectedDeliveryDate).Take(10).Select(po => new DeliveryDueOrderDto
+            {
+                PurchaseOrderId = po.Id,
+                OrderNumber = po.OrderNumber,
+                SupplierName = supplierNames.GetValueOrDefault(po.SupplierId, "—"),
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                DaysOverdue = (int)(today - po.ExpectedDeliveryDate!.Value).TotalDays,
+                GrandTotal = po.GrandTotal,
+            }).ToList(),
+            UpcomingOrders = dueThisWeek.OrderBy(po => po.ExpectedDeliveryDate).Take(10).Select(po => new DeliveryDueOrderDto
+            {
+                PurchaseOrderId = po.Id,
+                OrderNumber = po.OrderNumber,
+                SupplierName = supplierNames.GetValueOrDefault(po.SupplierId, "—"),
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                DaysOverdue = 0,
+                GrandTotal = po.GrandTotal,
+            }).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Inventory reorder point dashboard — items at or below reorder level.
+    /// Per ERPNext reorder_item: shows which items need procurement action.
+    /// </summary>
+    public async Task<ReorderPointDashboardDto> GetReorderPointDashboardAsync(Guid companyId)
+    {
+        var itemQuery = await _itemRepo.GetQueryableAsync();
+        var binQuery = await _binRepo.GetQueryableAsync();
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouseQuery = await warehouseRepo.GetQueryableAsync();
+
+        var companyWarehouseIds = warehouseQuery
+            .Where(w => w.CompanyId == companyId && !w.IsGroup)
+            .Select(w => w.Id).ToList();
+
+        var reorderItems = itemQuery
+            .Where(i => i.IsActive && i.MaintainStock && i.ReorderLevel > 0)
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.ReorderLevel, i.StandardBuyingPrice })
+            .ToList();
+
+        if (!reorderItems.Any()) return new ReorderPointDashboardDto();
+
+        var itemIds = reorderItems.Select(i => i.Id).ToList();
+        var bins = binQuery
+            .Where(b => itemIds.Contains(b.ItemId) && companyWarehouseIds.Contains(b.WarehouseId))
+            .ToList();
+
+        var warehouseNames = warehouseQuery.Where(w => companyWarehouseIds.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name }).ToList().ToDictionary(w => w.Id, w => w.Name);
+
+        var alerts = new List<ReorderPointItemDto>();
+        foreach (var item in reorderItems)
+        {
+            var itemBins = bins.Where(b => b.ItemId == item.Id).ToList();
+            var totalProjected = itemBins.Sum(b => b.ProjectedQty);
+
+            if (totalProjected <= item.ReorderLevel)
+            {
+                var primaryBin = itemBins.OrderByDescending(b => b.ActualQty).FirstOrDefault();
+                alerts.Add(new ReorderPointItemDto
+                {
+                    ItemId = item.Id,
+                    ItemCode = item.ItemCode,
+                    ItemName = item.ItemName ?? "—",
+                    CurrentStock = itemBins.Sum(b => b.ActualQty),
+                    ReorderLevel = item.ReorderLevel,
+                    ProjectedQty = totalProjected,
+                    ShortageQty = Math.Max(0, item.ReorderLevel - totalProjected),
+                    WarehouseName = primaryBin != null ? warehouseNames.GetValueOrDefault(primaryBin.WarehouseId, "—") : "—",
+                });
+            }
+        }
+
+        var sorted = alerts.OrderByDescending(a => a.ShortageQty).ToList();
+        return new ReorderPointDashboardDto
+        {
+            TotalItemsBelowReorder = sorted.Count,
+            CriticalItems = sorted.Count(a => a.ProjectedQty <= 0),
+            TotalShortageValue = sorted.Sum(a => a.ShortageQty * (reorderItems.FirstOrDefault(i => i.Id == a.ItemId)?.StandardBuyingPrice ?? 0)),
+            Items = sorted.Take(20).ToList(),
+        };
+    }
+}
+
+public class ProfitMarginTrendDto
+{
+    public string Month { get; set; } = "";
+    public decimal Revenue { get; set; }
+    public decimal Cost { get; set; }
+    public decimal GrossProfit { get; set; }
+    public decimal MarginPercentage { get; set; }
+}
+
+public class UpcomingPaymentDuesDto
+{
+    public decimal ReceivablesDueIn7Days { get; set; }
+    public decimal ReceivablesDueIn14Days { get; set; }
+    public decimal ReceivablesDueIn30Days { get; set; }
+    public decimal ReceivablesOverdue { get; set; }
+    public decimal PayablesDueIn7Days { get; set; }
+    public decimal PayablesDueIn14Days { get; set; }
+    public decimal PayablesDueIn30Days { get; set; }
+    public decimal PayablesOverdue { get; set; }
+    public int ReceivableInvoiceCount { get; set; }
+    public int PayableInvoiceCount { get; set; }
 }
 
 public class AgingSummaryWidgetDto
@@ -1009,6 +1244,16 @@ public class TodaysActivityDto
     public decimal TotalCollected { get; set; }
 }
 
+public class PendingMaterialRequestDto
+{
+    public Guid Id { get; set; }
+    public string RequestNumber { get; set; } = "—";
+    public DateTime RequestDate { get; set; }
+    public DocumentStatus Status { get; set; }
+    public int ItemCount { get; set; }
+    public DateTime? RequiredByDate { get; set; }
+}
+
 public class TopDebtorDto
 {
     public Guid CustomerId { get; set; }
@@ -1017,4 +1262,45 @@ public class TopDebtorDto
     public int InvoiceCount { get; set; }
     public DateTime? OldestDueDate { get; set; }
     public int DaysOverdue { get; set; }
+}
+
+public class DeliveryDueAlertDto
+{
+    public int OverdueCount { get; set; }
+    public int DueThisWeekCount { get; set; }
+    public int DueNext7DaysCount { get; set; }
+    public decimal OverdueTotalValue { get; set; }
+    public List<DeliveryDueOrderDto> OverdueOrders { get; set; } = new();
+    public List<DeliveryDueOrderDto> UpcomingOrders { get; set; } = new();
+}
+
+public class DeliveryDueOrderDto
+{
+    public Guid PurchaseOrderId { get; set; }
+    public string OrderNumber { get; set; } = "—";
+    public string SupplierName { get; set; } = "—";
+    public DateTime? ExpectedDeliveryDate { get; set; }
+    public int DaysOverdue { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal PerReceived { get; set; }
+}
+
+public class ReorderPointItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "—";
+    public string ItemName { get; set; } = "—";
+    public decimal CurrentStock { get; set; }
+    public decimal ReorderLevel { get; set; }
+    public decimal ProjectedQty { get; set; }
+    public decimal ShortageQty { get; set; }
+    public string WarehouseName { get; set; } = "—";
+}
+
+public class ReorderPointDashboardDto
+{
+    public int TotalItemsBelowReorder { get; set; }
+    public int CriticalItems { get; set; }
+    public decimal TotalShortageValue { get; set; }
+    public List<ReorderPointItemDto> Items { get; set; } = new();
 }

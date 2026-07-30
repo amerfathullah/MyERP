@@ -25,7 +25,7 @@
               <tr>
                 <td><span class="badge bg-primary-subtle text-primary">{{ row.documentType }}</span></td>
                 <td>Level {{ row.level }}</td>
-                <td>{{ row.requestedByUserId }}</td>
+                <td>{{ row.documentNumber || '—' }}</td>
                 <td>{{ row.creationTime | date:'medium' }}</td>
                 <td>
                   <button class="btn btn-sm btn-primary me-2" (click)="approve(row.id!)">

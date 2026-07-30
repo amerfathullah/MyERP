@@ -150,7 +150,7 @@
                         {{ getOutstanding(inv) | number:'1.2-2' }}
                       </span>
                       @if (isInvoiceOverdue(inv)) {
-                        <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                        <span class="badge bg-danger ms-1">{{ inv.daysOverdue || '' }} {{ '::Overdue' | abpLocalization }}</span>
                       }
                     } @else if (inv.status === 'Posted') {
                       <span class="text-success"><i class="fa fa-check-circle"></i></span>

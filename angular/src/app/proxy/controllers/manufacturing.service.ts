@@ -63,6 +63,12 @@ export class ManufacturingService {
     },
     { apiName: this.apiName,...config });
   
+  updateBomCost = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BomDto>({
+      method: 'POST',
+      url: `/api/app/manufacturing/bom/${id}/update-cost`,
+    },
+    { apiName: this.apiName,...config });
 
   deleteWorkOrder = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({

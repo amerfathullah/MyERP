@@ -51,6 +51,8 @@ public class CreatePurchaseOrderDto
     [Required] public Guid SupplierId { get; set; }
     [Required] public DateTime OrderDate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
     [Required][MinLength(1)] public List<CreatePurchaseOrderItemDto> Items { get; set; } = new();
 }
@@ -104,4 +106,43 @@ public class RecordSupplierConfirmationDto
 
     /// <summary>Supplier's promised delivery date (may differ from PO expected delivery date).</summary>
     public DateTime? PromisedDeliveryDate { get; set; }
+}
+
+/// <summary>
+/// Input for updating items on a submitted Purchase Order without cancel/amend.
+/// Per ERPNext update_child_qty_rate: allows modifying qty, rate, and delivery dates on submitted orders
+/// with guards against reducing below already-received/billed quantities.
+/// </summary>
+public class UpdateOrderItemsDto
+{
+    [Required][MinLength(1)]
+    public List<UpdateOrderItemDto> Items { get; set; } = new();
+}
+
+public class UpdateOrderItemDto
+{
+    [Required] public Guid ItemId { get; set; }
+
+    /// <summary>New quantity. Cannot be less than ReceivedQty for PO or DeliveredQty for SO.</summary>
+    [Required][Range(0.0001, double.MaxValue)]
+    public decimal Quantity { get; set; }
+
+    /// <summary>New unit price. Cannot be less than billed amount per unit when BilledQty > 0.</summary>
+    [Required][Range(0, double.MaxValue)]
+    public decimal UnitPrice { get; set; }
+
+    /// <summary>Updated delivery date for this item (optional).</summary>
+    public DateTime? DeliveryDate { get; set; }
+
+    /// <summary>Updated warehouse (optional).</summary>
+    public Guid? WarehouseId { get; set; }
+}
+
+/// <summary>Result of update items operation with per-item validation details.</summary>
+public class UpdateOrderItemsResultDto
+{
+    public int ItemsUpdated { get; set; }
+    public decimal NewGrandTotal { get; set; }
+    public decimal PreviousGrandTotal { get; set; }
+    public List<string> Warnings { get; set; } = new();
 }

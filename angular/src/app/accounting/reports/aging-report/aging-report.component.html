@@ -111,12 +111,15 @@
                   <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
                   <th class="text-end">{{ 'AgeDays' | abpLocalization }}</th>
                   <th>{{ 'AgingBucket' | abpLocalization }}</th>
+                  <th class="text-center">{{ 'Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
                 @for (d of r.details; track d.documentId) {
                   <tr [class.table-danger]="isSeverelyOverdue(d)" [class.table-warning]="isOverdue(d) && !isSeverelyOverdue(d)">
-                    <td class="small">{{ d.partyName || '—' }}</td>
+                    <td class="small">
+                      <a [routerLink]="getPartyRoute(d)" class="text-decoration-none">{{ d.partyName || '—' }}</a>
+                    </td>
                     <td>
                       <a [routerLink]="getInvoiceRoute(d)" class="text-decoration-none fw-medium">
                         {{ d.documentNumber }}
@@ -136,6 +139,20 @@
                     <td><span class="badge" [class.bg-success]="(d.ageDays ?? 0) <= 30"
                       [class.bg-warning]="(d.ageDays ?? 0) > 30 && (d.ageDays ?? 0) <= 90"
                       [class.bg-danger]="(d.ageDays ?? 0) > 90">{{ d.bucketLabel }}</span></td>
+                    <td class="text-center">
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" title="Record Payment"
+                          (click)="recordPayment(d)">
+                          <i class="fa fa-money-bill"></i>
+                        </button>
+                        @if (filters.get('reportType')?.value === 'receivables' && isOverdue(d)) {
+                          <button class="btn btn-outline-warning" title="Send Reminder"
+                            (click)="sendReminder(d)">
+                            <i class="fa fa-bell"></i>
+                          </button>
+                        }
+                      </div>
+                    </td>
                   </tr>
                 }
               </tbody>

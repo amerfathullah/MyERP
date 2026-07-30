@@ -221,6 +221,44 @@ export class PosComponent implements OnInit {
     this.lastInvoice = null;
   }
 
+  // Barcode Scanner
+  barcodeInput = '';
+  barcodeScanning = signal(false);
+  lastScanResult = signal<{ success: boolean; message: string } | null>(null);
+
+  onBarcodeScanned(): void {
+    const barcode = this.barcodeInput.trim();
+    if (!barcode) return;
+    this.barcodeScanning.set(true);
+    this.lastScanResult.set(null);
+    this.posService.scanBarcode({ barcode, companyId: this.companyId || undefined } as any).subscribe({
+      next: (result: any) => {
+        this.barcodeScanning.set(false);
+        if (result?.itemId) {
+          const item: PosItemDto = { id: result.itemId, itemName: result.itemName, itemCode: result.itemCode, sellingPrice: result.rate ?? 0 };
+          this.addToCart(item);
+          this.lastScanResult.set({ success: true, message: result.itemName ?? barcode });
+        } else {
+          this.lastScanResult.set({ success: false, message: this.localization.instant('::ItemNotFound') });
+          this.toaster.warn('::ItemNotFound');
+        }
+        this.barcodeInput = '';
+      },
+      error: () => {
+        this.barcodeScanning.set(false);
+        this.lastScanResult.set({ success: false, message: this.localization.instant('::ScanFailed') });
+        this.barcodeInput = '';
+      },
+    });
+  }
+
+  onBarcodeKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.onBarcodeScanned();
+    }
+  }
+
   completeSale(): void {
     if (this.cart.length === 0) {
       this.toaster.warn('::CartIsEmpty');

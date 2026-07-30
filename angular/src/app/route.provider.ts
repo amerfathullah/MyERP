@@ -770,6 +770,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/dashboard',
+        name: '::Menu:ManufacturingDashboard',
+        iconClass: 'fas fa-gauge-high',
+        order: 1,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/production-plans',
         name: '::Menu:ProductionPlans',
         iconClass: 'fas fa-clipboard-list',

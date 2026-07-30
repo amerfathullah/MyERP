@@ -7,8 +7,10 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { JournalEntryStore } from '../store/journal-entry.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { exportToCsv } from '../../shared/utils/csv-export';
 
 const VOUCHER_TYPE_LABELS: Record<number, string> = {
   0: 'Journal Entry', 1: 'Inter Company', 2: 'Bank Entry', 3: 'Cash Entry',
@@ -29,6 +31,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
     LocalizationPipe,
     StatusBadgeComponent,
     PaginationComponent,
+    SortableHeaderComponent,
     DatePresetsComponent],
   templateUrl: './journal-entry-list.component.html',
   styleUrls: ['./journal-entry-list.component.scss'],
@@ -41,6 +44,9 @@ export class JournalEntryListComponent implements OnInit {
   pageSize = 20;
   searchTerm = '';
   statusFilter = '';
+  voucherTypeFilter = '';
+  sortField: string | null = 'postingDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
   fromDate = '';
   toDate = '';
 
@@ -52,9 +58,10 @@ export class JournalEntryListComponent implements OnInit {
     this.store.load({
       skipCount: this.currentPage * this.pageSize,
       maxResultCount: this.pageSize,
-      sorting: 'postingDate DESC',
+      sorting: this.sortField ? `${this.sortField} ${this.sortDirection}` : 'postingDate DESC',
       filter: this.searchTerm || undefined,
       status: this.statusFilter || undefined,
+      voucherType: this.voucherTypeFilter || undefined,
       fromDate: this.fromDate || undefined,
       toDate: this.toDate || undefined,
       companyId: this.companyContext.currentCompanyId() || undefined,
@@ -69,6 +76,19 @@ export class JournalEntryListComponent implements OnInit {
 
   onStatusChange(status: string): void {
     this.statusFilter = status;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onTypeChange(type: string): void {
+    this.voucherTypeFilter = type;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  onSort(event: SortEvent): void {
+    this.sortField = event.field;
+    this.sortDirection = event.direction;
     this.currentPage = 0;
     this.loadData();
   }
@@ -92,5 +112,16 @@ export class JournalEntryListComponent implements OnInit {
 
   voucherTypeLabel(type: number | undefined): string {
     return VOUCHER_TYPE_LABELS[type ?? 0] ?? 'Journal Entry';
+  }
+
+  exportCsv(): void {
+    const rows = this.store.entities().map(r => ({
+      entryNumber: r.entryNumber ?? '',
+      postingDate: r.postingDate,
+      voucherType: this.voucherTypeLabel((r as any).voucherType),
+      totalDebit: r.totalDebit,
+      status: r.status,
+    }));
+    exportToCsv('journal-entries.csv', rows, ['entryNumber', 'postingDate', 'voucherType', 'totalDebit', 'status']);
   }
 }

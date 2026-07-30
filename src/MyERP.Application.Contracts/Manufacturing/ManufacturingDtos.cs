@@ -254,6 +254,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<BomDto> CreateBomAsync(CreateBomDto input);
     Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input);
     Task DeleteBomAsync(Guid id);
+    Task<BomDto> UpdateBomCostAsync(Guid bomId);
     Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1);
 
     // Work Order
@@ -277,6 +278,7 @@ public interface IManufacturingAppService : IApplicationService
 
     // Job Cards for Work Order
     Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId);
+    Task<List<WorkOrderJobCardDto>> CreateJobCardsForWorkOrderAsync(Guid workOrderId);
 
     // Disassembly
     Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync(CreateDisassemblyDto input);
@@ -341,4 +343,29 @@ public class MaterialAvailabilityDto
     public decimal Shortage { get; set; }
     public bool HasSufficientStock { get; set; }
     public Guid WarehouseId { get; set; }
+}
+
+/// <summary>Per-WO material readiness summary for dashboard display.</summary>
+public class WorkOrderMaterialReadinessDto
+{
+    public Guid WorkOrderId { get; set; }
+    public string WorkOrderNumber { get; set; } = "—";
+    public string ItemName { get; set; } = "—";
+
+    /// <summary>All materials available — production can start immediately.</summary>
+    public bool IsReady { get; set; }
+
+    /// <summary>Some materials transferred but not all.</summary>
+    public bool IsPartial { get; set; }
+
+    /// <summary>Critical shortage exists — production blocked.</summary>
+    public bool HasShortage { get; set; }
+
+    public int TotalMaterials { get; set; }
+    public int MaterialsAvailable { get; set; }
+    public int MaterialsShort { get; set; }
+    public decimal TotalShortageValue { get; set; }
+
+    /// <summary>"Ready" | "Partial" | "Blocked"</summary>
+    public string ReadinessStatus => IsReady ? "Ready" : HasShortage ? "Blocked" : "Partial";
 }

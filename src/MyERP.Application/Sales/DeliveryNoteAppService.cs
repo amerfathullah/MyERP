@@ -736,5 +736,25 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await scheduleRepo.UpdateAsync(entry);
         }
     }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
+    public async Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await SubmitAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return results;
+    }
 }
 

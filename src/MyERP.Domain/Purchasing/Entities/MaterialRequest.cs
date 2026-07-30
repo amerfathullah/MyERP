@@ -35,6 +35,26 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     private readonly List<MaterialRequestItem> _items = new();
     public IReadOnlyList<MaterialRequestItem> Items => _items.AsReadOnly();
 
+    /// <summary>Ordered completion %. MIN% formula per ERPNext StatusUpdater.</summary>
+    public decimal PerOrdered
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            return _items.Min(i => i.Quantity == 0 ? 100 : Math.Min(100, i.OrderedQuantity / i.Quantity * 100));
+        }
+    }
+
+    /// <summary>Received completion %. MIN% formula per ERPNext StatusUpdater.</summary>
+    public decimal PerReceived
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            return _items.Min(i => i.Quantity == 0 ? 100 : Math.Min(100, i.ReceivedQuantity / i.Quantity * 100));
+        }
+    }
+
     protected MaterialRequest() { }
 
     public MaterialRequest(Guid id, Guid companyId, string requestNumber,

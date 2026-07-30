@@ -74,6 +74,14 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    /// <summary>
+    /// Calculates purchase amount for auto-created assets from purchase documents.
+    /// Per ERPNext PR #57618: uses valuation_rate × qty (not base_net_amount)
+    /// because valuation rate includes landed costs and other adjustments.
+    /// </summary>
+    public static decimal CalculatePurchaseAmountFromValuation(decimal valuationRate, decimal qty)
+        => valuationRate * qty;
+
     public void Submit()
     {
         if (Status != AssetStatus.Draft)

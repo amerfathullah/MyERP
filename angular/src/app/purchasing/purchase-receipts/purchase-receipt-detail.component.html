@@ -41,6 +41,9 @@
                 <th class="text-end">{{ '::UnitPrice' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
+                @if (receipt.status !== 'Draft') {
+                  <th class="text-center">{{ '::QiStatus' | abpLocalization }}</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -51,6 +54,26 @@
                   <td class="text-end font-monospace">{{ row.unitPrice | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.lineTotal | number:'1.2-2' }}</td>
+                  @if (receipt.status !== 'Draft') {
+                    <td class="text-center">
+                      @if (qiLoading()) {
+                        <span class="spinner-border spinner-border-sm text-muted"></span>
+                      } @else {
+                        @let qi = getQiStatusForItem(row.itemId);
+                        @if (qi) {
+                          @if (qi.status === 'Accepted') {
+                            <span class="badge bg-success-subtle text-success"><i class="fa fa-check-circle me-1"></i>{{ '::InspectionPassed' | abpLocalization }}</span>
+                          } @else if (qi.status === 'Rejected') {
+                            <span class="badge bg-danger-subtle text-danger"><i class="fa fa-times-circle me-1"></i>{{ '::InspectionFailed' | abpLocalization }}</span>
+                          } @else {
+                            <span class="badge bg-warning-subtle text-warning"><i class="fa fa-clock me-1"></i>{{ '::InspectionPending' | abpLocalization }}</span>
+                          }
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      }
+                    </td>
+                  }
                 </tr>
               }
             </tbody>

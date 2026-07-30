@@ -181,6 +181,7 @@ export interface ExpenseClaimDto extends EntityDto<string> {
   totalClaimedAmount?: number;
   totalSanctionedAmount?: number;
   totalAmountReimbursed?: number;
+  advanceAmount?: number;
   status?: number;
   expenses?: ExpenseClaimDetailDto[];
 }

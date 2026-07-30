@@ -23,8 +23,20 @@
               </select>
             } @else {
               <input class="form-control form-control-sm" formControlName="itemName" [placeholder]="'::Placeholder:ItemName' | abpLocalization" />
-            }
-          </td>
+            }            @if (showStockAvailability && row.get('itemId')?.value) {
+              @let stock = getStockForItem(row.get('itemId')!.value);
+              @if (stock) {
+                <div class="mt-1">
+                  <small [class]="isLowStock($index) ? 'text-danger' : 'text-success'">
+                    @if (isLowStock($index)) {
+                      <i class="fa fa-exclamation-triangle me-1"></i>{{ stock.actualQty | number:'1.0-2' }} {{ '::InStock' | abpLocalization }}
+                    } @else {
+                      <i class="fa fa-check-circle me-1"></i>{{ stock.actualQty | number:'1.0-2' }} {{ '::InStock' | abpLocalization }}
+                    }
+                  </small>
+                </div>
+              }
+            }          </td>
           <td><input type="number" class="form-control form-control-sm" formControlName="qty" (change)="recalculateRow($index)" min="0.01" step="1" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="discountPercent" (change)="recalculateRow($index)" min="0" max="100" step="1" /></td>

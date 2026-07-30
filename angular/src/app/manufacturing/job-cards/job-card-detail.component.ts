@@ -10,10 +10,11 @@ import type { JobCardDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 
 @Component({
   selector: 'app-job-card-detail', standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, ActivityLogComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, ActivityLogComponent, DocumentConnectionsComponent],
   template: `
     <abp-page [title]="'JobCards' | abpLocalization">
   <app-breadcrumb />
@@ -160,6 +161,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </div>
           </div></div>
         }
+
+        <app-document-connections [documentType]="'JobCard'" [documentId]="d.id!" />
 
         <app-activity-log documentType="JobCard" [documentId]="d.id!" />
       }

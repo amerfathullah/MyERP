@@ -145,11 +145,14 @@
                     <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th style="min-width: 150px;">Item</th>
-                <th class="text-end" style="width: 80px;">Qty</th>
-                <th class="text-end" style="width: 110px;">Rate</th>
-                <th class="text-end" style="width: 80px;">Disc %</th>
+                <th style="min-width: 150px;">{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end" style="width: 80px;">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end" style="width: 110px;">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end" style="width: 80px;">{{ '::DiscountPercent' | abpLocalization }}</th>
                 <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
+                @if (invoice.status === 'Posted' && hasGrossProfitData()) {
+                  <th class="text-end" style="width: 100px;">{{ '::Margin' | abpLocalization }}</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -160,6 +163,22 @@
                   <td class="text-end font-monospace">{{ item.unitPrice | number:'1.2-2' }}</td>
                   <td class="text-end">{{ item.taxAmount }}%</td>
                   <td class="text-end font-monospace fw-semibold">{{ item.lineTotal | number:'1.2-2' }}</td>
+                  @if (invoice.status === 'Posted' && hasGrossProfitData()) {
+                    <td class="text-end">
+                      @if (item.valuationRate && item.valuationRate > 0) {
+                        <span class="badge" [class.bg-success-subtle]="getItemMarginPct(item) >= 20"
+                              [class.text-success]="getItemMarginPct(item) >= 20"
+                              [class.bg-warning-subtle]="getItemMarginPct(item) >= 0 && getItemMarginPct(item) < 20"
+                              [class.text-warning]="getItemMarginPct(item) >= 0 && getItemMarginPct(item) < 20"
+                              [class.bg-danger-subtle]="getItemMarginPct(item) < 0"
+                              [class.text-danger]="getItemMarginPct(item) < 0">
+                          {{ getItemMarginPct(item) | number:'1.1-1' }}%
+                        </span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                  }
                 </tr>
               }
             </tbody>
@@ -191,6 +210,12 @@
             <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }} ({{ invoice.currencyCode || ('' | companyCurrency) }})</span>
             <span class="font-monospace fw-bold fs-5">{{ invoice.grandTotal | number:'1.2-2' }}</span>
           </div>
+          @if (isMultiCurrency()) {
+            <div class="d-flex justify-content-between mb-1 mt-1">
+              <span class="text-muted small">{{ '::BaseEquivalent' | abpLocalization }} ({{ '' | companyCurrency }})</span>
+              <span class="font-monospace text-muted small">{{ invoice.baseGrandTotal | number:'1.2-2' }} @ {{ invoice.exchangeRate | number:'1.4-4' }}</span>
+            </div>
+          }
           @if (invoice.status === 'Posted') {
             <hr class="my-2" />
             <div class="d-flex justify-content-between mb-1">
@@ -212,6 +237,41 @@
     </div>
 
     <!-- Activity Log -->
+    @if (invoice.status === 'Posted' && hasGrossProfitData()) {
+      <div class="card mb-3 mt-3 border-start border-4"
+           [class.border-success]="getOverallMarginPct() >= 20"
+           [class.border-warning]="getOverallMarginPct() >= 0 && getOverallMarginPct() < 20"
+           [class.border-danger]="getOverallMarginPct() < 0">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0"><i class="fa fa-chart-line me-2"></i>{{ '::GrossProfitAnalysis' | abpLocalization }}</h6>
+          <span class="badge fs-6"
+                [class.bg-success]="getOverallMarginPct() >= 20"
+                [class.bg-warning]="getOverallMarginPct() >= 0 && getOverallMarginPct() < 20"
+                [class.bg-danger]="getOverallMarginPct() < 0">
+            {{ getOverallMarginPct() | number:'1.1-1' }}% {{ '::Margin' | abpLocalization }}
+          </span>
+        </div>
+        <div class="card-body py-2">
+          <div class="row text-center">
+            <div class="col-4">
+              <small class="text-muted d-block">{{ '::Revenue' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ invoice.netTotal | number:'1.2-2' }}</span>
+            </div>
+            <div class="col-4">
+              <small class="text-muted d-block">{{ '::Cost' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ (invoice.netTotal ?? 0) - getTotalGrossProfit() | number:'1.2-2' }}</span>
+            </div>
+            <div class="col-4">
+              <small class="text-muted d-block">{{ '::GrossProfit' | abpLocalization }}</small>
+              <span class="fw-bold" [class.text-success]="getTotalGrossProfit() >= 0" [class.text-danger]="getTotalGrossProfit() < 0">
+                {{ getTotalGrossProfit() | number:'1.2-2' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (paymentSchedule().length > 0) {
       <div class="card mb-3 mt-3">
         <div class="card-header">
@@ -296,6 +356,51 @@
       </div>
     }
 
+    <!-- Payment History (linked Payment Entries) -->
+    @if (linkedPayments().length > 0) {
+      <div class="card mb-3 border-start border-4 border-success">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+          <h6 class="card-title mb-0">
+            <i class="fa fa-money-bill-wave me-2 text-success"></i>{{ '::PaymentsReceived' | abpLocalization }}
+            <span class="badge bg-success ms-2">{{ linkedPayments().length }}</span>
+          </h6>
+          <span class="fw-bold text-success">{{ '' | companyCurrency }} {{ getTotalPaid() | number:'1.2-2' }}</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::PaymentNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th>{{ '::Reference' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (payment of linkedPayments(); track payment.id) {
+                <tr>
+                  <td>
+                    <a [routerLink]="['/accounting/payments', payment.id]" class="text-decoration-none fw-medium">
+                      {{ payment.paymentNumber || '—' }}
+                    </a>
+                  </td>
+                  <td>{{ payment.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end fw-bold text-success">{{ payment.paidAmount | number:'1.2-2' }}</td>
+                  <td>{{ payment.referenceNumber || '—' }}</td>
+                  <td class="text-center">
+                    <span class="badge" [class]="payment.status === 'Posted' ? 'bg-success' : 'bg-secondary'">
+                      {{ payment.status }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
     <app-activity-log [documentType]="'SalesInvoice'" [documentId]="invoice.id!"></app-activity-log>
 
     <!-- LHDN e-Invoice Verification Section (visible when submitted to LHDN) -->
@@ -371,30 +476,30 @@
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ 'Send Invoice Email' }}</h5>
+              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ '::SendEmail' | abpLocalization }}</h5>
               <button type="button" class="btn-close" (click)="cancelEmailDialog()"></button>
             </div>
             <div class="modal-body">
               <div class="mb-3">
-                <label class="form-label">{{ 'Recipient Email' }}</label>
-                <input type="email" class="form-control" [(ngModel)]="emailRecipient" placeholder="customer@example.com" />
+                <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:Email' | abpLocalization" />
               </div>
               <div class="mb-3">
-                <label class="form-label">{{ 'CC (comma-separated)' }}</label>
-                <input type="text" class="form-control" [(ngModel)]="emailCc" placeholder="cc1@example.com, cc2@example.com" />
+                <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CommaSeparatedEmails' | abpLocalization" />
               </div>
               <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="attachPdf" [(ngModel)]="emailAttachPdf" />
-                <label class="form-check-label" for="attachPdf">Attach Invoice PDF</label>
+                <label class="form-check-label" for="attachPdf">{{ '::AttachPdf' | abpLocalization }}</label>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" (click)="cancelEmailDialog()">{{ 'Cancel' }}</button>
+              <button type="button" class="btn btn-secondary" (click)="cancelEmailDialog()">{{ '::Cancel' | abpLocalization }}</button>
               <button type="button" class="btn btn-primary" (click)="sendEmail()" [disabled]="emailSending || !emailRecipient">
                 @if (emailSending) {
                   <span class="spinner-border spinner-border-sm me-1"></span>
                 }
-                <i class="fa fa-paper-plane me-1"></i>{{ 'Send' }}
+                <i class="fa fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
               </button>
             </div>
           </div>

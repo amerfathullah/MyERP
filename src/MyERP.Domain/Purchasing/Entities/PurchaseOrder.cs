@@ -35,6 +35,12 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Total advance payment made against this order.</summary>
     public decimal AdvancePaid { get; set; }
 
+    /// <summary>Cost center for departmental tracking.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for project-wise tracking.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Whether this PO is for subcontracted items (links to SCO).</summary>
     public bool IsSubcontracted { get; set; }
 

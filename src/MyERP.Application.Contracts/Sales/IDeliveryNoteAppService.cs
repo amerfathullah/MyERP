@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
@@ -14,4 +15,5 @@ public interface IDeliveryNoteAppService : IApplicationService
     Task<DeliveryNoteDto> UpdateAsync(Guid id, CreateDeliveryNoteDto input);
     Task<DeliveryNoteDto> SubmitAsync(Guid id);
     Task<DeliveryNoteDto> CancelAsync(Guid id);
+    Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
 }

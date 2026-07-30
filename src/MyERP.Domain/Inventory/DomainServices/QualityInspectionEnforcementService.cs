@@ -78,6 +78,48 @@ public class QualityInspectionEnforcementService : DomainService
             InspectionType.Outgoing, i => i.InspectionRequiredBeforeDelivery, tenantId);
     }
 
+    /// <summary>
+    /// Validates QI for manufactured Finished Goods before they enter stock.
+    /// Per ERPNext: Manufacture Stock Entry FG items with inspection_required_before_delivery
+    /// must have a submitted+accepted QI before production is recorded.
+    /// The QI is linked to the Work Order (not the SE) for the FG item.
+    /// </summary>
+    public async Task ValidateForManufactureAsync(
+        Guid workOrderId, Guid fgItemId, Guid? tenantId)
+    {
+        var item = await _itemRepository.FindAsync(fgItemId);
+        if (item == null || !item.InspectionRequiredBeforeDelivery) return;
+
+        var qiQueryable = await _qiRepository.GetQueryableAsync();
+        var hasAccepted = qiQueryable
+            .Any(qi => qi.ReferenceType == "WorkOrder"
+                    && qi.ReferenceId == workOrderId
+                    && qi.ItemId == fgItemId
+                    && qi.DocStatus == Core.DocumentStatus.Submitted
+                    && qi.Status == InspectionStatus.Accepted);
+
+        if (!hasAccepted)
+        {
+            var hasRejected = qiQueryable
+                .Any(qi => qi.ReferenceType == "WorkOrder"
+                        && qi.ReferenceId == workOrderId
+                        && qi.ItemId == fgItemId
+                        && qi.DocStatus == Core.DocumentStatus.Submitted
+                        && qi.Status == InspectionStatus.Rejected);
+
+            if (hasRejected)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRejected)
+                    .WithData("items", item.ItemName)
+                    .WithData("referenceType", "WorkOrder");
+            }
+
+            throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRequired)
+                .WithData("items", item.ItemName)
+                .WithData("referenceType", "WorkOrder");
+        }
+    }
+
     private async Task ValidateAsync(
         Guid referenceId, string referenceType, Guid[] itemIds,
         InspectionType expectedType, Func<Item, bool> requiresInspection, Guid? tenantId)

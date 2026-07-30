@@ -21,6 +21,10 @@ public class MaterialRequestDto
     public Guid? TargetWarehouseId { get; set; }
     public string? Notes { get; set; }
     public DateTime CreationTime { get; set; }
+    /// <summary>Ordered completion %. 0 = not ordered, 100 = fully ordered.</summary>
+    public decimal PerOrdered { get; set; }
+    /// <summary>Received completion %. 0 = not received, 100 = fully received.</summary>
+    public decimal PerReceived { get; set; }
     public List<MaterialRequestItemDto> Items { get; set; } = new();
 }
 

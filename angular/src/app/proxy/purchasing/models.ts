@@ -19,6 +19,8 @@ export interface CreatePurchaseInvoiceDto {
   supplierInvoiceNumber?: string | null;
   currencyCode?: string;
   notes?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
   isOpening?: boolean;
   isReturn?: boolean;
   returnAgainstId?: string | null;
@@ -53,6 +55,8 @@ export interface CreatePurchaseOrderDto {
   supplierId: string;
   orderDate: string;
   expectedDeliveryDate?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
   notes?: string | null;
   items: CreatePurchaseOrderItemDto[];
 }
@@ -267,6 +271,8 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   creditToAccountId?: string;
+  daysOverdue?: number;
+  isOverdue?: boolean;
   updateStock?: boolean;
   warehouseId?: string | null;
   items?: PurchaseInvoiceItemDto[];
@@ -336,6 +342,7 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   isReturn?: boolean;
   returnAgainstId?: string | null;
   status?: string;
+  perBilled?: number;
   items?: PurchaseReceiptItemDto[];
 }
 

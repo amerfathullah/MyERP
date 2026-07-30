@@ -24,6 +24,8 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public string Status { get; set; } = null!;
+    /// <summary>Billing completion %. 0 = not billed, 100 = fully billed.</summary>
+    public decimal PerBilled { get; set; }
     public List<DeliveryNoteItemDto> Items { get; set; } = new();
 }
 
@@ -37,6 +39,7 @@ public class DeliveryNoteItemDto
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal BilledQty { get; set; }
     public Guid? SalesOrderItemId { get; set; }
 }
 

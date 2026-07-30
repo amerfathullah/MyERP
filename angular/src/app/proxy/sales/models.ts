@@ -269,6 +269,7 @@ export interface CreateSalesInvoiceDto {
   isReturn?: boolean;
   returnAgainstId?: string | null;
   isOpening?: boolean;
+  costCenterId?: string | null;
   projectId?: string | null;
   updateStock?: boolean;
   warehouseId?: string | null;
@@ -296,6 +297,8 @@ export interface CreateSalesOrderDto {
   terms?: string | null;
   notes?: string | null;
   quotationId?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
   shippingCountry?: string | null;
   couponCode?: string | null;
   loyaltyPointsToRedeem?: number;
@@ -440,6 +443,7 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   isReturn?: boolean;
   returnAgainstId?: string | null;
   status?: string;
+  perBilled?: number;
   items?: DeliveryNoteItemDto[];
 }
 
@@ -452,6 +456,7 @@ export interface DeliveryNoteItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  billedQty?: number;
   salesOrderItemId?: string | null;
 }
 
@@ -768,6 +773,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   notes?: string | null;
   status?: string;
   convertedToSalesOrderId?: string | null;
+  perOrdered?: number;
   items?: QuotationItemDto[];
 }
 
@@ -780,6 +786,7 @@ export interface QuotationItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  orderedQty?: number;
 }
 
 export interface RegisterFilterDto {
@@ -822,6 +829,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   debitToAccountId?: string;
+  daysOverdue?: number;
+  isOverdue?: boolean;
   updateStock?: boolean;
   warehouseId?: string | null;
   items?: SalesInvoiceItemDto[];
@@ -836,6 +845,8 @@ export interface SalesInvoiceItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  valuationRate?: number;
+  grossProfit?: number;
 }
 
 export interface SalesOrderDto extends FullAuditedEntityDto<string> {

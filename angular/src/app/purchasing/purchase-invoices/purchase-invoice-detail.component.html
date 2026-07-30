@@ -87,6 +87,9 @@
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.supplierName || '—' }}</span>
+            @if (supplierHoldType()) {
+              <span class="badge bg-danger ms-2"><i class="fa fa-ban me-1"></i>{{ supplierHoldType() }}</span>
+            }
           </div>
           <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::IssueDate' | abpLocalization }}</small>
@@ -217,6 +220,9 @@
         }
         <hr />
         <p class="fs-5">{{ '::GrandTotal' | abpLocalization }}: <strong>{{ invoice.grandTotal | number:'1.2-2' }}</strong></p>
+        @if (isMultiCurrency()) {
+          <p class="text-muted small mb-1">{{ '::BaseEquivalent' | abpLocalization }} ({{ '' | companyCurrency }}): {{ $any(invoice).baseGrandTotal | number:'1.2-2' }} @ {{ $any(invoice).exchangeRate | number:'1.4-4' }}</p>
+        }
         @if (invoice.status === 'Posted') {
           <hr />
           <div class="d-flex justify-content-between mb-1">
@@ -363,6 +369,100 @@
               </tfoot>
             </table>
           </div>
+        </div>
+      </div>
+    }
+
+    <!-- LHDN e-Invoice Verification Section (self-billed purchase invoices) -->
+    @if (invoice.eInvoiceStatus && invoice.eInvoiceStatus !== 'NotSubmitted') {
+      <div class="card mb-3 border-start border-4 border-primary">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+          <h6 class="card-title mb-0">
+            <i class="fa fa-file-shield me-2 text-primary"></i>{{ '::EInvoice' | abpLocalization }}
+          </h6>
+          <app-lhdn-status-badge [status]="invoice.eInvoiceStatus" />
+        </div>
+        <div class="card-body">
+          <div class="row align-items-center">
+            @if ($any(invoice).lhdnLongId) {
+              <div class="col-auto">
+                <a [href]="getLhdnVerificationUrl()" target="_blank" title="Verify on MyInvois Portal">
+                  <img [src]="getLhdnQrCodeUrl()" alt="LHDN QR" width="96" height="96" class="border rounded" />
+                </a>
+              </div>
+            }
+            <div class="col">
+              @if ($any(invoice).lhdnUuid) {
+                <div class="mb-1">
+                  <small class="text-muted d-block">{{ '::LhdnUuid' | abpLocalization }}</small>
+                  <code class="small">{{ $any(invoice).lhdnUuid }}</code>
+                </div>
+              }
+              @if ($any(invoice).lhdnSubmittedAt) {
+                <div class="mb-1">
+                  <small class="text-muted d-block">{{ '::SubmittedAt' | abpLocalization }}</small>
+                  <span>{{ $any(invoice).lhdnSubmittedAt | date:'dd MMM yyyy, HH:mm' }}</span>
+                </div>
+              }
+              @if (isWithin72HourWindow()) {
+                <div class="mt-1">
+                  <span class="badge bg-success-subtle text-success"><i class="fa fa-clock me-1"></i>{{ '::LhdnCancelWindowActive' | abpLocalization }}</span>
+                </div>
+              }
+              @if ($any(invoice).lhdnLongId) {
+                <div class="mt-2">
+                  <a [href]="getLhdnVerificationUrl()" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="fa fa-external-link-alt me-1"></i>{{ '::VerifyOnLhdn' | abpLocalization }}
+                  </a>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Payment History (linked Payment Entries) -->
+    @if (linkedPayments().length > 0) {
+      <div class="card mb-3 border-start border-4 border-success">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+          <h6 class="card-title mb-0">
+            <i class="fa fa-money-bill-wave me-2 text-success"></i>{{ '::PaymentsMade' | abpLocalization }}
+            <span class="badge bg-success ms-2">{{ linkedPayments().length }}</span>
+          </h6>
+          <span class="fw-bold text-success">{{ '' | companyCurrency }} {{ getTotalPaid() | number:'1.2-2' }}</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::PaymentNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th>{{ '::Reference' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (payment of linkedPayments(); track payment.id) {
+                <tr>
+                  <td>
+                    <a [routerLink]="['/accounting/payments', payment.id]" class="text-decoration-none fw-medium">
+                      {{ payment.paymentNumber || '—' }}
+                    </a>
+                  </td>
+                  <td>{{ payment.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end fw-bold text-success">{{ payment.paidAmount | number:'1.2-2' }}</td>
+                  <td>{{ payment.referenceNumber || '—' }}</td>
+                  <td class="text-center">
+                    <span class="badge" [class]="payment.status === 'Posted' ? 'bg-success' : 'bg-secondary'">
+                      {{ payment.status }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
     }

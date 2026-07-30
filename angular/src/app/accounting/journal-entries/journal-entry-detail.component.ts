@@ -9,6 +9,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 
 const VOUCHER_TYPE_LABELS: Record<number, string> = {
@@ -22,7 +23,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
 @Component({
   selector: 'app-journal-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="je()?.entryNumber || ('JournalEntry' | abpLocalization)">
@@ -127,6 +128,8 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
             </table>
           </div>
         </div>
+
+        <app-document-connections [documentType]="'JournalEntry'" [documentId]="je()!.id!" />
 
         <app-activity-log documentType="JournalEntry" [documentId]="je()!.id" />
 

@@ -15,6 +15,29 @@
       </div>
     </div>
 
+    <!-- Barcode Scanner -->
+    <div class="input-group input-group-sm">
+      <span class="input-group-text bg-success text-white"><i class="fa fa-barcode"></i></span>
+      <input class="form-control" [(ngModel)]="barcodeInput"
+        [placeholder]="'::ScanBarcode' | abpLocalization"
+        (keydown)="onBarcodeKeydown($event)"
+        [disabled]="barcodeScanning()"
+        autofocus />
+      <button class="btn btn-outline-success" (click)="onBarcodeScanned()" [disabled]="barcodeScanning() || !barcodeInput">
+        @if (barcodeScanning()) {
+          <span class="spinner-border spinner-border-sm"></span>
+        } @else {
+          <i class="fa fa-arrow-right"></i>
+        }
+      </button>
+      @if (lastScanResult(); as scan) {
+        <span class="input-group-text" [class.bg-success]="scan.success" [class.bg-danger]="!scan.success" [class.text-white]="true">
+          <i class="fa" [class.fa-check]="scan.success" [class.fa-xmark]="!scan.success"></i>
+          <small class="ms-1">{{ scan.message }}</small>
+        </span>
+      }
+    </div>
+
     <!-- Item grid -->
     <div class="row g-2 overflow-auto flex-grow-1">
       @for (item of items(); track item.id) {
@@ -51,7 +74,7 @@
                   <td>{{ order.items.length }} {{ '::Items' | abpLocalization | lowercase }}</td>
                   <td class="small text-muted">{{ order.heldAt | date:'HH:mm' }}</td>
                   <td class="text-end">
-                    <button class="btn btn-sm btn-outline-success me-1" (click)="resumeOrder(i)">Resume</button>
+                    <button class="btn btn-sm btn-outline-success me-1" (click)="resumeOrder(i)">{{ '::Resume' | abpLocalization }}</button>
                     <button class="btn btn-sm btn-outline-danger" (click)="deleteHeldOrder(i)"><i class="bi bi-trash"></i></button>
                   </td>
                 </tr>

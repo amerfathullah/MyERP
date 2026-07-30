@@ -5,7 +5,6 @@ import { ActivatedRoute } from '@angular/router';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PayrollService } from '../../proxy/human-resources/payroll.service';
-import { PayrollStore } from '../store/payroll.store';
 import type { PayrollEntryDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -23,7 +22,6 @@ import { LocalizationPipe } from '@abp/ng.core';
 export class PayrollDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(PayrollService);
-  private store = inject(PayrollStore);
 
   entry: PayrollEntryDto | null = null;
   lineColumns = ['employeeName', 'grossSalary', 'epfEmployee', 'socsoEmployee', 'eisEmployee', 'mtdAmount', 'totalDeductions', 'netSalary'];
@@ -42,19 +40,16 @@ export class PayrollDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe(r => { this.entry = r; });
+    this.service.get(id).subscribe({ next: r => { this.entry = r; }, error: () => {} });
   }
 
   onWorkflowAction(action: string): void {
     const id = this.entry!.id!;
+    const reload = () => this.service.get(id).subscribe({ next: (r) => { this.entry = r; }, error: () => {} });
     if (action === 'submit') {
-      this.store.submitEntry(id);
+      this.service.submit(id).subscribe({ next: () => reload(), error: () => {} });
     } else if (action === 'cancel') {
-      this.store.cancelEntry(id);
+      this.service.cancel(id).subscribe({ next: () => reload(), error: () => {} });
     }
-    this.service.get(id).subscribe({
-      next: (r) => { this.entry = r; },
-      error: () => {}
-    });
   }
 }

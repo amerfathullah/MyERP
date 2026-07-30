@@ -1,60 +1,38 @@
-<abp-page [title]="entity?.requestNumber ?? ''">
+<abp-page [title]="entity?.requestNumber ?? ('::MaterialRequest' | abpLocalization)">
   @if (!entity) {
     <app-loading-overlay />
   } @else {
     <app-breadcrumb />
-    <!-- Status + Actions bar -->
-    <div class="card mb-3">
-      <div class="card-body py-2 d-flex align-items-center justify-content-between">
-        <app-status-badge [status]="getStatusLabel(entity.status)" />
-        <div class="d-flex gap-2">
-          @if (entity.status === 0) {
-            <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/purchasing/material-requests', entity.id, 'edit']">
-              <i class="fa fa-pen me-1"></i> {{ '::Edit' | abpLocalization }}
-            </a>
-            <button class="btn btn-primary btn-sm" (click)="submit()" [disabled]="actionLoading()">
-              <i class="fa fa-paper-plane me-1"></i> {{ '::Submit' | abpLocalization }}
-            </button>
-          }
-          @if (entity.status === 1) {
-            @if (entity.requestType === 0) {
-            <button class="btn btn-success btn-sm" (click)="convertToPO()" [disabled]="actionLoading()">
-              <i class="fa fa-file-invoice me-1"></i> {{ '::ConvertToPurchaseOrder' | abpLocalization }}
-            </button>
-            }
-            @if (entity.requestType === 1 || entity.requestType === 2) {
-            <button class="btn btn-primary btn-sm" (click)="createStockEntry()">
-              <i class="fa fa-truck me-1"></i> {{ '::CreateStockEntry' | abpLocalization }}
-            </button>
-            }
-            <button class="btn btn-outline-danger btn-sm" (click)="cancel()" [disabled]="actionLoading()">
-              <i class="fa fa-ban me-1"></i> {{ '::Cancel' | abpLocalization }}
-            </button>
-          }
-          <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
-            <i class="fa fa-arrow-left me-1"></i> {{ '::Back' | abpLocalization }}
-          </button>
-        </div>
+    <app-document-workflow
+      [currentStatus]="getStatusLabel(entity.status)"
+      [availableActions]="workflowActions"
+      (actionTriggered)="onWorkflowAction($event)" />
+
+    @if (isOverdue) {
+      <div class="alert alert-warning py-2 mt-3 d-flex align-items-center">
+        <i class="fa fa-clock text-danger me-2"></i>
+        <span class="fw-semibold text-danger">{{ '::Overdue' | abpLocalization }}</span>
+        <span class="ms-2 text-muted small">{{ '::RequiredByDate' | abpLocalization }}: {{ entity.requiredByDate | date:'dd/MM/yyyy' }}</span>
       </div>
-    </div>
+    }
 
     <!-- Header fields -->
-    <div class="card mb-3">
+    <div class="card mt-3 mb-3">
       <div class="card-body">
         <div class="row">
-          <div class="col-12 col-md-3 mb-3">
+          <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::RequestNumber' | abpLocalization }}</small>
             <span class="fw-semibold">{{ entity.requestNumber }}</span>
           </div>
-          <div class="col-12 col-md-3 mb-3">
+          <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::RequestType' | abpLocalization }}</small>
             <span class="fw-semibold">{{ getTypeLabel(entity.requestType) }}</span>
           </div>
-          <div class="col-12 col-md-3 mb-3">
+          <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::RequestDate' | abpLocalization }}</small>
             <span class="fw-semibold">{{ entity.requestDate | date:'dd/MM/yyyy' }}</span>
           </div>
-          <div class="col-12 col-md-3 mb-3">
+          <div class="col-6 col-md-3 mb-3">
             <small class="text-muted d-block">{{ '::RequiredByDate' | abpLocalization }}</small>
             <span class="fw-semibold">{{ entity.requiredByDate ? (entity.requiredByDate | date:'dd/MM/yyyy') : '—' }}</span>
           </div>
@@ -68,12 +46,75 @@
       </div>
     </div>
 
-    <!-- Items table -->
+    <!-- Fulfillment summary -->
+    @if (entity.status !== 0 && entity.status !== 4) {
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body py-2">
+              <div class="d-flex align-items-center justify-content-between">
+                <small class="text-muted">{{ '::Ordered' | abpLocalization }}</small>
+                <small [class.text-success]="(entity.perOrdered ?? 0) >= 100" [class.fw-bold]="(entity.perOrdered ?? 0) >= 100">{{ entity.perOrdered ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress mt-1" style="height: 6px;">
+                <div class="progress-bar bg-primary" [style.width.%]="entity.perOrdered ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body py-2">
+              <div class="d-flex align-items-center justify-content-between">
+                <small class="text-muted">{{ '::Received' | abpLocalization }}</small>
+                <small [class.text-success]="(entity.perReceived ?? 0) >= 100" [class.fw-bold]="(entity.perReceived ?? 0) >= 100">{{ entity.perReceived ?? 0 | number:'1.0-0' }}%</small>
+              </div>
+              <div class="progress mt-1" style="height: 6px;">
+                <div class="progress-bar bg-success" [style.width.%]="entity.perReceived ?? 0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Supplier selection panel for MR→PO conversion -->
+    @if (showConvertPanel()) {
+      <div class="card mb-3 border-primary">
+        <div class="card-body">
+          <h6 class="card-title mb-3"><i class="fa fa-file-invoice me-2"></i>{{ '::ConvertToPurchaseOrder' | abpLocalization }}</h6>
+          <div class="row align-items-end">
+            <div class="col-md-6">
+              <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="selectedSupplierId">
+                <option value="">{{ '::SelectSupplier' | abpLocalization }}</option>
+                @for (s of suppliers(); track s.id) {
+                  <option [value]="s.id">{{ s.supplierName }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-6 d-flex gap-2">
+              <button class="btn btn-success btn-sm" (click)="confirmConvertToPO()" [disabled]="actionLoading()">
+                @if (actionLoading()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                {{ '::Confirm' | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="showConvertPanel.set(false)">
+                {{ '::Cancel' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Items table with per-item fulfillment progress -->
     <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+      </div>
       <div class="card-body">
-        <h5 class="card-title">
-          <i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}
-        </h5>
         <div class="table-responsive">
           <table class="table table-hover w-100">
             <thead>
@@ -81,22 +122,38 @@
                 <th>{{ '::ItemName' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                 <th>{{ '::UOM' | abpLocalization }}</th>
-                <th class="text-end">{{ '::Ordered' | abpLocalization }}</th>
-                <th class="text-end">{{ '::Received' | abpLocalization }}</th>
+                @if (entity.status !== 0) {
+                  <th style="width: 140px;">{{ '::Ordered' | abpLocalization }}</th>
+                  <th style="width: 140px;">{{ '::Received' | abpLocalization }}</th>
+                }
               </tr>
             </thead>
             <tbody>
               @for (item of entity.items; track item.id ?? $index) {
                 <tr>
                   <td>
-                    <span class="d-inline-block text-truncate" style="max-width: 200px;" [title]="item.itemName">
-                      {{ item.itemName }}
-                    </span>
+                    <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">{{ item.itemName }}</a>
                   </td>
                   <td class="text-end font-monospace">{{ item.quantity | number:'1.2-2' }}</td>
                   <td>{{ item.uom }}</td>
-                  <td class="text-end font-monospace">{{ (item.orderedQuantity ?? 0) | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace">{{ (item.receivedQuantity ?? 0) | number:'1.2-2' }}</td>
+                  @if (entity.status !== 0) {
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-primary" [style.width.%]="item.quantity ? ((item.orderedQuantity ?? 0) / item.quantity * 100) : 0"></div>
+                        </div>
+                        <small class="font-monospace">{{ item.orderedQuantity ?? 0 | number:'1.0-0' }}/{{ item.quantity | number:'1.0-0' }}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-1">
+                        <div class="progress flex-grow-1" style="height: 5px;">
+                          <div class="progress-bar bg-success" [style.width.%]="item.quantity ? ((item.receivedQuantity ?? 0) / item.quantity * 100) : 0"></div>
+                        </div>
+                        <small class="font-monospace">{{ item.receivedQuantity ?? 0 | number:'1.0-0' }}/{{ item.quantity | number:'1.0-0' }}</small>
+                      </div>
+                    </td>
+                  }
                 </tr>
               }
             </tbody>
@@ -104,6 +161,10 @@
         </div>
       </div>
     </div>
+
+    @if (entity.status !== 0) {
+      <app-document-connections [documentType]="'MaterialRequest'" [documentId]="entity.id!" />
+    }
 
     <app-activity-log [documentType]="'MaterialRequest'" [documentId]="entity.id!"></app-activity-log>
   }

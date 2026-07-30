@@ -29,4 +29,6 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public decimal MinOrderQty { get; set; }
     public bool InspectionRequiredBeforePurchase { get; set; }
     public bool InspectionRequiredBeforeDelivery { get; set; }
+    public decimal TotalStockQty { get; set; }
+    public bool IsLowStock { get; set; }
 }

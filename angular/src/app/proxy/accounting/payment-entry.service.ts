@@ -1,4 +1,4 @@
-import type { CreatePaymentEntryDto, OutstandingInvoiceForPaymentDto, PaymentEntryDto } from './models';
+import type { CreatePaymentEntryDto, OutstandingInvoiceForPaymentDto, PartyOutstandingDto, PaymentEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -58,6 +58,15 @@ export class PaymentEntryService {
     this.restService.request<any, OutstandingInvoiceForPaymentDto[]>({
       method: 'GET',
       url: '/api/app/payment-entry/outstanding-for-party',
+      params: { partyType, partyId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPartyOutstanding = (partyType: string, partyId: string, companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PartyOutstandingDto>({
+      method: 'GET',
+      url: '/api/app/payment-entry/party-outstanding',
       params: { partyType, partyId, companyId },
     },
     { apiName: this.apiName,...config });
