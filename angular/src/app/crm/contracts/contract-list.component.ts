@@ -66,12 +66,12 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (item.status === 0) {
-                          <button class="btn btn-outline-success btn-sm" (click)="sign(item.id)">
+                          <button class="btn btn-outline-success btn-sm" (click)="sign(item.id!)">
                             <i class="fas fa-signature"></i>
                           </button>
                         }
                         @if (item.status !== 4) {
-                          <button class="btn btn-outline-danger btn-sm" (click)="cancel(item.id)">
+                          <button class="btn btn-outline-danger btn-sm" (click)="cancel(item.id!)">
                             <i class="fas fa-times"></i>
                           </button>
                         }

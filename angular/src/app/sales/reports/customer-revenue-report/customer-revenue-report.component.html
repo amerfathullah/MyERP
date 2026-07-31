@@ -89,7 +89,7 @@
                   <td class="text-end">{{ item.invoiceCount }}</td>
                   <td class="text-end font-monospace fw-bold text-success">{{ "" | companyCurrency }} {{ item.totalRevenue | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ "" | companyCurrency }} {{ item.totalPaid | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace" [class.text-danger]="item.totalOutstanding > 0">
+                  <td class="text-end font-monospace" [class.text-danger]="(item.totalOutstanding ?? 0) > 0">
                     {{ "" | companyCurrency }} {{ item.totalOutstanding | number:'1.2-2' }}
                   </td>
                 </tr>

@@ -196,9 +196,9 @@
             <tbody>
               @for (line of calcResult.taxLines; track $index) {
                 <tr>
-                  <td>{{ line.description || selectedTaxRules()[$index]?.name }}</td>
+                  <td>{{ line.taxName || selectedTaxRules()[$index]?.name }}</td>
                   <td class="text-end font-monospace">{{ line.rate | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace">{{ line.amount | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ line.taxAmount | number:'1.2-2' }}</td>
                 </tr>
               }
             </tbody>

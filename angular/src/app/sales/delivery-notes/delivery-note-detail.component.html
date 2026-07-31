@@ -97,8 +97,7 @@
     @if (deliveryNote.status !== 'Draft') {
       <app-voucher-ledger
         [voucherType]="'DeliveryNote'"
-        [voucherId]="deliveryNote.id!"
-        [companyId]="deliveryNote.companyId!" />
+        [voucherId]="deliveryNote.id!" />
     }
 
     <!-- Print Button -->
@@ -116,6 +115,6 @@
       [companySst]="companySst"
       [companyAddress]="companyAddress"
       [warehouseName]="warehouseName"
-      [currency]="deliveryNote.currency || ('' | companyCurrency)" />
+      [currency]="deliveryNote.currencyCode || ('' | companyCurrency)" />
   }
 </abp-page>

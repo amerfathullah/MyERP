@@ -59,7 +59,7 @@ interface StockMovementSummary {
               <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" (change)="generate()">
             </div>
             <div class="col-md-3">
-              <app-date-presets (rangeSelected)="onDatePreset($event)"></app-date-presets>
+              <app-date-presets (dateRange)="onDatePreset($event)"></app-date-presets>
             </div>
             <div class="col-md-3">
               <button class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="isLoading()">

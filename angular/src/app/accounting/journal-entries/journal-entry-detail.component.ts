@@ -137,8 +137,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
         @if (je()!.status === 'Posted') {
           <app-voucher-ledger
             [voucherType]="'JournalEntry'"
-            [voucherId]="je()!.id!"
-            [companyId]="je()!.companyId!" />
+            [voucherId]="je()!.id!" />
         }
       }
     </abp-page>

@@ -14,12 +14,12 @@ interface AllocationEntry {
 }
 
 interface Allocation {
-  id?: string;
+  id: string;
   companyId?: string;
-  mainCostCenterId?: string;
+  mainCostCenterId: string;
   validFrom?: string;
   isActive?: boolean;
-  entries?: AllocationEntry[];
+  entries: AllocationEntry[];
 }
 
 interface CostCenter {

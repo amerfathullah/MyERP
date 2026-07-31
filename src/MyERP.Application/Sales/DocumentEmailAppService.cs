@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
@@ -219,6 +220,74 @@ public class DocumentEmailAppService : ApplicationService
 
         return new EmailPreviewDto { Subject = subject, Body = body };
     }
+
+    [Authorize(MyERPPermissions.SalesOrders.Default)]
+    public async Task SendSalesOrderEmailAsync(SendSalesOrderEmailDto input)
+    {
+        var soRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var order = await soRepository.GetAsync(input.DocumentId);
+        var customer = await _customerRepository.GetAsync(order.CustomerId);
+        var company = await _companyRepository.GetAsync(order.CompanyId);
+
+        var recipientEmail = input.RecipientEmail ?? customer.Email;
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+            throw new Volo.Abp.BusinessException("MyERP:09001")
+                .WithData("reason", "No email address found for customer. Please provide a recipient email.");
+
+        var variables = new Dictionary<string, string>
+        {
+            ["company_name"] = company.Name,
+            ["customer_name"] = customer.Name,
+            ["party_name"] = customer.Name,
+            ["document_number"] = order.OrderNumber,
+            ["transaction_date"] = order.OrderDate.ToString("dd/MM/yyyy"),
+            ["grand_total"] = $"{order.CurrencyCode} {order.GrandTotal:N2}",
+            ["delivery_date"] = order.DeliveryDate?.ToString("dd/MM/yyyy") ?? "",
+        };
+
+        await _emailService.SendSalesOrderEmailAsync(new SendSalesOrderEmailInput
+        {
+            RecipientEmail = recipientEmail,
+            CcEmails = input.CcEmails,
+            TemplateId = input.TemplateId,
+            Variables = variables,
+            AttachPdf = input.AttachPdf,
+        });
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Default)]
+    public async Task SendPurchaseOrderEmailAsync(SendPurchaseOrderEmailDto input)
+    {
+        var poRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+        var supplierRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var order = await poRepository.GetAsync(input.DocumentId);
+        var supplier = await supplierRepository.GetAsync(order.SupplierId);
+        var company = await _companyRepository.GetAsync(order.CompanyId);
+
+        var recipientEmail = input.RecipientEmail ?? supplier.Email;
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+            throw new Volo.Abp.BusinessException("MyERP:09001")
+                .WithData("reason", "No email address found for supplier. Please provide a recipient email.");
+
+        var variables = new Dictionary<string, string>
+        {
+            ["company_name"] = company.Name,
+            ["supplier_name"] = supplier.Name,
+            ["party_name"] = supplier.Name,
+            ["document_number"] = order.OrderNumber,
+            ["transaction_date"] = order.OrderDate.ToString("dd/MM/yyyy"),
+            ["grand_total"] = $"{order.CurrencyCode} {order.GrandTotal:N2}",
+        };
+
+        await _emailService.SendPurchaseOrderEmailAsync(new SendPurchaseOrderEmailInput
+        {
+            RecipientEmail = recipientEmail,
+            CcEmails = input.CcEmails,
+            TemplateId = input.TemplateId,
+            Variables = variables,
+            AttachPdf = input.AttachPdf,
+        });
+    }
 }
 
 // DTOs
@@ -236,6 +305,24 @@ public class SendQuotationEmailDto
     public Guid QuotationId { get; set; }
     public string? RecipientEmail { get; set; }
     public string? PartyName { get; set; }
+    public string[]? CcEmails { get; set; }
+    public Guid? TemplateId { get; set; }
+    public bool AttachPdf { get; set; } = true;
+}
+
+public class SendSalesOrderEmailDto
+{
+    public Guid DocumentId { get; set; }
+    public string? RecipientEmail { get; set; }
+    public string[]? CcEmails { get; set; }
+    public Guid? TemplateId { get; set; }
+    public bool AttachPdf { get; set; } = true;
+}
+
+public class SendPurchaseOrderEmailDto
+{
+    public Guid DocumentId { get; set; }
+    public string? RecipientEmail { get; set; }
     public string[]? CcEmails { get; set; }
     public Guid? TemplateId { get; set; }
     public bool AttachPdf { get; set; } = true;

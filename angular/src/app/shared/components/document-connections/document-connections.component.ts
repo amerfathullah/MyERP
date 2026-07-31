@@ -2,7 +2,7 @@ import { Component, Input, OnInit, signal, computed, inject } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { DocumentConnectionsService } from '../../../proxy/core/document-connections.service';
 
 export interface ConnectionGroup {
   label: string;
@@ -100,7 +100,7 @@ export class DocumentConnectionsComponent implements OnInit {
   @Input() documentType!: string;
   @Input() documentId!: string;
 
-  private http = inject(HttpClient);
+  private connectionsService = inject(DocumentConnectionsService);
 
   groups = signal<ConnectionGroup[]>([]);
   loading = signal(false);
@@ -116,10 +116,8 @@ export class DocumentConnectionsComponent implements OnInit {
 
   loadConnections(): void {
     this.loading.set(true);
-    this.http
-      .get<{ groups: ConnectionGroup[] }>(
-        `/api/app/document-connections/connections?documentType=${this.documentType}&documentId=${this.documentId}`
-      )
+    this.connectionsService
+      .getConnections(this.documentType, this.documentId)
       .subscribe({
         next: (result) => {
           this.groups.set(result.groups || []);

@@ -163,16 +163,7 @@
                   <td class="text-end">{{ row.lineTotal | number:'1.2-2' }}</td>
                   @if (order.status !== 'Draft') {
                     <td>
-                      @if (row.deliveryDate) {
-                        <span [class.text-danger]="isItemOverdue(row)" [class.fw-bold]="isItemOverdue(row)">
-                          {{ row.deliveryDate | date:'dd/MM/yyyy' }}
-                        </span>
-                        @if (isItemOverdue(row)) {
-                          <span class="badge bg-danger-subtle text-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
-                        }
-                      } @else {
-                        <span class="text-muted">—</span>
-                      }
+                      <span class="text-muted">—</span>
                     </td>
                     <td>
                       <div class="d-flex align-items-center gap-1">
@@ -195,11 +186,11 @@
                       </div>
                     </td>
                     <td class="text-center">
-                      @if (itemStock()[row.itemId]) {
-                        @if (itemStock()[row.itemId] >= (row.quantity - (row.deliveredQty ?? 0))) {
-                          <span class="badge bg-success-subtle text-success"><i class="fa fa-check me-1"></i>{{ itemStock()[row.itemId] | number:'1.0-0' }}</span>
-                        } @else if (itemStock()[row.itemId] > 0) {
-                          <span class="badge bg-warning-subtle text-warning"><i class="fa fa-exclamation-triangle me-1"></i>{{ itemStock()[row.itemId] | number:'1.0-0' }}</span>
+                      @if (row.itemId && itemStock()[row.itemId]) {
+                        @if (itemStock()[row.itemId!] >= ((row.quantity ?? 0) - (row.deliveredQty ?? 0))) {
+                          <span class="badge bg-success-subtle text-success"><i class="fa fa-check me-1"></i>{{ itemStock()[row.itemId!] | number:'1.0-0' }}</span>
+                        } @else if (itemStock()[row.itemId!] > 0) {
+                          <span class="badge bg-warning-subtle text-warning"><i class="fa fa-exclamation-triangle me-1"></i>{{ itemStock()[row.itemId!] | number:'1.0-0' }}</span>
                         } @else {
                           <span class="badge bg-danger-subtle text-danger"><i class="fa fa-times me-1"></i>0</span>
                         }
@@ -226,17 +217,17 @@
     </div>
 
     <!-- Advance Payment Progress -->
-    @if (order.advancePaid && order.advancePaid > 0) {
+    @if ((order.advancePaid ?? 0) > 0) {
       <div class="card mt-4" style="border-left: 4px solid var(--bs-success);">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="mb-0"><i class="fa fa-money-bill-wave me-2 text-success"></i>{{ '::AdvancePayment' | abpLocalization }}</h6>
-            <span class="badge" [class]="order.perAdvancePaid >= 100 ? 'bg-success' : 'bg-warning text-dark'">
-              {{ order.perAdvancePaid | number:'1.0-0' }}%
+            <span class="badge" [class]="(order.perAdvancePaid ?? 0) >= 100 ? 'bg-success' : 'bg-warning text-dark'">
+              {{ order.perAdvancePaid ?? 0 | number:'1.0-0' }}%
             </span>
           </div>
           <div class="progress mb-2" style="height: 8px;">
-            <div class="progress-bar bg-success" [style.width.%]="order.perAdvancePaid > 100 ? 100 : order.perAdvancePaid"></div>
+            <div class="progress-bar bg-success" [style.width.%]="(order.perAdvancePaid ?? 0) > 100 ? 100 : (order.perAdvancePaid ?? 0)"></div>
           </div>
           <small class="text-muted">{{ order.advancePaid | number:'1.2-2' }} / {{ order.grandTotal | number:'1.2-2' }}</small>
         </div>

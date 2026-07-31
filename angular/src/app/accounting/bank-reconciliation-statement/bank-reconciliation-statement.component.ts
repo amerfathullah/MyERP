@@ -21,15 +21,15 @@ interface BankStatementEntry {
 }
 
 interface ReconciliationStatement {
-  glBalance?: number;
-  outstandingDeposits?: number;
-  outstandingPayments?: number;
-  netOutstanding?: number;
-  calculatedBankBalance?: number;
-  unclearedEntries?: BankStatementEntry[];
-  currencyCode?: string;
-  reportDate?: string;
-  bankAccountName?: string;
+  glBalance: number;
+  outstandingDeposits: number;
+  outstandingPayments: number;
+  netOutstanding: number;
+  calculatedBankBalance: number;
+  unclearedEntries: BankStatementEntry[];
+  currencyCode: string;
+  reportDate: string;
+  bankAccountName: string;
 }
 
 interface AccountOption {

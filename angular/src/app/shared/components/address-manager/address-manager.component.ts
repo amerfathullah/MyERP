@@ -1,8 +1,8 @@
 import { Component, Input, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
+import { AddressService } from '../../../proxy/core/address.service';
 import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { Confirmation } from '@abp/ng.theme.shared';
 
@@ -191,7 +191,7 @@ export class AddressManagerComponent implements OnInit {
   @Input() partyType!: string;
   @Input() partyId!: string;
 
-  private http = inject(HttpClient);
+  private addressService = inject(AddressService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
 
@@ -230,9 +230,7 @@ export class AddressManagerComponent implements OnInit {
 
   loadAddresses(): void {
     this.loading.set(true);
-    this.http.get<AddressDto[]>(`/api/app/address/addresses-for-party`, {
-      params: { partyType: this.partyType, partyId: this.partyId }
-    }).subscribe({
+    this.addressService.getAddressesForParty(this.partyType, this.partyId).subscribe({
       next: (data) => { this.addresses.set(data ?? []); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
@@ -274,8 +272,8 @@ export class AddressManagerComponent implements OnInit {
     };
 
     const request$ = this.editingId()
-      ? this.http.put(`/api/app/address/${this.editingId()}`, payload)
-      : this.http.post('/api/app/address', payload);
+      ? this.addressService.update(this.editingId()!, payload as any)
+      : this.addressService.create(payload as any);
 
     request$.subscribe({
       next: () => {
@@ -296,7 +294,7 @@ export class AddressManagerComponent implements OnInit {
   deleteAddress(id: string): void {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/address/${id}`).subscribe({
+      this.addressService.delete(id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadAddresses(); },
         error: () => this.toaster.error('::OperationFailed'),
       });

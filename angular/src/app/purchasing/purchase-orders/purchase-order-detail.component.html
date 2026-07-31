@@ -330,7 +330,7 @@
               </div>
               <div class="col-md-4">
                 <small class="text-muted d-block">{{ '::PromisedDeliveryDate' | abpLocalization }}</small>
-                <strong [class.text-danger]="order.supplierPromisedDate && order.supplierPromisedDate < order.expectedDeliveryDate">
+                <strong [class.text-danger]="order.supplierPromisedDate && order.expectedDeliveryDate && order.supplierPromisedDate < order.expectedDeliveryDate">
                   {{ order.supplierPromisedDate ? (order.supplierPromisedDate | date:'dd/MM/yyyy') : '—' }}
                 </strong>
               </div>

@@ -8,14 +8,14 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface FinancialReportTemplateDto {
-  id?: string;
+  id: string;
   name?: string;
-  reportType?: number;
+  reportType: number;
   companyId?: string;
   isStandard?: boolean;
   isEnabled?: boolean;
   description?: string;
-  rows?: any[];
+  rows: any[];
 }
 
 @Component({

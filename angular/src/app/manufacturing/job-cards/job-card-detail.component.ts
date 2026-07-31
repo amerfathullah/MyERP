@@ -66,8 +66,8 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
               <div class="mt-3">
                 <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm w-auto d-inline-block mx-2"
-                  [(ngModel)]="completionQtyInput" [min]="0" [max]="d.forQuantity - (d.completedQty ?? 0)" step="1">
-                <small class="text-muted">/ {{ d.forQuantity - (d.completedQty ?? 0) }} {{ '::Remaining' | abpLocalization }}</small>
+                  [(ngModel)]="completionQtyInput" [min]="0" [max]="(d.forQuantity ?? 0) - (d.completedQty ?? 0)" step="1">
+                <small class="text-muted">/ {{ (d.forQuantity ?? 0) - (d.completedQty ?? 0) }} {{ '::Remaining' | abpLocalization }}</small>
               </div>
             }
           </div></div>

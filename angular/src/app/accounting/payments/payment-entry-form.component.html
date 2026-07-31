@@ -165,12 +165,12 @@
             <span class="badge bg-danger ms-2">{{ totalInvoiceOutstanding() | number:'1.2-2' }}</span>
           </h6>
           <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-outline-success btn-sm" (click)="autoAllocate()" [disabled]="!form.get('amount')?.value || form.get('amount')?.value <= 0">
+            <button type="button" class="btn btn-outline-success btn-sm" (click)="autoAllocate()" [disabled]="!(form.get('amount')?.value ?? 0) || (form.get('amount')?.value ?? 0) <= 0">
               <i class="fa fa-wand-magic-sparkles me-1"></i>{{ '::AllocateAutomatically' | abpLocalization }}
             </button>
             @if (totalAllocated() > 0) {
               <span class="badge" [class.bg-success]="unallocatedAmount() === 0" [class.bg-warning]="unallocatedAmount() > 0" [class.bg-danger]="unallocatedAmount() < 0">
-                {{ '::Allocated' | abpLocalization }}: {{ totalAllocated() | number:'1.2-2' }} / {{ form.get('amount')?.value | number:'1.2-2' }}
+                {{ '::Allocated' | abpLocalization }}: {{ totalAllocated() | number:'1.2-2' }} / {{ (form.get('amount')?.value ?? 0) | number:'1.2-2' }}
               </span>
             }
           </div>

@@ -76,13 +76,13 @@ import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
                     <div class="btn-group btn-group-sm">
                       @if (!account.isDefault && !account.isDisabled) {
                         <button class="btn btn-outline-warning" title="Set as Default"
-                          (click)="setDefault(account.id)">
+                          (click)="setDefault(account.id!)">
                           <i class="bi bi-star"></i>
                         </button>
                       }
                       @if (!account.isDisabled) {
                         <button class="btn btn-outline-danger" title="Disable"
-                          (click)="disable(account.id)">
+                          (click)="disable(account.id!)">
                           <i class="bi bi-x-circle"></i>
                         </button>
                       }

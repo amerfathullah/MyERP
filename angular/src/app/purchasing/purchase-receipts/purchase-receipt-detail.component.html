@@ -59,7 +59,7 @@
                       @if (qiLoading()) {
                         <span class="spinner-border spinner-border-sm text-muted"></span>
                       } @else {
-                        @let qi = getQiStatusForItem(row.itemId);
+                        @let qi = getQiStatusForItem(row.itemId!);
                         @if (qi) {
                           @if (qi.status === 'Accepted') {
                             <span class="badge bg-success-subtle text-success"><i class="fa fa-check-circle me-1"></i>{{ '::InspectionPassed' | abpLocalization }}</span>
@@ -108,8 +108,7 @@
     @if (receipt.status !== 'Draft') {
       <app-voucher-ledger
         [voucherType]="'PurchaseReceipt'"
-        [voucherId]="receipt.id!"
-        [companyId]="receipt.companyId!" />
+        [voucherId]="receipt.id!" />
     }
 
     <!-- Print Layout (hidden on screen, shown on print) -->
@@ -120,6 +119,6 @@
       [companySst]="companyData.sst"
       [companyAddress]="companyData.address"
       [supplierAddress]="receipt.supplierName || ''"
-      [poNumber]="receipt.purchaseOrderNumber || ''" />
+      [poNumber]="receipt.purchaseOrderId || ''" />
   }
 </abp-page>

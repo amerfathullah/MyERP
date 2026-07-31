@@ -78,7 +78,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
         }
 
         <!-- Quality Inspection Advisory (for FG items requiring QI) -->
-        @if (qiRequired() && wo()!.status >= 3) {
+        @if (qiRequired() && (wo()!.status ?? 0) >= 3) {
           @if (qiStatus() === 'Accepted') {
             <div class="alert alert-success py-2 d-flex align-items-center mb-3">
               <i class="fa fa-microscope me-2"></i>
@@ -331,11 +331,10 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 
         <app-activity-log documentType="WorkOrder" [documentId]="w.id!" />
 
-        @if (w.status >= 3) {
+        @if ((w.status ?? 0) >= 3) {
           <app-voucher-ledger
             voucherType="WorkOrder"
-            [voucherId]="w.id!"
-            [companyId]="w.companyId!" />
+            [voucherId]="w.id!" />
         }
       }
 

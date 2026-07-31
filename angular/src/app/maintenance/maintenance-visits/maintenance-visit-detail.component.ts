@@ -18,8 +18,7 @@ import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">
             {{ 'MyERP::MaintenanceVisit' | abpLocalization }}
-            <app-status-badge [status]="getStatusLabel(visit()!.completionStatus)"
-              [variant]="getStatusVariant(visit()!.completionStatus)" />
+            <app-status-badge [status]="getStatusLabel(visit()!.completionStatus ?? 0)" />
           </h5>
           <div class="btn-group">
             @if (visit()!.completionStatus === 0) {

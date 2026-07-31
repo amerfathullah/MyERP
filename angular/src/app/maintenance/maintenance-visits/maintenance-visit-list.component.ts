@@ -59,14 +59,13 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <tr>
                   <td>{{ visit.visitDate | date:'mediumDate' }}</td>
                   <td>
-                    <span class="badge" [class]="getTypeBadgeClass(visit.maintenanceType)">
+                    <span class="badge" [class]="getTypeBadgeClass(visit.maintenanceType ?? '')">
                       {{ visit.maintenanceType }}
                     </span>
                   </td>
                   <td>{{ customerNames()[visit.customerId ?? ''] || '-' }}</td>
                   <td>
-                    <app-status-badge [status]="getStatusLabel(visit.completionStatus)"
-                      [variant]="getStatusVariant(visit.completionStatus)" />
+                    <app-status-badge [status]="getStatusLabel(visit.completionStatus ?? 0)" />
                   </td>
                   <td class="text-end">
                     <a [routerLink]="[visit.id]" class="btn btn-sm btn-outline-primary">

@@ -55,12 +55,11 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                         <span class="small text-muted">{{ request.documentNumber || '—' }}</span>
                       </a>
                     </td>
-                    <td><span class="badge bg-info">Level {{ request.level }}</span></td>
+                    <td><span class="badge bg-info">{{ request.documentType }}</span></td>
                     <td class="small">{{ request.creationTime | date:'medium' }}</td>
                     <td class="text-center">
                       <app-status-badge
-                        [status]="getStatusLabel(request.status)"
-                        [variant]="getStatusVariant(request.status)" />
+                        [status]="getStatusLabel(request.status ?? 0)" />
                     </td>
                     <td class="text-end">
                       @if (request.status === 0) {

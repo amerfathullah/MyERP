@@ -233,8 +233,8 @@
             <span [class.text-danger]="getOutstandingAmount() > 0" [class.fw-semibold]="getOutstandingAmount() > 0">{{ '::Outstanding' | abpLocalization }}</span>
             <span [class.text-danger]="getOutstandingAmount() > 0" [class.fw-semibold]="getOutstandingAmount() > 0">{{ getOutstandingAmount() | number:'1.2-2' }}</span>
           </div>
-          @if (invoice.grandTotal > 0) {
-            <div class="progress mt-2" style="height: 6px;">
+          @if ((invoice.grandTotal ?? 0) > 0) {
+            <div class="progress mt-2" style="height: 6px;">>
               <div class="progress-bar" [class.bg-success]="getPaymentPercent() >= 100" [class.bg-primary]="getPaymentPercent() < 100 && getPaymentPercent() > 0" [style.width.%]="getPaymentPercent()"></div>
             </div>
           }
@@ -477,8 +477,7 @@
       <app-voucher-ledger
         [voucherType]="'PurchaseInvoice'"
         [voucherId]="invoice.id!"
-        [showAccounting]="true"
-        [showStock]="!!invoice.updateStock" />
+        [showAccounting]="true" />
     }
 
     <!-- Print Layout: hidden on screen, shown only in print media -->

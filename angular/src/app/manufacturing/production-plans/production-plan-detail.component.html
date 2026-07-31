@@ -119,7 +119,7 @@
                     <td class="text-end font-monospace">{{ mr.availableQty | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace fw-bold" [class.text-danger]="isShortage(mr)">
                       @if (isShortage(mr)) {
-                        {{ (mr.requiredQty - mr.availableQty) | number:'1.2-2' }}
+                        {{ ((mr.requiredQty ?? 0) - (mr.availableQty ?? 0)) | number:'1.2-2' }}
                       } @else {
                         <span class="text-success"><i class="fa fa-check"></i></span>
                       }

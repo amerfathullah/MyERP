@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PosClosingService } from '../../proxy/sales/pos-closing.service';
@@ -12,7 +12,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 @Component({
   selector: 'app-pos-closing-detail',
   standalone: true,
-  imports: [CommonModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent],
+  imports: [CommonModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent, RouterLink],
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">

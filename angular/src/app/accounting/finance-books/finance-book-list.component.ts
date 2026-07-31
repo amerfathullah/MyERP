@@ -7,7 +7,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface FinanceBookDto {
-  id?: string;
+  id: string;
   companyId?: string;
   name?: string;
   isDefault?: boolean;

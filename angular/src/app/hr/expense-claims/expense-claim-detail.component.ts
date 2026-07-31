@@ -55,7 +55,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         </div>
 
         <!-- Reimbursement Progress Bar (visible after approval) -->
-        @if (claim.status >= 2 && claim.totalClaimedAmount > 0) {
+        @if ((claim.status ?? 0) >= 2 && (claim.totalClaimedAmount ?? 0) > 0) {
           <div class="card mb-3">
             <div class="card-body py-2">
               <div class="d-flex justify-content-between mb-1">
@@ -87,12 +87,6 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <small class="text-muted d-block">{{ '::ExpenseType' | abpLocalization }}</small>
                 <span class="fw-semibold">{{ claim.expenseType }}</span>
               </div>
-              @if (claim.advanceAmount) {
-                <div class="col-md-2 mb-2">
-                  <small class="text-muted d-block">{{ '::AdvanceAmount' | abpLocalization }}</small>
-                  <span class="fw-semibold text-info">{{ claim.advanceAmount | number:'1.2-2' }}</span>
-                </div>
-              }
             </div>
           </div>
         </div>

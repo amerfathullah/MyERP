@@ -30,14 +30,14 @@ import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
       } @else if (sq) {
         <app-document-workflow
           [actions]="workflowActions"
-          (actionFired)="onWorkflowAction($event)" />
+          (actionClicked)="onWorkflowAction($event)" />
 
         <!-- Header Cards -->
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
-              <app-status-badge [status]="sq.status" />
+              <app-status-badge [status]="'' + (sq.status ?? 0)" />
               @if (isExpired) {
                 <span class="badge bg-warning text-dark mt-1">{{ '::Expired' | abpLocalization }}</span>
               }
@@ -90,11 +90,8 @@ import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
                     <tr>
                       <td>
                         <a [routerLink]="['/inventory/items', item.itemId]" class="fw-medium">{{ item.itemName ?? item.itemId }}</a>
-                        @if (item.description) {
-                          <small class="d-block text-muted">{{ item.description }}</small>
-                        }
                       </td>
-                      <td class="text-end">{{ item.quantity | number:'1.0-2' }} <small class="text-muted">{{ item.uom ?? 'Unit' }}</small></td>
+                      <td class="text-end">{{ item.qty | number:'1.0-2' }}</td>
                       <td class="text-end">{{ item.rate | companyCurrency }}</td>
                       <td class="text-end fw-bold">{{ item.amount | companyCurrency }}</td>
                     </tr>

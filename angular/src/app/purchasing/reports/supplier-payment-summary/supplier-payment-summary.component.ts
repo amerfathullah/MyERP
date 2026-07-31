@@ -86,7 +86,7 @@ import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe
           <h6><i class="fa fa-building me-2"></i>{{ '::BySupplier' | abpLocalization }}
             <span class="badge bg-secondary ms-2">{{ r.supplierCount }}</span>
           </h6>
-          @if (r.items.length === 0) {
+          @if ((r.items ?? []).length === 0) {
             <p class="text-muted text-center py-3">{{ '::NoDataForSelectedPeriod' | abpLocalization }}</p>
           } @else {
             <div class="table-responsive">
@@ -103,8 +103,8 @@ import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe
                   </tr>
                 </thead>
                 <tbody>
-                  @for (item of r.items; track item.supplierId) {
-                    <tr [class.table-danger]="item.overdueCount > 0">
+                  @for (item of r.items ?? []; track item.supplierId) {
+                    <tr [class.table-danger]="(item.overdueCount ?? 0) > 0">
                       <td>
                         <a [routerLink]="['/suppliers', item.supplierId]" class="text-decoration-none">
                           {{ item.supplierName }}
@@ -113,21 +113,21 @@ import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe
                       <td class="text-end">{{ item.invoiceCount }}</td>
                       <td class="text-end">{{ item.totalInvoiced | number:'1.2-2' }}</td>
                       <td class="text-end text-success">{{ item.totalPaid | number:'1.2-2' }}</td>
-                      <td class="text-end fw-bold" [class.text-danger]="item.totalOutstanding > 0">
+                      <td class="text-end fw-bold" [class.text-danger]="(item.totalOutstanding ?? 0) > 0">
                         {{ item.totalOutstanding | number:'1.2-2' }}
                       </td>
                       <td class="text-center">
-                        @if (item.overdueCount > 0) {
+                        @if ((item.overdueCount ?? 0) > 0) {
                           <span class="badge bg-danger">{{ item.overdueCount }}
-                            ({{ item.overdueAmount | number:'1.0-0' }})
+                            ({{ item.overdueAmount ?? 0 | number:'1.0-0' }})
                           </span>
                         } @else {
                           <span class="badge bg-success"><i class="fa fa-check"></i></span>
                         }
                       </td>
                       <td class="text-center">
-                        <span class="badge" [ngClass]="getTimelinessClass(item.paymentTimeliness)">
-                          {{ item.paymentTimeliness | number:'1.0-0' }}%
+                        <span class="badge" [ngClass]="getTimelinessClass(item.paymentTimeliness ?? 0)">
+                          {{ item.paymentTimeliness ?? 0 | number:'1.0-0' }}%
                         </span>
                       </td>
                     </tr>
@@ -136,7 +136,7 @@ import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe
                 <tfoot>
                   <tr class="table-light fw-bold">
                     <td>{{ '::Total' | abpLocalization }} ({{ r.supplierCount }} {{ '::Suppliers' | abpLocalization }})</td>
-                    <td class="text-end">{{ getTotalInvoices(r.items) }}</td>
+                    <td class="text-end">{{ getTotalInvoices(r.items ?? []) }}</td>
                     <td class="text-end">{{ r.totalInvoiced | number:'1.2-2' }}</td>
                     <td class="text-end text-success">{{ r.totalPaid | number:'1.2-2' }}</td>
                     <td class="text-end text-danger">{{ r.totalOutstanding | number:'1.2-2' }}</td>
@@ -183,13 +183,13 @@ export class SupplierPaymentSummaryComponent implements OnInit {
   }
 
   getTotalInvoices(items: SupplierPaymentLineDto[]): number {
-    return items.reduce((sum, i) => sum + i.invoiceCount, 0);
+    return items.reduce((sum, i) => sum + (i.invoiceCount ?? 0), 0);
   }
 
   exportCsv(): void {
     const r = this.report();
     if (!r) return;
-    const rows = r.items.map(i => ({
+    const rows = (r.items ?? []).map(i => ({
       Supplier: i.supplierName,
       Invoices: i.invoiceCount,
       'Total Invoiced': i.totalInvoiced,

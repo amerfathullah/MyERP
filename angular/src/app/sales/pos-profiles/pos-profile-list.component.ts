@@ -36,7 +36,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
             </thead>
             <tbody>
               @for (profile of profiles(); track profile.id) {
-                <tr [class.table-secondary]="profile.isDisabled">
+                <tr [class.table-secondary]="!profile.isEnabled">
                   <td>
                     <a [routerLink]="[profile.id]" class="text-decoration-none fw-medium">
                       {{ profile.profileName }}
@@ -52,7 +52,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                     <span class="badge bg-secondary">{{ profile.paymentMethods?.length || 0 }}</span>
                   </td>
                   <td class="text-center">
-                    @if (profile.isDisabled) {
+                    @if (!profile.isEnabled) {
                       <span class="badge bg-secondary">Disabled</span>
                     } @else {
                       <span class="badge bg-success">Active</span>
@@ -63,12 +63,12 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                       <a [routerLink]="[profile.id, 'edit']" class="btn btn-outline-primary">
                         <i class="bi bi-pencil"></i>
                       </a>
-                      @if (profile.isDisabled) {
-                        <button class="btn btn-outline-success" (click)="enable(profile.id)">
+                      @if (!profile.isEnabled) {
+                        <button class="btn btn-outline-success" (click)="enable(profile.id!)">
                           <i class="bi bi-check-lg"></i>
                         </button>
                       } @else {
-                        <button class="btn btn-outline-danger" (click)="disable(profile.id)">
+                        <button class="btn btn-outline-danger" (click)="disable(profile.id!)">
                           <i class="bi bi-x-lg"></i>
                         </button>
                       }

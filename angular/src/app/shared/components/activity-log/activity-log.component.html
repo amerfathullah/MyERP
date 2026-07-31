@@ -15,11 +15,11 @@
       <ul class="list-group list-group-flush">
         @for (log of logs; track log.id) {
           <li class="list-group-item d-flex align-items-start gap-3 py-2">
-            <i [class]="getIcon(log.activityType)" class="mt-1"></i>
+            <i [class]="getIcon(log.activityType!)" class="mt-1"></i>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between">
                 <strong class="small">{{ log.activityType }}</strong>
-                <small class="text-muted">{{ formatTime(log.creationTime) }}</small>
+                <small class="text-muted">{{ formatTime(log.creationTime!) }}</small>
               </div>
               @if (log.previousStatus || log.newStatus) {
                 <small class="text-muted">

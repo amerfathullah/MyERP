@@ -1,8 +1,8 @@
 import { Component, Input, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ContactService } from '../../../proxy/core/contact.service';
 import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { Confirmation } from '@abp/ng.theme.shared';
 
@@ -169,7 +169,7 @@ export class ContactManagerComponent implements OnInit {
   @Input() partyType!: string;
   @Input() partyId!: string;
 
-  private http = inject(HttpClient);
+  private contactService = inject(ContactService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
 
@@ -198,9 +198,7 @@ export class ContactManagerComponent implements OnInit {
 
   loadContacts(): void {
     this.loading.set(true);
-    this.http.get<ContactDto[]>(`/api/app/contact/contacts-for-party`, {
-      params: { partyType: this.partyType, partyId: this.partyId }
-    }).subscribe({
+    this.contactService.getContactsForParty(this.partyType, this.partyId).subscribe({
       next: (data) => { this.contacts.set(data ?? []); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
@@ -235,8 +233,8 @@ export class ContactManagerComponent implements OnInit {
     const payload = { ...this.form.value, partyType: this.partyType, partyId: this.partyId };
 
     const request$ = this.editingId()
-      ? this.http.put(`/api/app/contact/${this.editingId()}`, payload)
-      : this.http.post('/api/app/contact', payload);
+      ? this.contactService.update(this.editingId()!, payload as any)
+      : this.contactService.create(payload as any);
 
     request$.subscribe({
       next: () => {
@@ -257,7 +255,7 @@ export class ContactManagerComponent implements OnInit {
   deleteContact(id: string): void {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/contact/${id}`).subscribe({
+      this.contactService.delete(id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadContacts(); },
         error: () => this.toaster.error('::OperationFailed'),
       });

@@ -64,7 +64,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                   <div class="col-md-8">{{ project()!.expectedEndDate | date:'dd/MM/yyyy' }}</div>
                 </div>
               }
-              @if (project()!.estimatedCost > 0) {
+              @if ((project()!.estimatedCost ?? 0) > 0) {
                 <div class="row mb-3">
                   <div class="col-md-4"><strong>{{ '::EstimatedCost' | abpLocalization }}:</strong></div>
                   <div class="col-md-8">{{ project()!.estimatedCost | number:'1.2-2' }}</div>
@@ -112,11 +112,11 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
               <h4>{{ project()!.taskCount }}</h4>
             </div>
           </div>
-          @if (project()!.grossMargin !== 0) {
+          @if (project()!.grossMargin !== undefined && project()!.grossMargin !== 0) {
             <div class="card">
               <div class="card-body text-center">
                 <h6 class="text-muted">{{ '::GrossProfit' | abpLocalization }}</h6>
-                <h4 [class]="project()!.grossMargin >= 0 ? 'text-success' : 'text-danger'">
+                <h4 [class]="(project()!.grossMargin ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ project()!.grossMargin | number:'1.2-2' }}%
                 </h4>
               </div>
@@ -148,8 +148,8 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                     <tr>
                       <td>{{ task.taskNumber }}</td>
                       <td>{{ task.subject }}</td>
-                      <td><span class="badge" [class]="getTaskStatusBadge(task.status)">{{ getTaskStatusLabel(task.status) }}</span></td>
-                      <td>{{ getPriorityLabel(task.priority) }}</td>
+                      <td><span class="badge" [class]="getTaskStatusBadge(task.status ?? 0)">{{ getTaskStatusLabel(task.status ?? 0) }}</span></td>
+                      <td>{{ getPriorityLabel(task.priority ?? 0) }}</td>
                       <td>
                         <div class="progress" style="height: 16px; min-width: 80px;">
                           <div class="progress-bar bg-info" [style.width.%]="task.progress">{{ task.progress | number:'1.0-0' }}%</div>

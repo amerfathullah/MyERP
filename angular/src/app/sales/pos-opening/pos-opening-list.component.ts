@@ -103,7 +103,7 @@ interface PosOpeningDto {
                     </td>
                     <td class="text-end">
                       @if (entry.status === 'Closed') {
-                        <button class="btn btn-outline-danger btn-sm" (click)="cancel(entry.id)">
+                        <button class="btn btn-outline-danger btn-sm" (click)="cancel(entry.id!)">
                           <i class="fa fa-ban"></i>
                         </button>
                       }
