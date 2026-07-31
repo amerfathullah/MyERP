@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
@@ -176,8 +177,9 @@ public class UpstreamPR57660AndDeliveryTrackingTests
     [InlineData("PlannedEnd")]
     public void LocalizationKey_Exists(string key)
     {
-        var json = System.IO.File.ReadAllText(
-            @"e:\Workspace\erp\MyERP\src\MyERP.Domain.Shared\Localization\MyERP\en.json");
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "MyERP.Domain.Shared", "Localization", "MyERP", "en.json");
+        var json = System.IO.File.ReadAllText(path);
         Assert.Contains($"\"{key}\"", json);
     }
 
