@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { PageModule } from '@abp/ng.components/page';
@@ -64,6 +64,8 @@ export class SalesOrderDetailComponent implements OnInit {
   // Partial Delivery Selection state
   showDeliverySelection = signal(false);
   deliverySelectionItems = signal<{ itemId: string; description: string; pendingQty: number; deliverQty: number; selected: boolean }[]>([]);
+  allDeliveryItemsSelected = computed(() => this.deliverySelectionItems().length > 0 && this.deliverySelectionItems().every(i => i.selected));
+  deliveryItemsReadyCount = computed(() => this.deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length);
   isCreatingDN = signal(false);
 
   // Delivery Schedule Generator state
