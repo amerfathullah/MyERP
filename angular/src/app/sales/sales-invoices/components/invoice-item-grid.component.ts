@@ -35,6 +35,9 @@ export class InvoiceItemGridComponent {
   /** Per-item stock availability: { [itemId]: { actualQty, projectedQty } } */
   stockInfo = signal<Record<string, { actualQty: number; projectedQty: number }>>({});
 
+  /** Per-item valuation rate (cost) for margin display */
+  valuationRates = signal<Record<string, number>>({});
+
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
   get dataSource(): FormGroup[] {
@@ -88,6 +91,11 @@ export class InvoiceItemGridComponent {
                 },
               }));
             }
+
+            // Capture valuation rate for margin indicator
+            if (details.valuationRate && details.valuationRate > 0) {
+              this.valuationRates.update(m => ({ ...m, [selectedId]: details.valuationRate! }));
+            }
           }
           // After item details, apply pricing rules (auto-discount/rate)
           this.applyPricingRule(index);
@@ -125,6 +133,17 @@ export class InvoiceItemGridComponent {
     const qty = row.get('qty')?.value ?? 0;
     const stock = this.stockInfo()[itemId];
     return !!stock && stock.actualQty < qty;
+  }
+
+  /** Gross margin % for selling transactions: (rate - cost) / rate × 100 */
+  getMarginPercent(index: number): number | null {
+    const row = this.items.at(index) as FormGroup;
+    const itemId = row.get('itemId')?.value;
+    const rate = row.get('rate')?.value ?? 0;
+    if (!itemId || rate <= 0) return null;
+    const cost = this.valuationRates()[itemId];
+    if (cost === undefined || cost <= 0) return null;
+    return ((rate - cost) / rate) * 100;
   }
 
   /** Auto-apply highest-priority matching pricing rule for the item */

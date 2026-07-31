@@ -419,24 +419,24 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     if (itemEntity != null && !itemEntity.MaintainStock)
                         continue;
 
-                    // Capture valuation rate BEFORE stock-out (for COGS/gross profit)
-                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, dn.WarehouseId);
+                    // Per ERPNext: each DN item can have its own warehouse
+                    var itemWarehouseId = item.WarehouseId ?? dn.WarehouseId;
+
+                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, itemWarehouseId);
                     item.ValuationRate = balance.ValuationRate;
 
                     await _valuationService.CreateLedgerEntryAsync(
-                        dn.CompanyId, item.ItemId, dn.WarehouseId,
+                        dn.CompanyId, item.ItemId, itemWarehouseId,
                         dn.PostingDate, -item.StockQty, item.ValuationRate,
                         voucherType: "DeliveryNote", voucherId: dn.Id,
                         tenantId: dn.TenantId);
 
-                    // Bin value uses valuation rate (Bug #3 fix — was using selling price)
                     await _binService.ApplyStockMovementAsync(
-                        item.ItemId, dn.WarehouseId,
+                        item.ItemId, itemWarehouseId,
                         -item.StockQty, -(item.StockQty * item.ValuationRate), dn.TenantId);
 
-                    // Release reserved qty (stock was reserved at SO in stock UOM, now delivered)
                     await _binService.UpdateReservedQtyAsync(
-                        item.ItemId, dn.WarehouseId, -item.StockQty, dn.TenantId);
+                        item.ItemId, itemWarehouseId, -item.StockQty, dn.TenantId);
                 }
             }
 
@@ -458,7 +458,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     if (itemEntity == null || !itemEntity.MaintainStock) continue;
 
                     await sreManager.ConsumeOnDeliveryAsync(
-                        item.ItemId, dn.WarehouseId, item.StockQty, dn.SalesOrderId);
+                        item.ItemId, item.WarehouseId ?? dn.WarehouseId, item.StockQty, dn.SalesOrderId);
                 }
             }
 

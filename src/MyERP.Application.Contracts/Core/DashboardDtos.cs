@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MyERP.Core;
 
@@ -52,4 +53,36 @@ public class QiStatusSummaryDto
     public bool InspectionRequired { get; set; }
     public string? InspectionStatus { get; set; }
     public Guid? QualityInspectionId { get; set; }
+}
+
+public class QuickReorderDto
+{
+    public Guid CompanyId { get; set; }
+    public List<Guid> ItemIds { get; set; } = new();
+}
+
+public class QuickReorderResultDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public string MaterialRequestNumber { get; set; } = null!;
+    public int ItemCount { get; set; }
+}
+
+public class SupplierPerformanceWidgetDto
+{
+    public int TotalSuppliers { get; set; }
+    public decimal OverallOnTimeRate { get; set; }
+    public int SuppliersAtRisk { get; set; }
+    public List<SupplierPerformanceItemDto> Suppliers { get; set; } = new();
+}
+
+public class SupplierPerformanceItemDto
+{
+    public Guid SupplierId { get; set; }
+    public string SupplierName { get; set; } = "—";
+    public int TotalOrders { get; set; }
+    public int OnTimeCount { get; set; }
+    public int LateCount { get; set; }
+    public decimal OnTimeRate { get; set; }
+    public decimal TotalValue { get; set; }
 }

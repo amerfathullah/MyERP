@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ContractService } from '../../proxy/crm/contract.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-contract-form',
@@ -32,7 +33,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Party' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="partyId" [placeholder]="'::Placeholder:PartyId' | abpLocalization" />
+              <select class="form-select" formControlName="partyId">
+                <option value="">{{ '::Select' | abpLocalization }}</option>
+                @for (p of parties(); track p.id) {
+                  <option [value]="p.id">{{ p.name }}</option>
+                }
+              </select>
             </div>
           </div>
 
@@ -82,6 +88,9 @@ export class ContractFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
+
+  parties = signal<any[]>([]);
 
   form!: FormGroup;
   saving = false;
@@ -98,6 +107,12 @@ export class ContractFormComponent implements OnInit {
       contractValue: [null],
       contractTerms: [''],
       isAutoRenew: [false],
+    });
+
+    this.loadParties(this.form.get('partyType')!.value);
+    this.form.get('partyType')!.valueChanges.subscribe(t => {
+      this.form.patchValue({ partyId: null });
+      this.loadParties(t);
     });
 
     this.editId = this.route.snapshot.paramMap.get('id');
@@ -118,6 +133,14 @@ export class ContractFormComponent implements OnInit {
         },
       });
     }
+  }
+
+  private loadParties(type: string) {
+    const url = type === 'Supplier' ? '/api/app/supplier' : '/api/app/customer';
+    this.http.get<any>(url, { params: { maxResultCount: '200' } }).subscribe({
+      next: (r) => this.parties.set(r.items ?? []),
+      error: () => {}
+    });
   }
 
   save() {

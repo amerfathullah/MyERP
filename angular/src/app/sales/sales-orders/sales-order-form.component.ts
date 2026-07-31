@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, Validators, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -8,7 +8,8 @@ import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-i
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
-
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -21,7 +22,7 @@ import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-term
   selector: 'app-sales-order-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
   templateUrl: './sales-order-form.component.html',
   styleUrls: ['./sales-order-form.component.scss'],
 })
@@ -36,11 +37,16 @@ export class SalesOrderFormComponent implements OnInit {
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
   private paymentTermsService = inject(PaymentTermsTemplateService);
+  private taxCategoryService = inject(TaxCategoryService);
+  private taxRuleService = inject(TaxRuleService);
 
   customers = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
+  taxCategories = signal<any[]>([]);
+  selectedTaxRules = signal<any[]>([]);
+  selectedTaxCategoryId = signal<string>('');
   isEditMode = false;
   entityId: string | null = null;
 
@@ -81,6 +87,16 @@ export class SalesOrderFormComponent implements OnInit {
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
 
+    this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => {
+        const categories = (res.items ?? []).filter((c: any) => c.isActive !== false);
+        this.taxCategories.set(categories);
+        // Auto-select default (first active) tax category for new orders
+        if (!this.isEditMode && categories.length > 0) {
+          this.onTaxCategoryChanged(categories[0].id);
+        }
+      }, error: () => {} });
+
     if (this.isEditMode) {
       this.soService.get(this.entityId!).subscribe(so => {
         // Resolve warehouse from first item (header-level representation)
@@ -109,13 +125,30 @@ export class SalesOrderFormComponent implements OnInit {
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
 
+  onTaxCategoryChanged(categoryId: string): void {
+    this.selectedTaxCategoryId.set(categoryId);
+    if (!categoryId) {
+      this.selectedTaxRules.set([]);
+      this.recalculate();
+      return;
+    }
+    this.taxRuleService.getList(categoryId, { skipCount: 0, maxResultCount: 50, sorting: '' })
+      .subscribe({
+        next: (res) => {
+          this.selectedTaxRules.set(res.items ?? []);
+          this.recalculate();
+        },
+        error: () => { this.selectedTaxRules.set([]); this.recalculate(); },
+      });
+  }
+
   recalculate(): void {
     const itemValues = this.items.controls.map(c => ({
       qty: c.get('qty')?.value ?? 0,
       rate: c.get('rate')?.value ?? 0,
       discountPercent: c.get('discountPercent')?.value ?? 0,
     }));
-    this.calcResult = this.taxCalc.calculate(itemValues, []);
+    this.calcResult = this.taxCalc.calculate(itemValues, this.selectedTaxRules());
   }
 
   save(): void {

@@ -1168,6 +1168,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/work-orders/timeline',
+    loadComponent: () => import('./manufacturing/work-orders/work-order-timeline.component').then(c => c.WorkOrderTimelineComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/work-orders/new',
     loadComponent: () => import('./manufacturing/work-orders/work-order-form.component').then(c => c.WorkOrderFormComponent),
     canActivate: [authGuard, permissionGuard],

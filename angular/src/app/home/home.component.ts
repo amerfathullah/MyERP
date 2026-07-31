@@ -30,7 +30,7 @@ export class HomeComponent implements OnInit {
   recentActivity = signal<any[]>([]);
   financialKpis = signal<any | null>(null);
   stockValuation = signal<any | null>(null);
-  overdueAlerts = signal<{ overdueReceivableCount: number; overdueReceivableAmount: number; overduePayableCount: number; overduePayableAmount: number; pendingApprovalCount: number } | null>(null);
+  overdueAlerts = signal<{ overdueReceivableCount: number; overdueReceivableAmount: number; overduePayableCount: number; overduePayableAmount: number; pendingApprovalCount: number; overduePurchaseOrderCount: number } | null>(null);
   agingSummary = signal<any | null>(null);
   bankBalances = signal<any | null>(null);
   cashFlowSnapshot = signal<any | null>(null);
@@ -43,6 +43,7 @@ export class HomeComponent implements OnInit {
   topDebtors = signal<any[]>([]);
   upcomingDues = signal<any | null>(null);
   pendingMRs = signal<any[]>([]);
+  supplierPerformance = signal<any | null>(null);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -73,6 +74,8 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: data => this.upcomingDues.set(data), error: () => {} });
         this.http.get<any[]>(`/api/app/dashboard/pending-material-requests?companyId=${cid}`)
           .subscribe({ next: data => this.pendingMRs.set(data ?? []), error: () => {} });
+        this.dashboardService.getSupplierPerformanceWidget(cid)
+          .subscribe({ next: data => this.supplierPerformance.set(data), error: () => {} });
       }
       this.dashboardService.getRevenueTrend()
         .subscribe({
@@ -125,7 +128,7 @@ export class HomeComponent implements OnInit {
   private loadOverdueAlerts(companyId: string) {
     this.dashboardService.getOverdueAlerts(companyId).subscribe({
       next: (data: any) => this.overdueAlerts.set(data),
-      error: () => this.overdueAlerts.set({ overdueReceivableCount: 0, overdueReceivableAmount: 0, overduePayableCount: 0, overduePayableAmount: 0, pendingApprovalCount: 0 }),
+      error: () => this.overdueAlerts.set({ overdueReceivableCount: 0, overdueReceivableAmount: 0, overduePayableCount: 0, overduePayableAmount: 0, pendingApprovalCount: 0, overduePurchaseOrderCount: 0 }),
     });
   }
 
@@ -147,12 +150,9 @@ export class HomeComponent implements OnInit {
   createSingleReorderMR(item: any) {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    const reorderQty = this.getReorderQty(item);
-    if (reorderQty <= 0) return;
-    this.http.post('/api/app/material-request', {
+    this.http.post<any>('/api/app/dashboard/create-reorder-material-request', {
       companyId,
-      requestType: 0,
-      items: [{ itemId: item.itemId, quantity: reorderQty }],
+      itemIds: [item.itemId],
     }).subscribe({
       next: () => {
         this.lowStockItems.update(items => items.filter(i => i.itemId !== item.itemId));
@@ -164,19 +164,18 @@ export class HomeComponent implements OnInit {
   createBulkReorderMR() {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    const items = this.lowStockItems()
-      .map(item => ({ itemId: item.itemId, quantity: this.getReorderQty(item) }))
-      .filter(i => i.quantity > 0);
-    if (!items.length) return;
+    const itemIds = this.lowStockItems()
+      .filter(item => this.getReorderQty(item) > 0)
+      .map(item => item.itemId);
+    if (!itemIds.length) return;
     this.isCreatingReorderMR.set(true);
-    this.http.post('/api/app/material-request', {
+    this.http.post<any>('/api/app/dashboard/create-reorder-material-request', {
       companyId,
-      requestType: 0,
-      items,
+      itemIds,
     }).subscribe({
-      next: () => {
-        this.lowStockItems.set([]);
+      next: (result) => {
         this.isCreatingReorderMR.set(false);
+        this.lowStockItems.set([]);
       },
       error: () => this.isCreatingReorderMR.set(false),
     });

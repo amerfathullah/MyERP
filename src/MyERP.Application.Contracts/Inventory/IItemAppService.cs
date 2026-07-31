@@ -40,6 +40,38 @@ public interface IItemAppService :
     Task<List<ItemStockMovementDto>> GetRecentMovementsAsync(Guid itemId, int maxCount = 20);
     Task<List<ItemWhereUsedDto>> GetWhereUsedAsync(Guid itemId);
     Task<List<ItemVariantDto>> GetVariantsAsync(Guid templateItemId);
+    Task<ItemTransactionSummaryDto> GetTransactionSummaryAsync(Guid itemId, Guid? companyId = null);
+}
+
+/// <summary>
+/// Aggregate purchase/sales metrics for an item — per ERPNext Item dashboard.
+/// Shows procurement vs sales activity for inventory planning decisions.
+/// </summary>
+public class ItemTransactionSummaryDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "";
+    public string ItemName { get; set; } = "";
+
+    // Purchase metrics (last 12 months)
+    public int PurchaseOrderCount { get; set; }
+    public decimal TotalPurchasedQty { get; set; }
+    public decimal TotalPurchasedValue { get; set; }
+    public decimal? LastPurchaseRate { get; set; }
+    public DateTime? LastPurchaseDate { get; set; }
+
+    // Sales metrics (last 12 months)
+    public int SalesOrderCount { get; set; }
+    public decimal TotalSoldQty { get; set; }
+    public decimal TotalSoldValue { get; set; }
+    public decimal? AverageSellingRate { get; set; }
+    public DateTime? LastSaleDate { get; set; }
+
+    // Stock metrics
+    public decimal CurrentStock { get; set; }
+    public decimal ReorderLevel { get; set; }
+    public bool IsLowStock { get; set; }
+    public int DaysOfStockRemaining { get; set; }
 }
 
 /// <summary>Item price history entry for the price timeline chart.</summary>

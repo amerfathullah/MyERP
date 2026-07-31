@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationService } from '@abp/ng.core';
 import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
 
 interface OutstandingInvoice {
@@ -25,6 +26,7 @@ interface OutstandingInvoice {
 export class PaymentReconciliationComponent {
   private reconciliationService = inject(PaymentReconciliationService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   partyType = signal<string>('Customer');
   partyId = signal<string>('');
@@ -79,7 +81,7 @@ export class PaymentReconciliationComponent {
     } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyReconciled');
-        this.successMessage.set('Payment reconciled successfully');
+        this.successMessage.set(this.l.instant('::SuccessfullyReconciled'));
         this.reconciling.set(false);
         this.fetchOutstanding();
       },

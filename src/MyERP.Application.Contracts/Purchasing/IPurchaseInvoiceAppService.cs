@@ -23,6 +23,7 @@ public interface IPurchaseInvoiceAppService : IApplicationService
     Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId);
     Task<List<ThreeWayMatchingItemDto>> GetThreeWayMatchingAsync(Guid invoiceId);
     Task<List<TaxWithholdingEntryDto>> GetTaxWithholdingEntriesAsync(Guid invoiceId);
+    Task<DuplicateInvoiceCheckResultDto> CheckDuplicateSupplierInvoiceAsync(Guid supplierId, Guid companyId, string supplierInvoiceNumber, Guid? excludeId = null);
 
     /// <summary>
     /// Returns aggregate KPI summary for the PI list page: total payables, overdue, monthly spend.

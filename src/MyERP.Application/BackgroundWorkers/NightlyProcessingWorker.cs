@@ -145,6 +145,36 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Enqueue Work Order overdue notification
+                // Per ERPNext: send_notification_for_overdue_work_orders daily scheduler
+                await jobManager.EnqueueAsync(new Manufacturing.BackgroundJobs.WorkOrderOverdueNotificationJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    UserId = Guid.Empty, // Resolved at job execution time
+                });
+
+                // Enqueue Purchase Order overdue delivery alert
+                // Per ERPNext: procurement managers need daily alerts on late supplier deliveries
+                await jobManager.EnqueueAsync(new Purchasing.BackgroundJobs.PurchaseOrderOverdueAlertJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    UserId = Guid.Empty,
+                });
+
+                // Enqueue upcoming payment due date alerts (proactive cash flow management)
+                // Per ERPNext: daily reminder for invoices due in 3/7 days — separate from overdue reminders
+                await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.UpcomingPaymentDueAlertJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    UserId = Guid.Empty,
+                });
             }
             catch (Exception ex)
             {
@@ -153,6 +183,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (13 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (16 jobs).", companies.Count);
     }
 }

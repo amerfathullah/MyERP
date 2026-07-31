@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,6 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { IssueService } from '../../proxy/support/issue.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { HttpClient } from '@angular/common/http';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -27,7 +28,12 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
-                <input type="text" class="form-control" formControlName="companyId">
+                <select class="form-select" formControlName="companyId">
+                  <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+                  @for (c of companies(); track c.id) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                </select>
               </div>
             </div>
             <div class="row g-3 mt-2">
@@ -69,7 +75,12 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="row g-3 mt-2">
               <div class="col-md-6">
                 <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:CustomerId' | abpLocalization">
+                <select class="form-select" formControlName="customerId">
+                  <option value="">{{ '::SelectCustomer' | abpLocalization }}</option>
+                  @for (c of customers(); track c.id) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                </select>
               </div>
             </div>
           </div>
@@ -85,12 +96,16 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
     </abp-page>
   `,
 })
-export class IssueFormComponent {
+export class IssueFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private service = inject(IssueService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private http = inject(HttpClient);
+
+  companies = signal<any[]>([]);
+  customers = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -102,7 +117,15 @@ export class IssueFormComponent {
     customerId: [''],
   });
 
-  constructor() {
+  ngOnInit() {
+    this.http.get<any>('/api/app/company', { params: { maxResultCount: '200' } }).subscribe({
+      next: (r) => this.companies.set(r.items ?? []),
+      error: () => {}
+    });
+    this.http.get<any>('/api/app/customer', { params: { maxResultCount: '200' } }).subscribe({
+      next: (r) => this.customers.set(r.items ?? []),
+      error: () => {}
+    });
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
   }

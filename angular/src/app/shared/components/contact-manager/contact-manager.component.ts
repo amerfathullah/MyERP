@@ -116,7 +116,7 @@ interface ContactDto {
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">{{ '::Designation' | abpLocalization }}</label>
-                  <input class="form-control form-control-sm" formControlName="designation" placeholder="e.g. Finance Manager" />
+                  <input class="form-control form-control-sm" formControlName="designation" [placeholder]="'::Placeholder:FinanceManager' | abpLocalization" />
                 </div>
               </div>
               <div class="row g-2 mt-1">

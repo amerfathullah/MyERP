@@ -226,6 +226,25 @@ public class DisassemblyResultDto
     public decimal RemainingDisassemblable { get; set; }
 }
 
+/// <summary>Production cost breakdown per ERPNext BOM Costing + WO actual cost tracking.</summary>
+public class ProductionCostBreakdownDto
+{
+    public Guid WorkOrderId { get; set; }
+    public string? WorkOrderNumber { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal ProducedQty { get; set; }
+    public decimal TotalRmCost { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal ProcessLossValue { get; set; }
+    public decimal AdditionalCosts { get; set; }
+    public decimal TotalProductionCost { get; set; }
+    public decimal FgUnitCost { get; set; }
+    public decimal BomStandardCost { get; set; }
+    public decimal CostVariance { get; set; }
+    public decimal CostVariancePercent { get; set; }
+}
+
 /// <summary>Result DTO for Stock Entry creation from Work Order.</summary>
 public class StockEntryResultDto
 {
@@ -282,6 +301,9 @@ public interface IManufacturingAppService : IApplicationService
 
     // Disassembly
     Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync(CreateDisassemblyDto input);
+
+    // Cost Analysis
+    Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId);
 }
 
 /// <summary>
@@ -368,4 +390,58 @@ public class WorkOrderMaterialReadinessDto
 
     /// <summary>"Ready" | "Partial" | "Blocked"</summary>
     public string ReadinessStatus => IsReady ? "Ready" : HasShortage ? "Blocked" : "Partial";
+}
+
+// === Production Schedule DTOs ===
+
+public class ProductionScheduleItemDto
+{
+    public Guid WorkOrderId { get; set; }
+    public string WorkOrderNumber { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal ProducedQuantity { get; set; }
+    public decimal PercentComplete { get; set; }
+    public int Status { get; set; }
+    public string StatusLabel { get; set; } = string.Empty;
+    public DateTime? PlannedStartDate { get; set; }
+    public DateTime? PlannedEndDate { get; set; }
+    public DateTime? ActualStartDate { get; set; }
+    public DateTime? ActualEndDate { get; set; }
+    public bool IsOverdue { get; set; }
+    public int DaysOverdue { get; set; }
+    public string StatusColor { get; set; } = "secondary";
+}
+
+public class ProductionScheduleDto
+{
+    public List<ProductionScheduleItemDto> Items { get; set; } = new();
+    public int TotalOrders { get; set; }
+    public int NotStarted { get; set; }
+    public int InProcess { get; set; }
+    public int Completed { get; set; }
+    public int Overdue { get; set; }
+    public decimal OverallCompletionRate { get; set; }
+}
+
+// === Cross-WO Material Shortage Summary DTOs ===
+
+public class MaterialShortageItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal TotalRequired { get; set; }
+    public decimal TotalAvailable { get; set; }
+    public decimal ShortageQty { get; set; }
+    public int AffectedWorkOrders { get; set; }
+    public string MostUrgentWO { get; set; } = string.Empty;
+}
+
+public class MaterialShortageAcrossOrdersDto
+{
+    public List<MaterialShortageItemDto> Items { get; set; } = new();
+    public int TotalItemsShort { get; set; }
+    public int TotalAffectedOrders { get; set; }
+    public decimal TotalShortageValue { get; set; }
 }

@@ -202,4 +202,55 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
             Items = rows,
         };
     }
+
+    /// <summary>
+    /// Returns recent stock movements for a specific item across all warehouses.
+    /// Per ERPNext: Item dashboard shows recent stock ledger activity for operations visibility.
+    /// </summary>
+    public async Task<ItemMovementHistoryDto> GetItemMovementHistoryAsync(
+        Guid itemId, Guid? warehouseId = null, int maxEntries = 20)
+    {
+        var query = await _ledgerRepository.GetQueryableAsync();
+        var filtered = query.Where(e => e.ItemId == itemId);
+
+        if (warehouseId.HasValue)
+            filtered = filtered.Where(e => e.WarehouseId == warehouseId.Value);
+
+        var entries = filtered
+            .OrderByDescending(e => e.PostingDate)
+            .ThenByDescending(e => e.CreationTime)
+            .Take(maxEntries)
+            .ToList();
+
+        // Resolve warehouse names in one batch
+        var whIds = entries.Select(e => e.WarehouseId).Distinct().ToList();
+        var warehouses = (await _warehouseRepository.GetListAsync(w => whIds.Contains(w.Id)))
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        // Resolve item info
+        var item = await _itemRepository.FindAsync(itemId);
+
+        var rows = entries.Select(e => new ItemMovementEntryDto
+        {
+            PostingDate = e.PostingDate,
+            WarehouseName = warehouses.GetValueOrDefault(e.WarehouseId, "—"),
+            QuantityChange = e.QuantityChange,
+            BalanceQuantity = e.BalanceQuantity,
+            ValuationRate = e.ValuationRate,
+            VoucherType = e.VoucherType ?? "—",
+            VoucherId = e.VoucherId,
+            IsInward = e.QuantityChange > 0,
+        }).ToList();
+
+        return new ItemMovementHistoryDto
+        {
+            ItemId = itemId,
+            ItemCode = item?.ItemCode ?? "—",
+            ItemName = item?.ItemName ?? "—",
+            TotalInward = rows.Where(r => r.IsInward).Sum(r => r.QuantityChange),
+            TotalOutward = Math.Abs(rows.Where(r => !r.IsInward).Sum(r => r.QuantityChange)),
+            CurrentBalance = entries.FirstOrDefault()?.BalanceQuantity ?? 0,
+            Entries = rows,
+        };
+    }
 }

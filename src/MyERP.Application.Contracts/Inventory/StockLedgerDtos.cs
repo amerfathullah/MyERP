@@ -87,3 +87,26 @@ public class StockMovementSummaryDto
     public decimal TotalStockOutValue { get; set; }
     public List<StockMovementItemDto> Items { get; set; } = new();
 }
+
+public class ItemMovementHistoryDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "—";
+    public string ItemName { get; set; } = "—";
+    public decimal TotalInward { get; set; }
+    public decimal TotalOutward { get; set; }
+    public decimal CurrentBalance { get; set; }
+    public List<ItemMovementEntryDto> Entries { get; set; } = new();
+}
+
+public class ItemMovementEntryDto
+{
+    public DateTime PostingDate { get; set; }
+    public string WarehouseName { get; set; } = "—";
+    public decimal QuantityChange { get; set; }
+    public decimal BalanceQuantity { get; set; }
+    public decimal ValuationRate { get; set; }
+    public string VoucherType { get; set; } = "—";
+    public Guid? VoucherId { get; set; }
+    public bool IsInward { get; set; }
+}

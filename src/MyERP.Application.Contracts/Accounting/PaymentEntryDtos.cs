@@ -108,3 +108,36 @@ public class PartyOutstandingDto
     public decimal TotalInvoiceOutstanding { get; set; }
     public decimal TotalOrderPending { get; set; }
 }
+
+/// <summary>Request for auto-allocating a payment amount across outstanding invoices.</summary>
+public class AutoAllocateRequestDto
+{
+    [Required] public string PartyType { get; set; } = null!;
+    [Required] public Guid PartyId { get; set; }
+    [Required] public Guid CompanyId { get; set; }
+    [Required][Range(0.01, double.MaxValue)] public decimal PaymentAmount { get; set; }
+    /// <summary>Write-off threshold: if unallocated amount ≤ this, suggest as write-off. Default: 1.00 MYR.</summary>
+    public decimal? WriteOffThreshold { get; set; }
+}
+
+/// <summary>Result of auto-allocation: suggested references + write-off.</summary>
+public class AutoAllocationResultDto
+{
+    public List<AllocationSuggestionDto> Allocations { get; set; } = [];
+    public decimal TotalAllocated { get; set; }
+    public decimal UnallocatedAmount { get; set; }
+    public decimal WriteOffAmount { get; set; }
+    public int InvoiceCount { get; set; }
+}
+
+/// <summary>Suggested allocation for a single invoice in auto-allocation result.</summary>
+public class AllocationSuggestionDto
+{
+    public Guid InvoiceId { get; set; }
+    public string InvoiceNumber { get; set; } = null!;
+    public string InvoiceType { get; set; } = null!;
+    public decimal Outstanding { get; set; }
+    public decimal AllocatedAmount { get; set; }
+    public DateTime? DueDate { get; set; }
+    public bool IsOverdue { get; set; }
+}

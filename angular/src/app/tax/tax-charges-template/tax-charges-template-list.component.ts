@@ -138,7 +138,7 @@ interface TaxRow {
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
-                  <input class="form-control" formControlName="name" placeholder="e.g., Malaysia SST 6%" />
+                  <input class="form-control" formControlName="name" [placeholder]="'::Placeholder:TaxTemplateName' | abpLocalization" />
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">{{ '::Type' | abpLocalization }} *</label>
@@ -192,7 +192,7 @@ interface TaxRow {
                         </select>
                       </td>
                       <td><input class="form-control form-control-sm" type="number" formControlName="rate" /></td>
-                      <td><input class="form-control form-control-sm" formControlName="description" placeholder="e.g., SST @ 6%" /></td>
+                      <td><input class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:TaxDescription' | abpLocalization" /></td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="taxCategory">
                           <option value="Total">Total</option>

@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -18,7 +19,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 @Component({
   selector: 'app-work-order-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent],
+  imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent],
   template: `
     <abp-page [title]="wo()?.workOrderNumber ?? ('Manufacturing:WorkOrders' | abpLocalization)">
   <app-breadcrumb />
@@ -103,7 +104,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           @if (wo()!.status === 3) {
             <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
             <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>{{ '::RecordConsumption' | abpLocalization }}</button>
-            <button class="btn btn-outline-primary btn-sm" (click)="createManufactureEntry()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
+            <button class="btn btn-outline-primary btn-sm" (click)="openManufactureDialog()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
             <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>{{ '::Stop' | abpLocalization }}</button>
           }
           @if (wo()!.status === 5) {
@@ -337,6 +338,32 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             [companyId]="w.companyId!" />
         }
       }
+
+      <!-- Manufacture Qty Dialog -->
+      @if (showManufactureDialog()) {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+          <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fa fa-industry me-2"></i>{{ '::Manufacture' | abpLocalization }}</h6>
+                <button type="button" class="btn-close" (click)="showManufactureDialog.set(false)"></button>
+              </div>
+              <div class="modal-body">
+                <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
+                <input type="number" class="form-control" [min]="0.001" [max]="(wo()?.quantity ?? 0) - (wo()?.producedQuantity ?? 0)"
+                       [ngModel]="manufactureQty()" (ngModelChange)="manufactureQty.set($event)" step="0.01">
+                <small class="text-muted">{{ '::Remaining' | abpLocalization }}: {{ (wo()?.quantity ?? 0) - (wo()?.producedQuantity ?? 0) | number:'1.2-2' }}</small>
+              </div>
+              <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-secondary" (click)="showManufactureDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-primary" (click)="createManufactureEntry()" [disabled]="!manufactureQty() || manufactureQty() <= 0">
+                  <i class="fa fa-check me-1"></i>{{ '::Manufacture' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </abp-page>
   `,
 })
@@ -529,12 +556,21 @@ export class WorkOrderDetailComponent implements OnInit {
     }); // end confirmation subscribe
   }
 
-  createManufactureEntry() {
+  showManufactureDialog = signal(false);
+  manufactureQty = signal(0);
+
+  openManufactureDialog() {
     const wo = this.wo()!;
     const remaining = (wo.quantity ?? 0) - (wo.producedQuantity ?? 0);
-    const qtyStr = prompt(`Enter FG quantity to manufacture (max ${remaining}):`, remaining.toString());
-    if (!qtyStr || isNaN(+qtyStr) || +qtyStr <= 0) return;
-    const fgQty = +qtyStr;
+    this.manufactureQty.set(remaining);
+    this.showManufactureDialog.set(true);
+  }
+
+  createManufactureEntry() {
+    const wo = this.wo()!;
+    const fgQty = this.manufactureQty();
+    if (!fgQty || fgQty <= 0) return;
+    this.showManufactureDialog.set(false);
 
     this.isLoading.set(true);
     this.manufacturingService.createManufactureStockEntry({

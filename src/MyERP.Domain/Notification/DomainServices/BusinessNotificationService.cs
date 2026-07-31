@@ -126,6 +126,24 @@ public class BusinessNotificationService : DomainService
         "SalesInvoice" => $"/sales/invoices/{id}",
         "PurchaseInvoice" => $"/purchasing/invoices/{id}",
         "ExpenseClaim" => $"/hr/expense-claims/{id}",
+        "WorkOrder" => $"/manufacturing/work-orders/{id}",
         _ => $"/workflow/pending"
     };
+
+    /// <summary>
+    /// Notify production managers when a Work Order completes production.
+    /// Per ERPNext: WO auto-transitions to Completed when ProducedQuantity >= Quantity.
+    /// </summary>
+    public async Task NotifyWorkOrderCompletedAsync(Guid companyId, string workOrderNumber, decimal producedQty, Guid? tenantId = null)
+    {
+        var notification = new AppNotification(
+            _guidGenerator.Create(), Guid.Empty, $"Production Complete: {workOrderNumber}", tenantId)
+        {
+            Body = $"Work Order {workOrderNumber} has completed production ({producedQty:N0} units produced).",
+            Severity = NotificationSeverity.Success,
+            SourceDocumentType = "WorkOrder",
+        };
+
+        await _notificationRepository.InsertAsync(notification);
+    }
 }

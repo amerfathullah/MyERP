@@ -98,4 +98,8 @@ public class ManufacturingController : MyERPController
     [HttpPost("work-order/{workOrderId}/create-job-cards")]
     public Task<List<WorkOrderJobCardDto>> CreateJobCardsForWorkOrderAsync(Guid workOrderId)
         => _service.CreateJobCardsForWorkOrderAsync(workOrderId);
+
+    [HttpGet("work-order/{workOrderId}/cost-breakdown")]
+    public Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId)
+        => _service.GetProductionCostBreakdownAsync(workOrderId);
 }

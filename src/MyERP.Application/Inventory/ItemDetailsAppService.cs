@@ -109,6 +109,24 @@ public class ItemDetailsAppService : ApplicationService
             DefaultDiscountPercentage = resolved.DefaultDiscountPercentage,
         };
 
+        // Resolve valuation rate from Bin for margin display (per ERPNext: shows cost to enable GP visibility)
+        if (resolved.IsStockItem)
+        {
+            try
+            {
+                var whId = resolved.WarehouseId ?? input.WarehouseId ?? Guid.Empty;
+                if (whId != Guid.Empty)
+                {
+                    var binQuery = await _binRepo.GetQueryableAsync();
+                    var bin = binQuery.FirstOrDefault(b =>
+                        b.ItemId == input.ItemId && b.WarehouseId == whId && b.ActualQty > 0);
+                    if (bin != null)
+                        result.ValuationRate = bin.ValuationRate;
+                }
+            }
+            catch { /* Non-blocking: valuation rate is advisory for margin display */ }
+        }
+
         // Blanket Order rate resolution per ERPNext update_party_blanket_order
         if (input.CompanyId.HasValue && (input.CustomerId.HasValue || input.SupplierId.HasValue))
         {
@@ -195,6 +213,9 @@ public class ItemDetailsDto
     public Guid? DefaultSupplierId { get; set; }
     /// <summary>Resolved default discount percentage (from ItemDefault per company).</summary>
     public decimal DefaultDiscountPercentage { get; set; }
+
+    /// <summary>Current weighted-average valuation rate at the resolved warehouse (for margin display).</summary>
+    public decimal ValuationRate { get; set; }
 
     /// <summary>Active Blanket Order ID if item has a contracted rate.</summary>
     public Guid? BlanketOrderId { get; set; }

@@ -136,7 +136,7 @@ export class PosOpeningListComponent implements OnInit {
   currentPage = 0;
   showForm = false;
   newPayment = { modeName: 'Cash', openingAmount: 0 };
-  pendingPayments: { modeName: string; openingAmount: number; modeOfPaymentId: string }[] = [];
+  pendingPayments: { modeName: string; openingAmount: number }[] = [];
 
   ngOnInit() {
     this.load();
@@ -158,7 +158,6 @@ export class PosOpeningListComponent implements OnInit {
     this.pendingPayments.push({
       modeName: this.newPayment.modeName,
       openingAmount: this.newPayment.openingAmount || 0,
-      modeOfPaymentId: '00000000-0000-0000-0000-000000000000' // placeholder
     });
     this.newPayment = { modeName: '', openingAmount: 0 };
   }
@@ -169,8 +168,7 @@ export class PosOpeningListComponent implements OnInit {
 
     this.posOpeningService.create({
       companyId,
-      posProfileId: companyId, // simplified: use company as profile
-      userId: '00000000-0000-0000-0000-000000000000', // will be resolved from current user
+      posProfileId: companyId,
       payments: this.pendingPayments
     }).subscribe({
       next: () => {

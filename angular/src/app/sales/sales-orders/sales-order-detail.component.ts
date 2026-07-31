@@ -112,6 +112,16 @@ export class SalesOrderDetailComponent implements OnInit {
     return Math.min(100, ((row.billedQty ?? 0) / row.quantity) * 100);
   }
 
+  /** Per-item delivery date overdue check: past due + not fully delivered */
+  isItemOverdue(row: any): boolean {
+    if (!row.deliveryDate) return false;
+    const dueDate = new Date(row.deliveryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deliveredQty = row.deliveredQty ?? 0;
+    return dueDate < today && deliveredQty < row.quantity;
+  }
+
   getTimelineSteps(): { label: string; icon: string; completed: boolean; active: boolean; date?: string }[] {
     const o = this.order;
     if (!o) return [];
@@ -119,9 +129,9 @@ export class SalesOrderDetailComponent implements OnInit {
     const perBill = o.perBilled ?? 0;
     return [
       { label: this.l.instant('::Ordered'), icon: 'fa fa-clipboard-check', completed: true, active: false, date: o.orderDate },
-      { label: this.l.instant('::Delivered'), icon: 'fa fa-truck', completed: perDel >= 100, active: perDel > 0 && perDel < 100, date: undefined },
-      { label: this.l.instant('::Billed'), icon: 'fa fa-file-invoice', completed: perBill >= 100, active: perBill > 0 && perBill < 100, date: undefined },
-      { label: this.l.instant('::Paid'), icon: 'fa fa-circle-check', completed: o.status === 'Completed', active: (o as any).advancePaid > 0 && o.status !== 'Completed', date: undefined },
+      { label: this.l.instant('::Delivered'), icon: 'fa fa-truck', completed: perDel >= 100, active: perDel > 0 && perDel < 100, date: o.firstDeliveryDate ?? undefined },
+      { label: this.l.instant('::Billed'), icon: 'fa fa-file-invoice', completed: perBill >= 100, active: perBill > 0 && perBill < 100, date: o.firstBilledDate ?? undefined },
+      { label: this.l.instant('::Paid'), icon: 'fa fa-circle-check', completed: o.status === 'Completed', active: (o as any).advancePaid > 0 && o.status !== 'Completed', date: o.firstPaymentDate ?? undefined },
     ];
   }
 
@@ -152,32 +162,33 @@ export class SalesOrderDetailComponent implements OnInit {
     const s = this.order.status;
 
     if (s === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: this.l.instant('::Submit'), icon: 'paper-plane', color: 'primary' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
-      actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'truck', color: 'info' });
+      actions.push({ name: 'delivery', label: this.l.instant('::CreateDeliveryNote'), icon: 'truck', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
-      actions.push({ name: 'invoice', label: 'Create Invoice', icon: 'file-invoice', color: 'info' });
+      actions.push({ name: 'invoice', label: this.l.instant('::CreateInvoice'), icon: 'file-invoice', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+      actions.push({ name: 'payment', label: this.l.instant('::MakePayment'), icon: 'money-bill', color: 'info' });
       actions.push({ name: 'pick_list', label: this.l.instant('::CreatePickList'), icon: 'clipboard-list', color: 'info' });
-      actions.push({ name: 'work_order', label: 'Make Work Order', icon: 'industry', color: 'info' });
-      actions.push({ name: 'material_request', label: 'Material Request', icon: 'box-open', color: 'info' });
+      actions.push({ name: 'work_order', label: this.l.instant('::MakeWorkOrder'), icon: 'industry', color: 'info' });
+      actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
+      actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'close', label: this.l.instant('::Close'), icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: this.l.instant('::Cancel'), icon: 'ban', color: 'danger' });
     }
     if (s === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
+      actions.push({ name: 'reopen', label: this.l.instant('::Reopen'), icon: 'lock-open', color: 'primary' });
     }
     if (s === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+      actions.push({ name: 'amend', label: this.l.instant('::Amend'), icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }
@@ -273,6 +284,11 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'work_order':
         this.router.navigate(['/manufacturing/work-orders/new'], {
+          queryParams: { salesOrderId: id, companyId: this.order!.companyId }
+        });
+        break;
+      case 'production_plan':
+        this.router.navigate(['/manufacturing/production-plans/new'], {
           queryParams: { salesOrderId: id, companyId: this.order!.companyId }
         });
         break;

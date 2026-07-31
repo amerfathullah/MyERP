@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CouponCodeService } from '../../proxy/sales/coupon-code.service';
+import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
@@ -51,6 +52,15 @@ interface CouponCodeDto {
                 </select>
               </div>
               <div class="col-md-2">
+                <label class="form-label">{{ '::PricingRule' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="newCoupon.pricingRuleId">
+                  <option value="">—</option>
+                  @for (rule of pricingRules(); track rule.id) {
+                    <option [value]="rule.id">{{ rule.title || rule.id }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-1">
                 <label class="form-label">{{ '::MaxUses' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" [(ngModel)]="newCoupon.maximumUse" />
               </div>
@@ -152,16 +162,24 @@ interface CouponCodeDto {
 })
 export class CouponCodeListComponent implements OnInit {
   private couponCodeService = inject(CouponCodeService);
+  private pricingRuleService = inject(PricingRuleService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
   coupons = signal<CouponCodeDto[]>([]);
+  pricingRules = signal<any[]>([]);
   totalCount = signal(0);
   currentPage = signal(1);
   showCreateForm = false;
-  newCoupon = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '' };
+  newCoupon: any = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '', pricingRuleId: '' };
 
-  ngOnInit() { this.loadData(); }
+  ngOnInit() {
+    this.loadData();
+    this.pricingRuleService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (res) => this.pricingRules.set(res.items ?? []),
+      error: () => {}
+    });
+  }
 
   loadData() {
     const skip = (this.currentPage() - 1) * 10;
@@ -176,7 +194,7 @@ export class CouponCodeListComponent implements OnInit {
       couponName: this.newCoupon.couponName,
       couponType: +this.newCoupon.couponType,
       maximumUse: this.newCoupon.maximumUse || 0,
-      pricingRuleId: '00000000-0000-0000-0000-000000000000', // placeholder — ideally select from pricing rules
+      pricingRuleId: this.newCoupon.pricingRuleId || undefined,
       validFrom: this.newCoupon.validFrom || undefined,
       validUpto: this.newCoupon.validUpto || undefined,
     };

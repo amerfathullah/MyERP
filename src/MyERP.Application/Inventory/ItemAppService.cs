@@ -382,5 +382,96 @@ public class ItemAppService :
             StandardBuyingPrice = v.StandardBuyingPrice,
         }).ToList();
     }
+
+    /// <summary>
+    /// Returns aggregate purchase/sales metrics for an item over the last 12 months.
+    /// Per ERPNext: Item dashboard shows procurement vs sales activity for inventory planning.
+    /// </summary>
+    public async Task<ItemTransactionSummaryDto> GetTransactionSummaryAsync(Guid itemId, Guid? companyId = null)
+    {
+        var item = await Repository.GetAsync(itemId);
+        var twelveMonthsAgo = DateTime.UtcNow.Date.AddMonths(-12);
+
+        var result = new ItemTransactionSummaryDto
+        {
+            ItemId = item.Id,
+            ItemCode = item.ItemCode,
+            ItemName = item.ItemName,
+            ReorderLevel = item.ReorderLevel,
+        };
+
+        // Purchase metrics from PO items
+        var poItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrderItem, Guid>>();
+        var poQuery = await poItemRepo.GetQueryableAsync();
+        var poItems = poQuery.Where(i => i.ItemId == itemId).ToList();
+        if (poItems.Count > 0)
+        {
+            var poIds = poItems.Select(i => i.PurchaseOrderId).Distinct().ToList();
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+            var poQ = await poRepo.GetQueryableAsync();
+            var recentPos = poQ
+                .Where(p => poIds.Contains(p.Id) && p.OrderDate >= twelveMonthsAgo && (int)p.Status > 0)
+                .ToList();
+            var recentPoIds = recentPos.Select(p => p.Id).ToHashSet();
+
+            var recentPoItems = poItems.Where(i => recentPoIds.Contains(i.PurchaseOrderId)).ToList();
+            result.PurchaseOrderCount = recentPos.Count;
+            result.TotalPurchasedQty = recentPoItems.Sum(i => i.Quantity);
+            result.TotalPurchasedValue = recentPoItems.Sum(i => i.Quantity * i.UnitPrice);
+
+            if (recentPoItems.Count > 0)
+            {
+                var latestPo = recentPos.OrderByDescending(p => p.OrderDate).First();
+                var latestPoItem = recentPoItems.FirstOrDefault(i => i.PurchaseOrderId == latestPo.Id);
+                result.LastPurchaseRate = latestPoItem?.UnitPrice;
+                result.LastPurchaseDate = latestPo.OrderDate;
+            }
+        }
+
+        // Sales metrics from SO items
+        var soItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrderItem, Guid>>();
+        var soQuery = await soItemRepo.GetQueryableAsync();
+        var soItems = soQuery.Where(i => i.ItemId == itemId).ToList();
+        if (soItems.Count > 0)
+        {
+            var soIds = soItems.Select(i => i.SalesOrderId).Distinct().ToList();
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQ = await soRepo.GetQueryableAsync();
+            var recentSos = soQ
+                .Where(s => soIds.Contains(s.Id) && s.OrderDate >= twelveMonthsAgo && (int)s.Status > 0)
+                .ToList();
+            var recentSoIds = recentSos.Select(s => s.Id).ToHashSet();
+
+            var recentSoItems = soItems.Where(i => recentSoIds.Contains(i.SalesOrderId)).ToList();
+            result.SalesOrderCount = recentSos.Count;
+            result.TotalSoldQty = recentSoItems.Sum(i => i.Quantity);
+            result.TotalSoldValue = recentSoItems.Sum(i => i.Quantity * i.UnitPrice);
+
+            if (result.TotalSoldQty > 0)
+            {
+                result.AverageSellingRate = result.TotalSoldValue / result.TotalSoldQty;
+                var latestSo = recentSos.OrderByDescending(s => s.OrderDate).First();
+                result.LastSaleDate = latestSo.OrderDate;
+            }
+        }
+
+        // Stock metrics from Bins
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var bins = binQuery.Where(b => b.ItemId == itemId).ToList();
+        result.CurrentStock = bins.Sum(b => b.ActualQty);
+        result.IsLowStock = item.ReorderLevel > 0 && result.CurrentStock <= item.ReorderLevel;
+
+        // Days of stock remaining = current stock / avg daily consumption
+        if (result.TotalSoldQty > 0)
+        {
+            var avgDailyConsumption = result.TotalSoldQty / 365m;
+            result.DaysOfStockRemaining = avgDailyConsumption > 0
+                ? (int)(result.CurrentStock / avgDailyConsumption)
+                : 0;
+        }
+
+        return result;
+    }
 }
 

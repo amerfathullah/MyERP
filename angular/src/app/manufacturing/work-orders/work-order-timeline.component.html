@@ -1,0 +1,105 @@
+<abp-page [title]="'::WorkOrderTimeline' | abpLocalization">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-outline-secondary btn-sm" (click)="shiftView(-7)">
+        <i class="fa fa-chevron-left"></i>
+      </button>
+      <button class="btn btn-outline-primary btn-sm" (click)="goToToday()">
+        {{ '::Today' | abpLocalization }}
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" (click)="shiftView(7)">
+        <i class="fa fa-chevron-right"></i>
+      </button>
+      <input type="date" class="form-control form-control-sm" style="width: 140px;"
+        [(ngModel)]="viewStartDate" (change)="onDateRangeChange()" [ngModelOptions]="{standalone: true}" />
+      <span class="text-muted">–</span>
+      <input type="date" class="form-control form-control-sm" style="width: 140px;"
+        [(ngModel)]="viewEndDate" (change)="onDateRangeChange()" [ngModelOptions]="{standalone: true}" />
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" routerLink="/manufacturing/work-orders">
+      <i class="fa fa-list me-1"></i>{{ '::ListView' | abpLocalization }}
+    </a>
+  </div>
+
+  <!-- Legend -->
+  <div class="d-flex gap-3 mb-3 flex-wrap">
+    <span class="badge bg-secondary">{{ '::Draft' | abpLocalization }}</span>
+    <span class="badge bg-info">{{ '::Submitted' | abpLocalization }}</span>
+    <span class="badge bg-danger">{{ '::NotStarted' | abpLocalization }} / {{ '::Stopped' | abpLocalization }}</span>
+    <span class="badge bg-warning text-dark">{{ '::InProcess' | abpLocalization }}</span>
+    <span class="badge bg-success">{{ '::Completed' | abpLocalization }}</span>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary"><span class="visually-hidden">Loading...</span></div>
+    </div>
+  } @else if (orders().length === 0) {
+    <div class="text-center py-5">
+      <i class="fa fa-calendar-days fa-3x text-muted mb-3 d-block"></i>
+      <p class="text-muted">{{ '::NoOrdersWithPlannedDates' | abpLocalization }}</p>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="gantt-container">
+          <!-- Day header -->
+          <div class="gantt-header">
+            <div class="gantt-label-col"></div>
+            <div class="gantt-timeline-col">
+              <div class="gantt-day-headers">
+                @for (day of dayHeaders(); track day.date) {
+                  <div class="gantt-day-header"
+                    [class.weekend]="day.isWeekend"
+                    [class.today]="day.isToday"
+                    [style.width.%]="100 / totalDays()">
+                    <small>{{ day.label }}</small>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Rows -->
+          @for (wo of orders(); track wo.id) {
+            <div class="gantt-row" [class.overdue]="isOverdue(wo)">
+              <div class="gantt-label-col">
+                <a [routerLink]="['/manufacturing/work-orders', wo.id]" class="text-decoration-none">
+                  <small class="fw-bold d-block text-truncate" style="max-width: 180px;">{{ wo.itemName }}</small>
+                  <small class="text-muted">{{ wo.workOrderNumber }}</small>
+                </a>
+              </div>
+              <div class="gantt-timeline-col">
+                <!-- Grid lines -->
+                <div class="gantt-grid">
+                  @for (day of dayHeaders(); track day.date) {
+                    <div class="gantt-grid-cell"
+                      [class.weekend]="day.isWeekend"
+                      [class.today]="day.isToday"
+                      [style.width.%]="100 / totalDays()"></div>
+                  }
+                </div>
+                <!-- Bar -->
+                @if (getBarStyle(wo); as barStyle) {
+                  <div class="gantt-bar" [style.left]="barStyle.left" [style.width]="barStyle.width"
+                    [style.background-color]="getStatusColor(wo.status)"
+                    [title]="wo.workOrderNumber + ' — ' + getStatusLabel(wo.status) + ' (' + wo.producedQuantity + '/' + wo.quantity + ')'">
+                    <div class="gantt-bar-progress" [style.width]="getProgressWidth(wo)"></div>
+                    @if (isOverdue(wo)) {
+                      <span class="gantt-overdue-badge">!</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-2 text-muted small">
+      {{ orders().length }} {{ '::WorkOrders' | abpLocalization }}
+      · {{ viewStartDate() }} – {{ viewEndDate() }}
+    </div>
+  }
+</abp-page>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
@@ -12,6 +13,7 @@ using MyERP.EInvoice.Entities;
 using MyERP.Workflow;
 using MyERP.Workflow.Entities;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Permissions;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -119,6 +121,55 @@ public class DashboardAppService : ApplicationService
             }
         }
         return result.OrderBy(x => x.ProjectedQty).Take(20).ToList();
+    }
+
+    /// <summary>
+    /// Creates a Purchase Material Request from selected low-stock items.
+    /// Reorder qty = ReorderLevel - ProjectedQty (brings stock back to reorder point).
+    /// </summary>
+    [Authorize(MyERPPermissions.MaterialRequests.Create)]
+    public async Task<QuickReorderResultDto> CreateReorderMaterialRequestAsync(QuickReorderDto input)
+    {
+        if (input.ItemIds == null || input.ItemIds.Count == 0)
+            throw new Volo.Abp.BusinessException("MyERP:01007");
+
+        var items = await _itemRepo.GetListAsync(i => input.ItemIds.Contains(i.Id) && i.IsActive);
+        if (!items.Any())
+            throw new Volo.Abp.BusinessException("MyERP:01007");
+
+        var binQuery = await _binRepo.GetQueryableAsync();
+        var itemIds = items.Select(i => i.Id).ToHashSet();
+        var bins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
+        var binsByItem = bins.GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var numberGen = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+
+        var mrNumber = await numberGen.GenerateAsync("MR", input.CompanyId);
+        var mr = new Purchasing.Entities.MaterialRequest(
+            GuidGenerator.Create(), input.CompanyId, mrNumber,
+            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow, CurrentTenant.Id)
+        {
+            Notes = "Auto-generated from low stock alert",
+        };
+
+        var itemCount = 0;
+        foreach (var item in items)
+        {
+            var projectedQty = binsByItem.GetValueOrDefault(item.Id, new List<Bin>()).Sum(b => b.ProjectedQty);
+            var reorderQty = Math.Max(1, item.ReorderLevel - (int)projectedQty);
+            mr.AddItem(item.Id, item.ItemName, reorderQty, item.Uom ?? "Unit", null);
+            itemCount++;
+        }
+
+        await mrRepo.InsertAsync(mr);
+
+        return new QuickReorderResultDto
+        {
+            MaterialRequestId = mr.Id,
+            MaterialRequestNumber = mrNumber,
+            ItemCount = itemCount,
+        };
     }
 
     /// <summary>
@@ -362,6 +413,16 @@ public class DashboardAppService : ApplicationService
         var pendingApprovals = approvalQuery
             .Count(ar => ar.Status == MyERP.Workflow.ApprovalStatus.Pending);
 
+        // Overdue purchase orders (active POs past expected delivery date)
+        var poQuery = await _purchaseOrderRepo.GetQueryableAsync();
+        var overduePOs = poQuery
+            .Count(po => po.CompanyId == companyId &&
+                         po.Status != DocumentStatus.Draft &&
+                         po.Status != DocumentStatus.Cancelled &&
+                         po.Status != DocumentStatus.Completed &&
+                         po.ExpectedDeliveryDate.HasValue &&
+                         po.ExpectedDeliveryDate.Value < now);
+
         return new OverdueAlertsDto
         {
             OverdueReceivableCount = overdueReceivables.Count,
@@ -369,6 +430,7 @@ public class DashboardAppService : ApplicationService
             OverduePayableCount = overduePayables.Count,
             OverduePayableAmount = overduePayables.Sum(),
             PendingApprovalCount = pendingApprovals,
+            OverduePurchaseOrderCount = overduePOs,
         };
     }
 
@@ -1048,6 +1110,80 @@ public class DashboardAppService : ApplicationService
             Items = sorted.Take(20).ToList(),
         };
     }
+
+    /// <summary>
+    /// Supplier on-time delivery performance KPIs for procurement dashboard.
+    /// Per ERPNext supplier_scorecard: aggregates PO delivery metrics per supplier.
+    /// Shows worst-performing suppliers requiring procurement follow-up.
+    /// </summary>
+    public async Task<SupplierPerformanceWidgetDto> GetSupplierPerformanceWidgetAsync(Guid companyId)
+    {
+        var today = DateTime.UtcNow.Date;
+        var lookbackDate = today.AddMonths(-3);
+
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+
+        var poQuery = await poRepo.GetQueryableAsync();
+        var completedPOs = poQuery
+            .Where(po => po.CompanyId == companyId
+                && po.ExpectedDeliveryDate.HasValue
+                && po.OrderDate >= lookbackDate
+                && po.Status != DocumentStatus.Draft
+                && po.Status != DocumentStatus.Cancelled)
+            .Select(po => new
+            {
+                po.SupplierId,
+                po.ExpectedDeliveryDate,
+                po.GrandTotal,
+                IsFullyReceived = po.Status == DocumentStatus.ToBill || po.Status == DocumentStatus.Completed,
+            })
+            .ToList();
+
+        if (!completedPOs.Any())
+            return new SupplierPerformanceWidgetDto();
+
+        var supplierIds = completedPOs.Select(po => po.SupplierId).Distinct().ToList();
+        var supplierQuery = await supplierRepo.GetQueryableAsync();
+        var supplierNames = supplierQuery
+            .Where(s => supplierIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name })
+            .ToList()
+            .ToDictionary(s => s.Id, s => s.Name);
+
+        var bySupplier = completedPOs.GroupBy(po => po.SupplierId).Select(g =>
+        {
+            var total = g.Count();
+            var onTime = g.Count(po => po.IsFullyReceived && po.ExpectedDeliveryDate!.Value >= today);
+            var late = g.Count(po => po.ExpectedDeliveryDate!.Value < today && !po.IsFullyReceived);
+            var onTimeRate = total > 0 ? (decimal)onTime / total * 100 : 0m;
+
+            return new SupplierPerformanceItemDto
+            {
+                SupplierId = g.Key,
+                SupplierName = supplierNames.GetValueOrDefault(g.Key, "—"),
+                TotalOrders = total,
+                OnTimeCount = onTime,
+                LateCount = late,
+                OnTimeRate = Math.Round(onTimeRate, 1),
+                TotalValue = g.Sum(po => po.GrandTotal),
+            };
+        })
+        .OrderBy(s => s.OnTimeRate)
+        .ToList();
+
+        var overallOnTime = completedPOs.Count > 0
+            ? Math.Round((decimal)completedPOs.Count(po => po.IsFullyReceived && po.ExpectedDeliveryDate!.Value >= today) / completedPOs.Count * 100, 1)
+            : 0m;
+
+        return new SupplierPerformanceWidgetDto
+        {
+            TotalSuppliers = bySupplier.Count,
+            OverallOnTimeRate = overallOnTime,
+            SuppliersAtRisk = bySupplier.Count(s => s.OnTimeRate < 80),
+            Suppliers = bySupplier.Take(10).ToList(),
+        };
+    }
 }
 
 public class ProfitMarginTrendDto
@@ -1095,6 +1231,7 @@ public class OverdueAlertsDto
     public int OverduePayableCount { get; set; }
     public decimal OverduePayableAmount { get; set; }
     public int PendingApprovalCount { get; set; }
+    public int OverduePurchaseOrderCount { get; set; }
 }
 
 public class FinancialKpiDto

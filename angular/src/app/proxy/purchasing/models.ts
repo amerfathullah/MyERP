@@ -69,6 +69,7 @@ export interface CreatePurchaseOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+  expectedDeliveryDate?: string | null;
 }
 
 export interface CreatePurchaseReceiptDto {
@@ -302,6 +303,8 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   status?: string;
   perReceived?: number;
   perBilled?: number;
+  advancePaid?: number;
+  perAdvancePaid?: number;
   notes?: string | null;
   // Supplier Confirmation Tracking
   supplierConfirmationNumber?: string | null;
@@ -323,6 +326,7 @@ export interface PurchaseOrderItemDto {
   receivedQty?: number;
   billedQty?: number;
   warehouseId?: string | null;
+  expectedDeliveryDate?: string | null;
 }
 
 export interface PurchaseReceiptDto extends EntityDto<string> {

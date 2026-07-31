@@ -19,6 +19,8 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     public decimal PerReceived { get; set; }
     public decimal PerBilled { get; set; }
+    public decimal AdvancePaid { get; set; }
+    public decimal PerAdvancePaid { get; set; }
     public string? Notes { get; set; }
 
     // Supplier Confirmation Tracking
@@ -43,6 +45,7 @@ public class PurchaseOrderItemDto
     public decimal ReceivedQty { get; set; }
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
 }
 
 public class CreatePurchaseOrderDto
@@ -66,6 +69,7 @@ public class CreatePurchaseOrderItemDto
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(20)] public string Uom { get; set; } = "Unit";
     public Guid? WarehouseId { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
 }
 
 /// <summary>

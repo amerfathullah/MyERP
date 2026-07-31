@@ -27,6 +27,15 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public decimal AdvancePaid { get; set; }
     public decimal PerAdvancePaid { get; set; }
 
+    /// <summary>Date of first delivery note against this order (null if none yet).</summary>
+    public DateTime? FirstDeliveryDate { get; set; }
+    /// <summary>Date of last delivery note against this order (null if none yet).</summary>
+    public DateTime? LastDeliveryDate { get; set; }
+    /// <summary>Date of first invoice against this order (null if none yet).</summary>
+    public DateTime? FirstBilledDate { get; set; }
+    /// <summary>Date of first payment received for this order (null if none yet).</summary>
+    public DateTime? FirstPaymentDate { get; set; }
+
     /// <summary>Warning message if customer has overdue invoices (advisory, not blocking).</summary>
     public string? OverdueWarning { get; set; }
 
@@ -68,6 +77,12 @@ public class SalesOrderItemDto
     public decimal DeliveredQty { get; set; }
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Available stock qty for this item (populated on create/get for warehouse visibility).</summary>
+    public decimal AvailableQty { get; set; }
+
+    /// <summary>True when ordered qty exceeds available stock (triggers low-stock warning in UI).</summary>
+    public bool IsInsufficientStock { get; set; }
 }
 
 public class CreateSalesOrderDto

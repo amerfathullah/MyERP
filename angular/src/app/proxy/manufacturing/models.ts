@@ -384,6 +384,23 @@ export interface StockEntryResultDto {
   totalValue?: number;
 }
 
+export interface ProductionCostBreakdownDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  itemId?: string;
+  itemName?: string;
+  producedQty?: number;
+  totalRmCost?: number;
+  processLossQty?: number;
+  processLossValue?: number;
+  additionalCosts?: number;
+  totalProductionCost?: number;
+  fgUnitCost?: number;
+  bomStandardCost?: number;
+  costVariance?: number;
+  costVariancePercent?: number;
+}
+
 export interface WorkOrderJobCardDto {
   id?: string;
   sequenceId?: number;

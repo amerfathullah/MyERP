@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -16,6 +16,9 @@ import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -25,7 +28,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
+    CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })
@@ -45,6 +48,9 @@ export class PurchaseOrderFormComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
   private partyDetailsService = inject(PartyDetailsService);
   private currencyExchangeService = inject(CurrencyExchangeService);
+  private taxCategoryService = inject(TaxCategoryService);
+  private taxRuleService = inject(TaxRuleService);
+  private taxCalc = inject(TaxCalculationService);
 
   /** Multi-currency: true when selected currency differs from company base (MYR) */
   isMultiCurrency = signal(false);
@@ -53,6 +59,10 @@ export class PurchaseOrderFormComponent implements OnInit {
   suppliers = signal<SupplierDto[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  taxCategories = signal<any[]>([]);
+  selectedTaxRules = signal<any[]>([]);
+  selectedTaxCategoryId = signal<string>('');
+  calcResult: TaxCalculationResult = { netTotal: 0, taxLines: [], totalTax: 0, grandTotal: 0 };
   isLoadingMrItems = signal(false);
   isLoadingSqItems = signal(false);
   supplierQuotations = signal<any[]>([]);
@@ -94,6 +104,15 @@ export class PurchaseOrderFormComponent implements OnInit {
       .subscribe(r => this.availableItems.set(r.items ?? []));
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(r => this.warehouses.set((r.items ?? []).filter((w: any) => !w.isGroup)));
+
+    this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
+      .subscribe({ next: res => {
+        const categories = (res.items ?? []).filter((c: any) => c.isActive !== false);
+        this.taxCategories.set(categories);
+        if (!this.isEditMode && categories.length > 0) {
+          this.onTaxCategoryChanged(categories[0].id);
+        }
+      }, error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe(po => {
@@ -211,12 +230,37 @@ export class PurchaseOrderFormComponent implements OnInit {
   }
 
   get taxTotal(): number {
+    // Use tax template calculation when available; fall back to per-item taxAmount
+    if (this.selectedTaxRules().length > 0) return this.calcResult.totalTax;
     return this.items.controls.reduce((sum, row) => {
       return sum + ((row as FormGroup).get('taxAmount')?.value ?? 0);
     }, 0);
   }
 
   get grandTotal(): number { return this.netTotal + this.taxTotal; }
+
+  onTaxCategoryChanged(categoryId: string): void {
+    this.selectedTaxCategoryId.set(categoryId);
+    if (!categoryId) {
+      this.selectedTaxRules.set([]);
+      this.recalculateTax();
+      return;
+    }
+    this.taxRuleService.getList(categoryId, { skipCount: 0, maxResultCount: 50, sorting: '' })
+      .subscribe({
+        next: (res) => { this.selectedTaxRules.set(res.items ?? []); this.recalculateTax(); },
+        error: () => { this.selectedTaxRules.set([]); this.recalculateTax(); },
+      });
+  }
+
+  recalculateTax(): void {
+    const itemValues = this.items.controls.map(c => ({
+      qty: (c as FormGroup).get('quantity')?.value ?? 0,
+      rate: (c as FormGroup).get('unitPrice')?.value ?? 0,
+      discountPercent: 0,
+    }));
+    this.calcResult = this.taxCalc.calculate(itemValues, this.selectedTaxRules());
+  }
 
   /** Load pending items from Material Requests (Purchase type) for this company. */
   loadItemsFromMaterialRequest(): void {

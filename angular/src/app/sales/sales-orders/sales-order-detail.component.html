@@ -146,6 +146,7 @@
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Total' | abpLocalization }}</th>
                 @if (order.status !== 'Draft') {
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
                   <th style="min-width: 130px;">{{ '::DeliveryProgress' | abpLocalization }}</th>
                   <th style="min-width: 130px;">{{ '::BillingProgress' | abpLocalization }}</th>
                   <th class="text-center">{{ '::Available' | abpLocalization }}</th>
@@ -161,6 +162,18 @@
                   <td class="text-end">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.lineTotal | number:'1.2-2' }}</td>
                   @if (order.status !== 'Draft') {
+                    <td>
+                      @if (row.deliveryDate) {
+                        <span [class.text-danger]="isItemOverdue(row)" [class.fw-bold]="isItemOverdue(row)">
+                          {{ row.deliveryDate | date:'dd/MM/yyyy' }}
+                        </span>
+                        @if (isItemOverdue(row)) {
+                          <span class="badge bg-danger-subtle text-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                        }
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
                     <td>
                       <div class="d-flex align-items-center gap-1">
                         <div class="progress flex-grow-1" style="height: 6px;">

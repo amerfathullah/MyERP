@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
@@ -762,6 +763,22 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // The cost of process loss is absorbed into the FG rate (already included in totalRmCost)
         // Per gotcha #442: process_loss_qty = fg_completed_qty × (process_loss_percentage / 100)
 
+        // Notify production managers when WO completes
+        if (wo.Status == WorkOrderStatus.Completed)
+        {
+            try
+            {
+                var notificationService = LazyServiceProvider
+                    .LazyGetRequiredService<Notification.DomainServices.BusinessNotificationService>();
+                await notificationService.NotifyWorkOrderCompletedAsync(
+                    wo.CompanyId, wo.WorkOrderNumber, wo.ProducedQuantity, wo.TenantId);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to send WO completion notification for {WoNumber}", wo.WorkOrderNumber);
+            }
+        }
+
         await _workOrderRepository.UpdateAsync(wo);
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
@@ -1214,6 +1231,61 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     }
 
     /// <summary>
+    /// Returns production cost breakdown for a completed/in-process Work Order.
+    /// Per ERPNext BOM Costing: compares actual consumed cost vs BOM standard cost.
+    /// </summary>
+    public async Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+        var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
+
+        // Actual RM cost from SLE entries for this WO (outgoing = consumed)
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+        var sleQuery = await sleRepo.GetQueryableAsync();
+        var consumedEntries = sleQuery
+            .Where(s => s.VoucherType == "WorkOrder" && s.VoucherId == workOrderId && s.QuantityChange < 0)
+            .ToList();
+        var totalRmCost = consumedEntries.Sum(s => Math.Abs(s.QuantityChange * s.ValuationRate));
+
+        // Process loss
+        var processLossQty = wo.ProcessLossQty;
+        var processLossValue = wo.ProducedQuantity > 0 && processLossQty > 0
+            ? totalRmCost * (processLossQty / (wo.ProducedQuantity + processLossQty))
+            : 0m;
+
+        // Additional costs (operations from BOM)
+        var additionalCosts = bom.OperatingCost * (wo.ProducedQuantity / (bom.Quantity > 0 ? bom.Quantity : 1m));
+
+        var totalProductionCost = totalRmCost + additionalCosts;
+        var fgUnitCost = wo.ProducedQuantity > 0 ? totalProductionCost / wo.ProducedQuantity : 0m;
+        var bomStandardCost = bom.TotalCost / (bom.Quantity > 0 ? bom.Quantity : 1m);
+        var costVariance = fgUnitCost - bomStandardCost;
+        var costVariancePercent = bomStandardCost > 0 ? costVariance / bomStandardCost * 100 : 0m;
+
+        // Resolve item name
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var item = await itemRepo.FindAsync(wo.ItemId);
+
+        return new ProductionCostBreakdownDto
+        {
+            WorkOrderId = wo.Id,
+            WorkOrderNumber = wo.WorkOrderNumber,
+            ItemId = wo.ItemId,
+            ItemName = item?.ItemName,
+            ProducedQty = wo.ProducedQuantity,
+            TotalRmCost = Math.Round(totalRmCost, 4),
+            ProcessLossQty = processLossQty,
+            ProcessLossValue = Math.Round(processLossValue, 4),
+            AdditionalCosts = Math.Round(additionalCosts, 4),
+            TotalProductionCost = Math.Round(totalProductionCost, 4),
+            FgUnitCost = Math.Round(fgUnitCost, 4),
+            BomStandardCost = Math.Round(bomStandardCost, 4),
+            CostVariance = Math.Round(costVariance, 4),
+            CostVariancePercent = Math.Round(costVariancePercent, 2),
+        };
+    }
+
+    /// <summary>
     /// Returns Job Cards linked to a Work Order for operations progress display.
     /// Per ERPNext: WO detail shows per-operation Job Card status with completed qty and time.
     /// </summary>
@@ -1354,5 +1426,146 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             RemainingDisassemblable = wo.ProducedQuantity - wo.DisassembledQuantity
         };
     }
+
+    public async Task<ProductionScheduleDto> GetProductionScheduleAsync(Guid companyId)
+    {
+        var queryable = await _workOrderRepository.GetQueryableAsync();
+        var orders = queryable
+            .Where(wo => wo.CompanyId == companyId && wo.Status >= WorkOrderStatus.Submitted && wo.Status <= WorkOrderStatus.Stopped)
+            .OrderBy(wo => wo.PlannedStartDate)
+            .Take(100)
+            .ToList();
+
+        var itemIds = orders.Select(wo => wo.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var itemQueryable = await itemRepo.GetQueryableAsync();
+        var itemNames = itemQueryable.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemName }).ToList()
+            .ToDictionary(x => x.Id, x => x.ItemName);
+
+        var today = DateTime.UtcNow.Date;
+        var items = orders.Select(wo =>
+        {
+            var isOverdue = wo.PlannedEndDate.HasValue && wo.PlannedEndDate.Value.Date < today && wo.Status < WorkOrderStatus.Completed;
+            var daysOverdue = isOverdue ? (int)(today - wo.PlannedEndDate!.Value.Date).TotalDays : 0;
+
+            return new ProductionScheduleItemDto
+            {
+                WorkOrderId = wo.Id,
+                WorkOrderNumber = wo.WorkOrderNumber ?? wo.Id.ToString()[..8],
+                ItemName = itemNames.GetValueOrDefault(wo.ItemId, wo.ItemId.ToString()[..8]),
+                Quantity = wo.Quantity,
+                ProducedQuantity = wo.ProducedQuantity,
+                PercentComplete = wo.Quantity > 0 ? Math.Min(100, wo.ProducedQuantity / wo.Quantity * 100) : 0,
+                Status = (int)wo.Status,
+                StatusLabel = GetWoStatusLabel((int)wo.Status),
+                PlannedStartDate = wo.PlannedStartDate,
+                PlannedEndDate = wo.PlannedEndDate,
+                ActualStartDate = wo.ActualStartDate,
+                ActualEndDate = wo.ActualEndDate,
+                IsOverdue = isOverdue,
+                DaysOverdue = daysOverdue,
+                StatusColor = GetWoStatusColor((int)wo.Status)
+            };
+        }).ToList();
+
+        return new ProductionScheduleDto
+        {
+            Items = items,
+            TotalOrders = items.Count,
+            NotStarted = items.Count(i => i.Status == (int)WorkOrderStatus.NotStarted),
+            InProcess = items.Count(i => i.Status == (int)WorkOrderStatus.InProcess),
+            Completed = items.Count(i => i.Status == (int)WorkOrderStatus.Completed),
+            Overdue = items.Count(i => i.IsOverdue),
+            OverallCompletionRate = items.Count > 0 ? items.Average(i => i.PercentComplete) : 0
+        };
+    }
+
+    public async Task<MaterialShortageAcrossOrdersDto> GetMaterialShortageAcrossOrdersAsync(Guid companyId)
+    {
+        var queryable = await _workOrderRepository.GetQueryableAsync();
+        var activeOrders = queryable
+            .Where(wo => wo.CompanyId == companyId && wo.Status >= WorkOrderStatus.Submitted && wo.Status <= WorkOrderStatus.InProcess)
+            .ToList();
+
+        if (!activeOrders.Any())
+            return new MaterialShortageAcrossOrdersDto();
+
+        var allRequiredItems = activeOrders
+            .SelectMany(wo => wo.RequiredItems.Select(ri => new
+            {
+                ri.ItemId,
+                PendingQty = Math.Max(0, ri.RequiredQuantity - ri.TransferredQuantity),
+                WoNumber = wo.WorkOrderNumber ?? wo.Id.ToString()[..8]
+            }))
+            .Where(x => x.PendingQty > 0)
+            .ToList();
+
+        if (!allRequiredItems.Any())
+            return new MaterialShortageAcrossOrdersDto();
+
+        var itemIds = allRequiredItems.Select(x => x.ItemId).Distinct().ToList();
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Bin, Guid>>();
+
+        var itemQ = await itemRepo.GetQueryableAsync();
+        var itemLookup = itemQ.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.StandardBuyingPrice })
+            .ToList().ToDictionary(x => x.Id);
+
+        var binQ = await binRepo.GetQueryableAsync();
+        var stockByItem = binQ.Where(b => itemIds.Contains(b.ItemId))
+            .GroupBy(b => b.ItemId)
+            .Select(g => new { ItemId = g.Key, Available = g.Sum(b => b.ActualQty) })
+            .ToList().ToDictionary(x => x.ItemId, x => x.Available);
+
+        var grouped = allRequiredItems
+            .GroupBy(x => x.ItemId)
+            .Select(g =>
+            {
+                var totalRequired = g.Sum(x => x.PendingQty);
+                var available = stockByItem.GetValueOrDefault(g.Key, 0);
+                var shortage = Math.Max(0, totalRequired - available);
+                var item = itemLookup.GetValueOrDefault(g.Key);
+                return new MaterialShortageItemDto
+                {
+                    ItemId = g.Key,
+                    ItemCode = item?.ItemCode ?? "—",
+                    ItemName = item?.ItemName ?? "—",
+                    TotalRequired = totalRequired,
+                    TotalAvailable = available,
+                    ShortageQty = shortage,
+                    AffectedWorkOrders = g.Select(x => x.WoNumber).Distinct().Count(),
+                    MostUrgentWO = g.First().WoNumber
+                };
+            })
+            .Where(x => x.ShortageQty > 0)
+            .OrderByDescending(x => x.ShortageQty)
+            .ToList();
+
+        return new MaterialShortageAcrossOrdersDto
+        {
+            Items = grouped,
+            TotalItemsShort = grouped.Count,
+            TotalAffectedOrders = grouped.Sum(x => x.AffectedWorkOrders),
+            TotalShortageValue = grouped.Sum(x =>
+                x.ShortageQty * (itemLookup.GetValueOrDefault(x.ItemId)?.StandardBuyingPrice ?? 0))
+        };
+    }
+
+    private static string GetWoStatusLabel(int status) => status switch
+    {
+        0 => "Draft", 1 => "Submitted", 2 => "Not Started",
+        3 => "In Process", 4 => "Completed", 5 => "Stopped",
+        6 => "Cancelled", _ => "Unknown"
+    };
+
+    private static string GetWoStatusColor(int status) => status switch
+    {
+        0 => "secondary", 1 => "info", 2 => "warning",
+        3 => "primary", 4 => "success", 5 => "danger",
+        6 => "dark", _ => "secondary"
+    };
 }
 

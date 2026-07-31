@@ -38,6 +38,12 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Serial number reference for serialized items.</summary>
     public Guid? SerialNoId { get; set; }
 
+    /// <summary>
+    /// Per-item warehouse override. When set, stock is issued from this warehouse instead of DN header warehouse.
+    /// Per ERPNext: each DN item can specify its own warehouse (multi-warehouse delivery).
+    /// </summary>
+    public Guid? WarehouseId { get; set; }
+
     /// <summary>Cost rate at time of delivery (from stock valuation). Used for COGS calculation.</summary>
     public decimal ValuationRate { get; set; }
 

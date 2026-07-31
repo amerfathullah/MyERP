@@ -7,6 +7,7 @@
         <th style="width: 100px;">{{ '::Rate' | abpLocalization }}</th>
         <th style="width: 80px;">{{ '::DiscountPercent' | abpLocalization }}</th>
         <th style="width: 100px;">{{ '::Amount' | abpLocalization }}</th>
+        <th style="width: 80px;" class="text-center">{{ '::Margin' | abpLocalization }}</th>
         <th style="width: 50px;"></th>
       </tr>
     </thead>
@@ -41,6 +42,20 @@
           <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="discountPercent" (change)="recalculateRow($index)" min="0" max="100" step="1" /></td>
           <td><span class="font-monospace small">{{ row.get('amount')?.value | number:'1.2-2' }}</span></td>
+          <td class="text-center">
+            @if (transactionType === 'Selling') {
+              @let margin = getMarginPercent($index);
+              @if (margin !== null) {
+                <span class="badge" [class]="margin < 0 ? 'bg-danger' : margin < 15 ? 'bg-warning text-dark' : 'bg-success'">
+                  {{ margin | number:'1.1-1' }}%
+                </span>
+              } @else {
+                <span class="text-muted">&mdash;</span>
+              }
+            } @else {
+              <span class="text-muted">&mdash;</span>
+            }
+          </td>
           <td>
             <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRow($index)">
               <i class="fa fa-trash"></i>

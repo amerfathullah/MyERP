@@ -869,6 +869,10 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   perBilled?: number;
   advancePaid?: number;
   perAdvancePaid?: number;
+  firstDeliveryDate?: string | null;
+  lastDeliveryDate?: string | null;
+  firstBilledDate?: string | null;
+  firstPaymentDate?: string | null;
   overdueWarning?: string | null;
   items?: SalesOrderItemDto[];
 }
@@ -885,6 +889,8 @@ export interface SalesOrderItemDto {
   deliveredQty?: number;
   billedQty?: number;
   warehouseId?: string | null;
+  availableQty?: number;
+  isInsufficientStock?: boolean;
 }
 
 export interface SalesPersonDto {

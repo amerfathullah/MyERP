@@ -8,6 +8,7 @@ import { LandedCostVoucherService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-lcv-form', standalone: true,
@@ -94,15 +95,17 @@ export class LandedCostFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private accountService = inject(AccountService);
+  private http = inject(HttpClient);
 
   saving = false;
   isDirty = false;
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   accounts = signal<{ id: string; accountCode: string; accountName: string }[]>([]);
+  receipts = signal<{ id: string; receiptNumber: string }[]>([]);
 
   form: any = {
     postingDate: new Date().toISOString().split('T')[0], distributionMethod: 1,
-    items: [{ receiptType: 'PurchaseReceipt', itemId: '', quantity: 0, amount: 0 }],
+    items: [{ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }],
     charges: [{ expenseAccountId: '', description: '', amount: 0 }]
   };
 
@@ -113,9 +116,13 @@ export class LandedCostFormComponent implements OnInit {
     this.accountService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
+    this.http.get<any>('/api/app/purchase-receipt', { params: { maxResultCount: '100' } }).subscribe({
+      next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, receiptNumber: p.receiptNumber ?? p.id }))),
+      error: () => {}
+    });
   }
 
-  addItem() { this.form.items.push({ receiptType: 'PurchaseReceipt', itemId: '', quantity: 0, amount: 0 }); this.isDirty = true; }
+  addItem() { this.form.items.push({ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }); this.isDirty = true; }
   addCharge() { this.form.charges.push({ expenseAccountId: '', description: '', amount: 0 }); this.isDirty = true; }
   getTotalCharges(): number { return this.form.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0); }
 
@@ -129,7 +136,7 @@ export class LandedCostFormComponent implements OnInit {
       items: this.form.items
         .filter((i: any) => i.itemId)
         .map((i: any) => ({
-          receiptId: companyId, // placeholder — in production, this comes from a receipt picker
+          receiptId: i.receiptId || undefined,
           receiptType: i.receiptType,
           itemId: i.itemId,
           quantity: i.quantity || 0,

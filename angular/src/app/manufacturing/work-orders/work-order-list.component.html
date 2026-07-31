@@ -1,9 +1,14 @@
 <abp-page [title]="'::Manufacturing:WorkOrders' | abpLocalization">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <span class="text-muted small">{{ store.totalCount() }} {{ '::Results' | abpLocalization }}</span>
-    <button class="btn btn-primary btn-sm" routerLink="/manufacturing/work-orders/new">
-      <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
-    </button>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary btn-sm" routerLink="/manufacturing/work-orders/timeline">
+        <i class="fa fa-chart-gantt me-1"></i>{{ '::Timeline' | abpLocalization }}
+      </a>
+      <button class="btn btn-primary btn-sm" routerLink="/manufacturing/work-orders/new">
+        <i class="fa fa-plus me-1"></i>{{ '::Manufacturing:NewWorkOrder' | abpLocalization }}
+      </button>
+    </div>
   </div>
 
   <div class="card">

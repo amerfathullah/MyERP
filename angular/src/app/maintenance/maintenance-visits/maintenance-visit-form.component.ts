@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,6 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-maintenance-visit-form',
@@ -33,14 +34,24 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::Customer' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:CustomerId' | abpLocalization" />
+              <select class="form-select" formControlName="customerId">
+                <option value="">{{ '::SelectCustomer' | abpLocalization }}</option>
+                @for (c of customers(); track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
             </div>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::MaintenanceSchedule' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="maintenanceScheduleId" [placeholder]="'::Placeholder:ScheduleId' | abpLocalization" />
+              <select class="form-select" formControlName="maintenanceScheduleId">
+                <option value="">{{ '::Select' | abpLocalization }}</option>
+                @for (s of schedules(); track s.id) {
+                  <option [value]="s.id">{{ s.scheduleName || s.id }}</option>
+                }
+              </select>
             </div>
           </div>
 
@@ -93,7 +104,10 @@ export class MaintenanceVisitFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
+  private http = inject(HttpClient);
 
+  customers = signal<any[]>([]);
+  schedules = signal<any[]>([]);
   form!: FormGroup;
   saving = false;
   isEditMode = false;
@@ -104,6 +118,12 @@ export class MaintenanceVisitFormComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.http.get<any>('/api/app/customer', { params: { maxResultCount: '200' } }).subscribe({
+      next: (r) => this.customers.set(r.items ?? []), error: () => {}
+    });
+    this.http.get<any>('/api/app/maintenance-schedule', { params: { maxResultCount: '100' } }).subscribe({
+      next: (r) => this.schedules.set(r.items ?? []), error: () => {}
+    });
     this.form = this.fb.group({
       visitDate: [new Date().toISOString().substring(0, 10), Validators.required],
       maintenanceType: ['Scheduled', Validators.required],

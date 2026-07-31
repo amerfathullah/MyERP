@@ -6,6 +6,9 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
+import { ProductionScheduleComponent } from '../production-schedule/production-schedule.component';
+import { MaterialShortageSummaryComponent } from '../material-shortage-summary/material-shortage-summary.component';
+
 interface WoStatusGroup {
   status: string;
   statusKey: string;
@@ -54,7 +57,7 @@ interface MaterialReadiness {
 @Component({
   selector: 'app-manufacturing-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, ProductionScheduleComponent, MaterialShortageSummaryComponent],
   template: `
     <abp-page [title]="'::ManufacturingDashboard' | abpLocalization">
 
@@ -278,6 +281,16 @@ interface MaterialReadiness {
         }
 
       }
+        <!-- Production Schedule Timeline -->
+        <div class="row mb-4">
+          <div class="col-md-8">
+            <app-production-schedule />
+          </div>
+          <div class="col-md-4">
+            <app-material-shortage-summary />
+          </div>
+        </div>
+
     </abp-page>
   `,
   styles: [`

@@ -406,6 +406,59 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             Logger.LogWarning(ex, "Supplier scorecard evaluation failed for supplier {SupplierId} — non-blocking", receipt.SupplierId);
         }
 
+        // Auto-reserve stock for linked Sales Orders on receipt
+        // Per ERPNext Stock Settings.auto_reserve_stock_for_sales_order_on_purchase:
+        // When goods arrive, automatically reserve for pending SO items that need this stock
+        if (!receipt.IsReturn)
+        {
+            try
+            {
+                var reservationManager = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Inventory.DomainServices.StockReservationManager>();
+                var soRepo = LazyServiceProvider
+                    .LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+
+                var receivedItemIds = receipt.Items
+                    .Select(i => i.ItemId)
+                    .Distinct()
+                    .ToList();
+
+                // Find active SOs with pending delivery for received items
+                var soQuery = await soRepo.GetQueryableAsync();
+                var pendingSalesOrders = soQuery
+                    .Where(so => so.CompanyId == receipt.CompanyId
+                        && so.TenantId == receipt.TenantId
+                        && (so.Status == Core.DocumentStatus.ToDeliverAndBill
+                            || so.Status == Core.DocumentStatus.ToDeliver))
+                    .ToList();
+
+                foreach (var so in pendingSalesOrders)
+                {
+                    foreach (var soItem in so.Items.Where(i =>
+                        receivedItemIds.Contains(i.ItemId) && i.PendingDeliveryQty > 0))
+                    {
+                        var bin = await _binService.GetBalanceAsync(soItem.ItemId, receipt.WarehouseId);
+                        var existingReserved = await reservationManager
+                            .GetReservedQtyAsync(soItem.ItemId, receipt.WarehouseId);
+                        var reservableQty = Math.Min(
+                            soItem.PendingDeliveryQty * soItem.ConversionFactor,
+                            Math.Max(0, bin.ActualQty - existingReserved));
+
+                        if (reservableQty > 0)
+                        {
+                            await reservationManager.ReserveStockAsync(
+                                soItem.ItemId, receipt.WarehouseId, receipt.CompanyId,
+                                reservableQty, "SalesOrder", so.Id, receipt.TenantId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Auto-reserve stock for SOs failed after PR {ReceiptId} — non-blocking", receipt.Id);
+            }
+        }
+
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PurchaseReceipt", receipt.Id, "Submitted",
@@ -529,9 +582,17 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     if (poItem == null) continue;
 
                     if (isReversal)
+                    {
                         poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prItem.Quantity));
+                    }
                     else
+                    {
                         poItem.ReceivedQty += prItem.Quantity;
+                        // Track receipt dates for delivery performance analysis
+                        var receiptDate = DateTime.UtcNow.Date;
+                        poItem.FirstReceiptDate ??= receiptDate;
+                        poItem.LastReceiptDate = receiptDate;
+                    }
                 }
                 po.UpdateFulfillmentStatus();
                 await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);

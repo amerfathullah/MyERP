@@ -194,6 +194,10 @@ public class PeriodClosingVoucherAppService : ApplicationService
     {
         var pcv = await _repository.GetAsync(id);
 
+        // Per PR b3c2ba5381: validate account frozen date on cancel (uses today since reversals post at current date)
+        await _postingOrchestrator.ValidatePostingPeriodAsync(
+            pcv.CompanyId, DateTime.UtcNow.Date, "PeriodClosingVoucher");
+
         // Block cancel if a future PCV exists for this company
         var futurePcvs = await _repository.GetListAsync(p =>
             p.CompanyId == pcv.CompanyId && p.Status == DocumentStatus.Submitted

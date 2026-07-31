@@ -1,4 +1,4 @@
-import type { CreateUpdateItemDto, GetItemListDto, ItemDto } from './models';
+import type { CreateUpdateItemDto, GetItemListDto, ItemDto, ItemTransactionSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -58,6 +58,14 @@ export class ItemService {
       method: 'POST',
       url: `/api/app/item/${templateItemId}/create-variant`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getTransactionSummary = (itemId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ItemTransactionSummaryDto>({
+      method: 'GET',
+      url: `/api/app/item/${itemId}/transaction-summary`,
+      params: { companyId },
     },
     { apiName: this.apiName,...config });
 }

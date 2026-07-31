@@ -107,6 +107,24 @@
       </div>
     }
 
+    <!-- Advance Payment Progress -->
+    @if (order.advancePaid && order.advancePaid > 0) {
+      <div class="card mt-4 border-start border-4 border-success">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0"><i class="fa fa-money-bill-wave me-2 text-success"></i>{{ '::AdvancePayment' | abpLocalization }}</h6>
+            <span class="badge" [class]="(order.perAdvancePaid ?? 0) >= 100 ? 'bg-success' : 'bg-warning text-dark'">
+              {{ order.perAdvancePaid | number:'1.0-0' }}%
+            </span>
+          </div>
+          <div class="progress mb-1" style="height: 8px;">
+            <div class="progress-bar bg-success" [style.width.%]="(order.perAdvancePaid ?? 0) > 100 ? 100 : (order.perAdvancePaid ?? 0)"></div>
+          </div>
+          <small class="text-muted">{{ order.advancePaid | number:'1.2-2' }} / {{ order.grandTotal | number:'1.2-2' }}</small>
+        </div>
+      </div>
+    }
+
     <!-- Overdue Delivery Alert -->
     @if (isOverdue()) {
       <div class="alert alert-danger d-flex align-items-center mt-4" role="alert">
@@ -222,6 +240,7 @@
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
                 <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
                 @if (order.status !== 'Draft') {
+                  <th>{{ '::ExpectedDate' | abpLocalization }}</th>
                   <th style="min-width: 140px;">{{ '::ReceiptProgress' | abpLocalization }}</th>
                   <th style="min-width: 140px;">{{ '::BillingProgress' | abpLocalization }}</th>
                 }
@@ -236,6 +255,18 @@
                   <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.lineTotal | number:'1.2-2' }}</td>
                   @if (order.status !== 'Draft') {
+                    <td>
+                      @if (getEffectiveExpectedDate(row); as dateStr) {
+                        <small [class.text-danger]="isItemOverdue(row)" [class.fw-bold]="isItemOverdue(row)">
+                          {{ dateStr }}
+                        </small>
+                        @if (isItemOverdue(row)) {
+                          <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
+                        }
+                      } @else {
+                        <small class="text-muted">—</small>
+                      }
+                    </td>
                     <td>
                       <div class="d-flex align-items-center gap-1">
                         <div class="progress flex-grow-1" style="height: 6px;">

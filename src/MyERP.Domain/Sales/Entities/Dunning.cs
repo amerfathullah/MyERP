@@ -38,6 +38,18 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
     public string? Notes { get; set; }
 
+    /// <summary>When the dunning notice email was sent to the customer.</summary>
+    public DateTime? EmailSentAt { get; private set; }
+
+    /// <summary>Email address(es) the dunning notice was sent to.</summary>
+    public string? EmailSentTo { get; private set; }
+
+    public void MarkEmailSent(string recipientEmail)
+    {
+        EmailSentAt = DateTime.UtcNow;
+        EmailSentTo = recipientEmail;
+    }
+
     private readonly List<DunningOverduePayment> _overduePayments = new();
     public IReadOnlyList<DunningOverduePayment> OverduePayments => _overduePayments.AsReadOnly();
 

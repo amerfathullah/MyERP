@@ -440,17 +440,55 @@ export class PaymentEntryFormComponent implements OnInit {
     this.linkedDocLabel.set(`Advance against ${order.orderType}: ${order.orderNumber}`);
   }
 
-  /** Auto-allocate payment amount FIFO across outstanding invoices (oldest first) */
+  isAutoAllocating = signal(false);
+  writeOffSuggestion = signal(0);
+
+  /** Auto-allocate payment amount FIFO across outstanding invoices (oldest due date first).
+   * Calls backend for accurate allocation with write-off tolerance detection. */
   autoAllocate(): void {
     const paymentAmount = this.form.get('amount')?.value ?? 0;
     if (paymentAmount <= 0) return;
 
+    const partyType = this.form.get('partyType')?.value;
+    const partyId = this.form.get('partyId')?.value;
+    const companyId = this.form.get('companyId')?.value;
+    if (!partyId || !companyId) return;
+
+    this.isAutoAllocating.set(true);
+    this.http.post<any>('/api/app/payment-entry/auto-allocate', {
+      partyType, partyId, companyId, paymentAmount, writeOffThreshold: 1.0
+    }).subscribe({
+      next: (result) => {
+        const newMap = new Map<string, number>();
+        for (const alloc of result.allocations ?? []) {
+          newMap.set(alloc.invoiceId, alloc.allocatedAmount);
+        }
+        this.allocations.set(newMap);
+        this.syncAllocationsToForm();
+        this.writeOffSuggestion.set(result.writeOffAmount ?? 0);
+        this.isAutoAllocating.set(false);
+
+        const count = newMap.size;
+        let msg = this.localization.instant('::AllocatedToInvoices', count.toString());
+        if (result.writeOffAmount > 0) {
+          msg += ` (${this.localization.instant('::WriteOffSuggested')}: ${result.writeOffAmount.toFixed(2)})`;
+        }
+        this.toaster.success(msg);
+      },
+      error: () => {
+        this.isAutoAllocating.set(false);
+        // Fallback: client-side FIFO allocation
+        this.autoAllocateClientSide(paymentAmount);
+      }
+    });
+  }
+
+  private autoAllocateClientSide(paymentAmount: number): void {
     const invoices = this.outstandingInvoices();
     if (invoices.length === 0) return;
 
-    // Sort by posting date ascending (oldest first = FIFO per ERPNext)
-    const sorted = [...invoices].sort((a, b) =>
-      (a.postingDate ?? '').localeCompare(b.postingDate ?? '')
+    const sorted = [...invoices].sort((a: any, b: any) =>
+      (a.dueDate ?? a.issueDate ?? '').localeCompare(b.dueDate ?? b.issueDate ?? '')
     );
 
     const newMap = new Map<string, number>();
@@ -467,9 +505,8 @@ export class PaymentEntryFormComponent implements OnInit {
 
     this.allocations.set(newMap);
     this.syncAllocationsToForm();
-
-    const count = newMap.size;
-    this.toaster.success(this.localization.instant('::AutoAllocated', count.toString()));
+    this.writeOffSuggestion.set(remaining > 0 && remaining <= 1 ? remaining : 0);
+    this.toaster.success(this.localization.instant('::AllocatedToInvoices', newMap.size.toString()));
   }
 
   cancel(): void {

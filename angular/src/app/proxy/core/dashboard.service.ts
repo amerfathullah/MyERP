@@ -136,4 +136,11 @@ export class DashboardService {
       url: `/api/app/dashboard/upcoming-payment-dues/${companyId}`,
     },
     { apiName: this.apiName,...config });
+
+  getSupplierPerformanceWidget = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'GET',
+      url: `/api/app/dashboard/supplier-performance-widget/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
 }

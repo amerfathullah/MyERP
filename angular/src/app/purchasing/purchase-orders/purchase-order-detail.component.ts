@@ -80,29 +80,29 @@ export class PurchaseOrderDetailComponent implements OnInit {
     const s = this.order.status;
 
     if (s === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: this.l.instant('::Submit'), icon: 'paper-plane', color: 'primary' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
-      actions.push({ name: 'receipt', label: 'Make Receipt', icon: 'box-open', color: 'info' });
+      actions.push({ name: 'receipt', label: this.l.instant('::MakeReceipt'), icon: 'box-open', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
-      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
+      actions.push({ name: 'invoice', label: this.l.instant('::CreateInvoice'), icon: 'file-invoice', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'money-bill', color: 'info' });
+      actions.push({ name: 'payment', label: this.l.instant('::MakePayment'), icon: 'money-bill', color: 'info' });
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
     }
     if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Completed' && s !== 'Closed') {
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'close', label: this.l.instant('::Close'), icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: this.l.instant('::Cancel'), icon: 'ban', color: 'danger' });
     }
     if (s === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
+      actions.push({ name: 'reopen', label: this.l.instant('::Reopen'), icon: 'lock-open', color: 'primary' });
     }
     if (s === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+      actions.push({ name: 'amend', label: this.l.instant('::Amend'), icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }
@@ -282,6 +282,26 @@ export class PurchaseOrderDetailComponent implements OnInit {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return expectedDate < today;
+  }
+
+  /** Get the effective expected delivery date for an item (item-level or parent fallback) */
+  getEffectiveExpectedDate(row: any): string | null {
+    const d = row.expectedDeliveryDate ?? this.order?.expectedDeliveryDate;
+    if (!d) return null;
+    return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /** Whether a specific item is overdue (past expected date + has pending receipt qty) */
+  isItemOverdue(row: any): boolean {
+    const d = row.expectedDeliveryDate ?? this.order?.expectedDeliveryDate;
+    if (!d) return false;
+    const pendingQty = (row.quantity ?? 0) - (row.receivedQty ?? 0);
+    if (pendingQty <= 0) return false;
+    const expected = new Date(d);
+    expected.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expected < today;
   }
 
   openSendEmailDialog(): void {

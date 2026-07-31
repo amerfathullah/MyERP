@@ -114,14 +114,15 @@ public class StockEntryManager : DomainService
     /// Exception: returns and "Material Transferred" backflush mode.
     /// </summary>
     public void ValidateTransferQty(decimal requiredQty, decimal transferredQty, decimal requestedQty,
-        bool isReturn = false, bool isMaterialTransferredMode = false)
+        bool isReturn = false, bool isMaterialTransferredMode = false, int qtyPrecision = 6)
     {
         if (isReturn || isMaterialTransferredMode) return;
 
-        var allowed = requiredQty - transferredQty;
-        if (allowed < 0) allowed = 0;
+        var roundedRequest = Math.Round(requestedQty, qtyPrecision);
+        var roundedPending = Math.Round(requiredQty - transferredQty, qtyPrecision);
+        var allowed = roundedPending < 0 ? 0m : roundedPending;
 
-        if (requestedQty > allowed)
+        if (roundedRequest > allowed)
         {
             throw new BusinessException("MyERP:05030")
                 .WithData("required", requiredQty)

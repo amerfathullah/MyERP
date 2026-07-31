@@ -52,7 +52,17 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::SupplierInvoiceNumber' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="supplierInvoiceNumber" [placeholder]="'::Placeholder:SupplierInvoiceNumber' | abpLocalization" />
+            <input type="text" class="form-control" formControlName="supplierInvoiceNumber"
+              [class.border-warning]="duplicateWarning()"
+              [placeholder]="'::Placeholder:SupplierInvoiceNumber' | abpLocalization" />
+            @if (duplicateWarning()) {
+              <div class="alert alert-warning mt-1 mb-0 py-1 px-2 small">
+                <i class="fa fa-triangle-exclamation me-1"></i>
+                {{ '::DuplicateSupplierInvoiceWarning' | abpLocalization }}:
+                <strong>{{ duplicateWarning()!.invoiceNumber }}</strong>
+                ({{ duplicateWarning()!.invoiceDate }}, {{ duplicateWarning()!.amount | number:'1.2-2' }})
+              </div>
+            }
           </div>
         </div>
       </div>

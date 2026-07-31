@@ -212,6 +212,10 @@ public class PurchaseOrderAppService : ApplicationService
             }
         }
 
+        // Auto-fill per-item expected delivery dates from Item.LeadTimeDays
+        var poManager = LazyServiceProvider.LazyGetRequiredService<PurchaseOrderManager>();
+        await poManager.AutoFillExpectedDeliveryDatesAsync(po);
+
         await _repository.InsertAsync(po, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }

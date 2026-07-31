@@ -72,6 +72,49 @@
       </div>
     </div>
 
+    <!-- Tax Template Section -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fa fa-percent me-2"></i>{{ '::TaxTemplate' | abpLocalization }}</h6>
+        @if (selectedTaxRules().length > 0) {
+          <span class="badge bg-info">{{ calcResult.totalTax | number:'1.2-2' }}</span>
+        }
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">{{ '::TaxCategory' | abpLocalization }}</label>
+            <select class="form-select" [ngModel]="selectedTaxCategoryId()" (ngModelChange)="onTaxCategoryChanged($event)" [ngModelOptions]="{standalone: true}">
+              <option value="">— {{ '::NoTax' | abpLocalization }} —</option>
+              @for (tc of taxCategories(); track tc.id) {
+                <option [value]="tc.id">{{ tc.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        @if (selectedTaxRules().length > 0) {
+          <table class="table table-sm mt-3 mb-0">
+            <thead>
+              <tr>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }} (%)</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of calcResult.taxLines; track $index) {
+                <tr>
+                  <td>{{ line.description || selectedTaxRules()[$index]?.name }}</td>
+                  <td class="text-end font-monospace">{{ line.rate | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ line.amount | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+
     <div class="card mb-4">
       <div class="card-body">
         <div class="d-flex flex-column align-items-end gap-1">
@@ -79,6 +122,12 @@
             <small class="text-muted">{{ '::NetTotal' | abpLocalization }}</small>
             <span class="font-monospace">{{ calcResult.netTotal | number:'1.2-2' }}</span>
           </div>
+          @if (calcResult.totalTax > 0) {
+            <div class="d-flex justify-content-between" style="width: 220px">
+              <small class="text-muted">{{ '::Tax' | abpLocalization }}</small>
+              <span class="font-monospace text-info">{{ calcResult.totalTax | number:'1.2-2' }}</span>
+            </div>
+          }
           <div class="d-flex justify-content-between border-top pt-2 mt-1" style="width: 220px">
             <span class="fw-semibold">{{ '::GrandTotal' | abpLocalization }}</span>
             <span class="font-monospace fw-bold">{{ calcResult.grandTotal | number:'1.2-2' }}</span>

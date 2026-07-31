@@ -82,7 +82,7 @@ interface StockBalanceRow {
             </div>
             <div class="col-md-3">
               <label class="form-label small">{{ '::Search' | abpLocalization }}</label>
-              <input class="form-control form-control-sm" [(ngModel)]="filterText" placeholder="Item code or name..." (keyup.enter)="loadReport()" />
+              <input class="form-control form-control-sm" [(ngModel)]="filterText" [placeholder]="'::Placeholder:ItemCodeOrName' | abpLocalization" (keyup.enter)="loadReport()" />
             </div>
             <div class="col-md-3 d-flex align-items-end gap-2">
               <div class="form-check">

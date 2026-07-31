@@ -866,6 +866,60 @@ public class PaymentEntryAppService : ApplicationService
     }
 
     /// <summary>
+    /// Auto-allocates a payment amount across outstanding invoices using FIFO (oldest due date first).
+    /// Per ERPNext allocate_amount_to_references: distributes greedily across invoices.
+    /// Returns suggested allocation references for the PE form.
+    /// </summary>
+    public async Task<AutoAllocationResultDto> AutoAllocateAsync(AutoAllocateRequestDto input)
+    {
+        Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
+        if (input.PaymentAmount <= 0)
+            throw new BusinessException("MyERP:01008").WithData("field", "PaymentAmount");
+
+        var outstanding = await GetPartyOutstandingAsync(input.PartyType, input.PartyId, input.CompanyId);
+        var invoices = outstanding.Invoices;
+
+        var allocations = new List<AllocationSuggestionDto>();
+        var remaining = input.PaymentAmount;
+
+        foreach (var invoice in invoices)
+        {
+            if (remaining <= 0) break;
+            var allocate = Math.Min(remaining, invoice.Outstanding);
+            allocations.Add(new AllocationSuggestionDto
+            {
+                InvoiceId = invoice.InvoiceId,
+                InvoiceNumber = invoice.InvoiceNumber,
+                InvoiceType = invoice.InvoiceType,
+                Outstanding = invoice.Outstanding,
+                AllocatedAmount = allocate,
+                DueDate = invoice.DueDate,
+                IsOverdue = invoice.IsOverdue
+            });
+            remaining -= allocate;
+        }
+
+        var unallocated = Math.Max(0, remaining);
+        var writeOffAmount = 0m;
+
+        // Auto-write-off: when remaining < threshold (default RM 1), suggest as write-off
+        if (unallocated > 0 && unallocated <= (input.WriteOffThreshold ?? 1m))
+        {
+            writeOffAmount = unallocated;
+            unallocated = 0;
+        }
+
+        return new AutoAllocationResultDto
+        {
+            Allocations = allocations,
+            TotalAllocated = allocations.Sum(a => a.AllocatedAmount),
+            UnallocatedAmount = unallocated,
+            WriteOffAmount = writeOffAmount,
+            InvoiceCount = allocations.Count
+        };
+    }
+
+    /// <summary>
     /// Allocates payment to invoice's payment schedule entries in FIFO order (earliest due date first).
     /// Reused by both legacy single-invoice and multi-reference allocation paths.
     /// </summary>

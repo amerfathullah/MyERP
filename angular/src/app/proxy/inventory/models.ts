@@ -334,6 +334,7 @@ export interface ItemDetailsDto {
   minOrderQty?: number;
   defaultSupplierId?: string | null;
   defaultDiscountPercentage?: number;
+  valuationRate?: number;
   blanketOrderId?: string | null;
   blanketOrderNumber?: string | null;
   blanketOrderRate?: number | null;
@@ -690,4 +691,24 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+}
+
+export interface ItemTransactionSummaryDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  purchaseOrderCount?: number;
+  totalPurchasedQty?: number;
+  totalPurchasedValue?: number;
+  lastPurchaseRate?: number | null;
+  lastPurchaseDate?: string | null;
+  salesOrderCount?: number;
+  totalSoldQty?: number;
+  totalSoldValue?: number;
+  averageSellingRate?: number | null;
+  lastSaleDate?: string | null;
+  currentStock?: number;
+  reorderLevel?: number;
+  isLowStock?: boolean;
+  daysOfStockRemaining?: number;
 }

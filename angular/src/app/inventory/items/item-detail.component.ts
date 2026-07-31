@@ -391,6 +391,88 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         </div>
       </div>
 
+      <!-- Transaction Summary (Purchase/Sales Activity) -->
+      <div class="card mb-4">
+        <div class="card-header"><i class="fas fa-chart-bar me-2"></i>{{ '::TransactionSummary' | abpLocalization }}</div>
+        <div class="card-body">
+          @if (txSummaryLoading()) {
+            <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+          } @else if (txSummary()) {
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <h6 class="text-primary"><i class="fas fa-shopping-cart me-1"></i>{{ '::PurchaseActivity' | abpLocalization }} <small class="text-muted">({{ '::Last12Months' | abpLocalization }})</small></h6>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::Orders' | abpLocalization }}</div>
+                      <div class="fw-bold fs-5">{{ txSummary()!.purchaseOrderCount }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::TotalQty' | abpLocalization }}</div>
+                      <div class="fw-bold fs-5">{{ txSummary()!.totalPurchasedQty | number:'1.0-2' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::TotalValue' | abpLocalization }}</div>
+                      <div class="fw-bold text-primary">{{ txSummary()!.totalPurchasedValue | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::LastRate' | abpLocalization }}</div>
+                      <div class="fw-bold">{{ txSummary()!.lastPurchaseRate ? (txSummary()!.lastPurchaseRate | number:'1.2-4') : '—' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h6 class="text-success"><i class="fas fa-tags me-1"></i>{{ '::SalesActivity' | abpLocalization }} <small class="text-muted">({{ '::Last12Months' | abpLocalization }})</small></h6>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::Orders' | abpLocalization }}</div>
+                      <div class="fw-bold fs-5">{{ txSummary()!.salesOrderCount }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::TotalQty' | abpLocalization }}</div>
+                      <div class="fw-bold fs-5">{{ txSummary()!.totalSoldQty | number:'1.0-2' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::TotalValue' | abpLocalization }}</div>
+                      <div class="fw-bold text-success">{{ txSummary()!.totalSoldValue | number:'1.2-2' }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center">
+                      <div class="text-muted small">{{ '::AvgRate' | abpLocalization }}</div>
+                      <div class="fw-bold">{{ txSummary()!.averageSellingRate ? (txSummary()!.averageSellingRate | number:'1.2-4') : '—' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            @if (txSummary()!.daysOfStockRemaining > 0) {
+              <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-clock text-info"></i>
+                <span>{{ '::DaysOfStockRemaining' | abpLocalization }}: <strong>{{ txSummary()!.daysOfStockRemaining }}</strong></span>
+                @if (txSummary()!.isLowStock) {
+                  <span class="badge bg-danger">{{ '::LowStock' | abpLocalization }}</span>
+                }
+              </div>
+            }
+          } @else {
+            <div class="text-center text-muted py-3">{{ '::NoTransactionData' | abpLocalization }}</div>
+          }
+        </div>
+      </div>
+
       <!-- Item Variants (for template items) -->
       @if (item.hasVariants && variants().length > 0) {
         <div class="card mb-4">
@@ -449,6 +531,8 @@ export class ItemDetailComponent implements OnInit {
   whereUsedLoading = signal(true);
   whereUsed = signal<any[]>([]);
   variants = signal<any[]>([]);
+  txSummary = signal<any>(null);
+  txSummaryLoading = signal(true);
 
   // Quick Transfer
   showTransferForm = signal(false);
@@ -466,6 +550,7 @@ export class ItemDetailComponent implements OnInit {
     this.loadPriceHistory();
     this.loadWhereUsed();
     this.loadWarehouses();
+    this.loadTransactionSummary();
   }
 
   private loadEntity() {
@@ -521,6 +606,13 @@ export class ItemDetailComponent implements OnInit {
     this.http.get<any[]>(`/api/app/item/${this.entityId}/variants`).subscribe({
       next: (data) => this.variants.set(data ?? []),
       error: () => {},
+    });
+  }
+
+  private loadTransactionSummary() {
+    this.http.get<any>(`/api/app/item/${this.entityId}/transaction-summary`).subscribe({
+      next: (data) => { this.txSummary.set(data); this.txSummaryLoading.set(false); },
+      error: () => this.txSummaryLoading.set(false),
     });
   }
 

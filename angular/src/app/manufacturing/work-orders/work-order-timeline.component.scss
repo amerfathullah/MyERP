@@ -1,0 +1,115 @@
+.gantt-container {
+  overflow-x: auto;
+  min-width: 100%;
+}
+
+.gantt-header,
+.gantt-row {
+  display: flex;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.gantt-label-col {
+  min-width: 200px;
+  max-width: 200px;
+  padding: 0.5rem 0.75rem;
+  border-right: 1px solid var(--bs-border-color);
+}
+
+.gantt-timeline-col {
+  flex: 1;
+  position: relative;
+  min-height: 40px;
+}
+
+.gantt-day-headers {
+  display: flex;
+  height: 100%;
+}
+
+.gantt-day-header {
+  text-align: center;
+  border-right: 1px solid var(--bs-border-color-translucent);
+  padding: 0.25rem 0;
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+
+  &.weekend {
+    background: rgba(var(--bs-secondary-rgb), 0.04);
+  }
+
+  &.today {
+    background: rgba(var(--bs-primary-rgb), 0.08);
+    font-weight: bold;
+    color: var(--bs-primary);
+  }
+}
+
+.gantt-grid {
+  display: flex;
+  position: absolute;
+  inset: 0;
+}
+
+.gantt-grid-cell {
+  border-right: 1px solid var(--bs-border-color-translucent);
+  height: 100%;
+
+  &.weekend {
+    background: rgba(var(--bs-secondary-rgb), 0.03);
+  }
+
+  &.today {
+    background: rgba(var(--bs-primary-rgb), 0.06);
+  }
+}
+
+.gantt-bar {
+  position: absolute;
+  top: 8px;
+  height: 24px;
+  border-radius: 4px;
+  opacity: 0.85;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  overflow: hidden;
+
+  &:hover {
+    opacity: 1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.gantt-bar-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px 0 0 4px;
+}
+
+.gantt-overdue-badge {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bs-danger);
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.gantt-row.overdue .gantt-label-col {
+  background: rgba(var(--bs-danger-rgb), 0.04);
+}
+
+.gantt-row:hover {
+  background: rgba(var(--bs-primary-rgb), 0.02);
+}

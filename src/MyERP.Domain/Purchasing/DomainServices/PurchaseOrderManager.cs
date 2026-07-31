@@ -210,4 +210,79 @@ public class PurchaseOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Auto-fills per-item expected delivery dates from Item.LeadTimeDays when not explicitly set.
+    /// Per ERPNext: each PO item's expected_delivery_date defaults to order_date + item.lead_time_days.
+    /// Items with LeadTimeDays=0 fall back to the parent PO's ExpectedDeliveryDate.
+    /// </summary>
+    public async Task AutoFillExpectedDeliveryDatesAsync(PurchaseOrder order)
+    {
+        var itemIds = order.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var leadTimes = itemQuery
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.LeadTimeDays })
+            .ToDictionary(i => i.Id, i => i.LeadTimeDays);
+
+        foreach (var poItem in order.Items)
+        {
+            if (poItem.ExpectedDeliveryDate.HasValue) continue;
+
+            if (leadTimes.TryGetValue(poItem.ItemId, out var leadDays) && leadDays > 0)
+            {
+                poItem.ExpectedDeliveryDate = order.OrderDate.AddDays(leadDays);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Calculates the aggregate overdue summary for a PO.
+    /// Returns count of overdue items, most overdue days, and total pending qty of overdue items.
+    /// </summary>
+    public static PurchaseOrderOverdueSummary GetOverdueSummary(PurchaseOrder order, DateTime asOfDate)
+    {
+        var overdueItems = order.Items
+            .Where(i => i.IsOverdue(asOfDate, order.ExpectedDeliveryDate))
+            .ToList();
+
+        return new PurchaseOrderOverdueSummary
+        {
+            OverdueItemCount = overdueItems.Count,
+            MaxDaysOverdue = overdueItems.Count > 0
+                ? overdueItems.Max(i => i.DaysOverdue(asOfDate, order.ExpectedDeliveryDate))
+                : 0,
+            TotalPendingOverdueQty = overdueItems.Sum(i => i.PendingReceiptQty),
+            CriticalItems = overdueItems
+                .Where(i => i.DaysOverdue(asOfDate, order.ExpectedDeliveryDate) > 7)
+                .Select(i => new OverdueItemInfo
+                {
+                    ItemId = i.ItemId,
+                    Description = i.Description,
+                    DaysOverdue = i.DaysOverdue(asOfDate, order.ExpectedDeliveryDate),
+                    PendingQty = i.PendingReceiptQty
+                })
+                .OrderByDescending(i => i.DaysOverdue)
+                .ToList()
+        };
+    }
+}
+
+/// <summary>Summary of overdue items in a Purchase Order.</summary>
+public class PurchaseOrderOverdueSummary
+{
+    public int OverdueItemCount { get; set; }
+    public int MaxDaysOverdue { get; set; }
+    public decimal TotalPendingOverdueQty { get; set; }
+    public List<OverdueItemInfo> CriticalItems { get; set; } = [];
+    public bool HasCriticalItems => CriticalItems.Count > 0;
+}
+
+/// <summary>Individual overdue item detail.</summary>
+public class OverdueItemInfo
+{
+    public Guid ItemId { get; set; }
+    public string Description { get; set; } = "";
+    public int DaysOverdue { get; set; }
+    public decimal PendingQty { get; set; }
 }

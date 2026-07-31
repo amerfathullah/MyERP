@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
@@ -54,6 +55,49 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         return customer?.Name;
     }
 
+    private async Task ResolveFulfillmentDatesAsync(SalesOrderDto dto, Guid orderId)
+    {
+        try
+        {
+            var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DeliveryNote, Guid>>();
+            var dnQuery = await dnRepo.GetQueryableAsync();
+            var dnDates = dnQuery
+                .Where(dn => dn.SalesOrderId == orderId && dn.Status != Core.DocumentStatus.Cancelled && !dn.IsReturn)
+                .Select(dn => dn.PostingDate)
+                .ToList();
+            if (dnDates.Count > 0)
+            {
+                dto.FirstDeliveryDate = dnDates.Min();
+                dto.LastDeliveryDate = dnDates.Max();
+            }
+
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var siQuery = await siRepo.GetQueryableAsync();
+            var soItemIds = dto.Items.Select(i => i.Id).ToHashSet();
+            var billedInvoices = siQuery
+                .Where(si => si.Status != Core.DocumentStatus.Cancelled && !si.IsReturn)
+                .Where(si => si.Items.Any(item => item.SalesOrderItemId != null && soItemIds.Contains(item.SalesOrderItemId!.Value)))
+                .OrderBy(si => si.IssueDate)
+                .Select(si => si.IssueDate)
+                .ToList();
+            if (billedInvoices.Count > 0) dto.FirstBilledDate = billedInvoices.First();
+
+            var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentEntry, Guid>>();
+            var peQuery = await peRepo.GetQueryableAsync();
+            var paymentDate = peQuery
+                .Where(pe => pe.AgainstOrderId == orderId && pe.AgainstOrderType == "SalesOrder"
+                    && pe.Status == Core.DocumentStatus.Posted)
+                .OrderBy(pe => pe.PostingDate)
+                .Select(pe => pe.PostingDate)
+                .FirstOrDefault();
+            if (paymentDate != default) dto.FirstPaymentDate = paymentDate;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to resolve fulfillment dates for SO {OrderId}", orderId);
+        }
+    }
+
     public async Task<SalesOrderDto> GetAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
@@ -61,6 +105,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         dto.AdvancePaid = order.AdvancePaid;
         dto.PerAdvancePaid = order.PerAdvancePaid;
+        await ResolveFulfillmentDatesAsync(dto, id);
         return dto;
     }
 
@@ -252,9 +297,36 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         await _repository.InsertAsync(order, autoSave: true);
 
-        // Check if customer has overdue invoices (advisory warning, not blocking)
+        // Resolve per-item stock availability for warehouse visibility
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
+        try
+        {
+            var binQuery = await LazyServiceProvider
+                .LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>()
+                .GetQueryableAsync();
+            foreach (var itemDto in dto.Items)
+            {
+                var warehouseId = order.Items.FirstOrDefault(i => i.Id == itemDto.Id)?.WarehouseId;
+                decimal available;
+                if (warehouseId.HasValue)
+                {
+                    available = binQuery
+                        .Where(b => b.ItemId == itemDto.ItemId && b.WarehouseId == warehouseId.Value)
+                        .Select(b => b.ActualQty - b.ReservedQty)
+                        .FirstOrDefault();
+                }
+                else
+                {
+                    available = binQuery
+                        .Where(b => b.ItemId == itemDto.ItemId)
+                        .Sum(b => b.ActualQty - b.ReservedQty);
+                }
+                itemDto.AvailableQty = available;
+                itemDto.IsInsufficientStock = itemDto.Quantity > available;
+            }
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Stock availability check failed for SO {Id}", order.Id); }
         try
         {
             var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
@@ -380,6 +452,21 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var dropShipSvc = LazyServiceProvider.LazyGetRequiredService<DropShipService>();
             await dropShipSvc.CreateDropShipPurchaseOrdersAsync(order,
                 async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId));
+        }
+
+        // Inter-company: auto-create PO in target company when customer represents another company
+        try
+        {
+            var interCompanyService = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.InterCompanyTransactionService>();
+            await interCompanyService.CreatePurchaseOrderFromSalesOrderAsync(
+                order,
+                async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId),
+                order.TenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Inter-company PO creation failed for SO {OrderId}", order.Id);
         }
 
         await _repository.UpdateAsync(order, autoSave: true);

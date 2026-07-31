@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -24,6 +24,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 export class ProductionPlanFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private service = inject(ProductionPlanService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -82,6 +83,12 @@ export class ProductionPlanFormComponent implements OnInit {
 
     this.mfgService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' })
       .subscribe(res => this.allBoms.set(res.items ?? []));
+
+    // Pre-fill from Sales Order query param (SO → Production Plan workflow)
+    const soId = this.route.snapshot.queryParamMap.get('salesOrderId');
+    const qCompanyId = this.route.snapshot.queryParamMap.get('companyId');
+    if (qCompanyId) this.form.patchValue({ companyId: qCompanyId });
+    if (soId) this.form.patchValue({ notes: `Production Plan for SO: ${soId}` });
   }
 
   onItemSelected(index: number): void {

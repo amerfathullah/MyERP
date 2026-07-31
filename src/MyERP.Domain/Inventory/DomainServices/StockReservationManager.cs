@@ -137,6 +137,36 @@ public class StockReservationManager : DomainService
                 && s.Status == DocumentStatus.Submitted)
             .Sum(s => s.ReservedQty - s.DeliveredQty);
     }
+
+    /// <summary>
+    /// Creates a new Stock Reservation Entry and validates availability.
+    /// Per ERPNext auto_reserve_stock_for_sales_order_on_purchase: auto-reserves on PR submit.
+    /// </summary>
+    public async Task ReserveStockAsync(
+        Guid itemId, Guid warehouseId, Guid companyId,
+        decimal qty, string voucherType, Guid voucherId, Guid? tenantId = null)
+    {
+        if (qty <= 0) return;
+
+        await ValidateAvailabilityAsync(itemId, warehouseId, qty);
+
+        var sre = new StockReservationEntry(
+            GuidGenerator.Create(), companyId, itemId, warehouseId,
+            voucherType, voucherId, qty, tenantId);
+
+        sre.Submit();
+        await _sreRepository.InsertAsync(sre);
+
+        // Update Bin reserved qty
+        var binQueryable = await _binRepository.GetQueryableAsync();
+        var bin = binQueryable
+            .FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
+        if (bin != null)
+        {
+            bin.ReservedQty += qty;
+            await _binRepository.UpdateAsync(bin);
+        }
+    }
 }
 
 public class ReservationConsumption

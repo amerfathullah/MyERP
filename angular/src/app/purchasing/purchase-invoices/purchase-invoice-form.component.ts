@@ -23,6 +23,8 @@ import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, filter, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-purchase-invoice-form',
@@ -71,6 +73,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   paymentTermsTemplates = signal<any[]>([]);
   isLoadingPOItems = signal(false);
   isLoadingPRItems = signal(false);
+
+  // Real-time duplicate supplier invoice detection
+  duplicateWarning = signal<{ invoiceNumber: string; invoiceDate: string; amount: number } | null>(null);
+  private invoiceNumberCheck$ = new Subject<string>();
 
   // Document-level discount
   discountOn: 'GrandTotal' | 'NetTotal' = 'GrandTotal';
@@ -137,6 +143,40 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         this.onSupplierChanged(supplierId);
         this.resolveSupplierDetails(supplierId);
       }
+    });
+
+    // Debounced duplicate supplier invoice number check (500ms, advisory)
+    this.invoiceNumberCheck$.pipe(
+      debounceTime(500),
+      distinctUntilChanged(),
+      filter(v => v.length >= 2),
+      switchMap(invoiceNo => {
+        const supplierId = this.form.get('supplierId')?.value;
+        const companyId = this.form.get('companyId')?.value;
+        if (!supplierId || !companyId) return [];
+        return this.http.get<any>('/api/app/purchase-invoice/check-duplicate-supplier-invoice', {
+          params: { supplierId, companyId, supplierInvoiceNumber: invoiceNo, excludeId: this.entityId ?? '' }
+        });
+      })
+    ).subscribe({
+      next: (result) => {
+        if (result?.isDuplicate) {
+          this.duplicateWarning.set({
+            invoiceNumber: result.existingInvoiceNumber,
+            invoiceDate: result.existingInvoiceDate?.split('T')[0] ?? '',
+            amount: result.existingInvoiceAmount ?? 0
+          });
+        } else {
+          this.duplicateWarning.set(null);
+        }
+      },
+      error: () => this.duplicateWarning.set(null)
+    });
+
+    // Wire supplierInvoiceNumber input to the check stream
+    this.form.get('supplierInvoiceNumber')?.valueChanges.subscribe(val => {
+      if (val) this.invoiceNumberCheck$.next(val);
+      else this.duplicateWarning.set(null);
     });
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;

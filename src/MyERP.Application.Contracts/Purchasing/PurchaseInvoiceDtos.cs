@@ -78,6 +78,16 @@ public class ThreeWayMatchingItemDto
     public bool HasRateDiscrepancy { get; set; }
 }
 
+/// <summary>Result of real-time supplier invoice duplicate check (advisory, non-blocking).</summary>
+public class DuplicateInvoiceCheckResultDto
+{
+    public bool IsDuplicate { get; set; }
+    public Guid? ExistingInvoiceId { get; set; }
+    public string? ExistingInvoiceNumber { get; set; }
+    public DateTime? ExistingInvoiceDate { get; set; }
+    public decimal? ExistingInvoiceAmount { get; set; }
+}
+
 /// <summary>Tax withholding (TDS/WHT) entry for a purchase invoice — per Malaysia Section 107A.</summary>
 public class TaxWithholdingEntryDto
 {

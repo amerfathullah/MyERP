@@ -105,7 +105,7 @@ interface AddressDto {
               <div class="row g-2">
                 <div class="col-md-4">
                   <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
-                  <input class="form-control form-control-sm" formControlName="title" placeholder="e.g. Head Office" />
+                  <input class="form-control form-control-sm" formControlName="title" [placeholder]="'::Placeholder:HeadOffice' | abpLocalization" />
                 </div>
                 <div class="col-md-4">
                   <label class="form-label">{{ '::Type' | abpLocalization }}</label>

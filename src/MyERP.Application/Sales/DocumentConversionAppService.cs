@@ -177,10 +177,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             if (pendingQty > 0)
             {
                 deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
-                // Carry forward UOM conversion data from SO item
                 var lastItem = deliveryNote.Items[^1];
                 lastItem.StockUom = item.StockUom;
                 lastItem.ConversionFactor = item.ConversionFactor;
+                lastItem.WarehouseId = item.WarehouseId;
             }
         }
 

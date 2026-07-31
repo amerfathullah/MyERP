@@ -119,6 +119,41 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }).ToList();
     }
 
+    /// <summary>
+    /// Real-time duplicate supplier invoice check (advisory, non-blocking).
+    /// Called on keyup as user types supplier invoice number — warns before submit.
+    /// Per ERPNext: FY-scoped uniqueness per (supplier, company, invoice_number).
+    /// </summary>
+    public async Task<DuplicateInvoiceCheckResultDto> CheckDuplicateSupplierInvoiceAsync(
+        Guid supplierId, Guid companyId, string supplierInvoiceNumber, Guid? excludeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(supplierInvoiceNumber))
+            return new DuplicateInvoiceCheckResultDto { IsDuplicate = false };
+
+        var query = await _repository.GetQueryableAsync();
+        var duplicate = query
+            .Where(pi =>
+                pi.SupplierId == supplierId
+                && pi.CompanyId == companyId
+                && pi.SupplierInvoiceNumber == supplierInvoiceNumber
+                && pi.Status != Core.DocumentStatus.Cancelled
+                && (!excludeId.HasValue || pi.Id != excludeId.Value))
+            .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.GrandTotal })
+            .FirstOrDefault();
+
+        if (duplicate == null)
+            return new DuplicateInvoiceCheckResultDto { IsDuplicate = false };
+
+        return new DuplicateInvoiceCheckResultDto
+        {
+            IsDuplicate = true,
+            ExistingInvoiceId = duplicate.Id,
+            ExistingInvoiceNumber = duplicate.InvoiceNumber,
+            ExistingInvoiceDate = duplicate.IssueDate,
+            ExistingInvoiceAmount = duplicate.GrandTotal,
+        };
+    }
+
     public async Task<List<ThreeWayMatchingItemDto>> GetThreeWayMatchingAsync(Guid invoiceId)
     {
         var pi = await _repository.GetAsync(invoiceId);

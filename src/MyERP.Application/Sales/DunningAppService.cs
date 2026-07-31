@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Accounting.Entities;
@@ -31,6 +32,8 @@ public class DunningDto : EntityDto<Guid>
     public decimal GrandTotal { get; set; }
     public int Status { get; set; }
     public int OverduePaymentCount { get; set; }
+    public DateTime? EmailSentAt { get; set; }
+    public string? EmailSentTo { get; set; }
 
     /// <summary>Detailed overdue invoice entries (per ERPNext dunning_overdue_payment child table).</summary>
     public List<DunningOverduePaymentDto> OverduePayments { get; set; } = new();
@@ -65,6 +68,12 @@ public class CreateDunningOverdueDto
     public decimal OutstandingAmount { get; set; }
     public DateTime DueDate { get; set; }
     public int OverdueDays { get; set; }
+}
+
+public class SendDunningEmailDto
+{
+    public string? RecipientEmail { get; set; }
+    public string? Cc { get; set; }
 }
 
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
@@ -232,6 +241,62 @@ public class DunningAppService : ApplicationService
         d.Cancel();
         await _repository.UpdateAsync(d);
         return ObjectMapper.Map<Dunning, DunningDto>(d);
+    }
+
+    /// <summary>
+    /// Send dunning notice email to customer with overdue invoice details.
+    /// Per ERPNext dunning.py: get_dunning_letter_text renders per-language template.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesInvoices.Submit)]
+    public async Task SendDunningEmailAsync(Guid id, SendDunningEmailDto input)
+    {
+        var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+        if (d.Status != DocumentStatus.Submitted)
+            throw new BusinessException("MyERP:01002")
+                .WithData("reason", "Dunning must be submitted before sending email");
+
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var customer = await customerRepo.GetAsync(d.CustomerId);
+        var company = await companyRepo.GetAsync(d.CompanyId);
+
+        var recipientEmail = input.RecipientEmail ?? customer.Email;
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+            throw new BusinessException("MyERP:09001")
+                .WithData("reason", "No email address for customer. Provide a recipient email.");
+
+        var invoiceDetails = d.OverduePayments
+            .OrderByDescending(p => p.OverdueDays)
+            .Select(p => $"  • Outstanding {p.OutstandingAmount:N2} (overdue {p.OverdueDays} days)")
+            .ToList();
+
+        var subject = $"Payment Reminder - Level {d.DunningLevel} - {company.Name}";
+        var body = $"""
+            Dear {customer.Name},
+
+            This is a reminder that the following invoices are overdue:
+
+            {string.Join("\n", invoiceDetails)}
+
+            Total Outstanding: {d.TotalOutstanding:N2}
+            Dunning Fee: {d.DunningFee:N2}
+            Interest: {d.InterestAmount:N2}
+            Grand Total Due: {d.GrandTotal:N2}
+
+            Please arrange payment at your earliest convenience.
+
+            Regards,
+            {company.Name}
+            """;
+
+        var emailService = LazyServiceProvider.LazyGetRequiredService<DocumentEmailService>();
+        var ccEmails = string.IsNullOrWhiteSpace(input.Cc)
+            ? null
+            : input.Cc.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        await emailService.SendCustomEmailAsync(recipientEmail, subject, body, ccEmails: ccEmails);
+
+        d.MarkEmailSent(recipientEmail);
+        await _repository.UpdateAsync(d);
     }
 }
 
