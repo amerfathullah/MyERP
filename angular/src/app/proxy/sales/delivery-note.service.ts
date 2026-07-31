@@ -2,7 +2,7 @@ import type { CreateDeliveryNoteDto, DeliveryNoteDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CompanyFilteredPagedRequestDto } from '../shared/models';
+import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -16,6 +16,15 @@ export class DeliveryNoteService {
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
       url: `/api/app/delivery-note/${id}/amend`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BulkOperationResultDto>({
+      method: 'POST',
+      url: '/api/app/delivery-note/bulk-submit',
+      body: ids,
     },
     { apiName: this.apiName,...config });
   
@@ -67,14 +76,6 @@ export class DeliveryNoteService {
       method: 'PUT',
       url: `/api/app/delivery-note/${id}`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: `/api/app/delivery-note/bulk-submit`,
-      body: ids,
     },
     { apiName: this.apiName,...config });
 }

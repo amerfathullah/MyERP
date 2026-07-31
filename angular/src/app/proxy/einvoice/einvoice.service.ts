@@ -44,4 +44,13 @@ export class EInvoiceService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
+
+  submitConsolidated = (input: SubmitEInvoiceDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, EInvoiceSubmissionDto>({
+      method: 'POST',
+      url: '/api/app/e-invoice/submit-consolidated',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
 }

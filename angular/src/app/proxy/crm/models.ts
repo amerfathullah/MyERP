@@ -1,8 +1,36 @@
+import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { ContractStatus } from './entities/contract-status.enum';
 import type { OpportunityType } from './opportunity-type.enum';
 import type { LeadSource } from './lead-source.enum';
-import type { AuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { LeadStatus } from './lead-status.enum';
 import type { OpportunityStatus } from './opportunity-status.enum';
+import type { ShipmentStatus } from '../sales/entities/shipment-status.enum';
+
+export interface ContractDto extends EntityDto<string> {
+  companyId?: string;
+  contractNumber?: string;
+  contractName?: string | null;
+  partyType?: string;
+  partyId?: string;
+  partyName?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  signingDate?: string | null;
+  status?: ContractStatus;
+  contractValue?: number | null;
+  currencyCode?: string | null;
+  requiresFulfilment?: boolean;
+  isAutoRenewal?: boolean;
+  notes?: string | null;
+}
+
+export interface ConvertLeadToCustomerDto {
+  leadId: string;
+  customerName?: string | null;
+  tin?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
+}
 
 export interface ConvertLeadToOpportunityDto {
   leadId: string;
@@ -11,6 +39,22 @@ export interface ConvertLeadToOpportunityDto {
   opportunityAmount?: number;
   salesStage?: string | null;
   expectedClosingDate?: string | null;
+}
+
+export interface CreateContractDto {
+  companyId?: string;
+  contractName?: string | null;
+  partyType?: string;
+  partyId?: string;
+  startDate?: string;
+  endDate?: string | null;
+  contractTerms?: string | null;
+  contractValue?: number | null;
+  currencyCode?: string | null;
+  requiresFulfilment?: boolean;
+  isAutoRenewal?: boolean;
+  renewalReminderDays?: number | null;
+  notes?: string | null;
 }
 
 export interface CreateLeadDto {
@@ -59,6 +103,39 @@ export interface CreateOpportunityItemDto {
   quantity?: number;
   unitPrice?: number;
   uom?: string | null;
+}
+
+export interface CreateProspectDto {
+  companyId?: string;
+  prospectName?: string;
+  companyName?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  territory?: string | null;
+  customerGroup?: string | null;
+  annualRevenue?: number | null;
+  numberOfEmployees?: number | null;
+  notes?: string | null;
+}
+
+export interface CreateShipmentDto {
+  companyId?: string;
+  pickupFromType?: string | null;
+  pickupFromId?: string | null;
+  pickupAddressId?: string | null;
+  deliveryToType?: string | null;
+  deliveryToId?: string | null;
+  deliveryAddressId?: string | null;
+  pickupDate?: string | null;
+  carrier?: string | null;
+  carrierService?: string | null;
+  totalNetWeight?: number | null;
+  totalGrossWeight?: number | null;
+  weightUom?: string | null;
+  valueOfGoods?: number | null;
+  currencyCode?: string | null;
+  notes?: string | null;
+  deliveryNoteIds?: string[] | null;
 }
 
 export interface GetLeadListDto extends PagedAndSortedResultRequestDto {
@@ -134,6 +211,84 @@ export interface OpportunityItemDto {
   uom?: string | null;
 }
 
+export interface PipelineOpportunityDto {
+  id?: string;
+  title?: string;
+  salesStage?: string;
+  amount?: number;
+  probability?: number;
+  weightedAmount?: number;
+  expectedClosingDate?: string | null;
+  contactName?: string | null;
+  daysOpen?: number;
+}
+
+export interface PipelineStageDto {
+  stageName?: string;
+  count?: number;
+  totalAmount?: number;
+  weightedAmount?: number;
+  avgProbability?: number;
+}
+
+export interface ProspectDto extends EntityDto<string> {
+  companyId?: string;
+  prospectName?: string;
+  companyName?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  territory?: string | null;
+  annualRevenue?: number | null;
+  numberOfEmployees?: number | null;
+  isConverted?: boolean;
+  convertedCustomerId?: string | null;
+  leadCount?: number;
+  opportunityCount?: number;
+  notes?: string | null;
+}
+
+export interface SalesPipelineDashboardDto {
+  totalLeads?: number;
+  activeLeads?: number;
+  qualifiedLeads?: number;
+  lostLeads?: number;
+  totalOpportunities?: number;
+  openOpportunities?: number;
+  openOpportunitiesAmount?: number;
+  weightedPipelineValue?: number;
+  wonOpportunities?: number;
+  wonAmount?: number;
+  lostOpportunities?: number;
+  stageBreakdown?: PipelineStageDto[];
+  totalQuotations?: number;
+  openQuotations?: number;
+  openQuotationsAmount?: number;
+  convertedQuotations?: number;
+  ordersThisMonth?: number;
+  ordersThisMonthAmount?: number;
+  leadToOpportunityRate?: number;
+  opportunityToQuotationRate?: number;
+  quotationToOrderRate?: number;
+}
+
+export interface ShipmentDto extends EntityDto<string> {
+  companyId?: string;
+  shipmentNumber?: string;
+  pickupFromName?: string | null;
+  deliveryToName?: string | null;
+  pickupDate?: string | null;
+  deliveryDate?: string | null;
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  status?: ShipmentStatus;
+  deliveryNoteCount?: number;
+  totalNetWeight?: number | null;
+  valueOfGoods?: number | null;
+  currencyCode?: string | null;
+  notes?: string | null;
+}
+
 export interface UpdateLeadDto {
   firstName: string;
   lastName?: string | null;
@@ -168,4 +323,8 @@ export interface UpdateOpportunityDto {
   territory?: string | null;
   notes?: string | null;
   items?: CreateOpportunityItemDto[];
+}
+
+export interface UpdateOpportunityStageDto {
+  salesStage: string;
 }

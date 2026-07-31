@@ -20,6 +20,15 @@ export class ExchangeRateRevaluationService {
     { apiName: this.apiName,...config });
   
 
+  createReversal = (revaluationJournalEntryId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      responseType: 'text',
+      url: `/api/app/exchange-rate-revaluation/reversal/${revaluationJournalEntryId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getEligibleAccounts = (companyId: string, companyCurrency: string, postingDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EligibleAccountDto[]>({
       method: 'GET',

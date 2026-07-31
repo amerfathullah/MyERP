@@ -86,6 +86,23 @@ public class ProspectAppService : ApplicationService
         await _repository.DeleteAsync(id);
     }
 
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<ProspectDto> UpdateAsync(Guid id, CreateProspectDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.ProspectName = input.ProspectName;
+        entity.CompanyName = input.CompanyName;
+        entity.Industry = input.Industry;
+        entity.Website = input.Website;
+        entity.Territory = input.Territory;
+        entity.CustomerGroup = input.CustomerGroup;
+        entity.AnnualRevenue = input.AnnualRevenue;
+        entity.NumberOfEmployees = input.NumberOfEmployees;
+        entity.Notes = input.Notes;
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
     private static ProspectDto MapToDto(Prospect e) => new()
     {
         Id = e.Id,
@@ -182,6 +199,22 @@ public class ContractAppService : ApplicationService
     {
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<ContractDto> UpdateAsync(Guid id, CreateContractDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.ContractName = input.ContractName;
+        entity.EndDate = input.EndDate;
+        entity.ContractTerms = input.ContractTerms;
+        entity.ContractValue = input.ContractValue;
+        entity.CurrencyCode = input.CurrencyCode;
+        entity.RequiresFulfilment = input.RequiresFulfilment;
+        entity.IsAutoRenewal = input.IsAutoRenewal;
+        entity.Notes = input.Notes;
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }

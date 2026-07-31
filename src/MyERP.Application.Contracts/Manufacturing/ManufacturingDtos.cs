@@ -304,6 +304,10 @@ public interface IManufacturingAppService : IApplicationService
 
     // Cost Analysis
     Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId);
+
+    // Planning & Reporting
+    Task<ProductionScheduleDto> GetProductionScheduleAsync(Guid companyId);
+    Task<MaterialShortageAcrossOrdersDto> GetMaterialShortageAcrossOrdersAsync(Guid companyId);
 }
 
 /// <summary>

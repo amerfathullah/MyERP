@@ -1,4 +1,4 @@
-import type { CreateSubscriptionDto, GeneratedInvoiceDto, SubscriptionDto } from './models';
+import type { CreateSubscriptionDto, GeneratedInvoiceDto, PlanDimensionsDto, SubscriptionDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -37,6 +37,14 @@ export class SubscriptionService {
     { apiName: this.apiName,...config });
   
 
+  generateCatchUpInvoices = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, GeneratedInvoiceDto[]>({
+      method: 'POST',
+      url: `/api/app/subscription/${id}/generate-catch-up-invoices`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   generateInvoice = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, GeneratedInvoiceDto>({
       method: 'POST',
@@ -58,6 +66,15 @@ export class SubscriptionService {
       method: 'GET',
       url: '/api/app/subscription',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPlanDimensions = (itemId: string, companyId: string, partyType?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PlanDimensionsDto>({
+      method: 'GET',
+      url: '/api/app/subscription/plan-dimensions',
+      params: { itemId, companyId, partyType },
     },
     { apiName: this.apiName,...config });
 }

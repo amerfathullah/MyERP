@@ -1,3 +1,4 @@
+import * as Entities from './entities';
 export * from './asset-capitalization.service';
 export * from './asset-category.service';
 export * from './asset-movement.service';
@@ -7,3 +8,4 @@ export * from './asset.service';
 export * from './depreciation-method.enum';
 export * from './maintenance.service';
 export * from './models';
+export { Entities };

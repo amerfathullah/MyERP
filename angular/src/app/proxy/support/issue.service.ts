@@ -1,4 +1,4 @@
-import type { CreateIssueDto, GetIssueListDto, IssueDto } from './models';
+import type { CreateIssueDto, GetIssueListDto, IssueDto, ResolveIssueDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -32,7 +32,7 @@ export class IssueService {
     this.restService.request<any, PagedResultDto<IssueDto>>({
       method: 'GET',
       url: '/api/app/issue',
-      params: { status: input.status, companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { status: input.status, companyId: input.companyId, filter: input.filter, priority: input.priority, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -61,11 +61,11 @@ export class IssueService {
     { apiName: this.apiName,...config });
   
 
-  resolve = (id: string, resolution?: string, config?: Partial<Rest.Config>) =>
+  resolve = (id: string, input: ResolveIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
       url: `/api/app/issue/${id}/resolve`,
-      params: { resolution },
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

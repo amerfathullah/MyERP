@@ -1,4 +1,4 @@
-import type { BankStatementImportInput, BankStatementImportResult } from './models';
+import type { BankStatementImportInput, BankStatementImportResult, Mt940ImportInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -14,6 +14,15 @@ export class BankStatementImportService {
     this.restService.request<any, BankStatementImportResult>({
       method: 'POST',
       url: '/api/app/bank-statement-import/import-from-csv',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  importFromMt940 = (input: Mt940ImportInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BankStatementImportResult>({
+      method: 'POST',
+      url: '/api/app/bank-statement-import/import-from-mt940',
       body: input,
     },
     { apiName: this.apiName,...config });

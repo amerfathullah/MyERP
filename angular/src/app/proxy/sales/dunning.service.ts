@@ -1,4 +1,4 @@
-import type { CreateDunningDto, DunningDto } from './models';
+import type { CreateDunningDto, DunningDto, SendDunningEmailDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -50,6 +50,15 @@ export class DunningService {
     this.restService.request<any, DunningDto>({
       method: 'POST',
       url: `/api/app/dunning/${id}/resolve`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  sendDunningEmail = (id: string, input: SendDunningEmailDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: `/api/app/dunning/${id}/send-dunning-email`,
+      body: input,
     },
     { apiName: this.apiName,...config });
   

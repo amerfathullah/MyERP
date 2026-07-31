@@ -1,8 +1,8 @@
-import type { CreatePurchaseReceiptDto, PurchaseReceiptDto } from './models';
+import type { CreatePurchaseReceiptDto, PurchaseReceiptDto, PutawayAllocationResultDto, PutawayItemInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CompanyFilteredPagedRequestDto } from '../shared/models';
+import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -16,6 +16,15 @@ export class PurchaseReceiptService {
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
       url: `/api/app/purchase-receipt/${id}/amend`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BulkOperationResultDto>({
+      method: 'POST',
+      url: '/api/app/purchase-receipt/bulk-submit',
+      body: ids,
     },
     { apiName: this.apiName,...config });
   
@@ -54,6 +63,15 @@ export class PurchaseReceiptService {
     { apiName: this.apiName,...config });
   
 
+  getPutawayAllocations = (companyId: string, items: PutawayItemInput[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PutawayAllocationResultDto[]>({
+      method: 'GET',
+      url: `/api/app/purchase-receipt/putaway-allocations/${companyId}`,
+      params: { items },
+    },
+    { apiName: this.apiName,...config });
+  
+
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
@@ -67,14 +85,6 @@ export class PurchaseReceiptService {
       method: 'PUT',
       url: `/api/app/purchase-receipt/${id}`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: `/api/app/purchase-receipt/bulk-submit`,
-      body: ids,
     },
     { apiName: this.apiName,...config });
 }

@@ -11,6 +11,14 @@ export class QualityInspectionService {
   apiName = 'Default';
   
 
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, QualityInspectionDto>({
+      method: 'POST',
+      url: `/api/app/quality-inspection/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateQualityInspectionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionDto>({
       method: 'POST',

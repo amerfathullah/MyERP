@@ -1,4 +1,4 @@
-import type { CreateStockEntryDto, CreateTransitTransferDto, ManufactureItemsDto, PendingTransitTransferDto, StockEntryDto } from './models';
+import type { CreateStockEntryDto, CreateTransitTransferDto, ManufactureItemsDto, MaterialRequestItemsForSeDto, PendingTransitTransferDto, StockEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -71,6 +71,14 @@ export class StockEntryService {
     { apiName: this.apiName,...config });
   
 
+  getItemsFromMaterialRequest = (materialRequestId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialRequestItemsForSeDto>({
+      method: 'GET',
+      url: `/api/app/stock-entry/items-from-material-request/${materialRequestId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<StockEntryDto>>({
       method: 'GET',
@@ -93,13 +101,6 @@ export class StockEntryService {
     this.restService.request<any, PendingTransitTransferDto[]>({
       method: 'GET',
       url: `/api/app/stock-entry/pending-transit-transfers/${companyId}`,
-    },
-    { apiName: this.apiName,...config });
-
-  getItemsFromMaterialRequest = (materialRequestId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'GET',
-      url: `/api/app/stock-entry/items-from-material-request/${materialRequestId}`,
     },
     { apiName: this.apiName,...config });
   

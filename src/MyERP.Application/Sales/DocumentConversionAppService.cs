@@ -144,7 +144,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
-    public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId)
+    public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto>? selectedItems = null)
     {
         var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
 
@@ -167,26 +167,46 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         deliveryNote.SalesOrderId = salesOrder.Id;
         deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
 
-        foreach (var item in salesOrder.Items)
+        if (selectedItems is { Count: > 0 })
         {
-            // Per ERPNext: exclude drop-ship items (delivered by supplier directly, bypass warehouse)
-            if (item.DeliveredBySupplier) continue;
-
-            // Only convert pending delivery qty (skip already-delivered items)
-            var pendingQty = item.PendingDeliveryQty;
-            if (pendingQty > 0)
+            var soItemMap = salesOrder.Items.ToDictionary(i => i.Id);
+            foreach (var sel in selectedItems)
             {
-                deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem)) continue;
+                var deliverQty = Math.Min(sel.Quantity, soItem.PendingDeliveryQty);
+                if (deliverQty <= 0) continue;
+                deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, soItem.TaxAmount, soItem.Uom, soItem.Id);
                 var lastItem = deliveryNote.Items[^1];
-                lastItem.StockUom = item.StockUom;
-                lastItem.ConversionFactor = item.ConversionFactor;
-                lastItem.WarehouseId = item.WarehouseId;
+                lastItem.StockUom = soItem.StockUom;
+                lastItem.ConversionFactor = soItem.ConversionFactor;
+                lastItem.WarehouseId = sel.WarehouseId ?? soItem.WarehouseId;
+            }
+        }
+        else
+        {
+            foreach (var item in salesOrder.Items)
+            {
+                if (item.DeliveredBySupplier) continue;
+                var pendingQty = item.PendingDeliveryQty;
+                if (pendingQty > 0)
+                {
+                    deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                    var lastItem = deliveryNote.Items[^1];
+                    lastItem.StockUom = item.StockUom;
+                    lastItem.ConversionFactor = item.ConversionFactor;
+                    lastItem.WarehouseId = item.WarehouseId;
+                }
             }
         }
 
+        if (deliveryNote.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
+                .WithData("reason", "No items have pending delivery quantity.");
+
         await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
 
-        // Audit trail
         await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
             "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
 
@@ -255,70 +275,6 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 .WithData("documentType", "SalesOrder")
                 .WithData("documentNumber", salesOrder.OrderNumber ?? "")
                 .WithData("reason", $"No items with delivery date on or before {untilDeliveryDate:yyyy-MM-dd} have pending delivery.");
-
-        await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
-
-        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
-            "DeliveryNote", deliveryNote.Id, salesOrder.OrderNumber, salesOrder.TenantId);
-
-        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(deliveryNote);
-    }
-
-    [Authorize(MyERPPermissions.DeliveryNotes.Create)]
-    public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto> selectedItems)
-    {
-        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
-
-        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
-            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
-
-        if (selectedItems == null || selectedItems.Count == 0)
-            throw new BusinessException("MyERP:01007")
-                .WithData("documentType", "Delivery Note — no items selected for delivery");
-
-        var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", salesOrder.CompanyId);
-
-        // Resolve warehouse: prefer selection override → SO item warehouse → first available
-        var firstWarehouseId = selectedItems.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
-            ?? salesOrder.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
-            ?? throw new BusinessException("MyERP:01007")
-                .WithData("documentType", "Delivery Note — no warehouse available");
-
-        var deliveryNote = new DeliveryNote(
-            GuidGenerator.Create(),
-            salesOrder.CompanyId,
-            salesOrder.CustomerId,
-            firstWarehouseId,
-            deliveryNumber,
-            Clock.Now.Date,
-            salesOrder.TenantId);
-
-        deliveryNote.SalesOrderId = salesOrder.Id;
-        deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
-
-        // Map selected items from SO — validate quantities against pending
-        var soItemMap = salesOrder.Items.ToDictionary(i => i.Id);
-        foreach (var sel in selectedItems)
-        {
-            if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem))
-                continue; // Skip invalid item IDs
-
-            var pendingQty = soItem.PendingDeliveryQty;
-            var deliverQty = Math.Min(sel.Quantity, pendingQty); // Cap at pending (prevent over-delivery at conversion time)
-            if (deliverQty <= 0) continue;
-
-            var warehouseId = sel.WarehouseId ?? soItem.WarehouseId;
-            deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, soItem.TaxAmount, soItem.Uom, soItem.Id);
-            var lastItem = deliveryNote.Items[^1];
-            lastItem.StockUom = soItem.StockUom;
-            lastItem.ConversionFactor = soItem.ConversionFactor;
-        }
-
-        if (deliveryNote.Items.Count == 0)
-            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
-                .WithData("documentType", "SalesOrder")
-                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
-                .WithData("reason", "All selected items have been fully delivered or have zero pending quantity.");
 
         await _deliveryNoteRepository.InsertAsync(deliveryNote, autoSave: true);
 

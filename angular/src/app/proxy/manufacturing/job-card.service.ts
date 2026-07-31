@@ -45,6 +45,14 @@ export class JobCardService {
     { apiName: this.apiName,...config });
   
 
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/job-card/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JobCardDto>({
       method: 'GET',
@@ -82,6 +90,15 @@ export class JobCardService {
     this.restService.request<any, JobCardDto>({
       method: 'POST',
       url: `/api/app/job-card/${id}/start`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  update = (id: string, input: CreateJobCardDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JobCardDto>({
+      method: 'PUT',
+      url: `/api/app/job-card/${id}`,
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

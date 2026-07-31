@@ -3,6 +3,34 @@ import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedR
 import type { SubcontractingOrderStatus } from './entities/subcontracting-order-status.enum';
 import type { SubcontractingReceiptStatus } from './entities/subcontracting-receipt-status.enum';
 
+export interface ComparisonItemDto {
+  itemId?: string;
+  itemDescription?: string;
+  supplierPrices?: ComparisonPriceDto[];
+  lowestRate?: number;
+}
+
+export interface ComparisonPriceDto {
+  supplierId?: string;
+  quotationId?: string;
+  rate?: number;
+  quantity?: number;
+  amount?: number;
+  leadTimeDays?: number | null;
+  isQuoted?: boolean;
+  isLowestPrice?: boolean;
+}
+
+export interface ComparisonSupplierDto {
+  supplierId?: string;
+  supplierName?: string;
+  quotationId?: string;
+  quotationNumber?: string | null;
+  currency?: string | null;
+  validTill?: string | null;
+  grandTotal?: number;
+}
+
 export interface CreateCriterionDto {
   name?: string;
   weight?: number;
@@ -35,18 +63,6 @@ export interface CreatePurchaseInvoiceItemDto {
   quantity: number;
   unitPrice: number;
   taxAmount?: number;
-  uom?: string;
-}
-
-export interface UnbilledPurchaseOrderItemDto {
-  purchaseOrderId?: string;
-  orderNumber?: string;
-  orderDate?: string;
-  purchaseOrderItemId?: string;
-  itemId?: string;
-  itemName?: string;
-  unbilledQty?: number;
-  rate?: number;
   uom?: string;
 }
 
@@ -235,6 +251,29 @@ export interface CreateUpdateSupplierDto {
   isActive?: boolean;
 }
 
+export interface DeliveryPerformanceReportDto {
+  suppliers?: SupplierDeliveryPerformanceDto[];
+  totalOrders?: number;
+  totalOnTime?: number;
+  totalLate?: number;
+  totalPending?: number;
+  overallOnTimeRate?: number;
+  overallAvgDelayDays?: number;
+}
+
+export interface DropShipDeliveryItemDto {
+  purchaseOrderItemId: string;
+  qtyChange: number;
+}
+
+export interface DuplicateInvoiceCheckResultDto {
+  isDuplicate?: boolean;
+  existingInvoiceId?: string | null;
+  existingInvoiceNumber?: string | null;
+  existingInvoiceDate?: string | null;
+  existingInvoiceAmount?: number | null;
+}
+
 export interface GetScoListDto extends PagedAndSortedResultRequestDto {
   status?: SubcontractingOrderStatus | null;
   companyId?: string | null;
@@ -242,6 +281,41 @@ export interface GetScoListDto extends PagedAndSortedResultRequestDto {
 
 export interface GetSupplierListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+}
+
+export interface InvoicePaymentDto {
+  id?: string;
+  paymentNumber?: string;
+  postingDate?: string;
+  amount?: number;
+  status?: string;
+}
+
+export interface MrFulfillmentStatusDto {
+  materialRequestId?: string;
+  isFullyFulfilled?: boolean;
+  items?: MrItemFulfillmentDto[];
+}
+
+export interface MrItemFulfillmentDto {
+  itemId?: string;
+  requestedQty?: number;
+  orderedQty?: number;
+  pendingQty?: number;
+  perOrdered?: number;
+}
+
+export interface PendingMaterialRequestItemDto {
+  materialRequestId?: string;
+  materialRequestNumber?: string;
+  requestDate?: string;
+  requiredByDate?: string | null;
+  materialRequestItemId?: string;
+  itemId?: string;
+  itemName?: string;
+  pendingQty?: number;
+  uom?: string;
+  warehouseId?: string | null;
 }
 
 export interface PurchaseInvoiceDto extends EntityDto<string> {
@@ -274,8 +348,6 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   creditToAccountId?: string;
   daysOverdue?: number;
   isOverdue?: boolean;
-  updateStock?: boolean;
-  warehouseId?: string | null;
   items?: PurchaseInvoiceItemDto[];
 }
 
@@ -288,6 +360,17 @@ export interface PurchaseInvoiceItemDto {
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  purchaseOrderItemId?: string | null;
+  purchaseReceiptItemId?: string | null;
+}
+
+export interface PurchaseInvoiceListSummaryDto {
+  totalPayable?: number;
+  overdueCount?: number;
+  overdueAmount?: number;
+  monthlySpend?: number;
+  monthlyInvoiceCount?: number;
+  postedInvoiceCount?: number;
 }
 
 export interface PurchaseOrderDto extends EntityDto<string> {
@@ -306,7 +389,6 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   advancePaid?: number;
   perAdvancePaid?: number;
   notes?: string | null;
-  // Supplier Confirmation Tracking
   supplierConfirmationNumber?: string | null;
   supplierConfirmationDate?: string | null;
   supplierPromisedDate?: string | null;
@@ -353,12 +435,14 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
 export interface PurchaseReceiptItemDto {
   id?: string;
   itemId?: string;
+  itemName?: string | null;
   description?: string;
   uom?: string;
   quantity?: number;
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
+  billedQty?: number;
   purchaseOrderItemId?: string | null;
 }
 
@@ -374,6 +458,24 @@ export interface PurchaseRegisterLineDto {
   amountPaid?: number;
   outstanding?: number;
   isReturn?: boolean;
+}
+
+export interface PutawayAllocationResultDto {
+  itemId?: string;
+  warehouseId?: string;
+  qty?: number;
+  isUnallocated?: boolean;
+}
+
+export interface PutawayItemInput {
+  itemId?: string;
+  qty?: number;
+}
+
+export interface RecordSupplierConfirmationDto {
+  confirmationNumber?: string | null;
+  confirmationDate?: string | null;
+  promisedDeliveryDate?: string | null;
 }
 
 export interface RfqDto {
@@ -491,6 +593,18 @@ export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   status?: SubcontractingReceiptStatus;
 }
 
+export interface SupplierDeliveryPerformanceDto {
+  supplierId?: string;
+  supplierName?: string;
+  totalOrders?: number;
+  onTimeDeliveries?: number;
+  lateDeliveries?: number;
+  pendingDeliveries?: number;
+  onTimeRate?: number;
+  avgDelayDays?: number;
+  totalOrderValue?: number;
+}
+
 export interface SupplierDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   name?: string;
@@ -511,6 +625,34 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   country?: string | null;
   defaultPayableAccountId?: string | null;
   isActive?: boolean;
+}
+
+export interface SupplierPaymentLineDto {
+  supplierId?: string;
+  supplierName?: string;
+  invoiceCount?: number;
+  totalInvoiced?: number;
+  totalPaid?: number;
+  totalOutstanding?: number;
+  overdueCount?: number;
+  overdueAmount?: number;
+  paymentTimeliness?: number;
+}
+
+export interface SupplierPaymentSummaryReportDto {
+  items?: SupplierPaymentLineDto[];
+  totalInvoiced?: number;
+  totalPaid?: number;
+  totalOutstanding?: number;
+  totalOverdueAmount?: number;
+  supplierCount?: number;
+}
+
+export interface SupplierQuotationComparisonDto {
+  rfqId?: string | null;
+  suppliers?: ComparisonSupplierDto[];
+  items?: ComparisonItemDto[];
+  lowestTotalAmount?: number;
 }
 
 export interface SupplierQuotationDto extends EntityDto<string> {
@@ -536,11 +678,92 @@ export interface SupplierQuotationItemDto {
   amount?: number;
 }
 
-export interface PurchaseInvoiceListSummaryDto {
-  totalPayable: number;
-  overdueCount: number;
-  overdueAmount: number;
-  monthlySpend: number;
-  monthlyInvoiceCount: number;
-  postedInvoiceCount: number;
+export interface TaxWithholdingEntryDto {
+  id?: string;
+  taxCategory?: string | null;
+  withholdingRate?: number;
+  taxableAmount?: number;
+  withheldAmount?: number;
+  postingDate?: string;
+  hasLDC?: boolean;
+  ldcRate?: number | null;
+  certificateNumber?: string | null;
+  status?: string | null;
+}
+
+export interface ThreeWayMatchingItemDto {
+  piItemId?: string;
+  itemDescription?: string;
+  billedQty?: number;
+  billedRate?: number;
+  orderedQty?: number | null;
+  orderedRate?: number | null;
+  receivedQty?: number | null;
+  qtyVariance?: number | null;
+  rateVariance?: number | null;
+  matchLevel?: string;
+  hasQtyDiscrepancy?: boolean;
+  hasRateDiscrepancy?: boolean;
+}
+
+export interface UnbilledPurchaseOrderItemDto {
+  purchaseOrderId?: string;
+  orderNumber?: string | null;
+  orderDate?: string;
+  itemId?: string;
+  itemName?: string | null;
+  quantity?: number;
+  rate?: number;
+  uom?: string | null;
+  purchaseOrderItemId?: string;
+}
+
+export interface UnbilledPurchaseReceiptItemDto {
+  purchaseReceiptId?: string;
+  receiptNumber?: string | null;
+  receiptDate?: string;
+  itemId?: string;
+  itemName?: string | null;
+  quantity?: number;
+  rate?: number;
+  uom?: string | null;
+  purchaseReceiptItemId?: string;
+  purchaseOrderItemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface UnbilledReceiptItemDto {
+  purchaseReceiptId?: string;
+  receiptNumber?: string | null;
+  receiptDate?: string;
+  itemId?: string;
+  itemName?: string | null;
+  quantity?: number;
+  rate?: number;
+  uom?: string | null;
+  purchaseReceiptItemId?: string;
+  purchaseOrderItemId?: string | null;
+}
+
+export interface UpdateDropShipDeliveredQtyDto {
+  items: DropShipDeliveryItemDto[];
+}
+
+export interface UpdateOrderItemDto {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  deliveryDate?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface UpdateOrderItemsDto {
+  items: UpdateOrderItemDto[];
+}
+
+export interface UpdateOrderItemsResultDto {
+  itemsUpdated?: number;
+  newGrandTotal?: number;
+  previousGrandTotal?: number;
+  warnings?: string[];
 }

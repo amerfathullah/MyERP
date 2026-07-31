@@ -34,7 +34,7 @@ export const IssueStore = signalStore(
     ),
     resolve: rxMethod<{ id: string; resolution?: string }>(
       pipe(
-        switchMap(({ id, resolution }) => service.resolve(id, resolution)),
+        switchMap(({ id, resolution }) => service.resolve(id, { resolution })),
         tap((updated) => { patchState(store, updateEntity({ id: updated.id!, changes: updated as IssueEntity })); toaster.success('::SuccessfullyResolved'); }),
         catchError((err) => { toaster.error(err?.error?.error?.message ?? 'Failed'); return EMPTY; }),
       )

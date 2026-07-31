@@ -115,6 +115,7 @@ export interface CreateUpdateEmployeeDto {
   email?: string | null;
   designation?: string | null;
   department?: string | null;
+  gender?: string | null;
   epfNumber?: string | null;
   socsoNumber?: string | null;
   taxNumber?: string | null;
@@ -162,6 +163,7 @@ export interface EmployeeDto extends FullAuditedEntityDto<string> {
   email?: string | null;
   designation?: string | null;
   department?: string | null;
+  gender?: string | null;
   status?: string | null;
 }
 
@@ -181,7 +183,6 @@ export interface ExpenseClaimDto extends EntityDto<string> {
   totalClaimedAmount?: number;
   totalSanctionedAmount?: number;
   totalAmountReimbursed?: number;
-  advanceAmount?: number;
   status?: number;
   expenses?: ExpenseClaimDetailDto[];
 }
@@ -334,6 +335,7 @@ export interface PayrollEntryLineDto {
 export interface RecordRepaymentDto {
   principalAmount?: number;
   interestAmount?: number;
+  totalAmount?: number;
 }
 
 export interface SalaryComponentDto extends EntityDto<string> {

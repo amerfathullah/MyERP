@@ -8,20 +8,22 @@ import { Injectable, inject } from '@angular/core';
 export class PartyDetailsService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   getCustomerDetails = (input: GetPartyDetailsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartyDetailsDto>({
-      method: 'POST',
+      method: 'GET',
       url: '/api/app/party-details/customer-details',
-      body: input,
+      params: { partyId: input.partyId, companyId: input.companyId },
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   getSupplierDetails = (input: GetPartyDetailsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartyDetailsDto>({
-      method: 'POST',
+      method: 'GET',
       url: '/api/app/party-details/supplier-details',
-      body: input,
+      params: { partyId: input.partyId, companyId: input.companyId },
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

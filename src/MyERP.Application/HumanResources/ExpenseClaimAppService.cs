@@ -126,6 +126,15 @@ public class ExpenseClaimAppService : ApplicationService
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
+    [Authorize(MyERPPermissions.Employees.Edit)]
+    public async Task<ExpenseClaimDto> CancelAsync(Guid id)
+    {
+        var ec = await _repository.GetAsync(id);
+        ec.Cancel();
+        await _repository.UpdateAsync(ec);
+        return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
+    }
+
     /// <summary>
     /// Creates a Payment Entry to reimburse an approved/submitted expense claim.
     /// Per ERPNext: validates advance linkage to prevent double-payment.

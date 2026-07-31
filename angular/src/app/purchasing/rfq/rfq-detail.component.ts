@@ -126,7 +126,7 @@ export class RfqDetailComponent implements OnInit {
         next: (sq) => {
           this.isLoading = false;
           this.toaster.success('::SuccessfullyCreated');
-          this.router.navigate(['/purchasing/supplier-quotations', sq.id]);
+          this.router.navigate(['/purchasing/supplier-quotations', (sq as any).id]);
         },
         error: (err) => {
           this.isLoading = false;

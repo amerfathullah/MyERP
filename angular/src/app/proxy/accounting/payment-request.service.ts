@@ -29,19 +29,19 @@ export class PaymentRequestService {
     { apiName: this.apiName,...config });
   
 
+  get = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentRequestDto>({
+      method: 'GET',
+      url: `/api/app/payment-request/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PaymentRequestDto>>({
       method: 'GET',
       url: '/api/app/payment-request',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-  
-
-  get = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PaymentRequestDto>({
-      method: 'GET',
-      url: `/api/app/payment-request/${id}`,
     },
     { apiName: this.apiName,...config });
   

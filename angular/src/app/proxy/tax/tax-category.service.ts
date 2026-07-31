@@ -1,4 +1,4 @@
-import type { CreateUpdateTaxCategoryDto, TaxCategoryDto } from './models';
+import type { CreateUpdateTaxCategoryDto, DefaultTaxLineDto, TaxCategoryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -32,6 +32,15 @@ export class TaxCategoryService {
     this.restService.request<any, TaxCategoryDto>({
       method: 'GET',
       url: `/api/app/tax-category/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getDefaultTaxLines = (transactionType: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DefaultTaxLineDto[]>({
+      method: 'GET',
+      url: '/api/app/tax-category/default-tax-lines',
+      params: { transactionType },
     },
     { apiName: this.apiName,...config });
   

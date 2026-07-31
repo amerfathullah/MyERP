@@ -5,7 +5,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
-import { SupplierPaymentSummaryService, SupplierPaymentSummaryReportDto, SupplierPaymentLineDto } from '../../../proxy/purchasing/supplier-payment-summary.service';
+import { SupplierPaymentSummaryService } from '../../../proxy/purchasing/supplier-payment-summary.service';
+import type { SupplierPaymentSummaryReportDto, SupplierPaymentLineDto } from '../../../proxy/purchasing/models';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 

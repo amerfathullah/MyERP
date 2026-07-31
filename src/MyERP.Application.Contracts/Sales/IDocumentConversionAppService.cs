@@ -14,16 +14,13 @@ public interface IDocumentConversionAppService : IApplicationService
     /// <summary>Convert a submitted Quotation into a Sales Order.</summary>
     Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId);
 
-    /// <summary>Convert a submitted Sales Order into a Delivery Note (all pending items).</summary>
-    Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId);
+    /// <summary>Convert a submitted Sales Order into a Delivery Note. When selectedItems is empty, delivers all pending items.</summary>
+    Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto>? selectedItems = null);
 
     /// <summary>Convert SO items due by a cutoff date into a Delivery Note (scheduled delivery filter).</summary>
     /// <param name="salesOrderId">Sales Order ID</param>
     /// <param name="untilDeliveryDate">Only include items with DeliveryDate on or before this date. Per ERPNext SO→DN mapper: delivery_date cutoff filter for partial scheduled deliveries.</param>
     Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteByDateAsync(Guid salesOrderId, DateTime untilDeliveryDate);
-
-    /// <summary>Convert selected Sales Order items into a partial Delivery Note.</summary>
-    Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto> selectedItems);
 
     /// <summary>Convert a submitted Sales Order into a Sales Invoice.</summary>
     Task<SalesInvoiceDto> ConvertSalesOrderToSalesInvoiceAsync(Guid salesOrderId);

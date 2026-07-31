@@ -1,5 +1,5 @@
 import type { AuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { IssueStatus } from './entities/issue-status.enum';
+import type { IssueStatus } from './issue-status.enum';
 
 export interface CreateIssueDto {
   companyId: string;
@@ -15,9 +15,11 @@ export interface GetIssueListDto extends PagedAndSortedResultRequestDto {
   status?: IssueStatus | null;
   companyId?: string | null;
   filter?: string | null;
+  priority?: string | null;
 }
 
 export interface IssueDto extends AuditedEntityDto<string> {
+  companyId?: string;
   subject?: string;
   description?: string | null;
   status?: IssueStatus;
@@ -28,5 +30,12 @@ export interface IssueDto extends AuditedEntityDto<string> {
   raisedVia?: string | null;
   openingDate?: string;
   resolutionDate?: string | null;
+  resolution?: string | null;
+  firstRespondedOn?: string | null;
+  totalHoldTimeSeconds?: number | null;
+  isSlaBreach?: boolean;
+}
+
+export interface ResolveIssueDto {
   resolution?: string | null;
 }

@@ -1,7 +1,8 @@
-import type { CreateSalesInvoiceDto, PaymentScheduleDto, SalesInvoiceDto, SalesInvoiceListSummaryDto } from './models';
+import type { CreateInvoiceFromDeliveryNotesDto, CreateSalesInvoiceDto, InvoicePaymentHistoryDto, PaymentScheduleDto, SalesInvoiceDto, SalesInvoiceListSummaryDto, UnbilledDeliveryItemDto, UnbilledOrderItemDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
+import type { InvoicePaymentDto } from '../purchasing/models';
 import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -29,15 +30,6 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
-  getListSummary = (companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, SalesInvoiceListSummaryDto>({
-      method: 'GET',
-      url: '/api/app/sales-invoice/list-summary',
-      params: { companyId },
-    },
-    { apiName: this.apiName,...config });
-  
-
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
@@ -50,6 +42,15 @@ export class SalesInvoiceService {
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
       url: '/api/app/sales-invoice',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createFromDeliveryNotes = (input: CreateInvoiceFromDeliveryNotesDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'POST',
+      url: '/api/app/sales-invoice/from-delivery-notes',
       body: input,
     },
     { apiName: this.apiName,...config });
@@ -80,6 +81,22 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  getListSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceListSummaryDto>({
+      method: 'GET',
+      url: `/api/app/sales-invoice/summary/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPaymentHistory = (invoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InvoicePaymentHistoryDto[]>({
+      method: 'GET',
+      url: `/api/app/sales-invoice/payment-history/${invoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getPaymentSchedule = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentScheduleDto[]>({
       method: 'GET',
@@ -88,19 +105,27 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
-  getUnbilledOrderItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
+  getPayments = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InvoicePaymentDto[]>({
       method: 'GET',
-      url: '/api/app/sales-invoice/unbilled-order-items',
-      params: { customerId, companyId },
+      url: `/api/app/sales-invoice/${id}/payments`,
     },
     { apiName: this.apiName,...config });
   
 
   getUnbilledDeliveryItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
+    this.restService.request<any, UnbilledDeliveryItemDto[]>({
       method: 'GET',
       url: '/api/app/sales-invoice/unbilled-delivery-items',
+      params: { customerId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnbilledOrderItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UnbilledOrderItemDto[]>({
+      method: 'GET',
+      url: '/api/app/sales-invoice/unbilled-order-items',
       params: { customerId, companyId },
     },
     { apiName: this.apiName,...config });

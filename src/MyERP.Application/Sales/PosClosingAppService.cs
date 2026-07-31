@@ -161,6 +161,15 @@ public class PosClosingAppService : ApplicationService
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
     }
 
+    [Authorize(MyERPPermissions.SalesInvoices.Submit)]
+    public async Task<PosClosingDto> RetryAsync(Guid id)
+    {
+        var entry = await _repository.GetAsync(id);
+        entry.Retry();
+        await _repository.UpdateAsync(entry, autoSave: true);
+        return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
+    }
+
     /// <summary>
     /// Calculates expected payment amounts per payment mode for a POS shift.
     /// Formula per ERPNext: Expected = Opening Balance + Sum(POS Invoice payments during shift).

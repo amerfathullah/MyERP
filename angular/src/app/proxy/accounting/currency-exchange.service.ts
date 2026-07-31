@@ -1,4 +1,4 @@
-import type { CreateCurrencyExchangeDto, CurrencyExchangeDto } from './models';
+import type { CreateCurrencyExchangeDto, CurrencyExchangeDto, ExchangeRateResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -35,9 +35,10 @@ export class CurrencyExchangeService {
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
+  
 
   getRate = (fromCurrency: string, toCurrency: string, transactionDate?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, { rate: number }>({
+    this.restService.request<any, ExchangeRateResultDto>({
       method: 'GET',
       url: '/api/app/currency-exchange/rate',
       params: { fromCurrency, toCurrency, transactionDate },

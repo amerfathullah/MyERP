@@ -1,4 +1,3 @@
-import * as Entities from './entities';
+export * from './issue-status.enum';
 export * from './issue.service';
 export * from './models';
-export { Entities };

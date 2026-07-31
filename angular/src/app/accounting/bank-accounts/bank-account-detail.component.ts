@@ -2,7 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { BankAccountService, BankAccountDto } from '../../proxy/accounting/bank-account.service';
+import { BankAccountService } from '../../proxy/accounting/bank-account.service';
+import type { BankAccountDto } from '../../proxy/accounting/models';
 import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
 
 @Component({

@@ -387,7 +387,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   }
 
   private resolveSupplierDetails(supplierId: string): void {
-    this.partyDetailsService.getSupplierDetails({ partyType: 'Supplier', partyId: supplierId }).subscribe({
+    this.partyDetailsService.getSupplierDetails({ partyId: supplierId }).subscribe({
       next: (details: any) => {
         if (details.tin) {
           this.form.patchValue({ supplierTin: details.tin });

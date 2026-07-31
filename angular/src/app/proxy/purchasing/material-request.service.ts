@@ -1,4 +1,5 @@
 import type { CreateMaterialRequestDto, GetMaterialRequestListDto, MaterialRequestDto } from './dtos/models';
+import type { MrFulfillmentStatusDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -40,6 +41,14 @@ export class MaterialRequestService {
     this.restService.request<any, MaterialRequestDto>({
       method: 'GET',
       url: `/api/app/material-request/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getFulfillmentStatus = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MrFulfillmentStatusDto>({
+      method: 'GET',
+      url: `/api/app/material-request/${id}/fulfillment-status`,
     },
     { apiName: this.apiName,...config });
   

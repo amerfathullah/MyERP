@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
-import { ContractService, ContractDto } from '../../proxy/crm/contract.service';
+import { ContractService } from '../../proxy/crm/contract.service';
+import type { ContractDto } from '../../proxy/crm/models';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({

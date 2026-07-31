@@ -4,6 +4,8 @@ import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
 import type { ShippingRuleType } from './shipping-rule-type.enum';
+import type { AnalyticsGroupBy } from './analytics-group-by.enum';
+import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 
 export interface ApplyPricingRuleDto {
   itemId?: string | null;
@@ -11,6 +13,16 @@ export interface ApplyPricingRuleDto {
   qty?: number;
   amount?: number;
   transactionDate?: string;
+}
+
+export interface BarcodeScanResultDto {
+  found?: boolean;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  rate?: number;
+  uom?: string | null;
+  barcode?: string | null;
 }
 
 export interface BlanketOrderDto extends EntityDto<string> {
@@ -107,14 +119,27 @@ export interface CreateDeliveryNoteItemDto {
   salesOrderItemId?: string | null;
 }
 
+export interface CreateDeliveryNoteResultDto {
+  deliveryNoteId?: string;
+  deliveryNumber?: string;
+  itemCount?: number;
+  totalAmount?: number;
+}
+
+export interface CreateDnFromPendingDto {
+  customerId?: string;
+  companyId?: string;
+  items?: PendingItemSelectionDto[];
+}
+
 export interface CreateDunningDto {
   companyId?: string;
   customerId?: string;
   customerName?: string | null;
   postingDate?: string;
-  dunningLevel?: number;
   dunningFee?: number;
   interestAmount?: number;
+  interestRatePerAnnum?: number;
   overduePayments?: CreateDunningOverdueDto[];
 }
 
@@ -131,6 +156,16 @@ export interface CreateInstallationNoteDto {
   deliveryNoteId?: string;
   installationDate?: string;
   items?: InstallationNoteItemDto[];
+}
+
+export interface CreateInvoiceFromDeliveryNotesDto {
+  companyId: string;
+  customerId: string;
+  deliveryNoteIds: string[];
+  issueDate?: string | null;
+  currencyCode?: string;
+  paymentTermsTemplateId?: string | null;
+  notes?: string | null;
 }
 
 export interface CreateLoyaltyProgramDto {
@@ -275,6 +310,8 @@ export interface CreateSalesInvoiceDto {
   warehouseId?: string | null;
   couponCode?: string | null;
   loyaltyPointsToRedeem?: number;
+  discountAmount?: number;
+  applyDiscountOn?: string | null;
   items: CreateSalesInvoiceItemDto[];
 }
 
@@ -313,6 +350,16 @@ export interface CreateSalesOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+}
+
+export interface CreateSalesPartnerDto {
+  name: string;
+  partnerType?: number;
+  commissionRate?: number;
+  territoryId?: string | null;
+  website?: string | null;
+  description?: string | null;
+  referralCode?: string | null;
 }
 
 export interface CreateSalesPersonDto {
@@ -482,6 +529,22 @@ export interface DunningDto extends EntityDto<string> {
   grandTotal?: number;
   status?: number;
   overduePaymentCount?: number;
+  emailSentAt?: string | null;
+  emailSentTo?: string | null;
+  overduePayments?: DunningOverduePaymentDto[];
+}
+
+export interface DunningOverduePaymentDto {
+  salesInvoiceId?: string;
+  invoiceNumber?: string | null;
+  outstandingAmount?: number;
+  dueDate?: string;
+  overdueDays?: number;
+}
+
+export interface EmailPreviewDto {
+  subject?: string;
+  body?: string;
 }
 
 export interface GeneratedInvoiceDto {
@@ -493,6 +556,10 @@ export interface GeneratedInvoiceDto {
 }
 
 export interface GetCustomerListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
+export interface GetSalesPartnerListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
@@ -536,6 +603,14 @@ export interface InstallationNoteItemDto {
   itemId?: string;
   qty?: number;
   serialNo?: string | null;
+}
+
+export interface InvoicePaymentHistoryDto {
+  id?: string;
+  paymentNumber?: string | null;
+  postingDate?: string;
+  paymentType?: string | null;
+  amount?: number;
 }
 
 export interface ItemSalesLineDto {
@@ -596,6 +671,16 @@ export interface LoyaltyProgramTierDto {
   redemptionFactor?: number;
 }
 
+export interface OrderPaymentDto {
+  paymentEntryId?: string;
+  paymentNumber?: string;
+  postingDate?: string;
+  paidAmount?: number;
+  paymentType?: string;
+  referenceNumber?: string | null;
+  status?: string;
+}
+
 export interface PackingSlipDto extends EntityDto<string> {
   companyId?: string;
   deliveryNoteId?: string;
@@ -621,6 +706,12 @@ export interface PackingSlipItemDto extends EntityDto<string> {
   deliveryNoteItemId?: string | null;
 }
 
+export interface PartialDeliveryItemDto {
+  salesOrderItemId?: string;
+  quantity?: number;
+  warehouseId?: string | null;
+}
+
 export interface PaymentScheduleDto {
   id?: string;
   dueDate?: string;
@@ -628,10 +719,59 @@ export interface PaymentScheduleDto {
   paymentAmount?: number;
   paidAmount?: number;
   outstanding?: number;
-  discountType?: string;
+  discountType?: string | null;
   discountPercentage?: number;
-  discountValidTill?: string;
+  discountValidTill?: string | null;
   discountedAmount?: number;
+}
+
+export interface PendingDeliveryItemDto {
+  salesOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  deliveryDate?: string | null;
+  customerId?: string;
+  customerName?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  orderedQty?: number;
+  deliveredQty?: number;
+  pendingQty?: number;
+  uom?: string;
+  rate?: number;
+  pendingAmount?: number;
+  daysUntilDue?: number;
+  isOverdue?: boolean;
+  warehouseId?: string | null;
+}
+
+export interface PendingDeliveryReportDto {
+  asOfDate?: string;
+  totalOrders?: number;
+  totalItems?: number;
+  totalPendingAmount?: number;
+  overdueCount?: number;
+  overdueAmount?: number;
+  items?: PendingDeliveryItemDto[];
+}
+
+export interface PendingDeliveryRequestDto {
+  companyId?: string;
+  asOfDate?: string | null;
+  customerId?: string | null;
+  itemId?: string | null;
+  overdueOnly?: boolean;
+}
+
+export interface PendingItemSelectionDto {
+  salesOrderId?: string;
+  itemId?: string;
+  quantity?: number;
+}
+
+export interface PlanDimensionsDto {
+  costCenterId?: string | null;
 }
 
 export interface PosClosingDto {
@@ -659,6 +799,14 @@ export interface PosClosingPaymentDto {
   expectedAmount?: number;
   closingAmount?: number;
   difference?: number;
+}
+
+export interface PosExpectedPaymentDto {
+  modeOfPaymentId?: string;
+  modeName?: string;
+  openingAmount?: number;
+  invoiceTotal?: number;
+  expectedAmount?: number;
 }
 
 export interface PosInvoiceDto extends EntityDto<string> {
@@ -710,6 +858,12 @@ export interface PosOpeningPaymentDto {
   modeOfPaymentId?: string;
   modeName?: string;
   openingAmount?: number;
+}
+
+export interface PreviewEmailInput {
+  documentType?: string;
+  templateId?: string | null;
+  variables?: Record<string, string>;
 }
 
 export interface PricingRuleDto extends EntityDto<string> {
@@ -803,6 +957,30 @@ export interface RegisterReportDto<T> {
   count?: number;
 }
 
+export interface SalesAnalyticsReportDto {
+  periodLabels?: string[];
+  rows?: SalesAnalyticsRowDto[];
+  grandTotal?: number;
+  periodTotals?: number[];
+}
+
+export interface SalesAnalyticsRequestDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  groupBy?: AnalyticsGroupBy;
+  periodType?: AnalyticsPeriodType;
+  valueField?: string | null;
+}
+
+export interface SalesAnalyticsRowDto {
+  entityId?: string;
+  entityName?: string;
+  periodValues?: number[];
+  total?: number;
+  growth?: number;
+}
+
 export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   invoiceNumber?: string;
@@ -824,6 +1002,9 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   status?: string;
   eInvoiceStatus?: string | null;
   lhdnUuid?: string | null;
+  lhdnLongId?: string | null;
+  lhdnSubmissionId?: string | null;
+  lhdnSubmittedAt?: string | null;
   isReturn?: boolean;
   returnAgainstId?: string | null;
   amendedFromId?: string | null;
@@ -831,8 +1012,6 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   debitToAccountId?: string;
   daysOverdue?: number;
   isOverdue?: boolean;
-  updateStock?: boolean;
-  warehouseId?: string | null;
   items?: SalesInvoiceItemDto[];
 }
 
@@ -847,6 +1026,15 @@ export interface SalesInvoiceItemDto {
   lineTotal?: number;
   valuationRate?: number;
   grossProfit?: number;
+}
+
+export interface SalesInvoiceListSummaryDto {
+  totalOutstanding?: number;
+  overdueCount?: number;
+  overdueAmount?: number;
+  monthlyRevenue?: number;
+  monthlyInvoiceCount?: number;
+  postedInvoiceCount?: number;
 }
 
 export interface SalesOrderDto extends FullAuditedEntityDto<string> {
@@ -893,6 +1081,17 @@ export interface SalesOrderItemDto {
   isInsufficientStock?: boolean;
 }
 
+export interface SalesPartnerDto extends EntityDto<string> {
+  name?: string;
+  partnerType?: number;
+  commissionRate?: number;
+  territoryId?: string | null;
+  website?: string | null;
+  description?: string | null;
+  isEnabled?: boolean;
+  referralCode?: string | null;
+}
+
 export interface SalesPersonDto {
   id?: string;
   name?: string;
@@ -922,6 +1121,33 @@ export interface SalesTargetDto {
   fiscalYearId?: string | null;
   targetQty?: number;
   targetAmount?: number;
+}
+
+export interface ScanBarcodeInput {
+  barcode: string;
+  companyId?: string | null;
+}
+
+export interface SendDunningEmailDto {
+  recipientEmail?: string | null;
+  cc?: string | null;
+}
+
+export interface SendInvoiceEmailDto {
+  invoiceId?: string;
+  recipientEmail?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
+}
+
+export interface SendQuotationEmailDto {
+  quotationId?: string;
+  recipientEmail?: string | null;
+  partyName?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
 }
 
 export interface ShippingConditionDto {
@@ -969,6 +1195,30 @@ export interface SubscriptionPlanDto {
   rate?: number;
 }
 
+export interface UnbilledDeliveryItemDto {
+  deliveryNoteId?: string;
+  deliveryNoteNumber?: string;
+  deliveryDate?: string;
+  itemId?: string;
+  itemName?: string | null;
+  quantity?: number;
+  rate?: number;
+  uom?: string | null;
+  deliveryNoteItemId?: string;
+}
+
+export interface UnbilledOrderItemDto {
+  salesOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  itemId?: string;
+  itemName?: string | null;
+  quantity?: number;
+  rate?: number;
+  uom?: string | null;
+  salesOrderItemId?: string;
+}
+
 export interface UpdateLoyaltyProgramDto {
   name?: string;
   conversionFactor?: number;
@@ -985,11 +1235,10 @@ export interface UpdateSalesPersonDto {
   commissionRate?: number;
 }
 
-export interface SalesInvoiceListSummaryDto {
-  totalOutstanding: number;
-  overdueCount: number;
-  overdueAmount: number;
-  monthlyRevenue: number;
-  monthlyInvoiceCount: number;
-  postedInvoiceCount: number;
+export interface OrderReceiptDto {
+  purchaseReceiptId?: string;
+  receiptNumber?: string;
+  postingDate?: string;
+  status?: string;
+  itemCount?: number;
 }

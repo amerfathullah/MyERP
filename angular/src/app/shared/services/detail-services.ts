@@ -41,5 +41,5 @@ export class IssueDetailService {
   private issueService = inject(IssueService);
   get = (id: string) => this.issueService.get(id);
   reply = (id: string) => this.issueService.reply(id);
-  resolve = (id: string) => this.issueService.resolve(id);
+  resolve = (id: string, input?: any) => this.issueService.resolve(id, input ?? {});
 }

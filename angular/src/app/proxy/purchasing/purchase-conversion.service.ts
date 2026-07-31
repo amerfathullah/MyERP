@@ -1,4 +1,4 @@
-import type { PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto, SupplierQuotationDto } from './models';
+import type { PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -10,29 +10,11 @@ export class PurchaseConversionService {
   apiName = 'Default';
   
 
-  convertRfqToSupplierQuotation = (rfqId: string, supplierId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, SupplierQuotationDto>({
-      method: 'POST',
-      url: '/api/app/purchase-conversion/convert-rfq-to-supplier-quotation',
-      params: { rfqId, supplierId },
-    },
-    { apiName: this.apiName,...config });
-  
-
   convertMaterialRequestToPurchaseOrder = (materialRequestId: string, supplierId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
       url: '/api/app/purchase-conversion/convert-material-request-to-purchase-order',
       params: { materialRequestId, supplierId },
-    },
-    { apiName: this.apiName,...config });
-  
-
-  convertSupplierQuotationToPurchaseOrder = (supplierQuotationId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PurchaseOrderDto>({
-      method: 'POST',
-      url: '/api/app/purchase-conversion/convert-supplier-quotation-to-purchase-order',
-      params: { supplierQuotationId },
     },
     { apiName: this.apiName,...config });
   
@@ -57,6 +39,23 @@ export class PurchaseConversionService {
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
       url: `/api/app/purchase-conversion/convert-purchase-receipt-to-invoice/${purchaseReceiptId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  convertRfqToSupplierQuotation = (rfqId: string, supplierId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, object>({
+      method: 'POST',
+      url: '/api/app/purchase-conversion/convert-rfq-to-supplier-quotation',
+      params: { rfqId, supplierId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  convertSupplierQuotationToPurchaseOrder = (supplierQuotationId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: `/api/app/purchase-conversion/convert-supplier-quotation-to-purchase-order/${supplierQuotationId}`,
     },
     { apiName: this.apiName,...config });
 }

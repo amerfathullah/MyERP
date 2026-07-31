@@ -71,6 +71,12 @@ public class PaymentRequestAppService : ApplicationService
         return new PagedResultDto<PaymentRequestDto>(totalCount, items.Select(x => ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(x)).ToList());
     }
 
+    public async Task<PaymentRequestDto> GetAsync(Guid id)
+    {
+        var pr = await _repository.GetAsync(id);
+        return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
+    }
+
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
     public async Task<PaymentRequestDto> CreateAsync(CreatePaymentRequestDto input)
     {

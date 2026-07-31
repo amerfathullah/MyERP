@@ -1,4 +1,4 @@
-import type { CreateOpportunityDto, GetOpportunityListDto, OpportunityDto, UpdateOpportunityDto } from './models';
+import type { CreateOpportunityDto, GetOpportunityListDto, OpportunityDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -90,6 +90,15 @@ export class OpportunityService {
     this.restService.request<any, OpportunityDto>({
       method: 'PUT',
       url: `/api/app/opportunity/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateStage = (id: string, input: UpdateOpportunityStageDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OpportunityDto>({
+      method: 'PUT',
+      url: `/api/app/opportunity/${id}/stage`,
       body: input,
     },
     { apiName: this.apiName,...config });

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ApprovalRequestService, ApprovalRequestDto } from '../../proxy/workflow/approval-request.service';
+import { ApprovalRequestService, ApprovalRequestDto } from './approval-request.service';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme.shared';

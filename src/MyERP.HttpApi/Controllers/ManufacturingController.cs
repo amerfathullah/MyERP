@@ -102,4 +102,20 @@ public class ManufacturingController : MyERPController
     [HttpGet("work-order/{workOrderId}/cost-breakdown")]
     public Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId)
         => _service.GetProductionCostBreakdownAsync(workOrderId);
+
+    [HttpGet("production-schedule")]
+    public Task<ProductionScheduleDto> GetProductionScheduleAsync([FromQuery] Guid companyId)
+        => _service.GetProductionScheduleAsync(companyId);
+
+    [HttpGet("material-shortage-across-orders")]
+    public Task<MaterialShortageAcrossOrdersDto> GetMaterialShortageAcrossOrdersAsync([FromQuery] Guid companyId)
+        => _service.GetMaterialShortageAcrossOrdersAsync(companyId);
+
+    [HttpPost("work-order/{workOrderId}/material-transfer")]
+    public Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId)
+        => _service.CreateMaterialTransferForManufactureAsync(workOrderId);
+
+    [HttpPost("manufacture-stock-entry")]
+    public Task<StockEntryResultDto> CreateManufactureStockEntryAsync([FromBody] CreateManufactureStockEntryDto input)
+        => _service.CreateManufactureStockEntryAsync(input);
 }

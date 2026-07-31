@@ -1,6 +1,7 @@
 import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { DepreciationMethod } from './depreciation-method.enum';
 import type { AssetStatus } from './asset-status.enum';
+import type { MaintenanceVisitStatus } from './entities/maintenance-visit-status.enum';
 
 export interface AssetCapitalizationDto {
   id?: string;
@@ -159,6 +160,24 @@ export interface CreateMaintenanceScheduleDto {
   periodicity?: string;
 }
 
+export interface CreateMaintenanceVisitDto {
+  companyId?: string;
+  visitDate?: string;
+  maintenanceType?: string;
+  maintenanceScheduleId?: string | null;
+  customerId?: string | null;
+  contactId?: string | null;
+  purposes?: CreateMaintenanceVisitPurposeDto[];
+}
+
+export interface CreateMaintenanceVisitPurposeDto {
+  itemId?: string | null;
+  itemName?: string | null;
+  serialNoId?: string | null;
+  workDone?: string;
+  workDetails?: string | null;
+}
+
 export interface CreateUpdateAssetCategoryDetailDto {
   categoryName?: string;
   isDepreciable?: boolean;
@@ -195,6 +214,13 @@ export interface GetAssetListDto extends PagedAndSortedResultRequestDto {
   toDate?: string | null;
 }
 
+export interface GetMaintenanceVisitListDto extends PagedAndSortedResultRequestDto {
+  completionStatus?: MaintenanceVisitStatus | null;
+  maintenanceScheduleId?: string | null;
+  maintenanceType?: string | null;
+  customerId?: string | null;
+}
+
 export interface MaintenanceScheduleDetailDto {
   id?: string;
   scheduledDate?: string;
@@ -212,6 +238,27 @@ export interface MaintenanceScheduleDto extends EntityDto<string> {
   periodicity?: string;
   status?: number;
   details?: MaintenanceScheduleDetailDto[];
+}
+
+export interface MaintenanceVisitDto extends EntityDto<string> {
+  companyId?: string;
+  visitDate?: string;
+  maintenanceType?: string;
+  maintenanceScheduleId?: string | null;
+  customerId?: string | null;
+  contactId?: string | null;
+  completionStatus?: MaintenanceVisitStatus;
+  purposes?: MaintenanceVisitPurposeDto[];
+  creationTime?: string;
+}
+
+export interface MaintenanceVisitPurposeDto {
+  id?: string;
+  itemId?: string | null;
+  itemName?: string | null;
+  serialNoId?: string | null;
+  workDone?: string;
+  workDetails?: string | null;
 }
 
 export interface UpdateAssetDto {

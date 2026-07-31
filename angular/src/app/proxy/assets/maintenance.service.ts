@@ -1,4 +1,4 @@
-import type { CreateMaintenanceScheduleDto, MaintenanceScheduleDto } from './models';
+import type { CreateMaintenanceScheduleDto, CreateMaintenanceVisitDto, GetMaintenanceVisitListDto, MaintenanceScheduleDto, MaintenanceVisitDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -11,11 +11,44 @@ export class MaintenanceService {
   apiName = 'Default';
   
 
+  cancelVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance/${id}/cancel-visit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  completeVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance/${id}/complete-visit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   createSchedule = (input: CreateMaintenanceScheduleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaintenanceScheduleDto>({
       method: 'POST',
       url: '/api/app/maintenance/schedule',
       body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createVisit = (input: CreateMaintenanceVisitDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'POST',
+      url: '/api/app/maintenance/visit',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/maintenance/${id}/visit`,
     },
     { apiName: this.apiName,...config });
   
@@ -37,66 +70,36 @@ export class MaintenanceService {
     { apiName: this.apiName,...config });
   
 
+  getVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'GET',
+      url: `/api/app/maintenance/${id}/visit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getVisitList = (input: GetMaintenanceVisitListDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<MaintenanceVisitDto>>({
+      method: 'GET',
+      url: '/api/app/maintenance/visit-list',
+      params: { completionStatus: input.completionStatus, maintenanceScheduleId: input.maintenanceScheduleId, maintenanceType: input.maintenanceType, customerId: input.customerId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
   submitSchedule = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaintenanceScheduleDto>({
       method: 'POST',
       url: `/api/app/maintenance/${id}/submit-schedule`,
     },
     { apiName: this.apiName,...config });
+  
 
-  // --- Maintenance Visit ---
-
-  getVisitList = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<any>>({
-      method: 'GET',
-      url: '/api/app/maintenance/visit-list',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount,
-        completionStatus: input.completionStatus, maintenanceType: input.maintenanceType,
-        maintenanceScheduleId: input.maintenanceScheduleId, customerId: input.customerId },
-    },
-    { apiName: this.apiName,...config });
-
-  getVisit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'GET',
-      url: `/api/app/maintenance/${id}/visit`,
-    },
-    { apiName: this.apiName,...config });
-
-  createVisit = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: '/api/app/maintenance/visit',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  updateVisit = (id: string, input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
+  updateVisit = (id: string, input: CreateMaintenanceVisitDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
       method: 'PUT',
       url: `/api/app/maintenance/${id}/visit`,
       body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  completeVisit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: `/api/app/maintenance/${id}/complete-visit`,
-    },
-    { apiName: this.apiName,...config });
-
-  cancelVisit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: `/api/app/maintenance/${id}/cancel-visit`,
-    },
-    { apiName: this.apiName,...config });
-
-  deleteVisit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/maintenance/${id}/visit`,
     },
     { apiName: this.apiName,...config });
 }

@@ -1,7 +1,8 @@
-import type { CreatePurchaseOrderDto, PurchaseOrderDto } from './models';
+import type { CreatePurchaseOrderDto, PendingMaterialRequestItemDto, PurchaseOrderDto, RecordSupplierConfirmationDto, UpdateDropShipDeliveredQtyDto, UpdateOrderItemsDto, UpdateOrderItemsResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
+import type { OrderPaymentDto, OrderReceiptDto } from '../sales/models';
 import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -79,18 +80,36 @@ export class PurchaseOrderService {
     { apiName: this.apiName,...config });
   
 
-  getOrderReceipts = (orderId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
+  getOrderPayments = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OrderPaymentDto[]>({
       method: 'GET',
-      url: `/api/app/purchase-order/${orderId}/order-receipts`,
+      url: `/api/app/purchase-order/${id}/order-payments`,
     },
     { apiName: this.apiName,...config });
   
 
-  getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
+  getOrderReceipts = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OrderReceiptDto[]>({
       method: 'GET',
-      url: `/api/app/purchase-order/${orderId}/order-payments`,
+      url: `/api/app/purchase-order/${id}/order-receipts`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPendingMaterialRequestItems = (companyId?: string, supplierId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PendingMaterialRequestItemDto[]>({
+      method: 'GET',
+      url: '/api/app/purchase-order/pending-material-request-items',
+      params: { companyId, supplierId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  recordSupplierConfirmation = (id: string, input: RecordSupplierConfirmationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: `/api/app/purchase-order/${id}/record-supplier-confirmation`,
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -118,27 +137,21 @@ export class PurchaseOrderService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
-  recordSupplierConfirmation = (id: string, input: any, config?: Partial<Rest.Config>) =>
+  updateDropShipDeliveredQty = (id: string, input: UpdateDropShipDeliveredQtyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
-      method: 'POST',
-      url: `/api/app/purchase-order/${id}/record-supplier-confirmation`,
+      method: 'PUT',
+      url: `/api/app/purchase-order/${id}/drop-ship-delivered-qty`,
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
-  getPendingMaterialRequestItems = (companyId?: string, supplierId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
-      method: 'GET',
-      url: '/api/app/purchase-order/pending-material-request-items',
-      params: { companyId, supplierId },
-    },
-    { apiName: this.apiName,...config });
-
-  updateItems = (id: string, input: { items: Array<{ itemId: string; quantity: number; unitPrice: number; deliveryDate?: string; warehouseId?: string }> }, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, { itemsUpdated: number; newGrandTotal: number; previousGrandTotal: number; warnings: string[] }>({
+  updateItems = (id: string, input: UpdateOrderItemsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UpdateOrderItemsResultDto>({
       method: 'PUT',
-      url: `/api/app/purchase-order/${id}/update-items`,
+      url: `/api/app/purchase-order/${id}/items`,
       body: input,
     },
     { apiName: this.apiName,...config });

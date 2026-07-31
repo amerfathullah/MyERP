@@ -2,25 +2,7 @@ import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } 
 import type { AuthorizationBasedOn } from './authorization-based-on.enum';
 import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
-
-export interface GetPartyDetailsInput {
-  partyType: string;
-  partyId: string;
-  companyId?: string;
-}
-
-export interface PartyDetailsDto {
-  partyName?: string;
-  tin?: string;
-  registrationNumber?: string;
-  billingAddress?: string;
-  shippingAddress?: string;
-  defaultPaymentTermsTemplateId?: string;
-  defaultCreditDays?: number;
-  creditLimit?: number;
-  outstandingAmount?: number;
-  currencyCode?: string;
-}
+import type { DocumentStatus } from './document-status.enum';
 
 export interface AddressDto extends EntityDto<string> {
   title?: string;
@@ -37,6 +19,19 @@ export interface AddressDto extends EntityDto<string> {
   partyId?: string;
   isPrimaryAddress?: boolean;
   isShippingAddress?: boolean;
+}
+
+export interface AgingBucketsDto {
+  current?: number;
+  thirtyOneToSixty?: number;
+  sixtyOneToNinety?: number;
+  ninetyPlus?: number;
+  total?: number;
+}
+
+export interface AgingSummaryWidgetDto {
+  receivables?: AgingBucketsDto;
+  payables?: AgingBucketsDto;
 }
 
 export interface AuthorizationRuleDto {
@@ -68,6 +63,18 @@ export interface AutoRepeatDto {
   notifyByEmail?: boolean;
 }
 
+export interface BankAccountBalanceDto {
+  accountName?: string;
+  accountCode?: string;
+  balance?: number;
+  accountType?: string;
+}
+
+export interface BankBalanceWidgetDto {
+  totalCashAndBank?: number;
+  accounts?: BankAccountBalanceDto[];
+}
+
 export interface BranchDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   name?: string;
@@ -81,6 +88,18 @@ export interface BranchDto extends FullAuditedEntityDto<string> {
   country?: string | null;
   isActive?: boolean;
   isHeadquarters?: boolean;
+}
+
+export interface CashFlowSnapshotDto {
+  expectedInflows30Days?: number;
+  expectedOutflows30Days?: number;
+  netCashFlow30Days?: number;
+  inflowInvoiceCount?: number;
+  outflowInvoiceCount?: number;
+  overdueReceivables?: number;
+  overduePayables?: number;
+  overdueReceivableCount?: number;
+  overduePayableCount?: number;
 }
 
 export interface CompanyDto extends FullAuditedEntityDto<string> {
@@ -115,13 +134,39 @@ export interface CompanyRestrictionEntryDto {
   companyId?: string;
 }
 
+export interface ConnectionDocumentDto {
+  id?: string;
+  documentNumber?: string | null;
+  status?: string | null;
+  amount?: number | null;
+  date?: string | null;
+  route?: string;
+}
+
+export interface ConnectionGroupDto {
+  label?: string;
+  items?: ConnectionItemDto[];
+}
+
+export interface ConnectionItemDto {
+  documentType?: string;
+  count?: number;
+  route?: string;
+  documents?: ConnectionDocumentDto[];
+}
+
 export interface ContactDto extends EntityDto<string> {
   partyType?: string;
   partyId?: string;
+  firstName?: string;
+  lastName?: string | null;
+  salutation?: string | null;
   fullName?: string;
   email?: string | null;
   phone?: string | null;
+  mobileNo?: string | null;
   designation?: string | null;
+  department?: string | null;
   isPrimaryContact?: boolean;
   isBillingContact?: boolean;
 }
@@ -162,10 +207,14 @@ export interface CreateAutoRepeatDto {
 export interface CreateContactDto {
   partyType?: string;
   partyId?: string;
-  fullName?: string;
+  salutation?: string | null;
+  firstName?: string;
+  lastName?: string | null;
   email?: string | null;
   phone?: string | null;
+  mobileNo?: string | null;
   designation?: string | null;
+  department?: string | null;
   isPrimaryContact?: boolean;
   isBillingContact?: boolean;
 }
@@ -244,6 +293,24 @@ export interface CreateUpdateCompanyDto {
   isActive?: boolean;
 }
 
+export interface CustomerPerformanceDto {
+  totalRevenue?: number;
+  revenueThisMonth?: number;
+  revenueLastMonth?: number;
+  revenueGrowthPercent?: number;
+  totalOrders?: number;
+  ordersThisMonth?: number;
+  averageOrderValue?: number;
+  averageDaysToPayment?: number;
+  onTimePaymentPercent?: number;
+  overdueInvoiceCount?: number;
+  totalOverdueAmount?: number;
+  creditLimit?: number;
+  creditUsed?: number;
+  creditUtilizationPercent?: number;
+  revenueTrend?: MonthlyRevenuePoint[];
+}
+
 export interface DashboardSummaryDto {
   totalCustomers?: number;
   totalSuppliers?: number;
@@ -257,6 +324,25 @@ export interface DashboardSummaryDto {
   monthlyExpenses?: number;
 }
 
+export interface DeliveryDueAlertDto {
+  overdueCount?: number;
+  dueThisWeekCount?: number;
+  dueNext7DaysCount?: number;
+  overdueTotalValue?: number;
+  overdueOrders?: DeliveryDueOrderDto[];
+  upcomingOrders?: DeliveryDueOrderDto[];
+}
+
+export interface DeliveryDueOrderDto {
+  purchaseOrderId?: string;
+  orderNumber?: string;
+  supplierName?: string;
+  expectedDeliveryDate?: string | null;
+  daysOverdue?: number;
+  grandTotal?: number;
+  perReceived?: number;
+}
+
 export interface DocumentActivityLogDto {
   id?: string;
   documentType?: string;
@@ -268,6 +354,16 @@ export interface DocumentActivityLogDto {
   performedByUserId?: string | null;
   details?: string | null;
   creationTime?: string;
+}
+
+export interface DocumentConnectionsDto {
+  groups?: ConnectionGroupDto[];
+}
+
+export interface DocumentPrintResult {
+  html?: string;
+  fileName?: string;
+  documentType?: string;
 }
 
 export interface DocumentSeriesDto extends EntityDto<string> {
@@ -293,6 +389,26 @@ export interface EmailTemplateDto {
   documentType?: string | null;
 }
 
+export interface ExpiringBatchDto {
+  batchId?: string;
+  batchNo?: string;
+  itemCode?: string;
+  itemName?: string;
+  expiryDate?: string;
+  daysUntilExpiry?: number;
+  stockQty?: number;
+  warehouseName?: string | null;
+}
+
+export interface ExpiringQuotationDto {
+  quotationId?: string;
+  quotationNumber?: string;
+  customerName?: string;
+  grandTotal?: number;
+  validUntil?: string;
+  daysRemaining?: number;
+}
+
 export interface FinancialKpiDto {
   monthlyRevenue?: number;
   monthlyExpenses?: number;
@@ -311,6 +427,11 @@ export interface GetNotificationLogListDto extends PagedAndSortedResultRequestDt
   channel?: string | null;
   status?: string | null;
   documentType?: string | null;
+}
+
+export interface GetPartyDetailsInput {
+  partyId?: string;
+  companyId?: string | null;
 }
 
 export interface GlobalSearchInput {
@@ -348,6 +469,11 @@ export interface ModeOfPaymentLookupDto {
   type?: string;
 }
 
+export interface MonthlyRevenuePoint {
+  month?: string;
+  amount?: number;
+}
+
 export interface NotificationLogDto {
   id?: string;
   recipient?: string;
@@ -378,14 +504,149 @@ export interface OperationalMetricsDto {
   lastNightlyRunDate?: string | null;
 }
 
+export interface OverdueAlertsDto {
+  overdueReceivableCount?: number;
+  overdueReceivableAmount?: number;
+  overduePayableCount?: number;
+  overduePayableAmount?: number;
+  pendingApprovalCount?: number;
+  overduePurchaseOrderCount?: number;
+}
+
+export interface PartyDetailsDto {
+  partyId?: string;
+  partyName?: string;
+  partyType?: string;
+  tin?: string | null;
+  registrationNumber?: string | null;
+  sstRegistrationNumber?: string | null;
+  idType?: string | null;
+  idValue?: string | null;
+  contactPerson?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  billingAddressId?: string | null;
+  billingAddress?: string | null;
+  billingCity?: string | null;
+  billingState?: string | null;
+  billingPostalCode?: string | null;
+  billingCountry?: string | null;
+  shippingAddressId?: string | null;
+  shippingAddress?: string | null;
+  defaultPaymentTermsTemplateId?: string | null;
+  paymentTermsTemplateName?: string | null;
+  defaultCreditDays?: number;
+  defaultReceivableAccountId?: string | null;
+  defaultPayableAccountId?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
+  companyCurrency?: string | null;
+  creditLimit?: number;
+  outstanding?: number;
+}
+
 export interface PaymentTermsLookupDto {
   id?: string;
   name?: string;
 }
 
+export interface PendingMaterialRequestDto {
+  id?: string;
+  requestNumber?: string;
+  requestDate?: string;
+  status?: DocumentStatus;
+  itemCount?: number;
+  requiredByDate?: string | null;
+}
+
+export interface PendingOrdersSummaryDto {
+  salesOrdersToDeliverAndBill?: number;
+  salesOrdersToDeliver?: number;
+  salesOrdersToBill?: number;
+  totalActiveSalesOrders?: number;
+  purchaseOrdersToReceiveAndBill?: number;
+  purchaseOrdersToReceive?: number;
+  purchaseOrdersToBill?: number;
+  totalActivePurchaseOrders?: number;
+}
+
+export interface PoFulfillmentItemDto {
+  purchaseOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  supplierName?: string;
+  itemId?: string;
+  itemName?: string;
+  orderedQty?: number;
+  receivedQty?: number;
+  billedQty?: number;
+  pendingReceiptQty?: number;
+  pendingBillingQty?: number;
+  expectedDeliveryDate?: string | null;
+  isOverdue?: boolean;
+  daysOverdue?: number;
+  fulfillmentStatus?: string;
+}
+
+export interface PoFulfillmentReportDto {
+  totalItems?: number;
+  pendingReceiptItems?: number;
+  pendingBillingItems?: number;
+  overdueItems?: number;
+  totalPendingValue?: number;
+  items?: PoFulfillmentItemDto[];
+}
+
+export interface ProductionSummaryDto {
+  draft?: number;
+  notStarted?: number;
+  inProcess?: number;
+  completed?: number;
+  stopped?: number;
+  totalActiveOrders?: number;
+  totalProducedThisMonth?: number;
+}
+
+export interface ProfitMarginTrendDto {
+  month?: string;
+  revenue?: number;
+  cost?: number;
+  grossProfit?: number;
+  marginPercentage?: number;
+}
+
+export interface QuickReorderDto {
+  companyId?: string;
+  itemIds?: string[];
+}
+
+export interface QuickReorderResultDto {
+  materialRequestId?: string;
+  materialRequestNumber?: string;
+  itemCount?: number;
+}
+
 export interface RenderedTemplateDto {
   subject?: string;
   body?: string;
+}
+
+export interface ReorderPointDashboardDto {
+  totalItemsBelowReorder?: number;
+  criticalItems?: number;
+  totalShortageValue?: number;
+  items?: ReorderPointItemDto[];
+}
+
+export interface ReorderPointItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  currentStock?: number;
+  reorderLevel?: number;
+  projectedQty?: number;
+  shortageQty?: number;
+  warehouseName?: string;
 }
 
 export interface RevenueTrendDto {
@@ -419,24 +680,82 @@ export interface StockValuationItemDto {
   stockValue?: number;
 }
 
-export interface AgingSummaryWidgetDto {
-  receivables?: AgingBucketsDto;
-  payables?: AgingBucketsDto;
-}
-
-export interface AgingBucketsDto {
-  current?: number;
-  days31to60?: number;
-  days61to90?: number;
-  days91Plus?: number;
-  total?: number;
-}
-
 export interface StockValuationWidgetDto {
   totalStockValue?: number;
   totalItems?: number;
   totalQuantity?: number;
   topItemsByValue?: StockValuationItemDto[];
+}
+
+export interface SupplierPerformanceDto {
+  totalSpend?: number;
+  spendThisMonth?: number;
+  spendLastMonth?: number;
+  totalOrders?: number;
+  ordersThisMonth?: number;
+  averageOrderValue?: number;
+  averageLeadTimeDays?: number;
+  onTimeDeliveryPercent?: number;
+  pendingReceiptCount?: number;
+  totalOutstandingPayable?: number;
+  overduePayableCount?: number;
+  spendTrend?: MonthlyRevenuePoint[];
+}
+
+export interface SupplierPerformanceItemDto {
+  supplierId?: string;
+  supplierName?: string;
+  totalOrders?: number;
+  onTimeCount?: number;
+  lateCount?: number;
+  onTimeRate?: number;
+  totalValue?: number;
+}
+
+export interface SupplierPerformanceWidgetDto {
+  totalSuppliers?: number;
+  overallOnTimeRate?: number;
+  suppliersAtRisk?: number;
+  suppliers?: SupplierPerformanceItemDto[];
+}
+
+export interface TodaysActivityDto {
+  invoicesCreated?: number;
+  paymentsReceived?: number;
+  ordersPlaced?: number;
+  deliveriesMade?: number;
+  receiptsProcessed?: number;
+  totalInvoiced?: number;
+  totalCollected?: number;
+}
+
+export interface TopCustomerDto {
+  customerId?: string;
+  customerName?: string;
+  revenue?: number;
+  invoiceCount?: number;
+}
+
+export interface TopDebtorDto {
+  customerId?: string;
+  customerName?: string;
+  totalOutstanding?: number;
+  invoiceCount?: number;
+  oldestDueDate?: string | null;
+  daysOverdue?: number;
+}
+
+export interface UpcomingPaymentDuesDto {
+  receivablesDueIn7Days?: number;
+  receivablesDueIn14Days?: number;
+  receivablesDueIn30Days?: number;
+  receivablesOverdue?: number;
+  payablesDueIn7Days?: number;
+  payablesDueIn14Days?: number;
+  payablesDueIn30Days?: number;
+  payablesOverdue?: number;
+  receivableInvoiceCount?: number;
+  payableInvoiceCount?: number;
 }
 
 export interface UpdateAuthorizationRuleDto {
@@ -471,29 +790,4 @@ export interface UpdateEmailTemplateDto {
   subject?: string;
   body?: string;
   documentType?: string | null;
-}
-
-export interface CashFlowSnapshotDto {
-  expectedInflows30Days?: number;
-  expectedOutflows30Days?: number;
-  netCashFlow30Days?: number;
-  inflowInvoiceCount?: number;
-  outflowInvoiceCount?: number;
-  overdueReceivables?: number;
-  overduePayables?: number;
-  overdueReceivableCount?: number;
-  overduePayableCount?: number;
-}
-
-export interface UpcomingPaymentDuesDto {
-  receivablesDueIn7Days?: number;
-  receivablesDueIn14Days?: number;
-  receivablesDueIn30Days?: number;
-  receivablesOverdue?: number;
-  payablesDueIn7Days?: number;
-  payablesDueIn14Days?: number;
-  payablesDueIn30Days?: number;
-  payablesOverdue?: number;
-  receivableInvoiceCount?: number;
-  payableInvoiceCount?: number;
 }

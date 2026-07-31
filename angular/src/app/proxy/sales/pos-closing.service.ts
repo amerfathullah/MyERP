@@ -1,4 +1,4 @@
-import type { CreatePosClosingDto, PosClosingDto } from './models';
+import type { CreatePosClosingDto, PosClosingDto, PosExpectedPaymentDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -12,18 +12,18 @@ export class PosClosingService {
   apiName = 'Default';
   
 
-  cancel = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PosClosingDto>({
+  calculateExpectedAmounts = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosExpectedPaymentDto[]>({
       method: 'POST',
-      url: `/api/app/pos-closing/${id}/cancel`,
+      url: `/api/app/pos-closing/calculate-expected-amounts/${posOpeningEntryId}`,
     },
     { apiName: this.apiName,...config });
   
 
-  retry = (id: string, config?: Partial<Rest.Config>) =>
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',
-      url: `/api/app/pos-closing/${id}/retry`,
+      url: `/api/app/pos-closing/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
   
@@ -50,6 +50,14 @@ export class PosClosingService {
       method: 'GET',
       url: '/api/app/pos-closing',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  retry = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosClosingDto>({
+      method: 'POST',
+      url: `/api/app/pos-closing/${id}/retry`,
     },
     { apiName: this.apiName,...config });
   

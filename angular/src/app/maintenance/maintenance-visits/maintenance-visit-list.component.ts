@@ -5,18 +5,10 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
+import type { MaintenanceVisitDto } from '../../proxy/assets/models';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ToasterService } from '@abp/ng.theme.shared';
-
-interface MaintenanceVisitListItem {
-  id: string;
-  visitDate: string;
-  maintenanceType: string;
-  completionStatus: number;
-  customerId?: string | null;
-  maintenanceScheduleId?: string | null;
-}
 
 @Component({
   selector: 'app-maintenance-visit-list',
@@ -107,7 +99,7 @@ export class MaintenanceVisitListComponent implements OnInit {
   private customerService = inject(CustomerService);
   private toaster = inject(ToasterService);
 
-  visits = signal<MaintenanceVisitListItem[]>([]);
+  visits = signal<MaintenanceVisitDto[]>([]);
   totalCount = signal(0);
   loading = signal(false);
   customerNames = signal<Record<string, string>>({});

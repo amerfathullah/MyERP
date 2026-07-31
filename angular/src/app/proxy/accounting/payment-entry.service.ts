@@ -1,8 +1,8 @@
-import type { CreatePaymentEntryDto, OutstandingInvoiceForPaymentDto, PartyOutstandingDto, PaymentEntryDto } from './models';
+import type { AutoAllocateRequestDto, AutoAllocationResultDto, CreatePaymentEntryDto, OutstandingInvoiceForPaymentDto, PartyOutstandingDto, PaymentEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CompanyFilteredPagedRequestDto } from '../shared/models';
+import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -10,6 +10,24 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 export class PaymentEntryService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  autoAllocate = (input: AutoAllocateRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AutoAllocationResultDto>({
+      method: 'POST',
+      url: '/api/app/payment-entry/auto-allocate',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BulkOperationResultDto>({
+      method: 'POST',
+      url: '/api/app/payment-entry/bulk-submit',
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
   
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>

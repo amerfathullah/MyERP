@@ -184,7 +184,7 @@ export class ExpenseClaimDetailComponent implements OnInit {
 
   reimbursablePending(): number {
     if (!this.claim) return 0;
-    return Math.max(0, (this.claim.totalClaimedAmount ?? 0) - (this.claim.advanceAmount ?? 0) - (this.claim.totalAmountReimbursed ?? 0));
+    return Math.max(0, (this.claim.totalClaimedAmount ?? 0) - (this.claim.totalAmountReimbursed ?? 0));
   }
 
   reimbursementPct(): number {

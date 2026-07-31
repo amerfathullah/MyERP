@@ -1,4 +1,4 @@
-import type { AgingReportDto, AgingReportRequestDto } from './models';
+import type { AgingReportDto, AgingReportRequestDto, SendPaymentReminderInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -24,6 +24,15 @@ export class AgingReportService {
       method: 'GET',
       url: '/api/app/aging-report/receivables-aging',
       params: { companyId: input.companyId, asOfDate: input.asOfDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  sendPaymentReminder = (input: SendPaymentReminderInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, boolean>({
+      method: 'POST',
+      url: '/api/app/aging-report/send-payment-reminder',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

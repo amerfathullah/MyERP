@@ -27,6 +27,14 @@ export class SubcontractingService {
     { apiName: this.apiName,...config });
   
 
+  closeOrder = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SubcontractingOrderDto>({
+      method: 'POST',
+      url: `/api/app/subcontracting/${id}/close-order`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   createOrder = (input: CreateSubcontractingOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubcontractingOrderDto>({
       method: 'POST',

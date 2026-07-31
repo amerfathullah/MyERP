@@ -1,4 +1,4 @@
-import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, SalesOrderDto } from './models';
+import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, OrderPaymentDto, SalesOrderDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -79,19 +79,19 @@ export class SalesOrderService {
     { apiName: this.apiName,...config });
   
 
-  getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
-      method: 'GET',
-      url: `/api/app/sales-order/${orderId}/order-payments`,
-    },
-    { apiName: this.apiName,...config });
-  
-
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesOrderDto>>({
       method: 'GET',
       url: '/api/app/sales-order',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OrderPaymentDto[]>({
+      method: 'GET',
+      url: `/api/app/sales-order/order-payments/${orderId}`,
     },
     { apiName: this.apiName,...config });
   

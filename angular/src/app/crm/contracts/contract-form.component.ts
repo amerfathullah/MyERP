@@ -60,11 +60,11 @@ import { HttpClient } from '@angular/common/http';
           <div class="row mb-3">
             <div class="col-md-8">
               <label class="form-label">{{ 'MyERP::ContractTerms' | abpLocalization }}</label>
-              <textarea class="form-control" formControlName="contractTerms" rows="4"></textarea>
+              <textarea class="form-control" formControlName="notes" rows="4"></textarea>
             </div>
             <div class="col-md-4">
               <div class="form-check mt-4">
-                <input type="checkbox" class="form-check-input" formControlName="isAutoRenew" id="autoRenew" />
+                <input type="checkbox" class="form-check-input" formControlName="isAutoRenewal" id="autoRenew" />
                 <label class="form-check-label" for="autoRenew">{{ 'MyERP::AutoRenew' | abpLocalization }}</label>
               </div>
             </div>
@@ -105,8 +105,8 @@ export class ContractFormComponent implements OnInit {
       startDate: [new Date().toISOString().substring(0, 10), Validators.required],
       endDate: [null],
       contractValue: [null],
-      contractTerms: [''],
-      isAutoRenew: [false],
+      notes: [''],
+      isAutoRenewal: [false],
     });
 
     this.loadParties(this.form.get('partyType')!.value);
@@ -127,8 +127,8 @@ export class ContractFormComponent implements OnInit {
             startDate: c.startDate?.substring(0, 10),
             endDate: c.endDate?.substring(0, 10),
             contractValue: c.contractValue,
-            contractTerms: c.contractTerms,
-            isAutoRenew: c.isAutoRenew,
+            notes: c.notes,
+            isAutoRenewal: c.isAutoRenewal,
           });
         },
       });

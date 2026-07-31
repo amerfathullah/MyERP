@@ -1,4 +1,4 @@
-import type { CreatePosInvoiceDto, PosInvoiceDto, PosItemDto, PosItemSearchDto } from './models';
+import type { BarcodeScanResultDto, CreatePosInvoiceDto, PosInvoiceDto, PosItemDto, PosItemSearchDto, ScanBarcodeInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -20,18 +20,19 @@ export class PosService {
     { apiName: this.apiName,...config });
   
 
+  scanBarcode = (input: ScanBarcodeInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BarcodeScanResultDto>({
+      method: 'POST',
+      url: '/api/app/pos/scan-barcode',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
   searchItems = (input: PosItemSearchDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosItemDto>>({
       method: 'POST',
       url: '/api/app/pos/search-items',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  scanBarcode = (input: { barcode: string; companyId?: string }, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
-      method: 'POST',
-      url: '/api/app/pos/scan-barcode',
       body: input,
     },
     { apiName: this.apiName,...config });

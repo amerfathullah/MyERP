@@ -23,7 +23,7 @@ export class ReportingService {
     this.restService.request<any, ProfitLossReportDto>({
       method: 'GET',
       url: '/api/app/reporting/profit-loss',
-      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, includeComparison: input.includeComparison },
     },
     { apiName: this.apiName,...config });
   

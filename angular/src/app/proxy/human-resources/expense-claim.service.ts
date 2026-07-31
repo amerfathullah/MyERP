@@ -20,6 +20,14 @@ export class ExpenseClaimService {
     { apiName: this.apiName,...config });
   
 
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ExpenseClaimDto>({
+      method: 'POST',
+      url: `/api/app/expense-claim/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateExpenseClaimDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
@@ -67,14 +75,6 @@ export class ExpenseClaimService {
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
       url: `/api/app/expense-claim/${id}/submit`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  cancel = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ExpenseClaimDto>({
-      method: 'POST',
-      url: `/api/app/expense-claim/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
 }

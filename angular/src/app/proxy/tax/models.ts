@@ -1,5 +1,6 @@
+import type { TaxTemplateType } from './entities/tax-template-type.enum';
 import type { TaxType } from './tax-type.enum';
-import type { EntityDto, FullAuditedEntityDto } from '@abp/ng.core';
+import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 export interface CreateItemTaxTemplateDetailDto {
   taxAccountId?: string;
@@ -11,6 +12,27 @@ export interface CreateItemTaxTemplateDto {
   companyId?: string;
   title?: string;
   details?: CreateItemTaxTemplateDetailDto[];
+}
+
+export interface CreateTaxChargesTemplateDto {
+  companyId?: string;
+  name?: string;
+  templateType?: TaxTemplateType;
+  taxCategoryId?: string | null;
+  isDefault?: boolean;
+  rows?: CreateTaxChargesTemplateRowDto[];
+}
+
+export interface CreateTaxChargesTemplateRowDto {
+  chargeType?: string;
+  rate?: number;
+  accountId?: string | null;
+  accountName?: string | null;
+  taxCategory?: string | null;
+  referenceRowIndex?: number | null;
+  includedInPrintRate?: boolean;
+  description?: string | null;
+  costCenterId?: string | null;
 }
 
 export interface CreateUpdateTaxCategoryDto {
@@ -31,6 +53,20 @@ export interface CreateUpdateTaxRuleDto {
   priority?: number;
   description?: string | null;
   isActive?: boolean;
+}
+
+export interface DefaultTaxLineDto {
+  taxName?: string;
+  rate?: number;
+  chargeType?: string;
+  accountId?: string | null;
+  taxCategoryCode?: string | null;
+}
+
+export interface GetTaxTemplateListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  templateType?: TaxTemplateType | null;
+  filter?: string | null;
 }
 
 export interface ItemTaxTemplateDetailDto {
@@ -84,6 +120,30 @@ export interface TaxCategoryDto extends FullAuditedEntityDto<string> {
   description?: string | null;
   taxType?: string;
   isActive?: boolean;
+}
+
+export interface TaxChargesTemplateDto extends EntityDto<string> {
+  companyId?: string;
+  name?: string;
+  templateType?: TaxTemplateType;
+  taxCategoryId?: string | null;
+  isDefault?: boolean;
+  isEnabled?: boolean;
+  rows?: TaxChargesTemplateRowDto[];
+}
+
+export interface TaxChargesTemplateRowDto {
+  id?: string;
+  rowIndex?: number;
+  chargeType?: string;
+  rate?: number;
+  accountId?: string | null;
+  accountName?: string | null;
+  taxCategory?: string;
+  referenceRowIndex?: number | null;
+  includedInPrintRate?: boolean;
+  description?: string | null;
+  costCenterId?: string | null;
 }
 
 export interface TaxRateBreakdownDto {

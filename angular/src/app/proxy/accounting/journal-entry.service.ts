@@ -29,6 +29,14 @@ export class JournalEntryService {
     { apiName: this.apiName,...config });
   
 
+  createReversal = (sourceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JournalEntryDto>({
+      method: 'POST',
+      url: `/api/app/journal-entry/reversal/${sourceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryDto>({
       method: 'GET',

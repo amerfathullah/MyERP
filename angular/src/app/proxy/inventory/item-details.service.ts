@@ -14,16 +14,7 @@ export class ItemDetailsService {
     this.restService.request<any, ItemDetailsDto>({
       method: 'GET',
       url: '/api/app/item-details/item-details',
-      params: {
-        itemId: input.itemId,
-        transactionType: input.transactionType,
-        warehouseId: input.warehouseId,
-        companyId: input.companyId,
-        supplierId: input.supplierId,
-        customerId: input.customerId,
-        priceListId: input.priceListId,
-        transactionDate: input.transactionDate,
-      },
+      params: { itemId: input.itemId, transactionType: input.transactionType, warehouseId: input.warehouseId, companyId: input.companyId, supplierId: input.supplierId, customerId: input.customerId, priceListId: input.priceListId, transactionDate: input.transactionDate },
     },
     { apiName: this.apiName,...config });
 }

@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { ProspectService, ProspectDto } from '../../proxy/crm/prospect.service';
+import { ProspectService } from '../../proxy/crm/prospect.service';
+import type { ProspectDto } from '../../proxy/crm/models';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({

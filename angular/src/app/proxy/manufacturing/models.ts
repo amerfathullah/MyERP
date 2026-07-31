@@ -11,6 +11,27 @@ export interface AddTimeLogDto {
   completedQty?: number;
 }
 
+export interface BomMaterialAvailabilityDto {
+  itemId?: string;
+  itemName?: string;
+  requiredQtyPerUnit?: number;
+  requiredQtyForBatch?: number;
+  availableQty?: number;
+  shortage?: number;
+  isSufficient?: boolean;
+}
+
+export interface BomStockAnalysisDto {
+  bomId?: string;
+  bomNumber?: string;
+  itemName?: string;
+  bomQuantity?: number;
+  requestedQty?: number;
+  canManufactureQty?: number;
+  allMaterialsSufficient?: boolean;
+  materials?: BomMaterialAvailabilityDto[];
+}
+
 export interface CreateJobCardDto {
   companyId?: string;
   workOrderId?: string;
@@ -65,6 +86,11 @@ export interface CreateRoutingOperationDto {
   sequenceId?: number;
   timeInMins?: number;
   workstationId?: string | null;
+}
+
+export interface DailyProductionPointDto {
+  date?: string;
+  producedQty?: number;
 }
 
 export interface GetJobCardListDto extends PagedAndSortedResultRequestDto {
@@ -140,6 +166,20 @@ export interface OperationDto extends EntityDto<string> {
   isActive?: boolean;
 }
 
+export interface ProductionAnalyticsDto {
+  totalWorkOrders?: number;
+  completedCount?: number;
+  inProcessCount?: number;
+  overdueCount?: number;
+  completionRate?: number;
+  totalPlannedQty?: number;
+  totalProducedQty?: number;
+  productionEfficiency?: number;
+  statusBreakdown?: ProductionStatusCountDto[];
+  dailyTrend?: DailyProductionPointDto[];
+  topProducedItems?: TopProducedItemDto[];
+}
+
 export interface ProductionPlanDto extends AuditedEntityDto<string> {
   planNumber?: string;
   status?: ProductionPlanStatus;
@@ -187,6 +227,12 @@ export interface ProductionPlanMrItemDto {
   procurementType?: SubAssemblyType;
 }
 
+export interface ProductionStatusCountDto {
+  status?: string;
+  count?: number;
+  color?: string;
+}
+
 export interface RoutingDto extends EntityDto<string> {
   name?: string;
   isDisabled?: boolean;
@@ -219,6 +265,13 @@ export interface SaveManufacturingSettingsDto {
   enforceTimeLogs?: boolean;
   addCorrectiveOpCostInFGValuation?: boolean;
   validateComponentsQuantitiesPerBom?: boolean;
+}
+
+export interface TopProducedItemDto {
+  itemId?: string;
+  itemName?: string;
+  totalProduced?: number;
+  workOrderCount?: number;
 }
 
 export interface BomDto extends AuditedEntityDto<string> {
@@ -334,6 +387,12 @@ export interface CreateBomSecondaryItemDto {
   warehouseId?: string | null;
 }
 
+export interface CreateManufactureStockEntryDto {
+  workOrderId: string;
+  fgQuantity: number;
+  processLossQty?: number;
+}
+
 export interface CreateMaterialConsumptionDto {
   workOrderId: string;
   items: ConsumptionItemDto[];
@@ -376,19 +435,29 @@ export interface MaterialConsumptionResultDto {
   itemCount?: number;
 }
 
-export interface StockEntryResultDto {
-  stockEntryId?: string;
-  entryNumber?: string;
-  entryType?: string;
-  itemCount?: number;
-  totalValue?: number;
+export interface MaterialShortageAcrossOrdersDto {
+  items?: MaterialShortageItemDto[];
+  totalItemsShort?: number;
+  totalAffectedOrders?: number;
+  totalShortageValue?: number;
+}
+
+export interface MaterialShortageItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  totalRequired?: number;
+  totalAvailable?: number;
+  shortageQty?: number;
+  affectedWorkOrders?: number;
+  mostUrgentWO?: string;
 }
 
 export interface ProductionCostBreakdownDto {
   workOrderId?: string;
-  workOrderNumber?: string;
+  workOrderNumber?: string | null;
   itemId?: string;
-  itemName?: string;
+  itemName?: string | null;
   producedQty?: number;
   totalRmCost?: number;
   processLossQty?: number;
@@ -401,22 +470,59 @@ export interface ProductionCostBreakdownDto {
   costVariancePercent?: number;
 }
 
-export interface WorkOrderJobCardDto {
-  id?: string;
-  sequenceId?: number;
-  operationId?: string;
-  status?: number;
-  forQuantity?: number;
-  completedQty?: number;
-  totalTimeInMins?: number;
-  plannedTimeInMins?: number;
-  operationName?: string;
+export interface ProductionScheduleDto {
+  items?: ProductionScheduleItemDto[];
+  totalOrders?: number;
+  notStarted?: number;
+  inProcess?: number;
+  completed?: number;
+  overdue?: number;
+  overallCompletionRate?: number;
 }
 
-export interface CreateManufactureStockEntryDto {
-  workOrderId: string;
-  fgQuantity: number;
-  processLossQty?: number;
+export interface ProductionScheduleItemDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  itemName?: string;
+  quantity?: number;
+  producedQuantity?: number;
+  percentComplete?: number;
+  status?: number;
+  statusLabel?: string;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
+  isOverdue?: boolean;
+  daysOverdue?: number;
+  statusColor?: string;
+}
+
+export interface StockEntryResultDto {
+  stockEntryId?: string;
+  entryNumber?: string | null;
+  entryType?: string | null;
+  itemCount?: number;
+  totalValue?: number;
+}
+
+export interface SubcontractingBomItemLineDto {
+  itemId?: string;
+  itemName?: string;
+  itemCode?: string;
+  requiredQty?: number;
+  rate?: number;
+  uom?: string;
+  sourceWarehouseId?: string | null;
+}
+
+export interface SubcontractingBomItemsDto {
+  bomId?: string | null;
+  bomNumber?: string | null;
+  fgItemId?: string | null;
+  fgQty?: number;
+  sourceWarehouseId?: string | null;
+  items?: SubcontractingBomItemLineDto[];
 }
 
 export interface WorkOrderDto extends AuditedEntityDto<string> {
@@ -450,6 +556,18 @@ export interface WorkOrderItemDto {
   requiredQuantity?: number;
   transferredQuantity?: number;
   consumedQuantity?: number;
+}
+
+export interface WorkOrderJobCardDto {
+  id?: string;
+  sequenceId?: number;
+  operationId?: string;
+  status?: number;
+  forQuantity?: number;
+  completedQty?: number;
+  totalTimeInMins?: number;
+  plannedTimeInMins?: number;
+  operationName?: string | null;
 }
 
 export interface WorkstationCostDto {

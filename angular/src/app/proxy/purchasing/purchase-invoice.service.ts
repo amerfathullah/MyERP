@@ -1,4 +1,4 @@
-import type { CreatePurchaseInvoiceDto, PurchaseInvoiceDto, PurchaseInvoiceListSummaryDto } from './models';
+import type { CreatePurchaseInvoiceDto, DuplicateInvoiceCheckResultDto, InvoicePaymentDto, PurchaseInvoiceDto, PurchaseInvoiceListSummaryDto, TaxWithholdingEntryDto, ThreeWayMatchingItemDto, UnbilledPurchaseOrderItemDto, UnbilledPurchaseReceiptItemDto, UnbilledReceiptItemDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -25,6 +25,15 @@ export class PurchaseInvoiceService {
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
       url: `/api/app/purchase-invoice/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  checkDuplicateSupplierInvoice = (supplierId: string, companyId: string, supplierInvoiceNumber: string, excludeId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DuplicateInvoiceCheckResultDto>({
+      method: 'POST',
+      url: '/api/app/purchase-invoice/check-duplicate-supplier-invoice',
+      params: { supplierId, companyId, supplierInvoiceNumber, excludeId },
     },
     { apiName: this.apiName,...config });
   
@@ -63,6 +72,14 @@ export class PurchaseInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  getListSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceListSummaryDto>({
+      method: 'GET',
+      url: `/api/app/purchase-invoice/summary/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getPaymentSchedule = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentScheduleDto[]>({
       method: 'GET',
@@ -71,11 +88,53 @@ export class PurchaseInvoiceService {
     { apiName: this.apiName,...config });
   
 
-  getListSummary = (companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PurchaseInvoiceListSummaryDto>({
+  getPayments = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InvoicePaymentDto[]>({
       method: 'GET',
-      url: '/api/app/purchase-invoice/list-summary',
-      params: { companyId },
+      url: `/api/app/purchase-invoice/${id}/payments`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTaxWithholdingEntries = (invoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TaxWithholdingEntryDto[]>({
+      method: 'GET',
+      url: `/api/app/purchase-invoice/tax-withholding-entries/${invoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getThreeWayMatching = (invoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ThreeWayMatchingItemDto[]>({
+      method: 'GET',
+      url: `/api/app/purchase-invoice/three-way-matching/${invoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnbilledPurchaseOrderItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UnbilledPurchaseOrderItemDto[]>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/unbilled-purchase-order-items',
+      params: { supplierId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnbilledPurchaseReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UnbilledPurchaseReceiptItemDto[]>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/unbilled-purchase-receipt-items',
+      params: { supplierId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnbilledReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UnbilledReceiptItemDto[]>({
+      method: 'GET',
+      url: '/api/app/purchase-invoice/unbilled-receipt-items',
+      params: { supplierId, companyId },
     },
     { apiName: this.apiName,...config });
   
@@ -109,22 +168,6 @@ export class PurchaseInvoiceService {
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
       url: `/api/app/purchase-invoice/${id}/write-off`,
-    },
-    { apiName: this.apiName,...config });
-
-  getUnbilledPurchaseOrderItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
-      method: 'GET',
-      url: '/api/app/purchase-invoice/unbilled-purchase-order-items',
-      params: { supplierId, companyId },
-    },
-    { apiName: this.apiName,...config });
-
-  getUnbilledPurchaseReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any[]>({
-      method: 'GET',
-      url: '/api/app/purchase-invoice/unbilled-purchase-receipt-items',
-      params: { supplierId, companyId },
     },
     { apiName: this.apiName,...config });
 }

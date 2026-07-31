@@ -360,7 +360,7 @@ export class SalesInvoiceFormComponent implements OnInit {
   }
 
   private resolveCustomerDetails(customerId: string): void {
-    this.partyDetailsService.getCustomerDetails({ partyType: 'Customer', partyId: customerId }).subscribe({
+    this.partyDetailsService.getCustomerDetails({ partyId: customerId }).subscribe({
       next: (details: any) => {
         if (details.tin) {
           this.form.patchValue({ buyerTin: details.tin });
