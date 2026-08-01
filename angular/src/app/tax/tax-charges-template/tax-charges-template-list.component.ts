@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { AccountService } from '../../proxy/accounting/account.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { Confirmation } from '@abp/ng.theme.shared';
@@ -34,7 +36,7 @@ interface TaxRow {
 /**
  * Tax Charges Template Management — configure reusable tax definitions for transactions.
  * Per ERPNext: Sales Taxes and Charges Template / Purchase Taxes and Charges Template.
- * 
+ *
  * Features:
  * - List all templates (selling/buying) with enable/disable toggle
  * - Create/edit template with dynamic row management
@@ -234,7 +236,9 @@ interface TaxRow {
   `,
 })
 export class TaxChargesTemplateListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private templateService = inject(TaxChargesTemplateService);
+  private taxCategoryService = inject(TaxCategoryService);
+  private accountService = inject(AccountService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -271,21 +275,21 @@ export class TaxChargesTemplateListComponent implements OnInit {
     if (companyId) params.companyId = companyId;
     if (this.filterType) params.templateType = this.filterType;
 
-    this.http.get<any>('/api/app/tax-charges-template', { params }).subscribe({
-      next: res => { this.templates.set(res.items ?? []); this.loading.set(false); },
+    this.templateService.getList({ skipCount: 0, maxResultCount: 100, sorting: '', companyId: companyId || undefined, templateType: this.filterType || undefined } as any).subscribe({
+      next: res => { this.templates.set((res.items ?? []) as any); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
 
   loadTaxCategories(): void {
-    this.http.get<any>('/api/app/tax-category', { params: { skipCount: '0', maxResultCount: '100' } }).subscribe({
+    this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({
       next: res => this.taxCategories.set(res.items ?? []),
       error: () => {},
     });
   }
 
   loadAccounts(): void {
-    this.http.get<any>('/api/app/account', { params: { skipCount: '0', maxResultCount: '500', sorting: 'accountCode asc' } }).subscribe({
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' } as any).subscribe({
       next: res => this.accounts.set((res.items ?? []).filter((a: any) => a.accountSubType === 5 || a.accountSubType === 6)), // Tax accounts
       error: () => {},
     });
@@ -356,8 +360,8 @@ export class TaxChargesTemplateListComponent implements OnInit {
     };
 
     const request$ = this.editingId()
-      ? this.http.put(`/api/app/tax-charges-template/${this.editingId()}`, payload)
-      : this.http.post('/api/app/tax-charges-template', payload);
+      ? this.templateService.update(this.editingId()!, payload as any)
+      : this.templateService.create(payload as any);
 
     request$.subscribe({
       next: () => {
@@ -378,7 +382,7 @@ export class TaxChargesTemplateListComponent implements OnInit {
   }
 
   toggleEnabled(t: TaxTemplate): void {
-    this.http.post(`/api/app/tax-charges-template/${t.id}/toggle-enabled`, {}).subscribe({
+    this.templateService.toggleEnabled(t.id).subscribe({
       next: () => { this.loadTemplates(); },
       error: () => this.toaster.error('::OperationFailed'),
     });
@@ -389,7 +393,7 @@ export class TaxChargesTemplateListComponent implements OnInit {
   deleteTemplate(id: string): void {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/tax-charges-template/${id}`).subscribe({
+      this.templateService.delete(id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadTemplates(); },
         error: () => this.toaster.error('::OperationFailed'),
       });

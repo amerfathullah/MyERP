@@ -387,6 +387,12 @@ export interface CreateBomSecondaryItemDto {
   warehouseId?: string | null;
 }
 
+export interface CreateDisassemblyDto {
+  workOrderId: string;
+  quantity: number;
+  sourceStockEntryId?: string | null;
+}
+
 export interface CreateManufactureStockEntryDto {
   workOrderId: string;
   fgQuantity: number;
@@ -420,12 +426,33 @@ export interface CreateWorkstationDto {
   description?: string | null;
 }
 
+export interface DisassemblyResultDto {
+  stockEntryId?: string;
+  entryNumber?: string;
+  disassembledQty?: number;
+  itemCount?: number;
+  remainingDisassemblable?: number;
+}
+
 export interface GetWorkOrderListDto extends PagedAndSortedResultRequestDto {
   status?: WorkOrderStatus | null;
   filter?: string | null;
   companyId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
+}
+
+export interface MaterialAvailabilityDto {
+  itemId?: string;
+  itemName?: string;
+  itemCode?: string;
+  requiredQty?: number;
+  transferredQty?: number;
+  pendingQty?: number;
+  availableQty?: number;
+  shortage?: number;
+  hasSufficientStock?: boolean;
+  warehouseId?: string;
 }
 
 export interface MaterialConsumptionResultDto {
@@ -568,6 +595,20 @@ export interface WorkOrderJobCardDto {
   totalTimeInMins?: number;
   plannedTimeInMins?: number;
   operationName?: string | null;
+}
+
+export interface WorkOrderMaterialReadinessDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  itemName?: string;
+  isReady?: boolean;
+  isPartial?: boolean;
+  hasShortage?: boolean;
+  totalMaterials?: number;
+  materialsAvailable?: number;
+  materialsShort?: number;
+  totalShortageValue?: number;
+  readinessStatus?: string;
 }
 
 export interface WorkstationCostDto {

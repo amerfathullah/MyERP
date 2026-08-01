@@ -8,7 +8,10 @@ import { PickListService } from '../../proxy/inventory/pick-list.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { HttpClient } from '@angular/common/http';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-pick-list-form',
@@ -124,7 +127,10 @@ export class PickListFormComponent implements OnInit {
   private service = inject(PickListService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private salesOrderProxyService = inject(SalesOrderService);
+  private warehouseService = inject(WarehouseService);
+  private customerService = inject(CustomerService);
+  private itemService = inject(ItemService);
 
   saving = signal(false);
   customers = signal<any[]>([]);
@@ -151,20 +157,20 @@ export class PickListFormComponent implements OnInit {
     if (params['customerId']) this.form.patchValue({ customerId: params['customerId'] });
     if (params['companyId']) this.form.patchValue({ companyId: params['companyId'] });
 
-    this.http.get<any>('/api/app/customer?maxResultCount=200').subscribe({
-      next: (res) => this.customers.set((res.items || []).map((c: any) => ({ id: c.id, name: c.name || c.customerName }))),
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
+      next: (res: any) => this.customers.set((res.items || []).map((c: any) => ({ id: c.id, name: c.name || c.customerName }))),
       error: () => {},
     });
-    this.http.get<any>('/api/app/item?maxResultCount=500').subscribe({
-      next: (res) => this.availableItems.set(res.items || []),
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500 } as any).subscribe({
+      next: (res: any) => this.availableItems.set(res.items || []),
       error: () => {},
     });
-    this.http.get<any>('/api/app/warehouse?maxResultCount=100').subscribe({
-      next: (res) => this.warehouses.set(res.items || []),
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe({
+      next: (res: any) => this.warehouses.set(res.items || []),
       error: () => {},
     });
-    this.http.get<any>('/api/app/sales-order?maxResultCount=100&status=ToDeliverAndBill').subscribe({
-      next: (res) => this.salesOrders.set(res.items || []),
+    this.salesOrderProxyService.getList({ skipCount: 0, maxResultCount: 100, status: 2 } as any).subscribe({
+      next: (res: any) => this.salesOrders.set(res.items || []),
       error: () => {},
     });
 

@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { MasterDataService } from '../../proxy/core/master-data.service';
+import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -39,7 +41,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private eInvoiceService = inject(EInvoiceService);
-  private http = inject(HttpClient);
+  private supplierProxyService = inject(SupplierService);
+  private masterDataService = inject(MasterDataService);
+  private paymentEntryService = inject(PaymentEntryService);
   private localization = inject(LocalizationService);
 
   invoice: PurchaseInvoiceDto | null = null;
@@ -104,8 +108,8 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         .subscribe(schedule => this.paymentSchedule.set(schedule ?? []));
       // Load supplier hold status for payment warning
       if (result.supplierId) {
-        this.http.get<any>(`/api/app/supplier/${result.supplierId}`).subscribe({
-          next: (s) => this.supplierHoldType.set(s?.holdType > 0 ? this.getHoldLabel(s.holdType) : null),
+        this.supplierProxyService.get(result.supplierId).subscribe({
+          next: (s: any) => this.supplierHoldType.set(s?.holdType > 0 ? this.getHoldLabel(s.holdType) : null),
           error: () => {},
         });
       }
@@ -127,23 +131,22 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
   /** Loads 3-way matching data from backend (PO qty/rate vs PR qty vs PI qty/rate) */
   private loadThreeWayMatching(invoiceId: string): void {
-    this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/three-way-matching`).subscribe({
-      next: (data) => this.matchingData.set(data ?? []),
-      error: () => {} // Non-critical — matching is advisory
+    this.service.getThreeWayMatching(invoiceId).subscribe({
+      next: (data: any) => this.matchingData.set(data ?? []),
+      error: () => {}
     });
   }
 
-  /** Loads tax withholding (TDS/WHT) entries for the invoice — Malaysia Section 107A */
   private loadTaxWithholding(invoiceId: string): void {
-    this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/tax-withholding-entries`).subscribe({
-      next: (data) => this.taxWithholdingEntries.set(data ?? []),
+    this.service.getTaxWithholdingEntries(invoiceId).subscribe({
+      next: (data: any) => this.taxWithholdingEntries.set(data ?? []),
       error: () => {}
     });
   }
 
   private loadLinkedPayments(invoiceId: string): void {
-    this.http.get<any[]>(`/api/app/purchase-invoice/${invoiceId}/payments`).subscribe({
-      next: (payments) => this.linkedPayments.set(payments ?? []),
+    this.service.getPayments(invoiceId).subscribe({
+      next: (payments: any) => this.linkedPayments.set(payments ?? []),
       error: () => {}
     });
   }
@@ -290,8 +293,8 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     this.quickPaymentMode.set('');
     this.showQuickPayment.set(true);
     if (this.modesOfPayment().length === 0) {
-      this.http.get<any>('/api/app/master-data/modes-of-payment').subscribe({
-        next: (res) => this.modesOfPayment.set(res.items ?? res ?? []),
+      this.masterDataService.getModesOfPayment().subscribe({
+        next: (res: any) => this.modesOfPayment.set(res.items ?? res ?? []),
         error: () => {},
       });
     }
@@ -321,11 +324,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       paidFromAccountId: undefined,
       paidToAccountId: undefined,
     };
-    this.http.post<any>('/api/app/payment-entry', dto).subscribe({
-      next: (pe) => {
-        this.http.post(`/api/app/payment-entry/${pe.id}/submit`, {}).subscribe({
+    this.paymentEntryService.create(dto as any).subscribe({
+      next: (pe: any) => {
+        this.paymentEntryService.submit(pe.id).subscribe({
           next: () => {
-            this.http.post(`/api/app/payment-entry/${pe.id}/post`, {}).subscribe({
+            this.paymentEntryService.post(pe.id).subscribe({
               next: () => {
                 this.isProcessingPayment.set(false);
                 this.showQuickPayment.set(false);

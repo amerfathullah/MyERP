@@ -12,7 +12,7 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
-import { HttpClient } from '@angular/common/http';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 
 @Component({
   selector: 'app-delivery-note-list',
@@ -32,7 +32,7 @@ import { HttpClient } from '@angular/common/http';
 export class DeliveryNoteListComponent implements OnInit {
   readonly store = inject(DeliveryNoteStore);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private salesInvoiceService = inject(SalesInvoiceService);
   private dnService = inject(DeliveryNoteService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
@@ -178,12 +178,12 @@ export class DeliveryNoteListComponent implements OnInit {
     if (!firstDn) return;
 
     this.isCreatingInvoice.set(true);
-    this.http.post<any>('/api/app/sales-invoice/from-delivery-notes', {
+    this.salesInvoiceService.createFromDeliveryNotes({
       companyId: this.companyContext.currentCompanyId(),
       customerId: firstDn.customerId,
       deliveryNoteIds: ids,
       currencyCode: firstDn.currencyCode || 'MYR',
-    }).subscribe({
+    } as any).subscribe({
       next: (result) => {
         this.isCreatingInvoice.set(false);
         this.toaster.success(this.l.instant('::SuccessfullyCreated'));

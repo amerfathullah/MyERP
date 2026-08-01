@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { AccountClosingBalanceService } from '../../proxy/accounting/account-closing-balance.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -141,7 +141,7 @@ interface ClosingBalanceStatus {
   `
 })
 export class AccountClosingBalanceComponent implements OnInit {
-  private http = inject(HttpClient);
+  private acbService = inject(AccountClosingBalanceService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -163,11 +163,11 @@ export class AccountClosingBalanceComponent implements OnInit {
   loadStatus(): void {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) return;
-    this.http.get<ClosingBalanceStatus>(`/api/app/account-closing-balance/status?companyId=${cid}`)
+    this.acbService.getStatus(cid)
       .subscribe({
         next: s => {
-          this.status.set(s);
-          if (s.latestPeriod) this.period = s.latestPeriod;
+          this.status.set(s as any);
+          if ((s as any).latestPeriod) this.period = (s as any).latestPeriod;
         },
         error: () => {}
       });
@@ -177,9 +177,9 @@ export class AccountClosingBalanceComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid || !this.period) return;
     this.isLoading.set(true);
-    this.http.get<ClosingBalanceItem[]>(`/api/app/account-closing-balance?companyId=${cid}&period=${this.period}`)
+    this.acbService.getList(cid, this.period)
       .subscribe({
-        next: items => { this.balances.set(items); this.isLoading.set(false); },
+        next: items => { this.balances.set((items as any)?.items ?? items ?? []); this.isLoading.set(false); },
         error: () => this.isLoading.set(false)
       });
   }
@@ -188,9 +188,9 @@ export class AccountClosingBalanceComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (!cid || !this.period || !this.closingDate) return;
     this.isRebuilding.set(true);
-    this.http.post<number>('/api/app/account-closing-balance/rebuild', {
+    this.acbService.rebuild({
       companyId: cid, closingDate: this.closingDate, period: this.period
-    }).subscribe({
+    } as any).subscribe({
       next: count => {
         this.toaster.success(`Rebuilt ${count} closing balances`, 'Success');
         this.isRebuilding.set(false);

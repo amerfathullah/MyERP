@@ -6,7 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { PendingDeliveryService } from '../../proxy/sales/pending-delivery.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 interface PendingDeliveryItem {
@@ -198,7 +198,7 @@ interface PendingDeliveryReport {
   `
 })
 export class PendingDeliveryComponent implements OnInit {
-  private http = inject(HttpClient);
+  private pendingDeliveryService = inject(PendingDeliveryService);
   private companyContext = inject(CompanyContextService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
@@ -315,7 +315,7 @@ export class PendingDeliveryComponent implements OnInit {
       return;
     }
 
-    this.http.post<any>('/api/app/pending-delivery/create-delivery-note', requests[index]).subscribe({
+    this.pendingDeliveryService.createDeliveryNote(requests[index] as any).subscribe({
       next: () => {
         this.createDNsSequentially(requests, index + 1);
       },
@@ -334,9 +334,9 @@ export class PendingDeliveryComponent implements OnInit {
     const params: any = { companyId, overdueOnly: this.overdueOnly.toString() };
     if (this.customerFilter) params.customerId = this.customerFilter;
 
-    this.http.get<PendingDeliveryReport>('/api/app/pending-delivery/report', { params }).subscribe({
+    this.pendingDeliveryService.getReport({ companyId, overdueOnly: this.overdueOnly, customerId: this.customerFilter || undefined } as any).subscribe({
       next: (data) => {
-        this.report.set(data);
+        this.report.set(data as any);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)

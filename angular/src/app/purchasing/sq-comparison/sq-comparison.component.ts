@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
+import { SupplierQuotationComparisonService } from '../../proxy/purchasing/supplier-quotation-comparison.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
@@ -190,7 +192,9 @@ interface ComparisonResult {
 })
 export class SupplierQuotationComparisonComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private sqService = inject(SupplierQuotationService);
+  private sqComparisonService = inject(SupplierQuotationComparisonService);
+  private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
 
   isLoading = signal(false);
@@ -209,10 +213,8 @@ export class SupplierQuotationComparisonComponent implements OnInit {
   }
 
   loadAvailableQuotations(): void {
-    this.http.get<any>('/api/app/supplier-quotation', {
-      params: { skipCount: '0', maxResultCount: '100', sorting: 'transactionDate desc' }
-    }).subscribe({
-      next: res => this.availableQuotations.set(res.items ?? []),
+    this.sqService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'transactionDate desc' } as any).subscribe({
+      next: (res: any) => this.availableQuotations.set(res.items ?? []),
       error: () => this.toaster.error('::FailedToLoad'),
     });
   }
@@ -237,16 +239,16 @@ export class SupplierQuotationComparisonComponent implements OnInit {
     this.isLoading.set(true);
 
     if (this.rfqId) {
-      this.http.get<ComparisonResult>(`/api/app/supplier-quotation-comparison/by-rfq/${this.rfqId}`)
+      this.sqComparisonService.getComparisonByRfq(this.rfqId)
         .subscribe({
-          next: result => { this.comparison.set(result); this.isLoading.set(false); },
+          next: (result: any) => { this.comparison.set(result); this.isLoading.set(false); },
           error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); },
         });
     } else {
       const ids = Array.from(this.selectedIds());
-      this.http.post<ComparisonResult>('/api/app/supplier-quotation-comparison/by-ids', ids)
+      this.sqComparisonService.getComparisonByIds(ids)
         .subscribe({
-          next: result => { this.comparison.set(result); this.isLoading.set(false); },
+          next: (result: any) => { this.comparison.set(result); this.isLoading.set(false); },
           error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); },
         });
     }

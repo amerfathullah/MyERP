@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ShipmentService } from '../../proxy/crm/shipment.service';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 
@@ -117,7 +117,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
   `
 })
 export class ShipmentListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private shipmentService = inject(ShipmentService);
   private confirmation = inject(ConfirmationService);
   shipments = signal<any[]>([]);
   totalCount = signal(0);
@@ -131,7 +131,7 @@ export class ShipmentListComponent implements OnInit {
     const params: any = { skipCount: this.currentPage() * 10, maxResultCount: 10 };
     if (this.searchTerm) params.filter = this.searchTerm;
     if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/shipment', { params }).subscribe({
+    this.shipmentService.getList({ skipCount: this.currentPage() * 10, maxResultCount: 10, sorting: '', filter: this.searchTerm || undefined, status: this.statusFilter || undefined } as any).subscribe({
       next: res => {
         this.shipments.set(res.items ?? []);
         this.totalCount.set(res.totalCount ?? 0);
@@ -140,13 +140,13 @@ export class ShipmentListComponent implements OnInit {
     });
   }
 
-  submit(id: string) { this.http.post(`/api/app/shipment/${id}/submit`, {}).subscribe({ next: () => this.loadData(), error: () => {} }); }
-  markInTransit(id: string) { this.http.post(`/api/app/shipment/${id}/mark-in-transit`, {}).subscribe({ next: () => this.loadData(), error: () => {} }); }
-  markDelivered(id: string) { this.http.post(`/api/app/shipment/${id}/mark-delivered`, {}).subscribe({ next: () => this.loadData(), error: () => {} }); }
+  submit(id: string) { this.shipmentService.submit(id).subscribe({ next: () => this.loadData(), error: () => {} }); }
+  markInTransit(id: string) { this.shipmentService.markInTransit(id).subscribe({ next: () => this.loadData(), error: () => {} }); }
+  markDelivered(id: string) { this.shipmentService.markDelivered(id).subscribe({ next: () => this.loadData(), error: () => {} }); }
   cancelShipment(id: string) {
     this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.post(`/api/app/shipment/${id}/cancel`, {}).subscribe({ next: () => this.loadData(), error: () => {} });
+      this.shipmentService.cancel(id).subscribe({ next: () => this.loadData(), error: () => {} });
     });
   }
 

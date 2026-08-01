@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
-import { HttpClient } from '@angular/common/http';
+import { SalesPartnerService } from '../../proxy/sales/sales-partner.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -120,7 +120,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   `
 })
 export class SalesPartnerListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private partnerService = inject(SalesPartnerService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
@@ -142,7 +142,7 @@ export class SalesPartnerListComponent implements OnInit {
     this.isLoading = true;
     const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
     if (this.searchTerm) params.filter = this.searchTerm;
-    this.http.get<any>('/api/app/sales-partner', { params }).subscribe({
+    this.partnerService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '', filter: this.searchTerm || undefined } as any).subscribe({
       next: res => { this.partners = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
@@ -153,7 +153,7 @@ export class SalesPartnerListComponent implements OnInit {
   getPartnerTypeName(type: number) { return this.partnerTypes[type] ?? 'Unknown'; }
 
   create() {
-    this.http.post('/api/app/sales-partner', this.newPartner).subscribe({
+    this.partnerService.create(this.newPartner as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData();
         this.newPartner = { name: '', partnerType: 0, commissionRate: 0, website: '' }; },
       error: () => {}
@@ -161,7 +161,7 @@ export class SalesPartnerListComponent implements OnInit {
   }
 
   toggle(p: any) {
-    this.http.post(`/api/app/sales-partner/${p.id}/toggle`, {}).subscribe({
+    this.partnerService.toggle(p.id).subscribe({
       next: () => { this.loadData(); },
       error: () => {}
     });
@@ -170,7 +170,7 @@ export class SalesPartnerListComponent implements OnInit {
   remove(p: any) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/sales-partner/${p.id}`).subscribe({
+      this.partnerService.delete(p.id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
         error: () => {}
       });

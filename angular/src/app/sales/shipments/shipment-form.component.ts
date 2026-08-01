@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ShipmentService } from '../../proxy/crm/shipment.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -103,7 +103,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
 })
 export class ShipmentFormComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private shipmentService = inject(ShipmentService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -147,7 +147,7 @@ export class ShipmentFormComponent implements OnInit {
       currencyCode: raw.currencyCode || 'MYR',
       notes: raw.notes || undefined
     };
-    this.http.post<any>('/api/app/shipment', dto).subscribe({
+    this.shipmentService.create(dto as any).subscribe({
       next: (result) => {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/shipments', result.id]);

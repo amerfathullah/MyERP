@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { GlRepostService } from '../../proxy/accounting/gl-repost.service';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -114,7 +114,7 @@ interface RepostResultDto {
   `
 })
 export class GlRepostComponent {
-  private http = inject(HttpClient);
+  private glRepostService = inject(GlRepostService);
   private localization = inject(LocalizationService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -130,7 +130,7 @@ export class GlRepostComponent {
   }
 
   loadAllowedTypes(): void {
-    this.http.get<string[]>('/api/app/gl-repost/allowed-voucher-types')
+    this.glRepostService.getAllowedVoucherTypes()
       .subscribe({
         next: types => this.allowedTypes.set(types),
         error: () => this.allowedTypes.set([
@@ -145,13 +145,13 @@ export class GlRepostComponent {
     if (!cid || !this.voucherId) return;
 
     this.isProcessing.set(true);
-    this.http.post<RepostResultDto>('/api/app/gl-repost/repost', {
+    this.glRepostService.repost({
       companyId: cid,
       voucherType: this.voucherType,
       voucherId: this.voucherId
-    }).subscribe({
+    } as any).subscribe({
       next: result => {
-        this.lastResult.set(result);
+        this.lastResult.set(result as any);
         this.isProcessing.set(false);
         if (result.successCount > 0) {
           this.toaster.success('::SuccessfullyReposted');

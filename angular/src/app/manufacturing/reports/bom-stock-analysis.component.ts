@@ -2,7 +2,8 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { BomStockAnalysisService } from '../../proxy/manufacturing/bom-stock-analysis.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 @Component({
@@ -112,7 +113,8 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   `
 })
 export class BomStockAnalysisComponent implements OnInit {
-  private http = inject(HttpClient);
+  private bomAnalysisService = inject(BomStockAnalysisService);
+  private mfgService = inject(ManufacturingService);
 
   boms = signal<any[]>([]);
   result = signal<any>(null);
@@ -122,9 +124,7 @@ export class BomStockAnalysisComponent implements OnInit {
   requiredQty = 1;
 
   ngOnInit() {
-    this.http.get<any>('/api/app/manufacturing/bom-list', {
-      params: { skipCount: '0', maxResultCount: '200' }
-    }).subscribe({
+    this.mfgService.getBomList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
       next: (r) => this.boms.set(r.items ?? []),
       error: () => {}
     });
@@ -133,9 +133,7 @@ export class BomStockAnalysisComponent implements OnInit {
   analyze() {
     if (!this.selectedBomId) return;
     this.isLoading.set(true);
-    this.http.get('/api/app/bom-stock-analysis/analysis', {
-      params: { bomId: this.selectedBomId, requiredQty: this.requiredQty.toString() }
-    }).subscribe({
+    this.bomAnalysisService.getAnalysis({ bomId: this.selectedBomId, requiredQty: this.requiredQty } as any).subscribe({
       next: (r: any) => { this.result.set(r); this.isLoading.set(false); },
       error: () => { this.isLoading.set(false); }
     });

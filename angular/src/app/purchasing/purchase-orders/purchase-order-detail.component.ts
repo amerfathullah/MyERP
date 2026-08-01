@@ -13,7 +13,9 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { HttpClient } from '@angular/common/http';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { PartyPerformanceService } from '../../proxy/core/party-performance.service';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseOrderStore } from '../store/purchase-order.store';
@@ -36,7 +38,9 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
-  private http = inject(HttpClient);
+  private documentEmailService = inject(DocumentEmailService);
+  private supplierProxyService = inject(SupplierService);
+  private partyPerformanceService = inject(PartyPerformanceService);
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -116,12 +120,12 @@ export class PurchaseOrderDetailComponent implements OnInit {
       }
       // Load supplier performance metrics + contact info
       if ((result as any).supplierId) {
-        this.http.get<any>(`/api/app/party-performance/supplier/${(result as any).supplierId}`).subscribe({
-          next: (perf) => this.supplierPerformance.set(perf),
+        this.partyPerformanceService.getSupplierPerformance((result as any).supplierId).subscribe({
+          next: (perf: any) => this.supplierPerformance.set(perf),
           error: () => {}
         });
-        this.http.get<any>(`/api/app/supplier/${(result as any).supplierId}`).subscribe({
-          next: (s) => this.supplierContact.set({ phone: s?.phone, email: s?.email, contactPerson: s?.contactPerson }),
+        this.supplierProxyService.get((result as any).supplierId).subscribe({
+          next: (s: any) => this.supplierContact.set({ phone: s?.phone, email: s?.email, contactPerson: s?.contactPerson }),
           error: () => {}
         });
       }
@@ -317,12 +321,12 @@ export class PurchaseOrderDetailComponent implements OnInit {
       return;
     }
     this.emailSending = true;
-    this.http.post('/api/app/document-email/purchase-order-email', {
+    this.documentEmailService.sendPurchaseOrderEmail({
       documentId: this.order!.id,
       recipientEmail: this.emailRecipient,
       ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
       attachPdf: this.emailAttachPdf,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySent');
         this.showEmailDialog = false;

@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { DashboardService } from '../../../proxy/core/dashboard.service';
 import { LocalizationPipe } from '@abp/ng.core';
 
 /**
@@ -53,7 +53,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   `
 })
 export class BatchExpiryWarningComponent implements OnChanges {
-  private http = inject(HttpClient);
+  private dashboardService = inject(DashboardService);
 
   @Input() itemIds: string[] = [];
   @Input() companyId: string = '';
@@ -72,7 +72,7 @@ export class BatchExpiryWarningComponent implements OnChanges {
     const params: any = { daysAhead: this.nearExpiryDays };
     if (this.companyId) params.companyId = this.companyId;
 
-    this.http.get<any[]>('/api/app/dashboard/expiring-batches', { params }).subscribe({
+    this.dashboardService.getExpiringBatches(this.companyId || undefined as any, this.nearExpiryDays).subscribe({
       next: (batches) => {
         const today = new Date();
         const expired: BatchWarning[] = [];

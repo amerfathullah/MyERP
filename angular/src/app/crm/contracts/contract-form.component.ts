@@ -6,7 +6,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ContractService } from '../../proxy/crm/contract.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 
 @Component({
   selector: 'app-contract-form',
@@ -88,7 +89,8 @@ export class ContractFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private supplierService = inject(SupplierService);
+  private customerService = inject(CustomerService);
 
   parties = signal<any[]>([]);
 
@@ -136,11 +138,17 @@ export class ContractFormComponent implements OnInit {
   }
 
   private loadParties(type: string) {
-    const url = type === 'Supplier' ? '/api/app/supplier' : '/api/app/customer';
-    this.http.get<any>(url, { params: { maxResultCount: '200' } }).subscribe({
-      next: (r) => this.parties.set(r.items ?? []),
-      error: () => {}
-    });
+    if (type === 'Supplier') {
+      this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
+        next: (r: any) => this.parties.set(r.items ?? []),
+        error: () => {}
+      });
+    } else {
+      this.customerService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
+        next: (r: any) => this.parties.set(r.items ?? []),
+        error: () => {}
+      });
+    }
   }
 
   save() {

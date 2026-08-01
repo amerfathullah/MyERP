@@ -8,7 +8,7 @@ import { ProductBundleService } from '../../proxy/sales/product-bundle.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { HttpClient } from '@angular/common/http';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-product-bundle-form',
@@ -105,7 +105,7 @@ export class ProductBundleFormComponent implements OnInit {
   private router = inject(Router);
   private service = inject(ProductBundleService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private itemService = inject(ItemService);
 
   saving = signal(false);
   availableItems = signal<any[]>([]);
@@ -119,7 +119,7 @@ export class ProductBundleFormComponent implements OnInit {
   get componentsArray() { return this.form.get('items') as FormArray; }
 
   ngOnInit() {
-    this.http.get<any>('/api/app/item?maxResultCount=500').subscribe({
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500 } as any).subscribe({
       next: (res) => this.availableItems.set(res.items || []),
       error: () => {},
     });

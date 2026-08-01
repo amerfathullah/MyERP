@@ -7,7 +7,8 @@ import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
-import { HttpClient } from '@angular/common/http';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-stock-reservation-detail',
@@ -110,7 +111,8 @@ export class StockReservationDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private confirmation = inject(ConfirmationService);
   private sreService = inject(StockReservationService);
-  private http = inject(HttpClient);
+  private warehouseService = inject(WarehouseService);
+  private itemService = inject(ItemService);
   private toaster = inject(ToasterService);
 
   entry = signal<any>(null);
@@ -135,13 +137,13 @@ export class StockReservationDetailComponent implements OnInit {
         this.isLoading.set(false);
         // Resolve item + warehouse names
         if (e.itemId) {
-          this.http.get<any>(`/api/app/item/${e.itemId}`).subscribe({
+          this.itemService.get(e.itemId).subscribe({
             next: item => this.itemName.set(`${item.itemCode} — ${item.itemName}`),
             error: () => {}
           });
         }
         if (e.warehouseId) {
-          this.http.get<any>(`/api/app/warehouse/${e.warehouseId}`).subscribe({
+          this.warehouseService.get(e.warehouseId).subscribe({
             next: wh => this.warehouseName.set(wh.name),
             error: () => {}
           });

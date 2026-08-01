@@ -12,7 +12,7 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
-import { HttpClient } from '@angular/common/http';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -31,7 +31,7 @@ export class MaterialRequestDetailComponent implements OnInit {
   readonly store = inject(MaterialRequestStore);
   private service = inject(MaterialRequestService);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
 
   entity: MaterialRequestDto | null = null;
@@ -75,7 +75,7 @@ export class MaterialRequestDetailComponent implements OnInit {
 
   loadSuppliers(): void {
     if (this.suppliers().length) return;
-    this.http.get<any>('/api/app/supplier', { params: { maxResultCount: '200' } }).subscribe({
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: res => this.suppliers.set(res.items ?? []),
       error: () => {}
     });

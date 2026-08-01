@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -15,6 +15,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
@@ -37,7 +38,8 @@ export class SalesOrderDetailComponent implements OnInit {
   private conversionService = inject(DocumentConversionService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private documentEmailService = inject(DocumentEmailService);
+  private stockBalanceService = inject(StockBalanceService);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
@@ -238,9 +240,7 @@ export class SalesOrderDetailComponent implements OnInit {
     const itemIds = [...new Set(items.map((i: any) => i.itemId).filter(Boolean))];
     if (!itemIds.length) return;
     // Fetch stock balance and aggregate per-item across warehouses
-    this.http.get<any>('/api/app/stock-balance', {
-      params: { maxResultCount: '500', skipCount: '0', sorting: '' }
-    }).subscribe({
+    this.stockBalanceService.getStockBalance({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (res: any) => {
         const stockMap: Record<string, number> = {};
         for (const bin of (res.items ?? [])) {
@@ -387,12 +387,12 @@ export class SalesOrderDetailComponent implements OnInit {
       return;
     }
     this.emailSending = true;
-    this.http.post('/api/app/document-email/sales-order-email', {
+    this.documentEmailService.sendSalesOrderEmail({
       documentId: this.order!.id,
       recipientEmail: this.emailRecipient,
       ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
       attachPdf: this.emailAttachPdf,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySent');
         this.showEmailDialog = false;
@@ -482,7 +482,7 @@ export class SalesOrderDetailComponent implements OnInit {
 
     // Use draft link guard check before creating
     this.initiateConversion('DeliveryNote', () => {
-      this.http.post<any>(`/api/app/document-conversion/convert-sales-order-to-delivery-note/${id}`, selectedItems).subscribe({
+      this.conversionService.convertSalesOrderToDeliveryNote(id, selectedItems as any).subscribe({
         next: (dn) => {
           this.isCreatingDN.set(false);
           this.showDeliverySelection.set(false);

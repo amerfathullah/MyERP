@@ -2,21 +2,11 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FinancialReportTemplateService } from '../../proxy/accounting/financial-report-template.service';
+import { FinancialReportTemplateDto } from '../../proxy/accounting/models';
 import { Router, RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
-
-interface FinancialReportTemplateDto {
-  id: string;
-  name?: string;
-  reportType: number;
-  companyId?: string;
-  isStandard?: boolean;
-  isEnabled?: boolean;
-  description?: string;
-  rows: any[];
-}
 
 @Component({
   standalone: true,
@@ -171,7 +161,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
   }
 
   toggle(t: FinancialReportTemplateDto) {
-    this.templateService.toggle(t.id).subscribe({
+    this.templateService.toggle(t.id!).subscribe({
       next: () => this.load(),
       error: () => {}
     });
@@ -180,7 +170,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
   remove(t: FinancialReportTemplateDto) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.templateService.delete(t.id).subscribe({
+      this.templateService.delete(t.id!).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.load(); },
         error: () => {}
       });
@@ -192,7 +182,7 @@ export class FinancialReportTemplateListComponent implements OnInit {
     this.load();
   }
 
-  getReportTypeName(type: number): string {
+  getReportTypeName(type: number | undefined): string {
     switch (type) {
       case 0: return 'Profit & Loss';
       case 1: return 'Balance Sheet';

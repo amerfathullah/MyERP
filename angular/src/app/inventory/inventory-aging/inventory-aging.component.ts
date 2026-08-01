@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { InventoryAgingService } from '../../proxy/inventory/inventory-aging.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 interface AgingBucket {
@@ -194,7 +194,7 @@ interface InventoryAgingReport {
   `
 })
 export class InventoryAgingComponent implements OnInit {
-  private http = inject(HttpClient);
+  private agingService = inject(InventoryAgingService);
   private companyContext = inject(CompanyContextService);
 
   report = signal<InventoryAgingReport | null>(null);
@@ -211,15 +211,13 @@ export class InventoryAgingComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.get<InventoryAgingReport>('/api/app/inventory-aging/report', {
-      params: {
-        companyId,
-        slowMovingDays: this.slowMovingDays.toString(),
-        deadStockDays: this.deadStockDays.toString()
-      }
-    }).subscribe({
+    this.agingService.getReport({
+      companyId,
+      slowMovingDays: this.slowMovingDays,
+      deadStockDays: this.deadStockDays
+    } as any).subscribe({
       next: (data) => {
-        this.report.set(data);
+        this.report.set(data as any);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)

@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ProductionAnalyticsService } from '../../proxy/manufacturing/production-analytics.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
@@ -152,7 +152,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   `
 })
 export class ProductionAnalyticsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private analyticsService = inject(ProductionAnalyticsService);
   private companyContext = inject(CompanyContextService);
 
   data = signal<any>(null);
@@ -170,9 +170,7 @@ export class ProductionAnalyticsComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get('/api/app/production-analytics/analytics', {
-      params: { companyId, fromDate: this.fromDate, toDate: this.toDate }
-    }).subscribe({
+    this.analyticsService.getAnalytics(companyId, this.fromDate, this.toDate).subscribe({
       next: (r: any) => { this.data.set(r); this.isLoading.set(false); },
       error: () => { this.isLoading.set(false); }
     });

@@ -7,7 +7,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { IssueService } from '../../proxy/support/issue.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -102,7 +103,8 @@ export class IssueFormComponent implements OnInit {
   private service = inject(IssueService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private customerService = inject(CustomerService);
+  private companyService = inject(CompanyService);
 
   companies = signal<any[]>([]);
   customers = signal<any[]>([]);
@@ -118,11 +120,11 @@ export class IssueFormComponent implements OnInit {
   });
 
   ngOnInit() {
-    this.http.get<any>('/api/app/company', { params: { maxResultCount: '200' } }).subscribe({
+    this.companyService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.companies.set(r.items ?? []),
       error: () => {}
     });
-    this.http.get<any>('/api/app/customer', { params: { maxResultCount: '200' } }).subscribe({
+    this.customerService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.customers.set(r.items ?? []),
       error: () => {}
     });

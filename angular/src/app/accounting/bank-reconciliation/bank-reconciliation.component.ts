@@ -11,7 +11,7 @@ import type { BankTransactionDto, BankReconciliationSummaryDto, MatchCandidateDt
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
-import { HttpClient } from '@angular/common/http';
+import { AccountService } from '../../proxy/accounting/account.service';
 
 @Component({
   selector: 'app-bank-reconciliation',
@@ -25,7 +25,7 @@ export class BankReconciliationComponent implements OnInit {
   private service = inject(BankReconciliationService);
   private toaster = inject(ToasterService);
   companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private accountService = inject(AccountService);
 
   transactions = signal<BankTransactionDto[]>([]);
   summary = signal<BankReconciliationSummaryDto>({});
@@ -61,7 +61,7 @@ export class BankReconciliationComponent implements OnInit {
   loadBankAccounts(): void {
     const companyId = this.companyContext.currentCompanyId();
     const params: any = { skipCount: 0, maxResultCount: 200, sorting: '' };
-    this.http.get<any>('/api/app/account', { params: { ...params, filter: 'Bank' } }).subscribe({
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => {
         const bankAccts = (res.items ?? []).filter((a: any) =>
           a.accountType === 'Bank' || a.accountSubType === 5 /* Bank */
@@ -78,7 +78,7 @@ export class BankReconciliationComponent implements OnInit {
   }
 
   loadPartyAccounts(): void {
-    this.http.get<any>('/api/app/account', { params: { skipCount: 0, maxResultCount: 200, sorting: '' } }).subscribe({
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => {
         const partyAccts = (res.items ?? []).filter((a: any) =>
           a.accountSubType === 1 /* Receivable */ || a.accountSubType === 2 /* Payable */

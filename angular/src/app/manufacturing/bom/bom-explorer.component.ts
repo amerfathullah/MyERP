@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -24,7 +24,7 @@ interface BomTreeNode {
  * BOM Tree Explorer — interactive multi-level Bill of Materials visualization.
  * Shows the complete explosion of a BOM as a hierarchical tree.
  * Per ERPNext: BOM Explorer report (gotcha #5934) — recursive CTE with phantom bubbling.
- * 
+ *
  * Features:
  * - Expandable/collapsible tree nodes
  * - Sub-assembly drill-down (shows their own BOM components)
@@ -123,7 +123,7 @@ interface BomTreeNode {
   `],
 })
 export class BomExplorerComponent implements OnInit {
-  private http = inject(HttpClient);
+  private mfgService = inject(ManufacturingService);
   private route = inject(ActivatedRoute);
 
   loading = signal(false);
@@ -145,10 +145,8 @@ export class BomExplorerComponent implements OnInit {
   }
 
   loadBomList(): void {
-    this.http.get<any>('/api/app/manufacturing/bom-list', {
-      params: { skipCount: '0', maxResultCount: '200' }
-    }).subscribe({
-      next: (res) => this.availableBoms.set(res?.items ?? []),
+    this.mfgService.getBomList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
+      next: (res: any) => this.availableBoms.set(res?.items ?? []),
       error: () => {},
     });
   }
@@ -156,8 +154,8 @@ export class BomExplorerComponent implements OnInit {
   loadBomTree(): void {
     if (!this.selectedBomId) { this.tree.set(null); return; }
     this.loading.set(true);
-    this.http.get<any>(`/api/app/manufacturing/bom/${this.selectedBomId}`).subscribe({
-      next: (bom) => {
+    this.mfgService.getBom(this.selectedBomId).subscribe({
+      next: (bom: any) => {
         const rootNode = this.buildTree(bom, 0, 1);
         this.tree.set(rootNode);
         this.totalCost.set(rootNode.amount);

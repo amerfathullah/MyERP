@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { PutawayRuleService } from '../../proxy/inventory/putaway-rule.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -95,7 +97,9 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   `
 })
 export class PutawayRuleListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private putawayService = inject(PutawayRuleService);
+  private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
   private localization = inject(LocalizationService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
@@ -113,15 +117,15 @@ export class PutawayRuleListComponent implements OnInit {
 
   ngOnInit() {
     this.load();
-    this.http.get<any>('/api/app/item', { params: { maxResultCount: '500' } }).subscribe({
-      next: res => {
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500 } as any).subscribe({
+      next: (res: any) => {
         this.availableItems.set(res.items ?? []);
         (res.items ?? []).forEach((i: any) => this.itemMap[i.id] = i.itemCode || i.itemName);
       },
       error: () => {}
     });
-    this.http.get<any>('/api/app/warehouse', { params: { maxResultCount: '200' } }).subscribe({
-      next: res => {
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: (res: any) => {
         this.warehouses.set(res.items ?? []);
         (res.items ?? []).forEach((w: any) => this.whMap[w.id] = w.name);
       },
@@ -130,7 +134,7 @@ export class PutawayRuleListComponent implements OnInit {
   }
 
   load() {
-    this.http.get<any>('/api/app/putaway-rule').subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
+    this.putawayService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({ next: (res: any) => this.items.set(res.items ?? []), error: () => {} });
   }
 
   getItemName(id: string) { return this.itemMap[id] || id?.substring(0, 8) + '…'; }
@@ -138,14 +142,14 @@ export class PutawayRuleListComponent implements OnInit {
 
   save() {
     if (!this.newItem.itemId || !this.newItem.warehouseId) return;
-    this.http.post('/api/app/putaway-rule', this.newItem).subscribe({
+    this.putawayService.create(this.newItem as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCreated'); this.showForm = false; this.load(); },
       error: () => {}
     });
   }
 
   toggle(id: string) {
-    this.http.post(`/api/app/putaway-rule/${id}/toggle`, {}).subscribe({
+    this.putawayService.toggle(id).subscribe({
       next: () => { this.toaster.success('::SuccessfullyUpdated'); this.load(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Toggle failed'),
     });
@@ -154,7 +158,7 @@ export class PutawayRuleListComponent implements OnInit {
   remove(id: string) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/putaway-rule/${id}`).subscribe({
+      this.putawayService.delete(id).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyDeleted')); this.load(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::DeleteFailed'),
       });

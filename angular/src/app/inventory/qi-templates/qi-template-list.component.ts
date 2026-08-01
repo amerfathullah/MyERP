@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { QualityInspectionTemplateService } from '../../proxy/inventory/quality-inspection-template.service';
 
 @Component({
   standalone: true,
@@ -63,18 +63,18 @@ import { HttpClient } from '@angular/common/http';
   `
 })
 export class QiTemplateListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private templateService = inject(QualityInspectionTemplateService);
   templates = signal<any[]>([]);
 
   ngOnInit() { this.loadData(); }
 
   loadData() {
-    this.http.get<any>('/api/app/quality-inspection-template', { params: { maxResultCount: 100 } })
+    this.templateService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any)
       .subscribe({ next: res => this.templates.set(res.items ?? []), error: () => {} });
   }
 
   toggle(id: string) {
-    this.http.post(`/api/app/quality-inspection-template/${id}/toggle`, {})
+    this.templateService.toggle(id)
       .subscribe({ next: () => this.loadData(), error: () => {} });
   }
 }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { SupplierDeliveryPerformanceService } from '../../../proxy/purchasing/supplier-delivery-performance.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
@@ -171,7 +171,7 @@ interface DeliveryPerformanceReport {
   `
 })
 export class SupplierDeliveryPerformanceComponent implements OnInit {
-  private http = inject(HttpClient);
+  private reportService = inject(SupplierDeliveryPerformanceService);
   private companyContext = inject(CompanyContextService);
   private l = inject(LocalizationService);
 
@@ -194,11 +194,9 @@ export class SupplierDeliveryPerformanceComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http.get<DeliveryPerformanceReport>('/api/app/supplier-delivery-performance/report', {
-      params: { companyId, fromDate: this.fromDate, toDate: this.toDate }
-    }).subscribe({
+    this.reportService.getReport({ companyId, fromDate: this.fromDate, toDate: this.toDate } as any).subscribe({
       next: (data) => {
-        this.report.set(data);
+        this.report.set(data as any);
         this.isLoading.set(false);
       },
       error: () => this.isLoading.set(false)

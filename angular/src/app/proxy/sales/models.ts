@@ -1141,10 +1141,26 @@ export interface SendInvoiceEmailDto {
   attachPdf?: boolean;
 }
 
+export interface SendPurchaseOrderEmailDto {
+  documentId?: string;
+  recipientEmail?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
+}
+
 export interface SendQuotationEmailDto {
   quotationId?: string;
   recipientEmail?: string | null;
   partyName?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
+}
+
+export interface SendSalesOrderEmailDto {
+  documentId?: string;
+  recipientEmail?: string | null;
   ccEmails?: string[] | null;
   templateId?: string | null;
   attachPdf?: boolean;

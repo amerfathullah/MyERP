@@ -7,7 +7,6 @@ import { ProjectService } from '../../proxy/projects/project.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import type { ProjectDto, ProjectTaskDto } from '../../proxy/projects/models';
-import { HttpClient } from '@angular/common/http';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -176,7 +175,6 @@ export class ProjectDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private router = inject(Router);
   private service = inject(ProjectService);
-  private http = inject(HttpClient);
 
   project = signal<ProjectDto | null>(null);
   tasks = signal<ProjectTaskDto[]>([]);
@@ -229,8 +227,8 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   private loadTasks(projectId: string): void {
-    this.http.get<any>(`/api/app/project/${projectId}/tasks`).subscribe({
-      next: (res) => this.tasks.set(res?.items ?? res ?? []),
+    this.service.getTasks(projectId).subscribe({
+      next: (res: any) => this.tasks.set(res?.items ?? res ?? []),
       error: () => {}
     });
   }
@@ -240,14 +238,14 @@ export class ProjectDetailComponent implements OnInit {
     if (!id) return;
 
     if (action === 'complete') {
-      this.http.post(`/api/app/project/${id}/complete`, {}).subscribe({
+      this.service.complete(id).subscribe({
         next: () => this.ngOnInit(),
         error: () => {}
       });
     } else if (action === 'cancel') {
       this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
         if (status !== Confirmation.Status.confirm) return;
-        this.http.post(`/api/app/project/${id}/cancel`, {}).subscribe({
+        this.service.cancel(id).subscribe({
           next: () => this.ngOnInit(),
           error: () => {}
         });

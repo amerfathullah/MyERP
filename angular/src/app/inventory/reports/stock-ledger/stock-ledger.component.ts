@@ -5,7 +5,8 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../../proxy/inventory/item.service';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { CompanyService } from '../../../proxy/core/company.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
@@ -27,7 +28,8 @@ export class StockLedgerComponent implements OnInit {
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private warehouseService = inject(WarehouseService);
+  private itemService = inject(ItemService);
 
   companies = signal<CompanyDto[]>([]);
   items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
@@ -61,14 +63,14 @@ export class StockLedgerComponent implements OnInit {
   }
 
   private loadItems(): void {
-    this.http.get<any>('/api/app/item', { params: { skipCount: '0', maxResultCount: '500', sorting: '' } }).subscribe({
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => this.items.set((res.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))),
       error: () => {},
     });
   }
 
   private loadWarehouses(): void {
-    this.http.get<any>('/api/app/warehouse', { params: { skipCount: '0', maxResultCount: '200', sorting: '' } }).subscribe({
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => this.warehouses.set((res.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))),
       error: () => {},
     });

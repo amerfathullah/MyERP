@@ -10,7 +10,8 @@ import { StockEntryType } from '../../proxy/inventory/stock-entry-type.enum';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -57,7 +58,8 @@ export class StockEntryFormComponent implements OnInit {
   private itemService = inject(ItemService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private mfgService = inject(ManufacturingService);
+  private stockBalanceService = inject(StockBalanceService);
 
   warehouses = signal<any[]>([]);
   companies = signal<any[]>([]);
@@ -106,8 +108,8 @@ export class StockEntryFormComponent implements OnInit {
     this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
       res => this.availableItems.set(res.items ?? []));
     // Load active work orders for BOM picker
-    this.http.get<any>('/api/app/manufacturing/work-order', { params: { maxResultCount: '100', sorting: '' } }).subscribe({
-      next: res => this.workOrders.set(res.items ?? []),
+    this.mfgService.getWorkOrderList({ maxResultCount: 100, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (res: any) => this.workOrders.set(res.items ?? []),
       error: () => {},
     });
 
@@ -313,10 +315,10 @@ export class StockEntryFormComponent implements OnInit {
     const warehouseId = this.form.get('sourceWarehouse')?.value;
     const params: any = { itemId };
     if (warehouseId) params.warehouseId = warehouseId;
-    this.http.get<any>('/api/app/stock-balance/item-stock', { params }).subscribe({
-      next: (result) => {
-        if (result?.items?.length > 0) {
-          const bin = result.items[0];
+    this.stockBalanceService.getItemStock(itemId).subscribe({
+      next: (result: any) => {
+        if (result?.length > 0) {
+          const bin = result[0];
           const info = this.itemStockInfo();
           this.itemStockInfo.set({
             ...info,

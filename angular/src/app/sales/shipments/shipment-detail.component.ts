@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ShipmentService } from '../../proxy/crm/shipment.service';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -122,7 +122,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class ShipmentDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private shipmentService = inject(ShipmentService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
 
@@ -135,26 +135,26 @@ export class ShipmentDetailComponent implements OnInit {
   }
 
   private loadShipment(): void {
-    this.http.get<any>(`/api/app/shipment/${this.shipmentId}`).subscribe({
-      next: (data) => this.shipment.set(data),
+    this.shipmentService.get(this.shipmentId).subscribe({
+      next: (data: any) => this.shipment.set(data),
       error: () => this.router.navigate(['/sales/shipments'])
     });
   }
 
   submit(): void {
-    this.http.post<any>(`/api/app/shipment/${this.shipmentId}/submit`, {}).subscribe({
+    this.shipmentService.submit(this.shipmentId).subscribe({
       next: () => { this.toaster.success('::SuccessfullySubmitted'); this.loadShipment(); }
     });
   }
 
   markInTransit(): void {
-    this.http.post<any>(`/api/app/shipment/${this.shipmentId}/mark-in-transit`, {}).subscribe({
+    this.shipmentService.markInTransit(this.shipmentId).subscribe({
       next: () => { this.toaster.success('::MarkedInTransit'); this.loadShipment(); }
     });
   }
 
   markDelivered(): void {
-    this.http.post<any>(`/api/app/shipment/${this.shipmentId}/mark-delivered`, {}).subscribe({
+    this.shipmentService.markDelivered(this.shipmentId).subscribe({
       next: () => { this.toaster.success('::MarkedDelivered'); this.loadShipment(); }
     });
   }
@@ -162,7 +162,7 @@ export class ShipmentDetailComponent implements OnInit {
   cancel(): void {
     this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.post<any>(`/api/app/shipment/${this.shipmentId}/cancel`, {}).subscribe({
+      this.shipmentService.cancel(this.shipmentId).subscribe({
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadShipment(); }
       });
     });

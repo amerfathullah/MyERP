@@ -1,7 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
@@ -158,7 +161,10 @@ export class SubcontractingInwardDetailComponent implements OnInit {
   private scioService = inject(SubcontractingInwardOrderService);
   private toaster = inject(ToasterService);
 
-  private http = inject(HttpClient);
+  private salesOrderProxyService = inject(SalesOrderService);
+  private supplierService = inject(SupplierService);
+  private subcontractingService = inject(SubcontractingService);
+  private itemService = inject(ItemService);
 
   order = signal<any>(null);
   isLoading = signal(true);
@@ -194,27 +200,27 @@ export class SubcontractingInwardDetailComponent implements OnInit {
 
   private resolveNames(o: any) {
     if (o.supplierId) {
-      this.http.get<any>(`/api/app/supplier/${o.supplierId}`).subscribe({
-        next: s => this.supplierName.set(s.name || s.supplierName || ''),
+      this.supplierService.get(o.supplierId).subscribe({
+        next: (s: any) => this.supplierName.set(s.name || s.supplierName || ''),
         error: () => {}
       });
     }
     if (o.salesOrderId) {
-      this.http.get<any>(`/api/app/sales-order/${o.salesOrderId}`).subscribe({
-        next: so => this.soNumber.set(so.orderNumber || ''),
+      this.salesOrderProxyService.get(o.salesOrderId).subscribe({
+        next: (so: any) => this.soNumber.set(so.orderNumber || ''),
         error: () => {}
       });
     }
     if (o.subcontractingOrderId) {
-      this.http.get<any>(`/api/app/subcontracting/${o.subcontractingOrderId}`).subscribe({
-        next: sco => this.scoNumber.set(sco.orderNumber || ''),
+      this.subcontractingService.getOrder(o.subcontractingOrderId).subscribe({
+        next: (sco: any) => this.scoNumber.set(sco.orderNumber || ''),
         error: () => {}
       });
     }
     // Resolve item names
     const itemIds = (o.items || []).map((i: any) => i.itemId).filter((id: string) => !!id);
     if (itemIds.length) {
-      this.http.get<any>('/api/app/item', { params: { maxResultCount: '500' } }).subscribe({
+      this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
         next: res => {
           const map: Record<string, string> = {};
           (res.items || []).forEach((item: any) => map[item.id] = item.itemName || item.itemCode || item.id);

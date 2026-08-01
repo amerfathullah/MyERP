@@ -10,7 +10,9 @@ import type { PeriodClosingVoucherDto, CreatePeriodClosingVoucherDto } from '../
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { AccountService } from '../../proxy/accounting/account.service';
+import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 @Component({
   standalone: true,
@@ -23,7 +25,9 @@ export class PeriodClosingComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private accountService = inject(AccountService);
+  private fiscalYearService = inject(FiscalYearService);
+  private companyService = inject(CompanyService);
   private l = inject(LocalizationService);
 
   items = signal<PeriodClosingVoucherDto[]>([]);
@@ -48,8 +52,8 @@ export class PeriodClosingComponent implements OnInit {
   ngOnInit() {
     this.loadData();
     // Load companies for dropdown
-    this.http.get<any>('/api/app/company?maxResultCount=50&skipCount=0').subscribe({
-      next: res => this.companies.set(res.items ?? []),
+    this.companyService.getList({ skipCount: 0, maxResultCount: 50, sorting: '' }).subscribe({
+      next: (res: any) => this.companies.set(res.items ?? []),
       error: () => {},
     });
     // Auto-fill companyId from context
@@ -73,8 +77,8 @@ export class PeriodClosingComponent implements OnInit {
 
   private loadCompanyAccounts(companyId: string): void {
     // Load Liability/Equity accounts for closing account selection
-    this.http.get<any>(`/api/app/account?companyId=${companyId}&maxResultCount=500&skipCount=0`).subscribe({
-      next: res => {
+    this.accountService.getList({ companyId, skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
+      next: (res: any) => {
         const accts = (res.items ?? []).filter((a: any) =>
           a.rootType === 'Liability' || a.rootType === 'Equity');
         this.accounts.set(accts);
@@ -88,8 +92,8 @@ export class PeriodClosingComponent implements OnInit {
   }
 
   private loadFiscalYears(companyId: string): void {
-    this.http.get<any>(`/api/app/fiscal-year?companyId=${companyId}&maxResultCount=50&skipCount=0`).subscribe({
-      next: res => this.fiscalYears.set(res.items ?? []),
+    this.fiscalYearService.getList({ companyId, skipCount: 0, maxResultCount: 50, sorting: '' } as any).subscribe({
+      next: (res: any) => this.fiscalYears.set(res.items ?? []),
       error: () => {},
     });
   }

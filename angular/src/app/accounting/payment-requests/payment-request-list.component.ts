@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { PaymentRequestService } from '../../proxy/accounting/payment-request.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { RouterModule } from '@angular/router';
 
@@ -64,7 +64,7 @@ import { RouterModule } from '@angular/router';
   `
 })
 export class PaymentRequestListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private paymentRequestService = inject(PaymentRequestService);
   items = signal<any[]>([]);
   searchTerm = '';
   statusFilter = '';
@@ -75,7 +75,7 @@ export class PaymentRequestListComponent implements OnInit {
     const params: any = { maxResultCount: 50 };
     if (this.searchTerm) params.filter = this.searchTerm;
     if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/payment-request', { params }).subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
+    this.paymentRequestService.getList(params as any).subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
   }
 
   getStatusClass(s: number) {

@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { SerialNoService } from '../../proxy/inventory/serial-no.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -89,15 +89,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 })
 export class SerialNoDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private serialNoService = inject(SerialNoService);
   private router = inject(Router);
 
   serial = signal<any>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
-    this.http.get<any>(`/api/app/serial-no/${id}`).subscribe({
-      next: (data) => this.serial.set(data),
+    this.serialNoService.get(id).subscribe({
+      next: (data: any) => this.serial.set(data),
       error: () => this.router.navigate(['/inventory/serial-numbers'])
     });
   }

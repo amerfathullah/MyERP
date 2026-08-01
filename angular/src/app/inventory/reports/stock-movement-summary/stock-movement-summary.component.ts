@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
@@ -185,7 +185,7 @@ interface StockMovementSummary {
   `,
 })
 export class StockMovementSummaryComponent implements OnInit {
-  private http = inject(HttpClient);
+  private stockLedgerService = inject(StockLedgerService);
   private companyContext = inject(CompanyContextService);
 
   fromDate = '';
@@ -217,12 +217,8 @@ export class StockMovementSummaryComponent implements OnInit {
     if (!companyId || !this.fromDate || !this.toDate) return;
 
     this.isLoading.set(true);
-    this.http.get<StockMovementSummary>(
-      `/api/app/stock-ledger/stock-movement-summary`, {
-        params: { companyId, fromDate: this.fromDate, toDate: this.toDate },
-      }
-    ).subscribe({
-      next: (data) => { this.report.set(data); this.isLoading.set(false); },
+    this.stockLedgerService.getStockMovementSummary(companyId, this.fromDate, this.toDate).subscribe({
+      next: (data: any) => { this.report.set(data); this.isLoading.set(false); },
       error: () => { this.isLoading.set(false); },
     });
   }

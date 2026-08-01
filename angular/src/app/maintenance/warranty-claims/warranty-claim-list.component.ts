@@ -5,7 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
-import { HttpClient } from '@angular/common/http';
+import { WarrantyClaimService } from '../../proxy/maintenance/warranty-claim.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
@@ -137,7 +139,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `
 })
 export class WarrantyClaimListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private claimService = inject(WarrantyClaimService);
+  private customerService = inject(CustomerService);
+  private itemServiceProxy = inject(ItemService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -160,10 +164,10 @@ export class WarrantyClaimListComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
-    this.http.get<any>('/api/app/customer', { params: { maxResultCount: 200 } }).subscribe(
-      res => this.customers.set(res.items ?? []));
-    this.http.get<any>('/api/app/item', { params: { maxResultCount: 500 } }).subscribe(
-      res => this.items.set(res.items ?? []));
+    this.customerService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe(
+      (res: any) => this.customers.set(res.items ?? []));
+    this.itemServiceProxy.getList({ skipCount: 0, maxResultCount: 500 } as any).subscribe(
+      (res: any) => this.items.set(res.items ?? []));
   }
 
   loadData() {
@@ -173,8 +177,8 @@ export class WarrantyClaimListComponent implements OnInit {
     if (cid) params.companyId = cid;
     if (this.searchTerm) params.filter = this.searchTerm;
     if (this.statusFilter) params.status = this.statusFilter;
-    this.http.get<any>('/api/app/warranty-claim', { params }).subscribe({
-      next: res => { this.claims = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
+    this.claimService.getList(params as any).subscribe({
+      next: (res: any) => { this.claims = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }
     });
   }
@@ -190,16 +194,16 @@ export class WarrantyClaimListComponent implements OnInit {
       this.toaster.warn('::PleaseFillAllRequiredFields');
       return;
     }
-    this.http.post('/api/app/warranty-claim', {
+    this.claimService.create({
       ...this.newClaim, companyId
-    }).subscribe({
+    } as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }
 
   startWork(c: any) {
-    this.http.post(`/api/app/warranty-claim/${c.id}/start-work`, {}).subscribe({
+    this.claimService.startWork(c.id).subscribe({
       next: () => { this.toaster.success('::SuccessfullyStarted'); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
@@ -217,8 +221,7 @@ export class WarrantyClaimListComponent implements OnInit {
 
   confirmClose(): void {
     if (!this.closingClaimId) return;
-    this.http.post(`/api/app/warranty-claim/${this.closingClaimId}/close`, JSON.stringify(this.resolutionText),
-      { headers: { 'Content-Type': 'application/json' } }).subscribe({
+    this.claimService.close(this.closingClaimId!, this.resolutionText).subscribe({
       next: () => { this.toaster.success('::SuccessfullyClosed'); this.showResolutionInput.set(false); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
@@ -227,7 +230,7 @@ export class WarrantyClaimListComponent implements OnInit {
   cancel(c: any) {
     this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.post(`/api/app/warranty-claim/${c.id}/cancel`, {}).subscribe({
+      this.claimService.cancel(c.id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadData(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
       });

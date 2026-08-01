@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { WarrantyClaimService } from '../../proxy/maintenance/warranty-claim.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -128,7 +128,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private confirmation = inject(ConfirmationService);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private claimService = inject(WarrantyClaimService);
   private toaster = inject(ToasterService);
 
   private localization = inject(LocalizationService);
@@ -148,8 +148,8 @@ export class WarrantyClaimDetailComponent implements OnInit {
 
   loadClaim() {
     this.isLoading.set(true);
-    this.http.get<any>(`/api/app/warranty-claim/${this.claimId}`).subscribe({
-      next: c => { this.claim.set(c); this.isLoading.set(false); },
+    this.claimService.get(this.claimId).subscribe({
+      next: (c: any) => { this.claim.set(c); this.isLoading.set(false); },
       error: () => { this.isLoading.set(false); this.toaster.error(this.l('::FailedToLoad')); }
     });
   }
@@ -158,7 +158,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
   getStatusClass(s: number) { return this.statusClasses[s] ?? 'bg-secondary'; }
 
   startWork() {
-    this.http.post(`/api/app/warranty-claim/${this.claimId}/start-work`, {}).subscribe({
+    this.claimService.startWork(this.claimId).subscribe({
       next: () => { this.toaster.success(this.l('::WorkStarted')); this.loadClaim(); },
       error: (err) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'))
     });
@@ -167,7 +167,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
   closePrompt() { this.showResolutionPrompt.set(true); }
 
   closeClaim(resolution: string) {
-    this.http.post(`/api/app/warranty-claim/${this.claimId}/close`, { resolution }).subscribe({
+    this.claimService.close(this.claimId, resolution).subscribe({
       next: () => { this.toaster.success(this.l('::ClaimClosed')); this.showResolutionPrompt.set(false); this.loadClaim(); },
       error: (err) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'))
     });
@@ -176,7 +176,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
   cancelClaim() {
     this.confirmation.warn('::CancelConfirmationMessage', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.post(`/api/app/warranty-claim/${this.claimId}/cancel`, {}).subscribe({
+      this.claimService.cancel(this.claimId).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.loadClaim(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'))
       });

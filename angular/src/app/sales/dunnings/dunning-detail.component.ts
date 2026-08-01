@@ -5,7 +5,6 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
 import { DunningService } from '../../proxy/sales/dunning.service';
 import type { DunningDto } from '../../proxy/sales/models';
 
@@ -93,7 +92,6 @@ export class DunningDetailComponent implements OnInit {
   private service = inject(DunningService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
-  private http = inject(HttpClient);
   d: DunningDto | null = null;
   actionLoading = signal(false);
   showEmailDialog = signal(false);
@@ -140,10 +138,10 @@ export class DunningDetailComponent implements OnInit {
   sendEmail(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.isSending.set(true);
-    this.http.post(`/api/app/dunning/${id}/send-email`, {
+    this.service.sendDunningEmail(id, {
       recipientEmail: this.emailRecipient || null,
       cc: this.emailCc || null,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySent');
         this.isSending.set(false);

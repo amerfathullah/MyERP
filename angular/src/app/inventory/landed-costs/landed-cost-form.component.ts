@@ -8,7 +8,7 @@ import { LandedCostVoucherService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { AccountService } from '../../proxy/accounting/account.service';
-import { HttpClient } from '@angular/common/http';
+import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 
 @Component({
   selector: 'app-lcv-form', standalone: true,
@@ -95,7 +95,7 @@ export class LandedCostFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private accountService = inject(AccountService);
-  private http = inject(HttpClient);
+  private purchaseReceiptService = inject(PurchaseReceiptService);
 
   saving = false;
   isDirty = false;
@@ -116,7 +116,7 @@ export class LandedCostFormComponent implements OnInit {
     this.accountService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
-    this.http.get<any>('/api/app/purchase-receipt', { params: { maxResultCount: '100' } }).subscribe({
+    this.purchaseReceiptService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, receiptNumber: p.receiptNumber ?? p.id }))),
       error: () => {}
     });

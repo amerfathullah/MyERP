@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { RestService } from '@abp/ng.core';
+import { SalesPipelineService } from '../../proxy/crm/sales-pipeline.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface PipelineStage {
@@ -301,7 +301,7 @@ interface PipelineDashboard {
   `],
 })
 export class SalesPipelineComponent implements OnInit {
-  private rest = inject(RestService);
+  private pipelineService = inject(SalesPipelineService);
   private companyContext = inject(CompanyContextService);
 
   data = signal<PipelineDashboard | null>(null);
@@ -318,18 +318,18 @@ export class SalesPipelineComponent implements OnInit {
     const params: any = {};
     if (companyId) params.companyId = companyId;
 
-    this.rest.request<void, PipelineDashboard>({ method: 'GET', url: '/api/app/sales-pipeline/pipeline-data', params })
+    this.pipelineService.getPipelineData(companyId || undefined)
       .subscribe({
         next: (result) => {
-          this.data.set(result);
+          this.data.set(result as any);
           this.isLoading.set(false);
         },
         error: () => this.isLoading.set(false),
       });
 
-    this.rest.request<void, PipelineOpportunity[]>({ method: 'GET', url: '/api/app/sales-pipeline/top-opportunities', params: { ...params, maxCount: 10 } })
+    this.pipelineService.getTopOpportunities(companyId || undefined, 10)
       .subscribe({
-        next: (result) => this.topOpportunities.set(result ?? []),
+        next: (result) => this.topOpportunities.set((result ?? []) as any),
         error: () => {},
       });
   }

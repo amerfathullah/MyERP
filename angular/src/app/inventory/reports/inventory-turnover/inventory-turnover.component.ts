@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { InventoryTurnoverService } from '../../../proxy/inventory/inventory-turnover.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
@@ -168,7 +168,7 @@ interface TurnoverReport {
   `,
 })
 export class InventoryTurnoverComponent implements OnInit {
-  private http = inject(HttpClient);
+  private turnoverService = inject(InventoryTurnoverService);
   private companyContext = inject(CompanyContextService);
 
   report = signal<TurnoverReport | null>(null);
@@ -190,13 +190,11 @@ export class InventoryTurnoverComponent implements OnInit {
     if (!companyId || !this.fromDate || !this.toDate) return;
 
     this.loading.set(true);
-    this.http
-      .get<TurnoverReport>(`/api/app/inventory-turnover/report`, {
-        params: { companyId, fromDate: this.fromDate, toDate: this.toDate },
-      })
+    this.turnoverService
+      .getReport(companyId, this.fromDate, this.toDate)
       .subscribe({
         next: data => {
-          this.report.set(data);
+          this.report.set(data as any);
           this.loading.set(false);
         },
         error: () => this.loading.set(false),

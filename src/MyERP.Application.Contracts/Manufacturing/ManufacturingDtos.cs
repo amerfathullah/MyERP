@@ -308,6 +308,10 @@ public interface IManufacturingAppService : IApplicationService
     // Planning & Reporting
     Task<ProductionScheduleDto> GetProductionScheduleAsync(Guid companyId);
     Task<MaterialShortageAcrossOrdersDto> GetMaterialShortageAcrossOrdersAsync(Guid companyId);
+
+    // Material Availability & Readiness
+    Task<List<MaterialAvailabilityDto>> GetMaterialAvailabilityAsync(Guid workOrderId);
+    Task<List<WorkOrderMaterialReadinessDto>> GetBatchMaterialReadinessAsync(Guid? companyId);
 }
 
 /// <summary>

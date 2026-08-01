@@ -1,7 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CustomerService } from '../proxy/sales/customer.service';
+import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
+import { PartyPerformanceService } from '../proxy/core/party-performance.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../shared/components/activity-log/activity-log.component';
@@ -286,7 +288,9 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
 })
 export class CustomerDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private customerService = inject(CustomerService);
+  private reconciliationService = inject(PaymentReconciliationService);
+  private partyPerformanceService = inject(PartyPerformanceService);
 
   entity = signal<any>(null);
   entityId = '';
@@ -306,18 +310,16 @@ export class CustomerDetailComponent implements OnInit {
   }
 
   private loadEntity() {
-    this.http.get(`/api/app/customer/${this.entityId}`).subscribe({
-      next: (data) => { this.entity.set(data); this.loading.set(false); },
+    this.customerService.get(this.entityId).subscribe({
+      next: (data: any) => { this.entity.set(data); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
 
   private loadOutstanding() {
-    this.http.get<any>(`/api/app/payment-reconciliation/outstanding-invoices`, {
-      params: { partyType: 'Customer', partyId: this.entityId },
-    }).subscribe({
-      next: (data) => {
-        const items = data?.items ?? data ?? [];
+    this.reconciliationService.getOutstandingInvoices('Customer', this.entityId).subscribe({
+      next: (data: any) => {
+        const items = Array.isArray(data) ? data : (data?.items ?? []);
         this.outstandingCount.set(Array.isArray(items) ? items.length : 0);
         this.outstandingTotal.set(
           Array.isArray(items) ? items.reduce((sum: number, i: any) => sum + (i.outstandingAmount ?? 0), 0) : 0
@@ -364,10 +366,8 @@ export class CustomerDetailComponent implements OnInit {
   }
 
   private loadPerformance(): void {
-    this.http.get<any>(`/api/app/party-performance/customer-performance`, {
-      params: { customerId: this.entityId },
-    }).subscribe({
-      next: (data) => { this.performance.set(data); this.performanceLoading.set(false); },
+    this.partyPerformanceService.getCustomerPerformance(this.entityId).subscribe({
+      next: (data: any) => { this.performance.set(data); this.performanceLoading.set(false); },
       error: () => this.performanceLoading.set(false),
     });
   }

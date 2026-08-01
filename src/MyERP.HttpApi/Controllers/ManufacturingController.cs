@@ -118,4 +118,16 @@ public class ManufacturingController : MyERPController
     [HttpPost("manufacture-stock-entry")]
     public Task<StockEntryResultDto> CreateManufactureStockEntryAsync([FromBody] CreateManufactureStockEntryDto input)
         => _service.CreateManufactureStockEntryAsync(input);
+
+    [HttpPost("work-order/disassembly")]
+    public Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync([FromBody] CreateDisassemblyDto input)
+        => _service.CreateDisassemblyStockEntryAsync(input);
+
+    [HttpGet("work-order/{workOrderId}/material-availability")]
+    public Task<List<MaterialAvailabilityDto>> GetMaterialAvailabilityAsync(Guid workOrderId)
+        => _service.GetMaterialAvailabilityAsync(workOrderId);
+
+    [HttpGet("batch-material-readiness")]
+    public Task<List<WorkOrderMaterialReadinessDto>> GetBatchMaterialReadinessAsync([FromQuery] Guid? companyId)
+        => _service.GetBatchMaterialReadinessAsync(companyId);
 }

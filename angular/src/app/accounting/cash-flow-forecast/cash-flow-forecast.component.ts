@@ -5,7 +5,7 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { CashFlowForecastService } from '../../proxy/accounting/cash-flow-forecast.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
 interface ForecastPeriod {
@@ -309,7 +309,7 @@ interface CashFlowForecast {
   `
 })
 export class CashFlowForecastComponent implements OnInit {
-  private http = inject(HttpClient);
+  private forecastService = inject(CashFlowForecastService);
   private companyContext = inject(CompanyContextService);
 
   forecast = signal<CashFlowForecast | null>(null);
@@ -326,11 +326,9 @@ export class CashFlowForecastComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.get<CashFlowForecast>('/api/app/cash-flow-forecast/forecast', {
-      params: { companyId, forecastDays: this.forecastDays.toString() }
-    }).subscribe({
+    this.forecastService.getForecast({ companyId, forecastDays: this.forecastDays } as any).subscribe({
       next: (data) => {
-        this.forecast.set(data);
+        this.forecast.set(data as any);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)

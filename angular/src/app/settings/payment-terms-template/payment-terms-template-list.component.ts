@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -79,7 +79,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   `
 })
 export class PaymentTermsTemplateListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private pttService = inject(PaymentTermsTemplateService);
   private confirmation = inject(ConfirmationService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
@@ -94,7 +94,7 @@ export class PaymentTermsTemplateListComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
-    this.http.get<any>('/api/app/payment-terms-template').subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
+    this.pttService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
   }
 
   addTerm() {
@@ -106,7 +106,7 @@ export class PaymentTermsTemplateListComponent implements OnInit {
   save() {
     if (!this.form.valid) return;
     const dto = { ...this.form.value, terms: this.termsArray.value };
-    this.http.post('/api/app/payment-terms-template', dto).subscribe({
+    this.pttService.create(dto as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.termsArray.clear(); this.form.reset(); this.load(); },
       error: () => {}
     });
@@ -115,7 +115,7 @@ export class PaymentTermsTemplateListComponent implements OnInit {
   remove(id: string) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/payment-terms-template/${id}`).subscribe({ next: () => this.load(), error: () => {} });
+      this.pttService.delete(id).subscribe({ next: () => this.load(), error: () => {} });
     });
   }
 }

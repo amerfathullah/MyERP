@@ -6,7 +6,6 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ProductBundleService } from '../../proxy/sales/product-bundle.service';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({

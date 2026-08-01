@@ -199,7 +199,7 @@ export class ContactManagerComponent implements OnInit {
   loadContacts(): void {
     this.loading.set(true);
     this.contactService.getContactsForParty(this.partyType, this.partyId).subscribe({
-      next: (data) => { this.contacts.set(data ?? []); this.loading.set(false); },
+      next: (data) => { this.contacts.set((data ?? []) as any); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }

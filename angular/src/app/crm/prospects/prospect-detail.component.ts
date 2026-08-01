@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ProspectService } from '../../proxy/crm/prospect.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -73,7 +73,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class ProspectDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private prospectService = inject(ProspectService);
 
   prospect = signal<any>(null);
   loading = signal(true);
@@ -81,8 +81,8 @@ export class ProspectDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) { this.router.navigate(['/crm/prospects']); return; }
-    this.http.get<any>(`/api/app/prospect/${id}`).subscribe({
-      next: (p) => { this.prospect.set(p); this.loading.set(false); },
+    this.prospectService.get(id).subscribe({
+      next: (p: any) => { this.prospect.set(p); this.loading.set(false); },
       error: () => { this.router.navigate(['/crm/prospects']); },
     });
   }

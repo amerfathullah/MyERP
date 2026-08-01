@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BomDto, CreateBomDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, GetWorkOrderListDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, ProductionCostBreakdownDto, ProductionScheduleDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkstationDto } from '../manufacturing/models';
+import type { BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, ProductionCostBreakdownDto, ProductionScheduleDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -25,6 +25,15 @@ export class ManufacturingService {
       method: 'POST',
       url: '/api/app/manufacturing/bom',
       params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createDisassemblyStockEntry = (input: CreateDisassemblyDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DisassemblyResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/work-order/disassembly',
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -97,6 +106,15 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  getBatchMaterialReadiness = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkOrderMaterialReadinessDto[]>({
+      method: 'GET',
+      url: '/api/app/manufacturing/batch-material-readiness',
+      params: { companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getBom = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BomDto>({
       method: 'GET',
@@ -119,6 +137,14 @@ export class ManufacturingService {
       method: 'GET',
       url: '/api/app/manufacturing/bom',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getMaterialAvailability = (workOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialAvailabilityDto[]>({
+      method: 'GET',
+      url: `/api/app/manufacturing/work-order/${workOrderId}/material-availability`,
     },
     { apiName: this.apiName,...config });
   

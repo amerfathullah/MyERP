@@ -3,16 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { FinanceBookService } from '../../proxy/accounting/finance-book.service';
+import { FinanceBookDto } from '../../proxy/accounting/models';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-
-interface FinanceBookDto {
-  id: string;
-  companyId?: string;
-  name?: string;
-  isDefault?: boolean;
-  description?: string;
-}
 
 @Component({
   selector: 'app-finance-book-list',
@@ -82,12 +75,12 @@ interface FinanceBookDto {
                     </td>
                     <td class="text-end">
                       @if (!book.isDefault) {
-                        <button class="btn btn-outline-primary btn-sm me-1" (click)="setDefault(book.id)"
+                        <button class="btn btn-outline-primary btn-sm me-1" (click)="setDefault(book.id!)"
                           title="Set as Default">
                           <i class="fa fa-star"></i>
                         </button>
                       }
-                      <button class="btn btn-outline-danger btn-sm" (click)="remove(book.id)">
+                      <button class="btn btn-outline-danger btn-sm" (click)="remove(book.id!)">
                         <i class="fa fa-trash"></i>
                       </button>
                     </td>

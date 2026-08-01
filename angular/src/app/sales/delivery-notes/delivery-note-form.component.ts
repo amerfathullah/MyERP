@@ -11,7 +11,7 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
-import { HttpClient } from '@angular/common/http';
+import { PickListService } from '../../proxy/inventory/pick-list.service';
 import type { SalesOrderDto } from '../../proxy/sales/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -41,7 +41,7 @@ export class DeliveryNoteFormComponent implements OnInit {
   private soService = inject(SalesOrderService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
-  private http = inject(HttpClient);
+  private pickListService = inject(PickListService);
 
   customers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
@@ -220,8 +220,8 @@ export class DeliveryNoteFormComponent implements OnInit {
     const companyId = this.form.get('companyId')?.value || this.companyContext.currentCompanyId();
     const params: any = { skipCount: '0', maxResultCount: '50', status: 'Submitted' };
     if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/pick-list', { params }).subscribe({
-      next: res => {
+    this.pickListService.getList({ skipCount: 0, maxResultCount: 50, sorting: '' } as any).subscribe({
+      next: (res: any) => {
         const lists = (res.items ?? []).filter((pl: any) => pl.purpose === 'Delivery' || pl.purpose === 0);
         this.availablePickLists.set(lists);
       },
@@ -233,7 +233,7 @@ export class DeliveryNoteFormComponent implements OnInit {
   getItemsFromPickList(pickListId: string): void {
     if (!pickListId) return;
     this.isLoadingPickListItems.set(true);
-    this.http.get<any>(`/api/app/pick-list/${pickListId}`).subscribe({
+    this.pickListService.get(pickListId).subscribe({
       next: (pickList: any) => {
         // Clear existing items
         while (this.items.length > 0) this.items.removeAt(0);

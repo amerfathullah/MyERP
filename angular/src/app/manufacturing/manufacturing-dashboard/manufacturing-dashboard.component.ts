@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -299,7 +299,7 @@ interface MaterialReadiness {
   `],
 })
 export class ManufacturingDashboardComponent implements OnInit {
-  private http = inject(HttpClient);
+  private mfgService = inject(ManufacturingService);
   private companyContext = inject(CompanyContextService);
   private l = inject(LocalizationService);
 
@@ -375,8 +375,8 @@ export class ManufacturingDashboardComponent implements OnInit {
     const params: any = { maxResultCount: 200, skipCount: 0, sorting: 'creationTime desc' };
     if (companyId) params.companyId = companyId;
 
-    this.http.get<any>('/api/app/manufacturing/work-order', { params }).subscribe({
-      next: (res) => {
+    this.mfgService.getWorkOrderList({ maxResultCount: 200, skipCount: 0, sorting: 'creationTime desc', companyId } as any).subscribe({
+      next: (res: any) => {
         const today = new Date().toISOString().substring(0, 10);
         const items: WoBoardItem[] = (res.items ?? []).map((wo: any) => ({
           id: wo.id,
@@ -398,8 +398,8 @@ export class ManufacturingDashboardComponent implements OnInit {
     // Load material readiness for dashboard
     const readinessParams: any = {};
     if (companyId) readinessParams.companyId = companyId;
-    this.http.get<MaterialReadiness[]>('/api/app/manufacturing/batch-material-readiness', { params: readinessParams })
-      .subscribe({ next: data => this.materialReadiness.set(data ?? []), error: () => {} });
+    this.mfgService.getBatchMaterialReadiness(companyId!)
+      .subscribe({ next: (data: any) => this.materialReadiness.set(data ?? []), error: () => {} });
   }
 
   getStatusLabel(status: number): string {

@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -39,7 +39,7 @@ export class QuotationDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
-  private http = inject(HttpClient);
+  private emailService = inject(DocumentEmailService);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
@@ -156,12 +156,12 @@ export class QuotationDetailComponent implements OnInit {
       return;
     }
     this.emailSending = true;
-    this.http.post('/api/app/document-email/quotation-email', {
-      documentId: this.quotation!.id,
+    this.emailService.sendQuotationEmail({
+      quotationId: this.quotation!.id,
       recipientEmail: this.emailRecipient,
       ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
       attachPdf: this.emailAttachPdf,
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySent');
         this.showEmailDialog = false;

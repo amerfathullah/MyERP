@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { UpcomingPaymentsDueService } from '../../../proxy/accounting/upcoming-payments-due.service';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -163,7 +163,7 @@ interface UpcomingPaymentsDueReport {
   `,
 })
 export class UpcomingPaymentsDueComponent implements OnInit {
-  private http = inject(HttpClient);
+  private upcomingPaymentsService = inject(UpcomingPaymentsDueService);
   private companyContext = inject(CompanyContextService);
 
   report = signal<UpcomingPaymentsDueReport | null>(null);
@@ -179,12 +179,10 @@ export class UpcomingPaymentsDueComponent implements OnInit {
     if (!companyId) return;
 
     this.isLoading.set(true);
-    this.http
-      .get<UpcomingPaymentsDueReport>('/api/app/upcoming-payments-due/report', {
-        params: { companyId, daysAhead: this.daysAhead.toString() },
-      })
+    this.upcomingPaymentsService
+      .getReport({ companyId, daysAhead: this.daysAhead } as any)
       .subscribe({
-        next: (r) => {
+        next: (r: any) => {
           this.report.set(r);
           this.isLoading.set(false);
         },

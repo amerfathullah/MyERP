@@ -1,7 +1,10 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -514,7 +517,10 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 })
 export class ItemDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  private itemService = inject(ItemService);
+  private stockBalanceService = inject(StockBalanceService);
+  private stockEntryService = inject(StockEntryService);
+  private warehouseService = inject(WarehouseService);
 
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -554,7 +560,7 @@ export class ItemDetailComponent implements OnInit {
   }
 
   private loadEntity() {
-    this.http.get(`/api/app/item/${this.entityId}`).subscribe({
+    this.itemService.get(this.entityId).subscribe({
       next: (data: any) => {
         this.entity.set(data);
         this.loading.set(false);
@@ -568,11 +574,9 @@ export class ItemDetailComponent implements OnInit {
   }
 
   private loadStockBalance() {
-    this.http.get<any>(`/api/app/bin/stock-balance`, {
-      params: { itemId: this.entityId },
-    }).subscribe({
-      next: (data) => {
-        this.stockBalance.set(data?.items ?? data ?? []);
+    this.stockBalanceService.getItemStock(this.entityId).subscribe({
+      next: (data: any) => {
+        this.stockBalance.set(data ?? []);
         this.stockLoading.set(false);
       },
       error: () => this.stockLoading.set(false),
@@ -580,45 +584,43 @@ export class ItemDetailComponent implements OnInit {
   }
 
   private loadRecentMovements() {
-    this.http.get<any[]>(`/api/app/item/${this.entityId}/recent-movements`, {
-      params: { maxCount: '15' },
-    }).subscribe({
-      next: (data) => { this.stockMovements.set(data ?? []); this.movementsLoading.set(false); },
+    this.itemService.getRecentMovements(this.entityId, 15).subscribe({
+      next: (data: any) => { this.stockMovements.set(data ?? []); this.movementsLoading.set(false); },
       error: () => this.movementsLoading.set(false),
     });
   }
 
   private loadPriceHistory() {
-    this.http.get<any[]>(`/api/app/item/${this.entityId}/price-history`).subscribe({
-      next: (data) => { this.priceHistory.set(data ?? []); this.priceHistoryLoading.set(false); },
+    this.itemService.getPriceHistory(this.entityId).subscribe({
+      next: (data: any) => { this.priceHistory.set(data ?? []); this.priceHistoryLoading.set(false); },
       error: () => this.priceHistoryLoading.set(false),
     });
   }
 
   private loadWhereUsed() {
-    this.http.get<any[]>(`/api/app/item/${this.entityId}/where-used`).subscribe({
-      next: (data) => { this.whereUsed.set(data ?? []); this.whereUsedLoading.set(false); },
+    this.itemService.getWhereUsed(this.entityId).subscribe({
+      next: (data: any) => { this.whereUsed.set(data ?? []); this.whereUsedLoading.set(false); },
       error: () => this.whereUsedLoading.set(false),
     });
   }
 
   private loadVariants() {
-    this.http.get<any[]>(`/api/app/item/${this.entityId}/variants`).subscribe({
-      next: (data) => this.variants.set(data ?? []),
+    this.itemService.getVariants(this.entityId).subscribe({
+      next: (data: any) => this.variants.set(data ?? []),
       error: () => {},
     });
   }
 
   private loadTransactionSummary() {
-    this.http.get<any>(`/api/app/item/${this.entityId}/transaction-summary`).subscribe({
-      next: (data) => { this.txSummary.set(data); this.txSummaryLoading.set(false); },
+    this.itemService.getTransactionSummary(this.entityId).subscribe({
+      next: (data: any) => { this.txSummary.set(data); this.txSummaryLoading.set(false); },
       error: () => this.txSummaryLoading.set(false),
     });
   }
 
   private loadWarehouses() {
-    this.http.get<any>('/api/app/warehouse', { params: { maxResultCount: '200' } }).subscribe({
-      next: (data) => this.transferWarehouses.set((data?.items ?? []).filter((w: any) => !w.isGroup)),
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: (data: any) => this.transferWarehouses.set((data?.items ?? []).filter((w: any) => !w.isGroup)),
       error: () => {},
     });
   }
@@ -662,7 +664,7 @@ export class ItemDetailComponent implements OnInit {
         targetWarehouseId: this.transferTargetWarehouse,
       }],
     };
-    this.http.post('/api/app/stock-entry', dto).subscribe({
+    this.stockEntryService.create(dto as any).subscribe({
       next: () => {
         this.isTransferring.set(false);
         this.toaster.success(this.l.instant('::SuccessfullyCreated'));

@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -118,7 +118,7 @@ interface WarehouseNode {
   `],
 })
 export class WarehouseTreeComponent implements OnInit {
-  private http = inject(HttpClient);
+  private warehouseService = inject(WarehouseService);
 
   loading = signal(true);
   tree = signal<WarehouseNode[]>([]);
@@ -128,9 +128,7 @@ export class WarehouseTreeComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.http.get<any>('/api/app/warehouse', {
-      params: { skipCount: '0', maxResultCount: '500', sorting: 'name asc' }
-    }).subscribe({
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => {
         const warehouses = res?.items ?? [];
         this.tree.set(this.buildTree(warehouses));

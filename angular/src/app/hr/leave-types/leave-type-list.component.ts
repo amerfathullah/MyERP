@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { LeaveTypeService } from '../../proxy/human-resources/leave-type.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -77,7 +77,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   `
 })
 export class LeaveTypeListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private leaveTypeService = inject(LeaveTypeService);
   private localization = inject(LocalizationService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
@@ -91,12 +91,12 @@ export class LeaveTypeListComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
-    this.http.get<any>('/api/app/leave-type').subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
+    this.leaveTypeService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
   }
 
   save() {
     if (!this.newItem.name) return;
-    this.http.post('/api/app/leave-type', this.newItem).subscribe({
+    this.leaveTypeService.create(this.newItem as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCreated'); this.showForm = false; this.newItem = { name: '', maxLeavesAllowed: 12, isPaidLeave: true, allowCarryForward: false }; this.load(); },
       error: () => {}
     });
@@ -105,7 +105,7 @@ export class LeaveTypeListComponent implements OnInit {
   remove(id: string) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.delete(`/api/app/leave-type/${id}`).subscribe({
+      this.leaveTypeService.delete(id).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyDeleted')); this.load(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::DeleteFailed'),
       });

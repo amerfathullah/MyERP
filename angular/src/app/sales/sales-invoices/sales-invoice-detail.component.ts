@@ -1,7 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { MasterDataService } from '../../proxy/core/master-data.service';
+import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
 import { PageModule } from '@abp/ng.components/page';
@@ -57,7 +60,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private store = inject(SalesInvoiceStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private documentPrintService = inject(DocumentPrintService);
+  private masterDataService = inject(MasterDataService);
+  private paymentEntryService = inject(PaymentEntryService);
+  private documentEmailService = inject(DocumentEmailService);
   private localization = inject(LocalizationService);
 
   invoice: SalesInvoiceDto | null = null;
@@ -254,7 +260,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   downloadPdf(): void {
-    this.http.get<{ html: string; fileName: string }>(`/api/app/document-print/sales-invoice-print/${this.invoice!.id}`)
+    this.documentPrintService.getSalesInvoicePrint(this.invoice!.id!)
       .subscribe({
         next: (result) => {
           // Open in new window for printing/PDF save
@@ -295,8 +301,8 @@ export class SalesInvoiceDetailComponent implements OnInit {
     this.showQuickPayment.set(true);
     // Load modes of payment if not yet loaded
     if (this.modesOfPayment().length === 0) {
-      this.http.get<any>('/api/app/master-data/modes-of-payment').subscribe({
-        next: (res) => this.modesOfPayment.set(res.items ?? res ?? []),
+      this.masterDataService.getModesOfPayment().subscribe({
+        next: (res: any) => this.modesOfPayment.set(res.items ?? res ?? []),
         error: () => {},
       });
     }
@@ -329,12 +335,11 @@ export class SalesInvoiceDetailComponent implements OnInit {
       paidFromAccountId: undefined,
       paidToAccountId: undefined,
     };
-    this.http.post<any>('/api/app/payment-entry', dto).subscribe({
-      next: (pe) => {
-        // Auto-submit + post the PE
-        this.http.post(`/api/app/payment-entry/${pe.id}/submit`, {}).subscribe({
+    this.paymentEntryService.create(dto as any).subscribe({
+      next: (pe: any) => {
+        this.paymentEntryService.submit(pe.id).subscribe({
           next: () => {
-            this.http.post(`/api/app/payment-entry/${pe.id}/post`, {}).subscribe({
+            this.paymentEntryService.post(pe.id).subscribe({
               next: () => {
                 this.isProcessingPayment.set(false);
                 this.showQuickPayment.set(false);
@@ -431,8 +436,8 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   private loadLinkedPayments(invoiceId: string): void {
-    this.http.get<any[]>(`/api/app/sales-invoice/${invoiceId}/payments`).subscribe({
-      next: (payments) => this.linkedPayments.set(payments ?? []),
+    this.service.getPayments(invoiceId).subscribe({
+      next: (payments: any) => this.linkedPayments.set(payments ?? []),
       error: () => {}
     });
   }
@@ -524,7 +529,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
       ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
       attachPdf: this.emailAttachPdf,
     };
-    this.http.post('/api/app/document-email/sales-invoice-email', payload).subscribe({
+    this.documentEmailService.sendSalesInvoiceEmail(payload as any).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySent');
         this.showEmailDialog = false;

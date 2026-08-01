@@ -2,7 +2,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { InvoiceItemGridComponent } from './components/invoice-item-grid.component';
@@ -53,7 +53,7 @@ export class SalesInvoiceFormComponent implements OnInit {
   private partyDetailsService = inject(PartyDetailsService);
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
-  private http = inject(HttpClient);
+  private taxTemplateService = inject(TaxChargesTemplateService);
 
   isMultiCurrency = signal(false);
   customers = signal<any[]>([]);
@@ -312,7 +312,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     const params: any = { skipCount: '0', maxResultCount: '50', templateType: '0' }; // 0 = Selling
     if (companyId) params.companyId = companyId;
-    this.http.get<any>('/api/app/tax-charges-template', { params }).subscribe({
+    this.taxTemplateService.getList({ skipCount: 0, maxResultCount: 100 } as any).subscribe({
       next: res => {
         const templates = (res.items ?? []).filter((t: any) => t.isEnabled);
         this.taxTemplates.set(templates);

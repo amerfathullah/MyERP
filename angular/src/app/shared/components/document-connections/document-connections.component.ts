@@ -120,7 +120,7 @@ export class DocumentConnectionsComponent implements OnInit {
       .getConnections(this.documentType, this.documentId)
       .subscribe({
         next: (result) => {
-          this.groups.set(result.groups || []);
+          this.groups.set((result as any).groups || []);
           this.loading.set(false);
         },
         error: () => {

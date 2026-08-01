@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { DocumentSeriesService } from '../../proxy/core/document-series.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -77,7 +77,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   `
 })
 export class DocumentSeriesListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private seriesService = inject(DocumentSeriesService);
   private toaster = inject(ToasterService);
 
   items = signal<any[]>([]);
@@ -87,12 +87,12 @@ export class DocumentSeriesListComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
-    this.http.get<any>('/api/app/document-series').subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
+    this.seriesService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({ next: res => this.items.set(res.items ?? []), error: () => {} });
   }
 
   save() {
     if (!this.newItem.documentType || !this.newItem.prefix) return;
-    this.http.post('/api/app/document-series', this.newItem).subscribe({
+    this.seriesService.create(this.newItem as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.newItem = { documentType: '', prefix: '', paddedDigits: 5, resetOnFiscalYear: true }; this.load(); },
       error: () => {}
     });

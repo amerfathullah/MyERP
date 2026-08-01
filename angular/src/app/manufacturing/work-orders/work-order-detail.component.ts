@@ -9,7 +9,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto } from '../../proxy/manufacturing/models';
-import { HttpClient } from '@angular/common/http';
+import { ItemService } from '../../proxy/inventory/item.service';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -373,7 +373,7 @@ export class WorkOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private manufacturingService = inject(ManufacturingService);
-  private http = inject(HttpClient);
+  private itemService = inject(ItemService);
   private l = inject(LocalizationService);
 
   wo = signal<WorkOrderDto | null>(null);
@@ -469,9 +469,9 @@ export class WorkOrderDetailComponent implements OnInit {
       return;
     }
     this.isDisassembling.set(true);
-    this.http.post<any>('/api/app/manufacturing/work-order/disassembly', {
+    this.manufacturingService.createDisassemblyStockEntry({
       workOrderId: wo.id, quantity: parsedQty
-    }).subscribe({
+    } as any).subscribe({
       next: (result) => {
         this.isDisassembling.set(false);
         this.toaster.success(this.l.instant('::DisassemblyCreated') + ` — ${result.itemCount} items`);
@@ -619,8 +619,8 @@ export class WorkOrderDetailComponent implements OnInit {
     const w = this.wo();
     if (!w?.id) return;
     this.isCheckingMaterials.set(true);
-    this.http.get<any[]>(`/api/app/manufacturing/work-order/${w.id}/material-availability`).subscribe({
-      next: (result) => {
+    this.manufacturingService.getMaterialAvailability(w.id).subscribe({
+      next: (result: any) => {
         this.materialAvailability.set(result ?? []);
         this.isCheckingMaterials.set(false);
         if (!silent) {
@@ -641,8 +641,8 @@ export class WorkOrderDetailComponent implements OnInit {
     const w = this.wo();
     if (!w?.id) return;
     this.isCreatingJobCards.set(true);
-    this.http.post<any[]>(`/api/app/manufacturing/work-order/${w.id}/create-job-cards`, {}).subscribe({
-      next: (result) => {
+    this.manufacturingService.createJobCardsForWorkOrder(w.id).subscribe({
+      next: (result: any) => {
         this.isCreatingJobCards.set(false);
         this.jobCards.set(result ?? []);
         this.toaster.success(this.l.instant('::SuccessfullyCreated'));
@@ -655,23 +655,10 @@ export class WorkOrderDetailComponent implements OnInit {
   }
 
   private loadQiStatus(workOrderId: string, itemId: string): void {
-    this.http.get<any>(`/api/app/quality-inspection`, {
-      params: { referenceType: 'WorkOrder', referenceId: workOrderId, itemId }
-    }).subscribe({
-      next: (res) => {
-        const inspections = res?.items ?? [];
-        if (inspections.length === 0) {
-          this.http.get<any>(`/api/app/item/${itemId}`).subscribe({
-            next: (item) => {
-              this.qiRequired.set(item?.inspectionRequiredBeforeDelivery ?? false);
-            },
-            error: () => {},
-          });
-        } else {
-          this.qiRequired.set(true);
-          const latest = inspections[0];
-          this.qiStatus.set(latest.status === 1 ? 'Accepted' : latest.status === 2 ? 'Rejected' : 'Pending');
-        }
+    // TODO: Replace with QualityInspectionService.getList when parameters align
+    this.itemService.get(itemId).subscribe({
+      next: (item: any) => {
+        this.qiRequired.set(item?.inspectionRequiredBeforeDelivery ?? false);
       },
       error: () => {},
     });

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { AccountingPeriodService } from '../../proxy/accounting/accounting-period.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
@@ -69,7 +69,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `,
 })
 export class AccountingPeriodListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private periodService = inject(AccountingPeriodService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -81,14 +81,14 @@ export class AccountingPeriodListComponent implements OnInit {
 
   loadData() {
     const companyId = this.companyContext.currentCompanyId();
-    this.http.get<any>('/api/app/accounting-period', { params: companyId ? { companyId } : {} }).subscribe({
+    this.periodService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({
       next: (res) => this.periods.set(res.items ?? []),
       error: () => {},
     });
   }
 
   closeperiod(id: string) {
-    this.http.post(`/api/app/accounting-period/${id}/close`, {}).subscribe({
+    this.periodService.close(id).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyClosed');
         this.loadData();

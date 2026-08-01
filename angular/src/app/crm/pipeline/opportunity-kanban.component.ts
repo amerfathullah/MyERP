@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -32,7 +32,7 @@ interface KanbanColumn {
  * Users can drag cards between columns to update the opportunity stage.
  *
  * ERPNext equivalent: Kanban Board view on Opportunity list.
- * 
+ *
  * Features:
  * - Color-coded stage columns
  * - Card shows title, amount, probability, contact, closing date
@@ -139,7 +139,7 @@ interface KanbanColumn {
   `],
 })
 export class OpportunityKanbanComponent implements OnInit {
-  private http = inject(HttpClient);
+  private opportunityService = inject(OpportunityService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
@@ -168,7 +168,7 @@ export class OpportunityKanbanComponent implements OnInit {
     const params: any = { skipCount: '0', maxResultCount: '200' };
     if (companyId) params.companyId = companyId;
 
-    this.http.get<any>('/api/app/opportunity', { params }).subscribe({
+    this.opportunityService.getList({ skipCount: 0, maxResultCount: 200, companyId } as any).subscribe({
       next: res => {
         const opportunities: KanbanCard[] = (res.items ?? []).map((opp: any) => {
           const today = new Date();
@@ -254,7 +254,7 @@ export class OpportunityKanbanComponent implements OnInit {
     this.columns.set(cols);
 
     // Persist stage change to backend
-    this.http.put(`/api/app/opportunity/${card.id}/stage`, { salesStage: targetStage }).subscribe({
+    this.opportunityService.updateStage(card.id, { salesStage: targetStage } as any).subscribe({
       next: () => {
         this.toaster.success(`Moved to ${targetStage}`);
       },

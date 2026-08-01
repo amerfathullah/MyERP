@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { BranchService } from '../../proxy/core/branch.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { WarehouseDto } from '../../proxy/inventory/models';
@@ -19,7 +19,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 export class WarehouseListComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private branchService = inject(BranchService);
 
   warehouses: WarehouseDto[] = [];
   totalCount = 0;
@@ -30,7 +30,7 @@ export class WarehouseListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadWarehouses(this.currentPage * this.pageSize, this.pageSize);
-    this.http.get<any>('/api/app/branch?maxResultCount=200').subscribe({
+    this.branchService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
       next: (res) => {
         const map: Record<string, string> = {};
         (res.items ?? []).forEach((b: any) => { map[b.id] = b.name ?? b.branchCode ?? '—'; });

@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface WoTimelineItem {
@@ -28,7 +28,7 @@ interface WoTimelineItem {
   styleUrl: './work-order-timeline.component.scss',
 })
 export class WorkOrderTimelineComponent implements OnInit {
-  private http = inject(HttpClient);
+  private mfgService = inject(ManufacturingService);
   private companyContext = inject(CompanyContextService);
 
   orders = signal<WoTimelineItem[]>([]);
@@ -71,8 +71,8 @@ export class WorkOrderTimelineComponent implements OnInit {
     params.fromDate = this.viewStartDate();
     params.toDate = this.viewEndDate();
 
-    this.http.get<any>('/api/app/manufacturing/work-order', { params }).subscribe({
-      next: (res) => {
+    this.mfgService.getWorkOrderList({ maxResultCount: 200, skipCount: 0, companyId, fromDate: this.viewStartDate(), toDate: this.viewEndDate() } as any).subscribe({
+      next: (res: any) => {
         const items: WoTimelineItem[] = (res.items ?? [])
           .filter((wo: any) => wo.plannedStartDate || wo.actualStartDate)
           .map((wo: any) => ({

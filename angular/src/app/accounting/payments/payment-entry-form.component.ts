@@ -2,7 +2,9 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { ProjectService } from '../../proxy/projects/project.service';
+import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -36,7 +38,9 @@ export class PaymentEntryFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private currencyExchangeService = inject(CurrencyExchangeService);
+  private projectService = inject(ProjectService);
+  private costCenterService = inject(CostCenterService);
 
   accounts = signal<AccountDto[]>([]);
   parties = signal<{ id: string; name: string }[]>([]);
@@ -128,11 +132,11 @@ export class PaymentEntryFormComponent implements OnInit {
       }, error: () => {} });
 
     // Load cost centers and projects for dimension selectors
-    this.http.get<any>('/api/app/cost-center', { params: { skipCount: '0', maxResultCount: '200' } }).subscribe({
+    this.costCenterService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => this.costCenters.set((res.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }))),
       error: () => {},
     });
-    this.http.get<any>('/api/app/project', { params: { skipCount: '0', maxResultCount: '200' } }).subscribe({
+    this.projectService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => this.projects.set((res.items ?? []).map((p: any) => ({ id: p.id, name: p.projectName ?? p.name }))),
       error: () => {},
     });
@@ -274,15 +278,13 @@ export class PaymentEntryFormComponent implements OnInit {
 
   fetchExchangeRate(fromCurrency: string): void {
     const date = this.form.get('paymentDate')?.value || new Date().toISOString().split('T')[0];
-    this.http.get<any>(`/api/app/currency-exchange/rate`, {
-      params: { from: fromCurrency, to: 'MYR', date }
-    }).subscribe({
-      next: (res) => {
+    this.currencyExchangeService.getRate(fromCurrency, 'MYR', date).subscribe({
+      next: (res: any) => {
         if (res?.rate) {
           this.form.patchValue({ exchangeRate: res.rate });
         }
       },
-      error: () => {} // Graceful: user can enter rate manually
+      error: () => {}
     });
   }
 
@@ -455,9 +457,9 @@ export class PaymentEntryFormComponent implements OnInit {
     if (!partyId || !companyId) return;
 
     this.isAutoAllocating.set(true);
-    this.http.post<any>('/api/app/payment-entry/auto-allocate', {
+    this.paymentService.autoAllocate({
       partyType, partyId, companyId, paymentAmount, writeOffThreshold: 1.0
-    }).subscribe({
+    } as any).subscribe({
       next: (result) => {
         const newMap = new Map<string, number>();
         for (const alloc of result.allocations ?? []) {

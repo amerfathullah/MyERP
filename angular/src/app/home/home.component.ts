@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { AuthService, LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import { DocumentActivityLogService } from '../proxy/core/document-activity-log.service';
@@ -18,7 +17,6 @@ import { CompanyCurrencyPipe } from '../shared/pipes/company-currency.pipe';
 })
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
-  private http = inject(HttpClient);
   private dashboardService = inject(DashboardService);
   private activityLogService = inject(DocumentActivityLogService);
   private companyContext = inject(CompanyContextService);
@@ -72,7 +70,7 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: data => this.topDebtors.set(data ?? []), error: () => {} });
         this.dashboardService.getUpcomingPaymentDues(cid)
           .subscribe({ next: data => this.upcomingDues.set(data), error: () => {} });
-        this.http.get<any[]>(`/api/app/dashboard/pending-material-requests?companyId=${cid}`)
+        this.dashboardService.getPendingMaterialRequests(cid)
           .subscribe({ next: data => this.pendingMRs.set(data ?? []), error: () => {} });
         this.dashboardService.getSupplierPerformanceWidget(cid)
           .subscribe({ next: data => this.supplierPerformance.set(data), error: () => {} });
@@ -98,7 +96,7 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: kpis => this.financialKpis.set(kpis), error: () => {} });
         this.dashboardService.getStockValuationSummary(companyId)
           .subscribe({ next: data => this.stockValuation.set(data), error: () => {} });
-        this.http.get<any[]>(`/api/app/dashboard/profit-margin-trend?companyId=${companyId}`).subscribe({
+        this.dashboardService.getProfitMarginTrend(companyId).subscribe({
           next: data => this.profitMarginTrend.set((data ?? []).map(d => ({
             month: d.month, marginPct: d.marginPercentage, revenue: d.revenue, cost: d.cost, grossProfit: d.grossProfit
           }))),
@@ -119,7 +117,7 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: data => this.pendingOrders.set(data), error: () => {} });
         this.dashboardService.getProductionSummary(companyId)
           .subscribe({ next: data => this.productionSummary.set(data), error: () => {} });
-        this.http.get(`/api/app/dashboard/todays-activity`, { params: { companyId } })
+        this.dashboardService.getTodaysActivity(companyId)
           .subscribe({ next: (data: any) => this.todaysActivity.set(data), error: () => {} });
       }
     }
@@ -150,10 +148,10 @@ export class HomeComponent implements OnInit {
   createSingleReorderMR(item: any) {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId) return;
-    this.http.post<any>('/api/app/dashboard/create-reorder-material-request', {
+    this.dashboardService.createReorderMaterialRequest({
       companyId,
       itemIds: [item.itemId],
-    }).subscribe({
+    } as any).subscribe({
       next: () => {
         this.lowStockItems.update(items => items.filter(i => i.itemId !== item.itemId));
       },
@@ -169,10 +167,10 @@ export class HomeComponent implements OnInit {
       .map(item => item.itemId);
     if (!itemIds.length) return;
     this.isCreatingReorderMR.set(true);
-    this.http.post<any>('/api/app/dashboard/create-reorder-material-request', {
+    this.dashboardService.createReorderMaterialRequest({
       companyId,
       itemIds,
-    }).subscribe({
+    } as any).subscribe({
       next: (result) => {
         this.isCreatingReorderMR.set(false);
         this.lowStockItems.set([]);

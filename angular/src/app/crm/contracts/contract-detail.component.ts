@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ContractService } from '../../proxy/crm/contract.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -75,7 +75,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 export class ContractDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private http = inject(HttpClient);
+  private contractService = inject(ContractService);
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
 
@@ -85,29 +85,29 @@ export class ContractDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) { this.router.navigate(['/crm/contracts']); return; }
-    this.http.get<any>(`/api/app/contract/${id}`).subscribe({
-      next: (c) => { this.contract.set(c); this.loading.set(false); },
+    this.contractService.get(id).subscribe({
+      next: (c: any) => { this.contract.set(c); this.loading.set(false); },
       error: () => { this.router.navigate(['/crm/contracts']); },
     });
   }
 
   sign() {
-    this.http.post(`/api/app/contract/${this.contract().id}/sign`, {}).subscribe({
+    this.contractService.sign(this.contract().id).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullyUpdated')); this.reload(); },
       error: () => {},
     });
   }
 
   cancel() {
-    this.http.post(`/api/app/contract/${this.contract().id}/cancel`, {}).subscribe({
+    this.contractService.cancel(this.contract().id).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.reload(); },
       error: () => {},
     });
   }
 
   private reload() {
-    this.http.get<any>(`/api/app/contract/${this.contract().id}`).subscribe({
-      next: (c) => this.contract.set(c),
+    this.contractService.get(this.contract().id).subscribe({
+      next: (c: any) => this.contract.set(c),
     });
   }
 

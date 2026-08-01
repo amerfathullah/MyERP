@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
@@ -35,7 +35,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
   private companyService = inject(CompanyService);
-  private http = inject(HttpClient);
+  private qiService = inject(QualityInspectionService);
 
   receipt: PurchaseReceiptDto | null = null;
   companyData = { name: '', tin: '', sst: '', address: '' };
@@ -77,9 +77,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     const itemIds = (receipt.items ?? []).map((i: any) => i.itemId).filter(Boolean);
     if (itemIds.length === 0) return;
     this.qiLoading.set(true);
-    this.http.get<any[]>(`/api/app/quality-inspection`, {
-      params: { maxResultCount: '100', skipCount: '0' }
-    }).subscribe({
+    this.qiService.getList({ maxResultCount: 100, skipCount: 0 } as any).subscribe({
       next: (res: any) => {
         const items = res?.items ?? res ?? [];
         const map: Record<string, { status: string; inspectionNumber?: string }> = {};

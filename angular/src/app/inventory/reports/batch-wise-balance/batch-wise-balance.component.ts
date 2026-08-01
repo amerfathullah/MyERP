@@ -2,7 +2,9 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
+import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../../proxy/inventory/item.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
@@ -179,7 +181,9 @@ interface BatchBalanceReport {
   `
 })
 export class BatchWiseBalanceComponent implements OnInit {
-  private http = inject(HttpClient);
+  private stockBalanceService = inject(StockBalanceService);
+  private warehouseService = inject(WarehouseService);
+  private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
 
   report = signal<BatchBalanceReport | null>(null);
@@ -200,14 +204,14 @@ export class BatchWiseBalanceComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.http.get<any>('/api/app/warehouse', { params: { maxResultCount: '500' } }).subscribe({
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))),
       error: () => {}
     });
   }
 
   loadItems(): void {
-    this.http.get<any>('/api/app/item', { params: { maxResultCount: '500' } }).subscribe({
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.items.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))),
       error: () => {}
     });
@@ -222,8 +226,8 @@ export class BatchWiseBalanceComponent implements OnInit {
     if (this.toDate) params.toDate = this.toDate;
     if (this.includeZeroBalance) params.includeZeroBalance = 'true';
 
-    this.http.get<BatchBalanceReport>('/api/app/stock-balance/batch-wise-balance', { params }).subscribe({
-      next: (data) => { this.report.set(data); this.loading.set(false); },
+    this.stockBalanceService.getBatchWiseBalance(params as any).subscribe({
+      next: (data: any) => { this.report.set(data); this.loading.set(false); },
       error: () => { this.loading.set(false); }
     });
   }

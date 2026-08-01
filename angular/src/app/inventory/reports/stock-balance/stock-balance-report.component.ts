@@ -1,7 +1,8 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
+import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -28,7 +29,7 @@ interface StockBalanceRow {
 /**
  * Stock Balance Report — the most used inventory report.
  * Shows warehouse-wise quantity and value for all items.
- * 
+ *
  * Per ERPNext: stock_balance.py report with 20+ filters.
  * Features:
  * - Filter by warehouse, item group, item code
@@ -204,7 +205,8 @@ interface StockBalanceRow {
   `]
 })
 export class StockBalanceReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private stockBalanceService = inject(StockBalanceService);
+  private warehouseService = inject(WarehouseService);
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -258,7 +260,7 @@ export class StockBalanceReportComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.http.get<any>('/api/app/warehouse', { params: { skipCount: '0', maxResultCount: '500' } })
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
       .subscribe({ next: res => this.warehouses.set((res.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))), error: () => {} });
   }
 
@@ -269,8 +271,8 @@ export class StockBalanceReportComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (companyId) params.companyId = companyId;
 
-    this.http.get<any>('/api/app/stock-balance/stock-balance', { params }).subscribe({
-      next: res => {
+    this.stockBalanceService.getStockBalance({ skipCount: 0, maxResultCount: 5000, warehouseId: this.filterWarehouseId || undefined, companyId } as any).subscribe({
+      next: (res: any) => {
         const items: StockBalanceRow[] = (res.items ?? []).map((r: any) => ({
           itemId: r.itemId,
           itemCode: r.itemCode ?? '',

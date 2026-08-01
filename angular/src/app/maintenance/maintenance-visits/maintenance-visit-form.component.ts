@@ -6,7 +6,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { CustomerService } from '../../proxy/sales/customer.service';
 
 @Component({
   selector: 'app-maintenance-visit-form',
@@ -104,7 +104,7 @@ export class MaintenanceVisitFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
-  private http = inject(HttpClient);
+  private customerService = inject(CustomerService);
 
   customers = signal<any[]>([]);
   schedules = signal<any[]>([]);
@@ -118,11 +118,11 @@ export class MaintenanceVisitFormComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.http.get<any>('/api/app/customer', { params: { maxResultCount: '200' } }).subscribe({
+    this.customerService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (r) => this.customers.set(r.items ?? []), error: () => {}
     });
-    this.http.get<any>('/api/app/maintenance-schedule', { params: { maxResultCount: '100' } }).subscribe({
-      next: (r) => this.schedules.set(r.items ?? []), error: () => {}
+    this.service.getScheduleList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({
+      next: (r: any) => this.schedules.set(r.items ?? []), error: () => {}
     });
     this.form = this.fb.group({
       visitDate: [new Date().toISOString().substring(0, 10), Validators.required],

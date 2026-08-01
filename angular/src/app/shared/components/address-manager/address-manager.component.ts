@@ -231,7 +231,7 @@ export class AddressManagerComponent implements OnInit {
   loadAddresses(): void {
     this.loading.set(true);
     this.addressService.getAddressesForParty(this.partyType, this.partyId).subscribe({
-      next: (data) => { this.addresses.set(data ?? []); this.loading.set(false); },
+      next: (data) => { this.addresses.set((data ?? []) as any); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }

@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { BatchService } from '../../proxy/inventory/batch.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
@@ -100,15 +100,15 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 export class BatchDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private confirmation = inject(ConfirmationService);
-  private http = inject(HttpClient);
+  private batchService = inject(BatchService);
   private router = inject(Router);
 
   batch = signal<any>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
-    this.http.get<any>(`/api/app/batch/${id}`).subscribe({
-      next: (data) => this.batch.set(data),
+    this.batchService.get(id).subscribe({
+      next: (data: any) => this.batch.set(data),
       error: () => this.router.navigate(['/inventory/batches'])
     });
   }
@@ -129,7 +129,7 @@ export class BatchDetailComponent implements OnInit {
   disable(): void {
     this.confirmation.warn('::DisableConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
-      this.http.post(`/api/app/batch/${this.batch()?.id}/disable`, {}).subscribe({
+      this.batchService.disable(this.batch()?.id!).subscribe({
         next: () => {
           const b = this.batch();
           if (b) this.batch.set({ ...b, disabled: true });

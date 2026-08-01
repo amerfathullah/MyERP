@@ -9,7 +9,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { HttpClient } from '@angular/common/http';
+import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
 
 @Component({
   selector: 'app-pos-closing-form',
@@ -116,7 +116,7 @@ export class PosClosingFormComponent implements OnInit {
   private service = inject(PosClosingService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private http = inject(HttpClient);
+  private posOpeningService = inject(PosOpeningService);
   private localization = inject(LocalizationService);
 
   saving = signal(false);
@@ -140,7 +140,7 @@ export class PosClosingFormComponent implements OnInit {
     if (cid) this.form.patchValue({ companyId: cid });
 
     // Load open POS entries
-    this.http.get<any>('/api/app/pos-opening?maxResultCount=50').subscribe({
+    this.posOpeningService.getList({ skipCount: 0, maxResultCount: 50, sorting: '' }).subscribe({
       next: (res) => {
         this.openEntries.set((res.items || []).filter((e: any) => e.status === 'Open'));
       },

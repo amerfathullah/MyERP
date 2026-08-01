@@ -2,7 +2,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { PartyPerformanceService } from '../../proxy/core/party-performance.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -165,7 +166,8 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   `,
 })
 export class PoFulfillmentComponent implements OnInit {
-  private http = inject(HttpClient);
+  private partyPerformanceService = inject(PartyPerformanceService);
+  private supplierService = inject(SupplierService);
   private companyContext = inject(CompanyContextService);
 
   report = signal<any>(null);
@@ -180,7 +182,7 @@ export class PoFulfillmentComponent implements OnInit {
   }
 
   private loadSuppliers() {
-    this.http.get<any>('/api/app/supplier', { params: { maxResultCount: '200' } }).subscribe({
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => this.suppliers.set((res.items ?? []).map((s: any) => ({ id: s.id, name: s.name }))),
       error: () => {},
     });
@@ -194,8 +196,8 @@ export class PoFulfillmentComponent implements OnInit {
     const params: any = { companyId };
     if (this.supplierFilter) params.supplierId = this.supplierFilter;
 
-    this.http.get<any>('/api/app/party-performance/po-fulfillment-report', { params }).subscribe({
-      next: (data) => { this.report.set(data); this.loading.set(false); },
+    this.partyPerformanceService.getPoFulfillmentReport(companyId, this.supplierFilter || undefined).subscribe({
+      next: (data: any) => { this.report.set(data); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
