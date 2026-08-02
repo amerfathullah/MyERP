@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
@@ -16,7 +17,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
 @Component({
   selector: 'app-subcontracting-inward-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent],
+  imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="order()?.orderNumber || ('SubcontractingInwardOrder' | abpLocalization)">
@@ -137,6 +138,9 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
             </button>
           }
           @if (o.status === 1 || o.status === 2) {
+            <button class="btn btn-success btn-sm" (click)="openReceiptDialog()">
+              <i class="fa fa-box-open me-1"></i>{{ '::CreateReceipt' | abpLocalization }}
+            </button>
             <button class="btn btn-outline-warning btn-sm" (click)="close()">
               <i class="fa fa-lock me-1"></i>{{ 'Close' | abpLocalization }}
             </button>
@@ -148,6 +152,53 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
           }
         </div>
 
+        <!-- Receipt Items Dialog -->
+        @if (showReceiptDialog()) {
+          <div class="card border-success mb-3">
+            <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fa fa-box-open me-2"></i>{{ '::ReceiveItems' | abpLocalization }}</h6>
+              <button type="button" class="btn-close btn-sm" (click)="showReceiptDialog.set(false)"></button>
+            </div>
+            <div class="card-body">
+              <p class="text-muted small mb-2">{{ '::ReceiveItemsHelp' | abpLocalization }}</p>
+              <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Ordered' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AlreadyReceived' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Pending' | abpLocalization }}</th>
+                    <th class="text-center" style="width: 120px">{{ '::ReceiveQty' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of receiptItems(); track item.itemId) {
+                    <tr>
+                      <td>{{ getItemName(item.itemId) }}</td>
+                      <td class="text-end">{{ item.orderedQty | number:'1.0-2' }}</td>
+                      <td class="text-end">{{ item.receivedQty | number:'1.0-2' }}</td>
+                      <td class="text-end" [class.text-warning]="item.pendingQty > 0" [class.text-success]="item.pendingQty <= 0">
+                        {{ item.pendingQty | number:'1.0-2' }}
+                      </td>
+                      <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-center"
+                          [(ngModel)]="item.receiveQty" [max]="item.pendingQty" min="0" step="0.01">
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              <div class="d-flex justify-content-end gap-2 mt-2">
+                <button class="btn btn-sm btn-secondary" (click)="showReceiptDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-success" (click)="createReceipt()" [disabled]="isCreatingReceipt() || !hasReceivableQty()">
+                  @if (isCreatingReceipt()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                  <i class="fa fa-check me-1"></i>{{ '::CreateReceipt' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Activity Log -->
         <app-activity-log documentType="SubcontractingInwardOrder" [documentId]="orderId" />
         <app-voucher-ledger voucherType="SubcontractingInwardOrder" [voucherId]="orderId" [showStock]="true" [showAccounting]="true" />
@@ -157,13 +208,14 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
 })
 export class SubcontractingInwardDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private confirmation = inject(ConfirmationService);
   private scioService = inject(SubcontractingInwardOrderService);
+  private subcontractingService = inject(SubcontractingService);
   private toaster = inject(ToasterService);
 
   private salesOrderProxyService = inject(SalesOrderService);
   private supplierService = inject(SupplierService);
-  private subcontractingService = inject(SubcontractingService);
   private itemService = inject(ItemService);
 
   order = signal<any>(null);
@@ -173,6 +225,11 @@ export class SubcontractingInwardDetailComponent implements OnInit {
   soNumber = signal('');
   scoNumber = signal('');
   private itemNames = signal<Record<string, string>>({});
+
+  // Receipt dialog state
+  showReceiptDialog = signal(false);
+  receiptItems = signal<{ itemId: string; orderedQty: number; receivedQty: number; pendingQty: number; receiveQty: number }[]>([]);
+  isCreatingReceipt = signal(false);
 
   private statusNames = ['Draft', 'Open', 'Partially Received', 'Completed', 'Closed', 'Cancelled'];
   private statusClasses = ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-dark', 'bg-danger'];
@@ -258,6 +315,55 @@ export class SubcontractingInwardDetailComponent implements OnInit {
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadOrder(); },
         error: () => {}
       });
+    });
+  }
+
+  openReceiptDialog(): void {
+    const o = this.order();
+    if (!o?.items?.length) return;
+    const items = (o.items as any[]).filter(i => (i.pendingReceiptQty ?? (i.quantity - (i.receivedQty ?? 0))) > 0)
+      .map(i => ({
+        itemId: i.itemId,
+        orderedQty: i.quantity ?? 0,
+        receivedQty: i.receivedQty ?? 0,
+        pendingQty: i.pendingReceiptQty ?? Math.max(0, (i.quantity ?? 0) - (i.receivedQty ?? 0)),
+        receiveQty: i.pendingReceiptQty ?? Math.max(0, (i.quantity ?? 0) - (i.receivedQty ?? 0)),
+      }));
+    this.receiptItems.set(items);
+    this.showReceiptDialog.set(true);
+  }
+
+  hasReceivableQty(): boolean {
+    return this.receiptItems().some(i => i.receiveQty > 0);
+  }
+
+  createReceipt(): void {
+    const items = this.receiptItems().filter(i => i.receiveQty > 0);
+    if (!items.length) return;
+    this.isCreatingReceipt.set(true);
+    const o = this.order();
+    this.subcontractingService.createReceipt({
+      subcontractingOrderId: o.subcontractingOrderId || this.orderId,
+      companyId: o.companyId,
+      supplierId: o.supplierId,
+      postingDate: new Date().toISOString().split('T')[0],
+      items: items.map(i => ({
+        itemId: i.itemId,
+        itemName: this.getItemName(i.itemId),
+        qty: i.receiveQty,
+        rate: 0,
+      })),
+    }).subscribe({
+      next: (receipt: any) => {
+        this.isCreatingReceipt.set(false);
+        this.showReceiptDialog.set(false);
+        this.toaster.success('::ReceiptCreatedSuccessfully');
+        this.loadOrder();
+      },
+      error: (err: any) => {
+        this.isCreatingReceipt.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 }

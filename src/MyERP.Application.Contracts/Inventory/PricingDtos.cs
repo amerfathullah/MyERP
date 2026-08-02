@@ -33,6 +33,7 @@ public class CreateUpdatePriceListDto
 public class ItemPriceDto : AuditedEntityDto<Guid>
 {
     public Guid ItemId { get; set; }
+    public string? ItemCode { get; set; }
     public string? ItemName { get; set; }
     public Guid PriceListId { get; set; }
     public string? PriceListName { get; set; }
@@ -43,8 +44,11 @@ public class ItemPriceDto : AuditedEntityDto<Guid>
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }
     public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
     public Guid? SupplierId { get; set; }
+    public string? SupplierName { get; set; }
     public string? BatchNo { get; set; }
+    public bool IsAutoInserted { get; set; }
 }
 
 public class CreateUpdateItemPriceDto
@@ -68,6 +72,7 @@ public class GetItemPriceListDto : PagedAndSortedResultRequestDto
     public Guid? PriceListId { get; set; }
     public Guid? CustomerId { get; set; }
     public Guid? SupplierId { get; set; }
+    public string? Filter { get; set; }
 }
 
 /// <summary>Request to resolve the best price for a given item context.</summary>
@@ -87,4 +92,17 @@ public class ItemRateResultDto
     public decimal Rate { get; set; }
     public Guid? ItemPriceId { get; set; }
     public string? Source { get; set; }
+}
+
+public class BulkPriceUpdateDto
+{
+    public Guid PriceListId { get; set; }
+    public decimal PercentageChange { get; set; }
+    public Guid? ItemGroupId { get; set; }
+}
+
+public class BulkPriceUpdateResultDto
+{
+    public int UpdatedCount { get; set; }
+    public decimal PercentageApplied { get; set; }
 }

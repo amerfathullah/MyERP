@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { BatchPaymentService } from '../../proxy/accounting/batch-payment.service';
@@ -126,15 +126,35 @@ interface OutstandingInvoice {
       <!-- Submit -->
       @if (selectedInvoices().length > 0) {
         <div class="card">
-          <div class="card-body d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{{ selectedInvoices().length }}</strong> invoices selected,
-              total payment: <strong>{{ totalPayAmount() | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</strong>
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <strong>{{ selectedInvoices().length }}</strong> {{ 'InvoicesSelected' | abpLocalization }},
+                {{ 'TotalPayment' | abpLocalization }}: <strong>{{ totalPayAmount() | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</strong>
+              </div>
+              <button class="btn btn-primary btn-lg" (click)="validateAndCreate()" [disabled]="processing()">
+                @if (processing()) { <i class="fa fa-spinner fa-spin me-2"></i> }
+                <i class="fa fa-paper-plane me-1"></i>{{ 'CreatePaymentEntries' | abpLocalization }}
+              </button>
             </div>
-            <button class="btn btn-primary btn-lg" (click)="createBatchPayment()" [disabled]="processing()">
-              @if (processing()) { <i class="fa fa-spinner fa-spin me-2"></i> }
-              <i class="fa fa-paper-plane me-1"></i>{{ 'CreatePaymentEntries' | abpLocalization }}
-            </button>
+            @if (previewResult()) {
+              <div class="border rounded p-3 bg-light">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                  <span class="badge bg-primary fs-6">{{ previewResult()!.paymentEntryCount }} {{ 'PaymentEntries' | abpLocalization }}</span>
+                  <span class="badge bg-success fs-6">{{ previewResult()!.totalPayable | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</span>
+                  <span class="badge bg-info"><i class="fa fa-file-pen me-1"></i>{{ 'CreatedAsDraft' | abpLocalization }}</span>
+                </div>
+                @if (previewResult()!.excluded && previewResult()!.excluded!.length > 0) {
+                  <div class="text-warning small mt-2">
+                    <i class="fa fa-triangle-exclamation me-1"></i>
+                    <strong>{{ previewResult()!.excluded!.length }}</strong> {{ 'InvoicesExcluded' | abpLocalization }}:
+                    @for (ex of previewResult()!.excluded!; track ex.invoiceId) {
+                      <span class="ms-2 badge bg-warning text-dark">{{ ex.invoiceNumber || ex.invoiceId }} — {{ ex.reason }}</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </div>
         </div>
       }
@@ -146,6 +166,7 @@ export class BatchPaymentComponent implements OnInit {
   private customerService = inject(CustomerService);
   private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   private companyContext = inject(CompanyContextService);
 
   partyType = 'Supplier';
@@ -157,6 +178,7 @@ export class BatchPaymentComponent implements OnInit {
   invoices = signal<OutstandingInvoice[]>([]);
   loading = signal(false);
   processing = signal(false);
+  previewResult = signal<{ paymentEntryCount?: number; totalPayable?: number; excluded?: { invoiceId?: string; invoiceNumber?: string; reason?: string }[] } | null>(null);
 
   selectedInvoices = signal<OutstandingInvoice[]>([]);
   totalPayAmount = signal(0);
@@ -233,6 +255,34 @@ export class BatchPaymentComponent implements OnInit {
     return new Date(inv.dueDate) < new Date();
   }
 
+  validateAndCreate() {
+    const selected = this.selectedInvoices();
+    if (!selected.length) return;
+
+    this.processing.set(true);
+    this.previewResult.set(null);
+
+    // Step 1: validate selection via backend partition
+    this.batchPaymentService.getPayableInvoices({
+      invoiceIds: selected.map(i => i.invoiceId!),
+    }).subscribe({
+      next: (partition) => {
+        this.previewResult.set(partition);
+        if (!partition.payable?.length) {
+          this.toaster.warn(this.l.instant('::NonePayable'));
+          this.processing.set(false);
+          return;
+        }
+        // Step 2: create PEs for payable invoices
+        this.createBatchPayment();
+      },
+      error: () => {
+        // Graceful: if validation fails, proceed with creation anyway (advisory)
+        this.createBatchPayment();
+      }
+    });
+  }
+
   createBatchPayment() {
     const selected = this.selectedInvoices();
     if (!selected.length) return;
@@ -259,9 +309,11 @@ export class BatchPaymentComponent implements OnInit {
       }))
     } as any).subscribe({
       next: (res) => {
-        this.toaster.success(`${res.successCount} payment entries created (${res.totalAmount.toFixed(2)})`);
+        const msg = this.l.instant('::DraftPaymentEntriesCreated', String(res.successCount ?? 0), res.totalAmount?.toFixed(2) ?? '0');
+        this.toaster.success(msg);
         this.processing.set(false);
-        this.loadOutstanding(); // Refresh to remove paid invoices
+        this.previewResult.set(null);
+        this.loadOutstanding();
       },
       error: () => this.processing.set(false)
     });

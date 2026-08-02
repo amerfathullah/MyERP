@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MyERP.Purchasing;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -20,4 +21,10 @@ public interface ISalesOrderAppService : IApplicationService
     Task<SalesOrderDto> ReopenAsync(Guid id);
     Task DeleteAsync(Guid id);
     Task<List<DeliveryScheduleEntryDto>> GetDeliveryScheduleAsync(Guid orderId);
+
+    /// <summary>
+    /// Updates qty/rate on submitted SO items (post-submit editing).
+    /// Per ERPNext update_child_qty_rate: guards against qty below delivered, rate below billed.
+    /// </summary>
+    Task<UpdateOrderItemsResultDto> UpdateItemsAsync(Guid id, UpdateOrderItemsDto input);
 }

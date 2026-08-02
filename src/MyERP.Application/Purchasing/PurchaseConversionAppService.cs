@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
@@ -26,6 +27,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
     private readonly IRepository<MaterialRequest, Guid> _materialRequestRepository;
     private readonly IRepository<RequestForQuotation, Guid> _rfqRepository;
     private readonly IRepository<SupplierQuotation, Guid> _sqRepository;
+    private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly DocumentActivityLogService _activityLog;
@@ -37,6 +39,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         IRepository<MaterialRequest, Guid> materialRequestRepository,
         IRepository<RequestForQuotation, Guid> rfqRepository,
         IRepository<SupplierQuotation, Guid> sqRepository,
+        IRepository<Supplier, Guid> supplierRepository,
         IRepository<Item, Guid> itemRepository,
         IDocumentNumberGenerator numberGenerator,
         DocumentActivityLogService activityLog)
@@ -47,6 +50,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         _materialRequestRepository = materialRequestRepository;
         _rfqRepository = rfqRepository;
         _sqRepository = sqRepository;
+        _supplierRepository = supplierRepository;
         _itemRepository = itemRepository;
         _numberGenerator = numberGenerator;
         _activityLog = activityLog;
@@ -237,6 +241,98 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             "PurchaseOrder", po.Id, mr.RequestNumber, mr.TenantId);
 
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    /// <summary>
+    /// Creates Purchase Orders from MR with per-item supplier selection and qty adjustment.
+    /// Per ERPNext PR #57676: creates one PO per supplier from selected items.
+    /// Rejects duplicate MR items, validates qty against pending, groups by supplier.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<SupplierSelectionResultDto> CreatePurchaseOrdersFromMaterialRequestAsync(
+        CreatePurchaseOrdersFromMrDto input)
+    {
+        var mr = await _materialRequestRepository.GetAsync(input.MaterialRequestId);
+
+        if (mr.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (mr.RequestType != MaterialRequestType.Purchase)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Only Purchase-type Material Requests can be converted to PO");
+
+        if (!input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        // Per PR #57676: reject duplicate MR items in same selection
+        var duplicateItemIds = input.Items
+            .GroupBy(i => i.MaterialRequestItemId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateItemIds.Any())
+            throw new BusinessException("MyERP:04019")
+                .WithData("reason", "Same Material Request item cannot be selected twice");
+
+        // Validate each item's qty against pending
+        foreach (var selItem in input.Items)
+        {
+            var mrItem = mr.Items.FirstOrDefault(i => i.Id == selItem.MaterialRequestItemId);
+            if (mrItem == null)
+                throw new BusinessException("MyERP:04016")
+                    .WithData("reason", $"Material Request item not found");
+
+            var pendingQty = mrItem.Quantity - mrItem.OrderedQuantity;
+            if (selItem.Quantity > pendingQty)
+                throw new BusinessException("MyERP:04020")
+                    .WithData("reason", $"Requested qty ({selItem.Quantity}) exceeds pending qty ({pendingQty})");
+        }
+
+        // Group items by supplier → one PO per supplier
+        var groupedBySupplier = input.Items.GroupBy(i => i.SupplierId);
+        var result = new SupplierSelectionResultDto();
+
+        foreach (var group in groupedBySupplier)
+        {
+            var supplierId = group.Key;
+            var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", mr.CompanyId);
+
+            var po = new PurchaseOrder(
+                GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
+                Clock.Now.Date, mr.TenantId);
+
+            foreach (var selItem in group)
+            {
+                var mrItem = mr.Items.First(i => i.Id == selItem.MaterialRequestItemId);
+                var item = await _itemRepository.FindAsync(mrItem.ItemId);
+                var rate = item?.StandardBuyingPrice ?? 0m;
+
+                po.AddItem(mrItem.ItemId, mrItem.ItemName, selItem.Quantity, rate, 0m, mrItem.Uom);
+
+                var poItem = po.Items.Last();
+                poItem.MaterialRequestItemId = mrItem.Id;
+            }
+
+            await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
+
+            // Resolve supplier name for result
+            var supplier = await _supplierRepository.FindAsync(supplierId);
+
+            result.PurchaseOrders.Add(new CreatedPurchaseOrderInfo
+            {
+                PurchaseOrderId = po.Id,
+                OrderNumber = po.OrderNumber,
+                SupplierName = supplier?.Name,
+                ItemCount = po.Items.Count,
+                TotalAmount = po.GrandTotal
+            });
+            result.TotalItemsOrdered += po.Items.Count;
+        }
+
+        await _activityLog.LogConvertedAsync("MaterialRequest", mr.Id, mr.CompanyId,
+            "PurchaseOrder", result.PurchaseOrders.First().PurchaseOrderId, mr.RequestNumber, mr.TenantId);
+
+        return result;
     }
 
     /// <summary>

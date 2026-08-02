@@ -63,3 +63,26 @@ export interface TaxpayerSearchResultDto {
   idType?: string | null;
   idValue?: string | null;
 }
+
+export interface BatchSubmitEInvoiceDto {
+  companyId: string;
+  sourceDocumentType: string;
+  documentIds: string[];
+}
+
+export interface BatchSubmitResultDto {
+  totalRequested?: number;
+  succeededCount?: number;
+  failedCount?: number;
+  skippedCount?: number;
+  results?: BatchSubmitItemResult[];
+}
+
+export interface BatchSubmitItemResult {
+  documentId?: string;
+  documentNumber?: string;
+  success?: boolean;
+  errorMessage?: string | null;
+  lhdnUuid?: string | null;
+  status?: string | null;
+}

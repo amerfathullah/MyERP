@@ -238,6 +238,35 @@
         </div>
       }
 
+      <!-- Revenue vs Expenses Comparison -->
+      @if (revenueVsExpense().length > 0) {
+        <div class="card mt-4 mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-scale-balanced text-info me-2"></i>{{ '::RevenueVsExpenses' | abpLocalization }}</h6>
+            <div class="d-flex gap-3">
+              <small><span class="badge bg-success">&nbsp;</span> {{ '::Revenue' | abpLocalization }}</small>
+              <small><span class="badge bg-danger">&nbsp;</span> {{ '::Expenses' | abpLocalization }}</small>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="d-flex align-items-end gap-2" style="height: 180px;">
+              @for (bar of revenueVsExpense(); track bar.month) {
+                <div class="d-flex flex-column align-items-center flex-fill">
+                  <div class="d-flex gap-1 align-items-end" style="height: 140px;">
+                    <div class="bg-success rounded-top" [style.height.%]="bar.revenueHeight" style="width: 12px; min-height: 2px; transition: height 0.3s;"></div>
+                    <div class="bg-danger rounded-top" [style.height.%]="bar.expenseHeight" style="width: 12px; min-height: 2px; transition: height 0.3s;"></div>
+                  </div>
+                  <small class="text-muted mt-1">{{ bar.month }}</small>
+                  <small [class]="bar.netProfit >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold'">
+                    {{ bar.profitMarginPct }}%
+                  </small>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Profit Margin Trend (6 months) -->
       @if (profitMarginTrend().length > 0) {
         <div class="card mt-4 mb-4">

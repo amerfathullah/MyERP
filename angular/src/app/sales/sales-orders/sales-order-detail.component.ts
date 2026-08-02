@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -36,6 +37,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(SalesOrderService);
   private conversionService = inject(DocumentConversionService);
+  private http = inject(HttpClient);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
   private documentEmailService = inject(DocumentEmailService);
@@ -69,6 +71,11 @@ export class SalesOrderDetailComponent implements OnInit {
   allDeliveryItemsSelected = computed(() => this.deliverySelectionItems().length > 0 && this.deliverySelectionItems().every(i => i.selected));
   deliveryItemsReadyCount = computed(() => this.deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length);
   isCreatingDN = signal(false);
+
+  // Update Items inline editing state (per ERPNext update_child_qty_rate)
+  isEditingItems = signal(false);
+  editableItems = signal<Array<{ itemId: string; quantity: number; unitPrice: number; description: string; deliveredQty: number }>>([]);
+  isSavingItems = signal(false);
 
   // Delivery Schedule Generator state
   showScheduleGenerator = signal(false);
@@ -178,6 +185,7 @@ export class SalesOrderDetailComponent implements OnInit {
       actions.push({ name: 'payment', label: this.l.instant('::MakePayment'), icon: 'money-bill', color: 'info' });
       actions.push({ name: 'pick_list', label: this.l.instant('::CreatePickList'), icon: 'clipboard-list', color: 'info' });
       actions.push({ name: 'work_order', label: this.l.instant('::MakeWorkOrder'), icon: 'industry', color: 'info' });
+      actions.push({ name: 'batch_work_orders', label: this.l.instant('::CreateAllWorkOrders'), icon: 'gears', color: 'info' });
       actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
       actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
     }
@@ -287,6 +295,20 @@ export class SalesOrderDetailComponent implements OnInit {
       case 'work_order':
         this.router.navigate(['/manufacturing/work-orders/new'], {
           queryParams: { salesOrderId: id, companyId: this.order!.companyId }
+        });
+        break;
+      case 'batch_work_orders':
+        this.http.post<any>(`/api/app/manufacturing/work-order/create-from-sales-order/${id}`, {}).subscribe({
+          next: (result) => {
+            if (result.createdCount > 0) {
+              this.toaster.success(this.l.instant('::WorkOrdersCreated', result.createdCount.toString()));
+            }
+            if (result.skippedCount > 0) {
+              this.toaster.info(this.l.instant('::ItemsSkippedNoBom', result.skippedCount.toString()));
+            }
+            this.reloadAfterAction();
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
         });
         break;
       case 'production_plan':
@@ -513,6 +535,55 @@ export class SalesOrderDetailComponent implements OnInit {
           this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed');
         },
       });
+    });
+  }
+
+  // --- Update Items (post-submit editing) ---
+
+  canUpdateItems(): boolean {
+    if (!this.order) return false;
+    const s = this.order.status;
+    return s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill';
+  }
+
+  startEditingItems(): void {
+    if (!this.order?.items) return;
+    this.editableItems.set(this.order.items.map((item: any) => ({
+      itemId: item.id ?? item.itemId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      description: item.description,
+      deliveredQty: item.deliveredQty ?? 0,
+    })));
+    this.isEditingItems.set(true);
+  }
+
+  cancelEditingItems(): void {
+    this.isEditingItems.set(false);
+    this.editableItems.set([]);
+  }
+
+  saveItemUpdates(): void {
+    if (!this.order?.id) return;
+    this.isSavingItems.set(true);
+    const payload = {
+      items: this.editableItems().map(item => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+    };
+    this.service.updateItems(this.order.id, payload).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::ItemsUpdatedSuccessfully'));
+        this.isEditingItems.set(false);
+        this.isSavingItems.set(false);
+        this.reloadAfterAction();
+      },
+      error: (err: any) => {
+        this.isSavingItems.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 }

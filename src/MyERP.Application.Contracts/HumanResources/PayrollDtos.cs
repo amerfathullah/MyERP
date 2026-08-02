@@ -51,3 +51,51 @@ public class CreatePayrollEntryDto
     [Range(1, 12)]
     public int Month { get; set; }
 }
+
+/// <summary>
+/// DTO for creating a bank payment JE from a submitted payroll.
+/// Per ERPNext payroll_entry.py make_bank_entry():
+/// Creates JE: DR Salary Payable → CR Bank for total net salary.
+/// </summary>
+public class CreatePayrollBankEntryDto
+{
+    [Required]
+    public Guid PayrollEntryId { get; set; }
+
+    [Required]
+    public Guid BankAccountId { get; set; }
+
+    /// <summary>Payment reference number (e.g., cheque number or bank transfer ref).</summary>
+    public string? ReferenceNumber { get; set; }
+
+    /// <summary>Payment date (defaults to payroll posting date if not set).</summary>
+    public DateTime? PaymentDate { get; set; }
+}
+
+public class PayrollBankEntryResultDto
+{
+    public Guid JournalEntryId { get; set; }
+    public string JournalEntryNumber { get; set; } = null!;
+    public decimal TotalAmount { get; set; }
+    public int EmployeeCount { get; set; }
+}
+
+/// <summary>
+/// Preview of employees that will be included in a payroll run.
+/// Per ERPNext: "Get Employees" step shows eligible employees before processing.
+/// </summary>
+public class PayrollPreviewDto
+{
+    public int EmployeeCount { get; set; }
+    public decimal EstimatedGrossTotal { get; set; }
+    public List<PayrollEmployeePreviewDto> Employees { get; set; } = new();
+}
+
+public class PayrollEmployeePreviewDto
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = null!;
+    public string? Department { get; set; }
+    public string? Designation { get; set; }
+    public decimal BasicSalary { get; set; }
+}

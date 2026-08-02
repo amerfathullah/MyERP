@@ -6,6 +6,7 @@ import { BatchService } from '../../proxy/inventory/batch.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-batch-detail',
@@ -88,6 +89,92 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
           </div>
         </div>
 
+        <!-- Stock Balance per Warehouse -->
+        @if (stockBalance(); as sb) {
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fas fa-warehouse me-2"></i>{{ 'StockBalance' | abpLocalization }}</h6>
+              <span class="badge bg-primary">{{ 'Total' | abpLocalization }}: {{ sb.totalQuantity | number:'1.2-2' }}</span>
+            </div>
+            <div class="card-body p-0">
+              @if ((sb.warehouseBalances ?? []).length === 0) {
+                <div class="text-center text-muted py-3">{{ 'NoStockAvailable' | abpLocalization }}</div>
+              } @else {
+                <table class="table table-sm table-hover mb-0">
+                  <thead><tr class="table-light">
+                    <th>{{ 'Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
+                    <th></th>
+                  </tr></thead>
+                  <tbody>
+                    @for (wh of sb.warehouseBalances; track wh.warehouseId) {
+                      <tr>
+                        <td><i class="fas fa-warehouse text-muted me-1"></i>{{ wh.warehouseName }}</td>
+                        <td class="text-end font-monospace fw-bold" [class.text-success]="(wh.quantity ?? 0) > 0" [class.text-danger]="(wh.quantity ?? 0) < 0">{{ wh.quantity | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ wh.valuationRate | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ wh.stockValue | number:'1.2-2' }}</td>
+                        <td class="text-end">
+                          <a class="btn btn-outline-primary btn-sm" [routerLink]="['/inventory/stock-entries/new']"
+                             [queryParams]="{ sourceWarehouseId: wh.warehouseId, purpose: 'MaterialTransfer' }">
+                            <i class="fas fa-exchange-alt"></i>
+                          </a>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot><tr class="table-light fw-bold">
+                    <td>{{ 'Total' | abpLocalization }}</td>
+                    <td class="text-end font-monospace">{{ sb.totalQuantity | number:'1.2-2' }}</td>
+                    <td></td>
+                    <td class="text-end font-monospace">{{ sb.totalValue | number:'1.2-2' }}</td>
+                    <td></td>
+                  </tr></tfoot>
+                </table>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Movement History -->
+        @if (movementHistory(); as mh) {
+          <div class="card mb-3">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="fas fa-history me-2"></i>{{ 'MovementHistory' | abpLocalization }}</h6>
+            </div>
+            <div class="card-body p-0">
+              @if ((mh.entries ?? []).length === 0) {
+                <div class="text-center text-muted py-3">{{ 'NoMovementsRecorded' | abpLocalization }}</div>
+              } @else {
+                <table class="table table-sm table-hover mb-0">
+                  <thead><tr class="table-light">
+                    <th>{{ 'PostingDate' | abpLocalization }}</th>
+                    <th>{{ 'Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
+                    <th>{{ 'VoucherType' | abpLocalization }}</th>
+                  </tr></thead>
+                  <tbody>
+                    @for (entry of mh.entries; track entry.id) {
+                      <tr>
+                        <td>{{ entry.postingDate | date:'dd/MM/yyyy' }}</td>
+                        <td>{{ entry.warehouseName }}</td>
+                        <td class="text-end font-monospace" [class.text-success]="entry.isInward" [class.text-danger]="!entry.isInward">
+                          <i class="fas" [class.fa-arrow-down]="entry.isInward" [class.fa-arrow-up]="!entry.isInward"></i>
+                          {{ entry.quantityChange | number:'1.2-2' }}
+                        </td>
+                        <td class="text-end font-monospace">{{ entry.valuationRate | number:'1.2-2' }}</td>
+                        <td><span class="badge bg-light text-dark">{{ entry.voucherType ?? '—' }}</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          </div>
+        }
+
         <app-activity-log documentType="Batch" [documentId]="b.id" />
       } @else {
         <div class="text-center py-5">
@@ -104,12 +191,28 @@ export class BatchDetailComponent implements OnInit {
   private router = inject(Router);
 
   batch = signal<any>(null);
+  stockBalance = signal<BatchStockBalanceDto | null>(null);
+  movementHistory = signal<BatchMovementHistoryDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.batchService.get(id).subscribe({
-      next: (data: any) => this.batch.set(data),
+      next: (data: any) => {
+        this.batch.set(data);
+        this.loadStockData(id);
+      },
       error: () => this.router.navigate(['/inventory/batches'])
+    });
+  }
+
+  private loadStockData(batchId: string): void {
+    this.batchService.getStockBalance(batchId).subscribe({
+      next: (data) => this.stockBalance.set(data),
+      error: () => {},
+    });
+    this.batchService.getMovementHistory(batchId, 50).subscribe({
+      next: (data) => this.movementHistory.set(data),
+      error: () => {},
     });
   }
 

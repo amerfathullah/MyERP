@@ -27,14 +27,23 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
     /// <summary>Specific row in the voucher.</summary>
     public Guid? VoucherDetailId { get; set; }
 
-    /// <summary>Original reserved qty.</summary>
+    /// <summary>Total demand qty from the voucher line (may exceed reserved qty when partial reservation).</summary>
+    public decimal VoucherQty { get; set; }
+
+    /// <summary>Original reserved qty (may be less than VoucherQty when insufficient stock).</summary>
     public decimal ReservedQty { get; set; }
 
     /// <summary>Qty already delivered against this reservation.</summary>
     public decimal DeliveredQty { get; set; }
 
-    /// <summary>Remaining: ReservedQty - DeliveredQty.</summary>
-    public decimal AvailableQty => ReservedQty - DeliveredQty;
+    /// <summary>Qty already transferred (e.g., Material Transfer for Manufacture).</summary>
+    public decimal TransferredQty { get; set; }
+
+    /// <summary>Qty already consumed (e.g., Material Consumption for Manufacture).</summary>
+    public decimal ConsumedQty { get; set; }
+
+    /// <summary>Remaining available: ReservedQty minus all fulfilled quantities.</summary>
+    public decimal AvailableQty => Math.Max(0, ReservedQty - DeliveredQty - TransferredQty - ConsumedQty);
 
     /// <summary>Batch (if batch-tracked item).</summary>
     public Guid? BatchId { get; set; }
@@ -47,7 +56,7 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
     protected StockReservationEntry() { }
 
     public StockReservationEntry(Guid id, Guid companyId, Guid itemId, Guid warehouseId,
-        string voucherType, Guid voucherId, decimal reservedQty, Guid? tenantId = null)
+        string voucherType, Guid voucherId, decimal reservedQty, decimal voucherQty = 0, Guid? tenantId = null)
         : base(id)
     {
         CompanyId = companyId;
@@ -56,6 +65,7 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
         VoucherType = voucherType;
         VoucherId = voucherId;
         ReservedQty = reservedQty;
+        VoucherQty = voucherQty > 0 ? voucherQty : reservedQty;
         TenantId = tenantId;
 
         if (reservedQty <= 0)

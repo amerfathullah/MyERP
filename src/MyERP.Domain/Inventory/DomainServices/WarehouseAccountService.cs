@@ -1,5 +1,8 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using Volo.Abp;
@@ -28,15 +31,18 @@ public class WarehouseAccountService : DomainService
     private readonly IRepository<WarehouseAccount, Guid> _warehouseAccountRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Account, Guid> _accountRepository;
 
     public WarehouseAccountService(
         IRepository<WarehouseAccount, Guid> warehouseAccountRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Account, Guid> accountRepository)
     {
         _warehouseAccountRepository = warehouseAccountRepository;
         _warehouseRepository = warehouseRepository;
         _companyRepository = companyRepository;
+        _accountRepository = accountRepository;
     }
 
     /// <summary>
@@ -78,9 +84,24 @@ public class WarehouseAccountService : DomainService
         if (company.DefaultInventoryAccountId.HasValue)
             return company.DefaultInventoryAccountId.Value;
 
-        // Level 5: Error — no account configured
+        // Level 5: Per PR #57626 — only auto-resolve if exactly ONE stock account exists.
+        // Multiple stock accounts = ambiguous → require explicit configuration.
+        var accountQuery = await _accountRepository.GetQueryableAsync();
+        var stockAccounts = accountQuery
+            .Where(a => a.CompanyId == companyId
+                     && a.AccountSubType == AccountSubType.Stock
+                     && !a.IsGroup)
+            .Select(a => a.Id)
+            .Take(2) // Only need to know if 0, 1, or >1
+            .ToList();
+
+        if (stockAccounts.Count == 1)
+            return stockAccounts[0];
+
+        // Level 6: Error — no unambiguous account found
         throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
-            .WithData("message", $"No stock account configured for warehouse '{warehouse.Name}' or company defaults.");
+            .WithData("message", $"No stock account configured for warehouse '{warehouse.Name}' or company defaults. " +
+                $"Please set Account in the Warehouse or Default Inventory Account in Company settings.");
     }
 
     /// <summary>

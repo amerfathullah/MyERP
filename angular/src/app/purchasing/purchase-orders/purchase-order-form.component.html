@@ -22,6 +22,12 @@
                 <option [value]="s.id">{{ s.name }}</option>
               }
             </select>
+            @if (supplierScorecardWarning()) {
+              <div class="alert alert-{{ supplierBlocked() ? 'danger' : 'warning' }} mt-2 mb-0 py-1 px-2 small">
+                <i class="fa fa-{{ supplierBlocked() ? 'ban' : 'triangle-exclamation' }} me-1"></i>
+                {{ supplierScorecardWarning() }}
+              </div>
+            }
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::OrderDate' | abpLocalization }}</label>

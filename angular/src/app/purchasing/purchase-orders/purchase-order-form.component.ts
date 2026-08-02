@@ -68,6 +68,8 @@ export class PurchaseOrderFormComponent implements OnInit {
   supplierQuotations = signal<any[]>([]);
   supplierAddress = signal<string>('');
   supplierTin = signal<string>('');
+  supplierScorecardWarning = signal<string>('');
+  supplierBlocked = signal(false);
   isEditMode = false;
   entityId: string | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal', 'actions'];
@@ -187,7 +189,21 @@ export class PurchaseOrderFormComponent implements OnInit {
     this.supplierAddress.set('');
     this.supplierTin.set('');
     this.supplierQuotations.set([]);
+    this.supplierScorecardWarning.set('');
+    this.supplierBlocked.set(false);
     if (!supplierId) return;
+
+    // Check supplier scorecard standing (warn/block per ERPNext supplier_scorecard enforcement)
+    const supplier = this.suppliers().find(s => s.id === supplierId);
+    if (supplier) {
+      if ((supplier as any).preventPos) {
+        this.supplierBlocked.set(true);
+        this.supplierScorecardWarning.set(this.l.instant('::SupplierBlockedByScorecard'));
+      } else if ((supplier as any).holdType === 'All') {
+        this.supplierBlocked.set(true);
+        this.supplierScorecardWarning.set(this.l.instant('::SupplierOnHold'));
+      }
+    }
 
     this.loadSupplierQuotations();
 

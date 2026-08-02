@@ -21,4 +21,11 @@ public interface IPurchaseConversionAppService : IApplicationService
 
     /// <summary>Convert a submitted RFQ into a Supplier Quotation for a specific supplier.</summary>
     Task<object> ConvertRfqToSupplierQuotationAsync(Guid rfqId, Guid supplierId);
+
+    /// <summary>
+    /// Create Purchase Orders from MR with per-item supplier selection and qty adjustment.
+    /// Per ERPNext PR #57676: creates one PO per supplier from selected items.
+    /// </summary>
+    Task<SupplierSelectionResultDto> CreatePurchaseOrdersFromMaterialRequestAsync(
+        CreatePurchaseOrdersFromMrDto input);
 }

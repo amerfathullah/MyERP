@@ -24,6 +24,7 @@ export class HomeComponent implements OnInit {
   summary = signal<DashboardSummaryDto | null>(null);
   lowStockItems = signal<any[]>([]);
   revenueTrend = signal<{ month: string; amount: number; heightPct: number }[]>([]);
+  revenueVsExpense = signal<{ month: string; revenue: number; expenses: number; netProfit: number; profitMarginPct: number; revenueHeight: number; expenseHeight: number }[]>([]);
   profitMarginTrend = signal<{ month: string; marginPct: number; revenue: number; cost: number; grossProfit: number }[]>([]);
   recentActivity = signal<any[]>([]);
   financialKpis = signal<any | null>(null);
@@ -84,6 +85,23 @@ export class HomeComponent implements OnInit {
               month: d.month,
               amount: d.amount,
               heightPct: (d.amount / maxAmount) * 100,
+            })));
+          },
+          error: () => {},
+        });
+      this.dashboardService.getRevenueVsExpenseTrend()
+        .subscribe({
+          next: data => {
+            if (!data?.length) return;
+            const maxVal = Math.max(...data.map(d => Math.max(d.revenue ?? 0, d.expenses ?? 0)), 1);
+            this.revenueVsExpense.set(data.map(d => ({
+              month: d.month ?? '',
+              revenue: d.revenue ?? 0,
+              expenses: d.expenses ?? 0,
+              netProfit: d.netProfit ?? 0,
+              profitMarginPct: d.profitMarginPct ?? 0,
+              revenueHeight: ((d.revenue ?? 0) / maxVal) * 100,
+              expenseHeight: ((d.expenses ?? 0) / maxVal) * 100,
             })));
           },
           error: () => {},

@@ -38,6 +38,79 @@ public class BatchPaymentAppService : ApplicationService
     }
 
     /// <summary>
+    /// Validate and partition selected invoice IDs into payable vs excluded (with reasons).
+    /// Per ERPNext PR #57703: returns only payable invoices, excludes debit notes, internal transfers, and already-paid.
+    /// </summary>
+    public async Task<PayableInvoicePartitionDto> GetPayableInvoicesAsync(
+        ValidatePayableInvoicesDto input)
+    {
+        if (input.InvoiceIds == null || !input.InvoiceIds.Any())
+            return new PayableInvoicePartitionDto();
+
+        var queryable = await _purchaseInvoiceRepo.GetQueryableAsync();
+        var invoices = queryable
+            .Where(pi => input.InvoiceIds.Contains(pi.Id) && pi.Status == DocumentStatus.Posted)
+            .Select(pi => new
+            {
+                pi.Id,
+                pi.InvoiceNumber,
+                pi.SupplierId,
+                pi.CreditToAccountId,
+                pi.OutstandingAmount,
+                pi.ExchangeRate,
+                pi.IsReturn,
+                pi.CurrencyCode,
+                pi.GrandTotal
+            })
+            .ToList();
+
+        // Resolve which suppliers are internal (represent another company)
+        var supplierIds = invoices.Select(i => i.SupplierId).Distinct().ToList();
+        var supplierQueryable = await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>()
+            .GetQueryableAsync();
+        var internalSupplierIds = supplierQueryable
+            .Where(s => supplierIds.Contains(s.Id) && s.RepresentsCompanyId != null)
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        var payable = new List<PayableInvoiceInfoDto>();
+        var excluded = new List<ExcludedInvoiceDto>();
+
+        foreach (var pi in invoices)
+        {
+            if (pi.IsReturn)
+                excluded.Add(new ExcludedInvoiceDto { InvoiceId = pi.Id, InvoiceNumber = pi.InvoiceNumber, Reason = "Debit Note" });
+            else if (internalSupplierIds.Contains(pi.SupplierId))
+                excluded.Add(new ExcludedInvoiceDto { InvoiceId = pi.Id, InvoiceNumber = pi.InvoiceNumber, Reason = "Internal Transfer" });
+            else if (pi.OutstandingAmount <= 0)
+                excluded.Add(new ExcludedInvoiceDto { InvoiceId = pi.Id, InvoiceNumber = pi.InvoiceNumber, Reason = "Already Paid" });
+            else
+                payable.Add(new PayableInvoiceInfoDto
+                {
+                    InvoiceId = pi.Id,
+                    InvoiceNumber = pi.InvoiceNumber,
+                    SupplierId = pi.SupplierId,
+                    PartyAccountId = pi.CreditToAccountId,
+                    Outstanding = pi.OutstandingAmount * (pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m),
+                    CurrencyCode = pi.CurrencyCode
+                });
+        }
+
+        // IDs not found (cancelled/deleted since report loaded)
+        var foundIds = invoices.Select(i => i.Id).ToHashSet();
+        foreach (var id in input.InvoiceIds.Where(id => !foundIds.Contains(id)))
+            excluded.Add(new ExcludedInvoiceDto { InvoiceId = id, Reason = "Not available" });
+
+        return new PayableInvoicePartitionDto
+        {
+            Payable = payable,
+            Excluded = excluded,
+            TotalPayable = payable.Sum(p => p.Outstanding),
+            PaymentEntryCount = payable.GroupBy(p => (p.SupplierId, p.PartyAccountId)).Count()
+        };
+    }
+
+    /// <summary>
     /// Get outstanding invoices for a party (for batch payment selection UI).
     /// </summary>
     public async Task<List<BatchPaymentInvoiceDto>> GetOutstandingInvoicesAsync(
@@ -207,6 +280,37 @@ public class BatchPaymentResultDto
     public decimal TotalAmount { get; set; }
     public List<string> Errors { get; set; } = new();
     public List<Guid> CreatedPaymentEntryIds { get; set; } = new();
+}
+
+public class ValidatePayableInvoicesDto
+{
+    [Required]
+    public List<Guid> InvoiceIds { get; set; } = new();
+}
+
+public class PayableInvoicePartitionDto
+{
+    public List<PayableInvoiceInfoDto> Payable { get; set; } = new();
+    public List<ExcludedInvoiceDto> Excluded { get; set; } = new();
+    public decimal TotalPayable { get; set; }
+    public int PaymentEntryCount { get; set; }
+}
+
+public class PayableInvoiceInfoDto
+{
+    public Guid InvoiceId { get; set; }
+    public string InvoiceNumber { get; set; } = null!;
+    public Guid SupplierId { get; set; }
+    public Guid PartyAccountId { get; set; }
+    public decimal Outstanding { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+}
+
+public class ExcludedInvoiceDto
+{
+    public Guid InvoiceId { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 #endregion

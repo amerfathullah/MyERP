@@ -103,7 +103,8 @@ public class StockReservationAppService : ApplicationService
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), input.CompanyId, input.ItemId, input.WarehouseId,
-            input.VoucherType, input.VoucherId, input.ReservedQty, CurrentTenant.Id)
+            input.VoucherType, input.VoucherId, input.ReservedQty,
+            voucherQty: input.ReservedQty, tenantId: CurrentTenant.Id)
         {
             VoucherDetailId = input.VoucherDetailId,
             BatchId = input.BatchId,

@@ -284,9 +284,7 @@ public class SreOverdueAndWiringTests
 
     private static StockReservationEntry CreateTestSre(decimal reservedQty)
     {
-        var sre = new StockReservationEntry(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), reservedQty, null);
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), reservedQty, tenantId: null);
         sre.Submit();
         return sre;
     }

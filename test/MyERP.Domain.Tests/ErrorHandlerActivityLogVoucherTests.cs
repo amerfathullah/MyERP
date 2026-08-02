@@ -233,7 +233,7 @@ public class ErrorHandlerActivityLogVoucherTests
     public void StockReservationEntry_Cancel_ReleasesReservation()
     {
         var sre = new StockReservationEntry(Guid.NewGuid(), Co, Guid.NewGuid(),
-            Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), 100m, T);
+            Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), 100m, tenantId: T);
         sre.Submit();
         sre.Cancel();
         Assert.Equal(DocumentStatus.Cancelled, sre.Status);

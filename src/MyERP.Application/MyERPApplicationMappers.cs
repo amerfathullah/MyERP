@@ -466,10 +466,16 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.MatchingStatus))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsReadyForPayment))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.OnHold))]
     public override partial Purchasing.PurchaseInvoiceDto Map(Purchasing.Entities.PurchaseInvoice source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.MatchingStatus))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsReadyForPayment))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.OnHold))]
     public override partial void Map(Purchasing.Entities.PurchaseInvoice source, Purchasing.PurchaseInvoiceDto destination);
     private partial Purchasing.PurchaseInvoiceItemDto MapChild(Purchasing.Entities.PurchaseInvoiceItem source);
 }
@@ -974,11 +980,19 @@ public partial class PriceListMapper : MapperBase<Inventory.Entities.PriceList, 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class ItemPriceMapper : MapperBase<Inventory.Entities.ItemPrice, Inventory.ItemPriceDto>
 {
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.ItemCode))]
     [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.ItemName))]
     [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.PriceListName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.IsAutoInserted))]
     public override partial Inventory.ItemPriceDto Map(Inventory.Entities.ItemPrice source);
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.ItemCode))]
     [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.ItemName))]
     [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.PriceListName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemPriceDto.IsAutoInserted))]
     public override partial void Map(Inventory.Entities.ItemPrice source, Inventory.ItemPriceDto destination);
 }
 
@@ -1021,7 +1035,9 @@ public partial class ActivityCostMapper : MapperBase<Projects.Entities.ActivityC
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SubcontractingOrderMapper : MapperBase<Purchasing.Entities.SubcontractingOrder, Purchasing.SubcontractingOrderDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.SubcontractingOrderDto.SupplierName))]
     public override partial Purchasing.SubcontractingOrderDto Map(Purchasing.Entities.SubcontractingOrder source);
+    [MapperIgnoreTarget(nameof(Purchasing.SubcontractingOrderDto.SupplierName))]
     public override partial void Map(Purchasing.Entities.SubcontractingOrder source, Purchasing.SubcontractingOrderDto destination);
     private partial Purchasing.ScoItemDto MapChild(Purchasing.Entities.SubcontractingOrderItem source);
 }

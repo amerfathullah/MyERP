@@ -3,6 +3,7 @@ import * as Entities from './entities';
 export * from './material-request-type.enum';
 export * from './material-request.service';
 export * from './models';
+export * from './purchase-analytics.service';
 export * from './purchase-conversion.service';
 export * from './purchase-invoice.service';
 export * from './purchase-order.service';

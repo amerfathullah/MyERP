@@ -283,6 +283,32 @@ export interface BatchPaymentResultDto {
   createdPaymentEntryIds?: string[];
 }
 
+export interface ValidatePayableInvoicesDto {
+  invoiceIds: string[];
+}
+
+export interface PayableInvoicePartitionDto {
+  payable?: PayableInvoiceInfoDto[];
+  excluded?: ExcludedInvoiceDto[];
+  totalPayable?: number;
+  paymentEntryCount?: number;
+}
+
+export interface PayableInvoiceInfoDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  supplierId?: string;
+  partyAccountId?: string;
+  outstanding?: number;
+  currencyCode?: string;
+}
+
+export interface ExcludedInvoiceDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  reason?: string;
+}
+
 export interface BudgetVarianceReportDto {
   companyId?: string;
   fiscalYearId?: string;
@@ -1355,6 +1381,7 @@ export interface TrialBalanceRequestDto {
   companyId: string;
   asOfDate: string;
   fiscalYearId?: string | null;
+  includeSubsidiaries?: boolean;
 }
 
 export interface TrialBalanceRowDto {

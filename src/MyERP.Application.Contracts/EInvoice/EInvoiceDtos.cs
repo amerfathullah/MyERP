@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Volo.Abp.Application.Dtos;
 
@@ -33,4 +34,30 @@ public class CancelEInvoiceDto
 {
     [Required] public Guid SubmissionId { get; set; }
     [Required][StringLength(500)] public string Reason { get; set; } = null!;
+}
+
+public class BatchSubmitEInvoiceDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public string SourceDocumentType { get; set; } = "SalesInvoice";
+    [Required] public List<Guid> DocumentIds { get; set; } = new();
+}
+
+public class BatchSubmitResultDto
+{
+    public int TotalRequested { get; set; }
+    public int SucceededCount { get; set; }
+    public int FailedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public List<BatchSubmitItemResult> Results { get; set; } = new();
+}
+
+public class BatchSubmitItemResult
+{
+    public Guid DocumentId { get; set; }
+    public string DocumentNumber { get; set; } = null!;
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? LhdnUuid { get; set; }
+    public string? Status { get; set; }
 }

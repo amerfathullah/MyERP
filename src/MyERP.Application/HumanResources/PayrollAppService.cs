@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
 using MyERP.Core.DomainServices;
 using MyERP.HumanResources.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -187,5 +189,106 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
+    }
+
+    [Authorize(MyERPPermissions.Payroll.Default)]
+    public async Task<PayrollPreviewDto> GetEmployeePreviewAsync(CreatePayrollEntryDto input)
+    {
+        var employees = await _employeeRepository.GetListAsync(e =>
+            e.CompanyId == input.CompanyId && e.Status == EmploymentStatus.Active);
+
+        var eligible = employees.Where(e => e.BasicSalary.HasValue && e.BasicSalary.Value > 0).ToList();
+
+        return new PayrollPreviewDto
+        {
+            EmployeeCount = eligible.Count,
+            EstimatedGrossTotal = eligible.Sum(e => e.BasicSalary!.Value),
+            Employees = eligible.Select(e => new PayrollEmployeePreviewDto
+            {
+                EmployeeId = e.Id,
+                EmployeeName = e.FullName,
+                Department = e.Department,
+                Designation = e.Designation,
+                BasicSalary = e.BasicSalary!.Value,
+            }).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Create Bank Entry (Journal Entry) for a submitted payroll.
+    /// Per ERPNext payroll_entry.py make_bank_entry():
+    /// DR Salary Payable → CR Bank for total net salary.
+    /// </summary>
+    [Authorize(MyERPPermissions.Payroll.Submit)]
+    public async Task<PayrollBankEntryResultDto> CreateBankEntryAsync(CreatePayrollBankEntryDto input)
+    {
+        var entry = await _repository.GetAsync(input.PayrollEntryId);
+
+        if (entry.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("expected", "Submitted")
+                .WithData("actual", entry.Status.ToString());
+
+        if (entry.TotalNetSalary <= 0)
+            throw new BusinessException("MyERP:Payroll:NoNetSalary");
+
+        var fiscalYearRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.FiscalYear, Guid>>();
+        var numberGen = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.IDocumentNumberGenerator>();
+
+        var paymentDate = input.PaymentDate ?? entry.PostingDate;
+
+        // Resolve fiscal year
+        var fyQuery = await fiscalYearRepo.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f =>
+            f.CompanyId == entry.CompanyId && f.StartDate <= paymentDate && f.EndDate >= paymentDate);
+        if (fy == null)
+            throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                .WithData("postingDate", paymentDate.ToString("yyyy-MM-dd"));
+
+        var jeNumber = await numberGen.GenerateAsync("JE", entry.CompanyId);
+        var je = new Accounting.Entities.JournalEntry(
+            GuidGenerator.Create(), entry.CompanyId, fy.Id, paymentDate, CurrentTenant.Id)
+        {
+            EntryNumber = jeNumber,
+            VoucherType = Accounting.JournalEntryVoucherType.BankEntry,
+            ReferenceType = "PayrollEntry",
+            ReferenceId = entry.Id,
+            ReferenceNumber = entry.PayrollNumber,
+            Narration = $"Salary payment for {entry.PeriodLabel}",
+        };
+
+        // Find Salary Payable account (AccountSubType = AccountsPayable with "Salary" in name)
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+        var accounts = await accountRepo.GetQueryableAsync();
+
+        var salaryPayableAccount = accounts
+            .FirstOrDefault(a => a.CompanyId == entry.CompanyId
+                && a.AccountSubType == Accounting.AccountSubType.AccountsPayable
+                && a.AccountName != null && a.AccountName.Contains("Salary"));
+
+        // Fallback: any AccountsPayable account
+        salaryPayableAccount ??= accounts
+            .FirstOrDefault(a => a.CompanyId == entry.CompanyId
+                && a.AccountSubType == Accounting.AccountSubType.AccountsPayable);
+
+        if (salaryPayableAccount == null)
+            throw new BusinessException("MyERP:Payroll:NoPayableAccount");
+
+        // DR Salary Payable (reduces the payable liability)
+        je.AddLine(salaryPayableAccount.Id, entry.TotalNetSalary, true, "Salary Payable");
+
+        // CR Bank (payment out)
+        je.AddLine(input.BankAccountId, entry.TotalNetSalary, false, "Bank Payment - Salaries");
+
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
+        await jeRepo.InsertAsync(je, autoSave: true);
+
+        return new PayrollBankEntryResultDto
+        {
+            JournalEntryId = je.Id,
+            JournalEntryNumber = je.EntryNumber!,
+            TotalAmount = entry.TotalNetSalary,
+            EmployeeCount = entry.Lines.Count,
+        };
     }
 }

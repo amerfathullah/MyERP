@@ -33,7 +33,7 @@ public class UpstreamPR57668AndSreRowMessageTests
     {
         var sre = new StockReservationEntry(
             Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
-            "SalesOrder", Guid.NewGuid(), 10m, null);
+            "SalesOrder", Guid.NewGuid(), 10m);
 
         Assert.Equal(10m, sre.ReservedQty);
         Assert.Equal(0m, sre.DeliveredQty);
@@ -44,7 +44,7 @@ public class UpstreamPR57668AndSreRowMessageTests
     {
         var sre = new StockReservationEntry(
             Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
-            "SalesOrder", Guid.NewGuid(), 10m, null);
+            "SalesOrder", Guid.NewGuid(), 10m);
 
         sre.Submit();
         sre.RecordDelivery(3m);
@@ -58,7 +58,7 @@ public class UpstreamPR57668AndSreRowMessageTests
     {
         var sre = new StockReservationEntry(
             Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
-            "SalesOrder", Guid.NewGuid(), 5m, null);
+            "SalesOrder", Guid.NewGuid(), 5m);
 
         sre.Submit();
 
@@ -70,7 +70,7 @@ public class UpstreamPR57668AndSreRowMessageTests
     {
         var sre = new StockReservationEntry(
             Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
-            "SalesOrder", Guid.NewGuid(), 10m, null);
+            "SalesOrder", Guid.NewGuid(), 10m);
 
         Assert.Equal("SalesOrder", sre.VoucherType);
     }
@@ -80,7 +80,7 @@ public class UpstreamPR57668AndSreRowMessageTests
     {
         var sre = new StockReservationEntry(
             Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
-            "WorkOrder", Guid.NewGuid(), 10m, null);
+            "WorkOrder", Guid.NewGuid(), 10m);
 
         Assert.Equal("WorkOrder", sre.VoucherType);
     }

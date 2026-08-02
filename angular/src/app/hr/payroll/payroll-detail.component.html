@@ -8,6 +8,80 @@
       [availableActions]="workflowActions"
       (actionTriggered)="onWorkflowAction($event)" />
 
+    <!-- Bank Entry Action (visible after submission) -->
+    @if (entry.status === 'Submitted') {
+      <div class="alert alert-info d-flex align-items-center justify-content-between mt-3 mb-3">
+        <div>
+          <i class="fa fa-bank me-2"></i>
+          <strong>{{ '::PayrollSubmitted' | abpLocalization }}</strong> —
+          {{ '::CreateBankEntryPrompt' | abpLocalization }}
+        </div>
+        <button class="btn btn-primary btn-sm" (click)="showBankEntryDialog = true" [disabled]="isCreatingBankEntry">
+          <i class="fa fa-credit-card me-1"></i>{{ '::MakeBankEntry' | abpLocalization }}
+        </button>
+      </div>
+    }
+
+    <!-- Bank Entry Dialog -->
+    @if (showBankEntryDialog) {
+      <div class="card border-primary mb-3">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <span><i class="fa fa-bank me-2"></i>{{ '::CreateBankEntry' | abpLocalization }}</span>
+          <button class="btn btn-sm btn-outline-light" (click)="showBankEntryDialog = false">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ '::BankAccount' | abpLocalization }}</label>
+              <select class="form-select" [(ngModel)]="bankAccountId">
+                <option value="">{{ '::SelectBankAccount' | abpLocalization }}</option>
+                @for (acc of bankAccounts(); track acc.id) {
+                  <option [value]="acc.id">{{ acc.accountName }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ '::PaymentDate' | abpLocalization }}</label>
+              <input type="date" class="form-control" [(ngModel)]="paymentDate">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ '::ReferenceNumber' | abpLocalization }}</label>
+              <input type="text" class="form-control" [(ngModel)]="paymentReference" placeholder="Cheque/Transfer Ref">
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="badge bg-success fs-6 me-2">{{ entry.totalNetSalary | number:'1.2-2' }}</span>
+              <span class="text-muted">{{ '::TotalPayment' | abpLocalization }} ({{ entry.lines?.length ?? 0 }} {{ '::Employees' | abpLocalization }})</span>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary" (click)="showBankEntryDialog = false">{{ '::Cancel' | abpLocalization }}</button>
+              <button class="btn btn-primary" (click)="createBankEntry()" [disabled]="!bankAccountId || isCreatingBankEntry">
+                @if (isCreatingBankEntry) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                <i class="fa fa-check me-1"></i>{{ '::CreateEntry' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Bank Entry Success -->
+    @if (bankEntryResult) {
+      <div class="alert alert-success d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <i class="fa fa-check-circle me-2"></i>
+          {{ '::BankEntryCreated' | abpLocalization }} —
+          <a [routerLink]="['/accounting/journal-entries', bankEntryResult.journalEntryId]" class="fw-bold">
+            {{ bankEntryResult.journalEntryNumber }}
+          </a>
+          ({{ bankEntryResult.totalAmount | number:'1.2-2' }})
+        </div>
+      </div>
+    }
+
     <!-- Summary cards -->
     <div class="row mt-4 mb-4">
       <div class="col-6 col-md-3">
@@ -46,8 +120,9 @@
 
     <!-- Salary slips table -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-users me-2"></i>{{ entry.periodLabel }} — Salary Breakdown</h5>
+        <span class="badge bg-secondary">{{ entry.lines?.length ?? 0 }} {{ '::Employees' | abpLocalization }}</span>
       </div>
       <div class="card-body">
         <div class="table-responsive">

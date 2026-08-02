@@ -302,6 +302,9 @@ public interface IManufacturingAppService : IApplicationService
     // Disassembly
     Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync(CreateDisassemblyDto input);
 
+    // Batch WO from Sales Order
+    Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromSalesOrderAsync(Guid salesOrderId);
+
     // Cost Analysis
     Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId);
 
@@ -452,4 +455,21 @@ public class MaterialShortageAcrossOrdersDto
     public int TotalItemsShort { get; set; }
     public int TotalAffectedOrders { get; set; }
     public decimal TotalShortageValue { get; set; }
+}
+
+// === Batch Work Order Creation DTOs ===
+
+public class BatchCreateWorkOrdersResultDto
+{
+    public int CreatedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public List<CreatedWorkOrderInfo> WorkOrders { get; set; } = new();
+}
+
+public class CreatedWorkOrderInfo
+{
+    public Guid WorkOrderId { get; set; }
+    public string WorkOrderNumber { get; set; } = string.Empty;
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
 }

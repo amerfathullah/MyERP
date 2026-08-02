@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -76,7 +76,12 @@ import { SubcontractingService } from '../../proxy/purchasing/subcontracting.ser
 
         @if ((order()!.suppliedItems ?? []).length > 0) {
           <div class="card mb-3">
-            <div class="card-header"><h6 class="mb-0">{{ 'SuppliedMaterials' | abpLocalization }} (RM)</h6></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0">{{ 'SuppliedMaterials' | abpLocalization }} (RM)</h6>
+              @if (isTransferring()) {
+                <span class="badge bg-info"><i class="fa fa-spinner fa-spin me-1"></i>Creating transfer...</span>
+              }
+            </div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead><tr>
@@ -110,7 +115,9 @@ export class SubcontractingDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(SubcontractingService);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   order = signal<any>(null);
+  isTransferring = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -121,6 +128,7 @@ export class SubcontractingDetailComponent implements OnInit {
     const s = this.order()?.status;
     const actions: WorkflowAction[] = [];
     if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
+    if (s === 1 || s === 2) actions.push({ name: 'transferMaterials', label: 'Transfer Materials', icon: 'fa-truck-arrow-right', color: 'btn-outline-success' });
     if (s === 1 || s === 2) actions.push({ name: 'close', label: 'Close', icon: 'fa-lock', color: 'btn-outline-dark' });
     if (s !== 0 && s !== 5) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
     return actions;
@@ -131,10 +139,26 @@ export class SubcontractingDetailComponent implements OnInit {
     const reload = () => this.service.getOrder(id).subscribe(o => this.order.set(o));
     switch (name) {
       case 'submit': this.service.submitOrder(id).subscribe(reload); break;
+      case 'transferMaterials': this.createRmTransfer(id); break;
       case 'close': this.service.cancelOrder(id).subscribe(reload); break;
       case 'cancel': this.confirmation.warn('CancelConfirmationMessage', 'Confirm').subscribe(s => {
         if (s === Confirmation.Status.confirm) this.service.cancelOrder(id).subscribe(reload);
       }); break;
     }
+  }
+
+  createRmTransfer(scoId: string): void {
+    this.isTransferring.set(true);
+    this.service.createRmTransferStockEntry(scoId).subscribe({
+      next: (result: any) => {
+        this.isTransferring.set(false);
+        this.toaster.success(`Stock Entry ${result.entryNumber} created with ${result.itemCount} items`);
+        this.router.navigate(['/inventory/stock-entries', result.stockEntryId]);
+      },
+      error: (err: any) => {
+        this.isTransferring.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
+    });
   }
 }

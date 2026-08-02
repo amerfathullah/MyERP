@@ -34,11 +34,37 @@ public class InvoiceDocumentBuilder : ITransientDependency
             new XAttribute("listVersionID", "1.0"), data.DocumentTypeCode));
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
 
+        // Billing Reference (for credit/debit notes referencing original invoice)
+        if (!string.IsNullOrEmpty(data.BillingReferenceNumber))
+        {
+            invoice.Add(new XElement(Cac + "BillingReference",
+                new XElement(Cac + "InvoiceDocumentReference",
+                    new XElement(Cbc + "ID", data.BillingReferenceNumber))));
+        }
+
         // Supplier (AccountingSupplierParty)
         invoice.Add(BuildSupplierParty(data.Supplier));
 
         // Buyer (AccountingCustomerParty)
         invoice.Add(BuildCustomerParty(data.Buyer));
+
+        // Delivery (shipping address — per LHDN spec)
+        if (data.Delivery != null)
+        {
+            invoice.Add(BuildDelivery(data.Delivery));
+        }
+
+        // Payment Means (per LHDN spec — payment mode code)
+        if (data.Payment != null)
+        {
+            invoice.Add(BuildPaymentMeans(data.Payment));
+        }
+
+        // Document-level Allowance/Charge (discount)
+        if (data.DiscountAmount != 0)
+        {
+            invoice.Add(BuildAllowanceCharge(data.DiscountAmount, data.CurrencyCode, data.DiscountReason));
+        }
 
         // Tax Total
         invoice.Add(BuildTaxTotal(data.TaxAmount, data.CurrencyCode, data.TaxBreakdown));
@@ -82,6 +108,26 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cac + "PartyIdentification",
                     new XElement(Cbc + "ID",
                         new XAttribute("schemeID", "SST"), supplier.SstRegistration)));
+        }
+
+        // MSIC business activity code (per LHDN mandatory for supplier)
+        if (!string.IsNullOrEmpty(supplier.MsicCode))
+        {
+            party.Element(Cac + "Party")!.Add(
+                new XElement(Cbc + "IndustryClassificationCode",
+                    new XAttribute("name", supplier.MsicDescription ?? ""),
+                    supplier.MsicCode));
+        }
+
+        // Contact info (per LHDN spec — phone and email)
+        if (!string.IsNullOrEmpty(supplier.Phone) || !string.IsNullOrEmpty(supplier.Email))
+        {
+            var contact = new XElement(Cac + "Contact");
+            if (!string.IsNullOrEmpty(supplier.Phone))
+                contact.Add(new XElement(Cbc + "Telephone", supplier.Phone));
+            if (!string.IsNullOrEmpty(supplier.Email))
+                contact.Add(new XElement(Cbc + "ElectronicMail", supplier.Email));
+            party.Element(Cac + "Party")!.Add(contact);
         }
 
         return party;
@@ -159,24 +205,105 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildInvoiceLine(int lineNumber, EInvoiceLineData line, string currency)
     {
-        return new XElement(Cac + "InvoiceLine",
+        var lineElem = new XElement(Cac + "InvoiceLine",
             new XElement(Cbc + "ID", lineNumber.ToString()),
             new XElement(Cbc + "InvoicedQuantity",
                 new XAttribute("unitCode", line.Uom),
                 line.Quantity.ToString("F4", CultureInfo.InvariantCulture)),
             new XElement(Cbc + "LineExtensionAmount",
                 new XAttribute("currencyID", currency),
-                line.LineTotal.ToString("F2", CultureInfo.InvariantCulture)),
-            new XElement(Cac + "TaxTotal",
+                line.LineTotal.ToString("F2", CultureInfo.InvariantCulture)));
+
+        // Per-line discount (AllowanceCharge)
+        if (line.DiscountAmount != 0)
+        {
+            lineElem.Add(new XElement(Cac + "AllowanceCharge",
+                new XElement(Cbc + "ChargeIndicator", "false"),
+                new XElement(Cbc + "AllowanceChargeReason", line.DiscountReason ?? "Discount"),
+                new XElement(Cbc + "Amount",
+                    new XAttribute("currencyID", currency),
+                    line.DiscountAmount.ToString("F2", CultureInfo.InvariantCulture))));
+        }
+
+        // Per-line tax
+        var taxTotal = new XElement(Cac + "TaxTotal",
+            new XElement(Cbc + "TaxAmount",
+                new XAttribute("currencyID", currency),
+                line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)));
+        if (line.TaxCategoryCode != null)
+        {
+            taxTotal.Add(new XElement(Cac + "TaxSubtotal",
+                new XElement(Cbc + "TaxableAmount",
+                    new XAttribute("currencyID", currency),
+                    line.LineTotal.ToString("F2", CultureInfo.InvariantCulture)),
                 new XElement(Cbc + "TaxAmount",
                     new XAttribute("currencyID", currency),
-                    line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture))),
-            new XElement(Cac + "Item",
-                new XElement(Cbc + "Description", line.Description)),
-            new XElement(Cac + "Price",
-                new XElement(Cbc + "PriceAmount",
-                    new XAttribute("currencyID", currency),
-                    line.UnitPrice.ToString("F4", CultureInfo.InvariantCulture))));
+                    line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)),
+                new XElement(Cac + "TaxCategory",
+                    new XElement(Cbc + "ID", line.TaxCategoryCode),
+                    new XElement(Cbc + "Percent", (line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)),
+                    new XElement(Cac + "TaxScheme",
+                        new XElement(Cbc + "ID",
+                            new XAttribute("schemeAgencyID", "6"),
+                            new XAttribute("schemeID", "UN/ECE 5153"), "OTH")))));
+        }
+        lineElem.Add(taxTotal);
+
+        // Item with classification code
+        var item = new XElement(Cac + "Item",
+            new XElement(Cbc + "Description", line.Description));
+        if (!string.IsNullOrEmpty(line.ClassificationCode))
+        {
+            item.Add(new XElement(Cac + "CommodityClassification",
+                new XElement(Cbc + "ItemClassificationCode",
+                    new XAttribute("listID", "CLASS"), line.ClassificationCode)));
+        }
+        lineElem.Add(item);
+
+        lineElem.Add(new XElement(Cac + "Price",
+            new XElement(Cbc + "PriceAmount",
+                new XAttribute("currencyID", currency),
+                line.UnitPrice.ToString("F4", CultureInfo.InvariantCulture))));
+
+        return lineElem;
+    }
+
+    private XElement BuildDelivery(EInvoiceDeliveryData delivery)
+    {
+        return new XElement(Cac + "Delivery",
+            new XElement(Cac + "DeliveryAddress",
+                new XElement(Cac + "AddressLine",
+                    new XElement(Cbc + "Line", delivery.Address ?? "")),
+                new XElement(Cbc + "CityName", delivery.City ?? ""),
+                new XElement(Cbc + "PostalZone", delivery.PostalCode ?? ""),
+                new XElement(Cbc + "CountrySubentityCode", delivery.State ?? ""),
+                new XElement(Cac + "Country",
+                    new XElement(Cbc + "IdentificationCode", delivery.CountryCode ?? "MYS"))),
+            new XElement(Cac + "DeliveryParty",
+                new XElement(Cac + "PartyLegalEntity",
+                    new XElement(Cbc + "RegistrationName", delivery.RecipientName ?? ""))));
+    }
+
+    private XElement BuildPaymentMeans(EInvoicePaymentData payment)
+    {
+        var elem = new XElement(Cac + "PaymentMeans",
+            new XElement(Cbc + "PaymentMeansCode", payment.PaymentModeCode));
+        if (!string.IsNullOrEmpty(payment.PayeeFinancialAccountId))
+        {
+            elem.Add(new XElement(Cac + "PayeeFinancialAccount",
+                new XElement(Cbc + "ID", payment.PayeeFinancialAccountId)));
+        }
+        return elem;
+    }
+
+    private XElement BuildAllowanceCharge(decimal amount, string currency, string? reason)
+    {
+        return new XElement(Cac + "AllowanceCharge",
+            new XElement(Cbc + "ChargeIndicator", "false"),
+            new XElement(Cbc + "AllowanceChargeReason", reason ?? "Discount"),
+            new XElement(Cbc + "Amount",
+                new XAttribute("currencyID", currency),
+                Math.Abs(amount).ToString("F2", CultureInfo.InvariantCulture)));
     }
 }
 
@@ -189,6 +316,11 @@ public class EInvoiceDocumentData
     public string CurrencyCode { get; set; } = "MYR";
     public EInvoicePartyData Supplier { get; set; } = null!;
     public EInvoicePartyData Buyer { get; set; } = null!;
+    public EInvoiceDeliveryData? Delivery { get; set; }
+    public EInvoicePaymentData? Payment { get; set; }
+    public string? BillingReferenceNumber { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public string? DiscountReason { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -203,11 +335,34 @@ public class EInvoicePartyData
     public string? IdType { get; set; }
     public string? IdValue { get; set; }
     public string? SstRegistration { get; set; }
+    public string? MsicCode { get; set; }
+    public string? MsicDescription { get; set; }
     public string? Address { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
     public string? PostalCode { get; set; }
     public string? CountryCode { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+}
+
+/// <summary>Delivery/shipping address data for LHDN UBL Delivery section.</summary>
+public class EInvoiceDeliveryData
+{
+    public string? RecipientName { get; set; }
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? PostalCode { get; set; }
+    public string? CountryCode { get; set; }
+}
+
+/// <summary>Payment means data per LHDN spec (payment mode code).</summary>
+public class EInvoicePaymentData
+{
+    /// <summary>LHDN payment mode: 01=Cash, 02=Cheque, 03=Transfer, 04=Card, 05=eWallet, 06=Digital Banking, 07=Others.</summary>
+    public string PaymentModeCode { get; set; } = "01";
+    public string? PayeeFinancialAccountId { get; set; }
 }
 
 public class EInvoiceLineData
@@ -218,6 +373,11 @@ public class EInvoiceLineData
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+    public string? ClassificationCode { get; set; }
+    public string? TaxCategoryCode { get; set; }
+    public decimal? TaxRate { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public string? DiscountReason { get; set; }
 }
 
 public class EInvoiceTaxBreakdown

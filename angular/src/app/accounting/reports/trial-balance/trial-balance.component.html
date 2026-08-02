@@ -13,6 +13,11 @@
         <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
             <input class="form-control"/>
 
+        <div class="form-check align-self-center ms-2">
+          <input class="form-check-input" type="checkbox" id="includeSubsidiaries" formControlName="includeSubsidiaries">
+          <label class="form-check-label" for="includeSubsidiaries">{{ '::IncludeSubsidiaries' | abpLocalization }}</label>
+        </div>
+
         <button class="btn btn-primary" (click)="generate()">
           <i class="fa fa-sync"></i> {{ '::Generate' | abpLocalization }}
         </button>

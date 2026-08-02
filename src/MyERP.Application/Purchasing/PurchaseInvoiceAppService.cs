@@ -303,7 +303,39 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Calculate 3-way matching status + ready-for-payment per invoice
+        foreach (var (invoice, dto) in invoices.Zip(dtos))
+        {
+            var matchStatus = DetermineMatchingStatus(invoice);
+            dto.MatchingStatus = matchStatus;
+            dto.OnHold = false; // PI-level hold not yet implemented; supplier hold checked at submit time
+            dto.IsReadyForPayment = dto.Status == "Posted"
+                && dto.OutstandingAmount > 0.01m
+                && !dto.IsReturn
+                && matchStatus is "FullyMatched" or "DirectPurchase";
+        }
+
         return new PagedResultDto<PurchaseInvoiceDto>(totalCount, dtos);
+    }
+
+    /// <summary>
+    /// Determines 3-way matching status: FullyMatched (PO+PR+PI all linked), PartiallyMatched (PO linked but not all PR),
+    /// Unmatched (PO linked but no PR), DirectPurchase (no PO reference).
+    /// </summary>
+    private static string DetermineMatchingStatus(PurchaseInvoice invoice)
+    {
+        if (invoice.Items == null || invoice.Items.Count == 0) return "DirectPurchase";
+
+        var hasAnyPoLink = invoice.Items.Any(i => i.PurchaseOrderItemId.HasValue);
+        if (!hasAnyPoLink) return "DirectPurchase";
+
+        var hasAnyPrLink = invoice.Items.Any(i => i.PurchaseReceiptItemId.HasValue);
+        if (!hasAnyPrLink) return "Unmatched";
+
+        var allHavePrLink = invoice.Items.All(i =>
+            !i.PurchaseOrderItemId.HasValue || i.PurchaseReceiptItemId.HasValue);
+
+        return allHavePrLink ? "FullyMatched" : "PartiallyMatched";
     }
 
     /// <summary>

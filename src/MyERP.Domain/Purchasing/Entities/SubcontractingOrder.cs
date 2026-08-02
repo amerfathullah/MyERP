@@ -37,6 +37,9 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
+    /// <summary>Warehouse where RM is sent to the subcontractor. Per ERPNext: supplier_warehouse.</summary>
+    public Guid? SupplierWarehouseId { get; set; }
+
     private readonly List<SubcontractingOrderItem> _items = new();
     public IReadOnlyList<SubcontractingOrderItem> Items => _items.AsReadOnly();
 

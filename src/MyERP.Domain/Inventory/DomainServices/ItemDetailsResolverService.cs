@@ -20,17 +20,20 @@ public class ItemDetailsResolverService : DomainService
     private readonly IRepository<ItemDefault, Guid> _itemDefaultRepo;
     private readonly IRepository<ItemGroup, Guid> _itemGroupRepo;
     private readonly IRepository<Bin, Guid> _binRepo;
+    private readonly UomConversionService _uomConversionService;
 
     public ItemDetailsResolverService(
         IRepository<Item, Guid> itemRepo,
         IRepository<ItemDefault, Guid> itemDefaultRepo,
         IRepository<ItemGroup, Guid> itemGroupRepo,
-        IRepository<Bin, Guid> binRepo)
+        IRepository<Bin, Guid> binRepo,
+        UomConversionService uomConversionService)
     {
         _itemRepo = itemRepo;
         _itemDefaultRepo = itemDefaultRepo;
         _itemGroupRepo = itemGroupRepo;
         _binRepo = binRepo;
+        _uomConversionService = uomConversionService;
     }
 
     /// <summary>
@@ -67,7 +70,8 @@ public class ItemDetailsResolverService : DomainService
             ? (item.SalesUom ?? item.Uom)
             : (item.PurchaseUom ?? item.Uom);
         result.StockUom = item.Uom;
-        result.ConversionFactor = result.Uom == result.StockUom ? 1m : 1m; // placeholder — UomConversionService resolves actual
+        result.ConversionFactor = await _uomConversionService.GetConversionFactorAsync(
+            item.Id, result.Uom, result.StockUom);
 
         // STEP 5: Account resolution (Item → ItemDefault → ItemGroup → Company)
         if (context.TransactionType == TransactionType.Selling)

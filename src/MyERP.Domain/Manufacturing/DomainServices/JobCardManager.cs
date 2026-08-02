@@ -154,4 +154,53 @@ public class JobCardManager : DomainService
 
         return (completedQty, manufacturedQty);
     }
+
+    /// <summary>
+    /// Validates that the previous operation in the routing has been manufactured
+    /// before allowing this operation's job card to start or complete.
+    /// Per ERPNext PR #57684: with semi-FG tracking, each operation must wait for
+    /// the prior operation to produce its output before consuming it as input.
+    /// </summary>
+    public async Task ValidatePreviousOperationManufacturedAsync(JobCard jobCard)
+    {
+        if (jobCard.SequenceId <= 1) return; // First operation has no predecessor
+
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+
+        // Find the previous operation's job cards (lower sequence, same WO)
+        var previousOpCompletedQty = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.SequenceId < jobCard.SequenceId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .OrderByDescending(jc => jc.SequenceId)
+            .GroupBy(jc => jc.SequenceId)
+            .Select(g => g.Sum(jc => jc.CompletedQty))
+            .FirstOrDefault();
+
+        if (previousOpCompletedQty < jobCard.ForQuantity)
+        {
+            throw new BusinessException("MyERP:10020")
+                .WithData("sequenceId", jobCard.SequenceId)
+                .WithData("previousCompleted", previousOpCompletedQty)
+                .WithData("required", jobCard.ForQuantity);
+        }
+    }
+
+    /// <summary>
+    /// Validates that a completion split adds up correctly.
+    /// Per ERPNext PR #57687: total of split quantities must equal the job card's for_quantity.
+    /// </summary>
+    public static void ValidateCompletionSplit(decimal forQuantity, decimal completedQty, decimal processLossQty)
+    {
+        var total = completedQty + processLossQty;
+        if (Math.Abs(total - forQuantity) > 0.001m)
+        {
+            throw new BusinessException("MyERP:10021")
+                .WithData("forQuantity", forQuantity)
+                .WithData("completedQty", completedQty)
+                .WithData("processLossQty", processLossQty)
+                .WithData("total", total);
+        }
+    }
 }

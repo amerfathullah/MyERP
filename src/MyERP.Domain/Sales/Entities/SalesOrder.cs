@@ -167,7 +167,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             Status = DocumentStatus.ToDeliverAndBill;
     }
 
-    private void RecalculateTotals()
+    public void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.LineTotal);
         TaxAmount = _items.Sum(i => i.TaxAmount);

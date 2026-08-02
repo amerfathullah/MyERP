@@ -41,6 +41,14 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     /// <summary>True when posted, has outstanding, past due date, and not a return.</summary>
     public bool IsOverdue { get; set; }
 
+    /// <summary>3-way matching status: FullyMatched, PartiallyMatched, Unmatched, DirectPurchase.</summary>
+    public string? MatchingStatus { get; set; }
+
+    /// <summary>True when: Posted + outstanding > 0 + not on hold + fully matched (or no PO link).</summary>
+    public bool IsReadyForPayment { get; set; }
+
+    public bool OnHold { get; set; }
+
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 

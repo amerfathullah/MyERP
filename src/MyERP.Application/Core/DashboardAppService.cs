@@ -204,6 +204,44 @@ public class DashboardAppService : ApplicationService
     }
 
     /// <summary>
+    /// 6-month revenue vs expenses comparison for profitability-at-a-glance dashboard widget.
+    /// Per ERPNext: finance managers need instant visibility into monthly profit margins.
+    /// </summary>
+    public async Task<List<RevenueVsExpenseDto>> GetRevenueVsExpenseTrendAsync()
+    {
+        var sixMonthsAgo = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(-5);
+
+        var siQuery = await _salesInvoiceRepo.GetQueryableAsync();
+        var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
+
+        var revenueTrend = siQuery
+            .Where(i => i.Status == DocumentStatus.Posted && !i.IsReturn && i.IssueDate >= sixMonthsAgo)
+            .GroupBy(i => new { i.IssueDate.Year, i.IssueDate.Month })
+            .Select(g => new { Key = g.Key.Year + "-" + g.Key.Month.ToString().PadLeft(2, '0'), Amount = g.Sum(i => i.GrandTotal) })
+            .ToList();
+
+        var expenseTrend = piQuery
+            .Where(i => i.Status == DocumentStatus.Posted && !i.IsReturn && i.IssueDate >= sixMonthsAgo)
+            .GroupBy(i => new { i.IssueDate.Year, i.IssueDate.Month })
+            .Select(g => new { Key = g.Key.Year + "-" + g.Key.Month.ToString().PadLeft(2, '0'), Amount = g.Sum(i => i.GrandTotal) })
+            .ToList();
+
+        var result = new List<RevenueVsExpenseDto>();
+        for (int i = 0; i < 6; i++)
+        {
+            var d = sixMonthsAgo.AddMonths(i);
+            var key = $"{d.Year}-{d.Month:D2}";
+            result.Add(new RevenueVsExpenseDto
+            {
+                Month = key,
+                Revenue = revenueTrend.FirstOrDefault(t => t.Key == key)?.Amount ?? 0,
+                Expenses = expenseTrend.FirstOrDefault(t => t.Key == key)?.Amount ?? 0,
+            });
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Financial KPIs for the current month — the numbers every business owner needs at a glance.
     /// Shows: Revenue, Expenses, Net Profit, Cash Position, AR Outstanding, AP Outstanding.
     /// </summary>

@@ -421,6 +421,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/reports/analytics',
+    loadComponent: () => import('./purchasing/reports/purchase-analytics/purchase-analytics.component').then(c => c.PurchaseAnalyticsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],
@@ -608,6 +614,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./inventory/item-standard-cost/item-standard-cost-list.component').then(c => c.ItemStandardCostListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/item-prices',
+    loadComponent: () => import('./inventory/item-prices/item-price-list.component').then(c => c.ItemPriceListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
   },
   {
     path: 'inventory/repost-valuation',
@@ -1879,6 +1891,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/stock-reorder',
+    loadComponent: () => import('./inventory/stock-reorder/stock-reorder.component').then(c => c.StockReorderComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/pick-lists',
     loadComponent: () => import('./inventory/pick-lists/pick-list-list.component').then(c => c.PickListListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1911,6 +1929,18 @@ export const APP_ROUTES: Routes = [
   {
     path: 'inventory/reports/stock-movement',
     loadComponent: () => import('./inventory/reports/stock-movement-summary/stock-movement-summary.component').then(c => c.StockMovementSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/stock-gl-comparison',
+    loadComponent: () => import('./inventory/reports/stock-gl-comparison/stock-gl-comparison.component').then(c => c.StockGlComparisonComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/reorder-point',
+    loadComponent: () => import('./inventory/reports/reorder-point/reorder-point.component').then(c => c.ReorderPointComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },

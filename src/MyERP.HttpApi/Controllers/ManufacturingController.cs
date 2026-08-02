@@ -123,6 +123,10 @@ public class ManufacturingController : MyERPController
     public Task<DisassemblyResultDto> CreateDisassemblyStockEntryAsync([FromBody] CreateDisassemblyDto input)
         => _service.CreateDisassemblyStockEntryAsync(input);
 
+    [HttpPost("work-order/create-from-sales-order/{salesOrderId}")]
+    public Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromSalesOrderAsync(Guid salesOrderId)
+        => _service.CreateWorkOrdersFromSalesOrderAsync(salesOrderId);
+
     [HttpGet("work-order/{workOrderId}/material-availability")]
     public Task<List<MaterialAvailabilityDto>> GetMaterialAvailabilityAsync(Guid workOrderId)
         => _service.GetMaterialAvailabilityAsync(workOrderId);

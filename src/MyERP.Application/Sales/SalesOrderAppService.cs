@@ -7,6 +7,7 @@ using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
+using MyERP.Purchasing;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Sales;
@@ -771,5 +772,92 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             ReferenceNumber = pe.ReferenceNumber,
             Status = pe.Status.ToString(),
         }).ToList();
+    }
+
+    /// <summary>
+    /// Updates qty/rate on submitted SO items (post-submit editing per ERPNext update_child_qty_rate).
+    /// Guards: qty cannot go below DeliveredQty, rate cannot go below billed amount per unit.
+    /// Adjusts Bin.ReservedQty for qty changes in stock UOM.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<UpdateOrderItemsResultDto> UpdateItemsAsync(Guid id, UpdateOrderItemsDto input)
+    {
+        var so = await _repository.GetAsync(id);
+
+        if (so.Status == Core.DocumentStatus.Draft || so.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+
+        var previousGrandTotal = so.GrandTotal;
+        var warnings = new List<string>();
+        var updatedCount = 0;
+
+        foreach (var update in input.Items)
+        {
+            var soItem = so.Items.FirstOrDefault(i => i.ItemId == update.ItemId);
+            if (soItem == null)
+            {
+                warnings.Add($"Item {update.ItemId} not found on this order — skipped.");
+                continue;
+            }
+
+            // Guard: cannot reduce qty below already delivered
+            if (update.Quantity < soItem.DeliveredQty)
+                throw new BusinessException("MyERP:03024")
+                    .WithData("itemId", soItem.ItemId)
+                    .WithData("deliveredQty", soItem.DeliveredQty)
+                    .WithData("requestedQty", update.Quantity);
+
+            // Guard: cannot reduce rate below billed amount per unit
+            if (soItem.BilledQty > 0 && update.UnitPrice < soItem.UnitPrice)
+            {
+                var minRate = soItem.BilledQty > 0 ? (soItem.BilledQty * soItem.UnitPrice) / soItem.BilledQty : 0;
+                if (update.UnitPrice < minRate && update.UnitPrice != 0)
+                    throw new BusinessException("MyERP:03025")
+                        .WithData("itemId", soItem.ItemId)
+                        .WithData("billedRate", minRate)
+                        .WithData("requestedRate", update.UnitPrice);
+            }
+
+            var oldStockQty = soItem.StockQty;
+
+            soItem.Quantity = update.Quantity;
+            soItem.UnitPrice = update.UnitPrice;
+            if (update.DeliveryDate.HasValue)
+                soItem.DeliveryDate = update.DeliveryDate;
+            if (update.WarehouseId.HasValue)
+                soItem.WarehouseId = update.WarehouseId;
+
+            // Adjust Bin.ReservedQty for qty changes (delta in stock UOM)
+            var newStockQty = soItem.StockQty;
+            var qtyDelta = newStockQty - oldStockQty;
+            if (qtyDelta != 0 && soItem.WarehouseId.HasValue && !soItem.DeliveredBySupplier)
+            {
+                await _binService.UpdateReservedQtyAsync(
+                    soItem.ItemId, soItem.WarehouseId.Value, qtyDelta, so.TenantId);
+            }
+
+            updatedCount++;
+        }
+
+        so.RecalculateTotals();
+        so.UpdateFulfillmentStatus();
+        await _repository.UpdateAsync(so, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesOrder", so.Id, "ItemsUpdated",
+            so.CompanyId, so.OrderNumber, so.Status.ToString(), so.Status.ToString(),
+            CurrentUser.Id, $"Updated {updatedCount} items. Grand total: {previousGrandTotal} → {so.GrandTotal}",
+            so.TenantId));
+
+        return new UpdateOrderItemsResultDto
+        {
+            ItemsUpdated = updatedCount,
+            NewGrandTotal = so.GrandTotal,
+            PreviousGrandTotal = previousGrandTotal,
+            Warnings = warnings,
+        };
     }
 }

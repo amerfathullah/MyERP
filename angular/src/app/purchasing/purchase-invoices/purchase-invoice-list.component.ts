@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
+import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 
@@ -34,6 +36,9 @@ export class PurchaseInvoiceListComponent implements OnInit {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private invoiceService = inject(PurchaseInvoiceService);
+  private eInvoiceService = inject(EInvoiceService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   displayedColumns = ['orderNumber', 'orderDate', 'grandTotal', 'status', 'actions'];
   currentPage = 0;
   pageSize = 20;
@@ -128,6 +133,44 @@ export class PurchaseInvoiceListComponent implements OnInit {
       'Status': inv.status,
     }));
     exportToCsv('purchase-invoices.csv', data, ['Invoice #', 'Date', 'Total', 'Status']);
+  }
+
+  isSubmittingLhdn = false;
+
+  batchSubmitToLhdn(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
+
+    const eligibleIds = this.store.entities()
+      .filter(inv => inv.id && inv.status === 'Posted' && (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
+      .map(inv => inv.id!);
+
+    if (eligibleIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoneEligibleForLhdn'));
+      return;
+    }
+
+    this.isSubmittingLhdn = true;
+    this.eInvoiceService.batchSubmit({
+      companyId,
+      sourceDocumentType: 'PurchaseInvoice',
+      documentIds: eligibleIds,
+    }).subscribe({
+      next: (result) => {
+        this.isSubmittingLhdn = false;
+        const msg = `${result.succeededCount ?? 0} submitted, ${result.failedCount ?? 0} failed, ${result.skippedCount ?? 0} skipped`;
+        if (result.failedCount && result.failedCount > 0) {
+          this.toaster.warn(msg, this.l.instant('::SubmitToLHDN'));
+        } else {
+          this.toaster.success(msg, this.l.instant('::SubmitToLHDN'));
+        }
+        this.loadData();
+      },
+      error: () => {
+        this.isSubmittingLhdn = false;
+        this.toaster.error(this.l.instant('::LhdnBatchSubmitFailed'));
+      },
+    });
   }
 
   // ── Outstanding & Overdue Helpers ──

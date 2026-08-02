@@ -132,10 +132,61 @@
     }
 
     <div class="card mt-4">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+        @if (canUpdateItems() && !isEditingItems()) {
+          <button class="btn btn-sm btn-outline-warning" (click)="startEditingItems()">
+            <i class="fa fa-pen me-1"></i>{{ '::UpdateItems' | abpLocalization }}
+          </button>
+        }
+        @if (isEditingItems()) {
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-success" (click)="saveItemUpdates()" [disabled]="isSavingItems()">
+              @if (isSavingItems()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+              {{ '::Save' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary" (click)="cancelEditingItems()" [disabled]="isSavingItems()">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+          </div>
+        }
       </div>
       <div class="card-body">
+        @if (isEditingItems()) {
+          <div class="alert alert-info py-2 mb-3">
+            <i class="fa fa-info-circle me-1"></i>{{ '::UpdateItemsHelp' | abpLocalization }}
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm w-100">
+              <thead>
+                <tr>
+                  <th>{{ '::Description' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 130px;">{{ '::UnitPrice' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::LineTotal' | abpLocalization }}</th>
+                  <th class="text-muted" style="width: 100px;">{{ '::Delivered' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of editableItems(); track item.itemId; let i = $index) {
+                  <tr>
+                    <td class="text-muted">{{ item.description }}</td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm text-end" [min]="item.deliveredQty"
+                        step="1" [(ngModel)]="editableItems()[i].quantity">
+                    </td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm text-end"
+                        min="0" step="0.01" [(ngModel)]="editableItems()[i].unitPrice">
+                    </td>
+                    <td class="text-end font-monospace">{{ (item.quantity * item.unitPrice) | number:'1.2-2' }}</td>
+                    <td class="text-muted small">{{ item.deliveredQty | number:'1.0-1' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
         <div class="table-responsive">
           <table class="table table-sm w-100">
             <thead>
@@ -204,6 +255,7 @@
             </tbody>
           </table>
         </div>
+        }
       </div>
     </div>
 

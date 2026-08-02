@@ -1,4 +1,4 @@
-import type { CancelEInvoiceDto, EInvoiceSubmissionDto, SubmitEInvoiceDto } from './models';
+import type { BatchSubmitEInvoiceDto, BatchSubmitResultDto, CancelEInvoiceDto, EInvoiceSubmissionDto, SubmitEInvoiceDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class EInvoiceService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
+
 
   cancel = (input: CancelEInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EInvoiceSubmissionDto>({
@@ -18,7 +18,7 @@ export class EInvoiceService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
 
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<EInvoiceSubmissionDto>>({
@@ -27,7 +27,7 @@ export class EInvoiceService {
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-  
+
 
   getStatus = (submissionId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EInvoiceSubmissionDto>({
@@ -35,7 +35,7 @@ export class EInvoiceService {
       url: `/api/app/e-invoice/status/${submissionId}`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   submit = (input: SubmitEInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EInvoiceSubmissionDto>({
@@ -44,12 +44,20 @@ export class EInvoiceService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
 
   submitConsolidated = (input: SubmitEInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EInvoiceSubmissionDto>({
       method: 'POST',
       url: '/api/app/e-invoice/submit-consolidated',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  batchSubmit = (input: BatchSubmitEInvoiceDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchSubmitResultDto>({
+      method: 'POST',
+      url: '/api/app/e-invoice/batch-submit',
       body: input,
     },
     { apiName: this.apiName,...config });

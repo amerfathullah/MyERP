@@ -39,6 +39,41 @@ export interface BatchDto extends AuditedEntityDto<string> {
   description?: string | null;
 }
 
+export interface BatchStockBalanceDto {
+  batchId?: string;
+  batchNo?: string;
+  itemId?: string;
+  totalQuantity?: number;
+  totalValue?: number;
+  warehouseBalances?: BatchWarehouseBalanceDto[];
+}
+
+export interface BatchWarehouseBalanceDto {
+  warehouseId?: string;
+  warehouseName?: string;
+  quantity?: number;
+  stockValue?: number;
+  valuationRate?: number;
+}
+
+export interface BatchMovementHistoryDto {
+  batchId?: string;
+  batchNo?: string;
+  entries?: BatchMovementEntryDto[];
+}
+
+export interface BatchMovementEntryDto {
+  id?: string;
+  postingDate?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  quantityChange?: number;
+  valuationRate?: number;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  isInward?: boolean;
+}
+
 export interface BatchWiseBalanceReportDto {
   rows?: BatchWiseBalanceRowDto[];
   totalBatches?: number;

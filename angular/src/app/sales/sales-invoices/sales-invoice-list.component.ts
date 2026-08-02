@@ -14,6 +14,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
 import { DatePresetsComponent, type DateRange } from '../../shared/components/date-presets/date-presets.component';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import type { SalesInvoiceListSummaryDto } from '../../proxy/sales/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
@@ -42,6 +43,7 @@ export class SalesInvoiceListComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private l = inject(LocalizationService);
   private invoiceService = inject(SalesInvoiceService);
+  private eInvoiceService = inject(EInvoiceService);
   private toaster = inject(ToasterService);
   displayedColumns = ['select', 'invoiceNumber', 'issueDate', 'customerName', 'grandTotal', 'status', 'eInvoiceStatus', 'actions'];
   selectedIds = new Set<string>();
@@ -241,6 +243,43 @@ export class SalesInvoiceListComponent implements OnInit {
         amount: totalAmount.toFixed(2),
         invoiceIds,
         companyId: this.companyContext.currentCompanyId(),
+      },
+    });
+  }
+
+  batchSubmitToLhdn(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
+
+    const postedIds = this.store.entities()
+      .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
+      .map(inv => inv.id!);
+
+    if (postedIds.length === 0) {
+      this.toaster.info(this.l.instant('::NoneEligibleForLhdn'));
+      return;
+    }
+
+    this.isBulkProcessing = true;
+    this.eInvoiceService.batchSubmit({
+      companyId,
+      sourceDocumentType: 'SalesInvoice',
+      documentIds: postedIds,
+    }).subscribe({
+      next: (result) => {
+        this.isBulkProcessing = false;
+        this.selectedIds.clear();
+        const msg = `${result.succeededCount ?? 0} submitted, ${result.failedCount ?? 0} failed, ${result.skippedCount ?? 0} skipped`;
+        if (result.failedCount && result.failedCount > 0) {
+          this.toaster.warn(msg, this.l.instant('::SubmitToLHDN'));
+        } else {
+          this.toaster.success(msg, this.l.instant('::SubmitToLHDN'));
+        }
+        this.loadData();
+      },
+      error: () => {
+        this.isBulkProcessing = false;
+        this.toaster.error(this.l.instant('::LhdnBatchSubmitFailed'));
       },
     });
   }

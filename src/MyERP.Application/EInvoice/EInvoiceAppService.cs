@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
@@ -225,6 +226,93 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             invoice.LhdnSubmittedAt = DateTime.UtcNow;
             await _salesInvoiceRepository.UpdateAsync(invoice);
         }
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Submit)]
+    public async Task<BatchSubmitResultDto> BatchSubmitAsync(BatchSubmitEInvoiceDto input)
+    {
+        if (input.DocumentIds == null || !input.DocumentIds.Any())
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
+                .WithData("documentType", "BatchEInvoice");
+
+        var result = new BatchSubmitResultDto { TotalRequested = input.DocumentIds.Count };
+
+        foreach (var docId in input.DocumentIds)
+        {
+            try
+            {
+                // Check if already submitted
+                string? docNumber = null;
+                if (input.SourceDocumentType == "SalesInvoice")
+                {
+                    var si = await _salesInvoiceRepository.FindAsync(docId);
+                    if (si == null) { result.SkippedCount++; continue; }
+                    if (si.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
+                    {
+                        result.Results.Add(new BatchSubmitItemResult
+                        {
+                            DocumentId = docId,
+                            DocumentNumber = si.InvoiceNumber,
+                            Success = false,
+                            ErrorMessage = "Already submitted to LHDN",
+                            Status = si.EInvoiceStatus.ToString()
+                        });
+                        result.SkippedCount++;
+                        continue;
+                    }
+                    docNumber = si.InvoiceNumber;
+                }
+                else if (input.SourceDocumentType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.FindAsync(docId);
+                    if (pi == null) { result.SkippedCount++; continue; }
+                    if (pi.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
+                    {
+                        result.Results.Add(new BatchSubmitItemResult
+                        {
+                            DocumentId = docId,
+                            DocumentNumber = pi.InvoiceNumber,
+                            Success = false,
+                            ErrorMessage = "Already submitted to LHDN",
+                            Status = pi.EInvoiceStatus.ToString()
+                        });
+                        result.SkippedCount++;
+                        continue;
+                    }
+                    docNumber = pi.InvoiceNumber;
+                }
+
+                var submission = await SubmitAsync(new SubmitEInvoiceDto
+                {
+                    CompanyId = input.CompanyId,
+                    SourceDocumentType = input.SourceDocumentType,
+                    SourceDocumentId = docId,
+                });
+
+                result.Results.Add(new BatchSubmitItemResult
+                {
+                    DocumentId = docId,
+                    DocumentNumber = docNumber ?? docId.ToString()[..8],
+                    Success = true,
+                    LhdnUuid = submission.DocumentUuid,
+                    Status = submission.Status
+                });
+                result.SucceededCount++;
+            }
+            catch (Exception ex)
+            {
+                result.Results.Add(new BatchSubmitItemResult
+                {
+                    DocumentId = docId,
+                    DocumentNumber = docId.ToString()[..8],
+                    Success = false,
+                    ErrorMessage = ex.Message
+                });
+                result.FailedCount++;
+            }
+        }
+
+        return result;
     }
 
     public async Task<EInvoiceSubmissionDto> GetStatusAsync(Guid submissionId)

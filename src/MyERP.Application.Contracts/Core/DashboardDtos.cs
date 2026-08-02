@@ -33,6 +33,15 @@ public class RevenueTrendDto
     public decimal Amount { get; set; }
 }
 
+public class RevenueVsExpenseDto
+{
+    public string Month { get; set; } = null!;
+    public decimal Revenue { get; set; }
+    public decimal Expenses { get; set; }
+    public decimal NetProfit => Revenue - Expenses;
+    public decimal ProfitMarginPct => Revenue > 0 ? Math.Round((Revenue - Expenses) / Revenue * 100, 1) : 0;
+}
+
 public class ExpiringBatchDto
 {
     public Guid BatchId { get; set; }

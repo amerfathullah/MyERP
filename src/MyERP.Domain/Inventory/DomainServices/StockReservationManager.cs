@@ -152,7 +152,7 @@ public class StockReservationManager : DomainService
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), companyId, itemId, warehouseId,
-            voucherType, voucherId, qty, tenantId);
+            voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId);
 
         sre.Submit();
         await _sreRepository.InsertAsync(sre);

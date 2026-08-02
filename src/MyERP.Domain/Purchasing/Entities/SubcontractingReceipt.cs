@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MyERP.Accounting.DomainServices;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -10,9 +11,9 @@ namespace MyERP.Purchasing.Entities;
 
 /// <summary>
 /// Subcontracting Receipt — receipt of finished goods from subcontractor.
-/// Triggers: SLE for FG stock-in, consumed RM stock-out, cost calculation.
+/// Triggers: SLE for FG stock-in, consumed RM stock-out, cost calculation, GL posting.
 /// </summary>
-public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant
+public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccountableDocument
 {
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
@@ -26,6 +27,15 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
     public Guid? WarehouseId { get; set; }
 
     public decimal NetTotal { get; set; }
+
+    // IAccountableDocument implementation
+    public string DocumentType => "SubcontractingReceipt";
+    public decimal GrandTotal => NetTotal;
+    public decimal TaxAmount => 0;
+    public Guid? CustomerId => null;
+    Guid? IAccountableDocument.SupplierId => SupplierId;
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
 
     public SubcontractingReceiptStatus Status { get; private set; } = SubcontractingReceiptStatus.Draft;
 

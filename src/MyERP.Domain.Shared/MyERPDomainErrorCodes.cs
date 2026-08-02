@@ -263,6 +263,8 @@ public static class MyERPDomainErrorCodes
     public const string BomFgCannotBeSecondaryItem = "MyERP:10017";
     public const string InvalidProcessLossPercentage = "MyERP:10018";
     public const string SecondaryItemCostAllocationInvalid = "MyERP:10019";
+    public const string PreviousOperationNotManufactured = "MyERP:10020";
+    public const string CompletionSplitMismatch = "MyERP:10021";
 
     // Party Link
     public const string PartyCannotLinkToSelf = "MyERP:00005";
@@ -281,6 +283,10 @@ public static class MyERPDomainErrorCodes
 
     // Sales Partner / Commission
     public const string InvalidCommissionRate = "MyERP:03023";
+
+    // SO Update Items guards
+    public const string SoItemQtyBelowDelivered = "MyERP:03024";
+    public const string SoItemRateBelowBilled = "MyERP:03025";
 
     // Bank Transaction — Auto-Reconcile
     public const string BankTransactionAlreadyReconciled = "MyERP:02048";

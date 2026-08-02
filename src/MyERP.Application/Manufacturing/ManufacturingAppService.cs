@@ -432,6 +432,56 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return await CreateWorkOrderAsync(input);
     }
 
+    /// <summary>
+    /// Creates Work Orders for ALL SO items that have active BOMs.
+    /// Per ERPNext SO "Make Work Orders": one WO per item with pending production qty.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromSalesOrderAsync(Guid salesOrderId)
+    {
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var so = await soRepo.GetAsync(salesOrderId, includeDetails: true);
+        var companyId = so.CompanyId;
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var activeBoms = bomQuery.Where(b => b.IsActive && b.CompanyId == companyId).ToList();
+
+        var created = new List<CreatedWorkOrderInfo>();
+        var skipped = 0;
+
+        foreach (var item in so.Items)
+        {
+            var pendingQty = item.Quantity - item.DeliveredQty;
+            if (pendingQty <= 0) { skipped++; continue; }
+
+            var bom = activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId && b.IsDefault)
+                      ?? activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId);
+            if (bom == null) { skipped++; continue; }
+
+            try
+            {
+                var wo = await CreateWorkOrderFromSalesOrderAsync(salesOrderId, item.ItemId, pendingQty, companyId);
+                created.Add(new CreatedWorkOrderInfo
+                {
+                    WorkOrderId = wo.Id,
+                    WorkOrderNumber = wo.WorkOrderNumber,
+                    ItemName = item.Description,
+                    Quantity = pendingQty
+                });
+            }
+            catch
+            {
+                skipped++;
+            }
+        }
+
+        return new BatchCreateWorkOrdersResultDto
+        {
+            CreatedCount = created.Count,
+            SkippedCount = skipped,
+            WorkOrders = created
+        };
+    }
+
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
     public async Task DeleteWorkOrderAsync(Guid id)
     {

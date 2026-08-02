@@ -28,6 +28,7 @@ export class TrialBalanceComponent implements OnInit {
   filters = this.fb.group({
     companyId: ['', Validators.required],
     asOfDate: [new Date().toISOString().split('T')[0], Validators.required],
+    includeSubsidiaries: [false],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -35,6 +36,7 @@ export class TrialBalanceComponent implements OnInit {
   totalDebit = signal(0);
   totalCredit = signal(0);
   isLoading = signal(false);
+  isConsolidated = signal(false);
 
   ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
@@ -56,11 +58,13 @@ export class TrialBalanceComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
-    const { companyId, asOfDate } = this.filters.getRawValue();
+    const { companyId, asOfDate, includeSubsidiaries } = this.filters.getRawValue();
+    this.isConsolidated.set(includeSubsidiaries ?? false);
 
     this.reportingService.getTrialBalance({
       companyId: companyId!,
       asOfDate: asOfDate!,
+      includeSubsidiaries: includeSubsidiaries ?? false,
     }).subscribe({
       next: (report) => {
         this.data.set(report.rows ?? []);

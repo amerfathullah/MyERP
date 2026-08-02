@@ -654,6 +654,14 @@ export interface RevenueTrendDto {
   amount?: number;
 }
 
+export interface RevenueVsExpenseDto {
+  month?: string;
+  revenue?: number;
+  expenses?: number;
+  netProfit?: number;
+  profitMarginPct?: number;
+}
+
 export interface SaveCompanyRestrictionDto {
   parentType?: string;
   parentId?: string;

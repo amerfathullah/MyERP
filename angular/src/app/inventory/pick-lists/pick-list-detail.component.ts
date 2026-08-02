@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
@@ -11,7 +12,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   selector: 'app-pick-list-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, LocalizationPipe, FormsModule, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">
@@ -84,6 +85,37 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         </div>
 
+        <!-- Barcode Scan Mode (for Submitted pick lists with pending items) -->
+        @if (pickList()!.status === 'Submitted' && !pickList()!.isFullyTransferred) {
+          <div class="card shadow-sm mb-3 border-primary">
+            <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+              <span class="fw-bold"><i class="fa fa-barcode me-2"></i>{{ '::ScanToPick' | abpLocalization }}</span>
+              <div>
+                @if (pickedProgress() > 0) {
+                  <span class="badge bg-success me-2">{{ pickedProgress() }}% {{ '::Picked' | abpLocalization }}</span>
+                }
+                <button class="btn btn-sm" [class.btn-primary]="!scanMode()" [class.btn-outline-primary]="scanMode()" (click)="toggleScanMode()">
+                  @if (scanMode()) { <i class="fa fa-times me-1"></i>{{ '::ExitScanMode' | abpLocalization }} }
+                  @else { <i class="fa fa-qrcode me-1"></i>{{ '::EnterScanMode' | abpLocalization }} }
+                </button>
+              </div>
+            </div>
+            @if (scanMode()) {
+              <div class="card-body">
+                <div class="input-group input-group-lg mb-2">
+                  <span class="input-group-text"><i class="fa fa-barcode"></i></span>
+                  <input type="text" class="form-control" [(ngModel)]="scanInput" (keydown)="onScanInput($event)"
+                    [placeholder]="'::ScanBarcode' | abpLocalization" autofocus />
+                </div>
+                <small class="text-muted">{{ '::ScanBarcodeHint' | abpLocalization }}</small>
+                @if (pickedProgress() === 100) {
+                  <div class="alert alert-success mt-2 mb-0"><i class="fa fa-check-circle me-1"></i>{{ '::AllItemsPicked' | abpLocalization }}</div>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <!-- Pick List Items -->
         <div class="card shadow-sm mb-3">
           <div class="card-header"><h6 class="mb-0">{{ '::PickListItems' | abpLocalization }}</h6></div>
@@ -102,8 +134,11 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               </thead>
               <tbody>
                 @for (item of pickList()!.items || []; track $index; let i = $index) {
-                  <tr>
-                    <td class="text-muted">{{ i + 1 }}</td>
+                  <tr [class.table-success]="isItemScanned(item.itemId)">
+                    <td class="text-muted">
+                      @if (isItemScanned(item.itemId)) { <i class="fa fa-check-circle text-success"></i> }
+                      @else { {{ i + 1 }} }
+                    </td>
                     <td>{{ item.itemName || item.itemId || '—' }}</td>
                     <td>{{ item.warehouseName || item.warehouseId || '—' }}</td>
                     <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
@@ -153,6 +188,16 @@ export class PickListDetailComponent implements OnInit {
 
   pickList = signal<any>(null);
   pickListId = '';
+  scanInput = '';
+  scanMode = signal(false);
+  scannedItems = signal<Set<string>>(new Set());
+
+  pickedProgress = computed(() => {
+    const items = this.pickList()?.items ?? [];
+    if (items.length === 0) return 0;
+    const picked = items.filter((i: any) => this.scannedItems().has(i.itemId)).length;
+    return Math.round((picked / items.length) * 100);
+  });
 
   ngOnInit() {
     this.pickListId = this.route.snapshot.params['id'];
@@ -191,6 +236,26 @@ export class PickListDetailComponent implements OnInit {
   }
 
   goBack() { this.router.navigate(['/inventory/pick-lists']); }
+
+  toggleScanMode() { this.scanMode.set(!this.scanMode()); }
+
+  onScanInput(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || !this.scanInput.trim()) return;
+    const barcode = this.scanInput.trim();
+    this.scanInput = '';
+    const items = this.pickList()?.items ?? [];
+    const match = items.find((i: any) => i.itemCode === barcode || i.itemId === barcode || i.itemName?.toLowerCase().includes(barcode.toLowerCase()));
+    if (match) {
+      const s = new Set(this.scannedItems());
+      s.add(match.itemId);
+      this.scannedItems.set(s);
+      this.toaster.success(this.l('::ItemScanned') + ': ' + (match.itemName || match.itemCode));
+    } else {
+      this.toaster.warn(this.l('::ItemNotFoundInPickList') + ': ' + barcode);
+    }
+  }
+
+  isItemScanned(itemId: string): boolean { return this.scannedItems().has(itemId); }
 
   private l(key: string): string { return this.localization.instant(key); }
 }

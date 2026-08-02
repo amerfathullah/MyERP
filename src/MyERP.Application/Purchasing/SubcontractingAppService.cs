@@ -123,6 +123,50 @@ public class SubcontractingAppService : ApplicationService
         return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
+    /// <summary>
+    /// Creates a Draft Stock Entry (SendToSubcontractor) with pending RM items from the SCO's BOM.
+    /// Per ERPNext make_rm_stock_entry: resolves RM requirements, caps at pending qty, creates SE.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<RmTransferResultDto> CreateRmTransferStockEntryAsync(Guid scoId)
+    {
+        var sco = await _scoRepository.GetAsync(scoId, includeDetails: true);
+        if (sco.Status == SubcontractingOrderStatus.Draft || sco.Status == SubcontractingOrderStatus.Cancelled)
+            throw new Volo.Abp.BusinessException("MyERP:10020")
+                .WithData("status", sco.Status.ToString());
+
+        var rmService = LazyServiceProvider.LazyGetRequiredService<DomainServices.SubcontractingRmTransferService>();
+        var requirements = await rmService.CalculateRmRequirementsAsync(scoId);
+
+        var pendingItems = requirements.Where(r => r.PendingQty > 0).ToList();
+        if (!pendingItems.Any())
+            throw new Volo.Abp.BusinessException("MyERP:10013");
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        var number = await _numberGenerator.GenerateAsync("SE", sco.CompanyId);
+        var se = new StockEntry(GuidGenerator.Create(), sco.CompanyId,
+            Inventory.StockEntryType.SendToSubcontractor, DateTime.UtcNow.Date, CurrentTenant.Id)
+        { EntryNumber = number };
+
+        foreach (var rm in pendingItems)
+        {
+            se.AddItem(rm.ItemId, rm.PendingQty,
+                sourceWarehouseId: rm.SourceWarehouseId ?? rm.WarehouseId,
+                targetWarehouseId: sco.SupplierWarehouseId,
+                valuationRate: null);
+        }
+
+        await seRepo.InsertAsync(se);
+
+        return new RmTransferResultDto
+        {
+            StockEntryId = se.Id,
+            EntryNumber = number,
+            ItemCount = pendingItems.Count,
+            TotalQty = pendingItems.Sum(i => i.PendingQty),
+        };
+    }
+
     // === Subcontracting Receipt ===
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
@@ -198,6 +242,10 @@ public class SubcontractingAppService : ApplicationService
 
         await _scoRepository.UpdateAsync(sco);
 
+        // GL posting: DR Stock, CR Stock Received But Not Billed (perpetual inventory)
+        var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.PostPurchaseReceiptAsync(scr);
+
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
@@ -251,6 +299,10 @@ public class SubcontractingAppService : ApplicationService
 
         await _scoRepository.UpdateAsync(sco);
 
+        // Reverse GL entries for the receipt
+        var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ReversePleForDocumentAsync("SubcontractingReceipt", scr.Id);
+
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
@@ -263,11 +315,13 @@ public class SubcontractingOrderDto : AuditedEntityDto<Guid>
     public string OrderNumber { get; set; } = null!;
     public DateTime OrderDate { get; set; }
     public Guid SupplierId { get; set; }
+    public string? SupplierName { get; set; }
     public Guid CompanyId { get; set; }
     public decimal NetTotal { get; set; }
     public decimal GrandTotal { get; set; }
     public SubcontractingOrderStatus Status { get; set; }
     public decimal PerReceived { get; set; }
+    public Guid? SupplierWarehouseId { get; set; }
     public List<ScoItemDto> Items { get; set; } = new();
 }
 
@@ -334,4 +388,12 @@ public class CreateScrItemDto
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public Guid? WarehouseId { get; set; }
+}
+
+public class RmTransferResultDto
+{
+    public Guid StockEntryId { get; set; }
+    public string EntryNumber { get; set; } = null!;
+    public int ItemCount { get; set; }
+    public decimal TotalQty { get; set; }
 }

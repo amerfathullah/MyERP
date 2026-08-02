@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class PayrollService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
+
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayrollEntryDto>({
@@ -17,7 +17,7 @@ export class PayrollService {
       url: `/api/app/payroll/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   create = (input: CreatePayrollEntryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayrollEntryDto>({
@@ -26,7 +26,16 @@ export class PayrollService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
+
+  createBankEntry = (input: any, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: '/api/app/payroll/bank-entry',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayrollEntryDto>({
@@ -34,7 +43,16 @@ export class PayrollService {
       url: `/api/app/payroll/${id}`,
     },
     { apiName: this.apiName,...config });
-  
+
+
+  getEmployeePreview = (input: CreatePayrollEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: '/api/app/payroll/employee-preview',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   getList = (input: GetPayrollListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PayrollEntryDto>>({
@@ -43,7 +61,7 @@ export class PayrollService {
       params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-  
+
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayrollEntryDto>({

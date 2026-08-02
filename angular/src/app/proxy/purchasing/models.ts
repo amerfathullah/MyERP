@@ -348,6 +348,9 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   creditToAccountId?: string;
   daysOverdue?: number;
   isOverdue?: boolean;
+  matchingStatus?: string | null;
+  isReadyForPayment?: boolean;
+  onHold?: boolean;
   items?: PurchaseInvoiceItemDto[];
 }
 
@@ -704,6 +707,30 @@ export interface ThreeWayMatchingItemDto {
   matchLevel?: string;
   hasQtyDiscrepancy?: boolean;
   hasRateDiscrepancy?: boolean;
+}
+
+export interface PurchaseAnalyticsRequestDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  groupBy?: number;
+  periodType?: number;
+  valueField?: string;
+}
+
+export interface PurchaseAnalyticsReportDto {
+  periodLabels?: string[];
+  rows?: PurchaseAnalyticsRowDto[];
+  grandTotal?: number;
+  periodTotals?: number[];
+}
+
+export interface PurchaseAnalyticsRowDto {
+  entityId?: string;
+  entityName?: string;
+  periodValues?: number[];
+  total?: number;
+  growth?: number;
 }
 
 export interface UnbilledPurchaseOrderItemDto {
