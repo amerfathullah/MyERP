@@ -1,7 +1,8 @@
-import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, OrderPaymentDto, SalesOrderDto } from './models';
+import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, OrderPaymentDto, SalesOrderDto, SalesOrderTrackingBoardDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
+import type { UpdateOrderItemsDto, UpdateOrderItemsResultDto } from '../purchasing/models';
 import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -10,7 +11,7 @@ import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../
 export class SalesOrderService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
@@ -19,7 +20,7 @@ export class SalesOrderService {
       body: ids,
     },
     { apiName: this.apiName,...config });
-
+  
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -27,7 +28,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -35,7 +36,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}/close`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   create = (input: CreateSalesOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -44,7 +45,7 @@ export class SalesOrderService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -52,7 +53,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   generateDeliverySchedule = (orderId: string, itemId: string, frequency: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryScheduleEntryDto[]>({
@@ -61,7 +62,7 @@ export class SalesOrderService {
       params: { orderId, itemId, frequency },
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -69,7 +70,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getDeliverySchedule = (orderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryScheduleEntryDto[]>({
@@ -77,7 +78,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/delivery-schedule/${orderId}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesOrderDto>>({
@@ -86,7 +87,7 @@ export class SalesOrderService {
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   getOrderPayments = (orderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OrderPaymentDto[]>({
@@ -94,7 +95,15 @@ export class SalesOrderService {
       url: `/api/app/sales-order/order-payments/${orderId}`,
     },
     { apiName: this.apiName,...config });
+  
 
+  getTrackingBoard = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesOrderTrackingBoardDto>({
+      method: 'GET',
+      url: `/api/app/sales-order/tracking-board/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
 
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -102,7 +111,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}/reopen`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -110,7 +119,7 @@ export class SalesOrderService {
       url: `/api/app/sales-order/${id}/submit`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateSalesOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
@@ -119,11 +128,12 @@ export class SalesOrderService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
-  updateItems = (id: string, input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, any>({
+  updateItems = (id: string, input: UpdateOrderItemsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, UpdateOrderItemsResultDto>({
       method: 'PUT',
-      url: `/api/app/sales-order/${id}/update-items`,
+      url: `/api/app/sales-order/${id}/items`,
       body: input,
     },
     { apiName: this.apiName,...config });

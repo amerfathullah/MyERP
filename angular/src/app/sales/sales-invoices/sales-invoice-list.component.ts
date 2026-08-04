@@ -247,44 +247,76 @@ export class SalesInvoiceListComponent implements OnInit {
     });
   }
 
-  batchSubmitToLhdn(): void {
-    const companyId = this.companyContext.currentCompanyId();
-    if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
-
-    const postedIds = this.store.entities()
-      .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
-      .map(inv => inv.id!);
-
-    if (postedIds.length === 0) {
-      this.toaster.info(this.l.instant('::NoneEligibleForLhdn'));
-      return;
+    batchSubmitToLhdn(): void {
+      const companyId = this.companyContext.currentCompanyId();
+      if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
+  
+      const postedIds = this.store.entities()
+        .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
+        .map(inv => inv.id!);
+  
+      if (postedIds.length === 0) {
+        this.toaster.info(this.l.instant('::NoneEligibleForLhdn'));
+        return;
+      }
+  
+      this.isBulkProcessing = true;
+      this.eInvoiceService.batchSubmit({
+        companyId,
+        sourceDocumentType: 'SalesInvoice',
+        documentIds: postedIds,
+      }).subscribe({
+        next: (result) => {
+          this.isBulkProcessing = false;
+          this.selectedIds.clear();
+          const msg = `${result.succeededCount ?? 0} submitted, ${result.failedCount ?? 0} failed, ${result.skippedCount ?? 0} skipped`;
+          if (result.failedCount && result.failedCount > 0) {
+            this.toaster.warn(msg, this.l.instant('::SubmitToLHDN'));
+          } else {
+            this.toaster.success(msg, this.l.instant('::SubmitToLHDN'));
+          }
+          this.loadData();
+        },
+        error: () => {
+          this.isBulkProcessing = false;
+          this.toaster.error(this.l.instant('::LhdnBatchSubmitFailed'));
+        },
+      });
     }
 
-    this.isBulkProcessing = true;
-    this.eInvoiceService.batchSubmit({
-      companyId,
-      sourceDocumentType: 'SalesInvoice',
-      documentIds: postedIds,
-    }).subscribe({
-      next: (result) => {
-        this.isBulkProcessing = false;
-        this.selectedIds.clear();
-        const msg = `${result.succeededCount ?? 0} submitted, ${result.failedCount ?? 0} failed, ${result.skippedCount ?? 0} skipped`;
-        if (result.failedCount && result.failedCount > 0) {
-          this.toaster.warn(msg, this.l.instant('::SubmitToLHDN'));
-        } else {
-          this.toaster.success(msg, this.l.instant('::SubmitToLHDN'));
-        }
-        this.loadData();
-      },
-      error: () => {
-        this.isBulkProcessing = false;
-        this.toaster.error(this.l.instant('::LhdnBatchSubmitFailed'));
-      },
-    });
-  }
+    consolidatePosInvoices(): void {
+      const companyId = this.companyContext.currentCompanyId();
+      if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
 
-  // ── Outstanding & Overdue Helpers ──
+      const selectedInvoices = this.store.entities()
+        .filter(inv => inv.id && this.selectedIds.has(inv.id));
+        
+      if (selectedInvoices.length < 2) {
+        this.toaster.warn('Please select at least two invoices to consolidate.', 'Consolidate Invoices');
+        return;
+      }
+      
+      const invoiceIds = selectedInvoices.map(inv => inv.id!);
+
+      this.isBulkProcessing = true;
+      this.eInvoiceService.consolidateInvoices({
+        companyId,
+        invoiceIds
+      }).subscribe({
+        next: (createdIds) => {
+          this.isBulkProcessing = false;
+          this.selectedIds.clear();
+          this.toaster.success(`Successfully consolidated into ${createdIds.length} invoice(s).`, 'Consolidate Invoices');
+          this.loadData();
+        },
+        error: () => {
+          this.isBulkProcessing = false;
+          this.toaster.error('Failed to consolidate invoices.', 'Consolidate Invoices');
+        }
+      });
+    }
+  
+    // ── Outstanding & Overdue Helpers ──
 
   getOutstanding(inv: any): number {
     const outstanding = (inv.grandTotal ?? 0) - (inv.amountPaid ?? 0) - (inv.writeOffAmount ?? 0) - (inv.totalAdvance ?? 0);

@@ -102,7 +102,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
           }
           @if (wo()!.status === 3) {
-            <button class="btn btn-success btn-sm" (click)="recordProduction()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
+            <button class="btn btn-success btn-sm" (click)="openProductionDialog()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
             <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>{{ '::RecordConsumption' | abpLocalization }}</button>
             <button class="btn btn-outline-primary btn-sm" (click)="openManufactureDialog()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
             <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>{{ '::Stop' | abpLocalization }}</button>
@@ -135,6 +135,45 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             </button>
           }
         </div>
+
+        <!-- Production Recording Dialog -->
+        @if (showProductionDialog()) {
+          <div class="card mb-3 border-success">
+            <div class="card-header bg-success bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
+              <span class="fw-semibold"><i class="fa fa-industry me-1"></i> {{ '::RecordProduction' | abpLocalization }}</span>
+              <button class="btn btn-sm btn-outline-secondary" (click)="cancelProductionDialog()"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="text-muted small">{{ '::Remaining' | abpLocalization }}</div>
+                  <div class="fw-bold fs-5">{{ pendingProductionQty | number:'1.2-2' }}</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
+                  <input type="number" class="form-control" [min]="0.01" [max]="pendingProductionQty * 1.1"
+                         [value]="productionQty()" (input)="productionQty.set(+$any($event).target.value)">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">{{ '::ProcessLoss' | abpLocalization }}</label>
+                  <input type="number" class="form-control" [min]="0" step="0.01"
+                         [value]="processLossQty()" (input)="processLossQty.set(+$any($event).target.value)">
+                  <div class="form-text">{{ '::DefectiveScrapQty' | abpLocalization }}</div>
+                </div>
+              </div>
+              <div class="mt-3 d-flex align-items-center justify-content-between">
+                <span class="badge bg-info">{{ '::TotalFG' | abpLocalization }}: {{ totalFgQty | number:'1.2-2' }} ({{ '::Good' | abpLocalization }}: {{ productionQty() | number:'1.2-2' }} + {{ '::Loss' | abpLocalization }}: {{ processLossQty() | number:'1.2-2' }})</span>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-secondary btn-sm" (click)="cancelProductionDialog()">{{ '::Cancel' | abpLocalization }}</button>
+                  <button class="btn btn-success btn-sm" (click)="recordProduction()" [disabled]="isRecordingProduction() || productionQty() <= 0">
+                    @if (isRecordingProduction()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="fa fa-check me-1"></i> {{ '::Confirm' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
 
         <!-- Material Availability Results -->
         @if (materialAvailability().length > 0) {
@@ -432,13 +471,50 @@ export class WorkOrderDetailComponent implements OnInit {
     });
   }
 
+  showProductionDialog = signal(false);
+  productionQty = signal(0);
+  processLossQty = signal(0);
+  isRecordingProduction = signal(false);
+
+  openProductionDialog() {
+    const wo = this.wo()!;
+    const pending = (wo.quantity ?? 0) - (wo.producedQuantity ?? 0);
+    this.productionQty.set(pending > 0 ? pending : 0);
+    this.processLossQty.set(0);
+    this.showProductionDialog.set(true);
+  }
+
+  cancelProductionDialog() {
+    this.showProductionDialog.set(false);
+  }
+
+  get pendingProductionQty(): number {
+    const wo = this.wo();
+    if (!wo) return 0;
+    return Math.max(0, (wo.quantity ?? 0) - (wo.producedQuantity ?? 0));
+  }
+
+  get totalFgQty(): number {
+    return this.productionQty() + this.processLossQty();
+  }
+
   recordProduction() {
     const id = this.wo()!.id!;
-    const qty = prompt(this.l.instant('::EnterProducedQuantity'));
-    if (!qty || isNaN(+qty) || +qty <= 0) return;
-    this.service.recordProduction(id, +qty).subscribe({
-      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyRecorded'); },
-      error: () => this.toaster.error(this.l.instant('::OperationFailed')),
+    const qty = this.productionQty();
+    const loss = this.processLossQty();
+    if (qty <= 0) return;
+    this.isRecordingProduction.set(true);
+    this.service.recordProduction(id, qty, loss).subscribe({
+      next: w => {
+        this.wo.set(w);
+        this.showProductionDialog.set(false);
+        this.isRecordingProduction.set(false);
+        this.toaster.success('::SuccessfullyRecorded');
+      },
+      error: () => {
+        this.isRecordingProduction.set(false);
+        this.toaster.error(this.l.instant('::OperationFailed'));
+      },
     });
   }
 

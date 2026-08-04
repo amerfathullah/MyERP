@@ -101,6 +101,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/tracking-board',
+    loadComponent: () => import('./sales/so-tracking-board/so-tracking-board.component').then(c => c.SoTrackingBoardComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/orders/new',
     loadComponent: () => import('./sales/sales-orders/sales-order-form.component').then(c => c.SalesOrderFormComponent),
     canActivate: [authGuard, permissionGuard],
@@ -287,6 +293,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/monthly-profit-loss',
+    loadComponent: () => import('./accounting/reports/monthly-profit-loss/monthly-profit-loss.component').then(c => c.MonthlyProfitLossComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/payments',
     loadComponent: () => import('./accounting/payments/payment-entry-list.component').then(c => c.PaymentEntryListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -377,6 +389,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./sales/reports/customer-revenue-report/customer-revenue-report.component').then(c => c.CustomerRevenueReportComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/reports/commission',
+    loadComponent: () => import('./sales/reports/sales-commission-report/sales-commission-report.component').then(c => c.SalesCommissionReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
     path: 'sales/reports/analytics',
@@ -1218,6 +1236,19 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.ProductionPlans' },
   },
+  // Procurement Dashboard
+  {
+    path: 'purchasing/dashboard',
+    loadComponent: () => import('./purchasing/procurement-dashboard/procurement-dashboard.component').then(c => c.ProcurementDashboardComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/tracking-board',
+    loadComponent: () => import('./purchasing/po-tracking-board/po-tracking-board.component').then(c => c.PoTrackingBoardComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
   // Material Requests
   {
     path: 'purchasing/material-requests',
@@ -1332,6 +1363,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./hr/loans/loan-list.component').then(c => c.LoanListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'manufacturing/workstation-capacity',
+    loadComponent: () => import('./manufacturing/workstations/workstation-capacity.component').then(c => c.WorkstationCapacityComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
     path: 'manufacturing/workstations',
@@ -1927,6 +1964,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/reorder-suggestions',
+    loadComponent: () => import('./inventory/reports/reorder-suggestions.component').then(c => c.ReorderSuggestionsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'inventory/reports/batch-traceability',
+    loadComponent: () => import('./inventory/reports/batch-traceability/batch-traceability.component').then(c => c.BatchTraceabilityComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'inventory/reports/stock-movement',
     loadComponent: () => import('./inventory/reports/stock-movement-summary/stock-movement-summary.component').then(c => c.StockMovementSummaryComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1949,6 +1998,36 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./inventory/reports/batch-wise-balance/batch-wise-balance.component').then(c => c.BatchWiseBalanceComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/quality-goals',
+    loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'inventory/quality-goals/new',
+    loadComponent: () => import('./inventory/quality-goals/quality-goal-form.component').then(c => c.QualityGoalFormComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'inventory/quality-goals/:id',
+    loadComponent: () => import('./inventory/quality-goals/quality-goal-form.component').then(c => c.QualityGoalFormComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/print-formats',
+    loadComponent: () => import('./settings/print-formats/print-format-list.component').then(c => c.PrintFormatListComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/print-formats/new',
+    loadComponent: () => import('./settings/print-formats/print-format-form.component').then(c => c.PrintFormatFormComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/print-formats/:id',
+    loadComponent: () => import('./settings/print-formats/print-format-form.component').then(c => c.PrintFormatFormComponent),
+    canActivate: [authGuard],
   },
   {
     path: 'accounting/fiscal-years',

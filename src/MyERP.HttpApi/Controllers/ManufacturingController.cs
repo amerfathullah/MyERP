@@ -32,6 +32,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("workstations")]
     public Task<WorkstationDto> CreateWorkstationAsync(CreateWorkstationDto input) => _workstationService.CreateAsync(input);
 
+    [HttpGet("workstations/capacity-utilization")]
+    public Task<System.Collections.Generic.List<WorkstationUtilizationDto>> GetCapacityUtilizationAsync([FromQuery] Guid? companyId) => _workstationService.GetCapacityUtilizationAsync(companyId);
+
     // BOM
     [HttpGet("bom/{id}")]
     public Task<BomDto> GetBomAsync(Guid id) => _service.GetBomAsync(id);

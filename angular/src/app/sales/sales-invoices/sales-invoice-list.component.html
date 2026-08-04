@@ -115,6 +115,9 @@
             <button class="btn btn-sm btn-outline-success" (click)="batchSubmitToLhdn()" [disabled]="isBulkProcessing">
               <i class="fa fa-cloud-arrow-up me-1"></i> {{ '::SubmitToLHDN' | abpLocalization }}
             </button>
+            <button class="btn btn-sm btn-outline-warning" (click)="consolidatePosInvoices()" [disabled]="isBulkProcessing">
+              <i class="fa fa-compress me-1"></i> {{ 'Consolidate POS' | abpLocalization }}
+            </button>
             <button class="btn btn-sm btn-success" (click)="bulkCreatePayment()" [disabled]="isBulkProcessing">
               <i class="fa fa-money-bill me-1"></i> {{ '::BulkCreatePayment' | abpLocalization }}
             </button>

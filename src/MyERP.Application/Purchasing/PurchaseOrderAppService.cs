@@ -147,12 +147,6 @@ public class PurchaseOrderAppService : ApplicationService
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        // Validate company restriction — items/supplier must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "PurchaseOrder", input.CompanyId,
-            itemIds: itemIds,
-            supplierIds: new[] { input.SupplierId });
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
@@ -867,6 +861,103 @@ public class PurchaseOrderAppService : ApplicationService
 
         return result.OrderBy(r => r.RequestDate).ThenBy(r => r.ItemName).ToList();
     }
+
+    /// <summary>
+    /// Returns POs grouped by fulfillment stage for a Kanban-style tracking board.
+    /// Per ERPNext: procurement managers use this daily to track order pipeline.
+    /// </summary>
+    public async Task<PurchaseOrderTrackingBoardDto> GetTrackingBoardAsync(Guid companyId)
+    {
+        var queryable = await _repository.GetQueryableAsync();
+        var orders = queryable
+            .Where(po => po.CompanyId == companyId
+                && po.Status != DocumentStatus.Draft
+                && po.Status != DocumentStatus.Cancelled)
+            .OrderByDescending(po => po.OrderDate)
+            .Take(200)
+            .ToList();
+
+        var supplierIds = orders.Select(o => o.SupplierId).Distinct().ToList();
+        var supplierQuery = await _supplierRepository.GetQueryableAsync();
+        var supplierNames = supplierQuery
+            .Where(s => supplierIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name })
+            .ToDictionary(s => s.Id, s => s.Name);
+
+        var today = DateTime.UtcNow.Date;
+        var cards = orders.Select(po =>
+        {
+            var perReceived = po.Items.Count > 0
+                ? po.Items.Min(i => i.Quantity > 0 ? Math.Min(100, i.ReceivedQty / i.Quantity * 100) : 100)
+                : 0m;
+            var perBilled = po.Items.Count > 0
+                ? po.Items.Min(i => i.Quantity > 0 ? Math.Min(100, i.BilledQty / i.Quantity * 100) : 100)
+                : 0m;
+
+            var stage = perReceived >= 99.99m && perBilled >= 99.99m ? "Completed"
+                : perReceived >= 99.99m ? "FullyReceived"
+                : perReceived > 0 ? "PartiallyReceived"
+                : "Ordered";
+
+            var effectiveDate = po.ExpectedDeliveryDate ?? po.OrderDate.AddDays(14);
+            var isOverdue = stage != "Completed" && stage != "FullyReceived" && effectiveDate < today;
+            var daysOverdue = isOverdue ? (int)(today - effectiveDate).TotalDays : 0;
+
+            return new TrackingBoardCardDto
+            {
+                OrderId = po.Id,
+                OrderNumber = po.OrderNumber,
+                SupplierName = supplierNames.GetValueOrDefault(po.SupplierId, "—"),
+                OrderDate = po.OrderDate,
+                ExpectedDate = po.ExpectedDeliveryDate,
+                GrandTotal = po.GrandTotal,
+                PerReceived = Math.Round(perReceived, 1),
+                PerBilled = Math.Round(perBilled, 1),
+                Stage = stage,
+                IsOverdue = isOverdue,
+                DaysOverdue = daysOverdue,
+                ItemCount = po.Items.Count
+            };
+        }).ToList();
+
+        return new PurchaseOrderTrackingBoardDto
+        {
+            Ordered = cards.Where(c => c.Stage == "Ordered").ToList(),
+            PartiallyReceived = cards.Where(c => c.Stage == "PartiallyReceived").ToList(),
+            FullyReceived = cards.Where(c => c.Stage == "FullyReceived").ToList(),
+            Completed = cards.Where(c => c.Stage == "Completed").ToList(),
+            TotalOrders = cards.Count,
+            OverdueCount = cards.Count(c => c.IsOverdue),
+            TotalValue = cards.Sum(c => c.GrandTotal)
+        };
+    }
+}
+
+public class PurchaseOrderTrackingBoardDto
+{
+    public List<TrackingBoardCardDto> Ordered { get; set; } = new();
+    public List<TrackingBoardCardDto> PartiallyReceived { get; set; } = new();
+    public List<TrackingBoardCardDto> FullyReceived { get; set; } = new();
+    public List<TrackingBoardCardDto> Completed { get; set; } = new();
+    public int TotalOrders { get; set; }
+    public int OverdueCount { get; set; }
+    public decimal TotalValue { get; set; }
+}
+
+public class TrackingBoardCardDto
+{
+    public Guid OrderId { get; set; }
+    public string OrderNumber { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public DateTime OrderDate { get; set; }
+    public DateTime? ExpectedDate { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal PerReceived { get; set; }
+    public decimal PerBilled { get; set; }
+    public string Stage { get; set; } = "Ordered";
+    public bool IsOverdue { get; set; }
+    public int DaysOverdue { get; set; }
+    public int ItemCount { get; set; }
 }
 
 /// <summary>DTO for pending Material Request items available for PO creation.</summary>

@@ -166,6 +166,17 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     UserId = Guid.Empty,
                 });
 
+                // Enqueue batch expiry alerts (proactive notification for expiring stock)
+                // Per DO-NOT: "Implement batch expiry without blocking expired batch consumption"
+                // This is the proactive complement to the transactional blocking validation.
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.BatchExpiryAlertJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    AlertDaysAhead = 30,
+                });
+
                 // Enqueue upcoming payment due date alerts (proactive cash flow management)
                 // Per ERPNext: daily reminder for invoices due in 3/7 days — separate from overdue reminders
                 await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.UpcomingPaymentDueAlertJobArgs

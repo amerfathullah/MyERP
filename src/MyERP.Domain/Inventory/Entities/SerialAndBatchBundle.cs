@@ -102,10 +102,10 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>Validate bundle qty matches transaction line qty.</summary>
-    public void ValidateQtyMatch(decimal transactionQty)
+    public void ValidateQtyMatch(decimal transactionQty, int precision = 4)
     {
         var absTransactionQty = Math.Abs(transactionQty);
-        if (Math.Abs(TotalQty - absTransactionQty) > 0.000001m)
+        if (Math.Round(TotalQty, precision) != Math.Round(absTransactionQty, precision))
             throw new BusinessException(MyERPDomainErrorCodes.BundleQtyMismatch)
                 .WithData("bundleQty", TotalQty)
                 .WithData("transactionQty", absTransactionQty);

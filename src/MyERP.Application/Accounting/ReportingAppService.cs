@@ -252,4 +252,96 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             TotalEquity = equityRows.Sum(r => r.Amount),
         };
     }
+
+    public async Task<MonthlyProfitLossReportDto> GetMonthlyProfitLossAsync(MonthlyProfitLossRequestDto input)
+    {
+        var yearStart = new DateTime(input.Year, input.StartMonth, 1);
+        var yearEnd = yearStart.AddMonths(12).AddDays(-1);
+
+        var accounts = await _accountRepository.GetListAsync(
+            a => a.CompanyId == input.CompanyId && !a.IsGroup
+                && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
+
+        var journalEntries = await _journalEntryRepository.GetListAsync(
+            je => je.CompanyId == input.CompanyId
+                && je.Status == DocumentStatus.Posted
+                && je.PostingDate >= yearStart
+                && je.PostingDate <= yearEnd);
+
+        // Flatten with posting date from parent JE
+        var linesWithDate = journalEntries
+            .SelectMany(je => je.Lines.Select(l => new { Line = l, je.PostingDate }))
+            .ToList();
+
+        // Group by account + month index
+        var linesByAccountMonth = linesWithDate
+            .GroupBy(x => new { x.Line.AccountId, MonthIdx = ((x.PostingDate.Year - yearStart.Year) * 12 + x.PostingDate.Month - yearStart.Month) })
+            .Where(g => g.Key.MonthIdx >= 0 && g.Key.MonthIdx < 12)
+            .ToDictionary(g => (g.Key.AccountId, g.Key.MonthIdx), g => g.ToList());
+
+        var revenueRows = new List<MonthlyProfitLossRowDto>();
+        var expenseRows = new List<MonthlyProfitLossRowDto>();
+
+        foreach (var account in accounts.OrderBy(a => a.AccountCode))
+        {
+            var monthlyAmounts = new decimal[12];
+            for (int m = 0; m < 12; m++)
+            {
+                if (!linesByAccountMonth.TryGetValue((account.Id, m), out var lines)) continue;
+
+                var debit = lines.Where(x => x.Line.IsDebit).Sum(x => x.Line.Amount);
+                var credit = lines.Where(x => !x.Line.IsDebit).Sum(x => x.Line.Amount);
+                monthlyAmounts[m] = account.AccountType == AccountType.Revenue
+                    ? credit - debit
+                    : debit - credit;
+            }
+
+            var annualTotal = monthlyAmounts.Sum();
+            if (annualTotal == 0 && monthlyAmounts.All(a => a == 0)) continue;
+
+            var row = new MonthlyProfitLossRowDto
+            {
+                AccountId = account.Id,
+                AccountCode = account.AccountCode,
+                AccountName = account.AccountName,
+                AccountType = account.AccountType.ToString(),
+                MonthlyAmounts = monthlyAmounts,
+                AnnualTotal = annualTotal,
+            };
+
+            if (account.AccountType == AccountType.Revenue)
+                revenueRows.Add(row);
+            else
+                expenseRows.Add(row);
+        }
+
+        var monthlyRevenue = new decimal[12];
+        var monthlyExpense = new decimal[12];
+        var monthlyNetProfit = new decimal[12];
+        var monthLabels = new string[12];
+
+        for (int m = 0; m < 12; m++)
+        {
+            monthlyRevenue[m] = revenueRows.Sum(r => r.MonthlyAmounts[m]);
+            monthlyExpense[m] = expenseRows.Sum(r => r.MonthlyAmounts[m]);
+            monthlyNetProfit[m] = monthlyRevenue[m] - monthlyExpense[m];
+            var monthDate = yearStart.AddMonths(m);
+            monthLabels[m] = monthDate.ToString("MMM yyyy");
+        }
+
+        return new MonthlyProfitLossReportDto
+        {
+            Year = input.Year,
+            CompanyId = input.CompanyId,
+            MonthLabels = monthLabels,
+            RevenueRows = revenueRows,
+            ExpenseRows = expenseRows,
+            MonthlyRevenue = monthlyRevenue,
+            MonthlyExpense = monthlyExpense,
+            MonthlyNetProfit = monthlyNetProfit,
+            AnnualRevenue = monthlyRevenue.Sum(),
+            AnnualExpense = monthlyExpense.Sum(),
+            AnnualNetProfit = monthlyNetProfit.Sum(),
+        };
+    }
 }

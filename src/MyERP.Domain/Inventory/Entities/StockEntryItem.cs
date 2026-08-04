@@ -38,6 +38,15 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Link to source stock entry detail row (for Disassemble scale factor matching).</summary>
     public Guid? SourceStockEntryDetailId { get; set; }
 
+    /// <summary>Stock UOM from Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM (per PR #57710: disassembly aggregates in stock UOM).</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
+
     protected StockEntryItem() { }
 
     public StockEntryItem(Guid id, Guid stockEntryId, Guid itemId, decimal quantity,

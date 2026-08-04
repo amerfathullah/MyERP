@@ -234,7 +234,9 @@ public class StockEntryManager : DomainService
 
     /// <summary>
     /// Validates scale factor for Disassemble items against source entry.
-    /// Every non-FG row's qty must equal: source_row_qty × (disassemble_qty / source_fg_qty).
+    /// Per PR #57710: quantities are aggregated in stock UOM (using StockQty) to avoid
+    /// cross-UOM mismatches when the same item appears across manufacture entries in different UOMs.
+    /// Every non-FG row's stock qty must equal: source_stock_qty × (disassemble_qty / source_fg_qty).
     /// Tolerance: 1/(10^precision) for float rounding only.
     /// </summary>
     public void ValidateDisassembleScaleFactor(
@@ -258,15 +260,16 @@ public class StockEntryManager : DomainService
 
             if (sourceItem == null) continue;
 
-            var expectedQty = Math.Round(sourceItem.Quantity * scaleFactor, precision);
-            var diff = Math.Abs(item.Quantity - expectedQty);
+            // Per PR #57710: use StockQty for comparison (avoids cross-UOM confusion)
+            var expectedStockQty = Math.Round(sourceItem.StockQty * scaleFactor, precision);
+            var diff = Math.Abs(item.StockQty - expectedStockQty);
 
             if (diff > tolerance)
             {
                 throw new BusinessException("MyERP:05046")
                     .WithData("itemId", item.ItemId)
-                    .WithData("expectedQty", expectedQty)
-                    .WithData("actualQty", item.Quantity)
+                    .WithData("expectedQty", expectedStockQty)
+                    .WithData("actualQty", item.StockQty)
                     .WithData("scaleFactor", scaleFactor);
             }
         }

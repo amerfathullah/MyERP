@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
@@ -113,5 +114,64 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
                 newHourRate, affectedOps.Count, workstationId);
         }
     }
-}
 
+    public async Task<List<WorkstationUtilizationDto>> GetCapacityUtilizationAsync(Guid? companyId)
+    {
+        var wsQuery = await _repository.GetQueryableAsync();
+        if (companyId.HasValue)
+            wsQuery = wsQuery.Where(w => w.CompanyId == companyId.Value);
+        var workstations = wsQuery.Where(w => w.IsActive).OrderBy(w => w.Name).ToList();
+
+        if (workstations.Count == 0)
+            return new List<WorkstationUtilizationDto>();
+
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        var jcQuery = await jcRepo.GetQueryableAsync();
+        var activeJcs = jcQuery.Where(jc => jc.Status == JobCardStatus.Open || jc.Status == JobCardStatus.WorkInProgress).ToList();
+
+        var wsIds = workstations.Select(w => w.Id).ToHashSet();
+        var relevantJcs = activeJcs.Where(jc => jc.WorkstationId.HasValue && wsIds.Contains(jc.WorkstationId.Value)).ToList();
+
+        var jcsByWorkstation = relevantJcs.GroupBy(jc => jc.WorkstationId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<WorkstationUtilizationDto>();
+        foreach (var ws in workstations)
+        {
+            var dto = new WorkstationUtilizationDto
+            {
+                WorkstationId = ws.Id,
+                WorkstationName = ws.Name,
+                WorkstationType = ws.WorkstationType,
+                ProductionCapacity = ws.ProductionCapacity,
+            };
+
+            if (jcsByWorkstation.TryGetValue(ws.Id, out var wsJobs))
+            {
+                dto.ActiveJobCards = wsJobs.Count;
+                dto.TotalPlannedMinutes = wsJobs.Sum(j => j.PlannedTimeInMins);
+                dto.TotalActualMinutes = wsJobs.Sum(j => j.TotalTimeInMins);
+                dto.UtilizationPercent = ws.ProductionCapacity > 0
+                    ? Math.Min(100, Math.Round((decimal)wsJobs.Count / ws.ProductionCapacity * 100, 0))
+                    : 0;
+                dto.Status = dto.UtilizationPercent >= 100 ? "Full" : "Active";
+                dto.ActiveJobs = wsJobs.Select(jc => new ActiveJobOnWorkstationDto
+                {
+                    JobCardId = jc.Id,
+                    ForQuantity = jc.ForQuantity,
+                    CompletedQty = jc.CompletedQty,
+                    PlannedTimeInMins = jc.PlannedTimeInMins,
+                    ActualTimeInMins = jc.TotalTimeInMins,
+                    Status = (int)jc.Status,
+                }).ToList();
+            }
+            else
+            {
+                dto.Status = "Idle";
+            }
+
+            result.Add(dto);
+        }
+
+        return result;
+    }
+}

@@ -250,6 +250,9 @@ public class StockBalanceDto
     public decimal OrderedQty { get; set; }
     public decimal PlannedQty { get; set; }
     public decimal ReservedQty { get; set; }
+    public decimal ReservedQtyForProduction { get; set; }
+    public decimal ReservedQtyForSubContract { get; set; }
+    public decimal ReservedQtyForProductionPlan { get; set; }
     public decimal IndentedQty { get; set; }
     public decimal ProjectedQty { get; set; }
     public decimal StockValue { get; set; }

@@ -41,6 +41,7 @@ public interface IItemAppService :
     Task<List<ItemWhereUsedDto>> GetWhereUsedAsync(Guid itemId);
     Task<List<ItemVariantDto>> GetVariantsAsync(Guid templateItemId);
     Task<ItemTransactionSummaryDto> GetTransactionSummaryAsync(Guid itemId, Guid? companyId = null);
+    Task<List<ReorderSuggestionDto>> GetReorderSuggestionsAsync(Guid companyId, int lookbackDays = 90);
 }
 
 /// <summary>
@@ -123,4 +124,25 @@ public class ItemVariantDto
     public bool IsActive { get; set; }
     public decimal? StandardSellingPrice { get; set; }
     public decimal? StandardBuyingPrice { get; set; }
+}
+
+/// <summary>
+/// Suggested reorder level calculated from actual consumption patterns.
+/// Per ERPNext Recommended Reorder Level: avg_daily_consumption × lead_time_days.
+/// </summary>
+public class ReorderSuggestionDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "";
+    public string ItemName { get; set; } = "";
+    public decimal CurrentReorderLevel { get; set; }
+    public decimal SuggestedReorderLevel { get; set; }
+    public decimal SuggestedReorderQty { get; set; }
+    public decimal SuggestedSafetyStock { get; set; }
+    public decimal AvgDailyConsumption { get; set; }
+    public decimal CurrentStock { get; set; }
+    public int DaysOfStockRemaining { get; set; }
+    public int LeadTimeDays { get; set; }
+    public bool IsUnderstocked { get; set; }
+    public bool IsOverstocked { get; set; }
 }

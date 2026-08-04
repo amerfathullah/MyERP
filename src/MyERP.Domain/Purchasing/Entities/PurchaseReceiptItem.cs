@@ -56,6 +56,12 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
     public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
 
+    /// <summary>
+    /// Calculated purchase expense GL amount.
+    /// Per PR #57475: deducts landed cost voucher amount to prevent double-counting.
+    /// </summary>
+    public decimal PurchaseExpenseGlAmount => (Quantity * UnitPrice) - LandedCostVoucherAmount;
+
     protected PurchaseReceiptItem() { }
 
     public PurchaseReceiptItem(

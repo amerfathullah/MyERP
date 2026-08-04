@@ -141,12 +141,6 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        // Validate company restriction — items/supplier must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "PurchaseReceipt", input.CompanyId,
-            itemIds: itemIds,
-            supplierIds: new[] { input.SupplierId });
 
         var receiptNumber = await _numberGenerator.GenerateAsync("PurchaseReceipt", input.CompanyId);
 

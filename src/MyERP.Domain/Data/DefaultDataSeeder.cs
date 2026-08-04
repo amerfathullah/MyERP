@@ -450,16 +450,16 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
                 "DeliveryNote", false, AccountSource.FixedAccount, AmountSource.StockCostTotal)
             { SortOrder = 2, Description = "Credit Stock In Hand (perpetual inventory)" }, autoSave: true);
 
-            // Purchase Receipt: DR Stock In Hand (NetTotal)
+            // Purchase Receipt: DR Stock In Hand (NetTotal - actually wait, PR uses NetTotal for stock? No, we should use NetTotal since we want to balance against SRBNB which we change to PurchaseExpenseTotal? Wait, SRBNB is Credit PurchaseExpenseTotal. So Debit Stock should also be PurchaseExpenseTotal to balance!)
             await _accountingRuleRepository.InsertAsync(new AccountingRule(
                 _guidGenerator.Create(), company.Id, "PR - Debit Stock",
-                "PurchaseReceipt", true, AccountSource.FixedAccount, AmountSource.NetTotal)
+                "PurchaseReceipt", true, AccountSource.FixedAccount, AmountSource.PurchaseExpenseTotal)
             { SortOrder = 1, Description = "Debit Stock In Hand" }, autoSave: true);
 
-            // Purchase Receipt: CR Stock Received But Not Billed (NetTotal)
+            // Purchase Receipt: CR Stock Received But Not Billed (PurchaseExpenseTotal)
             await _accountingRuleRepository.InsertAsync(new AccountingRule(
                 _guidGenerator.Create(), company.Id, "PR - Credit SRBNB",
-                "PurchaseReceipt", false, AccountSource.FixedAccount, AmountSource.NetTotal)
+                "PurchaseReceipt", false, AccountSource.FixedAccount, AmountSource.PurchaseExpenseTotal)
             { SortOrder = 2, Description = "Credit Stock Received But Not Billed" }, autoSave: true);
         }
     }

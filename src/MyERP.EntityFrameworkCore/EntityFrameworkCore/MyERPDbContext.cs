@@ -347,6 +347,8 @@ public class MyERPDbContext :
     public DbSet<QualityProcedureStep> QualityProcedureSteps { get; set; }
     public DbSet<QualityGoal> QualityGoals { get; set; }
     public DbSet<QualityReview> QualityReviews { get; set; }
+    public DbSet<QualityAction> QualityActions { get; set; }
+    public DbSet<MyERP.Settings.Entities.PrintFormat> PrintFormats { get; set; }
 
     // Sales (logistics)
     public DbSet<Shipment> Shipments { get; set; }
@@ -3520,6 +3522,14 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.QualityGoalId, x.ReviewDate });
         });
 
+        builder.Entity<QualityAction>(b =>
+        {
+            b.ToTable(MyERPConsts.DbTablePrefix + "QualityActions", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ProblemDescription).IsRequired().HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
         // ═══════════════════════════════════════════════════
         // CRM — Prospect
         // ═══════════════════════════════════════════════════
@@ -3615,6 +3625,18 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.DeliveryNoteNumber).HasMaxLength(128);
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
+        });
+        // ═══════════════════════════════════════════════════
+        // Settings (Cross-Cutting) — Phase 6 additions
+        // ═══════════════════════════════════════════════════
+        builder.Entity<MyERP.Settings.Entities.PrintFormat>(b =>
+        {
+            b.ToTable("Set_PrintFormats", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.DocumentType).IsRequired().HasMaxLength(100);
+            b.Property(x => x.HtmlTemplate).IsRequired(); // No max length (max allowed by DB)
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DocumentType, x.IsDefault });
         });
     }
 }

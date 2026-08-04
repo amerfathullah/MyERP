@@ -1,4 +1,4 @@
-import type { CreateItemVariantDto, CreateUpdateItemDto, GetItemListDto, ItemDto, ItemPriceHistoryDto, ItemStockMovementDto, ItemTransactionSummaryDto, ItemVariantDto, ItemWhereUsedDto } from './models';
+import type { CreateItemVariantDto, CreateUpdateItemDto, GetItemListDto, ItemDto, ItemPriceHistoryDto, ItemStockMovementDto, ItemTransactionSummaryDto, ItemVariantDto, ItemWhereUsedDto, ReorderSuggestionDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -67,6 +67,15 @@ export class ItemService {
       method: 'GET',
       url: `/api/app/item/recent-movements/${itemId}`,
       params: { maxCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getReorderSuggestions = (companyId: string, lookbackDays: number = 90, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ReorderSuggestionDto[]>({
+      method: 'GET',
+      url: `/api/app/item/reorder-suggestions/${companyId}`,
+      params: { lookbackDays },
     },
     { apiName: this.apiName,...config });
   

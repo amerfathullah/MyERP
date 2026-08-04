@@ -53,5 +53,11 @@ public enum AmountSource
     /// Used for COGS GL entries on Delivery Notes (stock cost, NOT selling price).
     /// Per ERPNext: DN GL uses stock_value_difference from SLEs, not invoice amounts.
     /// </summary>
-    StockCostTotal = 4
+    StockCostTotal = 4,
+
+    /// <summary>
+    /// Total purchase expense after deducting landed cost voucher amounts.
+    /// Per ERPNext PR #57475: prevents double counting.
+    /// </summary>
+    PurchaseExpenseTotal = 5
 }

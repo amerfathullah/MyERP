@@ -61,3 +61,9 @@ public class BatchSubmitItemResult
     public string? LhdnUuid { get; set; }
     public string? Status { get; set; }
 }
+
+public class ConsolidateInvoicesDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public List<Guid> InvoiceIds { get; set; } = new();
+}

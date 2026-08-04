@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -131,6 +132,99 @@ public class BatchAppService : ApplicationService
     /// Stock ledger entries for a specific batch (movement history).
     /// ERPNext equivalent: Stock Ledger filtered by batch_no showing all movements.
     /// </summary>
+    /// <summary>
+    /// Traces which customers received a specific batch via delivery notes/sales invoices.
+    /// Critical for product recalls and food safety compliance (Malaysia HACCP/GMP).
+    /// Per ERPNext serial_batch_traceability report: traces batch → DN → Customer.
+    /// </summary>
+    public async Task<BatchTraceabilityDto> GetTraceabilityAsync(Guid batchId)
+    {
+        var batch = await _repository.GetAsync(batchId);
+
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+
+        // Find all outward movements for this batch (deliveries to customers)
+        var outwardEntries = sleQuery
+            .Where(s => s.BatchId == batchId && !s.IsCancelled && s.QuantityChange < 0)
+            .OrderByDescending(s => s.PostingDateTime)
+            .ToList();
+
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+
+        // Resolve delivery notes and customers
+        var dnIds = outwardEntries
+            .Where(e => e.VoucherType == "DeliveryNote" && e.VoucherId.HasValue)
+            .Select(e => e.VoucherId!.Value)
+            .Distinct().ToList();
+        var dns = dnIds.Count > 0
+            ? (await dnRepo.GetQueryableAsync())
+                .Where(d => dnIds.Contains(d.Id))
+                .Select(d => new { d.Id, d.CustomerId, d.DeliveryNumber, d.PostingDate })
+                .ToList()
+            : new();
+
+        var customerIds = dns.Select(d => d.CustomerId).Distinct().ToList();
+        var customerNames = customerIds.Count > 0
+            ? (await customerRepo.GetQueryableAsync())
+                .Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.Name })
+                .ToList()
+                .ToDictionary(c => c.Id, c => c.Name)
+            : new Dictionary<Guid, string>();
+
+        var dnMap = dns.ToDictionary(d => d.Id);
+
+        var deliveries = outwardEntries
+            .Where(e => e.VoucherType == "DeliveryNote" && e.VoucherId.HasValue && dnMap.ContainsKey(e.VoucherId!.Value))
+            .Select(e =>
+            {
+                var dn = dnMap[e.VoucherId!.Value];
+                return new BatchDeliveryTraceDto
+                {
+                    DeliveryNoteId = dn.Id,
+                    DeliveryNumber = dn.DeliveryNumber,
+                    DeliveryDate = dn.PostingDate,
+                    CustomerId = dn.CustomerId,
+                    CustomerName = customerNames.GetValueOrDefault(dn.CustomerId, "Unknown"),
+                    QuantityDelivered = Math.Abs(e.QuantityChange),
+                    WarehouseId = e.WarehouseId,
+                };
+            })
+            .ToList();
+
+        // Group by customer for summary
+        var customerSummary = deliveries
+            .GroupBy(d => d.CustomerId)
+            .Select(g => new BatchCustomerSummaryDto
+            {
+                CustomerId = g.Key,
+                CustomerName = g.First().CustomerName,
+                TotalQuantity = g.Sum(d => d.QuantityDelivered),
+                DeliveryCount = g.Count(),
+                FirstDeliveryDate = g.Min(d => d.DeliveryDate),
+                LastDeliveryDate = g.Max(d => d.DeliveryDate),
+            })
+            .OrderByDescending(c => c.TotalQuantity)
+            .ToList();
+
+        return new BatchTraceabilityDto
+        {
+            BatchId = batchId,
+            BatchNo = batch.BatchNo,
+            ItemId = batch.ItemId,
+            ManufacturingDate = batch.ManufacturingDate,
+            ExpiryDate = batch.ExpiryDate,
+            TotalProduced = outwardEntries.Count > 0
+                ? sleQuery.Where(s => s.BatchId == batchId && !s.IsCancelled && s.QuantityChange > 0).Sum(s => s.QuantityChange)
+                : 0,
+            TotalDelivered = deliveries.Sum(d => d.QuantityDelivered),
+            CustomerCount = customerSummary.Count,
+            Deliveries = deliveries,
+            CustomerSummary = customerSummary,
+        };
+    }
+
     public async Task<BatchMovementHistoryDto> GetMovementHistoryAsync(Guid batchId, int maxEntries = 50)
     {
         var batch = await _repository.GetAsync(batchId);
@@ -240,4 +334,39 @@ public class BatchMovementEntryDto
     public string? VoucherType { get; set; }
     public Guid? VoucherId { get; set; }
     public bool IsInward { get; set; }
+}
+
+public class BatchTraceabilityDto
+{
+    public Guid BatchId { get; set; }
+    public string BatchNo { get; set; } = null!;
+    public Guid ItemId { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public decimal TotalProduced { get; set; }
+    public decimal TotalDelivered { get; set; }
+    public int CustomerCount { get; set; }
+    public List<BatchDeliveryTraceDto> Deliveries { get; set; } = new();
+    public List<BatchCustomerSummaryDto> CustomerSummary { get; set; } = new();
+}
+
+public class BatchDeliveryTraceDto
+{
+    public Guid DeliveryNoteId { get; set; }
+    public string? DeliveryNumber { get; set; }
+    public DateTime DeliveryDate { get; set; }
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = null!;
+    public decimal QuantityDelivered { get; set; }
+    public Guid WarehouseId { get; set; }
+}
+
+public class BatchCustomerSummaryDto
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = null!;
+    public decimal TotalQuantity { get; set; }
+    public int DeliveryCount { get; set; }
+    public DateTime FirstDeliveryDate { get; set; }
+    public DateTime LastDeliveryDate { get; set; }
 }

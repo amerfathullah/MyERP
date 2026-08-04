@@ -25,6 +25,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     private readonly InvoiceDocumentBuilder _documentBuilder;
     private readonly InvoiceDocumentSigner _documentSigner;
     private readonly EInvoiceValidationService _validationService;
+    private readonly EInvoiceConsolidationService _consolidationService;
     private readonly IRepository<EInvoiceSubmission, Guid> _submissionRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
@@ -38,6 +39,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         InvoiceDocumentBuilder documentBuilder,
         InvoiceDocumentSigner documentSigner,
         EInvoiceValidationService validationService,
+        EInvoiceConsolidationService consolidationService,
         IRepository<EInvoiceSubmission, Guid> submissionRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
@@ -50,6 +52,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         _documentBuilder = documentBuilder;
         _documentSigner = documentSigner;
         _validationService = validationService;
+        _consolidationService = consolidationService;
         _submissionRepository = submissionRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
@@ -62,6 +65,14 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     [Authorize(MyERPPermissions.EInvoice.Submit)]
     public async Task<EInvoiceSubmissionDto> SubmitAsync(SubmitEInvoiceDto input)
     {
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+        if (!company.EnableLhdnInvoice)
+        {
+            // Per MyInvois PR d9adf36: Gracefully bypass LHDN submission if disabled.
+            // Return an empty/dummy DTO to prevent blocking ERP transactions.
+            return new EInvoiceSubmissionDto { Status = "NotSubmitted" };
+        }
+
         // Step 1: Pre-submission validation
         if (input.SourceDocumentType == "SalesInvoice")
         {
@@ -491,4 +502,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
 
+    [Authorize(MyERPPermissions.EInvoice.Submit)]
+    public async Task<List<Guid>> ConsolidateInvoicesAsync(ConsolidateInvoicesDto input)
+    {
+        return await _consolidationService.ConsolidateInvoicesAsync(input.InvoiceIds, input.CompanyId, CurrentTenant.Id);
+    }
 }

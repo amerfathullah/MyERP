@@ -83,6 +83,13 @@ export interface CreateLoanDto {
   gracePeriodMonths?: number;
 }
 
+export interface CreatePayrollBankEntryDto {
+  payrollEntryId: string;
+  bankAccountId: string;
+  referenceNumber?: string | null;
+  paymentDate?: string | null;
+}
+
 export interface CreatePayrollEntryDto {
   companyId: string;
   year: number;
@@ -205,6 +212,8 @@ export interface GetLeaveListDto extends PagedAndSortedResultRequestDto {
 
 export interface GetPayrollListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
+  filter?: string | null;
+  status?: string | null;
 }
 
 export interface HolidayDto {
@@ -301,6 +310,21 @@ export interface LoanRepaymentScheduleDto {
   isPaid?: boolean;
 }
 
+export interface PayrollBankEntryResultDto {
+  journalEntryId?: string;
+  journalEntryNumber?: string;
+  totalAmount?: number;
+  employeeCount?: number;
+}
+
+export interface PayrollEmployeePreviewDto {
+  employeeId?: string;
+  employeeName?: string;
+  department?: string | null;
+  designation?: string | null;
+  basicSalary?: number;
+}
+
 export interface PayrollEntryDto extends EntityDto<string> {
   companyId?: string;
   payrollNumber?: string;
@@ -330,6 +354,12 @@ export interface PayrollEntryLineDto {
   pcb?: number;
   totalDeductions?: number;
   netSalary?: number;
+}
+
+export interface PayrollPreviewDto {
+  employeeCount?: number;
+  estimatedGrossTotal?: number;
+  employees?: PayrollEmployeePreviewDto[];
 }
 
 export interface RecordRepaymentDto {

@@ -396,12 +396,6 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(piItemIds);
 
-        // Validate company restriction — items/supplier must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "PurchaseInvoice", input.CompanyId,
-            itemIds: piItemIds,
-            supplierIds: new[] { input.SupplierId });
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", input.CompanyId);
 

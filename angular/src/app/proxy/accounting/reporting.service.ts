@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, ProfitLossReportDto, ProfitLossRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, ProfitLossReportDto, ProfitLossRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -15,6 +15,15 @@ export class ReportingService {
       method: 'GET',
       url: '/api/app/reporting/balance-sheet',
       params: { companyId: input.companyId, asOfDate: input.asOfDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getMonthlyProfitLoss = (input: MonthlyProfitLossRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MonthlyProfitLossReportDto>({
+      method: 'GET',
+      url: '/api/app/reporting/monthly-profit-loss',
+      params: { companyId: input.companyId, year: input.year, startMonth: input.startMonth },
     },
     { apiName: this.apiName,...config });
   

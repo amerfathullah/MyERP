@@ -473,5 +473,85 @@ public class ItemAppService :
 
         return result;
     }
+
+    /// <summary>
+    /// Calculates suggested reorder levels for items based on actual consumption patterns.
+    /// Per ERPNext Recommended Reorder Level report: avg_daily_consumption × lead_time_days.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<List<ReorderSuggestionDto>> GetReorderSuggestionsAsync(Guid companyId, int lookbackDays = 90)
+    {
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+
+        var cutoffDate = DateTime.UtcNow.Date.AddDays(-lookbackDays);
+        var sleQuery = await sleRepo.GetQueryableAsync();
+
+        // Get all outgoing stock movements (consumption) in the lookback period
+        var outgoingSles = sleQuery
+            .Where(s => s.PostingDateTime >= cutoffDate && !s.IsCancelled && s.QuantityChange < 0)
+            .ToList();
+
+        if (outgoingSles.Count == 0)
+            return new List<ReorderSuggestionDto>();
+
+        // Group consumption by item
+        var consumptionByItem = outgoingSles
+            .GroupBy(s => s.ItemId)
+            .Select(g => new { ItemId = g.Key, TotalConsumed = Math.Abs(g.Sum(s => s.QuantityChange)) })
+            .ToList();
+
+        var itemIds = consumptionByItem.Select(c => c.ItemId).ToList();
+
+        // Batch-load items and bins
+        var itemQuery = await Repository.GetQueryableAsync();
+        var items = itemQuery.Where(i => itemIds.Contains(i.Id) && i.IsActive && i.MaintainStock).ToList();
+        var itemMap = items.ToDictionary(i => i.Id);
+
+        var binQuery = await binRepo.GetQueryableAsync();
+        var bins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
+        var stockByItem = bins.GroupBy(b => b.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(b => b.ActualQty));
+
+        var suggestions = new List<ReorderSuggestionDto>();
+        foreach (var consumption in consumptionByItem)
+        {
+            if (!itemMap.TryGetValue(consumption.ItemId, out var item))
+                continue;
+
+            var avgDailyConsumption = consumption.TotalConsumed / lookbackDays;
+            var leadTimeDays = item.LeadTimeDays > 0 ? item.LeadTimeDays : 7; // default 7 days
+            var suggestedReorderLevel = Math.Ceiling(avgDailyConsumption * leadTimeDays);
+            var safetyStock = Math.Ceiling(avgDailyConsumption * 3); // 3-day safety buffer
+            var suggestedReorderQty = Math.Ceiling(avgDailyConsumption * 30); // 30-day economic order qty
+
+            stockByItem.TryGetValue(consumption.ItemId, out var currentStock);
+            var daysOfStockRemaining = avgDailyConsumption > 0
+                ? (int)(currentStock / avgDailyConsumption)
+                : 999;
+
+            suggestions.Add(new ReorderSuggestionDto
+            {
+                ItemId = item.Id,
+                ItemCode = item.ItemCode,
+                ItemName = item.ItemName,
+                CurrentReorderLevel = item.ReorderLevel,
+                SuggestedReorderLevel = suggestedReorderLevel,
+                SuggestedReorderQty = suggestedReorderQty,
+                SuggestedSafetyStock = safetyStock,
+                AvgDailyConsumption = Math.Round(avgDailyConsumption, 2),
+                CurrentStock = currentStock,
+                DaysOfStockRemaining = daysOfStockRemaining,
+                LeadTimeDays = leadTimeDays,
+                IsUnderstocked = item.ReorderLevel > 0 && suggestedReorderLevel > item.ReorderLevel * 1.2m,
+                IsOverstocked = daysOfStockRemaining > 90,
+            });
+        }
+
+        return suggestions
+            .OrderByDescending(s => s.IsUnderstocked)
+            .ThenBy(s => s.DaysOfStockRemaining)
+            .ToList();
+    }
 }
 

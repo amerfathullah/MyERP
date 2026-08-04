@@ -114,10 +114,44 @@ public class BalanceSheetReportDto
     public decimal TotalEquity { get; set; }
 }
 
+// --- Monthly P&L Columnar Report (12-month side-by-side) ---
+public class MonthlyProfitLossRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public int Year { get; set; }
+    public int StartMonth { get; set; } = 1;
+}
+
+public class MonthlyProfitLossRowDto
+{
+    public Guid AccountId { get; set; }
+    public string AccountCode { get; set; } = null!;
+    public string AccountName { get; set; } = null!;
+    public string AccountType { get; set; } = null!;
+    public decimal[] MonthlyAmounts { get; set; } = new decimal[12];
+    public decimal AnnualTotal { get; set; }
+}
+
+public class MonthlyProfitLossReportDto
+{
+    public int Year { get; set; }
+    public Guid CompanyId { get; set; }
+    public string[] MonthLabels { get; set; } = new string[12];
+    public List<MonthlyProfitLossRowDto> RevenueRows { get; set; } = new();
+    public List<MonthlyProfitLossRowDto> ExpenseRows { get; set; } = new();
+    public decimal[] MonthlyRevenue { get; set; } = new decimal[12];
+    public decimal[] MonthlyExpense { get; set; } = new decimal[12];
+    public decimal[] MonthlyNetProfit { get; set; } = new decimal[12];
+    public decimal AnnualRevenue { get; set; }
+    public decimal AnnualExpense { get; set; }
+    public decimal AnnualNetProfit { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
     Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input);
     Task<ProfitLossReportDto> GetProfitLossAsync(ProfitLossRequestDto input);
     Task<BalanceSheetReportDto> GetBalanceSheetAsync(BalanceSheetRequestDto input);
+    Task<MonthlyProfitLossReportDto> GetMonthlyProfitLossAsync(MonthlyProfitLossRequestDto input);
 }

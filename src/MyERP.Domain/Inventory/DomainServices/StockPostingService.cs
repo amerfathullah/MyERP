@@ -128,59 +128,39 @@ public class StockPostingService : DomainService
 
     /// <summary>
     /// Reverse a stock posting (for cancellation).
-    /// Creates opposite SLE entries and reverses Bin updates.
+    /// Marks existing SLEs as cancelled and reverses Bin updates, then triggers revaluation.
     /// </summary>
     public async Task ReverseStockEntryAsync(StockEntry stockEntry)
     {
         await ValidateStockFrozenDateAsync(stockEntry.CompanyId, stockEntry.PostingDate);
 
-        foreach (var item in stockEntry.Items)
+        var existingSles = await _sleRepository.GetListAsync(
+            e => e.VoucherType == "StockEntry" && e.VoucherId == stockEntry.Id);
+
+        if (!existingSles.Any()) return;
+
+        foreach (var sle in existingSles)
         {
-            // Reverse source warehouse: add back stock
-            if (item.SourceWarehouseId.HasValue)
-            {
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.SourceWarehouseId.Value);
-                var rate = item.ValuationRate ?? 0;
-                var valueChange = item.Quantity * rate;
+            sle.IsCancelled = true;
+            
+            // Reverse bin stock
+            await _binService.ApplyStockMovementAsync(
+                sle.ItemId, sle.WarehouseId,
+                -sle.QuantityChange, -sle.StockValueDifference, stockEntry.TenantId);
+        }
 
-                var sle = new StockLedgerEntry(
-                    GuidGenerator.Create(), stockEntry.CompanyId,
-                    item.ItemId, item.SourceWarehouseId.Value,
-                    stockEntry.PostingDate, item.Quantity,
-                    rate,
-                    balance.Quantity + item.Quantity,
-                    balance.Value + valueChange,
-                    stockEntry.TenantId)
-                { VoucherType = "StockEntry", VoucherId = stockEntry.Id };
+        await _sleRepository.UpdateManyAsync(existingSles);
 
-                await _sleRepository.InsertAsync(sle);
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, item.SourceWarehouseId.Value,
-                    item.Quantity, valueChange, stockEntry.TenantId);
-            }
+        // Revaluate from the posting date for all affected item/warehouse combos
+        var itemWarehouses = existingSles
+            .Select(e => new { e.ItemId, e.WarehouseId })
+            .Distinct()
+            .ToList();
 
-            // Reverse target warehouse: remove stock
-            if (item.TargetWarehouseId.HasValue)
-            {
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.TargetWarehouseId.Value);
-                var rate = item.ValuationRate ?? 0;
-                var valueChange = -(item.Quantity * rate);
-
-                var sle = new StockLedgerEntry(
-                    GuidGenerator.Create(), stockEntry.CompanyId,
-                    item.ItemId, item.TargetWarehouseId.Value,
-                    stockEntry.PostingDate, -item.Quantity,
-                    rate,
-                    balance.Quantity - item.Quantity,
-                    balance.Value + valueChange,
-                    stockEntry.TenantId)
-                { VoucherType = "StockEntry", VoucherId = stockEntry.Id };
-
-                await _sleRepository.InsertAsync(sle);
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, item.TargetWarehouseId.Value,
-                    -item.Quantity, valueChange, stockEntry.TenantId);
-            }
+        foreach (var combo in itemWarehouses)
+        {
+            await _valuationService.RevaluateFromDateAsync(
+                combo.ItemId, combo.WarehouseId, stockEntry.PostingDate);
         }
     }
 

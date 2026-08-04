@@ -1153,3 +1153,33 @@ public partial class SubcontractingInwardOrderMapper : MapperBase<Purchasing.Ent
     public override partial void Map(Purchasing.Entities.SubcontractingInwardOrder source, Purchasing.SubcontractingInwardOrderDto destination);
     private partial Purchasing.SubcontractingInwardOrderItemDto MapChild(Purchasing.Entities.SubcontractingInwardOrderItem source);
 }
+// ---------------------------------------------------
+// Phase 7 Quality Management & Settings Additions
+// ---------------------------------------------------
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class QualityGoalMapper : MapperBase<Inventory.Entities.QualityGoal, Inventory.QualityGoalDto>
+{
+    public override partial Inventory.QualityGoalDto Map(Inventory.Entities.QualityGoal source);
+    public override partial void Map(Inventory.Entities.QualityGoal source, Inventory.QualityGoalDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class QualityActionMapper : MapperBase<Inventory.Entities.QualityAction, Inventory.QualityActionDto>
+{
+    public override partial Inventory.QualityActionDto Map(Inventory.Entities.QualityAction source);
+    public override partial void Map(Inventory.Entities.QualityAction source, Inventory.QualityActionDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class QualityReviewMapper : MapperBase<Inventory.Entities.QualityReview, Inventory.QualityReviewDto>
+{
+    public override partial Inventory.QualityReviewDto Map(Inventory.Entities.QualityReview source);
+    public override partial void Map(Inventory.Entities.QualityReview source, Inventory.QualityReviewDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PrintFormatMapper : MapperBase<Settings.Entities.PrintFormat, Settings.PrintFormatDto>
+{
+    public override partial Settings.PrintFormatDto Map(Settings.Entities.PrintFormat source);
+    public override partial void Map(Settings.Entities.PrintFormat source, Settings.PrintFormatDto destination);
+}

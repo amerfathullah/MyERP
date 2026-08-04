@@ -24,6 +24,9 @@ public class MaintenanceSchedule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Customer whose asset is being maintained (for warranty/AMC).</summary>
     public Guid? CustomerId { get; set; }
 
+    /// <summary>Linked Sales Order that triggered this maintenance contract.</summary>
+    public Guid? SalesOrderId { get; set; }
+
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 

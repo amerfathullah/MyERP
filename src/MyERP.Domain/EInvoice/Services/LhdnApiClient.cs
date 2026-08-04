@@ -158,7 +158,7 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
         if (!response.IsSuccessStatusCode)
         {
-            return new LhdnTaxpayerSearchResponse { IsFound = false, RawJson = rawJson };
+            return new LhdnTaxpayerSearchResponse { IsFound = false, StatusCode = (int)response.StatusCode, RawJson = rawJson };
         }
 
         using var doc = JsonDocument.Parse(rawJson);
@@ -167,6 +167,7 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         return new LhdnTaxpayerSearchResponse
         {
             IsFound = true,
+            StatusCode = (int)response.StatusCode,
             Tin = root.TryGetProperty("tin", out var tin) ? tin.GetString() : null,
             TaxpayerName = root.TryGetProperty("name", out var name) ? name.GetString() : null,
             RawJson = rawJson

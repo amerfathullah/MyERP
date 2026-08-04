@@ -1,0 +1,147 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0"><i class="fa fa-table-columns me-2"></i>{{ 'MonthlyProfitLoss' | abpLocalization }}</h5>
+    @if (report()) {
+      <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
+        <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+      </button>
+    }
+  </div>
+  <div class="card-body">
+    <!-- Filters -->
+    <div class="row g-2 mb-3 align-items-end">
+      <div class="col-auto">
+        <label class="form-label">{{ '::Year' | abpLocalization }}</label>
+        <input type="number" class="form-control form-control-sm" [(ngModel)]="selectedYear" min="2020" max="2030" style="width: 100px">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-primary btn-sm" (click)="generate()" [disabled]="isLoading()">
+          @if (isLoading()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ '::Generate' | abpLocalization }}
+        </button>
+      </div>
+    </div>
+
+    @if (report(); as r) {
+      <!-- KPI Summary Row -->
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+          <div class="card border-success">
+            <div class="card-body text-center py-2">
+              <small class="text-muted">{{ '::TotalRevenue' | abpLocalization }}</small>
+              <div class="fs-5 fw-bold text-success">{{ "" | companyCurrency }} {{ r.annualRevenue | number:'1.0-0' }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card border-danger">
+            <div class="card-body text-center py-2">
+              <small class="text-muted">{{ '::TotalExpense' | abpLocalization }}</small>
+              <div class="fs-5 fw-bold text-danger">{{ "" | companyCurrency }} {{ r.annualExpense | number:'1.0-0' }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card" [class.border-success]="(r.annualNetProfit ?? 0) >= 0" [class.border-warning]="(r.annualNetProfit ?? 0) < 0">
+            <div class="card-body text-center py-2">
+              <small class="text-muted">{{ '::NetProfitLoss' | abpLocalization }}</small>
+              <div class="fs-5 fw-bold" [class]="getNetProfitClass(r.annualNetProfit ?? 0)">
+                {{ "" | companyCurrency }} {{ r.annualNetProfit | number:'1.0-0' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Columnar Table -->
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="sticky-col">{{ '::Account' | abpLocalization }}</th>
+              @for (label of r.monthLabels; track label) {
+                <th class="text-end text-nowrap" style="min-width: 90px">{{ label }}</th>
+              }
+              <th class="text-end fw-bold bg-light">{{ '::Total' | abpLocalization }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Revenue Section -->
+            <tr class="table-success">
+              <td colspan="{{ (r.monthLabels?.length ?? 0) + 2 }}" class="fw-bold">
+                <i class="fa fa-arrow-up me-1"></i>{{ '::Revenue' | abpLocalization }}
+              </td>
+            </tr>
+            @for (row of r.revenueRows; track row.accountId) {
+              <tr>
+                <td class="sticky-col">
+                  <small class="text-muted">{{ row.accountCode }}</small> {{ row.accountName }}
+                </td>
+                @for (amt of row.monthlyAmounts; track $index) {
+                  <td class="text-end font-monospace" [class.text-muted]="amt === 0">
+                    {{ amt | number:'1.0-0' }}
+                  </td>
+                }
+                <td class="text-end fw-bold bg-light font-monospace">{{ row.annualTotal | number:'1.0-0' }}</td>
+              </tr>
+            }
+            <!-- Revenue Total -->
+            <tr class="table-success fw-bold">
+              <td>{{ '::TotalRevenue' | abpLocalization }}</td>
+              @for (amt of r.monthlyRevenue; track $index) {
+                <td class="text-end font-monospace">{{ amt | number:'1.0-0' }}</td>
+              }
+              <td class="text-end font-monospace bg-light">{{ r.annualRevenue | number:'1.0-0' }}</td>
+            </tr>
+
+            <!-- Expense Section -->
+            <tr class="table-danger">
+              <td colspan="{{ (r.monthLabels?.length ?? 0) + 2 }}" class="fw-bold">
+                <i class="fa fa-arrow-down me-1"></i>{{ '::Expenses' | abpLocalization }}
+              </td>
+            </tr>
+            @for (row of r.expenseRows; track row.accountId) {
+              <tr>
+                <td class="sticky-col">
+                  <small class="text-muted">{{ row.accountCode }}</small> {{ row.accountName }}
+                </td>
+                @for (amt of row.monthlyAmounts; track $index) {
+                  <td class="text-end font-monospace" [class.text-muted]="amt === 0">
+                    {{ amt | number:'1.0-0' }}
+                  </td>
+                }
+                <td class="text-end fw-bold bg-light font-monospace">{{ row.annualTotal | number:'1.0-0' }}</td>
+              </tr>
+            }
+            <!-- Expense Total -->
+            <tr class="table-danger fw-bold">
+              <td>{{ '::TotalExpense' | abpLocalization }}</td>
+              @for (amt of r.monthlyExpense; track $index) {
+                <td class="text-end font-monospace">{{ amt | number:'1.0-0' }}</td>
+              }
+              <td class="text-end font-monospace bg-light">{{ r.annualExpense | number:'1.0-0' }}</td>
+            </tr>
+
+            <!-- Net Profit Row -->
+            <tr class="table-primary fw-bold fs-6">
+              <td>{{ '::NetProfitLoss' | abpLocalization }}</td>
+              @for (amt of r.monthlyNetProfit; track $index) {
+                <td class="text-end font-monospace" [class]="getNetProfitClass(amt ?? 0)">
+                  {{ amt | number:'1.0-0' }}
+                </td>
+              }
+              <td class="text-end font-monospace bg-light" [class]="getNetProfitClass(r.annualNetProfit ?? 0)">
+                {{ r.annualNetProfit | number:'1.0-0' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    } @else if (!isLoading()) {
+      <div class="text-center text-muted py-5">
+        <i class="fa fa-chart-bar fa-3x mb-3 opacity-25"></i>
+        <p>{{ '::ClickGenerateToViewReport' | abpLocalization }}</p>
+      </div>
+    }
+  </div>
+</div>

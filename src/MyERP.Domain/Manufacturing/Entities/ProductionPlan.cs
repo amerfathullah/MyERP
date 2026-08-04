@@ -64,6 +64,7 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (PlannedItems.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanHasNoItems);
         Status = ProductionPlanStatus.Submitted;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanSubmittedEvent(Id, TenantId));
     }
 
     public void MarkInProgress()
@@ -85,6 +86,7 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status is ProductionPlanStatus.Cancelled or ProductionPlanStatus.Completed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Cancelled;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanCancelledEvent(Id, TenantId));
     }
 
     public void AddPlannedItem(ProductionPlanItem item)

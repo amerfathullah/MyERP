@@ -48,6 +48,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Per MyInvois PR d9adf36: Enable or disable LHDN submission for this company.</summary>
+    public bool EnableLhdnInvoice { get; set; } = false;
     /// <summary>Stock transactions before this date are frozen (blocked for non-admin users).</summary>
     public DateTime? StockFrozenUpto { get; set; }
 

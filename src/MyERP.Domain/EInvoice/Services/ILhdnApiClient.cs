@@ -56,6 +56,7 @@ public class LhdnCancelResponse
 public class LhdnTaxpayerSearchResponse
 {
     public bool IsFound { get; set; }
+    public int StatusCode { get; set; }
     public string? Tin { get; set; }
     public string? TaxpayerName { get; set; }
     public string? RawJson { get; set; }

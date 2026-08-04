@@ -283,32 +283,6 @@ export interface BatchPaymentResultDto {
   createdPaymentEntryIds?: string[];
 }
 
-export interface ValidatePayableInvoicesDto {
-  invoiceIds: string[];
-}
-
-export interface PayableInvoicePartitionDto {
-  payable?: PayableInvoiceInfoDto[];
-  excluded?: ExcludedInvoiceDto[];
-  totalPayable?: number;
-  paymentEntryCount?: number;
-}
-
-export interface PayableInvoiceInfoDto {
-  invoiceId?: string;
-  invoiceNumber?: string;
-  supplierId?: string;
-  partyAccountId?: string;
-  outstanding?: number;
-  currencyCode?: string;
-}
-
-export interface ExcludedInvoiceDto {
-  invoiceId?: string;
-  invoiceNumber?: string;
-  reason?: string;
-}
-
 export interface BudgetVarianceReportDto {
   companyId?: string;
   fiscalYearId?: string;
@@ -778,6 +752,12 @@ export interface ExchangeRateRevaluationDto extends EntityDto<string> {
   entryCount?: number;
 }
 
+export interface ExcludedInvoiceDto {
+  invoiceId?: string;
+  invoiceNumber?: string | null;
+  reason?: string;
+}
+
 export interface ExecuteReportDto {
   templateId?: string;
   companyId?: string;
@@ -1068,6 +1048,35 @@ export interface MonthEndReadinessDto {
   checks?: MonthEndCheckDto[];
 }
 
+export interface MonthlyProfitLossReportDto {
+  year?: number;
+  companyId?: string;
+  monthLabels?: string[];
+  revenueRows?: MonthlyProfitLossRowDto[];
+  expenseRows?: MonthlyProfitLossRowDto[];
+  monthlyRevenue?: number[];
+  monthlyExpense?: number[];
+  monthlyNetProfit?: number[];
+  annualRevenue?: number;
+  annualExpense?: number;
+  annualNetProfit?: number;
+}
+
+export interface MonthlyProfitLossRequestDto {
+  companyId: string;
+  year: number;
+  startMonth?: number;
+}
+
+export interface MonthlyProfitLossRowDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: string;
+  monthlyAmounts?: number[];
+  annualTotal?: number;
+}
+
 export interface Mt940ImportInput {
   companyId?: string;
   bankAccountId?: string;
@@ -1162,6 +1171,22 @@ export interface PartyOutstandingDto {
   orders?: OutstandingOrderForPaymentDto[];
   totalInvoiceOutstanding?: number;
   totalOrderPending?: number;
+}
+
+export interface PayableInvoiceInfoDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  supplierId?: string;
+  partyAccountId?: string;
+  outstanding?: number;
+  currencyCode?: string;
+}
+
+export interface PayableInvoicePartitionDto {
+  payable?: PayableInvoiceInfoDto[];
+  excluded?: ExcludedInvoiceDto[];
+  totalPayable?: number;
+  paymentEntryCount?: number;
 }
 
 export interface PaymentEntryDto extends EntityDto<string> {
@@ -1381,7 +1406,6 @@ export interface TrialBalanceRequestDto {
   companyId: string;
   asOfDate: string;
   fiscalYearId?: string | null;
-  includeSubsidiaries?: boolean;
 }
 
 export interface TrialBalanceRowDto {
@@ -1442,6 +1466,10 @@ export interface UpdateAccountingDimensionDto {
   isMandatory?: boolean;
   hideDisabledValues?: boolean;
   companyId?: string | null;
+}
+
+export interface ValidatePayableInvoicesDto {
+  invoiceIds: string[];
 }
 
 export interface VoucherCreatedResultDto {

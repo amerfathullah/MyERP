@@ -127,11 +127,6 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        // Validate company restriction — items must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "StockEntry", input.CompanyId,
-            itemIds: itemIds);
 
         // Create entry first so we can validate warehouses via domain manager
         var entryNumber = await _numberGenerator.GenerateAsync("StockEntry", input.CompanyId);

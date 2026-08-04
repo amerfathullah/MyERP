@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, ProductionCostBreakdownDto, ProductionScheduleDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto } from '../manufacturing/models';
+import type { BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, ProductionCostBreakdownDto, ProductionScheduleDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -81,6 +81,14 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  createWorkOrdersFromSalesOrder = (salesOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchCreateWorkOrdersResultDto>({
+      method: 'POST',
+      url: `/api/app/manufacturing/work-order/create-from-sales-order/${salesOrderId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   createWorkstation = (input: CreateWorkstationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkstationDto>({
       method: 'POST',
@@ -137,6 +145,15 @@ export class ManufacturingService {
       method: 'GET',
       url: '/api/app/manufacturing/bom',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getCapacityUtilization = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkstationUtilizationDto[]>({
+      method: 'GET',
+      url: '/api/app/manufacturing/workstations/capacity-utilization',
+      params: { companyId },
     },
     { apiName: this.apiName,...config });
   

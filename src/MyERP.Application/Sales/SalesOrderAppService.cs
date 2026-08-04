@@ -174,12 +174,6 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        // Validate company restriction — items/customer must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "SalesOrder", input.CompanyId,
-            itemIds: itemIds,
-            customerIds: new[] { input.CustomerId });
 
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
@@ -860,4 +854,120 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             Warnings = warnings,
         };
     }
+
+    public async Task<SalesOrderTrackingBoardDto> GetTrackingBoardAsync(Guid companyId)
+    {
+        var queryable = await _repository.GetQueryableAsync();
+        var orders = await AsyncExecuter.ToListAsync(
+            queryable
+                .Where(o => o.CompanyId == companyId
+                    && o.Status != Core.DocumentStatus.Draft
+                    && o.Status != Core.DocumentStatus.Cancelled)
+                .OrderByDescending(o => o.OrderDate)
+                .Take(200));
+
+        var customerIds = orders.Select(o => o.CustomerId).Distinct().ToList();
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customerQueryable = await customerRepo.GetQueryableAsync();
+        var customerNames = (await AsyncExecuter.ToListAsync(
+            customerQueryable.Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.Name })))
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        var result = new SalesOrderTrackingBoardDto();
+
+        foreach (var order in orders)
+        {
+            var perDelivered = order.Items.Count > 0
+                ? order.Items.Min(i => i.Quantity > 0 ? (i.DeliveredQty / i.Quantity) * 100m : 100m)
+                : 0m;
+            var perBilled = order.Items.Count > 0
+                ? order.Items.Min(i => i.Quantity > 0 ? (i.BilledQty / i.Quantity) * 100m : 100m)
+                : 0m;
+
+            var stage = perDelivered >= 100m && perBilled >= 100m ? TrackingBoardStage.Completed
+                : perDelivered >= 100m ? TrackingBoardStage.FullyDelivered
+                : perDelivered > 0m ? TrackingBoardStage.PartiallyDelivered
+                : TrackingBoardStage.Ordered;
+
+            var effectiveDate = order.DeliveryDate ?? order.OrderDate.AddDays(14);
+            var isOverdue = stage != TrackingBoardStage.Completed
+                && stage != TrackingBoardStage.FullyDelivered
+                && effectiveDate < DateTime.UtcNow.Date;
+            var daysOverdue = isOverdue ? (int)(DateTime.UtcNow.Date - effectiveDate).TotalDays : 0;
+
+            var card = new SalesOrderTrackingBoardCardDto
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber ?? order.Id.ToString()[..8],
+                CustomerName = customerNames.GetValueOrDefault(order.CustomerId) ?? "—",
+                GrandTotal = order.GrandTotal,
+                ItemCount = order.Items.Count,
+                PerDelivered = Math.Round(perDelivered, 1),
+                PerBilled = Math.Round(perBilled, 1),
+                Stage = stage,
+                OrderDate = order.OrderDate,
+                ExpectedDeliveryDate = effectiveDate,
+                IsOverdue = isOverdue,
+                DaysOverdue = daysOverdue,
+            };
+
+            switch (stage)
+            {
+                case TrackingBoardStage.Ordered:
+                    result.Ordered.Add(card);
+                    break;
+                case TrackingBoardStage.PartiallyDelivered:
+                    result.PartiallyDelivered.Add(card);
+                    break;
+                case TrackingBoardStage.FullyDelivered:
+                    result.FullyDelivered.Add(card);
+                    break;
+                case TrackingBoardStage.Completed:
+                    result.Completed.Add(card);
+                    break;
+            }
+
+            if (isOverdue) result.OverdueCount++;
+            result.TotalValue += order.GrandTotal;
+        }
+
+        result.TotalOrders = orders.Count;
+        return result;
+    }
+}
+
+public class SalesOrderTrackingBoardDto
+{
+    public List<SalesOrderTrackingBoardCardDto> Ordered { get; set; } = new();
+    public List<SalesOrderTrackingBoardCardDto> PartiallyDelivered { get; set; } = new();
+    public List<SalesOrderTrackingBoardCardDto> FullyDelivered { get; set; } = new();
+    public List<SalesOrderTrackingBoardCardDto> Completed { get; set; } = new();
+    public int TotalOrders { get; set; }
+    public int OverdueCount { get; set; }
+    public decimal TotalValue { get; set; }
+}
+
+public class SalesOrderTrackingBoardCardDto
+{
+    public Guid OrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public decimal GrandTotal { get; set; }
+    public int ItemCount { get; set; }
+    public decimal PerDelivered { get; set; }
+    public decimal PerBilled { get; set; }
+    public TrackingBoardStage Stage { get; set; }
+    public DateTime OrderDate { get; set; }
+    public DateTime ExpectedDeliveryDate { get; set; }
+    public bool IsOverdue { get; set; }
+    public int DaysOverdue { get; set; }
+}
+
+public enum TrackingBoardStage
+{
+    Ordered = 0,
+    PartiallyDelivered = 1,
+    FullyDelivered = 2,
+    Completed = 3,
 }

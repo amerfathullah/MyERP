@@ -12,6 +12,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using MyERP.Inventory.DomainServices;
 
 namespace MyERP.Manufacturing;
 
@@ -287,7 +288,16 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
             foreach (var item in group)
             {
-                mr.AddItem(item.ItemId, item.ItemName, item.PlannedQty, item.Uom ?? "Unit", item.WarehouseId);
+                // Fetch Stock UOM and Conversion Factor
+                var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+                var itemEntity = await itemRepo.GetAsync(item.ItemId);
+                
+                var uomService = LazyServiceProvider.LazyGetRequiredService<UomConversionService>();
+                var conversionFactor = await uomService.GetConversionFactorAsync(item.ItemId, item.Uom ?? "Unit", itemEntity.Uom);
+                
+                var requestedQty = conversionFactor > 0 ? item.PlannedQty / conversionFactor : item.PlannedQty;
+
+                mr.AddItem(item.ItemId, item.ItemName, requestedQty, item.Uom ?? "Unit", item.WarehouseId);
                 item.MaterialRequestId = mr.Id;
             }
 

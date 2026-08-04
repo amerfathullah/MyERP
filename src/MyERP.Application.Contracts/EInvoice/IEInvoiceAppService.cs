@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -12,4 +13,6 @@ public interface IEInvoiceAppService : IApplicationService
     Task<EInvoiceSubmissionDto> GetStatusAsync(Guid submissionId);
     Task<EInvoiceSubmissionDto> CancelAsync(CancelEInvoiceDto input);
     Task<PagedResultDto<EInvoiceSubmissionDto>> GetListAsync(PagedAndSortedResultRequestDto input);
+    Task<EInvoiceSubmissionDto> SubmitConsolidatedAsync(SubmitEInvoiceDto input);
+    Task<List<Guid>> ConsolidateInvoicesAsync(ConsolidateInvoicesDto input);
 }

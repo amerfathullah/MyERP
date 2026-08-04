@@ -263,6 +263,20 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         warrantyPermission.AddChild(MyERPPermissions.WarrantyClaims.Edit, L("Permission:WarrantyClaims.Edit"));
         warrantyPermission.AddChild(MyERPPermissions.WarrantyClaims.Delete, L("Permission:WarrantyClaims.Delete"));
 
+        // Maintenance Schedules
+        var schedulePermission = myGroup.AddPermission(MyERPPermissions.MaintenanceSchedules.Default, L("Permission:MaintenanceSchedules"));
+        schedulePermission.AddChild(MyERPPermissions.MaintenanceSchedules.Create, L("Permission:MaintenanceSchedules.Create"));
+        schedulePermission.AddChild(MyERPPermissions.MaintenanceSchedules.Edit, L("Permission:MaintenanceSchedules.Edit"));
+        schedulePermission.AddChild(MyERPPermissions.MaintenanceSchedules.Delete, L("Permission:MaintenanceSchedules.Delete"));
+        schedulePermission.AddChild(MyERPPermissions.MaintenanceSchedules.Submit, L("Permission:MaintenanceSchedules.Submit"));
+
+        // Maintenance Visits
+        var visitPermission = myGroup.AddPermission(MyERPPermissions.MaintenanceVisits.Default, L("Permission:MaintenanceVisits"));
+        visitPermission.AddChild(MyERPPermissions.MaintenanceVisits.Create, L("Permission:MaintenanceVisits.Create"));
+        visitPermission.AddChild(MyERPPermissions.MaintenanceVisits.Edit, L("Permission:MaintenanceVisits.Edit"));
+        visitPermission.AddChild(MyERPPermissions.MaintenanceVisits.Delete, L("Permission:MaintenanceVisits.Delete"));
+        visitPermission.AddChild(MyERPPermissions.MaintenanceVisits.Submit, L("Permission:MaintenanceVisits.Submit"));
+
         // Warehouse Accounts
         var warehouseAccountPermission = myGroup.AddPermission(MyERPPermissions.WarehouseAccounts.Default, L("Permission:WarehouseAccounts"));
         warehouseAccountPermission.AddChild(MyERPPermissions.WarehouseAccounts.Create, L("Permission:WarehouseAccounts.Create"));

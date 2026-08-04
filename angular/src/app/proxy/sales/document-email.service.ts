@@ -8,7 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class DocumentEmailService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   previewEmail = (input: PreviewEmailInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EmailPreviewDto>({
@@ -17,7 +17,7 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendPurchaseOrderEmail = (input: SendPurchaseOrderEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendQuotationEmail = (input: SendQuotationEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -35,7 +35,7 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendSalesInvoiceEmail = (input: SendInvoiceEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -44,20 +44,12 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendSalesOrderEmail = (input: SendSalesOrderEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: '/api/app/document-email/send-sales-order-email',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-  sendStatementEmail = (input: any, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'POST',
-      url: '/api/app/document-email/send-statement-email',
       body: input,
     },
     { apiName: this.apiName,...config });

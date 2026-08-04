@@ -38,8 +38,17 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     public Guid? PurchaseReceiptItemId { get; set; }
 
     // --- Deferred Expense fields (mirrors SI deferred revenue) ---
+    private bool _enableDeferredExpense;
     /// <summary>When true, expense is recognized over the service period (not at invoice post).</summary>
-    public bool EnableDeferredExpense { get; set; }
+    public bool EnableDeferredExpense 
+    { 
+        get => _enableDeferredExpense;
+        set 
+        {
+            _enableDeferredExpense = value;
+            if (!value) ClearDeferredFields();
+        }
+    }
 
     /// <summary>Deferred expense account (liability account holding pre-paid expense).</summary>
     public Guid? DeferredExpenseAccountId { get; set; }

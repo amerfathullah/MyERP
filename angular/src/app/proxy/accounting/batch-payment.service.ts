@@ -8,6 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class BatchPaymentService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   createBatchPayment = (input: CreateBatchPaymentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchPaymentResultDto>({
@@ -16,6 +17,7 @@ export class BatchPaymentService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
   getOutstandingInvoices = (input: GetOutstandingForBatchDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchPaymentInvoiceDto[]>({
@@ -24,12 +26,13 @@ export class BatchPaymentService {
       params: { companyId: input.companyId, partyType: input.partyType, partyId: input.partyId },
     },
     { apiName: this.apiName,...config });
+  
 
   getPayableInvoices = (input: ValidatePayableInvoicesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayableInvoicePartitionDto>({
-      method: 'POST',
+      method: 'GET',
       url: '/api/app/batch-payment/payable-invoices',
-      body: input,
+      params: { invoiceIds: input.invoiceIds },
     },
     { apiName: this.apiName,...config });
 }

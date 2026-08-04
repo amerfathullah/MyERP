@@ -1,6 +1,8 @@
 import type { ScorecardPeriodType } from './scorecard-period-type.enum';
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { SubcontractingOrderStatus } from './entities/subcontracting-order-status.enum';
+import type { AnalyticsGroupBy } from '../sales/analytics-group-by.enum';
+import type { AnalyticsPeriodType } from '../sales/analytics-period-type.enum';
 import type { SubcontractingReceiptStatus } from './entities/subcontracting-receipt-status.enum';
 
 export interface ComparisonItemDto {
@@ -86,6 +88,11 @@ export interface CreatePurchaseOrderItemDto {
   uom?: string;
   warehouseId?: string | null;
   expectedDeliveryDate?: string | null;
+}
+
+export interface CreatePurchaseOrdersFromMrDto {
+  materialRequestId: string;
+  items: SupplierSelectionItemDto[];
 }
 
 export interface CreatePurchaseReceiptDto {
@@ -251,6 +258,14 @@ export interface CreateUpdateSupplierDto {
   isActive?: boolean;
 }
 
+export interface CreatedPurchaseOrderInfo {
+  purchaseOrderId?: string;
+  orderNumber?: string | null;
+  supplierName?: string | null;
+  itemCount?: number;
+  totalAmount?: number;
+}
+
 export interface DeliveryPerformanceReportDto {
   suppliers?: SupplierDeliveryPerformanceDto[];
   totalOrders?: number;
@@ -316,6 +331,30 @@ export interface PendingMaterialRequestItemDto {
   pendingQty?: number;
   uom?: string;
   warehouseId?: string | null;
+}
+
+export interface PurchaseAnalyticsReportDto {
+  periodLabels?: string[];
+  rows?: PurchaseAnalyticsRowDto[];
+  grandTotal?: number;
+  periodTotals?: number[];
+}
+
+export interface PurchaseAnalyticsRequestDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  groupBy?: AnalyticsGroupBy;
+  periodType?: AnalyticsPeriodType;
+  valueField?: string | null;
+}
+
+export interface PurchaseAnalyticsRowDto {
+  entityId?: string;
+  entityName?: string;
+  periodValues?: number[];
+  total?: number;
+  growth?: number;
 }
 
 export interface PurchaseInvoiceDto extends EntityDto<string> {
@@ -414,6 +453,16 @@ export interface PurchaseOrderItemDto {
   expectedDeliveryDate?: string | null;
 }
 
+export interface PurchaseOrderTrackingBoardDto {
+  ordered?: TrackingBoardCardDto[];
+  partiallyReceived?: TrackingBoardCardDto[];
+  fullyReceived?: TrackingBoardCardDto[];
+  completed?: TrackingBoardCardDto[];
+  totalOrders?: number;
+  overdueCount?: number;
+  totalValue?: number;
+}
+
 export interface PurchaseReceiptDto extends EntityDto<string> {
   companyId?: string;
   receiptNumber?: string;
@@ -510,6 +559,13 @@ export interface RfqSupplierDto {
   quoteStatus?: string;
 }
 
+export interface RmTransferResultDto {
+  stockEntryId?: string;
+  entryNumber?: string;
+  itemCount?: number;
+  totalQty?: number;
+}
+
 export interface ScoItemDto {
   id?: string;
   itemId?: string;
@@ -579,11 +635,13 @@ export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
   orderNumber?: string;
   orderDate?: string;
   supplierId?: string;
+  supplierName?: string | null;
   companyId?: string;
   netTotal?: number;
   grandTotal?: number;
   status?: SubcontractingOrderStatus;
   perReceived?: number;
+  supplierWarehouseId?: string | null;
   items?: ScoItemDto[];
 }
 
@@ -681,6 +739,17 @@ export interface SupplierQuotationItemDto {
   amount?: number;
 }
 
+export interface SupplierSelectionItemDto {
+  materialRequestItemId: string;
+  supplierId: string;
+  quantity?: number;
+}
+
+export interface SupplierSelectionResultDto {
+  purchaseOrders?: CreatedPurchaseOrderInfo[];
+  totalItemsOrdered?: number;
+}
+
 export interface TaxWithholdingEntryDto {
   id?: string;
   taxCategory?: string | null;
@@ -709,28 +778,19 @@ export interface ThreeWayMatchingItemDto {
   hasRateDiscrepancy?: boolean;
 }
 
-export interface PurchaseAnalyticsRequestDto {
-  companyId?: string;
-  fromDate?: string;
-  toDate?: string;
-  groupBy?: number;
-  periodType?: number;
-  valueField?: string;
-}
-
-export interface PurchaseAnalyticsReportDto {
-  periodLabels?: string[];
-  rows?: PurchaseAnalyticsRowDto[];
+export interface TrackingBoardCardDto {
+  orderId?: string;
+  orderNumber?: string;
+  supplierName?: string;
+  orderDate?: string;
+  expectedDate?: string | null;
   grandTotal?: number;
-  periodTotals?: number[];
-}
-
-export interface PurchaseAnalyticsRowDto {
-  entityId?: string;
-  entityName?: string;
-  periodValues?: number[];
-  total?: number;
-  growth?: number;
+  perReceived?: number;
+  perBilled?: number;
+  stage?: string;
+  isOverdue?: boolean;
+  daysOverdue?: number;
+  itemCount?: number;
 }
 
 export interface UnbilledPurchaseOrderItemDto {

@@ -141,12 +141,6 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        // Validate company restriction — items/customer must allow this company
-        var restrictionService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await restrictionService.ValidateTransactionCompanyAsync(
-            "DeliveryNote", input.CompanyId,
-            itemIds: itemIds,
-            customerIds: new[] { input.CustomerId });
 
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", input.CompanyId);
 

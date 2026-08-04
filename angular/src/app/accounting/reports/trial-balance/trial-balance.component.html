@@ -1,52 +1,121 @@
 <abp-page [title]="'::TrialBalance' | abpLocalization">
-  @if (isLoading()) {
-    <div class="d-flex justify-content-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>
+  <!-- KPI Summary -->
+  @if (data().length > 0) {
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::TotalDebit' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-primary">{{ '' | companyCurrency }} {{ totalDebit() | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-danger border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::TotalCredit' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-danger">{{ '' | companyCurrency }} {{ totalCredit() | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card" [class.border-success]="isBalanced()" [class.border-warning]="!isBalanced()" style="border-left-width: 4px !important;">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::Status' | abpLocalization }}</div>
+            @if (isBalanced()) {
+              <div class="h5 mb-0 text-success"><i class="fa fa-check-circle"></i> {{ '::Balanced' | abpLocalization }}</div>
+            } @else {
+              <div class="h5 mb-0 text-warning"><i class="fa fa-exclamation-triangle"></i> {{ '::Unbalanced' | abpLocalization }}: {{ difference() | number:'1.2-2' }}</div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-secondary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::Accounts' | abpLocalization }}</div>
+            <div class="h5 mb-0">{{ accountCount() }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   }
 
   <!-- Filters -->
-  <div class="card mb-4">
+  <div class="card mb-3">
     <div class="card-body">
-      <form [formGroup]="filters" class="d-flex align-items-end gap-2 flex-wrap">
-        <label class="form-label">{{ '::Company' | abpLocalization }}</label>
-            <select class="form-select"></select>
-
-        <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
-            <input class="form-control"/>
-
-        <div class="form-check align-self-center ms-2">
-          <input class="form-check-input" type="checkbox" id="includeSubsidiaries" formControlName="includeSubsidiaries">
-          <label class="form-check-label" for="includeSubsidiaries">{{ '::IncludeSubsidiaries' | abpLocalization }}</label>
+      <form [formGroup]="filters" class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="companyId">
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
         </div>
-
-        <button class="btn btn-primary" (click)="generate()">
-          <i class="fa fa-sync"></i> {{ '::Generate' | abpLocalization }}
-        </button>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="toDate" />
+        </div>
+        <div class="col-md-2 align-self-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="includeSubsidiaries" formControlName="includeSubsidiaries">
+            <label class="form-check-label small" for="includeSubsidiaries">{{ '::IncludeSubsidiaries' | abpLocalization }}</label>
+          </div>
+        </div>
+        <div class="col-md-2 align-self-end">
+          <button class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="isLoading()">
+            @if (isLoading()) {
+              <span class="spinner-border spinner-border-sm"></span>
+            } @else {
+              <i class="fa fa-sync"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+        @if (data().length > 0) {
+          <div class="col-md-2 align-self-end">
+            <button class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()">
+              <i class="fa fa-download"></i> {{ '::ExportCSV' | abpLocalization }}
+            </button>
+          </div>
+        }
       </form>
     </div>
   </div>
 
-  <!-- Report table -->
+  <!-- Report Table -->
   @if (data().length > 0) {
     <div class="card">
-      <div class="card-body">
+      <div class="card-body p-0">
         <div class="table-responsive">
-                    <table class="table table-hover w-100">
-            <thead>
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
               <tr>
-                <th>{{ '::AccountCode' | abpLocalization }}</th>
+                <th style="width:100px">{{ '::AccountCode' | abpLocalization }}</th>
                 <th>{{ '::AccountName' | abpLocalization }}</th>
-                <th>{{ '::Type' | abpLocalization }}</th>
-                <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
-                <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
-                <th class="text-end">{{ '::ClosingDebit' | abpLocalization }}</th>
-                <th class="text-end">{{ '::ClosingCredit' | abpLocalization }}</th>
+                <th style="width:100px">{{ '::Type' | abpLocalization }}</th>
+                <th class="text-end" style="width:130px">{{ '::Debit' | abpLocalization }}</th>
+                <th class="text-end" style="width:130px">{{ '::Credit' | abpLocalization }}</th>
+                <th class="text-end" style="width:130px">{{ '::ClosingDebit' | abpLocalization }}</th>
+                <th class="text-end" style="width:130px">{{ '::ClosingCredit' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
-              @for (row of data(); track $index) {
-                <tr>
+              @for (row of data(); track row.accountId ?? $index) {
+                <tr [class.fw-bold]="isGroupRow(row)" [class.table-light]="isGroupRow(row)"
+                    class="cursor-pointer" (click)="drillDown(row)">
                   <td class="font-monospace small">{{ row.accountCode }}</td>
-                  <td>{{ row.accountName }}</td>
+                  <td [class]="getIndentClass(row)">
+                    @if (isGroupRow(row)) {
+                      <i class="fa fa-folder-open text-muted me-1 small"></i>
+                    }
+                    <span class="text-decoration-underline-hover">{{ row.accountName }}</span>
+                  </td>
                   <td class="small text-muted">{{ row.accountType }}</td>
                   <td class="text-end font-monospace">{{ (row.debit ?? 0) > 0 ? (row.debit! | number:'1.2-2') : '' }}</td>
                   <td class="text-end font-monospace">{{ (row.credit ?? 0) > 0 ? (row.credit! | number:'1.2-2') : '' }}</td>
@@ -55,13 +124,26 @@
                 </tr>
               }
             </tbody>
+            <tfoot class="table-dark">
+              <tr class="fw-bold">
+                <td colspan="3" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ totalDebit() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ totalCredit() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ totalDebit() | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ totalCredit() | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
     </div>
+    <div class="text-muted small mt-2">
+      <i class="fa fa-info-circle"></i> {{ '::ClickAccountToDrillDown' | abpLocalization }}
+    </div>
   } @else if (!isLoading()) {
     <div class="card">
       <div class="card-body text-center py-5 text-muted">
+        <i class="fa fa-table fa-2x mb-3 d-block"></i>
         {{ '::SelectCompanyAndGenerate' | abpLocalization }}
       </div>
     </div>

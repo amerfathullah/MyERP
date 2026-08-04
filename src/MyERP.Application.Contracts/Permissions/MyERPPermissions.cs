@@ -398,6 +398,24 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class MaintenanceSchedules
+    {
+        public const string Default = GroupName + ".MaintenanceSchedules";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
+    public static class MaintenanceVisits
+    {
+        public const string Default = GroupName + ".MaintenanceVisits";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
     public static class WarehouseAccounts
     {
         public const string Default = GroupName + ".WarehouseAccounts";

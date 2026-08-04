@@ -1,8 +1,36 @@
 import type { EntityDto } from '@abp/ng.core';
 
+export interface BatchSubmitEInvoiceDto {
+  companyId: string;
+  sourceDocumentType: string;
+  documentIds: string[];
+}
+
+export interface BatchSubmitItemResult {
+  documentId?: string;
+  documentNumber?: string;
+  success?: boolean;
+  errorMessage?: string | null;
+  lhdnUuid?: string | null;
+  status?: string | null;
+}
+
+export interface BatchSubmitResultDto {
+  totalRequested?: number;
+  succeededCount?: number;
+  failedCount?: number;
+  skippedCount?: number;
+  results?: BatchSubmitItemResult[];
+}
+
 export interface CancelEInvoiceDto {
   submissionId: string;
   reason: string;
+}
+
+export interface ConsolidateInvoicesDto {
+  companyId: string;
+  invoiceIds: string[];
 }
 
 export interface EInvoiceConnectResultDto {
@@ -62,27 +90,4 @@ export interface TaxpayerSearchResultDto {
   name?: string | null;
   idType?: string | null;
   idValue?: string | null;
-}
-
-export interface BatchSubmitEInvoiceDto {
-  companyId: string;
-  sourceDocumentType: string;
-  documentIds: string[];
-}
-
-export interface BatchSubmitResultDto {
-  totalRequested?: number;
-  succeededCount?: number;
-  failedCount?: number;
-  skippedCount?: number;
-  results?: BatchSubmitItemResult[];
-}
-
-export interface BatchSubmitItemResult {
-  documentId?: string;
-  documentNumber?: string;
-  success?: boolean;
-  errorMessage?: string | null;
-  lhdnUuid?: string | null;
-  status?: string | null;
 }

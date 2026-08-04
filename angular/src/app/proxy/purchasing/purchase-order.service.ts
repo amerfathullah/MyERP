@@ -1,4 +1,4 @@
-import type { CreatePurchaseOrderDto, PendingMaterialRequestItemDto, PurchaseOrderDto, RecordSupplierConfirmationDto, UpdateDropShipDeliveredQtyDto, UpdateOrderItemsDto, UpdateOrderItemsResultDto } from './models';
+import type { CreatePurchaseOrderDto, PendingMaterialRequestItemDto, PurchaseOrderDto, PurchaseOrderTrackingBoardDto, RecordSupplierConfirmationDto, UpdateDropShipDeliveredQtyDto, UpdateOrderItemsDto, UpdateOrderItemsResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -101,6 +101,14 @@ export class PurchaseOrderService {
       method: 'GET',
       url: '/api/app/purchase-order/pending-material-request-items',
       params: { companyId, supplierId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTrackingBoard = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderTrackingBoardDto>({
+      method: 'GET',
+      url: `/api/app/purchase-order/tracking-board/${companyId}`,
     },
     { apiName: this.apiName,...config });
   

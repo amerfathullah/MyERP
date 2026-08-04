@@ -122,7 +122,7 @@ public class StockValuationService : DomainService
     {
         var query = await _ledgerRepository.GetQueryableAsync();
         var lastEntry = query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && !e.IsCancelled)
             .OrderByDescending(e => e.PostingDate)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();
@@ -143,7 +143,7 @@ public class StockValuationService : DomainService
         var query = await _ledgerRepository.GetQueryableAsync();
 
         var entries = query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate >= fromDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate >= fromDate && !e.IsCancelled)
             .OrderBy(e => e.PostingDate)
             .ThenBy(e => e.CreationTime)
             .ToList();
@@ -152,7 +152,7 @@ public class StockValuationService : DomainService
 
         // Get the SLE just before the revaluation start
         var priorEntry = query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate < fromDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate < fromDate && !e.IsCancelled)
             .OrderByDescending(e => e.PostingDate)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();
@@ -176,7 +176,7 @@ public class StockValuationService : DomainService
     {
         var query = await _ledgerRepository.GetQueryableAsync();
         return query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate <= postingDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate <= postingDate && !e.IsCancelled)
             .OrderByDescending(e => e.PostingDate)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();

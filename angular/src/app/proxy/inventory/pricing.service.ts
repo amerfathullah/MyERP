@@ -41,7 +41,7 @@ export class PricingService {
     this.restService.request<any, PagedResultDto<ItemPriceDto>>({
       method: 'GET',
       url: '/api/app/pricing/item-prices',
-      params: { itemId: input.itemId, priceListId: input.priceListId, customerId: input.customerId, supplierId: input.supplierId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { itemId: input.itemId, priceListId: input.priceListId, customerId: input.customerId, supplierId: input.supplierId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

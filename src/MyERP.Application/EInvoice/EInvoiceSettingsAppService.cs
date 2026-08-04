@@ -175,7 +175,7 @@ public class EInvoiceSettingsAppService : ApplicationService
                 Name = response.TaxpayerName,
                 IdType = idType,
                 IdValue = idValue,
-                ErrorMessage = response.IsFound ? null : "Taxpayer not found",
+                ErrorMessage = response.IsFound ? null : $"Status code: {response.StatusCode}. As per LHDN, either type or value or taxpayer data is wrong",
             };
         }
         catch (Exception ex)

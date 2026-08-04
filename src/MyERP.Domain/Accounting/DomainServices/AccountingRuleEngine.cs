@@ -21,6 +21,13 @@ public interface IAccountableDocument
     decimal NetTotal { get; }
     decimal GrandTotal { get; }
     decimal TaxAmount { get; }
+
+    /// <summary>
+    /// Total purchase expense after deducting landed cost voucher amounts.
+    /// Used by AmountSource.PurchaseExpenseTotal for GL entries.
+    /// </summary>
+    decimal PurchaseExpenseTotal => NetTotal;
+
     Guid? CustomerId { get; }
     Guid? SupplierId { get; }
     DateTime PostingDate { get; }
@@ -248,7 +255,8 @@ public class AccountingRuleEngine : DomainService
             AmountSource.GrandTotal => document.GrandTotal,
             AmountSource.TaxAmount => document.TaxAmount,
             AmountSource.StockCostTotal => document.StockCostTotal,
-            _ => 0m
+            AmountSource.PurchaseExpenseTotal => document.PurchaseExpenseTotal,
+            _ => throw new NotImplementedException($"AmountSource {source} not supported for document level rules.")
         };
     }
 

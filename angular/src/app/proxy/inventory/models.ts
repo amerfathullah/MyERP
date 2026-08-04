@@ -27,6 +27,25 @@ export interface BarcodeScanResultDto {
   actionName?: string;
 }
 
+export interface BatchCustomerSummaryDto {
+  customerId?: string;
+  customerName?: string;
+  totalQuantity?: number;
+  deliveryCount?: number;
+  firstDeliveryDate?: string;
+  lastDeliveryDate?: string;
+}
+
+export interface BatchDeliveryTraceDto {
+  deliveryNoteId?: string;
+  deliveryNumber?: string | null;
+  deliveryDate?: string;
+  customerId?: string;
+  customerName?: string;
+  quantityDelivered?: number;
+  warehouseId?: string;
+}
+
 export interface BatchDto extends AuditedEntityDto<string> {
   batchNo?: string;
   itemId?: string;
@@ -39,29 +58,6 @@ export interface BatchDto extends AuditedEntityDto<string> {
   description?: string | null;
 }
 
-export interface BatchStockBalanceDto {
-  batchId?: string;
-  batchNo?: string;
-  itemId?: string;
-  totalQuantity?: number;
-  totalValue?: number;
-  warehouseBalances?: BatchWarehouseBalanceDto[];
-}
-
-export interface BatchWarehouseBalanceDto {
-  warehouseId?: string;
-  warehouseName?: string;
-  quantity?: number;
-  stockValue?: number;
-  valuationRate?: number;
-}
-
-export interface BatchMovementHistoryDto {
-  batchId?: string;
-  batchNo?: string;
-  entries?: BatchMovementEntryDto[];
-}
-
 export interface BatchMovementEntryDto {
   id?: string;
   postingDate?: string;
@@ -72,6 +68,42 @@ export interface BatchMovementEntryDto {
   voucherType?: string | null;
   voucherId?: string | null;
   isInward?: boolean;
+}
+
+export interface BatchMovementHistoryDto {
+  batchId?: string;
+  batchNo?: string;
+  entries?: BatchMovementEntryDto[];
+}
+
+export interface BatchStockBalanceDto {
+  batchId?: string;
+  batchNo?: string;
+  itemId?: string;
+  totalQuantity?: number;
+  totalValue?: number;
+  warehouseBalances?: BatchWarehouseBalanceDto[];
+}
+
+export interface BatchTraceabilityDto {
+  batchId?: string;
+  batchNo?: string;
+  itemId?: string;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  totalProduced?: number;
+  totalDelivered?: number;
+  customerCount?: number;
+  deliveries?: BatchDeliveryTraceDto[];
+  customerSummary?: BatchCustomerSummaryDto[];
+}
+
+export interface BatchWarehouseBalanceDto {
+  warehouseId?: string;
+  warehouseName?: string;
+  quantity?: number;
+  stockValue?: number;
+  valuationRate?: number;
 }
 
 export interface BatchWiseBalanceReportDto {
@@ -94,6 +126,17 @@ export interface BatchWiseBalanceRowDto {
   expiryDate?: string | null;
   isExpired?: boolean;
   isDisabled?: boolean;
+}
+
+export interface BulkPriceUpdateDto {
+  priceListId?: string;
+  percentageChange?: number;
+  itemGroupId?: string | null;
+}
+
+export interface BulkPriceUpdateResultDto {
+  updatedCount?: number;
+  percentageApplied?: number;
 }
 
 export interface BundleEntryDto {
@@ -175,6 +218,13 @@ export interface CreateQiTemplateParameterDto {
   formulaBased?: boolean;
   formula?: string | null;
   acceptanceCriteria?: string | null;
+}
+
+export interface CreateQualityReviewDto {
+  qualityGoalId?: string;
+  reviewDate?: string;
+  actualValue?: number;
+  notes?: string | null;
 }
 
 export interface CreateRepostItemValuationDto {
@@ -297,6 +347,23 @@ export interface CreateUpdatePutawayRuleDto {
   uom?: string | null;
 }
 
+export interface CreateUpdateQualityActionDto {
+  actionType?: number;
+  problemDescription?: string;
+  relatedQualityGoalId?: string | null;
+  assignedUserId?: string | null;
+}
+
+export interface CreateUpdateQualityGoalDto {
+  name?: string;
+  goal?: string | null;
+  frequency?: string;
+  targetValue?: number;
+  uom?: string | null;
+  responsibleUserId?: string | null;
+  isEnabled?: boolean;
+}
+
 export interface CreateUpdateWarehouseDto {
   companyId: string;
   branchId?: string | null;
@@ -363,6 +430,7 @@ export interface GetItemPriceListDto extends PagedAndSortedResultRequestDto {
   priceListId?: string | null;
   customerId?: string | null;
   supplierId?: string | null;
+  filter?: string | null;
 }
 
 export interface GetItemRateRequestDto {
@@ -583,6 +651,7 @@ export interface ItemMovementHistoryDto {
 
 export interface ItemPriceDto extends AuditedEntityDto<string> {
   itemId?: string;
+  itemCode?: string | null;
   itemName?: string | null;
   priceListId?: string;
   priceListName?: string | null;
@@ -593,8 +662,11 @@ export interface ItemPriceDto extends AuditedEntityDto<string> {
   validFrom?: string | null;
   validUpto?: string | null;
   customerId?: string | null;
+  customerName?: string | null;
   supplierId?: string | null;
+  supplierName?: string | null;
   batchNo?: string | null;
+  isAutoInserted?: boolean;
 }
 
 export interface ItemPriceHistoryDto {
@@ -811,6 +883,50 @@ export interface QiTemplateParameterDto extends EntityDto<string> {
   acceptanceCriteria?: string | null;
 }
 
+export interface QualityActionDto extends FullAuditedEntityDto<string> {
+  actionType?: number;
+  problemDescription?: string;
+  resolution?: string | null;
+  status?: number;
+  relatedQualityGoalId?: string | null;
+  assignedUserId?: string | null;
+}
+
+export interface QualityGoalDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  goal?: string | null;
+  frequency?: string;
+  targetValue?: number;
+  uom?: string | null;
+  responsibleUserId?: string | null;
+  isEnabled?: boolean;
+}
+
+export interface QualityReviewDto extends FullAuditedEntityDto<string> {
+  qualityGoalId?: string;
+  reviewDate?: string;
+  actualValue?: number | null;
+  status?: number;
+  notes?: string | null;
+  reviewedByUserId?: string | null;
+}
+
+export interface ReorderSuggestionDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  currentReorderLevel?: number;
+  suggestedReorderLevel?: number;
+  suggestedReorderQty?: number;
+  suggestedSafetyStock?: number;
+  avgDailyConsumption?: number;
+  currentStock?: number;
+  daysOfStockRemaining?: number;
+  leadTimeDays?: number;
+  isUnderstocked?: boolean;
+  isOverstocked?: boolean;
+}
+
 export interface RepostItemValuationDto extends EntityDto<string> {
   companyId?: string;
   basedOn?: number;
@@ -826,6 +942,10 @@ export interface RepostItemValuationDto extends EntityDto<string> {
   voucherId?: string | null;
   isDeduplicated?: boolean;
   creationTime?: string;
+}
+
+export interface ResolveQualityActionDto {
+  resolution?: string;
 }
 
 export interface SerialAndBatchBundleDto {
@@ -921,6 +1041,33 @@ export interface StockEntryItemDto {
   targetWarehouseId?: string | null;
   targetWarehouseName?: string | null;
   valuationRate?: number | null;
+}
+
+export interface StockGlComparisonDto {
+  totalStockValue?: number;
+  totalGlBalance?: number;
+  difference?: number;
+  isMatched?: boolean;
+  warehouseCount?: number;
+  itemCount?: number;
+  asOfDate?: string;
+  perWarehouse?: StockGlWarehouseComparisonDto[];
+}
+
+export interface StockGlComparisonRequestDto {
+  companyId?: string;
+  asOfDate?: string | null;
+}
+
+export interface StockGlWarehouseComparisonDto {
+  warehouseId?: string;
+  warehouseName?: string;
+  stockValue?: number;
+  glBalance?: number;
+  difference?: number;
+  hasMismatch?: boolean;
+  stockAccountId?: string | null;
+  stockAccountName?: string | null;
 }
 
 export interface StockLedgerReportDto {

@@ -1,4 +1,4 @@
-import type { BatchDto, BatchMovementHistoryDto, BatchStockBalanceDto, CreateBatchDto, GetBatchListDto } from './models';
+import type { BatchDto, BatchMovementHistoryDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetBatchListDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -45,10 +45,10 @@ export class BatchService {
     { apiName: this.apiName,...config });
   
 
-  getMovementHistory = (batchId: string, maxEntries?: number, config?: Partial<Rest.Config>) =>
+  getMovementHistory = (batchId: string, maxEntries: number = 50, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchMovementHistoryDto>({
       method: 'GET',
-      url: `/api/app/batch/${batchId}/movement-history`,
+      url: `/api/app/batch/movement-history/${batchId}`,
       params: { maxEntries },
     },
     { apiName: this.apiName,...config });
@@ -57,7 +57,15 @@ export class BatchService {
   getStockBalance = (batchId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchStockBalanceDto>({
       method: 'GET',
-      url: `/api/app/batch/${batchId}/stock-balance`,
+      url: `/api/app/batch/stock-balance/${batchId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTraceability = (batchId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchTraceabilityDto>({
+      method: 'GET',
+      url: `/api/app/batch/traceability/${batchId}`,
     },
     { apiName: this.apiName,...config });
 }

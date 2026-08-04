@@ -40,8 +40,17 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     public Guid? SalesOrderItemId { get; set; }
 
     // Deferred Revenue fields
+    private bool _enableDeferredRevenue;
     /// <summary>Enable deferred revenue recognition for this line item.</summary>
-    public bool EnableDeferredRevenue { get; set; }
+    public bool EnableDeferredRevenue 
+    { 
+        get => _enableDeferredRevenue;
+        set 
+        {
+            _enableDeferredRevenue = value;
+            if (!value) ClearDeferredFields();
+        }
+    }
 
     /// <summary>Account to post deferred revenue (liability until recognized).</summary>
     public Guid? DeferredRevenueAccountId { get; set; }

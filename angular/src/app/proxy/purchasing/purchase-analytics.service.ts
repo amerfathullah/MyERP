@@ -1,17 +1,20 @@
 import type { PurchaseAnalyticsReportDto, PurchaseAnalyticsRequestDto } from './models';
-import { Injectable } from '@angular/core';
 import { RestService, Rest } from '@abp/ng.core';
+import { Injectable, inject } from '@angular/core';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class PurchaseAnalyticsService {
-  private apiName = 'Default';
-
-  constructor(private restService: RestService) {}
+  private restService = inject(RestService);
+  apiName = 'Default';
+  
 
   getReport = (input: PurchaseAnalyticsRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseAnalyticsReportDto>({
       method: 'GET',
       url: '/api/app/purchase-analytics/report',
-      params: { ...input },
-    }, { apiName: this.apiName, ...config });
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, groupBy: input.groupBy, periodType: input.periodType, valueField: input.valueField },
+    },
+    { apiName: this.apiName,...config });
 }

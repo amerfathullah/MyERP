@@ -45,10 +45,9 @@ public class LcvGlFixAndSupplierPerformanceTests
         item.LandedCostVoucherAmount = 200m; // 200 from LCV
 
         var valuationAmount = item.Quantity * item.UnitPrice; // 1000
-        var purchaseExpenseGlAmount = valuationAmount - item.LandedCostVoucherAmount; // 800
 
         Assert.Equal(1000m, valuationAmount);
-        Assert.Equal(800m, purchaseExpenseGlAmount);
+        Assert.Equal(800m, item.PurchaseExpenseGlAmount);
     }
 
     [Fact]
@@ -59,9 +58,8 @@ public class LcvGlFixAndSupplierPerformanceTests
             "Test Item", 5, 200, 0);
         // No LCV applied — full amount goes to expense GL
         var valuationAmount = item.Quantity * item.UnitPrice;
-        var purchaseExpenseGlAmount = valuationAmount - item.LandedCostVoucherAmount;
 
-        Assert.Equal(1000m, purchaseExpenseGlAmount); // Full valuation
+        Assert.Equal(1000m, item.PurchaseExpenseGlAmount); // Full valuation
     }
 
     [Fact]
@@ -106,11 +104,10 @@ public class LcvGlFixAndSupplierPerformanceTests
         var stockQty = item.StockQty; // 5 × 12 = 60 units
         var ratePerUnit = item.UnitPrice / item.ConversionFactor; // 120/12 = 10
         var valuationAmount = stockQty * ratePerUnit; // 60 × 10 = 600
-        var purchaseExpenseGlAmount = valuationAmount - item.LandedCostVoucherAmount; // 600 - 100 = 500
 
         Assert.Equal(60m, stockQty);
         Assert.Equal(10m, ratePerUnit);
-        Assert.Equal(500m, purchaseExpenseGlAmount);
+        Assert.Equal(500m, item.PurchaseExpenseGlAmount);
     }
 
     // --- Supplier Performance Metrics (frontend display verification) ---

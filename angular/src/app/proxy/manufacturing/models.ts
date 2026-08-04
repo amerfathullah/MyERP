@@ -274,6 +274,24 @@ export interface TopProducedItemDto {
   workOrderCount?: number;
 }
 
+export interface ActiveJobOnWorkstationDto {
+  jobCardId?: string;
+  workOrderNumber?: string | null;
+  itemName?: string | null;
+  operationName?: string | null;
+  forQuantity?: number;
+  completedQty?: number;
+  plannedTimeInMins?: number;
+  actualTimeInMins?: number;
+  status?: number;
+}
+
+export interface BatchCreateWorkOrdersResultDto {
+  createdCount?: number;
+  skippedCount?: number;
+  workOrders?: CreatedWorkOrderInfo[];
+}
+
 export interface BomDto extends AuditedEntityDto<string> {
   bomNumber?: string;
   itemId?: string;
@@ -424,6 +442,13 @@ export interface CreateWorkstationDto {
   workstationType?: string | null;
   productionCapacity?: number;
   description?: string | null;
+}
+
+export interface CreatedWorkOrderInfo {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  itemName?: string | null;
+  quantity?: number;
 }
 
 export interface DisassemblyResultDto {
@@ -625,6 +650,19 @@ export interface WorkstationDto extends EntityDto<string> {
   isActive?: boolean;
   costs?: WorkstationCostDto[];
   workingHours?: WorkstationWorkingHourDto[];
+}
+
+export interface WorkstationUtilizationDto {
+  workstationId?: string;
+  workstationName?: string;
+  workstationType?: string | null;
+  productionCapacity?: number;
+  activeJobCards?: number;
+  utilizationPercent?: number;
+  totalPlannedMinutes?: number;
+  totalActualMinutes?: number;
+  status?: string;
+  activeJobs?: ActiveJobOnWorkstationDto[];
 }
 
 export interface WorkstationWorkingHourDto {

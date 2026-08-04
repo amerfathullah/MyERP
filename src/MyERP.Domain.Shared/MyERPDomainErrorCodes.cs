@@ -1,4 +1,4 @@
-﻿namespace MyERP;
+namespace MyERP;
 
 public static class MyERPDomainErrorCodes
 {
@@ -8,6 +8,14 @@ public static class MyERPDomainErrorCodes
     public const string CompanyCurrencyLocked = "MyERP:00003";
     public const string CompanyRestrictionBlocked = "MyERP:00004";
     public const string DuplicateRecord = "MyERP:00005";
+    public const string ItemNotFound = "MyERP:ItemNotFound";
+    public const string ExceedsActualQty = "MyERP:ExceedsActualQty";
+
+    // Cross-Cutting
+    public const string PrintFormatNotFound = "MyERP:PrintFormatNotFound";
+    public const string EntityNotFound = "MyERP:00006";
+    public const string DocumentNotEditable = "MyERP:00007";
+    public const string ValidationFailed = "MyERP:00008";
 
     // Document Workflow
     public const string InvalidStatusTransition = "MyERP:01001";

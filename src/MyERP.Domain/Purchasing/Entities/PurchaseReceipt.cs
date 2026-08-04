@@ -35,6 +35,11 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Supplier's delivery note / DO number.</summary>
     public string? SupplierDeliveryNote { get; set; }
 
+    /// <summary>
+    /// Total purchase expense after deducting LCV amounts (for SRBNB/Purchase Expense GL entries).
+    /// </summary>
+    public decimal PurchaseExpenseTotal => _items.Sum(i => i.PurchaseExpenseGlAmount);
+
     public string CurrencyCode { get; set; } = "MYR";
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
