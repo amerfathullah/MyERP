@@ -140,4 +140,14 @@ public class AssetLifecycleManager : DomainService
             .OrderBy(e => e.ScheduleDate)
             .ToArray();
     }
+
+    /// <summary>
+    /// Calculates net purchase amount for asset creation from purchase document item.
+    /// Per ERPNext commit 46e01c2d92 / PR #57618:
+    /// Uses ValuationRate * Quantity so capitalized landed costs are included in the asset purchase amount.
+    /// </summary>
+    public decimal CalculateAssetPurchaseAmount(decimal valuationRate, decimal qty)
+    {
+        return valuationRate * qty;
+    }
 }

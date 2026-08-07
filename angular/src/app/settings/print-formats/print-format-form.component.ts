@@ -1,8 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, ActivatedRoute, RouterModule } from '@angular/common';
-import { PrintFormatService } from '@proxy/settings/print-format.service';
+import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { PrintFormatService } from '../../proxy/settings/print-format.service';
 
 @Component({
   selector: 'app-print-format-form',

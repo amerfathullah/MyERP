@@ -210,9 +210,10 @@ public class PickListAppService : ApplicationService
     /// the Pick List's own CustomerId is used (enables direct pick → deliver workflow).
     /// </summary>
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
+    [Volo.Abp.Uow.UnitOfWork]
     public async Task<Guid> CreateDeliveryNoteFromPickListAsync(Guid pickListId)
     {
-        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == pickListId);
+        var pl = await _repository.GetAsync(pickListId, includeDetails: true);
 
         if (pl.Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);

@@ -35,6 +35,7 @@ export * from './mode-of-payment.service';
 export * from './models';
 export * from './month-end-close.service';
 export * from './opening-balance.service';
+export * from './party-dashboard.service';
 export * from './party-link.service';
 export * from './payment-entry.service';
 export * from './payment-reconciliation.service';

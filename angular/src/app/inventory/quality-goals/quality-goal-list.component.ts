@@ -1,8 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/common';
-import { QualityManagementService } from '@proxy/inventory/quality-management.service';
-import { QualityGoalDto } from '@proxy/inventory/models';
+import { RouterModule } from '@angular/router';
+import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
+import { QualityGoalDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-quality-goal-list',

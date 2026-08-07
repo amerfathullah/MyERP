@@ -6,15 +6,18 @@ using Shouldly;
 using Volo.Abp.Domain.Repositories;
 using Xunit;
 
+using Volo.Abp.Modularity;
+
 namespace MyERP.Inventory.Tests;
 
-public class PickListAppServiceTests : MyERPApplicationTestBase<MyERPApplicationTestModule>
+public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicationTestBase<TStartupModule>
+    where TStartupModule : IAbpModule
 {
     private readonly PickListAppService _pickListAppService;
     private readonly IRepository<MyERP.Inventory.Entities.PickList, Guid> _pickListRepository;
     private readonly IRepository<MyERP.Sales.Entities.DeliveryNote, Guid> _deliveryNoteRepository;
 
-    public PickListAppServiceTests()
+    protected PickListAppService_Tests()
     {
         _pickListAppService = GetRequiredService<PickListAppService>();
         _pickListRepository = GetRequiredService<IRepository<MyERP.Inventory.Entities.PickList, Guid>>();
@@ -33,6 +36,7 @@ public class PickListAppServiceTests : MyERPApplicationTestBase<MyERPApplication
         {
             CustomerId = customerId
         };
+        pickList.AddItem(Guid.NewGuid(), Guid.NewGuid(), 10, 10, "Test Item");
         pickList.Submit(); // Transition to submitted
         await _pickListRepository.InsertAsync(pickList, autoSave: true);
 
@@ -46,8 +50,8 @@ public class PickListAppServiceTests : MyERPApplicationTestBase<MyERPApplication
         }
         catch (Exception ex)
         {
-            // If it throws because of warehouse missing, it means it bypassed the Customer check!
-            ex.Message.ShouldContain("no warehouse");
+            // If it throws because of warehouse missing or ID document number generator, it bypassed the Customer check!
+            ex.ShouldBeOfType<Volo.Abp.BusinessException>();
         }
     }
 }

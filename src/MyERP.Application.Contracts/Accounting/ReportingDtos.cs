@@ -13,6 +13,7 @@ public class TrialBalanceRequestDto
     [Required] public Guid CompanyId { get; set; }
     [Required] public DateTime AsOfDate { get; set; }
     public Guid? FiscalYearId { get; set; }
+    public bool IncludeSubsidiaries { get; set; } = false;
 }
 
 public class TrialBalanceRowDto

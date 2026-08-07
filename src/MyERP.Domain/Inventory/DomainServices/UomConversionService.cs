@@ -27,7 +27,7 @@ public class UomConversionService : DomainService
     /// Priority: item-specific → global → 1.0 (if same UOM or no conversion found).
     /// </summary>
     public async Task<decimal> GetConversionFactorAsync(
-        Guid? itemId, string transactionUom, string stockUom)
+        Guid? itemId, string transactionUom, string stockUom, Guid? variantOfItemId = null)
     {
         if (string.Equals(transactionUom, stockUom, StringComparison.OrdinalIgnoreCase))
             return 1m;
@@ -51,6 +51,24 @@ public class UomConversionService : DomainService
 
             if (reverseItemConversion != null)
                 return 1m / reverseItemConversion.ConversionFactor;
+        }
+
+        // Priority 1b: variant template conversion (per PR #57553)
+        if (variantOfItemId.HasValue)
+        {
+            var templateConversion = query
+                .FirstOrDefault(c => c.ItemId == variantOfItemId.Value
+                    && c.FromUom == transactionUom && c.ToUom == stockUom);
+
+            if (templateConversion != null)
+                return templateConversion.ConversionFactor;
+
+            var reverseTemplateConversion = query
+                .FirstOrDefault(c => c.ItemId == variantOfItemId.Value
+                    && c.FromUom == stockUom && c.ToUom == transactionUom);
+
+            if (reverseTemplateConversion != null)
+                return 1m / reverseTemplateConversion.ConversionFactor;
         }
 
         // Priority 2: global conversion (ItemId = null)

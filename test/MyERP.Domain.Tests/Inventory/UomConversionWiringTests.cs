@@ -89,4 +89,13 @@ public class UomConversionWiringTests
         Assert.Equal("Carton", item.PurchaseUom);
         Assert.Equal("EA", item.Uom);
     }
+
+    [Fact]
+    public void Item_Variant_Inherits_VariantOfId()
+    {
+        var templateId = Guid.NewGuid();
+        var variant = new Item(Guid.NewGuid(), Guid.NewGuid(), "VAR-001", "Variant Item", ItemType.Goods);
+        variant.VariantOfId = templateId;
+        Assert.Equal(templateId, variant.VariantOfId);
+    }
 }

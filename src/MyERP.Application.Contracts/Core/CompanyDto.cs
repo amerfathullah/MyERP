@@ -22,4 +22,21 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public string CurrencyCode { get; set; } = "MYR";
     public int FiscalYearStartMonth { get; set; }
     public bool IsActive { get; set; }
+
+    // Warehouse Defaults (moved from Stock Settings to Company per PR #57571)
+    public Guid? DefaultWarehouseId { get; set; }
+    public Guid? SampleRetentionWarehouseId { get; set; }
+    public Guid? DefaultWipWarehouseId { get; set; }
+    public Guid? DefaultFgWarehouseId { get; set; }
+    public Guid? DefaultScrapWarehouseId { get; set; }
+
+    // Account Defaults
+    public Guid? DefaultReceivableAccountId { get; set; }
+    public Guid? DefaultPayableAccountId { get; set; }
+    public Guid? DefaultIncomeAccountId { get; set; }
+    public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? DefaultBankAccountId { get; set; }
+    public Guid? DefaultInventoryAccountId { get; set; }
+    public Guid? StockReceivedButNotBilledAccountId { get; set; }
+    public Guid? StockDeliveredButNotBilledAccountId { get; set; }
 }

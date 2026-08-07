@@ -81,7 +81,7 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// </summary>
     public void ClearDeferredFields()
     {
-        EnableDeferredExpense = false;
+        _enableDeferredExpense = false;
         DeferredExpenseAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;

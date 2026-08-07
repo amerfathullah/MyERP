@@ -8,6 +8,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -32,6 +33,11 @@ public class UpdateCompanySettingsDto
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
+    public Guid? DefaultWarehouseId { get; set; }
+    public Guid? SampleRetentionWarehouseId { get; set; }
+    public Guid? DefaultWipWarehouseId { get; set; }
+    public Guid? DefaultFgWarehouseId { get; set; }
+    public Guid? DefaultScrapWarehouseId { get; set; }
 }
 
 public class CompanyAppService :
@@ -59,6 +65,12 @@ public class CompanyAppService :
         // Auto-setup the new company with required master data (FY, CoA, warehouses, etc.)
         await SetupNewCompanyAsync(result.Id);
         return result;
+    }
+
+    public override async Task<CompanyDto> UpdateAsync(Guid id, CreateUpdateCompanyDto input)
+    {
+        await ValidateWarehousesAsync(id, input);
+        return await base.UpdateAsync(id, input);
     }
 
     protected override Company MapToEntity(CreateUpdateCompanyDto input)
@@ -95,6 +107,23 @@ public class CompanyAppService :
         entity.CurrencyCode = input.CurrencyCode;
         entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
         entity.IsActive = input.IsActive;
+
+        // Warehouse Defaults (per PR #57571)
+        entity.DefaultWarehouseId = input.DefaultWarehouseId;
+        entity.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
+        entity.DefaultWipWarehouseId = input.DefaultWipWarehouseId;
+        entity.DefaultFgWarehouseId = input.DefaultFgWarehouseId;
+        entity.DefaultScrapWarehouseId = input.DefaultScrapWarehouseId;
+
+        // Account Defaults
+        entity.DefaultReceivableAccountId = input.DefaultReceivableAccountId;
+        entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
+        entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
+        entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        entity.DefaultBankAccountId = input.DefaultBankAccountId;
+        entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
+        entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
+        entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]
@@ -121,6 +150,12 @@ public class CompanyAppService :
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
+
+        company.DefaultWarehouseId = input.DefaultWarehouseId;
+        company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
+        company.DefaultWipWarehouseId = input.DefaultWipWarehouseId;
+        company.DefaultFgWarehouseId = input.DefaultFgWarehouseId;
+        company.DefaultScrapWarehouseId = input.DefaultScrapWarehouseId;
 
         await Repository.UpdateAsync(company);
 
@@ -242,6 +277,35 @@ public class CompanyAppService :
                 new AccountingRule(GuidGenerator.Create(), companyId, "PR CR SRBNB", "PurchaseReceipt", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultPayableAccountId },
             };
             foreach (var rule in rules) await ruleRepo.InsertAsync(rule, autoSave: true);
+        }
+    }
+
+    private async Task ValidateWarehousesAsync(Guid companyId, CreateUpdateCompanyDto input)
+    {
+        var warehouseIds = new[]
+        {
+            input.DefaultWarehouseId,
+            input.SampleRetentionWarehouseId,
+            input.DefaultWipWarehouseId,
+            input.DefaultFgWarehouseId,
+            input.DefaultScrapWarehouseId
+        }.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+
+        if (!warehouseIds.Any())
+            return;
+
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+        var warehouses = await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id));
+
+        foreach (var wh in warehouses)
+        {
+            if (wh.CompanyId != companyId)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Warehouse '{wh.Name}' does not belong to company.");
+
+            if (wh.IsGroup)
+                throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                    .WithData("detail", $"Warehouse '{wh.Name}' is a group warehouse. Default warehouse must be a leaf warehouse.");
         }
     }
 }

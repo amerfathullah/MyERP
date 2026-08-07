@@ -990,6 +990,9 @@ export interface StockBalanceDto {
   orderedQty?: number;
   plannedQty?: number;
   reservedQty?: number;
+  reservedQtyForProduction?: number;
+  reservedQtyForSubContract?: number;
+  reservedQtyForProductionPlan?: number;
   indentedQty?: number;
   projectedQty?: number;
   stockValue?: number;

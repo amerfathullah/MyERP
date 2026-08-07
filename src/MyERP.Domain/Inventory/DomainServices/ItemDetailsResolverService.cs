@@ -71,7 +71,7 @@ public class ItemDetailsResolverService : DomainService
             : (item.PurchaseUom ?? item.Uom);
         result.StockUom = item.Uom;
         result.ConversionFactor = await _uomConversionService.GetConversionFactorAsync(
-            item.Id, result.Uom, result.StockUom);
+            item.Id, result.Uom, result.StockUom, item.VariantOfId);
 
         // STEP 5: Account resolution (Item → ItemDefault → ItemGroup → Company)
         if (context.TransactionType == TransactionType.Selling)

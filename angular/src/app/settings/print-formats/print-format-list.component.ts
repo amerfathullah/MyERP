@@ -1,8 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/common';
-import { PrintFormatService } from '@proxy/settings/print-format.service';
-import { PrintFormatDto } from '@proxy/settings/models';
+import { RouterModule } from '@angular/router';
+import { PrintFormatService } from '../../proxy/settings/print-format.service';
+import { PrintFormatDto } from '../../proxy/settings/models';
 
 @Component({
   selector: 'app-print-format-list',

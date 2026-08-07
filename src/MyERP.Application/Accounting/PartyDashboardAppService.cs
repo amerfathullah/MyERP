@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
-using MyERP.Purchasing.Entities;
 using MyERP.Settings.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;

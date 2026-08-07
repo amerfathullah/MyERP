@@ -413,6 +413,11 @@ export interface CoaTemplateRowDto {
   subType?: AccountSubType | null;
 }
 
+export interface CompanyReferenceDto {
+  id?: string;
+  name?: string;
+}
+
 export interface CostCenterAllocationDto {
   id?: string;
   companyId?: string;
@@ -1158,6 +1163,13 @@ export interface OutstandingOrderForPaymentDto {
   partyName?: string | null;
 }
 
+export interface PartyDashboardDto {
+  ytdBilling?: number;
+  totalUnpaid?: number;
+  loyaltyPoints?: number;
+  companies?: CompanyReferenceDto[];
+}
+
 export interface PartyLinkDto {
   id?: string;
   primaryPartyType?: string;
@@ -1406,6 +1418,7 @@ export interface TrialBalanceRequestDto {
   companyId: string;
   asOfDate: string;
   fiscalYearId?: string | null;
+  includeSubsidiaries?: boolean;
 }
 
 export interface TrialBalanceRowDto {

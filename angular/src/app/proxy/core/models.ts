@@ -120,6 +120,19 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   currencyCode?: string;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  defaultWarehouseId?: string | null;
+  sampleRetentionWarehouseId?: string | null;
+  defaultWipWarehouseId?: string | null;
+  defaultFgWarehouseId?: string | null;
+  defaultScrapWarehouseId?: string | null;
+  defaultReceivableAccountId?: string | null;
+  defaultPayableAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  defaultBankAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
+  stockReceivedButNotBilledAccountId?: string | null;
+  stockDeliveredButNotBilledAccountId?: string | null;
 }
 
 export interface CompanyRestrictionDto {
@@ -291,6 +304,19 @@ export interface CreateUpdateCompanyDto {
   currencyCode: string;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  defaultWarehouseId?: string | null;
+  sampleRetentionWarehouseId?: string | null;
+  defaultWipWarehouseId?: string | null;
+  defaultFgWarehouseId?: string | null;
+  defaultScrapWarehouseId?: string | null;
+  defaultReceivableAccountId?: string | null;
+  defaultPayableAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  defaultBankAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
+  stockReceivedButNotBilledAccountId?: string | null;
+  stockDeliveredButNotBilledAccountId?: string | null;
 }
 
 export interface CustomerPerformanceDto {
@@ -792,6 +818,11 @@ export interface UpdateCompanySettingsDto {
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;
+  defaultWarehouseId?: string | null;
+  sampleRetentionWarehouseId?: string | null;
+  defaultWipWarehouseId?: string | null;
+  defaultFgWarehouseId?: string | null;
+  defaultScrapWarehouseId?: string | null;
 }
 
 export interface UpdateEmailTemplateDto {

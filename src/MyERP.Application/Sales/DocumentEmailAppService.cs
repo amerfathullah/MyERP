@@ -288,6 +288,49 @@ public class DocumentEmailAppService : ApplicationService
             AttachPdf = input.AttachPdf,
         });
     }
+
+    [Authorize]
+    public async Task SendStatementEmailAsync(SendStatementEmailDto input)
+    {
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.GetAsync(input.CustomerId);
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.GetAsync(input.CompanyId);
+
+        var recipientEmail = input.RecipientEmail ?? customer.Email;
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+            throw new Volo.Abp.BusinessException("MyERP:09001")
+                .WithData("reason", "No email address found for customer. Please provide a recipient email.");
+
+        var variables = new Dictionary<string, string>
+        {
+            ["company_name"] = company.Name,
+            ["customer_name"] = customer.Name,
+            ["party_name"] = customer.Name,
+            ["from_date"] = input.FromDate.ToString("dd/MM/yyyy"),
+            ["to_date"] = input.ToDate.ToString("dd/MM/yyyy"),
+        };
+
+        await _emailService.SendSalesInvoiceEmailAsync(new SendDocumentEmailInput
+        {
+            RecipientEmail = recipientEmail,
+            CcEmails = input.CcEmails,
+            Variables = variables,
+            AttachPdf = input.AttachPdf,
+        });
+    }
+}
+
+// DTOs
+public class SendStatementEmailDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid CustomerId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string? RecipientEmail { get; set; }
+    public string[]? CcEmails { get; set; }
+    public bool AttachPdf { get; set; } = true;
 }
 
 // DTOs

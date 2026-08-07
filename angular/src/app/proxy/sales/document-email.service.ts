@@ -1,4 +1,4 @@
-import type { EmailPreviewDto, PreviewEmailInput, SendInvoiceEmailDto, SendPurchaseOrderEmailDto, SendQuotationEmailDto, SendSalesOrderEmailDto } from './models';
+import type { EmailPreviewDto, PreviewEmailInput, SendInvoiceEmailDto, SendPurchaseOrderEmailDto, SendQuotationEmailDto, SendSalesOrderEmailDto, SendStatementEmailDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -50,6 +50,15 @@ export class DocumentEmailService {
     this.restService.request<any, void>({
       method: 'POST',
       url: '/api/app/document-email/send-sales-order-email',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  sendStatementEmail = (input: SendStatementEmailDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: '/api/app/document-email/send-statement-email',
       body: input,
     },
     { apiName: this.apiName,...config });

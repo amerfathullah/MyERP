@@ -1,8 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, ActivatedRoute, RouterModule } from '@angular/common';
-import { QualityManagementService } from '@proxy/inventory/quality-management.service';
+import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
 
 @Component({
   selector: 'app-quality-goal-form',

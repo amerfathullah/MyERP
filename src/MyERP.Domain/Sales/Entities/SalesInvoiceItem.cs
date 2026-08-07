@@ -77,7 +77,7 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// </summary>
     public void ClearDeferredRevenueFields()
     {
-        EnableDeferredRevenue = false;
+        _enableDeferredRevenue = false;
         DeferredRevenueAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;
@@ -110,7 +110,7 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// </summary>
     public void ClearDeferredFields()
     {
-        EnableDeferredRevenue = false;
+        _enableDeferredRevenue = false;
         DeferredRevenueAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;

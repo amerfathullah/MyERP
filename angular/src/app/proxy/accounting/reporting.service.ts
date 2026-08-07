@@ -41,7 +41,7 @@ export class ReportingService {
     this.restService.request<any, TrialBalanceReportDto>({
       method: 'GET',
       url: '/api/app/reporting/trial-balance',
-      params: { companyId: input.companyId, asOfDate: input.asOfDate, fiscalYearId: input.fiscalYearId },
+      params: { companyId: input.companyId, asOfDate: input.asOfDate, fiscalYearId: input.fiscalYearId, includeSubsidiaries: input.includeSubsidiaries },
     },
     { apiName: this.apiName,...config });
 }

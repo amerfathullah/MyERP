@@ -1224,6 +1224,16 @@ export interface SendSalesOrderEmailDto {
   attachPdf?: boolean;
 }
 
+export interface SendStatementEmailDto {
+  companyId?: string;
+  customerId?: string;
+  fromDate?: string;
+  toDate?: string;
+  recipientEmail?: string | null;
+  ccEmails?: string[] | null;
+  attachPdf?: boolean;
+}
+
 export interface ShippingConditionDto {
   fromValue?: number;
   toValue?: number;
