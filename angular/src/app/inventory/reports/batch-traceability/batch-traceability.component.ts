@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -172,7 +172,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
     </abp-page>
   `,
 })
-export class BatchTraceabilityComponent implements OnInit {
+export class BatchTraceabilityComponent {
   private batchService = inject(BatchService);
   private toaster = inject(ToasterService);
 
@@ -180,8 +180,6 @@ export class BatchTraceabilityComponent implements OnInit {
   isLoading = signal(false);
   traceData = signal<BatchTraceabilityDto | null>(null);
   batches = signal<any[]>([]);
-
-  ngOnInit(): void {}
 
   searchBatch(): void {
     if (!this.batchSearch.trim()) return;

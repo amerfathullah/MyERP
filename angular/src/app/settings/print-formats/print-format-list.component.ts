@@ -24,17 +24,19 @@ import { PrintFormatDto } from '../../proxy/settings/models';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let format of formats">
-              <td>
-                <a [routerLink]="['/settings/print-formats', format.id]">{{ format.name }}</a>
-              </td>
-              <td>{{ format.documentType }}</td>
-              <td>
-                <span class="badge" [ngClass]="format.isDefault ? 'bg-success' : 'bg-secondary'">
-                  {{ format.isDefault ? 'Yes' : 'No' }}
-                </span>
-              </td>
-            </tr>
+            @for (format of formats; track format.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/settings/print-formats', format.id]">{{ format.name }}</a>
+                </td>
+                <td>{{ format.documentType }}</td>
+                <td>
+                  <span class="badge" [ngClass]="format.isDefault ? 'bg-success' : 'bg-secondary'">
+                    {{ format.isDefault ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>

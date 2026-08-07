@@ -25,18 +25,20 @@ import { QualityGoalDto } from '../../proxy/inventory/models';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let goal of goals">
-              <td>
-                <a [routerLink]="['/inventory/quality-goals', goal.id]">{{ goal.name }}</a>
-              </td>
-              <td>{{ goal.frequency }}</td>
-              <td>{{ goal.targetValue }} {{ goal.uom }}</td>
-              <td>
-                <span class="badge" [ngClass]="goal.isEnabled ? 'bg-success' : 'bg-secondary'">
-                  {{ goal.isEnabled ? 'Yes' : 'No' }}
-                </span>
-              </td>
-            </tr>
+            @for (goal of goals; track goal.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/inventory/quality-goals', goal.id]">{{ goal.name }}</a>
+                </td>
+                <td>{{ goal.frequency }}</td>
+                <td>{{ goal.targetValue }} {{ goal.uom }}</td>
+                <td>
+                  <span class="badge" [ngClass]="goal.isEnabled ? 'bg-success' : 'bg-secondary'">
+                    {{ goal.isEnabled ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
