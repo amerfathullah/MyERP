@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
-using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -17,7 +16,7 @@ namespace MyERP.Core;
 /// Supports variable substitution via {{variable_name}} placeholders.
 /// </summary>
 [Authorize(MyERPPermissions.AutomationRules.Default)]
-public class EmailTemplateAppService : ApplicationService
+public class EmailTemplateAppService : ApplicationService, IEmailTemplateAppService
 {
     private readonly IRepository<EmailTemplate, Guid> _repository;
 
@@ -81,40 +80,4 @@ public class EmailTemplateAppService : ApplicationService
             Body = template.RenderBody(variables)
         };
     }
-
-
 }
-
-#region DTOs
-
-public class EmailTemplateDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public string Subject { get; set; } = null!;
-    public string Body { get; set; } = null!;
-    public string? DocumentType { get; set; }
-}
-
-public class CreateEmailTemplateDto
-{
-    public string Name { get; set; } = null!;
-    public string Subject { get; set; } = null!;
-    public string Body { get; set; } = null!;
-    public string? DocumentType { get; set; }
-}
-
-public class UpdateEmailTemplateDto
-{
-    public string Subject { get; set; } = null!;
-    public string Body { get; set; } = null!;
-    public string? DocumentType { get; set; }
-}
-
-public class RenderedTemplateDto
-{
-    public string Subject { get; set; } = null!;
-    public string Body { get; set; } = null!;
-}
-
-#endregion

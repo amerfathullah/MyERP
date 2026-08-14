@@ -115,11 +115,3 @@ public class Contract : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 }
 
-public enum ContractStatus
-{
-    Unsigned = 0,
-    Active = 1,
-    InactiveByExpiry = 2,
-    InactiveByAutoRenewFailure = 3,
-    Cancelled = 4
-}

@@ -16,7 +16,7 @@ namespace MyERP.Inventory;
 /// Provides item rate resolution for transaction line items.
 /// </summary>
 [Authorize(MyERPPermissions.Items.Default)]
-public class PricingAppService : ApplicationService
+public class PricingAppService : ApplicationService, IPricingAppService
 {
     private readonly IRepository<PriceList, Guid> _priceListRepository;
     private readonly IRepository<ItemPrice, Guid> _itemPriceRepository;

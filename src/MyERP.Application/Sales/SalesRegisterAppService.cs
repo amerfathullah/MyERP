@@ -12,39 +12,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Sales;
 
-public class SalesRegisterLineDto
-{
-    public Guid InvoiceId { get; set; }
-    public string InvoiceNumber { get; set; } = null!;
-    public DateTime PostingDate { get; set; }
-    public Guid CustomerId { get; set; }
-    public string? CustomerName { get; set; }
-    public decimal NetTotal { get; set; }
-    public decimal TaxAmount { get; set; }
-    public decimal GrandTotal { get; set; }
-    public decimal AmountPaid { get; set; }
-    public decimal Outstanding { get; set; }
-    public bool IsReturn { get; set; }
-}
-
-public class RegisterReportDto<T>
-{
-    public List<T> Items { get; set; } = new();
-    public decimal TotalNet { get; set; }
-    public decimal TotalTax { get; set; }
-    public decimal TotalGrand { get; set; }
-    public int Count { get; set; }
-}
-
-public class RegisterFilterDto
-{
-    public Guid CompanyId { get; set; }
-    public DateTime? FromDate { get; set; }
-    public DateTime? ToDate { get; set; }
-}
-
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
-public class SalesRegisterAppService : ApplicationService
+public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppService
 {
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
 

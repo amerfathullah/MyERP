@@ -13,42 +13,13 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
 
-#region DTOs
-
-public class ItemStandardCostDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid ItemId { get; set; }
-    public decimal StandardRate { get; set; }
-    public DateTime EffectiveDate { get; set; }
-    public decimal? PreviousRate { get; set; }
-    public int Status { get; set; }
-    public Guid? RevaluationStockReconciliationId { get; set; }
-    public DateTime CreationTime { get; set; }
-}
-
-public class CreateItemStandardCostDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid ItemId { get; set; }
-    public decimal StandardRate { get; set; }
-    public DateTime EffectiveDate { get; set; }
-}
-
-public class GetItemStandardCostListDto : CompanyFilteredPagedRequestDto
-{
-    public Guid? ItemId { get; set; }
-}
-
-#endregion
-
 /// <summary>
 /// Application service for Item Standard Cost management.
 /// Per DO-NOT: "Allow Item Standard Cost with future effective_date (must be ≤ today)"
 /// Per DO-NOT: "Allow Item Standard Cost effective_date before last SLE posting_date"
 /// </summary>
 [Authorize(MyERPPermissions.StockEntries.Default)]
-public class ItemStandardCostAppService : ApplicationService
+public class ItemStandardCostAppService : ApplicationService, IItemStandardCostAppService
 {
     private readonly IRepository<ItemStandardCost, Guid> _repository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;

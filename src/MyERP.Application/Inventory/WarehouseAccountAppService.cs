@@ -17,7 +17,7 @@ namespace MyERP.Inventory;
 /// and stock adjustment. Falls back to company defaults when not configured.
 /// </summary>
 [Authorize(MyERPPermissions.WarehouseAccounts.Default)]
-public class WarehouseAccountAppService : ApplicationService
+public class WarehouseAccountAppService : ApplicationService, IWarehouseAccountAppService
 {
     private readonly IRepository<WarehouseAccount, Guid> _repository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;

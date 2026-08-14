@@ -16,7 +16,7 @@ namespace MyERP.Accounting;
 /// Per gotcha #158: 28 standard categories with root_type scoping.
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class AccountCategoryAppService : ApplicationService
+public class AccountCategoryAppService : ApplicationService, IAccountCategoryAppService
 {
     private readonly IRepository<AccountCategory, Guid> _repository;
 

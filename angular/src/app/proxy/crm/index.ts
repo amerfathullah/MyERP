@@ -1,4 +1,4 @@
-import * as Entities from './entities';
+export * from './contract-status.enum';
 export * from './contract.service';
 export * from './lead-source.enum';
 export * from './lead-status.enum';
@@ -9,5 +9,5 @@ export * from './opportunity-type.enum';
 export * from './opportunity.service';
 export * from './prospect.service';
 export * from './sales-pipeline.service';
+export * from './shipment-status.enum';
 export * from './shipment.service';
-export { Entities };

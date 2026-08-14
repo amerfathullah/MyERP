@@ -150,3 +150,46 @@ public class UpdateOrderItemsResultDto
     public decimal PreviousGrandTotal { get; set; }
     public List<string> Warnings { get; set; } = new();
 }
+
+public class PurchaseOrderTrackingBoardDto
+{
+    public List<TrackingBoardCardDto> Ordered { get; set; } = new();
+    public List<TrackingBoardCardDto> PartiallyReceived { get; set; } = new();
+    public List<TrackingBoardCardDto> FullyReceived { get; set; } = new();
+    public List<TrackingBoardCardDto> Completed { get; set; } = new();
+    public int TotalOrders { get; set; }
+    public int OverdueCount { get; set; }
+    public decimal TotalValue { get; set; }
+}
+
+public class TrackingBoardCardDto
+{
+    public Guid OrderId { get; set; }
+    public string OrderNumber { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public DateTime OrderDate { get; set; }
+    public DateTime? ExpectedDate { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal PerReceived { get; set; }
+    public decimal PerBilled { get; set; }
+    public string Stage { get; set; } = "Ordered";
+    public bool IsOverdue { get; set; }
+    public int DaysOverdue { get; set; }
+    public int ItemCount { get; set; }
+}
+
+/// <summary>DTO for pending Material Request items available for PO creation.</summary>
+public class PendingMaterialRequestItemDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public string MaterialRequestNumber { get; set; } = null!;
+    public DateTime RequestDate { get; set; }
+    public DateTime? RequiredByDate { get; set; }
+    public Guid MaterialRequestItemId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = null!;
+    public decimal PendingQty { get; set; }
+    public string Uom { get; set; } = "Unit";
+    public Guid? WarehouseId { get; set; }
+}
+

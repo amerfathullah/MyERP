@@ -772,8 +772,7 @@ export interface ItemAlternativeDto extends FullAuditedEntityDto<string> {
   twoWay?: boolean;
 }
 
-export interface ItemAttributeDto {
-  id?: string;
+export interface ItemAttributeDto extends EntityDto<string> {
   name?: string;
   isNumeric?: boolean;
   fromRange?: number;
@@ -1328,8 +1327,7 @@ export interface ResolveQualityActionDto {
   resolution?: string;
 }
 
-export interface SerialAndBatchBundleDto {
-  id?: string;
+export interface SerialAndBatchBundleDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string;
   warehouseId?: string;
@@ -1360,8 +1358,7 @@ export interface SerialNoDto extends EntityDto<string> {
   creationTime?: string;
 }
 
-export interface StockBalanceDto {
-  id?: string;
+export interface StockBalanceDto extends EntityDto<string> {
   itemId?: string;
   warehouseId?: string;
   itemName?: string | null;
@@ -1546,8 +1543,7 @@ export interface TransitTransferItemDto {
   valuationRate?: number | null;
 }
 
-export interface UomDto {
-  id?: string;
+export interface UomDto extends EntityDto<string> {
   uomName?: string;
   mustBeWholeNumber?: boolean;
   category?: string | null;
@@ -1604,4 +1600,11 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+}
+
+export interface UomConversionDto extends EntityDto<string> {
+  fromUom?: string;
+  toUom?: string;
+  conversionFactor?: number;
+  itemId?: string | null;
 }

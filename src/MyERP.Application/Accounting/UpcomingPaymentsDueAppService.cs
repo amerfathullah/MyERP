@@ -10,45 +10,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-/// <summary>
-/// Shows upcoming supplier payments due in the next N days, grouped by week.
-/// Per ERPNext: Accounts Payable report filtered for future due dates — helps treasury plan cash outflows.
-/// </summary>
-public class UpcomingPaymentDueDto
-{
-    public Guid InvoiceId { get; set; }
-    public string InvoiceNumber { get; set; } = null!;
-    public Guid SupplierId { get; set; }
-    public string SupplierName { get; set; } = null!;
-    public DateTime DueDate { get; set; }
-    public decimal OutstandingAmount { get; set; }
-    public decimal GrandTotal { get; set; }
-    public string? CurrencyCode { get; set; }
-    public int DaysUntilDue { get; set; }
-    public string WeekLabel { get; set; } = null!;
-    public bool IsOverdue { get; set; }
-}
-
-public class UpcomingPaymentsDueReportDto
-{
-    public decimal TotalDueThisWeek { get; set; }
-    public decimal TotalDueNextWeek { get; set; }
-    public decimal TotalDueNext30Days { get; set; }
-    public decimal TotalOverdue { get; set; }
-    public int InvoiceCount { get; set; }
-    public int SupplierCount { get; set; }
-    public List<UpcomingPaymentDueDto> Invoices { get; set; } = [];
-}
-
-public class GetUpcomingPaymentsDueInput
-{
-    public Guid CompanyId { get; set; }
-    public int DaysAhead { get; set; } = 30;
-    public Guid? SupplierId { get; set; }
-}
-
 [Authorize(MyERPPermissions.PurchaseInvoices.Default)]
-public class UpcomingPaymentsDueAppService : ApplicationService
+public class UpcomingPaymentsDueAppService : ApplicationService, IUpcomingPaymentsDueAppService
 {
     private readonly IRepository<PurchaseInvoice, Guid> _piRepo;
     private readonly IRepository<Supplier, Guid> _supplierRepo;

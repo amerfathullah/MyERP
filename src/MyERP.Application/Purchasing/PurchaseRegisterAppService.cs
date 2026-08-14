@@ -5,36 +5,22 @@ using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Purchasing;
 
-public class PurchaseRegisterLineDto
-{
-    public Guid InvoiceId { get; set; }
-    public string InvoiceNumber { get; set; } = null!;
-    public DateTime PostingDate { get; set; }
-    public Guid SupplierId { get; set; }
-    public string? SupplierName { get; set; }
-    public decimal NetTotal { get; set; }
-    public decimal TaxAmount { get; set; }
-    public decimal GrandTotal { get; set; }
-    public decimal AmountPaid { get; set; }
-    public decimal Outstanding { get; set; }
-    public bool IsReturn { get; set; }
-}
-
 [Authorize(MyERPPermissions.PurchaseInvoices.Default)]
-public class PurchaseRegisterAppService : ApplicationService
+public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterAppService
 {
     private readonly IRepository<PurchaseInvoice, Guid> _invoiceRepository;
 
     public PurchaseRegisterAppService(IRepository<PurchaseInvoice, Guid> invoiceRepository)
         => _invoiceRepository = invoiceRepository;
 
-    public async Task<Sales.RegisterReportDto<PurchaseRegisterLineDto>> GetReportAsync(Sales.RegisterFilterDto input)
+    public async Task<RegisterReportDto<PurchaseRegisterLineDto>> GetReportAsync(RegisterFilterDto input)
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
@@ -48,7 +34,7 @@ public class PurchaseRegisterAppService : ApplicationService
             .OrderByDescending(pi => pi.IssueDate)
             .ToList();
 
-        return new Sales.RegisterReportDto<PurchaseRegisterLineDto>
+        return new RegisterReportDto<PurchaseRegisterLineDto>
         {
             Count = invoices.Count,
             Items = invoices.Select(pi => new PurchaseRegisterLineDto

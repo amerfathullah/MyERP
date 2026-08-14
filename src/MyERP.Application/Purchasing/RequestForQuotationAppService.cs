@@ -15,7 +15,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Purchasing;
 
 [Authorize(MyERPPermissions.PurchaseOrders.Default)]
-public class RequestForQuotationAppService : ApplicationService
+public class RequestForQuotationAppService : ApplicationService, IRequestForQuotationAppService
 {
     private readonly IRepository<RequestForQuotation, Guid> _repository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
@@ -107,60 +107,3 @@ public class RequestForQuotationAppService : ApplicationService
         return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
 }
-
-public class RfqDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public string RfqNumber { get; set; } = null!;
-    public DateTime TransactionDate { get; set; }
-    public string CurrencyCode { get; set; } = null!;
-    public string? MessageForSupplier { get; set; }
-    public string Status { get; set; } = null!;
-    public List<RfqItemDto> Items { get; set; } = new();
-    public List<RfqSupplierDto> Suppliers { get; set; } = new();
-}
-
-public class RfqItemDto
-{
-    public Guid Id { get; set; }
-    public Guid ItemId { get; set; }
-    public string Description { get; set; } = null!;
-    public decimal Qty { get; set; }
-    public string Uom { get; set; } = null!;
-}
-
-public class RfqSupplierDto
-{
-    public Guid Id { get; set; }
-    public Guid SupplierId { get; set; }
-    public string SupplierName { get; set; } = null!;
-    public string? Email { get; set; }
-    public bool EmailSent { get; set; }
-    public string QuoteStatus { get; set; } = null!;
-}
-
-public class CreateRfqDto
-{
-    public Guid CompanyId { get; set; }
-    public DateTime TransactionDate { get; set; }
-    public string? CurrencyCode { get; set; }
-    public string? MessageForSupplier { get; set; }
-    public List<CreateRfqItemDto> Items { get; set; } = new();
-    public List<CreateRfqSupplierDto> Suppliers { get; set; } = new();
-}
-
-public class CreateRfqItemDto
-{
-    public Guid ItemId { get; set; }
-    public string Description { get; set; } = null!;
-    public decimal Qty { get; set; }
-    public string Uom { get; set; } = "Unit";
-}
-
-public class CreateRfqSupplierDto
-{
-    public Guid SupplierId { get; set; }
-    public string? Email { get; set; }
-}
-

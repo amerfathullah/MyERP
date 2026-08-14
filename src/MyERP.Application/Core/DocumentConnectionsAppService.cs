@@ -19,7 +19,7 @@ namespace MyERP.Core;
 /// Per ERPNext dashboard.py pattern: shows upstream sources + downstream creations + payments.
 /// </summary>
 [Authorize]
-public class DocumentConnectionsAppService : ApplicationService
+public class DocumentConnectionsAppService : ApplicationService, IDocumentConnectionsAppService
 {
     public async Task<DocumentConnectionsDto> GetConnectionsAsync(string documentType, Guid documentId)
     {

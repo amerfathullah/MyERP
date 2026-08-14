@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
-using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -17,7 +16,7 @@ namespace MyERP.Inventory;
 /// Per ERPNext: SABB is the v16 replacement for legacy serial_no/batch_no fields.
 /// </summary>
 [Authorize(MyERPPermissions.StockEntries.Default)]
-public class SerialAndBatchBundleAppService : ApplicationService
+public class SerialAndBatchBundleAppService : ApplicationService, ISerialAndBatchBundleAppService
 {
     private readonly IRepository<SerialAndBatchBundle, Guid> _repository;
 
@@ -107,39 +106,4 @@ public class SerialAndBatchBundleAppService : ApplicationService
             }).ToList(),
         };
     }
-}
-
-// --- DTOs ---
-
-public class GetBundleListDto : CompanyFilteredPagedRequestDto
-{
-    public Guid? ItemId { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public string? VoucherType { get; set; }
-}
-
-public class SerialAndBatchBundleDto
-{
-    public Guid Id { get; set; }
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = null!;
-    public Guid WarehouseId { get; set; }
-    public string TypeOfTransaction { get; set; } = null!;
-    public string BundleType { get; set; } = null!;
-    public string? VoucherType { get; set; }
-    public Guid? VoucherId { get; set; }
-    public DateTime PostingDate { get; set; }
-    public decimal TotalQty { get; set; }
-    public decimal TotalAmount { get; set; }
-    public int EntryCount { get; set; }
-    public bool IsCancelled { get; set; }
-    public System.Collections.Generic.List<BundleEntryDto>? Entries { get; set; }
-}
-
-public class BundleEntryDto
-{
-    public string? SerialNo { get; set; }
-    public string? BatchNo { get; set; }
-    public decimal Qty { get; set; }
-    public decimal Rate { get; set; }
 }

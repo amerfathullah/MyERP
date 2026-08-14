@@ -14,7 +14,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class AccountingDimensionAppService : ApplicationService
+public class AccountingDimensionAppService : ApplicationService, IAccountingDimensionAppService
 {
     private readonly IRepository<AccountingDimension, Guid> _repository;
     private readonly IRepository<AccountingDimensionFilter, Guid> _filterRepository;
@@ -135,61 +135,3 @@ public class AccountingDimensionAppService : ApplicationService
     #endregion
 }
 
-#region DTOs
-
-public class AccountingDimensionDto
-{
-    public Guid Id { get; set; }
-    public string DocumentType { get; set; } = null!;
-    public string Label { get; set; } = null!;
-    public string FieldName { get; set; } = null!;
-    public bool IsEnabled { get; set; }
-    public bool IsMandatory { get; set; }
-    public Guid? CompanyId { get; set; }
-}
-
-public class CreateAccountingDimensionDto
-{
-    [Required]
-    [StringLength(100)]
-    public string DocumentType { get; set; } = null!;
-
-    [Required]
-    [StringLength(200)]
-    public string Label { get; set; } = null!;
-
-    public bool IsMandatory { get; set; }
-    public Guid? CompanyId { get; set; }
-}
-
-public class UpdateAccountingDimensionDto
-{
-    [Required]
-    [StringLength(200)]
-    public string Label { get; set; } = null!;
-
-    public bool IsMandatory { get; set; }
-    public bool HideDisabledValues { get; set; } = true;
-    public Guid? CompanyId { get; set; }
-}
-
-public class AccountingDimensionFilterDto
-{
-    public Guid Id { get; set; }
-    public Guid AccountingDimensionId { get; set; }
-    public Guid AccountId { get; set; }
-    public Guid CompanyId { get; set; }
-    public bool IsAllowList { get; set; }
-    public string DimensionValueIds { get; set; } = string.Empty;
-}
-
-public class CreateDimensionFilterDto
-{
-    public Guid AccountingDimensionId { get; set; }
-    public Guid AccountId { get; set; }
-    public Guid CompanyId { get; set; }
-    public bool IsAllowList { get; set; } = true;
-    public string? DimensionValueIds { get; set; }
-}
-
-#endregion

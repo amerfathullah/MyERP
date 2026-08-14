@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Purchasing;
 
 [Authorize(MyERPPermissions.PurchaseInvoices.Default)]
-public class SupplierPaymentSummaryAppService : ApplicationService
+public class SupplierPaymentSummaryAppService : ApplicationService, ISupplierPaymentSummaryAppService
 {
     private readonly IRepository<PurchaseInvoice, Guid> _invoiceRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
@@ -97,28 +97,4 @@ public class SupplierPaymentSummaryAppService : ApplicationService
             SupplierCount = supplierGroups.Count,
         };
     }
-}
-
-// DTOs
-public class SupplierPaymentSummaryReportDto
-{
-    public List<SupplierPaymentLineDto> Items { get; set; } = new();
-    public decimal TotalInvoiced { get; set; }
-    public decimal TotalPaid { get; set; }
-    public decimal TotalOutstanding { get; set; }
-    public decimal TotalOverdueAmount { get; set; }
-    public int SupplierCount { get; set; }
-}
-
-public class SupplierPaymentLineDto
-{
-    public Guid SupplierId { get; set; }
-    public string SupplierName { get; set; } = "";
-    public int InvoiceCount { get; set; }
-    public decimal TotalInvoiced { get; set; }
-    public decimal TotalPaid { get; set; }
-    public decimal TotalOutstanding { get; set; }
-    public int OverdueCount { get; set; }
-    public decimal OverdueAmount { get; set; }
-    public decimal PaymentTimeliness { get; set; } // Percentage paid on time
 }

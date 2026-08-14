@@ -1,8 +1,6 @@
 import * as Accounting from './accounting';
-import * as Application from './application';
 import * as Assets from './assets';
 import * as Automation from './automation';
-import * as Configuration from './configuration';
 import * as Controllers from './controllers';
 import * as Core from './core';
 import * as Crm from './crm';
@@ -22,4 +20,4 @@ import * as Shared from './shared';
 import * as Support from './support';
 import * as Tax from './tax';
 import * as Workflow from './workflow';
-export { Accounting, Application, Assets, Automation, Configuration, Controllers, Core, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Workflow };
+export { Accounting, Assets, Automation, Controllers, Core, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Workflow };

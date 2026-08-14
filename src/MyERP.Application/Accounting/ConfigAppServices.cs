@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Accounting.Entities;
-using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.Entities;
+using MyERP.Inventory;
+using MyERP.Permissions;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -11,17 +12,8 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 // --- Accounting Period ---
-public class AccountingPeriodDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string PeriodName { get; set; } = null!;
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-    public bool IsClosed { get; set; }
-}
-
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class AccountingPeriodAppService : ApplicationService
+public class AccountingPeriodAppService : ApplicationService, IAccountingPeriodAppService
 {
     private readonly IRepository<AccountingPeriod, Guid> _repository;
     public AccountingPeriodAppService(IRepository<AccountingPeriod, Guid> repository) => _repository = repository;
@@ -43,19 +35,11 @@ public class AccountingPeriodAppService : ApplicationService
         await _repository.UpdateAsync(ap);
         return ObjectMapper.Map<AccountingPeriod, AccountingPeriodDto>(ap);
     }
-
-
 }
 
 // --- Mode of Payment ---
-public class ModeOfPaymentDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public string Type { get; set; } = null!;
-}
-
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class ModeOfPaymentAppService : ApplicationService
+public class ModeOfPaymentAppService : ApplicationService, IModeOfPaymentAppService
 {
     private readonly IRepository<ModeOfPayment, Guid> _repository;
     public ModeOfPaymentAppService(IRepository<ModeOfPayment, Guid> repository) => _repository = repository;
@@ -71,16 +55,8 @@ public class ModeOfPaymentAppService : ApplicationService
 }
 
 // --- UOM Conversion ---
-public class UomConversionDto : EntityDto<Guid>
-{
-    public string FromUom { get; set; } = null!;
-    public string ToUom { get; set; } = null!;
-    public decimal ConversionFactor { get; set; }
-    public Guid? ItemId { get; set; }
-}
-
 [Authorize(MyERPPermissions.Items.Default)]
-public class UomConversionAppService : ApplicationService
+public class UomConversionAppService : ApplicationService, IUomConversionAppService
 {
     private readonly IRepository<Inventory.Entities.UomConversion, Guid> _repository;
     public UomConversionAppService(IRepository<Inventory.Entities.UomConversion, Guid> repository) => _repository = repository;

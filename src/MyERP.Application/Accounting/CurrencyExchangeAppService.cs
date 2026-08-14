@@ -11,24 +11,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class CurrencyExchangeDto : EntityDto<Guid>
-{
-    public string FromCurrency { get; set; } = null!;
-    public string ToCurrency { get; set; } = null!;
-    public decimal ExchangeRate { get; set; }
-    public DateTime Date { get; set; }
-}
-
-public class CreateCurrencyExchangeDto
-{
-    public string FromCurrency { get; set; } = null!;
-    public string ToCurrency { get; set; } = null!;
-    public decimal ExchangeRate { get; set; }
-    public DateTime Date { get; set; }
-}
-
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class CurrencyExchangeAppService : ApplicationService
+public class CurrencyExchangeAppService : ApplicationService, ICurrencyExchangeAppService
 {
     private readonly IRepository<CurrencyExchange, Guid> _repository;
     private readonly CurrencyExchangeService _exchangeService;
@@ -83,12 +67,4 @@ public class CurrencyExchangeAppService : ApplicationService
             RateDate = date,
         };
     }
-}
-
-public class ExchangeRateResultDto
-{
-    public decimal Rate { get; set; }
-    public string FromCurrency { get; set; } = null!;
-    public string ToCurrency { get; set; } = null!;
-    public DateTime? RateDate { get; set; }
 }

@@ -88,3 +88,20 @@ public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto
     public string? Filter { get; set; }
     public string? Status { get; set; }
 }
+
+public class MrFulfillmentStatusDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public bool IsFullyFulfilled { get; set; }
+    public List<MrItemFulfillmentDto> Items { get; set; } = new();
+}
+
+public class MrItemFulfillmentDto
+{
+    public Guid ItemId { get; set; }
+    public decimal RequestedQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal PendingQty { get; set; }
+    public decimal PerOrdered { get; set; }
+}
+

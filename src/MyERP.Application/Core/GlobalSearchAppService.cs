@@ -20,7 +20,7 @@ namespace MyERP.Core;
 /// Enables "find anything" from a single search box in the UI.
 /// </summary>
 [Authorize]
-public class GlobalSearchAppService : ApplicationService
+public class GlobalSearchAppService : ApplicationService, IGlobalSearchAppService
 {
     private readonly IRepository<SalesInvoice, Guid> _siRepo;
     private readonly IRepository<PurchaseInvoice, Guid> _piRepo;
@@ -220,25 +220,4 @@ public class GlobalSearchAppService : ApplicationService
     }
 }
 
-#region DTOs
-
-public class GlobalSearchInput
-{
-    public string Query { get; set; } = null!;
-    public Guid CompanyId { get; set; }
-    public int MaxResults { get; set; } = 20;
-}
-
-public class SearchResultDto
-{
-    public Guid Id { get; set; }
-    public string DocumentType { get; set; } = null!;
-    public string DocumentNumber { get; set; } = null!;
-    public DateTime Date { get; set; }
-    public decimal Amount { get; set; }
-    public string Status { get; set; } = null!;
-    public string Route { get; set; } = null!;
-}
-
-#endregion
 

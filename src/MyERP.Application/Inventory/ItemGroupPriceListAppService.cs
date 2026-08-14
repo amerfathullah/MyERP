@@ -1,34 +1,17 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
 
-// --- Item Group ---
-public class ItemGroupDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public Guid? ParentId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? DefaultWarehouseId { get; set; }
-}
-
-public class CreateItemGroupDto
-{
-    public string Name { get; set; } = null!;
-    public Guid? ParentId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? DefaultWarehouseId { get; set; }
-}
-
 [Authorize(MyERPPermissions.Items.Default)]
-public class ItemGroupAppService : ApplicationService
+public class ItemGroupAppService : ApplicationService, IItemGroupAppService
 {
     private readonly IRepository<ItemGroup, Guid> _repository;
     public ItemGroupAppService(IRepository<ItemGroup, Guid> repository) => _repository = repository;
@@ -53,6 +36,4 @@ public class ItemGroupAppService : ApplicationService
         await _repository.InsertAsync(ig);
         return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
     }
-
-
 }

@@ -1,4 +1,5 @@
 using System;
+using MyERP.CRM;
 using MyERP.CRM.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;

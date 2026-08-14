@@ -135,8 +135,7 @@ export interface JobCardTimeLogDto {
   completedQty?: number;
 }
 
-export interface ManufacturingSettingsDto {
-  id?: string;
+export interface ManufacturingSettingsDto extends EntityDto<string> {
   companyId?: string;
   overproductionPercentage?: number;
   backflushRawMaterialsBasedOn?: string;

@@ -2,50 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Core;
 
-public class ContactDto : EntityDto<Guid>
-{
-    public string PartyType { get; set; } = null!;
-    public Guid PartyId { get; set; }
-    public string FirstName { get; set; } = null!;
-    public string? LastName { get; set; }
-    public string? Salutation { get; set; }
-    public string FullName { get; set; } = null!;
-    public string? Email { get; set; }
-    public string? Phone { get; set; }
-    public string? MobileNo { get; set; }
-    public string? Designation { get; set; }
-    public string? Department { get; set; }
-    public bool IsPrimaryContact { get; set; }
-    public bool IsBillingContact { get; set; }
-}
-
-public class CreateContactDto
-{
-    public string PartyType { get; set; } = null!;
-    public Guid PartyId { get; set; }
-    public string? Salutation { get; set; }
-    public string FirstName { get; set; } = null!;
-    public string? LastName { get; set; }
-    public string? Email { get; set; }
-    public string? Phone { get; set; }
-    public string? MobileNo { get; set; }
-    public string? Designation { get; set; }
-    public string? Department { get; set; }
-    public bool IsPrimaryContact { get; set; }
-    public bool IsBillingContact { get; set; }
-}
-
 [Authorize(MyERPPermissions.Customers.Default)]
-public class ContactAppService : ApplicationService
+public class ContactAppService : ApplicationService, IContactAppService
 {
     private readonly IRepository<Contact, Guid> _repository;
     public ContactAppService(IRepository<Contact, Guid> repository) => _repository = repository;
@@ -62,7 +29,7 @@ public class ContactAppService : ApplicationService
     }
 
     /// <summary>Get contacts for a specific party (used by Angular ContactManager component).</summary>
-    public async Task<System.Collections.Generic.List<ContactDto>> GetContactsForPartyAsync(string partyType, Guid partyId)
+    public async Task<List<ContactDto>> GetContactsForPartyAsync(string partyType, Guid partyId)
     {
         var query = await _repository.GetQueryableAsync();
         return query.Where(c => c.PartyType == partyType && c.PartyId == partyId && c.IsActive)

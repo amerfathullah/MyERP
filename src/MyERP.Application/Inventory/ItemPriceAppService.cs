@@ -14,7 +14,7 @@ using MyERP.Purchasing.Entities;
 namespace MyERP.Inventory;
 
 [Authorize(MyERPPermissions.Items.Default)]
-public class ItemPriceAppService : ApplicationService
+public class ItemPriceAppService : ApplicationService, IItemPriceAppService
 {
     private readonly IRepository<ItemPrice, Guid> _itemPriceRepo;
     private readonly IRepository<Item, Guid> _itemRepo;

@@ -145,7 +145,7 @@ public class UxErrorHandlingAndDropdownTests
         var contract = new CRM.Entities.Contract(Guid.NewGuid(), Guid.NewGuid(), "CON-001", "Customer",
             Guid.NewGuid(), DateTime.Today);
         contract.Sign(DateTime.Today);
-        Assert.Equal(CRM.Entities.ContractStatus.Active, contract.Status);
+        Assert.Equal(CRM.ContractStatus.Active, contract.Status);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class UxErrorHandlingAndDropdownTests
             Guid.NewGuid(), DateTime.Today);
         contract.Sign(DateTime.Today);
         contract.Cancel();
-        Assert.Equal(CRM.Entities.ContractStatus.Cancelled, contract.Status);
+        Assert.Equal(CRM.ContractStatus.Cancelled, contract.Status);
     }
 
     // === PutawayRule entity — capacity validation ===

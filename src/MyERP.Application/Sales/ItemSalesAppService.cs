@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Sales;
 
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
-public class ItemSalesAppService : ApplicationService
+public class ItemSalesAppService : ApplicationService, IItemSalesAppService
 {
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
 
@@ -70,24 +70,4 @@ public class ItemSalesAppService : ApplicationService
             ToDate = to,
         };
     }
-}
-
-public class ItemSalesReportDto
-{
-    public List<ItemSalesLineDto> Items { get; set; } = new();
-    public decimal TotalRevenue { get; set; }
-    public decimal TotalQty { get; set; }
-    public int UniqueItems { get; set; }
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-}
-
-public class ItemSalesLineDto
-{
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = null!;
-    public decimal TotalQty { get; set; }
-    public decimal TotalRevenue { get; set; }
-    public decimal AverageRate { get; set; }
-    public int InvoiceCount { get; set; }
 }

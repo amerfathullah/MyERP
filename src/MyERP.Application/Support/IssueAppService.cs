@@ -11,7 +11,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Support;
 
 [Authorize(MyERPPermissions.Issues.Default)]
-public class IssueAppService : ApplicationService
+public class IssueAppService : ApplicationService, IIssueAppService
 {
     private readonly IRepository<Issue, Guid> _issueRepository;
 

@@ -665,18 +665,4 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
         return results;
     }
-}
-
-public class PutawayItemInput
-{
-    public Guid ItemId { get; set; }
-    public decimal Qty { get; set; }
-}
-
-public class PutawayAllocationResultDto
-{
-    public Guid ItemId { get; set; }
-    public Guid WarehouseId { get; set; }
-    public decimal Qty { get; set; }
-    public bool IsUnallocated { get; set; }
-}
+}

@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Inventory.Entities;
-using MyERP.Inventory.DomainServices;
-using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
-using Volo.Abp.Application.Dtos;
+using MyERP.Inventory.Entities;
+using MyERP.Permissions;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -18,7 +16,7 @@ namespace MyERP.Inventory;
 /// that can be combined to create item variants from template items.
 /// </summary>
 [Authorize(MyERPPermissions.Items.Default)]
-public class ItemAttributeAppService : ApplicationService
+public class ItemAttributeAppService : ApplicationService, IItemAttributeAppService
 {
     private readonly IRepository<ItemAttribute, Guid> _repository;
 
@@ -76,34 +74,3 @@ public class ItemAttributeAppService : ApplicationService
         await _repository.DeleteAsync(id);
     }
 }
-
-#region DTOs
-
-public class ItemAttributeDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsNumeric { get; set; }
-    public decimal FromRange { get; set; }
-    public decimal ToRange { get; set; }
-    public decimal Increment { get; set; }
-    public List<ItemAttributeValueDto> Values { get; set; } = new();
-}
-
-public class ItemAttributeValueDto
-{
-    public string Value { get; set; } = null!;
-    public string Abbreviation { get; set; } = null!;
-}
-
-public class CreateItemAttributeDto
-{
-    public string Name { get; set; } = null!;
-    public bool IsNumeric { get; set; }
-    public decimal FromRange { get; set; }
-    public decimal ToRange { get; set; }
-    public decimal Increment { get; set; }
-    public List<ItemAttributeValueDto> Values { get; set; } = new();
-}
-
-#endregion

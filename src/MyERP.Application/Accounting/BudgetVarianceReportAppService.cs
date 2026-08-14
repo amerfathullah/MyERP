@@ -23,7 +23,7 @@ namespace MyERP.Accounting;
 /// - Variance % = (Variance / Budget) × 100
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class BudgetVarianceReportAppService : ApplicationService
+public class BudgetVarianceReportAppService : ApplicationService, IBudgetVarianceReportAppService
 {
     private readonly IRepository<Budget, Guid> _budgetRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
@@ -127,40 +127,3 @@ public class BudgetVarianceReportAppService : ApplicationService
     }
 }
 
-#region DTOs
-
-public class BudgetVarianceRequestDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid FiscalYearId { get; set; }
-    public DateTime? FromDate { get; set; }
-    public DateTime? ToDate { get; set; }
-}
-
-public class BudgetVarianceReportDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid FiscalYearId { get; set; }
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-    public List<BudgetVarianceRowDto> Rows { get; set; } = new();
-    public decimal TotalBudget { get; set; }
-    public decimal TotalActual { get; set; }
-    public decimal TotalVariance { get; set; }
-    public int OverBudgetCount { get; set; }
-}
-
-public class BudgetVarianceRowDto
-{
-    public Guid AccountId { get; set; }
-    public string AccountCode { get; set; } = null!;
-    public string AccountName { get; set; } = null!;
-    public string AccountType { get; set; } = null!;
-    public decimal BudgetAmount { get; set; }
-    public decimal ActualAmount { get; set; }
-    public decimal Variance { get; set; }
-    public decimal VariancePercent { get; set; }
-    public bool IsOverBudget { get; set; }
-}
-
-#endregion

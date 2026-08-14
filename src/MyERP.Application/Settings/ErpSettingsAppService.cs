@@ -7,7 +7,7 @@ using Volo.Abp.Application.Services;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.Settings;
 
-namespace MyERP.Configuration;
+namespace MyERP.Settings;
 
 /// <summary>
 /// Exposes ERP settings (Stock, Selling, Buying, Manufacturing, Accounts)
@@ -15,7 +15,7 @@ namespace MyERP.Configuration;
 /// Global → Tenant → User layering.
 /// </summary>
 [Authorize(MyERPPermissions.Settings.Default)]
-public class ErpSettingsAppService : ApplicationService
+public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
 {
     private readonly ISettingProvider _settingProvider;
     private readonly ISettingManager _settingManager;

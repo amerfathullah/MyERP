@@ -14,7 +14,7 @@ namespace MyERP.Accounting;
 /// Wraps ChartOfAccountsImportService domain service for API access.
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Create)]
-public class ChartOfAccountsImportAppService : ApplicationService
+public class ChartOfAccountsImportAppService : ApplicationService, IChartOfAccountsImportAppService
 {
     private readonly ChartOfAccountsImportService _importService;
 
@@ -62,36 +62,4 @@ public class ChartOfAccountsImportAppService : ApplicationService
 
         return Task.FromResult(dtos);
     }
-}
-
-public class ImportCoaDto
-{
-    public Guid CompanyId { get; set; }
-    public List<ImportCoaRowDto> Rows { get; set; } = new();
-}
-
-public class ImportCoaRowDto
-{
-    public string AccountCode { get; set; } = null!;
-    public string AccountName { get; set; } = null!;
-    public AccountType AccountType { get; set; }
-    public bool IsGroup { get; set; }
-    public string? ParentCode { get; set; }
-    public AccountSubType? SubType { get; set; }
-}
-
-public class CoaImportResultDto
-{
-    public int AccountsCreated { get; set; }
-    public Guid CompanyId { get; set; }
-}
-
-public class CoaTemplateRowDto
-{
-    public string AccountCode { get; set; } = null!;
-    public string AccountName { get; set; } = null!;
-    public AccountType AccountType { get; set; }
-    public bool IsGroup { get; set; }
-    public string? ParentCode { get; set; }
-    public AccountSubType? SubType { get; set; }
 }

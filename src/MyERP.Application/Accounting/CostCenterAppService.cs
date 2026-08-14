@@ -12,7 +12,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class CostCenterAppService : ApplicationService
+public class CostCenterAppService : ApplicationService, ICostCenterAppService
 {
     private readonly IRepository<CostCenter, Guid> _repository;
 
@@ -61,32 +61,4 @@ public class CostCenterAppService : ApplicationService
         await _repository.UpdateAsync(cc);
         return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
-
-
 }
-
-public class CostCenterDto : AuditedEntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public string? CostCenterNumber { get; set; }
-    public Guid CompanyId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? ParentId { get; set; }
-    public bool IsActive { get; set; }
-}
-
-public class CreateCostCenterDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required][StringLength(200)] public string Name { get; set; } = null!;
-    [StringLength(50)] public string? CostCenterNumber { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? ParentId { get; set; }
-}
-
-public class GetCostCenterListDto : PagedAndSortedResultRequestDto
-{
-    public Guid? CompanyId { get; set; }
-    public string? Filter { get; set; }
-}
-

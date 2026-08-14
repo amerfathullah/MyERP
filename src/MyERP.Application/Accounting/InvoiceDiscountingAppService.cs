@@ -13,56 +13,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class InvoiceDiscountingDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public decimal TotalOutstanding { get; set; }
-    public decimal DiscountCharge { get; set; }
-    public decimal DisbursementAmount { get; set; }
-    public int Status { get; set; }
-    public Guid? DisbursementJournalEntryId { get; set; }
-    public Guid? SettlementJournalEntryId { get; set; }
-}
-
-public class CreateInvoiceDiscountingDto
-{
-    public Guid CompanyId { get; set; }
-    public decimal AnnualDiscountRate { get; set; }
-    public int DaysToMaturity { get; set; }
-    public Guid BankAccountId { get; set; }
-    public Guid DiscountExpenseAccountId { get; set; }
-    public Guid ShortTermLoanAccountId { get; set; }
-    public Guid ReceivableAccountId { get; set; }
-    public List<InvoiceForDiscountingDto> Invoices { get; set; } = new();
-}
-
-public class InvoiceForDiscountingDto
-{
-    public Guid InvoiceId { get; set; }
-    public string InvoiceNumber { get; set; } = null!;
-    public decimal OutstandingAmount { get; set; }
-    public bool IsAlreadyDiscounted { get; set; }
-}
-
-/// <summary>
-/// AppService for Invoice Discounting — selling receivables to a bank at a discount.
-/// Delegates to InvoiceDiscountingService for state machine logic and GL entry building.
-///
-/// Full lifecycle: Calculate → Submit (Sanction) → Disburse (JE) → Settle (JE) → Cancel
-///
-/// Per ERPNext:
-/// - Draft → Sanctioned (submit, validates invoices)
-/// - Sanctioned → Disbursed (disbursement JE posted: bank pays company)
-/// - Disbursed → Settled (settlement JE posted: loan repaid from customer payment)
-/// - Any → Cancelled (only if can reverse)
-///
-/// GL Patterns:
-/// - Disbursement: DR Bank + DR Discount Expense, CR Short-Term Loan
-/// - Settlement: DR Short-Term Loan, CR Customer Receivable
-/// </summary>
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
-public class InvoiceDiscountingAppService : ApplicationService
+public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscountingAppService
 {
     private readonly InvoiceDiscountingService _service;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;

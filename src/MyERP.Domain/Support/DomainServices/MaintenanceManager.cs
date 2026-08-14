@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using MyERP.Support.Entities;
+using MyERP.Assets;
 using MyERP.Assets.Entities;
 using MyERP.Maintenance.Entities;
 using Volo.Abp.Domain.Repositories;

@@ -13,39 +13,13 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class ExchangeRateRevaluationDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public DateTime PostingDate { get; set; }
-    public decimal TotalGainLoss { get; set; }
-    public int EntryCount { get; set; }
-}
-
-public class EligibleAccountDto
-{
-    public Guid AccountId { get; set; }
-    public string AccountName { get; set; } = null!;
-    public string AccountCurrency { get; set; } = null!;
-    public decimal BalanceInAccountCurrency { get; set; }
-    public decimal CurrentExchangeRate { get; set; }
-    public decimal BalanceInCompanyCurrency { get; set; }
-    public decimal GainLoss { get; set; }
-}
-
-public class CreateRevaluationDto
-{
-    public Guid CompanyId { get; set; }
-    public DateTime PostingDate { get; set; }
-    public decimal RoundingLossAllowance { get; set; } = 0.05m;
-}
-
 /// <summary>
 /// AppService for Exchange Rate Revaluation — period-end foreign currency revaluation.
 /// Delegates to ExchangeRateRevaluationService for account resolution and JE generation.
 /// Per DO-NOT: only Balance Sheet accounts qualify, not P&L.
 /// </summary>
 [Authorize(MyERPPermissions.JournalEntries.Default)]
-public class ExchangeRateRevaluationAppService : ApplicationService
+public class ExchangeRateRevaluationAppService : ApplicationService, IExchangeRateRevaluationAppService
 {
     private readonly ExchangeRateRevaluationService _service;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;

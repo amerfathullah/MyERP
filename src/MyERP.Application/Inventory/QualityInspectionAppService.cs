@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Inventory;
 
 [Authorize(MyERPPermissions.QualityInspections.Default)]
-public class QualityInspectionAppService : ApplicationService
+public class QualityInspectionAppService : ApplicationService, IQualityInspectionAppService
 {
     private readonly IRepository<QualityInspection, Guid> _repository;
     private readonly IDocumentNumberGenerator _numberGenerator;

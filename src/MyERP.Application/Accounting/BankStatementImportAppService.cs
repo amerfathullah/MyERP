@@ -21,7 +21,7 @@ namespace MyERP.Accounting;
 /// ERPNext equivalent: banking/doctype/bank_statement_import
 /// </summary>
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
-public class BankStatementImportAppService : ApplicationService
+public class BankStatementImportAppService : ApplicationService, IBankStatementImportAppService
 {
     private readonly IRepository<BankTransaction, Guid> _transactionRepository;
     private readonly IGuidGenerator _guidGenerator;
@@ -267,30 +267,3 @@ public class BankStatementImportAppService : ApplicationService
     }
 }
 
-public class BankStatementImportInput
-{
-    public Guid CompanyId { get; set; }
-    public Guid BankAccountId { get; set; }
-    public string CsvContent { get; set; } = null!;
-    public Guid? TenantId { get; set; }
-
-    /// <summary>Optional currency code. When set, validated against bank account GL currency.</summary>
-    public string? CurrencyCode { get; set; }
-}
-
-public class BankStatementImportResult
-{
-    public int ImportedCount { get; set; }
-    public int SkippedCount { get; set; }
-    public List<string> Errors { get; set; } = new();
-    public bool Success => Errors.Count == 0 || ImportedCount > 0;
-}
-
-public class Mt940ImportInput
-{
-    public Guid CompanyId { get; set; }
-    public Guid BankAccountId { get; set; }
-    public string Mt940Content { get; set; } = null!;
-    public Guid? TenantId { get; set; }
-    public string? CurrencyCode { get; set; }
-}

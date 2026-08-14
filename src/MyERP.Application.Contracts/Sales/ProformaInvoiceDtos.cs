@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using MyERP.Sales;
 
-namespace MyERP.Application.Contracts.Sales;
+namespace MyERP.Sales;
 
 // ─── Output DTOs ───
 

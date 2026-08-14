@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MyERP.CRM;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -116,15 +117,6 @@ public class Shipment : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("status", Status.ToString());
         Status = ShipmentStatus.Cancelled;
     }
-}
-
-public enum ShipmentStatus
-{
-    Draft = 0,
-    Booked = 1,
-    InTransit = 2,
-    Delivered = 3,
-    Cancelled = 4
 }
 
 /// <summary>Links a Delivery Note to a Shipment.</summary>

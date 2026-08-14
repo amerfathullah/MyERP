@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
-using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -17,7 +16,7 @@ namespace MyERP.Core;
 /// customer categorization, and supplier grouping.
 /// </summary>
 [Authorize(MyERPPermissions.Customers.Default)]
-public class HierarchyMasterDataAppService : ApplicationService
+public class HierarchyMasterDataAppService : ApplicationService, IHierarchyMasterDataAppService
 {
     private readonly IRepository<Territory, Guid> _territoryRepository;
     private readonly IRepository<CustomerGroup, Guid> _customerGroupRepository;
@@ -100,23 +99,3 @@ public class HierarchyMasterDataAppService : ApplicationService
     [Authorize(MyERPPermissions.Suppliers.Delete)]
     public async Task DeleteSupplierGroupAsync(Guid id) => await _supplierGroupRepository.DeleteAsync(id);
 }
-
-#region DTOs
-
-public class HierarchyNodeDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public Guid? ParentId { get; set; }
-    public bool IsGroup { get; set; }
-}
-
-public class CreateHierarchyNodeDto
-{
-    public string Name { get; set; } = null!;
-    public Guid? ParentId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? ManagerId { get; set; }
-}
-
-#endregion

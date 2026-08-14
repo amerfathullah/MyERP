@@ -2,8 +2,10 @@ import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } 
 import type { CouponType } from './coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
+import type { ProformaInvoiceBasis } from './proforma-invoice-basis.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
 import type { ShippingRuleType } from './shipping-rule-type.enum';
+import type { ProformaInvoiceStatus } from './proforma-invoice-status.enum';
 import type { AnalyticsGroupBy } from './analytics-group-by.enum';
 import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 import type { TrackingBoardStage } from './tracking-board-stage.enum';
@@ -286,6 +288,19 @@ export interface CreateProductBundleItemDto {
   componentItemId?: string;
   itemName?: string | null;
   qty?: number;
+}
+
+export interface CreateProformaInvoiceDto {
+  salesOrderId: string;
+  basedOn?: ProformaInvoiceBasis;
+  hideItemQty?: boolean;
+  items: CreateProformaInvoiceItemDto[];
+}
+
+export interface CreateProformaInvoiceItemDto {
+  salesOrderItemId: string;
+  quantity?: number;
+  amount?: number | null;
 }
 
 export interface CreateQuotationDto {
@@ -635,8 +650,7 @@ export interface GrossProfitRequestDto {
   toDate?: string | null;
 }
 
-export interface InstallationNoteDto {
-  id?: string;
+export interface InstallationNoteDto extends EntityDto<string> {
   installationNumber?: string;
   companyId?: string;
   customerId?: string;
@@ -699,8 +713,7 @@ export interface LoyaltyPointEntryDto {
   isEarning?: boolean;
 }
 
-export interface LoyaltyProgramDto {
-  id?: string;
+export interface LoyaltyProgramDto extends EntityDto<string> {
   companyId?: string;
   name?: string;
   conversionFactor?: number;
@@ -821,8 +834,7 @@ export interface PlanDimensionsDto {
   costCenterId?: string | null;
 }
 
-export interface PosClosingDto {
-  id?: string;
+export interface PosClosingDto extends EntityDto<string> {
   companyId?: string;
   posProfileId?: string;
   postingDate?: string;
@@ -889,8 +901,7 @@ export interface PosLineItemDto {
   taxAmount?: number;
 }
 
-export interface PosOpeningDto {
-  id?: string;
+export interface PosOpeningDto extends EntityDto<string> {
   companyId?: string;
   posProfileId?: string;
   userId?: string;
@@ -984,6 +995,50 @@ export interface ProductBundleItemDto {
   componentItemId?: string;
   itemName?: string | null;
   qty?: number;
+}
+
+export interface ProformaInvoiceDto {
+  id?: string;
+  proformaNumber?: string;
+  proformaDate?: string;
+  salesOrderId?: string;
+  salesOrderNumber?: string | null;
+  customerId?: string;
+  customerName?: string | null;
+  basedOn?: ProformaInvoiceBasis;
+  hideItemQty?: boolean;
+  currencyCode?: string | null;
+  grandTotal?: number;
+  totalQty?: number;
+  status?: ProformaInvoiceStatus;
+  proformaPdfUrl?: string | null;
+  sentOn?: string | null;
+  emailedTo?: string | null;
+  items?: ProformaInvoiceItemDto[];
+}
+
+export interface ProformaInvoiceItemDto {
+  id?: string;
+  salesOrderItemId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string | null;
+  quantity?: number;
+  rate?: number;
+  amount?: number;
+}
+
+export interface ProformedTotalsDto {
+  salesOrderItemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  orderedQty?: number;
+  orderedAmount?: number;
+  proformedQty?: number;
+  proformedAmount?: number;
+  remainingQty?: number;
+  remainingAmount?: number;
 }
 
 export interface QuotationDto extends FullAuditedEntityDto<string> {
@@ -1254,6 +1309,10 @@ export interface SendInvoiceEmailDto {
   ccEmails?: string[] | null;
   templateId?: string | null;
   attachPdf?: boolean;
+}
+
+export interface SendProformaEmailDto {
+  recipients: string;
 }
 
 export interface SendPurchaseOrderEmailDto {

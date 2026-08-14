@@ -181,3 +181,59 @@ public class PurchaseInvoiceListSummaryDto
     /// <summary>Total number of posted purchase invoices.</summary>
     public int PostedInvoiceCount { get; set; }
 }
+
+/// <summary>Payment entry linked to an invoice (for payment history display).</summary>
+public class InvoicePaymentDto
+{
+    public Guid Id { get; set; }
+    public string PaymentNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = null!;
+}
+
+/// <summary>DTO for an unbilled Purchase Receipt item ready for billing.</summary>
+public class UnbilledReceiptItemDto
+{
+    public Guid PurchaseReceiptId { get; set; }
+    public string? ReceiptNumber { get; set; }
+    public DateTime ReceiptDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseReceiptItemId { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+}
+
+/// <summary>DTO for an unbilled Purchase Order item ready for billing.</summary>
+public class UnbilledPurchaseOrderItemDto
+{
+    public Guid PurchaseOrderId { get; set; }
+    public string? OrderNumber { get; set; }
+    public DateTime OrderDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseOrderItemId { get; set; }
+}
+
+/// <summary>DTO for an unbilled Purchase Receipt item ready for billing.</summary>
+public class UnbilledPurchaseReceiptItemDto
+{
+    public Guid PurchaseReceiptId { get; set; }
+    public string? ReceiptNumber { get; set; }
+    public DateTime ReceiptDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public string? Uom { get; set; }
+    public Guid PurchaseReceiptItemId { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+}
+

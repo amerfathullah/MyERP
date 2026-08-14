@@ -8,7 +8,7 @@ import type { AssetMaintenanceStatus } from './asset-maintenance-status.enum';
 import type { AssetMovementPurpose } from './asset-movement-purpose.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { AssetRepairStatus } from './asset-repair-status.enum';
-import type { MaintenanceVisitStatus } from './entities/maintenance-visit-status.enum';
+import type { MaintenanceVisitStatus } from './maintenance-visit-status.enum';
 
 export interface AssetActivityDto extends FullAuditedEntityDto<string> {
   assetId?: string;

@@ -21,7 +21,7 @@ namespace MyERP.Core;
 /// SaveAsync: requires CompanyRestrictions.Manage permission (manager-level only, per permlevel 1).
 /// </summary>
 [Authorize]
-public class CompanyRestrictionAppService : ApplicationService
+public class CompanyRestrictionAppService : ApplicationService, ICompanyRestrictionAppService
 {
     private readonly IRepository<CompanyRestrictionEntry, Guid> _restrictionRepo;
     private readonly IRepository<Item, Guid> _itemRepo;
@@ -129,28 +129,4 @@ public class CompanyRestrictionAppService : ApplicationService
                 .WithData("message", "At least one company must be selected when restricting access");
         }
     }
-}
-
-// --- DTOs ---
-
-public class CompanyRestrictionDto
-{
-    public string ParentType { get; set; } = null!;
-    public Guid ParentId { get; set; }
-    public bool RestrictToCompanies { get; set; }
-    public List<CompanyRestrictionEntryDto> AllowedCompanies { get; set; } = new();
-}
-
-public class CompanyRestrictionEntryDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-}
-
-public class SaveCompanyRestrictionDto
-{
-    public string ParentType { get; set; } = null!;
-    public Guid ParentId { get; set; }
-    public bool RestrictToCompanies { get; set; }
-    public List<Guid>? AllowedCompanyIds { get; set; }
 }

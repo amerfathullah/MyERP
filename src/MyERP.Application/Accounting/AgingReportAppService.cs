@@ -11,49 +11,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class AgingReportDto
-{
-    public string ReportType { get; set; } = null!;
-    public DateTime AsOfDate { get; set; }
-    public string[] BucketLabels { get; set; } = [];
-    public decimal[] BucketTotals { get; set; } = [];
-    public decimal TotalOutstanding { get; set; }
-    public int InvoiceCount { get; set; }
-    /// <summary>Per-invoice detail entries for detailed AR/AP report view.</summary>
-    public AgingDetailEntryDto[] Details { get; set; } = [];
-}
-
-/// <summary>Per-invoice detail in aging report — used by detailed AR/AP report.</summary>
-public class AgingDetailEntryDto
-{
-    public Guid PartyId { get; set; }
-    public string? PartyName { get; set; }
-    public Guid DocumentId { get; set; }
-    public string DocumentNumber { get; set; } = null!;
-    public DateTime PostingDate { get; set; }
-    public DateTime DueDate { get; set; }
-    public decimal OutstandingAmount { get; set; }
-    public int AgeDays { get; set; }
-    public string BucketLabel { get; set; } = null!;
-}
-
-public class AgingReportRequestDto
-{
-    public Guid CompanyId { get; set; }
-    public DateTime? AsOfDate { get; set; }
-}
-
-public class SendPaymentReminderInput
-{
-    public Guid PartyId { get; set; }
-    public string PartyName { get; set; } = null!;
-    public string PartyType { get; set; } = "Customer";
-    public decimal OverdueAmount { get; set; }
-    public int InvoiceCount { get; set; }
-}
-
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
-public class AgingReportAppService : ApplicationService
+public class AgingReportAppService : ApplicationService, IAgingReportAppService
 {
     private readonly AgingBucketService _agingService;
     private readonly IRepository<AppNotification, Guid> _notificationRepo;

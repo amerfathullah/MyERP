@@ -1,10 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -12,7 +11,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Inventory;
 
 [Authorize(MyERPPermissions.QualityInspections.Default)]
-public class QualityInspectionTemplateAppService : ApplicationService
+public class QualityInspectionTemplateAppService : ApplicationService, IQualityInspectionTemplateAppService
 {
     private readonly IRepository<QualityInspectionTemplate, Guid> _repository;
 
@@ -94,51 +93,3 @@ public class QualityInspectionTemplateAppService : ApplicationService
         }).ToList()
     };
 }
-
-#region DTOs
-
-public class QiTemplateDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public string? Description { get; set; }
-    public Guid? ItemId { get; set; }
-    public Guid? BomId { get; set; }
-    public bool IsEnabled { get; set; }
-    public int ParameterCount { get; set; }
-    public List<QiTemplateParameterDto> Parameters { get; set; } = new();
-}
-
-public class QiTemplateParameterDto : EntityDto<Guid>
-{
-    public string Specification { get; set; } = null!;
-    public string? ExpectedValue { get; set; }
-    public decimal? MinValue { get; set; }
-    public decimal? MaxValue { get; set; }
-    public bool IsNumeric { get; set; }
-    public bool FormulaBased { get; set; }
-    public string? Formula { get; set; }
-    public string? AcceptanceCriteria { get; set; }
-}
-
-public class CreateQiTemplateDto
-{
-    public string Name { get; set; } = null!;
-    public string? Description { get; set; }
-    public Guid? ItemId { get; set; }
-    public Guid? BomId { get; set; }
-    public List<CreateQiTemplateParameterDto>? Parameters { get; set; }
-}
-
-public class CreateQiTemplateParameterDto
-{
-    public string Specification { get; set; } = null!;
-    public string? ExpectedValue { get; set; }
-    public decimal? MinValue { get; set; }
-    public decimal? MaxValue { get; set; }
-    public bool IsNumeric { get; set; }
-    public bool FormulaBased { get; set; }
-    public string? Formula { get; set; }
-    public string? AcceptanceCriteria { get; set; }
-}
-
-#endregion

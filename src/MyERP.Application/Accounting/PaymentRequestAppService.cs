@@ -11,40 +11,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class PaymentRequestDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string PaymentRequestType { get; set; } = null!;
-    public string ReferenceDoctype { get; set; } = null!;
-    public Guid ReferenceId { get; set; }
-    public Guid PartyId { get; set; }
-    public string PartyType { get; set; } = null!;
-    public string? PartyName { get; set; }
-    public decimal GrandTotal { get; set; }
-    public decimal OutstandingAmount { get; set; }
-    public string Currency { get; set; } = null!;
-    public int Status { get; set; }
-    public Guid? PaymentEntryId { get; set; }
-}
-
-public class CreatePaymentRequestDto
-{
-    public Guid CompanyId { get; set; }
-    public string PaymentRequestType { get; set; } = "Inward";
-    public string ReferenceDoctype { get; set; } = null!;
-    public Guid ReferenceId { get; set; }
-    public Guid PartyId { get; set; }
-    public string PartyType { get; set; } = "Customer";
-    public string? PartyName { get; set; }
-    public decimal GrandTotal { get; set; }
-    public string Currency { get; set; } = "MYR";
-    public string? EmailTo { get; set; }
-    public string? Subject { get; set; }
-    public string? Message { get; set; }
-}
-
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
-public class PaymentRequestAppService : ApplicationService
+public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppService
 {
     private readonly IRepository<PaymentRequest, Guid> _repository;
     public PaymentRequestAppService(IRepository<PaymentRequest, Guid> repository) => _repository = repository;
@@ -109,4 +77,3 @@ public class PaymentRequestAppService : ApplicationService
         return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 }
-

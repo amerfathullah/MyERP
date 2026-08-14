@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Inventory;
 
 [Authorize(MyERPPermissions.StockReconciliations.Default)]
-public class StockReconciliationAppService : ApplicationService
+public class StockReconciliationAppService : ApplicationService, IStockReconciliationAppService
 {
     private readonly IRepository<StockReconciliation, Guid> _repository;
     private readonly StockValuationService _valuationService;

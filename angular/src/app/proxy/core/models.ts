@@ -34,8 +34,7 @@ export interface AgingSummaryWidgetDto {
   payables?: AgingBucketsDto;
 }
 
-export interface AuthorizationRuleDto {
-  id?: string;
+export interface AuthorizationRuleDto extends EntityDto<string> {
   companyId?: string | null;
   transactionType?: string;
   basedOn?: string;
@@ -47,8 +46,7 @@ export interface AuthorizationRuleDto {
   customerId?: string | null;
 }
 
-export interface AutoRepeatDto {
-  id?: string;
+export interface AutoRepeatDto extends EntityDto<string> {
   companyId?: string;
   referenceDocumentType?: string;
   referenceDocumentId?: string;
@@ -369,8 +367,7 @@ export interface DeliveryDueOrderDto {
   perReceived?: number;
 }
 
-export interface DocumentActivityLogDto {
-  id?: string;
+export interface DocumentActivityLogDto extends EntityDto<string> {
   documentType?: string;
   documentId?: string;
   documentNumber?: string | null;
@@ -407,8 +404,7 @@ export interface DraftLinkDto {
   url?: string | null;
 }
 
-export interface EmailTemplateDto {
-  id?: string;
+export interface EmailTemplateDto extends EntityDto<string> {
   name?: string;
   subject?: string;
   body?: string;
@@ -500,8 +496,7 @@ export interface MonthlyRevenuePoint {
   amount?: number;
 }
 
-export interface NotificationLogDto {
-  id?: string;
+export interface NotificationLogDto extends EntityDto<string> {
   recipient?: string;
   subject?: string | null;
   channel?: string;

@@ -41,3 +41,21 @@ public enum OpportunityType
     Support = 1,
     Maintenance = 2,
 }
+
+public enum ContractStatus
+{
+    Unsigned = 0,
+    Active = 1,
+    InactiveByExpiry = 2,
+    InactiveByAutoRenewFailure = 3,
+    Cancelled = 4,
+}
+
+public enum ShipmentStatus
+{
+    Draft = 0,
+    Booked = 1,
+    InTransit = 2,
+    Delivered = 3,
+    Cancelled = 4,
+}

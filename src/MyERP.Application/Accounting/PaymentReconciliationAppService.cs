@@ -24,7 +24,7 @@ namespace MyERP.Accounting;
 /// Per DO-NOT: "Unreconcile without cancelling related exchange gain/loss Journal Entries"
 /// </summary>
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
-public class PaymentReconciliationAppService : ApplicationService
+public class PaymentReconciliationAppService : ApplicationService, IPaymentReconciliationAppService
 {
     private readonly PaymentReconciliationEngine _engine;
     private readonly PaymentLedgerService _pleService;

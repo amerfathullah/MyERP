@@ -18,7 +18,7 @@ namespace MyERP.Accounting;
 /// Only ONE book can be default per company.
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class FinanceBookAppService : ApplicationService
+public class FinanceBookAppService : ApplicationService, IFinanceBookAppService
 {
     private readonly IRepository<FinanceBook, Guid> _repository;
 
@@ -110,19 +110,3 @@ public class FinanceBookAppService : ApplicationService
     };
 }
 
-public class FinanceBookDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsDefault { get; set; }
-    public string? Description { get; set; }
-}
-
-public class CreateFinanceBookDto
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsDefault { get; set; }
-    public string? Description { get; set; }
-}

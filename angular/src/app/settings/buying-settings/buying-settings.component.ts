@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ErpSettingsService } from '../../proxy/configuration/erp-settings.service';
+import { ErpSettingsService } from '../../proxy/settings/erp-settings.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 @Component({

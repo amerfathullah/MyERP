@@ -1,35 +1,17 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Core;
 
-public class DocumentSeriesDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string DocumentType { get; set; } = null!;
-    public string Prefix { get; set; } = null!;
-    public long CurrentNumber { get; set; }
-    public int NumberPadding { get; set; }
-}
-
-public class CreateDocumentSeriesDto
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public string DocumentType { get; set; } = null!;
-    public string Prefix { get; set; } = null!;
-    public int NumberPadding { get; set; } = 5;
-}
-
 [Authorize(MyERPPermissions.Companies.Default)]
-public class DocumentSeriesAppService : ApplicationService
+public class DocumentSeriesAppService : ApplicationService, IDocumentSeriesAppService
 {
     private readonly IRepository<DocumentSeries, Guid> _repository;
     public DocumentSeriesAppService(IRepository<DocumentSeries, Guid> repository) => _repository = repository;

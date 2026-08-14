@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 [Authorize(MyERPPermissions.Budgets.Default)]
-public class BudgetAppService : ApplicationService
+public class BudgetAppService : ApplicationService, IBudgetAppService
 {
     private readonly IRepository<Budget, Guid> _repository;
 

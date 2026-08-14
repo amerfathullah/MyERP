@@ -1,7 +1,7 @@
-import type { UomConversionDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
+import type { UomConversionDto } from '../inventory/models';
 
 @Injectable({
   providedIn: 'root',

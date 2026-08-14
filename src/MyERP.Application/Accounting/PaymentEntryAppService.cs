@@ -21,7 +21,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
-public class PaymentEntryAppService : ApplicationService
+public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppService
 {
     private readonly IRepository<PaymentEntry, Guid> _repository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;

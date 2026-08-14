@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
-using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -16,7 +15,7 @@ namespace MyERP.Inventory;
 /// Per ERPNext: 239 standard UOMs seeded, users can add custom UOMs.
 /// </summary>
 [Authorize(MyERPPermissions.Items.Default)]
-public class UomAppService : ApplicationService
+public class UomAppService : ApplicationService, IUomAppService
 {
     private readonly IRepository<Uom, Guid> _repository;
 
@@ -86,22 +85,4 @@ public class UomAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-}
-
-// --- DTOs ---
-
-public class UomDto
-{
-    public Guid Id { get; set; }
-    public string UomName { get; set; } = null!;
-    public bool MustBeWholeNumber { get; set; }
-    public string? Category { get; set; }
-    public bool IsEnabled { get; set; }
-}
-
-public class CreateUomDto
-{
-    public string UomName { get; set; } = null!;
-    public bool MustBeWholeNumber { get; set; }
-    public string? Category { get; set; }
 }

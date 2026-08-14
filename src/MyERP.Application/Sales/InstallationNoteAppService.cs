@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Core;
-using MyERP.Sales.Entities;
-using MyERP.Permissions;
-using MyERP.Shared;
-using MyERP.Core.DomainServices;
 using Microsoft.AspNetCore.Authorization;
-using Volo.Abp;
+using MyERP.Core;
+using MyERP.Core.DomainServices;
+using MyERP.Permissions;
+using MyERP.Sales.Entities;
+using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -20,7 +19,7 @@ namespace MyERP.Sales;
 /// Linked to Delivery Notes; validates installation date >= DN posting date.
 /// </summary>
 [Authorize(MyERPPermissions.DeliveryNotes.Default)]
-public class InstallationNoteAppService : ApplicationService
+public class InstallationNoteAppService : ApplicationService, IInstallationNoteAppService
 {
     private readonly IRepository<InstallationNote, Guid> _repository;
     private readonly IDocumentNumberGenerator _numberGenerator;
@@ -99,36 +98,3 @@ public class InstallationNoteAppService : ApplicationService
         await _repository.UpdateAsync(note);
     }
 }
-
-#region DTOs
-
-public class InstallationNoteDto
-{
-    public Guid Id { get; set; }
-    public string InstallationNumber { get; set; } = null!;
-    public Guid CompanyId { get; set; }
-    public Guid CustomerId { get; set; }
-    public Guid DeliveryNoteId { get; set; }
-    public DateTime InstallationDate { get; set; }
-    public string Status { get; set; } = null!;
-    public List<InstallationNoteItemDto> Items { get; set; } = new();
-}
-
-public class InstallationNoteItemDto
-{
-    public Guid ItemId { get; set; }
-    public decimal Qty { get; set; }
-    public string? SerialNo { get; set; }
-}
-
-public class CreateInstallationNoteDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid CustomerId { get; set; }
-    public Guid DeliveryNoteId { get; set; }
-    public DateTime InstallationDate { get; set; }
-    public List<InstallationNoteItemDto> Items { get; set; } = new();
-}
-
-#endregion
-

@@ -16,7 +16,7 @@ namespace MyERP.Core;
 /// Per ERPNext: Customer/Supplier dashboards show revenue/spend trends, payment timeliness, order counts.
 /// </summary>
 [Authorize]
-public class PartyPerformanceAppService : ApplicationService
+public class PartyPerformanceAppService : ApplicationService, IPartyPerformanceAppService
 {
     private readonly IRepository<SalesInvoice, Guid> _siRepo;
     private readonly IRepository<SalesOrder, Guid> _soRepo;

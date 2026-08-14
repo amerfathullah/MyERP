@@ -1,36 +1,19 @@
 using System;
-using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-public class FiscalYearDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-    public bool IsClosed { get; set; }
-}
-
-public class CreateFiscalYearDto
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-}
-
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class FiscalYearAppService : ApplicationService
+public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
 {
     private readonly IRepository<FiscalYear, Guid> _repository;
     private readonly FiscalYearCloseService _closeService;
@@ -125,6 +108,4 @@ public class FiscalYearAppService : ApplicationService
 
         return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);
     }
-
-
 }

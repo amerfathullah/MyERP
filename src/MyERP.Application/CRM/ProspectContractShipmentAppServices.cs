@@ -1,13 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.CRM.Entities;
-using MyERP.Core.DomainServices;
-using MyERP.Sales.Entities;
-using MyERP.Permissions;
-using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.CRM.Entities;
+using MyERP.Core;
+using MyERP.Core.DomainServices;
+using MyERP.Permissions;
+using MyERP.Sales.Entities;
+using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -15,7 +15,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.CRM;
 
 [Authorize(MyERPPermissions.Leads.Default)]
-public class ProspectAppService : ApplicationService
+public class ProspectAppService : ApplicationService, IProspectAppService
 {
     private readonly IRepository<Prospect, Guid> _repository;
 
@@ -36,7 +36,8 @@ public class ProspectAppService : ApplicationService
         if (input.CompanyId.HasValue)
             queryable = queryable.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
-            queryable = queryable.Where(x => x.ProspectName.Contains(input.Filter));
+            queryable = queryable.Where(x => x.ProspectName.Contains(input.Filter)
+                || (x.CompanyName != null && x.CompanyName.Contains(input.Filter)));
 
         var totalCount = queryable.Count();
         var items = queryable
@@ -64,7 +65,6 @@ public class ProspectAppService : ApplicationService
         return MapToDto(entity);
     }
 
-    [Authorize(MyERPPermissions.Leads.Convert)]
     public async Task<ProspectDto> ConvertToCustomerAsync(Guid id, Guid customerId)
     {
         var entity = await _repository.GetAsync(id);
@@ -123,7 +123,7 @@ public class ProspectAppService : ApplicationService
 }
 
 [Authorize(MyERPPermissions.Leads.Default)]
-public class ContractAppService : ApplicationService
+public class ContractAppService : ApplicationService, IContractAppService
 {
     private readonly IRepository<Contract, Guid> _repository;
     private readonly IDocumentNumberGenerator _numberGenerator;
@@ -241,7 +241,7 @@ public class ContractAppService : ApplicationService
 }
 
 [Authorize(MyERPPermissions.SalesOrders.Default)]
-public class ShipmentAppService : ApplicationService
+public class ShipmentAppService : ApplicationService, IShipmentAppService
 {
     private readonly IRepository<Shipment, Guid> _repository;
     private readonly IDocumentNumberGenerator _numberGenerator;
@@ -265,9 +265,9 @@ public class ShipmentAppService : ApplicationService
         if (input.CompanyId.HasValue)
             queryable = queryable.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
-            queryable = queryable.Where(x => x.ShipmentNumber.Contains(input.Filter));
-        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<ShipmentStatus>(input.Status, true, out var status))
-            queryable = queryable.Where(x => x.Status == status);
+            queryable = queryable.Where(x => x.ShipmentNumber.Contains(input.Filter) ||
+                                            (x.Carrier != null && x.Carrier.Contains(input.Filter)) ||
+                                            (x.TrackingNumber != null && x.TrackingNumber.Contains(input.Filter)));
 
         var totalCount = queryable.Count();
         var items = queryable
@@ -281,7 +281,7 @@ public class ShipmentAppService : ApplicationService
     [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<ShipmentDto> CreateAsync(CreateShipmentDto input)
     {
-        var number = await _numberGenerator.GenerateAsync("Shipment", input.CompanyId);
+        var number = await _numberGenerator.GenerateAsync("SHIP", input.CompanyId);
         var entity = new Shipment(GuidGenerator.Create(), input.CompanyId, number, CurrentTenant.Id);
         entity.PickupFromType = input.PickupFromType;
         entity.PickupFromId = input.PickupFromId;
@@ -299,8 +299,8 @@ public class ShipmentAppService : ApplicationService
         entity.CurrencyCode = input.CurrencyCode;
         entity.Notes = input.Notes;
 
-        foreach (var dn in input.DeliveryNoteIds ?? [])
-            entity.AddDeliveryNote(GuidGenerator.Create(), dn);
+        foreach (var dnId in input.DeliveryNoteIds ?? [])
+            entity.AddDeliveryNote(GuidGenerator.Create(), dnId);
 
         await _repository.InsertAsync(entity);
         return MapToDto(entity);
@@ -338,6 +338,12 @@ public class ShipmentAppService : ApplicationService
         return MapToDto(entity);
     }
 
+    [Authorize(MyERPPermissions.SalesOrders.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        await _repository.DeleteAsync(id);
+    }
+
     private static ShipmentDto MapToDto(Shipment e) => new()
     {
         Id = e.Id,
@@ -358,114 +364,3 @@ public class ShipmentAppService : ApplicationService
         Notes = e.Notes
     };
 }
-
-#region DTOs
-
-public class ProspectDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string ProspectName { get; set; } = null!;
-    public string? CompanyName { get; set; }
-    public string? Industry { get; set; }
-    public string? Website { get; set; }
-    public string? Territory { get; set; }
-    public decimal? AnnualRevenue { get; set; }
-    public int? NumberOfEmployees { get; set; }
-    public bool IsConverted { get; set; }
-    public Guid? ConvertedCustomerId { get; set; }
-    public int LeadCount { get; set; }
-    public int OpportunityCount { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class CreateProspectDto
-{
-    public Guid CompanyId { get; set; }
-    public string ProspectName { get; set; } = null!;
-    public string? CompanyName { get; set; }
-    public string? Industry { get; set; }
-    public string? Website { get; set; }
-    public string? Territory { get; set; }
-    public string? CustomerGroup { get; set; }
-    public decimal? AnnualRevenue { get; set; }
-    public int? NumberOfEmployees { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class ContractDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string ContractNumber { get; set; } = null!;
-    public string? ContractName { get; set; }
-    public string PartyType { get; set; } = null!;
-    public Guid PartyId { get; set; }
-    public string? PartyName { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
-    public DateTime? SigningDate { get; set; }
-    public ContractStatus Status { get; set; }
-    public decimal? ContractValue { get; set; }
-    public string? CurrencyCode { get; set; }
-    public bool RequiresFulfilment { get; set; }
-    public bool IsAutoRenewal { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class CreateContractDto
-{
-    public Guid CompanyId { get; set; }
-    public string? ContractName { get; set; }
-    public string PartyType { get; set; } = null!;
-    public Guid PartyId { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
-    public string? ContractTerms { get; set; }
-    public decimal? ContractValue { get; set; }
-    public string? CurrencyCode { get; set; }
-    public bool RequiresFulfilment { get; set; }
-    public bool IsAutoRenewal { get; set; }
-    public int? RenewalReminderDays { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class ShipmentDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string ShipmentNumber { get; set; } = null!;
-    public string? PickupFromName { get; set; }
-    public string? DeliveryToName { get; set; }
-    public DateTime? PickupDate { get; set; }
-    public DateTime? DeliveryDate { get; set; }
-    public string? Carrier { get; set; }
-    public string? TrackingNumber { get; set; }
-    public string? TrackingUrl { get; set; }
-    public ShipmentStatus Status { get; set; }
-    public int DeliveryNoteCount { get; set; }
-    public decimal? TotalNetWeight { get; set; }
-    public decimal? ValueOfGoods { get; set; }
-    public string? CurrencyCode { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class CreateShipmentDto
-{
-    public Guid CompanyId { get; set; }
-    public string? PickupFromType { get; set; }
-    public Guid? PickupFromId { get; set; }
-    public Guid? PickupAddressId { get; set; }
-    public string? DeliveryToType { get; set; }
-    public Guid? DeliveryToId { get; set; }
-    public Guid? DeliveryAddressId { get; set; }
-    public DateTime? PickupDate { get; set; }
-    public string? Carrier { get; set; }
-    public string? CarrierService { get; set; }
-    public decimal? TotalNetWeight { get; set; }
-    public decimal? TotalGrossWeight { get; set; }
-    public string? WeightUom { get; set; }
-    public decimal? ValueOfGoods { get; set; }
-    public string? CurrencyCode { get; set; }
-    public string? Notes { get; set; }
-    public List<Guid>? DeliveryNoteIds { get; set; }
-}
-
-#endregion

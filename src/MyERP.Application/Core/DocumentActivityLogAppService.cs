@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Core.Entities;
-using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Core.Entities;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -12,7 +11,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Core;
 
 [Authorize]
-public class DocumentActivityLogAppService : ApplicationService
+public class DocumentActivityLogAppService : ApplicationService, IDocumentActivityLogAppService
 {
     private readonly IRepository<DocumentActivityLog, Guid> _repository;
 
@@ -56,18 +55,4 @@ public class DocumentActivityLogAppService : ApplicationService
             totalCount,
             logs.Select(ObjectMapper.Map<DocumentActivityLog, DocumentActivityLogDto>).ToList());
     }
-}
-
-public class DocumentActivityLogDto
-{
-    public Guid Id { get; set; }
-    public string DocumentType { get; set; } = null!;
-    public Guid DocumentId { get; set; }
-    public string? DocumentNumber { get; set; }
-    public string ActivityType { get; set; } = null!;
-    public string? PreviousStatus { get; set; }
-    public string? NewStatus { get; set; }
-    public Guid? PerformedByUserId { get; set; }
-    public string? Details { get; set; }
-    public DateTime CreationTime { get; set; }
 }

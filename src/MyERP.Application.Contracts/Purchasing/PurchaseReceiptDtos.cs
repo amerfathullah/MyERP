@@ -67,3 +67,18 @@ public class CreatePurchaseReceiptItemDto
     [StringLength(50)] public string Uom { get; set; } = "Unit";
     public Guid? PurchaseOrderItemId { get; set; }
 }
+
+public class PutawayItemInput
+{
+    public Guid ItemId { get; set; }
+    public decimal Qty { get; set; }
+}
+
+public class PutawayAllocationResultDto
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal Qty { get; set; }
+    public bool IsUnallocated { get; set; }
+}
+

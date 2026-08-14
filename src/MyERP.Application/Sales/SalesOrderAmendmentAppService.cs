@@ -18,7 +18,7 @@ namespace MyERP.Sales;
 /// Per DO-NOT: cannot amend documents with submitted dependents.
 /// </summary>
 [Authorize(MyERPPermissions.SalesOrders.Create)]
-public class SalesOrderAmendmentAppService : ApplicationService
+public class SalesOrderAmendmentAppService : ApplicationService, ISalesOrderAmendmentAppService
 {
     private readonly IRepository<SalesOrder, Guid> _repository;
     private readonly DocumentAmendmentService _amendmentService;

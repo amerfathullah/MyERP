@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using MyERP.Application.Contracts.Sales;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
@@ -14,14 +13,14 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
-namespace MyERP.Application.Sales;
+namespace MyERP.Sales;
 
 /// <summary>
 /// Proforma Invoice AppService — progressive/partial invoicing before delivery (v16 feature).
 /// Per ERPNext PR #57263. Gated by Selling Settings.EnableProformaInvoice.
 /// </summary>
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
-public class ProformaInvoiceAppService : ApplicationService
+public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceAppService
 {
     private readonly IRepository<ProformaInvoice, Guid> _repository;
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;

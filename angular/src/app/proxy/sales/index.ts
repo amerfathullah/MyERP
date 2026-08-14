@@ -1,4 +1,3 @@
-import * as Entities from './entities';
 export * from './analytics-group-by.enum';
 export * from './analytics-period-type.enum';
 export * from './blanket-order.service';
@@ -27,6 +26,7 @@ export * from './pricing-rule.service';
 export * from './product-bundle.service';
 export * from './proforma-invoice-basis.enum';
 export * from './proforma-invoice-status.enum';
+export * from './proforma-invoice.service';
 export * from './quotation.service';
 export * from './sales-analytics.service';
 export * from './sales-commission-report.service';
@@ -41,4 +41,3 @@ export * from './shipping-rule-type.enum';
 export * from './shipping-rule.service';
 export * from './subscription.service';
 export * from './tracking-board-stage.enum';
-export { Entities };

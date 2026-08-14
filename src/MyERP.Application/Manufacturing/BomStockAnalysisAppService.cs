@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Manufacturing;
 
 [Authorize(MyERPPermissions.Manufacturing.Default)]
-public class BomStockAnalysisAppService : ApplicationService
+public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisAppService
 {
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
     private readonly IRepository<Bin, Guid> _binRepository;
@@ -91,27 +91,4 @@ public class BomStockAnalysisAppService : ApplicationService
             Materials = materialLines
         };
     }
-}
-
-public class BomStockAnalysisDto
-{
-    public Guid BomId { get; set; }
-    public string BomNumber { get; set; } = string.Empty;
-    public string ItemName { get; set; } = string.Empty;
-    public decimal BomQuantity { get; set; }
-    public decimal RequestedQty { get; set; }
-    public decimal CanManufactureQty { get; set; }
-    public bool AllMaterialsSufficient { get; set; }
-    public List<BomMaterialAvailabilityDto> Materials { get; set; } = new();
-}
-
-public class BomMaterialAvailabilityDto
-{
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = string.Empty;
-    public decimal RequiredQtyPerUnit { get; set; }
-    public decimal RequiredQtyForBatch { get; set; }
-    public decimal AvailableQty { get; set; }
-    public decimal Shortage { get; set; }
-    public bool IsSufficient { get; set; }
 }

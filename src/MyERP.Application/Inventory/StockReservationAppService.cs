@@ -14,48 +14,13 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
 
-public class StockReservationEntryDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid ItemId { get; set; }
-    public Guid WarehouseId { get; set; }
-    public string VoucherType { get; set; } = null!;
-    public Guid VoucherId { get; set; }
-    public Guid? VoucherDetailId { get; set; }
-    public decimal ReservedQty { get; set; }
-    public decimal DeliveredQty { get; set; }
-    public decimal AvailableQty { get; set; }
-    public int Status { get; set; }
-    public DateTime CreationTime { get; set; }
-}
-
-public class CreateStockReservationDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid ItemId { get; set; }
-    public Guid WarehouseId { get; set; }
-    public string VoucherType { get; set; } = "SalesOrder";
-    public Guid VoucherId { get; set; }
-    public Guid? VoucherDetailId { get; set; }
-    public decimal ReservedQty { get; set; }
-    public Guid? BatchId { get; set; }
-}
-
-public class GetStockReservationListDto : CompanyFilteredPagedRequestDto
-{
-    public Guid? ItemId { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public Guid? VoucherId { get; set; }
-    public new string? Status { get; set; }
-}
-
 /// <summary>
 /// Application service for Stock Reservation Entry management.
 /// Per DO-NOT: "Allow stock reservation beyond available qty (actual - already_reserved)"
 /// Per DO-NOT: "Allow Stock Reservation Entry amendment (must cancel and recreate)"
 /// </summary>
 [Authorize(MyERPPermissions.StockEntries.Default)]
-public class StockReservationAppService : ApplicationService
+public class StockReservationAppService : ApplicationService, IStockReservationAppService
 {
     private readonly IRepository<StockReservationEntry, Guid> _repository;
 

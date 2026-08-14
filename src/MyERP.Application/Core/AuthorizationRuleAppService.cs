@@ -1,11 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -18,7 +17,7 @@ namespace MyERP.Core;
 /// self-approval blocked, discount rules capped at 100%.
 /// </summary>
 [Authorize(MyERPPermissions.ApprovalWorkflows.Default)]
-public class AuthorizationRuleAppService : ApplicationService
+public class AuthorizationRuleAppService : ApplicationService, IAuthorizationRuleAppService
 {
     private readonly IRepository<AuthorizationRule, Guid> _repository;
 
@@ -93,45 +92,3 @@ public class AuthorizationRuleAppService : ApplicationService
     [Authorize(MyERPPermissions.ApprovalWorkflows.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 }
-
-#region DTOs
-
-public class AuthorizationRuleDto
-{
-    public Guid Id { get; set; }
-    public Guid? CompanyId { get; set; }
-    public string TransactionType { get; set; } = null!;
-    public string BasedOn { get; set; } = null!;
-    public decimal ThresholdValue { get; set; }
-    public Guid? SystemUserId { get; set; }
-    public string? SystemRole { get; set; }
-    public string? ApprovingRole { get; set; }
-    public Guid? ApprovingUserId { get; set; }
-    public Guid? CustomerId { get; set; }
-}
-
-public class CreateAuthorizationRuleDto
-{
-    public Guid? CompanyId { get; set; }
-    public string TransactionType { get; set; } = null!;
-    public AuthorizationBasedOn BasedOn { get; set; }
-    public decimal ThresholdValue { get; set; }
-    public Guid? SystemUserId { get; set; }
-    public string? SystemRole { get; set; }
-    public string? ApprovingRole { get; set; }
-    public Guid? ApprovingUserId { get; set; }
-    public Guid? CustomerId { get; set; }
-}
-
-public class UpdateAuthorizationRuleDto
-{
-    public decimal ThresholdValue { get; set; }
-    public Guid? SystemUserId { get; set; }
-    public string? SystemRole { get; set; }
-    public string? ApprovingRole { get; set; }
-    public Guid? ApprovingUserId { get; set; }
-    public Guid? CustomerId { get; set; }
-}
-
-#endregion
-

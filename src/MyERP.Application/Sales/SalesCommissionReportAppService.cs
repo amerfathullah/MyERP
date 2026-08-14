@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Sales;
 
 [Authorize(MyERPPermissions.SalesOrders.Default)]
-public class SalesCommissionReportAppService : ApplicationService
+public class SalesCommissionReportAppService : ApplicationService, ISalesCommissionReportAppService
 {
     private readonly IRepository<SalesTeamEntry, Guid> _teamEntryRepo;
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepo;
@@ -93,21 +93,3 @@ public class SalesCommissionReportAppService : ApplicationService
     }
 }
 
-public class SalesCommissionReportDto
-{
-    public decimal TotalRevenue { get; set; }
-    public decimal TotalCommission { get; set; }
-    public int InvoiceCount { get; set; }
-    public int SalesPersonCount { get; set; }
-    public List<SalesPersonCommissionRowDto> Rows { get; set; } = new();
-}
-
-public class SalesPersonCommissionRowDto
-{
-    public Guid SalesPersonId { get; set; }
-    public string SalesPersonName { get; set; } = null!;
-    public int InvoiceCount { get; set; }
-    public decimal TotalAllocatedAmount { get; set; }
-    public decimal TotalCommission { get; set; }
-    public decimal CommissionRate { get; set; }
-}

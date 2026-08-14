@@ -4,8 +4,8 @@ import type { AccountSubType } from './account-sub-type.enum';
 import type { BankGuaranteeType } from './bank-guarantee-type.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { PaymentType } from './payment-type.enum';
-import type { FinancialReportDataSource } from './entities/financial-report-data-source.enum';
-import type { FinancialReportType } from './entities/financial-report-type.enum';
+import type { FinancialReportDataSource } from './financial-report-data-source.enum';
+import type { FinancialReportType } from './financial-report-type.enum';
 import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum';
 
 export interface AccountCategoryDto {
@@ -15,8 +15,7 @@ export interface AccountCategoryDto {
   description?: string | null;
 }
 
-export interface AccountClosingBalanceDto {
-  id?: string;
+export interface AccountClosingBalanceDto extends EntityDto<string> {
   accountId?: string;
   accountName?: string;
   accountCode?: string | null;
@@ -44,8 +43,7 @@ export interface AccountDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
-export interface AccountingDimensionDto {
-  id?: string;
+export interface AccountingDimensionDto extends EntityDto<string> {
   documentType?: string;
   label?: string;
   fieldName?: string;
@@ -54,8 +52,7 @@ export interface AccountingDimensionDto {
   companyId?: string | null;
 }
 
-export interface AccountingDimensionFilterDto {
-  id?: string;
+export interface AccountingDimensionFilterDto extends EntityDto<string> {
   accountingDimensionId?: string;
   accountId?: string;
   companyId?: string;
@@ -452,8 +449,7 @@ export interface CompanyReferenceDto {
   name?: string;
 }
 
-export interface CostCenterAllocationDto {
-  id?: string;
+export interface CostCenterAllocationDto extends EntityDto<string> {
   companyId?: string;
   mainCostCenterId?: string;
   validFrom?: string;
@@ -835,8 +831,7 @@ export interface ExecuteReportDto {
   financeBook?: string | null;
 }
 
-export interface FinanceBookDto {
-  id?: string;
+export interface FinanceBookDto extends EntityDto<string> {
   companyId?: string;
   name?: string;
   isDefault?: boolean;
@@ -876,8 +871,7 @@ export interface FinancialReportRowDto {
   signMultiplier?: number;
 }
 
-export interface FinancialReportTemplateDto {
-  id?: string;
+export interface FinancialReportTemplateDto extends EntityDto<string> {
   name?: string;
   reportType?: FinancialReportType;
   companyId?: string | null;
@@ -1011,8 +1005,7 @@ export interface InternalTransferResultDto {
   mirrorTransactionId?: string | null;
 }
 
-export interface InvoiceDiscountingDto {
-  id?: string;
+export interface InvoiceDiscountingDto extends EntityDto<string> {
   companyId?: string;
   totalOutstanding?: number;
   discountCharge?: number;
@@ -1234,8 +1227,7 @@ export interface PartyDashboardDto {
   companies?: CompanyReferenceDto[];
 }
 
-export interface PartyLinkDto {
-  id?: string;
+export interface PartyLinkDto extends EntityDto<string> {
   primaryPartyType?: string;
   primaryPartyId?: string;
   secondaryPartyType?: string;
@@ -1505,13 +1497,6 @@ export interface UnreconcileDto {
   paymentVoucherId: string;
   invoiceVoucherType: string;
   invoiceVoucherId: string;
-}
-
-export interface UomConversionDto extends EntityDto<string> {
-  fromUom?: string;
-  toUom?: string;
-  conversionFactor?: number;
-  itemId?: string | null;
 }
 
 export interface UpcomingPaymentDueDto {

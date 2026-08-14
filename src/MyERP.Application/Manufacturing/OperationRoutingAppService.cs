@@ -1,70 +1,17 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Manufacturing;
 
-public class OperationDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public string? Description { get; set; }
-    public Guid? WorkstationId { get; set; }
-    public string? WorkstationType { get; set; }
-    public bool CreateJobCardBasedOnBatchSize { get; set; }
-    public int BatchSize { get; set; }
-    public bool IsCorrectiveOperation { get; set; }
-    public bool IsActive { get; set; }
-}
-
-public class RoutingDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public bool IsDisabled { get; set; }
-    public RoutingOperationDto[] Operations { get; set; } = [];
-}
-
-public class RoutingOperationDto
-{
-    public Guid Id { get; set; }
-    public Guid OperationId { get; set; }
-    public int SequenceId { get; set; }
-    public decimal TimeInMins { get; set; }
-    public Guid? WorkstationId { get; set; }
-    public decimal OperatingCost { get; set; }
-}
-
-public class CreateOperationDto
-{
-    public string Name { get; set; } = null!;
-    public string? Description { get; set; }
-    public Guid? WorkstationId { get; set; }
-    public string? WorkstationType { get; set; }
-    public bool CreateJobCardBasedOnBatchSize { get; set; }
-    public int BatchSize { get; set; }
-}
-
-public class CreateRoutingDto
-{
-    public string Name { get; set; } = null!;
-    public CreateRoutingOperationDto[] Operations { get; set; } = [];
-}
-
-public class CreateRoutingOperationDto
-{
-    public Guid OperationId { get; set; }
-    public int SequenceId { get; set; }
-    public decimal TimeInMins { get; set; }
-    public Guid? WorkstationId { get; set; }
-}
-
 [Authorize(MyERPPermissions.Manufacturing.Default)]
-public class OperationAppService : ApplicationService
+public class OperationAppService : ApplicationService, IOperationAppService
 {
     private readonly IRepository<Operation, Guid> _repository;
     public OperationAppService(IRepository<Operation, Guid> repository) => _repository = repository;
@@ -83,7 +30,8 @@ public class OperationAppService : ApplicationService
     {
         var op = new Operation(GuidGenerator.Create(), input.Name, CurrentTenant.Id)
         {
-            Description = input.Description, WorkstationId = input.WorkstationId,
+            Description = input.Description,
+            WorkstationId = input.WorkstationId,
             WorkstationType = input.WorkstationType,
             CreateJobCardBasedOnBatchSize = input.CreateJobCardBasedOnBatchSize,
             BatchSize = input.BatchSize,
@@ -94,7 +42,7 @@ public class OperationAppService : ApplicationService
 }
 
 [Authorize(MyERPPermissions.Manufacturing.Default)]
-public class RoutingAppService : ApplicationService
+public class RoutingAppService : ApplicationService, IRoutingAppService
 {
     private readonly IRepository<Routing, Guid> _repository;
     public RoutingAppService(IRepository<Routing, Guid> repository) => _repository = repository;

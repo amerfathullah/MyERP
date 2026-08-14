@@ -18,7 +18,7 @@ namespace MyERP.Inventory;
 /// Per ERPNext: Stock and Account Value Comparison report.
 /// </summary>
 [Authorize]
-public class StockGlComparisonAppService : ApplicationService
+public class StockGlComparisonAppService : ApplicationService, IStockGlComparisonAppService
 {
     private readonly IRepository<Bin, Guid> _binRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;

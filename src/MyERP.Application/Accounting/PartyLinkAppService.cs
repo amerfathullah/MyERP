@@ -17,7 +17,7 @@ namespace MyERP.Accounting;
 /// Per DO-NOT: same party cannot appear in multiple links.
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Default)]
-public class PartyLinkAppService : ApplicationService
+public class PartyLinkAppService : ApplicationService, IPartyLinkAppService
 {
     private readonly IRepository<PartyLink, Guid> _repository;
 
@@ -87,23 +87,4 @@ public class PartyLinkAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-}
-
-// --- DTOs ---
-
-public class PartyLinkDto
-{
-    public Guid Id { get; set; }
-    public string PrimaryPartyType { get; set; } = null!;
-    public Guid PrimaryPartyId { get; set; }
-    public string SecondaryPartyType { get; set; } = null!;
-    public Guid SecondaryPartyId { get; set; }
-}
-
-public class CreatePartyLinkDto
-{
-    public string PrimaryPartyType { get; set; } = null!;
-    public Guid PrimaryPartyId { get; set; }
-    public string SecondaryPartyType { get; set; } = null!;
-    public Guid SecondaryPartyId { get; set; }
 }

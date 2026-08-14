@@ -57,3 +57,17 @@ export interface MaterialRequestItemDto {
   uom?: string | null;
   warehouseId?: string | null;
 }
+
+export interface MrFulfillmentStatusDto {
+  materialRequestId?: string;
+  isFullyFulfilled?: boolean;
+  items?: MrItemFulfillmentDto[];
+}
+
+export interface MrItemFulfillmentDto {
+  itemId?: string;
+  requestedQty?: number;
+  orderedQty?: number;
+  pendingQty?: number;
+  perOrdered?: number;
+}

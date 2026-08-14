@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -11,31 +11,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
 
-public class PutawayRuleDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid? ItemId { get; set; }
-    public Guid? ItemGroupId { get; set; }
-    public Guid WarehouseId { get; set; }
-    public decimal StockCapacity { get; set; }
-    public int Priority { get; set; }
-    public string? Uom { get; set; }
-    public bool IsEnabled { get; set; }
-}
-
-public class CreateUpdatePutawayRuleDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid? ItemId { get; set; }
-    public Guid? ItemGroupId { get; set; }
-    public Guid WarehouseId { get; set; }
-    public decimal StockCapacity { get; set; }
-    public int Priority { get; set; } = 1;
-    public string? Uom { get; set; }
-}
-
 [Authorize(MyERPPermissions.Warehouses.Default)]
-public class PutawayRuleAppService : ApplicationService
+public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
 {
     private readonly IRepository<PutawayRule, Guid> _repository;
 
@@ -104,4 +81,3 @@ public class PutawayRuleAppService : ApplicationService
     [Authorize(MyERPPermissions.Warehouses.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 }
-

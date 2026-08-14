@@ -12,32 +12,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Purchasing;
 
-public class SupplierDeliveryPerformanceDto
-{
-    public Guid SupplierId { get; set; }
-    public string SupplierName { get; set; } = string.Empty;
-    public int TotalOrders { get; set; }
-    public int OnTimeDeliveries { get; set; }
-    public int LateDeliveries { get; set; }
-    public int PendingDeliveries { get; set; }
-    public decimal OnTimeRate => TotalOrders > 0 ? Math.Round((decimal)OnTimeDeliveries / TotalOrders * 100, 1) : 0;
-    public decimal AvgDelayDays { get; set; }
-    public decimal TotalOrderValue { get; set; }
-}
-
-public class DeliveryPerformanceReportDto
-{
-    public List<SupplierDeliveryPerformanceDto> Suppliers { get; set; } = new();
-    public int TotalOrders { get; set; }
-    public int TotalOnTime { get; set; }
-    public int TotalLate { get; set; }
-    public int TotalPending { get; set; }
-    public decimal OverallOnTimeRate => TotalOrders > 0 ? Math.Round((decimal)TotalOnTime / TotalOrders * 100, 1) : 0;
-    public decimal OverallAvgDelayDays { get; set; }
-}
-
 [Authorize(MyERPPermissions.PurchaseOrders.Default)]
-public class SupplierDeliveryPerformanceAppService : ApplicationService
+public class SupplierDeliveryPerformanceAppService : ApplicationService, ISupplierDeliveryPerformanceAppService
 {
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
@@ -88,7 +64,6 @@ public class SupplierDeliveryPerformanceAppService : ApplicationService
 
                     if (isFullyReceived)
                     {
-                        // Use order completion date approximation (last modification)
                         var completionDate = po.LastModificationTime?.Date ?? today;
                         if (completionDate <= expected)
                             onTime++;
@@ -109,7 +84,6 @@ public class SupplierDeliveryPerformanceAppService : ApplicationService
                     }
                 }
 
-                // Orders without expected date count as pending
                 pending += items.Count - withExpectedDate.Count;
 
                 var deliveredCount = onTime + late;

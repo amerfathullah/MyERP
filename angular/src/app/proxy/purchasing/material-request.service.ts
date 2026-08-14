@@ -1,5 +1,4 @@
-import type { CreateMaterialRequestDto, GetMaterialRequestListDto, MaterialRequestDto } from './dtos/models';
-import type { MrFulfillmentStatusDto } from './models';
+import type { CreateMaterialRequestDto, GetMaterialRequestListDto, MaterialRequestDto, MrFulfillmentStatusDto } from './dtos/models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';

@@ -1,10 +1,10 @@
 import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { ContractStatus } from './entities/contract-status.enum';
+import type { ContractStatus } from './contract-status.enum';
 import type { OpportunityType } from './opportunity-type.enum';
 import type { LeadSource } from './lead-source.enum';
 import type { LeadStatus } from './lead-status.enum';
 import type { OpportunityStatus } from './opportunity-status.enum';
-import type { ShipmentStatus } from '../sales/entities/shipment-status.enum';
+import type { ShipmentStatus } from './shipment-status.enum';
 
 export interface ContractDto extends EntityDto<string> {
   companyId?: string;

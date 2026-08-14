@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -15,7 +15,7 @@ namespace MyERP.Manufacturing;
 /// Per ERPNext: per-company configuration (not global singleton).
 /// </summary>
 [Authorize(MyERPPermissions.Manufacturing.Default)]
-public class ManufacturingSettingsAppService : ApplicationService
+public class ManufacturingSettingsAppService : ApplicationService, IManufacturingSettingsAppService
 {
     private readonly IRepository<ManufacturingSettings, Guid> _repository;
 
@@ -72,47 +72,4 @@ public class ManufacturingSettingsAppService : ApplicationService
         await _repository.UpdateAsync(existing);
         return ObjectMapper.Map<ManufacturingSettings, ManufacturingSettingsDto>(existing);
     }
-
-
-}
-
-public class ManufacturingSettingsDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public decimal OverproductionPercentage { get; set; }
-    public string BackflushRawMaterialsBasedOn { get; set; } = "BOM";
-    public bool MaterialConsumption { get; set; }
-    public decimal TransferExtraMaterialsPercentage { get; set; }
-    public int MinsBetweenOperations { get; set; }
-    public int CapacityPlanningForDays { get; set; }
-    public bool MakeSerialNoBatchFromWorkOrder { get; set; }
-    public bool UpdateBomCostsAutomatically { get; set; }
-    public bool AllowOvertime { get; set; }
-    public bool AllowProductionOnHolidays { get; set; }
-    public bool DisableCapacityPlanning { get; set; }
-    public bool JobCardExcessTransfer { get; set; }
-    public bool EnforceTimeLogs { get; set; }
-    public bool AddCorrectiveOpCostInFGValuation { get; set; }
-    public bool ValidateComponentsQuantitiesPerBom { get; set; }
-}
-
-public class SaveManufacturingSettingsDto
-{
-    public Guid CompanyId { get; set; }
-    public decimal OverproductionPercentage { get; set; } = 5m;
-    public string BackflushRawMaterialsBasedOn { get; set; } = "BOM";
-    public bool MaterialConsumption { get; set; }
-    public decimal TransferExtraMaterialsPercentage { get; set; }
-    public int MinsBetweenOperations { get; set; } = 10;
-    public int CapacityPlanningForDays { get; set; } = 30;
-    public bool MakeSerialNoBatchFromWorkOrder { get; set; }
-    public bool UpdateBomCostsAutomatically { get; set; }
-    public bool AllowOvertime { get; set; }
-    public bool AllowProductionOnHolidays { get; set; }
-    public bool DisableCapacityPlanning { get; set; }
-    public bool JobCardExcessTransfer { get; set; }
-    public bool EnforceTimeLogs { get; set; }
-    public bool AddCorrectiveOpCostInFGValuation { get; set; }
-    public bool ValidateComponentsQuantitiesPerBom { get; set; } = true;
 }

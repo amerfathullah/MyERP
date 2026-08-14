@@ -307,20 +307,6 @@ export interface InvoicePaymentDto {
   status?: string;
 }
 
-export interface MrFulfillmentStatusDto {
-  materialRequestId?: string;
-  isFullyFulfilled?: boolean;
-  items?: MrItemFulfillmentDto[];
-}
-
-export interface MrItemFulfillmentDto {
-  itemId?: string;
-  requestedQty?: number;
-  orderedQty?: number;
-  pendingQty?: number;
-  perOrdered?: number;
-}
-
 export interface PendingMaterialRequestItemDto {
   materialRequestId?: string;
   materialRequestNumber?: string;
@@ -531,8 +517,7 @@ export interface RecordSupplierConfirmationDto {
   promisedDeliveryDate?: string | null;
 }
 
-export interface RfqDto {
-  id?: string;
+export interface RfqDto extends EntityDto<string> {
   companyId?: string;
   rfqNumber?: string;
   transactionDate?: string;
@@ -543,16 +528,14 @@ export interface RfqDto {
   suppliers?: RfqSupplierDto[];
 }
 
-export interface RfqItemDto {
-  id?: string;
+export interface RfqItemDto extends EntityDto<string> {
   itemId?: string;
   description?: string;
   qty?: number;
   uom?: string;
 }
 
-export interface RfqSupplierDto {
-  id?: string;
+export interface RfqSupplierDto extends EntityDto<string> {
   supplierId?: string;
   supplierName?: string;
   email?: string | null;
@@ -741,8 +724,7 @@ export interface SupplierQuotationDto extends EntityDto<string> {
   items?: SupplierQuotationItemDto[];
 }
 
-export interface SupplierQuotationItemDto {
-  id?: string;
+export interface SupplierQuotationItemDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string | null;
   qty?: number;

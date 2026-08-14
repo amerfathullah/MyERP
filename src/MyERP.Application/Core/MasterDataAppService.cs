@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.Entities;
 using MyERP.Inventory.Entities;
-using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -15,7 +14,7 @@ namespace MyERP.Core;
 /// Provides lookup data for forms: Item Groups, Modes of Payment, Cost Centers, Payment Terms.
 /// </summary>
 [Authorize]
-public class MasterDataAppService : ApplicationService
+public class MasterDataAppService : ApplicationService, IMasterDataAppService
 {
     private readonly IRepository<ItemGroup, Guid> _itemGroupRepository;
     private readonly IRepository<ModeOfPayment, Guid> _mopRepository;
@@ -71,33 +70,4 @@ public class MasterDataAppService : ApplicationService
             .Select(p => new PaymentTermsLookupDto { Id = p.Id, Name = p.Name })
             .ToList();
     }
-}
-
-public class ItemGroupLookupDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsGroup { get; set; }
-    public Guid? ParentId { get; set; }
-}
-
-public class ModeOfPaymentLookupDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public string Type { get; set; } = null!;
-}
-
-public class CostCenterLookupDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsGroup { get; set; }
-    public Guid? ParentId { get; set; }
-}
-
-public class PaymentTermsLookupDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
 }

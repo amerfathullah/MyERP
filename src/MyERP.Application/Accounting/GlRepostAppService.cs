@@ -17,54 +17,13 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-// DTOs
-public class RepostGlDto
-{
-    public Guid CompanyId { get; set; }
-    public string VoucherType { get; set; } = null!;
-    public Guid VoucherId { get; set; }
-}
-
-public class RepostBatchGlDto
-{
-    public Guid CompanyId { get; set; }
-    public List<RepostVoucherRefDto> Vouchers { get; set; } = [];
-}
-
-public class RepostVoucherRefDto
-{
-    public string VoucherType { get; set; } = null!;
-    public Guid VoucherId { get; set; }
-}
-
-public class GlRepostResultDto
-{
-    public int SuccessCount { get; set; }
-    public int SkippedCount { get; set; }
-    public int FailedCount { get; set; }
-    public int TotalProcessed { get; set; }
-    public bool HasErrors { get; set; }
-    public List<string> Errors { get; set; } = [];
-}
-
-public class GlRepostHistoryDto
-{
-    public Guid Id { get; set; }
-    public string VoucherType { get; set; } = null!;
-    public Guid VoucherId { get; set; }
-    public string? VoucherNumber { get; set; }
-    public DateTime PostingDate { get; set; }
-    public DateTime RepostedAt { get; set; }
-    public string RepostedBy { get; set; } = null!;
-}
-
 /// <summary>
 /// Exposes GL repost operations via API for manual admin-triggered reposts.
 /// The GlRepostService domain service handles the actual GL rebuild logic.
 /// Per ERPNext: allowed for SI, PI, PE, JE, PR, DN, SE voucher types.
 /// </summary>
 [Authorize(MyERPPermissions.Accounts.Edit)]
-public class GlRepostAppService : ApplicationService
+public class GlRepostAppService : ApplicationService, IGlRepostAppService
 {
     private readonly GlRepostService _glRepostService;
     private readonly IRepository<SalesInvoice, Guid> _siRepository;

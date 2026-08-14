@@ -15,7 +15,7 @@ namespace MyERP.EInvoice;
 /// Handles OAuth2 client credentials flow for obtaining API access tokens.
 /// </summary>
 [Authorize(MyERPPermissions.EInvoice.Default)]
-public class EInvoiceSettingsAppService : ApplicationService
+public class EInvoiceSettingsAppService : ApplicationService, IEInvoiceSettingsAppService
 {
     private readonly ISettingProvider _settingProvider;
     private readonly ISettingManager _settingManager;

@@ -21,7 +21,7 @@ namespace MyERP.Core;
 /// Per ERPNext: /api/method/frappe.utils.print_format.download_pdf
 /// </summary>
 [Authorize]
-public class DocumentPrintAppService : ApplicationService
+public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppService
 {
     private readonly IDocumentPdfService _pdfService;
     private readonly IRepository<SalesInvoice, Guid> _siRepository;
@@ -219,15 +219,3 @@ public class DocumentPrintAppService : ApplicationService
     }
 }
 
-/// <summary>Result DTO for document print generation.</summary>
-public class DocumentPrintResult
-{
-    /// <summary>Full HTML content for printing (self-contained with CSS).</summary>
-    public string Html { get; set; } = "";
-
-    /// <summary>Suggested filename for download.</summary>
-    public string FileName { get; set; } = "";
-
-    /// <summary>Document type label (for display).</summary>
-    public string DocumentType { get; set; } = "";
-}

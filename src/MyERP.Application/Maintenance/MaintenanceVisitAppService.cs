@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using MyERP.Assets;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
 

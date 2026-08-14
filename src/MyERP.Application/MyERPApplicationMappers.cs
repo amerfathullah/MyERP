@@ -946,10 +946,10 @@ public partial class ModeOfPaymentMapper : MapperBase<Accounting.Entities.ModeOf
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class UomConversionMapper : MapperBase<Inventory.Entities.UomConversion, Accounting.UomConversionDto>
+public partial class UomConversionMapper : MapperBase<Inventory.Entities.UomConversion, Inventory.UomConversionDto>
 {
-    public override partial Accounting.UomConversionDto Map(Inventory.Entities.UomConversion source);
-    public override partial void Map(Inventory.Entities.UomConversion source, Accounting.UomConversionDto destination);
+    public override partial Inventory.UomConversionDto Map(Inventory.Entities.UomConversion source);
+    public override partial void Map(Inventory.Entities.UomConversion source, Inventory.UomConversionDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

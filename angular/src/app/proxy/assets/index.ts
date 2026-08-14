@@ -1,4 +1,3 @@
-import * as Entities from './entities';
 export * from './asset-activity-type.enum';
 export * from './asset-activity.service';
 export * from './asset-capitalization-status.enum';
@@ -16,6 +15,6 @@ export * from './asset-value-adjustment.service';
 export * from './asset.service';
 export * from './depreciation-method.enum';
 export * from './maintenance-periodicity.enum';
+export * from './maintenance-visit-status.enum';
 export * from './maintenance.service';
 export * from './models';
-export { Entities };

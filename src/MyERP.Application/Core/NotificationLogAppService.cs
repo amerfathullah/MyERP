@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -17,7 +17,7 @@ namespace MyERP.Core;
 /// Used by: admin dashboard, delivery troubleshooting, compliance audit.
 /// </summary>
 [Authorize(MyERPPermissions.AutomationRules.Default)]
-public class NotificationLogAppService : ApplicationService
+public class NotificationLogAppService : ApplicationService, INotificationLogAppService
 {
     private readonly IRepository<NotificationLog, Guid> _repository;
 
@@ -59,29 +59,3 @@ public class NotificationLogAppService : ApplicationService
         return query.Count(n => n.Status == NotificationStatus.Failed || n.Status == NotificationStatus.PermanentlyFailed);
     }
 }
-
-#region DTOs
-
-public class NotificationLogDto
-{
-    public Guid Id { get; set; }
-    public string Recipient { get; set; } = null!;
-    public string? Subject { get; set; }
-    public string Channel { get; set; } = null!;
-    public string Status { get; set; } = null!;
-    public string? DocumentType { get; set; }
-    public Guid? DocumentId { get; set; }
-    public string? ErrorMessage { get; set; }
-    public int RetryCount { get; set; }
-    public DateTime? SentAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-
-public class GetNotificationLogListDto : PagedAndSortedResultRequestDto
-{
-    public string? Channel { get; set; }
-    public string? Status { get; set; }
-    public string? DocumentType { get; set; }
-}
-
-#endregion
