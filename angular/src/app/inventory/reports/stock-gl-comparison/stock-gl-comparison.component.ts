@@ -4,32 +4,12 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { StockGlComparisonService } from '../../../proxy/inventory/stock-gl-comparison.service';
+import { CompanyService } from '../../../proxy/core/company.service';
+import type { StockGlComparisonDto } from '../../../proxy/inventory/models';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface StockGlComparisonDto {
-  totalStockValue: number;
-  totalGlBalance: number;
-  difference: number;
-  isMatched: boolean;
-  warehouseCount: number;
-  itemCount: number;
-  asOfDate: string;
-  perWarehouse: WarehouseComparisonDto[];
-}
-
-interface WarehouseComparisonDto {
-  warehouseId: string;
-  warehouseName: string;
-  stockValue: number;
-  glBalance: number;
-  difference: number;
-  hasMismatch: boolean;
-  stockAccountId?: string;
-  stockAccountName?: string;
-}
 
 @Component({
   selector: 'app-stock-gl-comparison',
@@ -64,15 +44,15 @@ interface WarehouseComparisonDto {
         </div>
       </div>
 
-      @if (result()) {
+      @if (result(); as res) {
         <!-- Summary KPI Cards -->
         <div class="row g-3 mb-3">
           <div class="col-md-3">
             <div class="card border-primary">
               <div class="card-body text-center">
                 <div class="text-muted small">{{ '::StockValue' | abpLocalization }}</div>
-                <div class="fs-4 fw-bold text-primary">{{ "" | companyCurrency }} {{ result()!.totalStockValue | number:'1.2-2' }}</div>
-                <div class="text-muted small">{{ result()!.itemCount }} {{ '::Items' | abpLocalization }}</div>
+                <div class="fs-4 fw-bold text-primary">{{ "" | companyCurrency }} {{ res.totalStockValue | number:'1.2-2' }}</div>
+                <div class="text-muted small">{{ res.itemCount }} {{ '::Items' | abpLocalization }}</div>
               </div>
             </div>
           </div>
@@ -80,20 +60,20 @@ interface WarehouseComparisonDto {
             <div class="card border-info">
               <div class="card-body text-center">
                 <div class="text-muted small">{{ '::GLBalance' | abpLocalization }}</div>
-                <div class="fs-4 fw-bold text-info">{{ "" | companyCurrency }} {{ result()!.totalGlBalance | number:'1.2-2' }}</div>
+                <div class="fs-4 fw-bold text-info">{{ "" | companyCurrency }} {{ res.totalGlBalance | number:'1.2-2' }}</div>
                 <div class="text-muted small">{{ '::StockAccounts' | abpLocalization }}</div>
               </div>
             </div>
           </div>
           <div class="col-md-3">
-            <div class="card" [class.border-success]="result()!.isMatched" [class.border-danger]="!result()!.isMatched">
+            <div class="card" [class.border-success]="res.isMatched" [class.border-danger]="!res.isMatched">
               <div class="card-body text-center">
                 <div class="text-muted small">{{ '::Difference' | abpLocalization }}</div>
-                <div class="fs-4 fw-bold" [class.text-success]="result()!.isMatched" [class.text-danger]="!result()!.isMatched">
-                  {{ "" | companyCurrency }} {{ result()!.difference | number:'1.2-2' }}
+                <div class="fs-4 fw-bold" [class.text-success]="res.isMatched" [class.text-danger]="!res.isMatched">
+                  {{ "" | companyCurrency }} {{ res.difference | number:'1.2-2' }}
                 </div>
                 <div class="small">
-                  @if (result()!.isMatched) {
+                  @if (res.isMatched) {
                     <span class="badge bg-success"><i class="fa fa-check-circle me-1"></i>{{ '::Matched' | abpLocalization }}</span>
                   } @else {
                     <span class="badge bg-danger"><i class="fa fa-exclamation-triangle me-1"></i>{{ '::Mismatch' | abpLocalization }}</span>
@@ -106,7 +86,7 @@ interface WarehouseComparisonDto {
             <div class="card">
               <div class="card-body text-center">
                 <div class="text-muted small">{{ '::Warehouses' | abpLocalization }}</div>
-                <div class="fs-4 fw-bold">{{ result()!.warehouseCount }}</div>
+                <div class="fs-4 fw-bold">{{ res.warehouseCount }}</div>
                 <div class="text-muted small">
                   {{ getMismatchCount() }} {{ '::WithMismatch' | abpLocalization }}
                 </div>
@@ -116,7 +96,7 @@ interface WarehouseComparisonDto {
         </div>
 
         <!-- Per-Warehouse Comparison Table -->
-        @if (result()!.perWarehouse.length > 0) {
+        @if ((res.perWarehouse?.length ?? 0) > 0) {
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
               <span class="fw-bold">
@@ -140,7 +120,7 @@ interface WarehouseComparisonDto {
                     </tr>
                   </thead>
                   <tbody>
-                    @for (wh of result()!.perWarehouse; track wh.warehouseId) {
+                    @for (wh of res.perWarehouse ?? []; track wh.warehouseId) {
                       <tr [class.table-danger]="wh.hasMismatch">
                         <td class="fw-bold">{{ wh.warehouseName }}</td>
                         <td class="text-muted small">{{ wh.stockAccountName || '—' }}</td>
@@ -162,10 +142,10 @@ interface WarehouseComparisonDto {
                   <tfoot class="table-light fw-bold">
                     <tr>
                       <td colspan="2">{{ '::Total' | abpLocalization }}</td>
-                      <td class="text-end font-monospace">{{ result()!.totalStockValue | number:'1.2-2' }}</td>
-                      <td class="text-end font-monospace">{{ result()!.totalGlBalance | number:'1.2-2' }}</td>
-                      <td class="text-end font-monospace" [class.text-danger]="!result()!.isMatched">
-                        {{ result()!.difference | number:'1.2-2' }}
+                      <td class="text-end font-monospace">{{ res.totalStockValue | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ res.totalGlBalance | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace" [class.text-danger]="!res.isMatched">
+                        {{ res.difference | number:'1.2-2' }}
                       </td>
                       <td></td>
                     </tr>
@@ -185,7 +165,8 @@ interface WarehouseComparisonDto {
   `,
 })
 export class StockGlComparisonComponent implements OnInit {
-  private http = inject(HttpClient);
+  private stockGlService = inject(StockGlComparisonService);
+  private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
   private fb = inject(FormBuilder);
@@ -198,7 +179,7 @@ export class StockGlComparisonComponent implements OnInit {
   isLoading = signal(false);
 
   ngOnInit(): void {
-    this.http.get<any>('/api/app/company', { params: { skipCount: '0', maxResultCount: '100' } })
+    this.companyService.getList({ skipCount: 0, maxResultCount: 100 })
       .subscribe({
         next: res => {
           this.companies.set(res.items ?? []);
@@ -215,11 +196,9 @@ export class StockGlComparisonComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
-    this.http.get<StockGlComparisonDto>('/api/app/stock-gl-comparison/comparison', {
-      params: {
-        companyId: this.companyId.value,
-        ...(this.asOfDate.value ? { asOfDate: this.asOfDate.value } : {}),
-      },
+    this.stockGlService.getComparison({
+      companyId: this.companyId.value,
+      asOfDate: this.asOfDate.value || undefined,
     }).subscribe({
       next: data => {
         this.result.set(data);
@@ -235,12 +214,12 @@ export class StockGlComparisonComponent implements OnInit {
   }
 
   getMismatchCount(): number {
-    return this.result()?.perWarehouse.filter(w => w.hasMismatch).length ?? 0;
+    return this.result()?.perWarehouse?.filter(w => w.hasMismatch).length ?? 0;
   }
 
   exportCsv(): void {
     const r = this.result();
-    if (!r) return;
+    if (!r || !r.perWarehouse) return;
     const rows = r.perWarehouse.map(wh => ({
       Warehouse: wh.warehouseName,
       StockAccount: wh.stockAccountName ?? '',

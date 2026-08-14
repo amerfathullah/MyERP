@@ -1,6 +1,8 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AccountType } from './account-type.enum';
 import type { AccountSubType } from './account-sub-type.enum';
+import type { BankGuaranteeType } from './bank-guarantee-type.enum';
+import type { DocumentStatus } from '../core/document-status.enum';
 import type { PaymentType } from './payment-type.enum';
 import type { FinancialReportDataSource } from './entities/financial-report-data-source.enum';
 import type { FinancialReportType } from './entities/financial-report-type.enum';
@@ -178,6 +180,38 @@ export interface BankAccountDto extends EntityDto<string> {
   isCreditCard?: boolean;
   integrationId?: string | null;
   lastIntegrationDate?: string | null;
+}
+
+export interface BankGuaranteeDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  bgType?: BankGuaranteeType;
+  referenceDocType?: string | null;
+  referenceDocId?: string | null;
+  referenceDocName?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  amount?: number;
+  startDate?: string;
+  validityDays?: number;
+  endDate?: string | null;
+  bank?: string | null;
+  bankAccountId?: string | null;
+  bankAccountNumber?: string | null;
+  account?: string | null;
+  iban?: string | null;
+  branchCode?: string | null;
+  swiftNumber?: string | null;
+  bankGuaranteeNumber?: string | null;
+  nameOfBeneficiary?: string | null;
+  marginMoney?: number;
+  charges?: number;
+  fixedDepositNumber?: string | null;
+  clausesAndConditions?: string | null;
+  status?: DocumentStatus;
 }
 
 export interface BankReconciliationStatementDto {
@@ -714,6 +748,36 @@ export interface CreateUpdateBankAccountDto {
   partyId?: string | null;
   currencyCode?: string;
   isCreditCard?: boolean;
+}
+
+export interface CreateUpdateBankGuaranteeDto {
+  companyId: string;
+  bgType: BankGuaranteeType;
+  referenceDocType?: string | null;
+  referenceDocId?: string | null;
+  referenceDocName?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  amount?: number;
+  startDate: string;
+  validityDays?: number;
+  bank?: string | null;
+  bankAccountId?: string | null;
+  bankAccountNumber?: string | null;
+  account?: string | null;
+  iban?: string | null;
+  branchCode?: string | null;
+  swiftNumber?: string | null;
+  bankGuaranteeNumber?: string | null;
+  nameOfBeneficiary?: string | null;
+  marginMoney?: number;
+  charges?: number;
+  fixedDepositNumber?: string | null;
+  clausesAndConditions?: string | null;
 }
 
 export interface CreateUpdatePaymentTermsTemplateDto {

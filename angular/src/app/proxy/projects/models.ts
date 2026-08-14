@@ -1,20 +1,18 @@
+import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { ProjectPriority } from './project-priority.enum';
 import type { PercentCompleteMethod } from './percent-complete-method.enum';
-import type { AuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { ProjectStatus } from './project-status.enum';
-import type { TimesheetStatus } from './entities/timesheet-status.enum';
+import type { TimesheetStatus } from './timesheet-status.enum';
 import type { ProjectTaskStatus } from './project-task-status.enum';
 
-export interface ActivityCostDto {
-  id?: string;
+export interface ActivityCostDto extends EntityDto<string> {
   employeeId?: string;
   activityTypeId?: string;
   billingRate?: number;
   costingRate?: number;
 }
 
-export interface ActivityTypeDto {
-  id?: string;
+export interface ActivityTypeDto extends EntityDto<string> {
   name?: string;
   defaultBillingRate?: number;
   defaultCostingRate?: number;
@@ -22,7 +20,7 @@ export interface ActivityTypeDto {
 }
 
 export interface CreateActivityTypeDto {
-  name?: string;
+  name: string;
   defaultBillingRate?: number;
   defaultCostingRate?: number;
 }
@@ -143,8 +141,8 @@ export interface ProjectTaskDto {
 }
 
 export interface SetActivityCostDto {
-  employeeId?: string;
-  activityTypeId?: string;
+  employeeId: string;
+  activityTypeId: string;
   billingRate?: number;
   costingRate?: number;
 }
@@ -157,8 +155,8 @@ export interface TimesheetBillingResultDto {
   detailCount?: number;
 }
 
-export interface TimesheetDetailDto {
-  id?: string;
+export interface TimesheetDetailDto extends EntityDto<string> {
+  timesheetId?: string;
   activityType?: string;
   fromTime?: string;
   toTime?: string;
@@ -170,6 +168,7 @@ export interface TimesheetDetailDto {
   billingAmount?: number;
   costingRate?: number;
   costingAmount?: number;
+  salesInvoiceId?: string | null;
   description?: string | null;
 }
 

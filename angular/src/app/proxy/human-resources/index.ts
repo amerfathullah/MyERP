@@ -1,8 +1,8 @@
-import * as Entities from './entities';
 export * from './employee.service';
 export * from './expense-claim.service';
 export * from './holiday-list.service';
 export * from './leave-allocation.service';
+export * from './leave-application-status.enum';
 export * from './leave-type.service';
 export * from './leave.service';
 export * from './loan.service';
@@ -11,4 +11,3 @@ export * from './payroll.service';
 export * from './salary-component.service';
 export * from './salary-slip.service';
 export * from './salary-structure.service';
-export { Entities };

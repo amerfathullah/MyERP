@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { HttpClient } from '@angular/common/http';
+import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
+import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
+import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
@@ -24,76 +26,79 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         </div>
       </div>
 
-      <!-- KPI Cards Row -->
-      <div class="row mb-4">
-        <div class="col-md-3">
-          <div class="card border-start border-warning border-4">
-            <div class="card-body text-center">
-              <h3 class="mb-0 text-warning">{{ kpis().pendingMrCount }}</h3>
-              <small class="text-muted">{{ '::PendingMaterialRequests' | abpLocalization }}</small>
-            </div>
+      <!-- KPI Summary Cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small mb-1">{{ '::PendingMaterialRequests' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold text-primary">{{ kpis().pendingMrCount }}</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card border-start border-primary border-4">
-            <div class="card-body text-center">
-              <h3 class="mb-0 text-primary">{{ kpis().activePOCount }}</h3>
-              <small class="text-muted">{{ '::ActivePurchaseOrders' | abpLocalization }}</small>
-            </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small mb-1">{{ '::ActivePurchaseOrders' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold text-info">{{ kpis().activePOCount }}</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card border-start border-danger border-4">
-            <div class="card-body text-center">
-              <h3 class="mb-0 text-danger">{{ kpis().overduePOCount }}</h3>
-              <small class="text-muted">{{ '::OverduePurchaseOrders' | abpLocalization }}</small>
-            </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small mb-1">{{ '::OverduePurchaseOrders' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold text-danger">{{ kpis().overduePOCount }}</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card border-start border-success border-4">
-            <div class="card-body text-center">
-              <h3 class="mb-0 text-success">{{ kpis().onTimeDeliveryPct | number:'1.0-0' }}%</h3>
-              <small class="text-muted">{{ '::OnTimeDelivery' | abpLocalization }}</small>
-            </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small mb-1">{{ '::OnTimeDeliveryRate' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold text-success">{{ kpis().onTimeDeliveryPct | number:'1.0-0' }}%</div>
           </div>
         </div>
       </div>
 
-      <div class="row">
-        <!-- Pending MRs needing PO creation -->
-        <div class="col-md-6 mb-3">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fa fa-clipboard-list text-warning me-2"></i>{{ '::MaterialRequestsAwaitingOrder' | abpLocalization }}</h6>
-              <a routerLink="/purchasing/material-requests" class="btn btn-sm btn-link">{{ '::ViewAll' | abpLocalization }} →</a>
+      <div class="row g-3">
+        <!-- Pending Material Requests -->
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+              <span class="fw-bold"><i class="fa fa-clipboard-list text-primary me-2"></i>{{ '::PendingMaterialRequests' | abpLocalization }}</span>
+              <a routerLink="/purchasing/material-requests" class="btn btn-sm btn-link p-0 text-decoration-none">{{ '::ViewAll' | abpLocalization }}</a>
             </div>
             <div class="card-body p-0">
               @if (pendingMRs().length === 0) {
-                <div class="text-center text-muted py-4">
-                  <i class="fa fa-check-circle fa-2x mb-2 text-success"></i>
-                  <p class="mb-0">{{ '::AllMaterialRequestsOrdered' | abpLocalization }}</p>
-                </div>
+                <div class="text-center text-muted py-4 small">{{ '::NoPendingMRs' | abpLocalization }}</div>
               } @else {
                 <div class="table-responsive">
-                  <table class="table table-sm table-hover mb-0">
-                    <thead><tr>
-                      <th>{{ '::RequestNumber' | abpLocalization }}</th>
-                      <th>{{ '::Date' | abpLocalization }}</th>
-                      <th>{{ '::Items' | abpLocalization }}</th>
-                      <th class="text-end">{{ '::Ordered' | abpLocalization }}</th>
-                    </tr></thead>
+                  <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::Number' | abpLocalization }}</th>
+                        <th>{{ '::RequiredBy' | abpLocalization }}</th>
+                        <th class="text-center">{{ '::Items' | abpLocalization }}</th>
+                        <th class="text-center">{{ '::Ordered' | abpLocalization }}</th>
+                        <th></th>
+                      </tr>
+                    </thead>
                     <tbody>
                       @for (mr of pendingMRs(); track mr.id) {
                         <tr [class.table-warning]="mr.isOverdue">
-                          <td><a [routerLink]="['/purchasing/material-requests', mr.id]" class="text-decoration-none">{{ mr.requestNumber }}</a></td>
-                          <td>{{ mr.requestDate | date:'dd/MM' }}</td>
-                          <td>{{ mr.itemCount }}</td>
-                          <td class="text-end">
-                            <div class="progress" style="height: 5px;">
-                              <div class="progress-bar bg-primary" [style.width.%]="mr.perOrdered"></div>
+                          <td>
+                            <a [routerLink]="['/purchasing/material-requests', mr.id]" class="fw-semibold text-decoration-none small">
+                              {{ mr.requestNumber }}
+                            </a>
+                            @if (mr.isOverdue) {
+                              <span class="badge bg-danger ms-1 small">{{ '::Overdue' | abpLocalization }}</span>
+                            }
+                          </td>
+                          <td class="small">{{ mr.requiredByDate | date:'shortDate' }}</td>
+                          <td class="text-center small">{{ mr.itemCount }}</td>
+                          <td class="text-center">
+                            <div class="progress" style="height: 6px;" [title]="(mr.perOrdered || 0) + '%'">
+                              <div class="progress-bar" [style.width.%]="mr.perOrdered || 0"></div>
                             </div>
-                            <small>{{ mr.perOrdered | number:'1.0-0' }}%</small>
+                          </td>
+                          <td class="text-end">
+                            <a [routerLink]="['/purchasing/orders/new']" [queryParams]="{ fromMr: mr.id }" class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size: 0.75rem;">
+                              <i class="fa fa-shopping-bag me-1"></i>{{ '::CreatePO' | abpLocalization }}
+                            </a>
                           </td>
                         </tr>
                       }
@@ -105,44 +110,46 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           </div>
         </div>
 
-        <!-- Active POs awaiting receipt -->
-        <div class="col-md-6 mb-3">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fa fa-truck text-primary me-2"></i>{{ '::PurchaseOrdersAwaitingReceipt' | abpLocalization }}</h6>
-              <a routerLink="/purchasing/orders" class="btn btn-sm btn-link">{{ '::ViewAll' | abpLocalization }} →</a>
+        <!-- Active Purchase Orders -->
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+              <span class="fw-bold"><i class="fa fa-truck-loading text-info me-2"></i>{{ '::ActivePurchaseOrders' | abpLocalization }}</span>
+              <a routerLink="/purchasing/orders" class="btn btn-sm btn-link p-0 text-decoration-none">{{ '::ViewAll' | abpLocalization }}</a>
             </div>
             <div class="card-body p-0">
               @if (activePOs().length === 0) {
-                <div class="text-center text-muted py-4">
-                  <i class="fa fa-box-open fa-2x mb-2 text-success"></i>
-                  <p class="mb-0">{{ '::AllOrdersReceived' | abpLocalization }}</p>
-                </div>
+                <div class="text-center text-muted py-4 small">{{ '::NoActivePOs' | abpLocalization }}</div>
               } @else {
                 <div class="table-responsive">
-                  <table class="table table-sm table-hover mb-0">
-                    <thead><tr>
-                      <th>{{ '::OrderNumber' | abpLocalization }}</th>
-                      <th>{{ '::Supplier' | abpLocalization }}</th>
-                      <th>{{ '::ExpectedDate' | abpLocalization }}</th>
-                      <th class="text-end">{{ '::Received' | abpLocalization }}</th>
-                    </tr></thead>
+                  <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::Number' | abpLocalization }}</th>
+                        <th>{{ '::Supplier' | abpLocalization }}</th>
+                        <th>{{ '::ExpectedDate' | abpLocalization }}</th>
+                        <th class="text-center">{{ '::Received' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       @for (po of activePOs(); track po.id) {
                         <tr [class.table-danger]="po.isOverdue">
-                          <td><a [routerLink]="['/purchasing/orders', po.id]" class="text-decoration-none">{{ po.orderNumber }}</a></td>
-                          <td>{{ po.supplierName || '—' }}</td>
                           <td>
-                            {{ po.expectedDate | date:'dd/MM' }}
+                            <a [routerLink]="['/purchasing/orders', po.id]" class="fw-semibold text-decoration-none small">
+                              {{ po.orderNumber }}
+                            </a>
+                          </td>
+                          <td class="small text-truncate" style="max-width: 130px;">{{ po.supplierName }}</td>
+                          <td class="small">
+                            {{ po.expectedDate | date:'shortDate' }}
                             @if (po.isOverdue) {
-                              <span class="badge bg-danger ms-1">{{ po.daysOverdue }}d</span>
+                              <span class="badge bg-danger ms-1 small">{{ po.daysOverdue }}d</span>
                             }
                           </td>
-                          <td class="text-end">
-                            <div class="progress" style="height: 5px;">
-                              <div class="progress-bar" [class.bg-success]="po.perReceived >= 100" [class.bg-primary]="po.perReceived < 100" [style.width.%]="po.perReceived"></div>
+                          <td class="text-center">
+                            <div class="progress" style="height: 6px;" [title]="(po.perReceived || 0) + '%'">
+                              <div class="progress-bar bg-success" [style.width.%]="po.perReceived || 0"></div>
                             </div>
-                            <small [class.text-success]="po.perReceived >= 100">{{ po.perReceived | number:'1.0-0' }}%</small>
                           </td>
                         </tr>
                       }
@@ -153,37 +160,43 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Recent Receipts -->
-      <div class="row">
+        <!-- Recent Purchase Receipts -->
         <div class="col-12">
-          <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fa fa-box-open text-success me-2"></i>{{ '::RecentReceipts' | abpLocalization }}</h6>
-              <a routerLink="/purchasing/receipts" class="btn btn-sm btn-link">{{ '::ViewAll' | abpLocalization }} →</a>
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+              <span class="fw-bold"><i class="fa fa-boxes text-success me-2"></i>{{ '::RecentPurchaseReceipts' | abpLocalization }}</span>
+              <a routerLink="/purchasing/receipts" class="btn btn-sm btn-link p-0 text-decoration-none">{{ '::ViewAll' | abpLocalization }}</a>
             </div>
             <div class="card-body p-0">
               @if (recentReceipts().length === 0) {
-                <div class="text-center text-muted py-3"><small>{{ '::NoRecentReceipts' | abpLocalization }}</small></div>
+                <div class="text-center text-muted py-4 small">{{ '::NoRecentReceipts' | abpLocalization }}</div>
               } @else {
                 <div class="table-responsive">
-                  <table class="table table-sm mb-0">
-                    <thead><tr>
-                      <th>{{ '::ReceiptNumber' | abpLocalization }}</th>
-                      <th>{{ '::Supplier' | abpLocalization }}</th>
-                      <th>{{ '::Date' | abpLocalization }}</th>
-                      <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
-                      <th><app-status-badge status="Header"></app-status-badge></th>
-                    </tr></thead>
+                  <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::ReceiptNumber' | abpLocalization }}</th>
+                        <th>{{ '::Supplier' | abpLocalization }}</th>
+                        <th>{{ '::PostingDate' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::TotalAmount' | abpLocalization }}</th>
+                        <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       @for (pr of recentReceipts(); track pr.id) {
                         <tr>
-                          <td><a [routerLink]="['/purchasing/receipts', pr.id]" class="text-decoration-none">{{ pr.receiptNumber }}</a></td>
-                          <td>{{ pr.supplierName || '—' }}</td>
-                          <td>{{ pr.postingDate | date:'dd/MM/yyyy' }}</td>
-                          <td class="text-end font-monospace">{{ pr.grandTotal | number:'1.2-2' }}</td>
-                          <td><app-status-badge [status]="pr.statusLabel"></app-status-badge></td>
+                          <td>
+                            <a [routerLink]="['/purchasing/receipts', pr.id]" class="fw-semibold text-decoration-none small">
+                              {{ pr.receiptNumber }}
+                            </a>
+                          </td>
+                          <td class="small">{{ pr.supplierName }}</td>
+                          <td class="small">{{ pr.postingDate | date:'shortDate' }}</td>
+                          <td class="text-end small fw-semibold">{{ pr.grandTotal | number:'1.2-2' }}</td>
+                          <td class="text-center">
+                            <app-status-badge [status]="pr.statusLabel" />
+                          </td>
                         </tr>
                       }
                     </tbody>
@@ -198,7 +211,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
 })
 export class ProcurementDashboardComponent implements OnInit {
-  private http = inject(HttpClient);
+  private materialRequestService = inject(MaterialRequestService);
+  private purchaseOrderService = inject(PurchaseOrderService);
+  private purchaseReceiptService = inject(PurchaseReceiptService);
   private companyContext = inject(CompanyContextService);
   private l = inject(LocalizationService);
 
@@ -213,11 +228,13 @@ export class ProcurementDashboardComponent implements OnInit {
 
   private loadData(): void {
     const companyId = this.companyContext.currentCompanyId();
-    const today = new Date().toISOString().substring(0, 10);
 
     // Load pending MRs (Submitted, type=Purchase, not fully ordered)
-    this.http.get<any>('/api/app/material-request', {
-      params: { status: 'Submitted', companyId: companyId || '', maxResultCount: '10' }
+    this.materialRequestService.getList({
+      status: 'Submitted',
+      companyId: companyId || undefined,
+      maxResultCount: 10,
+      skipCount: 0,
     }).subscribe({
       next: (res) => {
         const items = (res.items || [])
@@ -234,8 +251,10 @@ export class ProcurementDashboardComponent implements OnInit {
     });
 
     // Load active POs (not fully received)
-    this.http.get<any>('/api/app/purchase-order', {
-      params: { companyId: companyId || '', maxResultCount: '20' }
+    this.purchaseOrderService.getList({
+      companyId: companyId || undefined,
+      maxResultCount: 20,
+      skipCount: 0,
     }).subscribe({
       next: (res) => {
         const active = (res.items || [])
@@ -257,8 +276,12 @@ export class ProcurementDashboardComponent implements OnInit {
 
     // Load recent receipts (last 7 days)
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().substring(0, 10);
-    this.http.get<any>('/api/app/purchase-receipt', {
-      params: { companyId: companyId || '', fromDate: weekAgo, maxResultCount: '10', sorting: 'postingDate desc' }
+    this.purchaseReceiptService.getList({
+      companyId: companyId || undefined,
+      fromDate: weekAgo,
+      maxResultCount: 10,
+      skipCount: 0,
+      sorting: 'postingDate desc',
     }).subscribe({
       next: (res) => {
         this.recentReceipts.set((res.items || []).map((pr: any) => ({
@@ -269,14 +292,12 @@ export class ProcurementDashboardComponent implements OnInit {
       error: () => {}
     });
 
-    // On-time delivery percentage (from supplier performance data)
-    this.http.get<any>('/api/app/dashboard/production-summary', {
-      params: { companyId: companyId || '' }
-    }).subscribe({ next: () => {}, error: () => {} });
-
     // Calculate on-time from PO data heuristic
-    this.http.get<any>('/api/app/purchase-order', {
-      params: { companyId: companyId || '', maxResultCount: '50', status: 'Completed' }
+    this.purchaseOrderService.getList({
+      companyId: companyId || undefined,
+      maxResultCount: 50,
+      skipCount: 0,
+      status: 'Completed',
     }).subscribe({
       next: (res) => {
         const completed = (res.items || []);

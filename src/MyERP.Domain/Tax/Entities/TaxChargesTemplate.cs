@@ -169,10 +169,3 @@ public class TaxChargesTemplateRow : Entity<Guid>
         Description = description;
     }
 }
-
-/// <summary>Selling or Buying template type.</summary>
-public enum TaxTemplateType
-{
-    Selling = 0,
-    Buying = 1,
-}

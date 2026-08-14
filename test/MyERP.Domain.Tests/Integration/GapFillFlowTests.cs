@@ -10,6 +10,7 @@ using MyERP.Projects.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
+using MyERP.Assets;
 using Shouldly;
 using Xunit;
 

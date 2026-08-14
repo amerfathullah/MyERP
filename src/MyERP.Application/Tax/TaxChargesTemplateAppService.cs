@@ -17,7 +17,7 @@ namespace MyERP.Tax;
 /// Per ERPNext: auto-loaded into SO/PO/SI/PI when template is selected or default applies.
 /// </summary>
 [Authorize]
-public class TaxChargesTemplateAppService : ApplicationService
+public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTemplateAppService
 {
     private readonly IRepository<TaxChargesTemplate, Guid> _repository;
 
@@ -216,62 +216,4 @@ public class TaxChargesTemplateAppService : ApplicationService
             CostCenterId = r.CostCenterId,
         }).ToList(),
     };
-}
-
-// --- DTOs ---
-
-public class GetTaxTemplateListDto : PagedAndSortedResultRequestDto
-{
-    public Guid? CompanyId { get; set; }
-    public TaxTemplateType? TemplateType { get; set; }
-    public string? Filter { get; set; }
-}
-
-public class TaxChargesTemplateDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = "";
-    public TaxTemplateType TemplateType { get; set; }
-    public Guid? TaxCategoryId { get; set; }
-    public bool IsDefault { get; set; }
-    public bool IsEnabled { get; set; }
-    public List<TaxChargesTemplateRowDto> Rows { get; set; } = new();
-}
-
-public class TaxChargesTemplateRowDto
-{
-    public Guid Id { get; set; }
-    public int RowIndex { get; set; }
-    public string ChargeType { get; set; } = "On Net Total";
-    public decimal Rate { get; set; }
-    public Guid? AccountId { get; set; }
-    public string? AccountName { get; set; }
-    public string TaxCategory { get; set; } = "Total";
-    public int? ReferenceRowIndex { get; set; }
-    public bool IncludedInPrintRate { get; set; }
-    public string? Description { get; set; }
-    public Guid? CostCenterId { get; set; }
-}
-
-public class CreateTaxChargesTemplateDto
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = "";
-    public TaxTemplateType TemplateType { get; set; }
-    public Guid? TaxCategoryId { get; set; }
-    public bool IsDefault { get; set; }
-    public List<CreateTaxChargesTemplateRowDto> Rows { get; set; } = new();
-}
-
-public class CreateTaxChargesTemplateRowDto
-{
-    public string ChargeType { get; set; } = "On Net Total";
-    public decimal Rate { get; set; }
-    public Guid? AccountId { get; set; }
-    public string? AccountName { get; set; }
-    public string? TaxCategory { get; set; }
-    public int? ReferenceRowIndex { get; set; }
-    public bool IncludedInPrintRate { get; set; }
-    public string? Description { get; set; }
-    public Guid? CostCenterId { get; set; }
 }

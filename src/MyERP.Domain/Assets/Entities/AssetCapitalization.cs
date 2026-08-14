@@ -141,10 +141,3 @@ public class AssetCapitalizationAsset : Volo.Abp.Domain.Entities.Entity<Guid>
     public string AssetName { get; set; } = null!;
     public decimal CurrentValue { get; set; }
 }
-
-public enum AssetCapitalizationStatus
-{
-    Draft = 0,
-    Submitted = 1,
-    Cancelled = 2
-}

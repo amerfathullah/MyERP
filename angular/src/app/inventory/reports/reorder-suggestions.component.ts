@@ -1,7 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { ItemService } from '../../proxy/inventory/item.service';
+import type { ReorderSuggestionDto } from '../../proxy/inventory/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { RouterLink } from '@angular/router';
 
@@ -23,115 +24,107 @@ import { RouterLink } from '@angular/router';
       <!-- KPI Summary -->
       @if (suggestions().length > 0) {
         <div class="row g-3 mb-3">
-          <div class="col-md-3">
-            <div class="card border-start border-4 border-primary">
-              <div class="card-body py-2">
-                <small class="text-muted">Total Items</small>
-                <h5 class="mb-0">{{ suggestions().length }}</h5>
+          <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm">
+              <div class="card-body">
+                <div class="text-muted small">{{ '::AnalyzedItems' | abpLocalization }}</div>
+                <div class="h3 fw-bold">{{ suggestions().length }}</div>
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card border-start border-4 border-danger">
-              <div class="card-body py-2">
-                <small class="text-muted">{{ '::Understocked' | abpLocalization }}</small>
-                <h5 class="mb-0 text-danger">{{ understockedCount() }}</h5>
+          <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm border-start border-danger border-3">
+              <div class="card-body">
+                <div class="text-muted small">{{ '::UnderstockedItems' | abpLocalization }}</div>
+                <div class="h3 fw-bold text-danger">{{ understockedCount() }}</div>
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card border-start border-4 border-warning">
-              <div class="card-body py-2">
-                <small class="text-muted">{{ '::Overstocked' | abpLocalization }}</small>
-                <h5 class="mb-0 text-warning">{{ overstockedCount() }}</h5>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-start border-4 border-success">
-              <div class="card-body py-2">
-                <small class="text-muted">Balanced</small>
-                <h5 class="mb-0 text-success">{{ suggestions().length - understockedCount() - overstockedCount() }}</h5>
+          <div class="col-md-4">
+            <div class="card text-center border-0 shadow-sm border-start border-warning border-3">
+              <div class="card-body">
+                <div class="text-muted small">{{ '::OverstockedItems' | abpLocalization }}</div>
+                <div class="h3 fw-bold text-warning">{{ overstockedCount() }}</div>
               </div>
             </div>
           </div>
         </div>
       }
 
-      <!-- Loading -->
       @if (loading()) {
         <div class="text-center py-5">
-          <div class="spinner-border text-primary"></div>
+          <div class="spinner-border text-primary" role="status"></div>
         </div>
-      }
-
-      <!-- Empty state -->
-      @if (!loading() && suggestions().length === 0) {
-        <div class="text-center py-5 text-muted">
-          <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
-          <p>{{ '::NoReorderSuggestionsYet' | abpLocalization }}</p>
-        </div>
-      }
-
-      <!-- Suggestions table -->
-      @if (!loading() && suggestions().length > 0) {
-        <div class="card">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>{{ '::ItemCode' | abpLocalization }}</th>
-                  <th>{{ '::ItemName' | abpLocalization }}</th>
-                  <th class="text-end">{{ '::AvgDailyConsumption' | abpLocalization }}</th>
-                  <th class="text-end">{{ '::CurrentStock' | abpLocalization }}</th>
-                  <th class="text-end">{{ '::DaysOfStockRemaining' | abpLocalization }}</th>
-                  <th class="text-end">Current Level</th>
-                  <th class="text-end">{{ '::SuggestedLevel' | abpLocalization }}</th>
-                  <th class="text-end">{{ '::SuggestedReorderQty' | abpLocalization }}</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (s of suggestions(); track s.itemId) {
-                  <tr [class.table-danger]="s.isUnderstocked" [class.table-warning]="s.isOverstocked">
-                    <td><a [routerLink]="['/inventory/items', s.itemId]" class="text-decoration-none">{{ s.itemCode }}</a></td>
-                    <td>{{ s.itemName }}</td>
-                    <td class="text-end font-monospace">{{ s.avgDailyConsumption | number:'1.1-1' }}</td>
-                    <td class="text-end font-monospace">{{ s.currentStock | number:'1.0-0' }}</td>
-                    <td class="text-end">
-                      <span [class.text-danger]="s.daysOfStockRemaining <= 7"
-                            [class.text-warning]="s.daysOfStockRemaining > 7 && s.daysOfStockRemaining <= 14"
-                            [class.fw-bold]="s.daysOfStockRemaining <= 7">
-                        {{ s.daysOfStockRemaining }} days
-                      </span>
-                    </td>
-                    <td class="text-end font-monospace">{{ s.currentReorderLevel | number:'1.0-0' }}</td>
-                    <td class="text-end font-monospace fw-bold">{{ s.suggestedReorderLevel | number:'1.0-0' }}</td>
-                    <td class="text-end font-monospace">{{ s.suggestedReorderQty | number:'1.0-0' }}</td>
-                    <td>
-                      @if (s.isUnderstocked) {
-                        <span class="badge bg-danger"><i class="fa fa-arrow-down me-1"></i>{{ '::Understocked' | abpLocalization }}</span>
-                      } @else if (s.isOverstocked) {
-                        <span class="badge bg-warning text-dark"><i class="fa fa-arrow-up me-1"></i>{{ '::Overstocked' | abpLocalization }}</span>
-                      } @else {
-                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>OK</span>
-                      }
-                    </td>
+      } @else if (suggestions().length > 0) {
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::CurrentStock' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::DailyUsage' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::LeadTimeDays' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::CurrentReorderLevel' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::SuggestedReorderLevel' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::SuggestedReorderQty' | abpLocalization }}</th>
+                    <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (item of suggestions(); track item.itemId) {
+                    <tr>
+                      <td>
+                        @if (item.itemId) {
+                          <a [routerLink]="['/inventory/items', item.itemId]" class="fw-bold text-decoration-none">
+                            {{ item.itemCode }}
+                          </a>
+                        } @else {
+                          <span class="fw-bold">{{ item.itemCode }}</span>
+                        }
+                        <div class="text-muted small">{{ item.itemName }}</div>
+                      </td>
+                      <td class="text-end font-monospace">{{ item.currentStock | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ item.avgDailyConsumption | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ item.leadTimeDays }}</td>
+                      <td class="text-end font-monospace">{{ item.currentReorderLevel | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-bold"
+                          [class.text-danger]="item.isUnderstocked"
+                          [class.text-warning]="item.isOverstocked">
+                        {{ item.suggestedReorderLevel | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end font-monospace">{{ item.suggestedReorderQty | number:'1.2-2' }}</td>
+                      <td class="text-center">
+                        @if (item.isUnderstocked) {
+                          <span class="badge bg-danger-subtle text-danger">{{ '::Understocked' | abpLocalization }}</span>
+                        } @else if (item.isOverstocked) {
+                          <span class="badge bg-warning-subtle text-warning">{{ '::Overstocked' | abpLocalization }}</span>
+                        } @else {
+                          <span class="badge bg-success-subtle text-success">{{ '::Optimal' | abpLocalization }}</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
+        </div>
+      } @else {
+        <div class="card border-0 shadow-sm text-center py-5 text-muted">
+          <i class="fas fa-box-open fa-3x mb-3"></i>
+          <p>{{ '::NoReorderSuggestionsFound' | abpLocalization }}</p>
         </div>
       }
     </div>
   `,
 })
 export class ReorderSuggestionsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
 
-  suggestions = signal<any[]>([]);
+  suggestions = signal<ReorderSuggestionDto[]>([]);
   loading = signal(false);
   lookback = signal(90);
 
@@ -148,7 +141,7 @@ export class ReorderSuggestionsComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.get<any[]>(`/api/app/item/reorder-suggestions?companyId=${companyId}&lookbackDays=${days}`).subscribe({
+    this.itemService.getReorderSuggestions(companyId, days).subscribe({
       next: (data) => { this.suggestions.set(data ?? []); this.loading.set(false); },
       error: () => { this.suggestions.set([]); this.loading.set(false); },
     });

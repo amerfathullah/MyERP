@@ -578,8 +578,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var scioQuery = await scioRepo.GetQueryableAsync();
         var linkedScioList = scioQuery
             .Where(s => s.SalesOrderId == id &&
-                        s.Status != Purchasing.Entities.SubcontractingInwardOrderStatus.Cancelled &&
-                        s.Status != Purchasing.Entities.SubcontractingInwardOrderStatus.Closed)
+                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Cancelled &&
+                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Closed)
             .ToList();
         foreach (var scio in linkedScioList)
         {

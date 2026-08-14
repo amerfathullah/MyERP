@@ -16,7 +16,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Purchasing;
 
 [Authorize(MyERPPermissions.PurchaseOrders.Default)]
-public class SubcontractingAppService : ApplicationService
+public class SubcontractingAppService : ApplicationService, ISubcontractingAppService
 {
     private readonly IRepository<SubcontractingOrder, Guid> _scoRepository;
     private readonly IRepository<SubcontractingReceipt, Guid> _scrRepository;
@@ -306,94 +306,4 @@ public class SubcontractingAppService : ApplicationService
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
-}
-
-// DTOs
-
-public class SubcontractingOrderDto : AuditedEntityDto<Guid>
-{
-    public string OrderNumber { get; set; } = null!;
-    public DateTime OrderDate { get; set; }
-    public Guid SupplierId { get; set; }
-    public string? SupplierName { get; set; }
-    public Guid CompanyId { get; set; }
-    public decimal NetTotal { get; set; }
-    public decimal GrandTotal { get; set; }
-    public SubcontractingOrderStatus Status { get; set; }
-    public decimal PerReceived { get; set; }
-    public Guid? SupplierWarehouseId { get; set; }
-    public List<ScoItemDto> Items { get; set; } = new();
-}
-
-public class ScoItemDto
-{
-    public Guid Id { get; set; }
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = null!;
-    public decimal Qty { get; set; }
-    public decimal Rate { get; set; }
-    public decimal ReceivedQty { get; set; }
-}
-
-public class CreateSubcontractingOrderDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid SupplierId { get; set; }
-    [Required] public DateTime OrderDate { get; set; }
-    public Guid? PurchaseOrderId { get; set; }
-    public string? Notes { get; set; }
-    public List<CreateScoItemDto> Items { get; set; } = new();
-}
-
-public class CreateScoItemDto
-{
-    [Required] public Guid ItemId { get; set; }
-    [Required] public string ItemName { get; set; } = null!;
-    public decimal Qty { get; set; }
-    public decimal Rate { get; set; }
-    public Guid? BomId { get; set; }
-    public Guid? WarehouseId { get; set; }
-}
-
-public class GetScoListDto : PagedAndSortedResultRequestDto
-{
-    public SubcontractingOrderStatus? Status { get; set; }
-    public Guid? CompanyId { get; set; }
-}
-
-public class SubcontractingReceiptDto : AuditedEntityDto<Guid>
-{
-    public string ReceiptNumber { get; set; } = null!;
-    public DateTime PostingDate { get; set; }
-    public Guid SupplierId { get; set; }
-    public Guid SubcontractingOrderId { get; set; }
-    public decimal NetTotal { get; set; }
-    public SubcontractingReceiptStatus Status { get; set; }
-}
-
-public class CreateSubcontractingReceiptDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid SupplierId { get; set; }
-    [Required] public Guid SubcontractingOrderId { get; set; }
-    [Required] public DateTime PostingDate { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public List<CreateScrItemDto> Items { get; set; } = new();
-}
-
-public class CreateScrItemDto
-{
-    [Required] public Guid ItemId { get; set; }
-    [Required] public string ItemName { get; set; } = null!;
-    public decimal Qty { get; set; }
-    public decimal Rate { get; set; }
-    public Guid? WarehouseId { get; set; }
-}
-
-public class RmTransferResultDto
-{
-    public Guid StockEntryId { get; set; }
-    public string EntryNumber { get; set; } = null!;
-    public int ItemCount { get; set; }
-    public decimal TotalQty { get; set; }
 }

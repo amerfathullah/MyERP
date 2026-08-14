@@ -10,40 +10,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Sales;
 
-public class ProductBundleDto : EntityDto<Guid>
-{
-    public Guid ItemId { get; set; }
-    public string? ItemName { get; set; }
-    public string? Description { get; set; }
-    public bool IsActive { get; set; }
-    public ProductBundleItemDto[] Items { get; set; } = [];
-}
-
-public class ProductBundleItemDto
-{
-    public Guid Id { get; set; }
-    public Guid ComponentItemId { get; set; }
-    public string? ItemName { get; set; }
-    public decimal Qty { get; set; }
-}
-
-public class CreateProductBundleDto
-{
-    public Guid ItemId { get; set; }
-    public string? ItemName { get; set; }
-    public string? Description { get; set; }
-    public CreateProductBundleItemDto[] Items { get; set; } = [];
-}
-
-public class CreateProductBundleItemDto
-{
-    public Guid ComponentItemId { get; set; }
-    public string? ItemName { get; set; }
-    public decimal Qty { get; set; }
-}
-
 [Authorize(MyERPPermissions.Items.Default)]
-public class ProductBundleAppService : ApplicationService
+public class ProductBundleAppService : ApplicationService, IProductBundleAppService
 {
     private readonly IRepository<ProductBundle, Guid> _repository;
     public ProductBundleAppService(IRepository<ProductBundle, Guid> repository) => _repository = repository;

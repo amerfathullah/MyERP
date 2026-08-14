@@ -15,4 +15,5 @@ public interface IEInvoiceAppService : IApplicationService
     Task<PagedResultDto<EInvoiceSubmissionDto>> GetListAsync(PagedAndSortedResultRequestDto input);
     Task<EInvoiceSubmissionDto> SubmitConsolidatedAsync(SubmitEInvoiceDto input);
     Task<List<Guid>> ConsolidateInvoicesAsync(ConsolidateInvoicesDto input);
+    Task<TaxpayerSearchResultDto> SearchTaxpayerAsync(SearchTaxpayerDto input);
 }

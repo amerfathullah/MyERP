@@ -166,13 +166,3 @@ public class SubcontractingInwardOrderItem : FullAuditedEntity<Guid>, IMultiTena
         TenantId = tenantId;
     }
 }
-
-public enum SubcontractingInwardOrderStatus
-{
-    Draft = 0,
-    Open = 1,
-    PartiallyReceived = 2,
-    Completed = 3,
-    Closed = 4,
-    Cancelled = 5
-}

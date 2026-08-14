@@ -177,4 +177,33 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             _ => 0,
         };
     }
+
+    public void ApplyRepairCapitalization(decimal additionalCost, int increaseInUsefulLifeMonths)
+    {
+        AdditionalCost += additionalCost;
+        ValueAfterDepreciation += additionalCost;
+        if (increaseInUsefulLifeMonths > 0)
+        {
+            UsefulLifeMonths += increaseInUsefulLifeMonths;
+        }
+        GenerateDepreciationSchedule();
+    }
+
+    public void ApplyValueAdjustment(decimal newValue)
+    {
+        ValueAfterDepreciation = newValue;
+        GenerateDepreciationSchedule();
+    }
+
+    public void UpdateLocationAndCustodian(string? location, Guid? custodianEmployeeId)
+    {
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            Location = location;
+        }
+        if (custodianEmployeeId.HasValue)
+        {
+            CustodianEmployeeId = custodianEmployeeId;
+        }
+    }
 }

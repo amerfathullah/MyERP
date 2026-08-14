@@ -118,6 +118,18 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Lead time in days for procurement planning. Per ERPNext: lead_time_days.</summary>
     public int LeadTimeDays { get; set; }
 
+    /// <summary>Customs Tariff Number (HS Code) for export/import declaration.</summary>
+    public Guid? CustomsTariffNumberId { get; set; }
+
+    /// <summary>Allow alternative/substitute item in transactions.</summary>
+    public bool AllowAlternativeItem { get; set; }
+
+    /// <summary>Default item manufacturer.</summary>
+    public Guid? DefaultManufacturerId { get; set; }
+
+    /// <summary>Default manufacturer part number.</summary>
+    public string? DefaultManufacturerPartNo { get; set; }
+
     // Variant system
     /// <summary>True if this is a template item that has variants (cannot be used directly in transactions).</summary>
     public bool HasVariants { get; set; }

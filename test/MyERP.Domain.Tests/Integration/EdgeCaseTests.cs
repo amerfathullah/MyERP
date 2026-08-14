@@ -1,5 +1,7 @@
 using System;
 using MyERP.Accounting.Entities;
+using MyERP.Assets;
+using MyERP.Assets.Entities;
 using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
@@ -144,8 +146,8 @@ public class EdgeCaseTests
     [Fact]
     public void AssetMovement_SubmitTwice_Throws()
     {
-        var am = new Assets.Entities.AssetMovement(Guid.NewGuid(), Guid.NewGuid(),
-            Guid.NewGuid(), "Transfer", DateTime.UtcNow);
+        var am = new AssetMovement(Guid.NewGuid(), "MOV-001", Guid.NewGuid(),
+            AssetMovementPurpose.Transfer, DateTime.UtcNow);
         am.Submit();
         Should.Throw<BusinessException>(() => am.Submit());
     }

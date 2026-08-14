@@ -84,7 +84,7 @@ public class GuidResolutionVoucherLedgerLocalizationTests
     [Fact]
     public void AssetRepair_Completed_EnablesLedger()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Co, Guid.NewGuid(), T);
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Co, Guid.NewGuid(), T);
         repair.RepairCost = 5000;
         repair.FailureDate = DateTime.Today;
         repair.Complete();
@@ -94,7 +94,7 @@ public class GuidResolutionVoucherLedgerLocalizationTests
     [Fact]
     public void AssetRepair_Draft_ExcludesLedger()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Co, Guid.NewGuid(), T);
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Co, Guid.NewGuid(), T);
         Assert.Equal(0, (int)repair.Status);
     }
 
@@ -226,7 +226,7 @@ public class GuidResolutionVoucherLedgerLocalizationTests
     [Fact]
     public void AssetRepair_CapitalizeCost_AffectsLedgerVisibility()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Co, Guid.NewGuid(), T);
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Co, Guid.NewGuid(), T);
         repair.CapitalizeRepairCost = true;
         Assert.True(repair.CapitalizeRepairCost);
     }
@@ -234,7 +234,7 @@ public class GuidResolutionVoucherLedgerLocalizationTests
     [Fact]
     public void AssetRepair_NonCapitalize_StillShowsLedger()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Co, Guid.NewGuid(), T);
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Co, Guid.NewGuid(), T);
         repair.CapitalizeRepairCost = false;
         Assert.False(repair.CapitalizeRepairCost);
     }

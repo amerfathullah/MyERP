@@ -2,28 +2,12 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { HttpClient } from '@angular/common/http';
+import { SalesCommissionReportService } from '../../../proxy/sales/sales-commission-report.service';
+import type { SalesCommissionReportDto } from '../../../proxy/sales/models';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import { RouterModule } from '@angular/router';
-
-interface CommissionRow {
-  salesPersonId: string;
-  salesPersonName: string;
-  invoiceCount: number;
-  totalAllocatedAmount: number;
-  totalCommission: number;
-  commissionRate: number;
-}
-
-interface CommissionReport {
-  totalRevenue: number;
-  totalCommission: number;
-  invoiceCount: number;
-  salesPersonCount: number;
-  rows: CommissionRow[];
-}
 
 @Component({
   selector: 'app-sales-commission-report',
@@ -86,7 +70,7 @@ interface CommissionReport {
           </div>
 
           <!-- Commission Table -->
-          @if (r.rows.length > 0) {
+          @if (r.rows && r.rows.length > 0) {
             <div class="table-responsive">
               <table class="table table-hover">
                 <thead class="table-light">
@@ -136,10 +120,10 @@ interface CommissionReport {
   `,
 })
 export class SalesCommissionReportComponent implements OnInit {
-  private http = inject(HttpClient);
+  private reportService = inject(SalesCommissionReportService);
   private companyContext = inject(CompanyContextService);
 
-  report = signal<CommissionReport | null>(null);
+  report = signal<SalesCommissionReportDto | null>(null);
   isLoading = signal(false);
   fromDate = '';
   toDate = '';
@@ -157,9 +141,7 @@ export class SalesCommissionReportComponent implements OnInit {
     if (!companyId || !this.fromDate || !this.toDate) return;
 
     this.isLoading.set(true);
-    this.http.get<CommissionReport>('/api/app/sales-commission-report/report', {
-      params: { companyId, fromDate: this.fromDate, toDate: this.toDate },
-    }).subscribe({
+    this.reportService.getReport(companyId, this.fromDate, this.toDate).subscribe({
       next: data => {
         this.report.set(data);
         this.isLoading.set(false);
@@ -169,19 +151,20 @@ export class SalesCommissionReportComponent implements OnInit {
   }
 
   getTotalAllocated(): number {
-    return this.report()?.rows.reduce((sum, r) => sum + r.totalAllocatedAmount, 0) ?? 0;
+    return this.report()?.rows?.reduce((sum, r) => sum + (r.totalAllocatedAmount ?? 0), 0) ?? 0;
   }
 
   exportCsv(): void {
     const r = this.report();
-    if (!r) return;
+    if (!r || !r.rows) return;
+    const columns = ['Sales Person', 'Invoices', 'Allocated Amount', 'Commission Rate (%)', 'Commission Amount'];
     const rows = r.rows.map(row => ({
       'Sales Person': row.salesPersonName,
       'Invoices': row.invoiceCount,
       'Allocated Amount': row.totalAllocatedAmount,
-      'Commission Rate %': row.commissionRate,
-      'Commission': row.totalCommission,
+      'Commission Rate (%)': row.commissionRate,
+      'Commission Amount': row.totalCommission,
     }));
-    exportToCsv('sales-commission-report.csv', rows, ['Sales Person', 'Invoices', 'Allocated Amount', 'Commission Rate %', 'Commission']);
+    exportToCsv('sales-commission-report.csv', rows, columns);
   }
 }

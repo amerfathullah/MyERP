@@ -1,5 +1,5 @@
-import type { TaxTemplateType } from './entities/tax-template-type.enum';
 import type { CreateTaxChargesTemplateDto, GetTaxTemplateListDto, TaxChargesTemplateDto } from './models';
+import type { TaxTemplateType } from './tax-template-type.enum';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';

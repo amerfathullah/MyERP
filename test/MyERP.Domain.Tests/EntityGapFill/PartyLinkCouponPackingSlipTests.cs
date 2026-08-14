@@ -1,6 +1,7 @@
 using System;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Xunit;

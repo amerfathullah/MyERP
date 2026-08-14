@@ -18,6 +18,7 @@ export class CompanyContextService {
 
   companies = signal<CompanyOption[]>([]);
   currentCompanyId = signal<string>('');
+  selectedCompanyId = this.currentCompanyId;
   currentCompanyName = signal<string>('');
   currentCurrency = signal<string>('MYR');
 

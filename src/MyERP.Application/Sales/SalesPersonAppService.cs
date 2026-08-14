@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Sales;
 
 [Authorize(MyERPPermissions.SalesPersons.Default)]
-public class SalesPersonAppService : ApplicationService
+public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
 {
     private readonly IRepository<SalesPerson, Guid> _repository;
 
@@ -105,50 +105,3 @@ public class SalesPersonAppService : ApplicationService
         await _repository.DeleteAsync(id);
     }
 }
-
-#region DTOs
-
-public class SalesPersonDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public Guid? ParentSalesPersonId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? EmployeeId { get; set; }
-    public decimal CommissionRate { get; set; }
-    public bool IsEnabled { get; set; }
-    public List<SalesTargetDto> Targets { get; set; } = new();
-}
-
-public class SalesTargetDto
-{
-    public Guid? FiscalYearId { get; set; }
-    public decimal TargetQty { get; set; }
-    public decimal TargetAmount { get; set; }
-}
-
-public class CreateSalesPersonDto
-{
-    public string Name { get; set; } = null!;
-    public Guid? ParentSalesPersonId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? EmployeeId { get; set; }
-    public decimal CommissionRate { get; set; }
-}
-
-public class UpdateSalesPersonDto
-{
-    public Guid? ParentSalesPersonId { get; set; }
-    public bool IsGroup { get; set; }
-    public Guid? EmployeeId { get; set; }
-    public decimal CommissionRate { get; set; }
-}
-
-public class CreateSalesTargetDto
-{
-    public Guid? FiscalYearId { get; set; }
-    public decimal TargetQty { get; set; }
-    public decimal TargetAmount { get; set; }
-}
-
-#endregion

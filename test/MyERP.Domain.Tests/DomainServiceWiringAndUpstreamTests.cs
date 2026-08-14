@@ -8,6 +8,7 @@ using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Xunit;

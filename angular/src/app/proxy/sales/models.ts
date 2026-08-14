@@ -1,5 +1,5 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { CouponType } from './entities/coupon-type.enum';
+import type { CouponType } from './coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
@@ -64,8 +64,7 @@ export interface BlanketOrderItemDto {
   remainingQty?: number;
 }
 
-export interface CouponCodeDto {
-  id?: string;
+export interface CouponCodeDto extends EntityDto<string> {
   code?: string;
   couponName?: string;
   couponType?: CouponType;
@@ -448,6 +447,32 @@ export interface CreateUpdateCustomerDto {
   isActive?: boolean;
 }
 
+export interface CreateUpdatePosProfileDto {
+  companyId: string;
+  profileName: string;
+  warehouseId: string;
+  priceListId?: string | null;
+  defaultCustomerId?: string | null;
+  currencyCode?: string;
+  validateStock?: boolean;
+  invoiceType?: string;
+  isDisabled?: boolean;
+  taxTemplateId?: string | null;
+  writeOffAccountId?: string | null;
+  writeOffCostCenterId?: string | null;
+  writeOffLimit?: number;
+  postChangeGlEntries?: boolean;
+  incomeAccountId?: string | null;
+  expenseAccountId?: string | null;
+  paymentMethods?: CreateUpdatePosProfilePaymentMethodDto[];
+}
+
+export interface CreateUpdatePosProfilePaymentMethodDto {
+  modeOfPaymentId: string;
+  accountId: string;
+  isDefault?: boolean;
+}
+
 export interface CustomerDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   name?: string;
@@ -573,6 +598,12 @@ export interface GeneratedInvoiceDto {
 
 export interface GetCustomerListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+}
+
+export interface GetPosProfileListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  filter?: string | null;
+  isDisabled?: boolean | null;
 }
 
 export interface GetSalesPartnerListDto extends PagedAndSortedResultRequestDto {
@@ -876,6 +907,33 @@ export interface PosOpeningPaymentDto {
   openingAmount?: number;
 }
 
+export interface PosProfileDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  profileName?: string;
+  warehouseId?: string;
+  priceListId?: string | null;
+  defaultCustomerId?: string | null;
+  currencyCode?: string;
+  validateStock?: boolean;
+  invoiceType?: string;
+  isDisabled?: boolean;
+  taxTemplateId?: string | null;
+  writeOffAccountId?: string | null;
+  writeOffCostCenterId?: string | null;
+  writeOffLimit?: number;
+  postChangeGlEntries?: boolean;
+  incomeAccountId?: string | null;
+  expenseAccountId?: string | null;
+  paymentMethods?: PosProfilePaymentMethodDto[];
+}
+
+export interface PosProfilePaymentMethodDto extends EntityDto<string> {
+  posProfileId?: string;
+  modeOfPaymentId?: string;
+  accountId?: string;
+  isDefault?: boolean;
+}
+
 export interface PreviewEmailInput {
   documentType?: string;
   templateId?: string | null;
@@ -1150,8 +1208,7 @@ export interface SalesPersonCommissionRowDto {
   commissionRate?: number;
 }
 
-export interface SalesPersonDto {
-  id?: string;
+export interface SalesPersonDto extends EntityDto<string> {
   name?: string;
   parentSalesPersonId?: string | null;
   isGroup?: boolean;
@@ -1240,8 +1297,7 @@ export interface ShippingConditionDto {
   shippingAmount?: number;
 }
 
-export interface ShippingRuleDto {
-  id?: string;
+export interface ShippingRuleDto extends EntityDto<string> {
   label?: string;
   companyId?: string;
   calculationMode?: string;

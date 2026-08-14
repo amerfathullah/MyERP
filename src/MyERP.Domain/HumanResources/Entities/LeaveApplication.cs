@@ -75,11 +75,3 @@ public class LeaveApplication : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = LeaveApplicationStatus.Cancelled;
     }
 }
-
-public enum LeaveApplicationStatus
-{
-    Open = 0,
-    Approved = 1,
-    Rejected = 2,
-    Cancelled = 3,
-}

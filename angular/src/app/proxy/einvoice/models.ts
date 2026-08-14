@@ -76,6 +76,11 @@ export interface SaveEInvoiceCredentialsDto {
   environment: string;
 }
 
+export interface SearchTaxpayerDto {
+  idType: string;
+  idValue: string;
+}
+
 export interface SubmitEInvoiceDto {
   companyId: string;
   sourceDocumentType: string;

@@ -16,7 +16,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Projects;
 
 [Authorize(MyERPPermissions.Projects.Default)]
-public class TimesheetAppService : ApplicationService
+public class TimesheetAppService : ApplicationService, ITimesheetAppService
 {
     private readonly IRepository<Timesheet, Guid> _repository;
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
@@ -220,97 +220,5 @@ public class TimesheetAppService : ApplicationService
 
         return unbilled;
     }
-}
-
-// DTOs
-
-public class TimesheetDto : AuditedEntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid EmployeeId { get; set; }
-    public string? EmployeeName { get; set; }
-    public TimesheetStatus Status { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-    public decimal TotalHours { get; set; }
-    public decimal TotalBillableHours { get; set; }
-    public decimal TotalBillingAmount { get; set; }
-    public decimal TotalCostingAmount { get; set; }
-    public string? Note { get; set; }
-    public List<TimesheetDetailDto> Details { get; set; } = new();
-}
-
-public class TimesheetDetailDto
-{
-    public Guid Id { get; set; }
-    public string ActivityType { get; set; } = null!;
-    public DateTime FromTime { get; set; }
-    public DateTime ToTime { get; set; }
-    public decimal Hours { get; set; }
-    public Guid? ProjectId { get; set; }
-    public Guid? TaskId { get; set; }
-    public bool IsBillable { get; set; }
-    public decimal BillingRate { get; set; }
-    public decimal BillingAmount { get; set; }
-    public decimal CostingRate { get; set; }
-    public decimal CostingAmount { get; set; }
-    public string? Description { get; set; }
-}
-
-public class CreateTimesheetDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid EmployeeId { get; set; }
-    public string? EmployeeName { get; set; }
-    [Required] public DateTime StartDate { get; set; }
-    [Required] public DateTime EndDate { get; set; }
-    public string? Note { get; set; }
-    public List<CreateTimesheetDetailDto> Details { get; set; } = new();
-}
-
-public class CreateTimesheetDetailDto
-{
-    [Required] public string ActivityType { get; set; } = null!;
-    [Required] public DateTime FromTime { get; set; }
-    [Required] public DateTime ToTime { get; set; }
-    [Required] public decimal Hours { get; set; }
-    public Guid? ProjectId { get; set; }
-    public Guid? TaskId { get; set; }
-    public bool IsBillable { get; set; }
-    public decimal BillingRate { get; set; }
-    public decimal CostingRate { get; set; }
-    public string? Description { get; set; }
-}
-
-public class GetTimesheetListDto : PagedAndSortedResultRequestDto
-{
-    public Guid? CompanyId { get; set; }
-    public Guid? EmployeeId { get; set; }
-    public TimesheetStatus? Status { get; set; }
-    public string? Filter { get; set; }
-}
-
-public class CreateTimesheetInvoiceDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid CustomerId { get; set; }
-    public Guid? ProjectId { get; set; }
-}
-
-public class TimesheetBillingResultDto
-{
-    public Guid InvoiceId { get; set; }
-    public string InvoiceNumber { get; set; } = null!;
-    public decimal TotalHours { get; set; }
-    public decimal TotalAmount { get; set; }
-    public int DetailCount { get; set; }
-}
-
-public class UnbilledTimesheetSummaryDto
-{
-    public string ActivityType { get; set; } = null!;
-    public decimal TotalHours { get; set; }
-    public decimal TotalAmount { get; set; }
-    public int EntryCount { get; set; }
 }
 

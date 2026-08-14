@@ -1,139 +1,273 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
-using MyERP.Shared;
-using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Assets;
 
-public class AssetRepairDto : EntityDto<Guid>
+[Authorize(MyERPPermissions.AssetRepairs.Default)]
+public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 {
-    public Guid CompanyId { get; set; }
-    public Guid AssetId { get; set; }
-    public string? RepairDescription { get; set; }
-    public DateTime? FailureDate { get; set; }
-    public DateTime? CompletionDate { get; set; }
-    public decimal RepairCost { get; set; }
-    public bool CapitalizeRepairCost { get; set; }
-    public int IncreaseInAssetLife { get; set; }
-    public decimal StockItemConsumedCost { get; set; }
-    public int Status { get; set; }
-    public DateTime CreationTime { get; set; }
-}
-
-public class CreateAssetRepairDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid AssetId { get; set; }
-    public string? RepairDescription { get; set; }
-    public DateTime? FailureDate { get; set; }
-    public decimal RepairCost { get; set; }
-    public bool CapitalizeRepairCost { get; set; }
-    public int IncreaseInAssetLife { get; set; }
-}
-
-[Authorize(MyERPPermissions.Assets.Default)]
-public class AssetRepairAppService : ApplicationService
-{
-    private readonly IRepository<AssetRepair, Guid> _repairRepository;
+    private readonly IRepository<AssetRepair, Guid> _repository;
     private readonly IRepository<Asset, Guid> _assetRepository;
+    private readonly IRepository<AssetActivity, Guid> _activityRepository;
+    private readonly AssetRepairMapper _mapper;
 
     public AssetRepairAppService(
-        IRepository<AssetRepair, Guid> repairRepository,
-        IRepository<Asset, Guid> assetRepository)
+        IRepository<AssetRepair, Guid> repository,
+        IRepository<Asset, Guid> assetRepository,
+        IRepository<AssetActivity, Guid> activityRepository,
+        AssetRepairMapper mapper)
     {
-        _repairRepository = repairRepository;
+        _repository = repository;
         _assetRepository = assetRepository;
+        _activityRepository = activityRepository;
+        _mapper = mapper;
     }
 
-    public async Task<PagedResultDto<AssetRepairDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
+    public async Task<PagedResultDto<AssetRepairDto>> GetListAsync(PagedAndSortedResultRequestDto input)
     {
-        var query = await _repairRepository.GetQueryableAsync();
-        if (input.CompanyId.HasValue)
-            query = query.Where(r => r.CompanyId == input.CompanyId.Value);
+        var query = await _repository.WithDetailsAsync(r => r.StockItems, r => r.Invoices);
+        var totalCount = await AsyncExecuter.CountAsync(query);
+        var items = await AsyncExecuter.ToListAsync(
+            query.OrderByDescending(r => r.CreationTime)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount));
 
-        if (!string.IsNullOrWhiteSpace(input.Filter))
-        {
-            var filter = input.Filter;
-             query = query.Where(r => r.RepairDescription != null && r.RepairDescription.Contains(filter));
-        }
-
-        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<AssetRepairStatus>(input.Status, true, out var status))
-            query = query.Where(r => r.Status == status);
-
-        var totalCount = query.Count();
-        var items = query.OrderByDescending(r => r.CreationTime)
-            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AssetRepairDto>(totalCount, items.Select(x => ObjectMapper.Map<AssetRepair, AssetRepairDto>(x)).ToList());
+        return new PagedResultDto<AssetRepairDto>(totalCount, items.Select(_mapper.Map).ToList());
     }
 
     public async Task<AssetRepairDto> GetAsync(Guid id)
     {
-        var repair = await _repairRepository.GetAsync(id);
-        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
+        var query = await _repository.WithDetailsAsync(r => r.StockItems, r => r.Invoices);
+        var repair = await AsyncExecuter.FirstOrDefaultAsync(query, r => r.Id == id);
+
+        if (repair == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
+        return _mapper.Map(repair);
     }
 
-    [Authorize(MyERPPermissions.Assets.Create)]
-    public async Task<AssetRepairDto> CreateAsync(CreateAssetRepairDto input)
+    [Authorize(MyERPPermissions.AssetRepairs.Create)]
+    public async Task<AssetRepairDto> CreateAsync(CreateUpdateAssetRepairDto input)
     {
         var asset = await _assetRepository.GetAsync(input.AssetId);
 
-        var repair = new AssetRepair(GuidGenerator.Create(), input.CompanyId,
-            input.AssetId, CurrentTenant.Id)
+        // Disallow repair on sold/scrapped assets
+        if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+        {
+            throw new BusinessException("MyERP:15003")
+                .WithData("status", asset.Status.ToString());
+        }
+
+        var repairNumber = $"AS-REP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
+        var repair = new AssetRepair(
+            GuidGenerator.Create(),
+            repairNumber,
+            input.CompanyId,
+            input.AssetId,
+            CurrentTenant.Id)
         {
             RepairDescription = input.RepairDescription,
+            ActionsPerformed = input.ActionsPerformed,
+            Downtime = input.Downtime,
             FailureDate = input.FailureDate,
+            CompletionDate = input.CompletionDate,
+            CostCenterId = input.CostCenterId,
+            ProjectId = input.ProjectId,
             RepairCost = input.RepairCost,
             CapitalizeRepairCost = input.CapitalizeRepairCost,
             IncreaseInAssetLife = input.IncreaseInAssetLife,
         };
+
+        if (input.StockItems != null)
+        {
+            foreach (var stockItem in input.StockItems)
+            {
+                repair.AddStockItem(
+                    GuidGenerator.Create(),
+                    stockItem.ItemId,
+                    stockItem.Qty,
+                    stockItem.ValuationRate,
+                    stockItem.WarehouseId,
+                    stockItem.ItemName,
+                    stockItem.SerialAndBatchBundleId);
+            }
+        }
+
+        if (input.Invoices != null)
+        {
+            foreach (var inv in input.Invoices)
+            {
+                repair.AddInvoice(
+                    GuidGenerator.Create(),
+                    inv.PurchaseInvoiceId,
+                    inv.RepairCost,
+                    inv.PurchaseInvoiceNumber,
+                    inv.ExpenseAccountId);
+            }
+        }
 
         // Per gotcha #35: fully depreciated assets can be repaired
         // but capitalize_repair_cost and increase_in_asset_life are forced to 0
         repair.ApplyFullyDepreciatedRules(
             asset.IsFullyDepreciated || asset.Status == AssetStatus.FullyDepreciated);
 
-        await _repairRepository.InsertAsync(repair);
-        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
+        repair.CalculateTotals();
+
+        await _repository.InsertAsync(repair);
+        return _mapper.Map(repair);
     }
 
-    [Authorize(MyERPPermissions.Assets.Submit)]
-    public async Task<AssetRepairDto> CompleteAsync(Guid id)
+    [Authorize(MyERPPermissions.AssetRepairs.Edit)]
+    public async Task<AssetRepairDto> UpdateAsync(Guid id, CreateUpdateAssetRepairDto input)
     {
-        var repair = await _repairRepository.GetAsync(id);
-        repair.Complete();
+        var query = await _repository.WithDetailsAsync(r => r.StockItems, r => r.Invoices);
+        var repair = await AsyncExecuter.FirstOrDefaultAsync(query, r => r.Id == id);
 
-        // If capitalizing repair cost, update asset value
-        if (repair.CapitalizeRepairCost && repair.RepairCost > 0)
+        if (repair == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
+        if (repair.Status != AssetRepairStatus.Pending)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        var asset = await _assetRepository.GetAsync(input.AssetId);
+
+        repair.AssetId = input.AssetId;
+        repair.RepairDescription = input.RepairDescription;
+        repair.ActionsPerformed = input.ActionsPerformed;
+        repair.Downtime = input.Downtime;
+        repair.FailureDate = input.FailureDate;
+        repair.CompletionDate = input.CompletionDate;
+        repair.CostCenterId = input.CostCenterId;
+        repair.ProjectId = input.ProjectId;
+        repair.RepairCost = input.RepairCost;
+        repair.CapitalizeRepairCost = input.CapitalizeRepairCost;
+        repair.IncreaseInAssetLife = input.IncreaseInAssetLife;
+
+        repair.StockItems.Clear();
+        if (input.StockItems != null)
         {
-            var asset = await _assetRepository.GetAsync(repair.AssetId);
-            asset.ValueAfterDepreciation += repair.RepairCost;
-
-            // Extend useful life if specified
-            if (repair.IncreaseInAssetLife > 0)
+            foreach (var stockItem in input.StockItems)
             {
-                asset.UsefulLifeMonths += repair.IncreaseInAssetLife;
+                repair.AddStockItem(
+                    stockItem.Id ?? GuidGenerator.Create(),
+                    stockItem.ItemId,
+                    stockItem.Qty,
+                    stockItem.ValuationRate,
+                    stockItem.WarehouseId,
+                    stockItem.ItemName,
+                    stockItem.SerialAndBatchBundleId);
             }
-
-            await _assetRepository.UpdateAsync(asset);
         }
 
-        await _repairRepository.UpdateAsync(repair);
-        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
+        repair.Invoices.Clear();
+        if (input.Invoices != null)
+        {
+            foreach (var inv in input.Invoices)
+            {
+                repair.AddInvoice(
+                    inv.Id ?? GuidGenerator.Create(),
+                    inv.PurchaseInvoiceId,
+                    inv.RepairCost,
+                    inv.PurchaseInvoiceNumber,
+                    inv.ExpenseAccountId);
+            }
+        }
+
+        repair.ApplyFullyDepreciatedRules(
+            asset.IsFullyDepreciated || asset.Status == AssetStatus.FullyDepreciated);
+
+        repair.CalculateTotals();
+
+        await _repository.UpdateAsync(repair);
+        return _mapper.Map(repair);
     }
 
-    [Authorize(MyERPPermissions.Assets.Submit)]
+    [Authorize(MyERPPermissions.AssetRepairs.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var repair = await _repository.GetAsync(id);
+        if (repair.Status != AssetRepairStatus.Pending)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        await _repository.DeleteAsync(id);
+    }
+
+    [Authorize(MyERPPermissions.AssetRepairs.Edit)]
+    public async Task<AssetRepairDto> CompleteAsync(Guid id)
+    {
+        var query = await _repository.WithDetailsAsync(r => r.StockItems, r => r.Invoices);
+        var repair = await AsyncExecuter.FirstOrDefaultAsync(query, r => r.Id == id);
+
+        if (repair == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
+        repair.Complete();
+
+        // If capitalizing repair cost, update asset value and schedule
+        if (repair.CapitalizeRepairCost && repair.TotalRepairCost > 0)
+        {
+            var asset = await _assetRepository.GetAsync(repair.AssetId);
+            asset.ApplyRepairCapitalization(repair.TotalRepairCost, repair.IncreaseInAssetLife);
+            await _assetRepository.UpdateAsync(asset);
+
+            var activity = new AssetActivity(
+                GuidGenerator.Create(),
+                asset.Id,
+                AssetActivityType.Repaired,
+                $"Asset repair #{repair.RepairNumber} capitalized",
+                repair.CompletionDate ?? DateTime.UtcNow,
+                $"Capitalized amount: {repair.TotalRepairCost:N2}, Life extension: {repair.IncreaseInAssetLife} months",
+                "AssetRepair",
+                repair.Id.ToString(),
+                CurrentTenant.Id);
+
+            await _activityRepository.InsertAsync(activity);
+        }
+
+        await _repository.UpdateAsync(repair);
+        return _mapper.Map(repair);
+    }
+
+    [Authorize(MyERPPermissions.AssetRepairs.Edit)]
     public async Task<AssetRepairDto> CancelAsync(Guid id)
     {
-        var repair = await _repairRepository.GetAsync(id);
+        var query = await _repository.WithDetailsAsync(r => r.StockItems, r => r.Invoices);
+        var repair = await AsyncExecuter.FirstOrDefaultAsync(query, r => r.Id == id);
+
+        if (repair == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
         repair.Cancel();
-        await _repairRepository.UpdateAsync(repair);
-        return ObjectMapper.Map<AssetRepair, AssetRepairDto>(repair);
+
+        if (repair.CapitalizeRepairCost && repair.TotalRepairCost > 0)
+        {
+            var asset = await _assetRepository.GetAsync(repair.AssetId);
+            asset.ApplyRepairCapitalization(-1 * repair.TotalRepairCost, -1 * repair.IncreaseInAssetLife);
+            await _assetRepository.UpdateAsync(asset);
+
+            var activity = new AssetActivity(
+                GuidGenerator.Create(),
+                asset.Id,
+                AssetActivityType.Repaired,
+                $"Asset repair #{repair.RepairNumber} cancelled",
+                DateTime.UtcNow,
+                $"Reverted capitalized repair cost of {repair.TotalRepairCost:N2}",
+                "AssetRepair",
+                repair.Id.ToString(),
+                CurrentTenant.Id);
+
+            await _activityRepository.InsertAsync(activity);
+        }
+
+        await _repository.UpdateAsync(repair);
+        return _mapper.Map(repair);
     }
 }
-

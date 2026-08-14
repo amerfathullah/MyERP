@@ -13,69 +13,13 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Purchasing;
 
-#region DTOs
-
-public class SubcontractingInwardOrderDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string OrderNumber { get; set; } = null!;
-    public DateTime OrderDate { get; set; }
-    public Guid SupplierId { get; set; }
-    public Guid? SalesOrderId { get; set; }
-    public Guid? SubcontractingOrderId { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
-    public decimal NetTotal { get; set; }
-    public decimal GrandTotal { get; set; }
-    public int Status { get; set; }
-    public decimal PerReceived { get; set; }
-    public decimal PerBilled { get; set; }
-    public SubcontractingInwardOrderItemDto[] Items { get; set; } = [];
-}
-
-public class SubcontractingInwardOrderItemDto : EntityDto<Guid>
-{
-    public Guid ItemId { get; set; }
-    public Guid? BomId { get; set; }
-    public decimal Quantity { get; set; }
-    public decimal Rate { get; set; }
-    public decimal Amount { get; set; }
-    public decimal ReceivedQty { get; set; }
-    public decimal BilledQty { get; set; }
-    public decimal PendingReceiptQty { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public decimal ServiceCostPerQty { get; set; }
-}
-
-public class CreateSubcontractingInwardOrderDto
-{
-    public Guid CompanyId { get; set; }
-    public Guid SupplierId { get; set; }
-    public DateTime OrderDate { get; set; }
-    public Guid? SalesOrderId { get; set; }
-    public Guid? SubcontractingOrderId { get; set; }
-    public string CurrencyCode { get; set; } = "MYR";
-    public CreateScioItemDto[] Items { get; set; } = [];
-}
-
-public class CreateScioItemDto
-{
-    public Guid ItemId { get; set; }
-    public Guid? BomId { get; set; }
-    public decimal Quantity { get; set; }
-    public decimal Rate { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public decimal ServiceCostPerQty { get; set; }
-}
-
-#endregion
-
 /// <summary>
 /// Application service for Subcontracting Inward Order management.
 /// Per DO-NOT: "Allow SO item updates when Subcontracting Inward Order exists (must cancel SCIO first)"
 /// Per DO-NOT: "Close Sales Order without cascading status to linked Subcontracting Inward Orders"
 /// </summary>
 [Authorize(MyERPPermissions.PurchaseOrders.Default)]
-public class SubcontractingInwardOrderAppService : ApplicationService
+public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontractingInwardOrderAppService
 {
     private readonly IRepository<SubcontractingInwardOrder, Guid> _repository;
     private readonly IRepository<Core.Entities.DocumentSeries, Guid> _seriesRepository;
@@ -116,7 +60,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService
     {
         Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
         Check.NotDefaultOrNull<Guid>(input.SupplierId, nameof(input.SupplierId));
-        if (input.Items == null || input.Items.Length == 0)
+        if (input.Items == null || input.Items.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
         var orderNumber = $"SCIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";

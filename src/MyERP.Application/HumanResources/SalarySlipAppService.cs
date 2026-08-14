@@ -12,22 +12,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.HumanResources;
 
-public class SalarySlipDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid EmployeeId { get; set; }
-    public string? EmployeeName { get; set; }
-    public DateTime PostingDate { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
-    public decimal GrossAmount { get; set; }
-    public decimal TotalDeductions { get; set; }
-    public decimal NetAmount { get; set; }
-    public int Status { get; set; }
-}
-
 [Authorize(MyERPPermissions.Payroll.Default)]
-public class SalarySlipAppService : ApplicationService
+public class SalarySlipAppService : ApplicationService, ISalarySlipAppService
 {
     private readonly IRepository<SalarySlip, Guid> _repository;
     public SalarySlipAppService(IRepository<SalarySlip, Guid> repository) => _repository = repository;

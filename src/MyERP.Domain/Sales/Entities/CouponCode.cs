@@ -120,9 +120,3 @@ public class CouponCode : FullAuditedAggregateRoot<Guid>, IMultiTenant
         return true;
     }
 }
-
-public enum CouponType
-{
-    Promotional = 0,
-    GiftCard = 1
-}

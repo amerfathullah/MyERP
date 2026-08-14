@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -14,34 +16,109 @@ namespace MyERP.Assets.Entities;
 public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
+    public string RepairNumber { get; set; } = null!;
     public Guid CompanyId { get; set; }
     public Guid AssetId { get; set; }
 
     public string? RepairDescription { get; set; }
+    public string? ActionsPerformed { get; set; }
+    public string? Downtime { get; set; }
     public DateTime? FailureDate { get; set; }
     public DateTime? CompletionDate { get; set; }
 
-    /// <summary>Total repair cost (parts + labor).</summary>
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
+
+    /// <summary>Direct repair cost (parts + labor) or invoice total.</summary>
     public decimal RepairCost { get; set; }
 
-    /// <summary>When true, repair cost is added to asset value (increases book value).</summary>
+    /// <summary>Cost of stock items consumed during repair.</summary>
+    public decimal ConsumedItemsCost { get; set; }
+
+    /// <summary>Total repair cost = RepairCost + ConsumedItemsCost.</summary>
+    public decimal TotalRepairCost { get; set; }
+
+    /// <summary>When true, total repair cost is added to asset value (increases book value).</summary>
     public bool CapitalizeRepairCost { get; set; }
 
     /// <summary>Additional months added to useful life due to repair.</summary>
     public int IncreaseInAssetLife { get; set; }
 
-    /// <summary>Stock items consumed during repair (for perpetual inventory GL).</summary>
-    public decimal StockItemConsumedCost { get; set; }
-
     public AssetRepairStatus Status { get; private set; } = AssetRepairStatus.Pending;
+
+    public List<AssetRepairConsumedItem> StockItems { get; private set; } = new();
+    public List<AssetRepairPurchaseInvoice> Invoices { get; private set; } = new();
 
     protected AssetRepair() { }
 
-    public AssetRepair(Guid id, Guid companyId, Guid assetId, Guid? tenantId = null) : base(id)
+    public AssetRepair(
+        Guid id,
+        string repairNumber,
+        Guid companyId,
+        Guid assetId,
+        Guid? tenantId = null)
+        : base(id)
     {
+        RepairNumber = repairNumber;
         CompanyId = companyId;
         AssetId = assetId;
         TenantId = tenantId;
+    }
+
+    public AssetRepairConsumedItem AddStockItem(
+        Guid id,
+        Guid itemId,
+        decimal qty,
+        decimal valuationRate,
+        Guid? warehouseId = null,
+        string? itemName = null,
+        string? serialAndBatchBundleId = null)
+    {
+        var item = new AssetRepairConsumedItem(
+            id,
+            Id,
+            itemId,
+            qty,
+            valuationRate,
+            warehouseId,
+            itemName,
+            serialAndBatchBundleId,
+            TenantId);
+
+        StockItems.Add(item);
+        CalculateTotals();
+        return item;
+    }
+
+    public AssetRepairPurchaseInvoice AddInvoice(
+        Guid id,
+        Guid purchaseInvoiceId,
+        decimal repairCost,
+        string? purchaseInvoiceNumber = null,
+        Guid? expenseAccountId = null)
+    {
+        var invoice = new AssetRepairPurchaseInvoice(
+            id,
+            Id,
+            purchaseInvoiceId,
+            repairCost,
+            purchaseInvoiceNumber,
+            expenseAccountId,
+            TenantId);
+
+        Invoices.Add(invoice);
+        CalculateTotals();
+        return invoice;
+    }
+
+    public void CalculateTotals()
+    {
+        ConsumedItemsCost = StockItems.Sum(i => i.TotalValue);
+        if (Invoices.Count > 0)
+        {
+            RepairCost = Invoices.Sum(i => i.RepairCost);
+        }
+        TotalRepairCost = RepairCost + ConsumedItemsCost;
     }
 
     /// <summary>
@@ -62,6 +139,7 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != AssetRepairStatus.Pending)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        CalculateTotals();
         CompletionDate ??= DateTime.UtcNow;
         Status = AssetRepairStatus.Completed;
     }
@@ -72,11 +150,4 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = AssetRepairStatus.Cancelled;
     }
-}
-
-public enum AssetRepairStatus
-{
-    Pending = 0,
-    Completed = 1,
-    Cancelled = 2
 }

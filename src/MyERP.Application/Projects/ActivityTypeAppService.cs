@@ -16,7 +16,7 @@ namespace MyERP.Projects;
 /// Activity Types define the categories of work for timesheet entries and their default rates.
 /// </summary>
 [Authorize(MyERPPermissions.Projects.Default)]
-public class ActivityTypeAppService : ApplicationService
+public class ActivityTypeAppService : ApplicationService, IActivityTypeAppService
 {
     private readonly IRepository<ActivityType, Guid> _repository;
     private readonly IRepository<ActivityCost, Guid> _costRepository;
@@ -109,47 +109,3 @@ public class ActivityTypeAppService : ApplicationService
     [Authorize(MyERPPermissions.Projects.Delete)]
     public async Task DeleteCostAsync(Guid id) => await _costRepository.DeleteAsync(id);
 }
-
-#region DTOs
-
-public class ActivityTypeDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public decimal DefaultBillingRate { get; set; }
-    public decimal DefaultCostingRate { get; set; }
-    public bool IsEnabled { get; set; }
-}
-
-public class CreateActivityTypeDto
-{
-    public string Name { get; set; } = null!;
-    public decimal DefaultBillingRate { get; set; }
-    public decimal DefaultCostingRate { get; set; }
-}
-
-public class UpdateActivityTypeDto
-{
-    public decimal DefaultBillingRate { get; set; }
-    public decimal DefaultCostingRate { get; set; }
-    public bool IsEnabled { get; set; }
-}
-
-public class ActivityCostDto
-{
-    public Guid Id { get; set; }
-    public Guid EmployeeId { get; set; }
-    public Guid ActivityTypeId { get; set; }
-    public decimal BillingRate { get; set; }
-    public decimal CostingRate { get; set; }
-}
-
-public class SetActivityCostDto
-{
-    public Guid EmployeeId { get; set; }
-    public Guid ActivityTypeId { get; set; }
-    public decimal BillingRate { get; set; }
-    public decimal CostingRate { get; set; }
-}
-
-#endregion

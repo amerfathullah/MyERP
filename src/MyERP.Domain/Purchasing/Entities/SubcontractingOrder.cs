@@ -148,13 +148,3 @@ public class SubcontractingOrderSuppliedItem : Entity<Guid>
         SubcontractingOrderId = scoId; ItemId = itemId; ItemName = itemName; RequiredQty = requiredQty;
     }
 }
-
-public enum SubcontractingOrderStatus
-{
-    Draft = 0,
-    Open = 1,
-    PartiallyReceived = 2,
-    Completed = 3,
-    Closed = 4,
-    Cancelled = 5,
-}

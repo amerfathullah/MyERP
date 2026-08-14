@@ -1,4 +1,4 @@
-import type { AssetCategoryDetailDto, CreateUpdateAssetCategoryDetailDto } from './models';
+import type { AssetCategoryAccountDto, AssetCategoryDto, CreateUpdateAssetCategoryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -11,8 +11,8 @@ export class AssetCategoryService {
   apiName = 'Default';
   
 
-  create = (input: CreateUpdateAssetCategoryDetailDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, AssetCategoryDetailDto>({
+  create = (input: CreateUpdateAssetCategoryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetCategoryDto>({
       method: 'POST',
       url: '/api/app/asset-category',
       body: input,
@@ -29,15 +29,24 @@ export class AssetCategoryService {
   
 
   get = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, AssetCategoryDetailDto>({
+    this.restService.request<any, AssetCategoryDto>({
       method: 'GET',
       url: `/api/app/asset-category/${id}`,
     },
     { apiName: this.apiName,...config });
   
 
+  getAccountForCompany = (categoryId: string, companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetCategoryAccountDto>({
+      method: 'GET',
+      url: '/api/app/asset-category/account-for-company',
+      params: { categoryId, companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<AssetCategoryDetailDto>>({
+    this.restService.request<any, PagedResultDto<AssetCategoryDto>>({
       method: 'GET',
       url: '/api/app/asset-category',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
@@ -45,8 +54,8 @@ export class AssetCategoryService {
     { apiName: this.apiName,...config });
   
 
-  update = (id: string, input: CreateUpdateAssetCategoryDetailDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, AssetCategoryDetailDto>({
+  update = (id: string, input: CreateUpdateAssetCategoryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetCategoryDto>({
       method: 'PUT',
       url: `/api/app/asset-category/${id}`,
       body: input,

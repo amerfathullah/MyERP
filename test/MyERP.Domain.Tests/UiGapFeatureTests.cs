@@ -8,6 +8,7 @@ using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
+using MyERP.Assets;
 using Volo.Abp;
 using Xunit;
 

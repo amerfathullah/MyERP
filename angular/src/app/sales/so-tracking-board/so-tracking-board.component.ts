@@ -1,8 +1,9 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LocalizationPipe } from '@abp/ng.core';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import type { SalesOrderTrackingBoardDto } from '../../proxy/sales/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
@@ -18,28 +19,13 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         </a>
       </div>
 
-      @if (board()) {
+      @if (board(); as b) {
         <div class="row g-2 mb-3">
           <div class="col-md-4">
             <div class="card border-0 bg-light">
               <div class="card-body py-2 text-center">
-                <div class="fw-bold fs-4">{{ board().totalOrders }}</div>
                 <small class="text-muted">{{ '::TotalOrders' | abpLocalization }}</small>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card border-0 bg-light">
-              <div class="card-body py-2 text-center">
-                <div class="fw-bold fs-4 text-danger">{{ board().overdueCount }}</div>
-                <small class="text-muted">{{ '::Overdue' | abpLocalization }}</small>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card border-0 bg-light">
-              <div class="card-body py-2 text-center">
-                <div class="fw-bold fs-4">{{ board().totalValue | number:'1.0-0' }}</div>
+                <div class="fw-bold fs-4">{{ b.totalValue ?? 0 | number:'1.0-0' }}</div>
                 <small class="text-muted">{{ '::TotalValue' | abpLocalization }}</small>
               </div>
             </div>
@@ -52,10 +38,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="card h-100">
               <div class="card-header bg-warning bg-opacity-10 py-2">
                 <span class="fw-bold text-warning">{{ '::Ordered' | abpLocalization }}</span>
-                <span class="badge bg-warning ms-1">{{ board().ordered.length }}</span>
+                <span class="badge bg-warning ms-1">{{ b.ordered?.length ?? 0 }}</span>
               </div>
               <div class="card-body p-2" style="max-height: 70vh; overflow-y: auto;">
-                @for (card of board().ordered; track card.orderId) {
+                @for (card of b.ordered ?? []; track card.orderId) {
                   <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: card }"></ng-container>
                 } @empty {
                   <p class="text-muted text-center small">{{ '::NoActiveOrders' | abpLocalization }}</p>
@@ -69,10 +55,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="card h-100">
               <div class="card-header bg-info bg-opacity-10 py-2">
                 <span class="fw-bold text-info">{{ '::PartiallyDelivered' | abpLocalization }}</span>
-                <span class="badge bg-info ms-1">{{ board().partiallyDelivered.length }}</span>
+                <span class="badge bg-info ms-1">{{ b.partiallyDelivered?.length ?? 0 }}</span>
               </div>
               <div class="card-body p-2" style="max-height: 70vh; overflow-y: auto;">
-                @for (card of board().partiallyDelivered; track card.orderId) {
+                @for (card of b.partiallyDelivered ?? []; track card.orderId) {
                   <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: card }"></ng-container>
                 } @empty {
                   <p class="text-muted text-center small">{{ '::NoActiveOrders' | abpLocalization }}</p>
@@ -86,10 +72,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="card h-100">
               <div class="card-header bg-primary bg-opacity-10 py-2">
                 <span class="fw-bold text-primary">{{ '::FullyDelivered' | abpLocalization }}</span>
-                <span class="badge bg-primary ms-1">{{ board().fullyDelivered.length }}</span>
+                <span class="badge bg-primary ms-1">{{ b.fullyDelivered?.length ?? 0 }}</span>
               </div>
               <div class="card-body p-2" style="max-height: 70vh; overflow-y: auto;">
-                @for (card of board().fullyDelivered; track card.orderId) {
+                @for (card of b.fullyDelivered ?? []; track card.orderId) {
                   <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: card }"></ng-container>
                 } @empty {
                   <p class="text-muted text-center small">{{ '::NoActiveOrders' | abpLocalization }}</p>
@@ -103,10 +89,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="card h-100">
               <div class="card-header bg-success bg-opacity-10 py-2">
                 <span class="fw-bold text-success">{{ '::Completed' | abpLocalization }}</span>
-                <span class="badge bg-success ms-1">{{ board().completed.length }}</span>
+                <span class="badge bg-success ms-1">{{ b.completed?.length ?? 0 }}</span>
               </div>
               <div class="card-body p-2" style="max-height: 70vh; overflow-y: auto;">
-                @for (card of board().completed; track card.orderId) {
+                @for (card of b.completed ?? []; track card.orderId) {
                   <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: card }"></ng-container>
                 } @empty {
                   <p class="text-muted text-center small">{{ '::NoActiveOrders' | abpLocalization }}</p>
@@ -149,10 +135,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   `,
 })
 export class SoTrackingBoardComponent implements OnInit {
-  private http = inject(HttpClient);
+  private service = inject(SalesOrderService);
   private companyContext = inject(CompanyContextService);
 
-  board = signal<any>(null);
+  board = signal<SalesOrderTrackingBoardDto | null>(null);
   loading = signal(false);
 
   ngOnInit() {
@@ -164,8 +150,8 @@ export class SoTrackingBoardComponent implements OnInit {
     if (!companyId) return;
 
     this.loading.set(true);
-    this.http.get(`/api/app/sales-order/tracking-board?companyId=${companyId}`).subscribe({
-      next: (data: any) => {
+    this.service.getTrackingBoard(companyId).subscribe({
+      next: (data) => {
         this.board.set(data);
         this.loading.set(false);
       },

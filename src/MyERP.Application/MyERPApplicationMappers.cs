@@ -186,6 +186,13 @@ public partial class PricingRuleMapper : MapperBase<Sales.Entities.PricingRule, 
     public override partial void Map(Sales.Entities.PricingRule source, Sales.PricingRuleDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CouponCodeMapper : MapperBase<Sales.Entities.CouponCode, Sales.CouponCodeDto>
+{
+    public override partial Sales.CouponCodeDto Map(Sales.Entities.CouponCode source);
+    public override partial void Map(Sales.Entities.CouponCode source, Sales.CouponCodeDto destination);
+}
+
 // ─── Support ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -215,18 +222,21 @@ public partial class PaymentRequestMapper : MapperBase<Accounting.Entities.Payme
     public override partial void Map(Accounting.Entities.PaymentRequest source, Accounting.PaymentRequestDto destination);
 }
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetMovementMapper : MapperBase<Assets.Entities.AssetMovement, Assets.AssetMovementDto>
 {
     public override partial Assets.AssetMovementDto Map(Assets.Entities.AssetMovement source);
     public override partial void Map(Assets.Entities.AssetMovement source, Assets.AssetMovementDto destination);
+    private partial Assets.AssetMovementItemDto MapMovementItem(Assets.Entities.AssetMovementItem source);
 }
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetRepairMapper : MapperBase<Assets.Entities.AssetRepair, Assets.AssetRepairDto>
 {
     public override partial Assets.AssetRepairDto Map(Assets.Entities.AssetRepair source);
     public override partial void Map(Assets.Entities.AssetRepair source, Assets.AssetRepairDto destination);
+    private partial Assets.AssetRepairConsumedItemDto MapConsumedItem(Assets.Entities.AssetRepairConsumedItem source);
+    private partial Assets.AssetRepairPurchaseInvoiceDto MapRepairInvoice(Assets.Entities.AssetRepairPurchaseInvoice source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -312,11 +322,13 @@ public partial class JournalEntryMapper : MapperBase<Accounting.Entities.Journal
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class AssetMapper : MapperBase<Assets.Entities.Asset, Assets.AssetDto>
 {
+    [MapperIgnoreTarget(nameof(Assets.AssetDto.AssetCategoryName))]
     [MapProperty(nameof(Assets.Entities.Asset.DepreciationSchedule), nameof(Assets.AssetDto.Schedule))]
     public override partial Assets.AssetDto Map(Assets.Entities.Asset source);
+    [MapperIgnoreTarget(nameof(Assets.AssetDto.AssetCategoryName))]
     [MapProperty(nameof(Assets.Entities.Asset.DepreciationSchedule), nameof(Assets.AssetDto.Schedule))]
     public override partial void Map(Assets.Entities.Asset source, Assets.AssetDto destination);
-    private partial Assets.DepreciationScheduleDto MapChild(Assets.Entities.DepreciationScheduleEntry source);
+    private partial Assets.DepreciationScheduleDto MapSchedule(Assets.Entities.DepreciationScheduleEntry source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -620,13 +632,16 @@ public partial class PeriodClosingVoucherMapper : MapperBase<Accounting.Entities
         => destination.EntryCount = source.Entries.Count;
 }
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetCapitalizationMapper : MapperBase<Assets.Entities.AssetCapitalization, Assets.AssetCapitalizationDto>
 {
-    [MapProperty(nameof(Assets.Entities.AssetCapitalization.TotalCapitalizedAmount), nameof(Assets.AssetCapitalizationDto.TotalAssetValue))]
+    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.StockItems))]
+    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.ServiceItems))]
     public override partial Assets.AssetCapitalizationDto Map(Assets.Entities.AssetCapitalization source);
-    [MapProperty(nameof(Assets.Entities.AssetCapitalization.TotalCapitalizedAmount), nameof(Assets.AssetCapitalizationDto.TotalAssetValue))]
+    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.StockItems))]
+    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.ServiceItems))]
     public override partial void Map(Assets.Entities.AssetCapitalization source, Assets.AssetCapitalizationDto destination);
+    private partial Assets.AssetCapitalizationAssetItemDto MapCapAsset(Assets.Entities.AssetCapitalizationAsset source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -900,11 +915,12 @@ public partial class WorkOrderMapper : MapperBase<Manufacturing.Entities.WorkOrd
 
 // ─── Assets ───
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetCategoryMapper : MapperBase<Assets.Entities.AssetCategory, Assets.AssetCategoryDto>
 {
     public override partial Assets.AssetCategoryDto Map(Assets.Entities.AssetCategory source);
     public override partial void Map(Assets.Entities.AssetCategory source, Assets.AssetCategoryDto destination);
+    private partial Assets.AssetCategoryAccountDto MapCategoryAccount(Assets.Entities.AssetCategoryAccount source);
 }
 
 // ─── Automation ───
@@ -973,7 +989,9 @@ public partial class LeaveTypeMapper : MapperBase<HumanResources.Entities.LeaveT
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PriceListMapper : MapperBase<Inventory.Entities.PriceList, Inventory.PriceListDto>
 {
+    [MapProperty(nameof(Inventory.Entities.PriceList.Name), nameof(Inventory.PriceListDto.PriceListName))]
     public override partial Inventory.PriceListDto Map(Inventory.Entities.PriceList source);
+    [MapProperty(nameof(Inventory.Entities.PriceList.Name), nameof(Inventory.PriceListDto.PriceListName))]
     public override partial void Map(Inventory.Entities.PriceList source, Inventory.PriceListDto destination);
 }
 
@@ -1047,6 +1065,15 @@ public partial class SubcontractingReceiptMapper : MapperBase<Purchasing.Entitie
 {
     public override partial Purchasing.SubcontractingReceiptDto Map(Purchasing.Entities.SubcontractingReceipt source);
     public override partial void Map(Purchasing.Entities.SubcontractingReceipt source, Purchasing.SubcontractingReceiptDto destination);
+    private partial Purchasing.SubcontractingReceiptItemDto MapChild(Purchasing.Entities.SubcontractingReceiptItem source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SubcontractingInwardOrderMapper : MapperBase<Purchasing.Entities.SubcontractingInwardOrder, Purchasing.SubcontractingInwardOrderDto>
+{
+    public override partial Purchasing.SubcontractingInwardOrderDto Map(Purchasing.Entities.SubcontractingInwardOrder source);
+    public override partial void Map(Purchasing.Entities.SubcontractingInwardOrder source, Purchasing.SubcontractingInwardOrderDto destination);
+    private partial Purchasing.SubcontractingInwardOrderItemDto MapChild(Purchasing.Entities.SubcontractingInwardOrderItem source);
 }
 
 // ─── ImportExport ───
@@ -1086,15 +1113,6 @@ public partial class PaymentTermsTemplateMapper : MapperBase<Accounting.Entities
     public override partial Accounting.PaymentTermsTemplateDto Map(Accounting.Entities.PaymentTermsTemplate source);
     public override partial void Map(Accounting.Entities.PaymentTermsTemplate source, Accounting.PaymentTermsTemplateDto destination);
     private partial Accounting.PaymentTermDto MapChild(Accounting.Entities.PaymentTerm source);
-}
-
-// ─── Assets: AssetCategory → AssetCategoryDetailDto ───
-
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class AssetCategoryDetailMapper : MapperBase<Assets.Entities.AssetCategory, Assets.AssetCategoryDetailDto>
-{
-    public override partial Assets.AssetCategoryDetailDto Map(Assets.Entities.AssetCategory source);
-    public override partial void Map(Assets.Entities.AssetCategory source, Assets.AssetCategoryDetailDto destination);
 }
 
 // ─── HR: LeaveType → LeaveTypeDetailDto ───
@@ -1144,15 +1162,6 @@ public partial class RepostItemValuationMapper : MapperBase<Inventory.Entities.R
     public override partial void Map(Inventory.Entities.RepostItemValuation source, Inventory.RepostItemValuationDto destination);
 }
 
-// ─── Purchasing: SubcontractingInwardOrder ───
-
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class SubcontractingInwardOrderMapper : MapperBase<Purchasing.Entities.SubcontractingInwardOrder, Purchasing.SubcontractingInwardOrderDto>
-{
-    public override partial Purchasing.SubcontractingInwardOrderDto Map(Purchasing.Entities.SubcontractingInwardOrder source);
-    public override partial void Map(Purchasing.Entities.SubcontractingInwardOrder source, Purchasing.SubcontractingInwardOrderDto destination);
-    private partial Purchasing.SubcontractingInwardOrderItemDto MapChild(Purchasing.Entities.SubcontractingInwardOrderItem source);
-}
 // ---------------------------------------------------
 // Phase 7 Quality Management & Settings Additions
 // ---------------------------------------------------
@@ -1183,3 +1192,141 @@ public partial class PrintFormatMapper : MapperBase<Settings.Entities.PrintForma
     public override partial Settings.PrintFormatDto Map(Settings.Entities.PrintFormat source);
     public override partial void Map(Settings.Entities.PrintFormat source, Settings.PrintFormatDto destination);
 }
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class AssetValueAdjustmentMapper : MapperBase<Assets.Entities.AssetValueAdjustment, Assets.AssetValueAdjustmentDto>
+{
+    public override partial Assets.AssetValueAdjustmentDto Map(Assets.Entities.AssetValueAdjustment source);
+    public override partial void Map(Assets.Entities.AssetValueAdjustment source, Assets.AssetValueAdjustmentDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class AssetActivityMapper : MapperBase<Assets.Entities.AssetActivity, Assets.AssetActivityDto>
+{
+    public override partial Assets.AssetActivityDto Map(Assets.Entities.AssetActivity source);
+    public override partial void Map(Assets.Entities.AssetActivity source, Assets.AssetActivityDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class QualityProcedureMapper : MapperBase<Inventory.Entities.QualityProcedure, Inventory.QualityProcedureDto>
+{
+    public override partial Inventory.QualityProcedureDto Map(Inventory.Entities.QualityProcedure source);
+    public override partial void Map(Inventory.Entities.QualityProcedure source, Inventory.QualityProcedureDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class NonConformanceMapper : MapperBase<Inventory.Entities.NonConformance, Inventory.NonConformanceDto>
+{
+    public override partial Inventory.NonConformanceDto Map(Inventory.Entities.NonConformance source);
+    public override partial void Map(Inventory.Entities.NonConformance source, Inventory.NonConformanceDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class QualityMeetingMapper : MapperBase<Inventory.Entities.QualityMeeting, Inventory.QualityMeetingDto>
+{
+    public override partial Inventory.QualityMeetingDto Map(Inventory.Entities.QualityMeeting source);
+    public override partial void Map(Inventory.Entities.QualityMeeting source, Inventory.QualityMeetingDto destination);
+    private partial Inventory.QualityMeetingAgendaDto MapMeetingAgenda(Inventory.Entities.QualityMeetingAgenda source);
+    private partial Inventory.QualityMeetingMinutesDto MapMeetingMinutes(Inventory.Entities.QualityMeetingMinutes source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class QualityFeedbackTemplateMapper : MapperBase<Inventory.Entities.QualityFeedbackTemplate, Inventory.QualityFeedbackTemplateDto>
+{
+    public override partial Inventory.QualityFeedbackTemplateDto Map(Inventory.Entities.QualityFeedbackTemplate source);
+    public override partial void Map(Inventory.Entities.QualityFeedbackTemplate source, Inventory.QualityFeedbackTemplateDto destination);
+    private partial Inventory.QualityFeedbackTemplateParameterDto MapFeedbackTemplateParam(Inventory.Entities.QualityFeedbackTemplateParameter source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class QualityFeedbackMapper : MapperBase<Inventory.Entities.QualityFeedback, Inventory.QualityFeedbackDto>
+{
+    public override partial Inventory.QualityFeedbackDto Map(Inventory.Entities.QualityFeedback source);
+    public override partial void Map(Inventory.Entities.QualityFeedback source, Inventory.QualityFeedbackDto destination);
+    private partial Inventory.QualityFeedbackParameterDto MapFeedbackParam(Inventory.Entities.QualityFeedbackParameter source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankGuaranteeMapper : MapperBase<Accounting.Entities.BankGuarantee, Accounting.BankGuaranteeDto>
+{
+    public override partial Accounting.BankGuaranteeDto Map(Accounting.Entities.BankGuarantee source);
+    public override partial void Map(Accounting.Entities.BankGuarantee source, Accounting.BankGuaranteeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CustomsTariffNumberMapper : MapperBase<Inventory.Entities.CustomsTariffNumber, Inventory.CustomsTariffNumberDto>
+{
+    public override partial Inventory.CustomsTariffNumberDto Map(Inventory.Entities.CustomsTariffNumber source);
+    public override partial void Map(Inventory.Entities.CustomsTariffNumber source, Inventory.CustomsTariffNumberDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class ManufacturerMapper : MapperBase<Inventory.Entities.Manufacturer, Inventory.ManufacturerDto>
+{
+    public override partial Inventory.ManufacturerDto Map(Inventory.Entities.Manufacturer source);
+    public override partial void Map(Inventory.Entities.Manufacturer source, Inventory.ManufacturerDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class ItemManufacturerMapper : MapperBase<Inventory.Entities.ItemManufacturer, Inventory.ItemManufacturerDto>
+{
+    public override partial Inventory.ItemManufacturerDto Map(Inventory.Entities.ItemManufacturer source);
+    public override partial void Map(Inventory.Entities.ItemManufacturer source, Inventory.ItemManufacturerDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class ItemAlternativeMapper : MapperBase<Inventory.Entities.ItemAlternative, Inventory.ItemAlternativeDto>
+{
+    public override partial Inventory.ItemAlternativeDto Map(Inventory.Entities.ItemAlternative source);
+    public override partial void Map(Inventory.Entities.ItemAlternative source, Inventory.ItemAlternativeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class DeliveryStopMapper : MapperBase<Inventory.Entities.DeliveryStop, Inventory.DeliveryStopDto>
+{
+    public override partial Inventory.DeliveryStopDto Map(Inventory.Entities.DeliveryStop source);
+    public override partial void Map(Inventory.Entities.DeliveryStop source, Inventory.DeliveryStopDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class DeliveryTripMapper : MapperBase<Inventory.Entities.DeliveryTrip, Inventory.DeliveryTripDto>
+{
+    public override partial Inventory.DeliveryTripDto Map(Inventory.Entities.DeliveryTrip source);
+    public override partial void Map(Inventory.Entities.DeliveryTrip source, Inventory.DeliveryTripDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class AssetMaintenanceTaskMapper : MapperBase<Assets.Entities.AssetMaintenanceTask, Assets.AssetMaintenanceTaskDto>
+{
+    public override partial Assets.AssetMaintenanceTaskDto Map(Assets.Entities.AssetMaintenanceTask source);
+    public override partial void Map(Assets.Entities.AssetMaintenanceTask source, Assets.AssetMaintenanceTaskDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class AssetMaintenanceMapper : MapperBase<Assets.Entities.AssetMaintenance, Assets.AssetMaintenanceDto>
+{
+    public override partial Assets.AssetMaintenanceDto Map(Assets.Entities.AssetMaintenance source);
+    public override partial void Map(Assets.Entities.AssetMaintenance source, Assets.AssetMaintenanceDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class AssetMaintenanceLogMapper : MapperBase<Assets.Entities.AssetMaintenanceLog, Assets.AssetMaintenanceLogDto>
+{
+    public override partial Assets.AssetMaintenanceLogDto Map(Assets.Entities.AssetMaintenanceLog source);
+    public override partial void Map(Assets.Entities.AssetMaintenanceLog source, Assets.AssetMaintenanceLogDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PosProfilePaymentMethodMapper : MapperBase<Sales.Entities.PosProfilePaymentMethod, Sales.PosProfilePaymentMethodDto>
+{
+    public override partial Sales.PosProfilePaymentMethodDto Map(Sales.Entities.PosProfilePaymentMethod source);
+    public override partial void Map(Sales.Entities.PosProfilePaymentMethod source, Sales.PosProfilePaymentMethodDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sales.PosProfileDto>
+{
+    public override partial Sales.PosProfileDto Map(Sales.Entities.PosProfile source);
+    public override partial void Map(Sales.Entities.PosProfile source, Sales.PosProfileDto destination);
+}
+

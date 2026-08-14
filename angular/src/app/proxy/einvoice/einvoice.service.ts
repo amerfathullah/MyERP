@@ -1,4 +1,4 @@
-import type { BatchSubmitEInvoiceDto, BatchSubmitResultDto, CancelEInvoiceDto, ConsolidateInvoicesDto, EInvoiceSubmissionDto, SubmitEInvoiceDto } from './models';
+import type { BatchSubmitEInvoiceDto, BatchSubmitResultDto, CancelEInvoiceDto, ConsolidateInvoicesDto, EInvoiceSubmissionDto, SearchTaxpayerDto, SubmitEInvoiceDto, TaxpayerSearchResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -51,6 +51,15 @@ export class EInvoiceService {
     this.restService.request<any, EInvoiceSubmissionDto>({
       method: 'GET',
       url: `/api/app/e-invoice/status/${submissionId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  searchTaxpayer = (input: SearchTaxpayerDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TaxpayerSearchResultDto>({
+      method: 'POST',
+      url: '/api/app/e-invoice/search-taxpayer',
+      body: input,
     },
     { apiName: this.apiName,...config });
   

@@ -1,5 +1,5 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { LeaveApplicationStatus } from './entities/leave-application-status.enum';
+import type { LeaveApplicationStatus } from './leave-application-status.enum';
 
 export interface BulkLeaveAllocationDto {
   companyId: string;
@@ -233,8 +233,7 @@ export interface HolidayListDto extends EntityDto<string> {
   creationTime?: string;
 }
 
-export interface LeaveAllocationDto {
-  id?: string;
+export interface LeaveAllocationDto extends EntityDto<string> {
   companyId?: string;
   employeeId?: string;
   leaveTypeId?: string;
@@ -273,8 +272,7 @@ export interface LeaveTypeDetailDto extends EntityDto<string> {
   allowNegativeBalance?: boolean;
 }
 
-export interface LeaveTypeDto {
-  id?: string;
+export interface LeaveTypeDto extends EntityDto<string> {
   name?: string;
   maxDaysAllowed?: number;
   isPaidLeave?: boolean;

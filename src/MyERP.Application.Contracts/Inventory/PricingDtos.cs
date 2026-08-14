@@ -10,6 +10,7 @@ namespace MyERP.Inventory;
 public class PriceListDto : AuditedEntityDto<Guid>
 {
     public string Name { get; set; } = null!;
+    public string PriceListName { get; set; } = null!;
     public string CurrencyCode { get; set; } = null!;
     public bool IsSelling { get; set; }
     public bool IsBuying { get; set; }

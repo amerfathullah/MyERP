@@ -83,14 +83,14 @@ public class ErrorHandlerAndSubscribePatternTests
     [Fact]
     public void AssetRepair_DefaultStatus_IsOpen()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), TestCompanyId, Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", TestCompanyId, Guid.NewGuid());
         Assert.Equal(AssetRepairStatus.Pending, repair.Status);
     }
 
     [Fact]
     public void AssetRepair_Complete_TransitionsCorrectly()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), TestCompanyId, Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", TestCompanyId, Guid.NewGuid());
         repair.Complete();
         Assert.Equal(AssetRepairStatus.Completed, repair.Status);
     }
@@ -98,7 +98,7 @@ public class ErrorHandlerAndSubscribePatternTests
     [Fact]
     public void AssetRepair_Cancel_FromOpen()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), TestCompanyId, Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", TestCompanyId, Guid.NewGuid());
         repair.Cancel();
         Assert.Equal(AssetRepairStatus.Cancelled, repair.Status);
     }

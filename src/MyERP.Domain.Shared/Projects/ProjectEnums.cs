@@ -32,3 +32,11 @@ public enum PercentCompleteMethod
     TaskProgress = 2,
     TaskWeight = 3,
 }
+
+public enum TimesheetStatus
+{
+    Draft = 0,
+    Submitted = 1,
+    Billed = 2,
+    Cancelled = 3,
+}

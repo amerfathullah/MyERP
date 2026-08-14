@@ -1,8 +1,15 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { QualityFeedbackDocumentType } from './quality-feedback-document-type.enum';
+import type { QualityReviewStatus } from './quality-review-status.enum';
 import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
+import type { QualityActionType } from './quality-action-type.enum';
+import type { DeliveryTripStatus } from './delivery-trip-status.enum';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
+import type { NonConformanceStatus } from './non-conformance-status.enum';
+import type { QualityActionStatus } from './quality-action-status.enum';
+import type { QualityMeetingStatus } from './quality-meeting-status.enum';
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -220,10 +227,48 @@ export interface CreateQiTemplateParameterDto {
   acceptanceCriteria?: string | null;
 }
 
+export interface CreateQualityActionResolutionDto {
+  problem?: string;
+  resolutionDetails?: string;
+}
+
+export interface CreateQualityFeedbackDto {
+  companyId?: string;
+  documentType?: QualityFeedbackDocumentType;
+  documentName?: string;
+  templateId?: string;
+  remarks?: string | null;
+  parameters?: CreateQualityFeedbackParameterDto[];
+}
+
+export interface CreateQualityFeedbackParameterDto {
+  parameter?: string;
+  rating?: number;
+  remarks?: string | null;
+}
+
+export interface CreateQualityMeetingMinutesDto {
+  discussion?: string;
+  actionPlan?: string | null;
+  assignedUserId?: string | null;
+}
+
 export interface CreateQualityReviewDto {
   qualityGoalId?: string;
+  procedureId?: string | null;
   reviewDate?: string;
-  actualValue?: number;
+  actualValue?: number | null;
+  notes?: string | null;
+  reviewedByUserId?: string | null;
+  objectives?: CreateQualityReviewObjectiveDto[];
+}
+
+export interface CreateQualityReviewObjectiveDto {
+  objective?: string;
+  target?: number;
+  actual?: number | null;
+  uom?: string | null;
+  status?: QualityReviewStatus;
   notes?: string | null;
 }
 
@@ -287,6 +332,56 @@ export interface CreateUomDto {
   category?: string | null;
 }
 
+export interface CreateUpdateCustomsTariffNumberDto {
+  companyId: string;
+  tariffNumber: string;
+  description?: string | null;
+}
+
+export interface CreateUpdateDeliveryStopDto {
+  id?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  address: string;
+  customerAddress?: string | null;
+  locked?: boolean;
+  visited?: boolean;
+  deliveryNoteId?: string | null;
+  deliveryNoteNumber?: string | null;
+  grandTotal?: number;
+  contactName?: string | null;
+  emailSentTo?: string | null;
+  customerContact?: string | null;
+  distance?: number;
+  uom?: string | null;
+  estimatedArrival?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  details?: string | null;
+}
+
+export interface CreateUpdateDeliveryTripDto {
+  companyId: string;
+  namingSeries?: string | null;
+  tripNumber: string;
+  driver: string;
+  driverName?: string | null;
+  driverEmail?: string | null;
+  driverAddress?: string | null;
+  vehicle: string;
+  departureTime: string;
+  employeeId?: string | null;
+  uom?: string | null;
+  deliveryStops?: CreateUpdateDeliveryStopDto[];
+}
+
+export interface CreateUpdateItemAlternativeDto {
+  companyId: string;
+  itemId: string;
+  alternativeItemId: string;
+  twoWay?: boolean;
+}
+
 export interface CreateUpdateItemDto {
   companyId: string;
   itemCode: string;
@@ -312,6 +407,19 @@ export interface CreateUpdateItemDto {
   minOrderQty?: number;
   inspectionRequiredBeforePurchase?: boolean;
   inspectionRequiredBeforeDelivery?: boolean;
+  customsTariffNumberId?: string | null;
+  allowAlternativeItem?: boolean;
+  defaultManufacturerId?: string | null;
+  defaultManufacturerPartNo?: string | null;
+}
+
+export interface CreateUpdateItemManufacturerDto {
+  companyId: string;
+  itemId: string;
+  manufacturerId: string;
+  manufacturerPartNo: string;
+  description?: string | null;
+  isDefault?: boolean;
 }
 
 export interface CreateUpdateItemPriceDto {
@@ -326,6 +434,26 @@ export interface CreateUpdateItemPriceDto {
   customerId?: string | null;
   supplierId?: string | null;
   batchNo?: string | null;
+}
+
+export interface CreateUpdateManufacturerDto {
+  companyId: string;
+  shortName: string;
+  fullName?: string | null;
+  website?: string | null;
+  country?: string | null;
+  logoUrl?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateUpdateNonConformanceDto {
+  companyId?: string;
+  subject?: string;
+  procedureId?: string | null;
+  processOwner?: string | null;
+  details?: string | null;
+  correctiveAction?: string | null;
+  preventiveAction?: string | null;
 }
 
 export interface CreateUpdatePriceListDto {
@@ -348,10 +476,20 @@ export interface CreateUpdatePutawayRuleDto {
 }
 
 export interface CreateUpdateQualityActionDto {
-  actionType?: number;
+  companyId?: string;
+  actionType?: QualityActionType;
   problemDescription?: string;
   relatedQualityGoalId?: string | null;
+  relatedQualityReviewId?: string | null;
+  relatedProcedureId?: string | null;
+  relatedFeedbackId?: string | null;
   assignedUserId?: string | null;
+  resolutions?: CreateQualityActionResolutionDto[];
+}
+
+export interface CreateUpdateQualityFeedbackTemplateDto {
+  templateName?: string;
+  parameters?: string[];
 }
 
 export interface CreateUpdateQualityGoalDto {
@@ -361,7 +499,42 @@ export interface CreateUpdateQualityGoalDto {
   targetValue?: number;
   uom?: string | null;
   responsibleUserId?: string | null;
+  procedureId?: string | null;
+  weekday?: string | null;
+  dayOfMonth?: number | null;
   isEnabled?: boolean;
+  objectives?: CreateUpdateQualityGoalObjectiveDto[];
+}
+
+export interface CreateUpdateQualityGoalObjectiveDto {
+  objective?: string;
+  target?: number;
+  uom?: string | null;
+}
+
+export interface CreateUpdateQualityMeetingDto {
+  companyId?: string;
+  meetingDate?: string;
+  chairperson?: string | null;
+  attendees?: string | null;
+  agendas?: string[];
+  minutes?: CreateQualityMeetingMinutesDto[];
+}
+
+export interface CreateUpdateQualityProcedureDto {
+  name?: string;
+  parentQualityProcedureId?: string | null;
+  isGroup?: boolean;
+  description?: string | null;
+  processOwner?: string | null;
+  sequence?: number;
+  steps?: CreateUpdateQualityProcedureStepDto[];
+}
+
+export interface CreateUpdateQualityProcedureStepDto {
+  description?: string;
+  sequence?: number;
+  childProcedureId?: string | null;
 }
 
 export interface CreateUpdateWarehouseDto {
@@ -386,6 +559,58 @@ export interface CreateWarehouseAccountDto {
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
   stockAdjustmentAccountId?: string | null;
+}
+
+export interface CustomsTariffNumberDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  tariffNumber?: string;
+  description?: string | null;
+}
+
+export interface DeliveryStopDto extends FullAuditedEntityDto<string> {
+  deliveryTripId?: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  address?: string;
+  customerAddress?: string | null;
+  locked?: boolean;
+  visited?: boolean;
+  deliveryNoteId?: string | null;
+  deliveryNoteNumber?: string | null;
+  grandTotal?: number;
+  contactName?: string | null;
+  emailSentTo?: string | null;
+  customerContact?: string | null;
+  distance?: number;
+  uom?: string | null;
+  estimatedArrival?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  details?: string | null;
+}
+
+export interface DeliveryTripDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  namingSeries?: string | null;
+  tripNumber?: string;
+  driver?: string;
+  driverName?: string | null;
+  driverEmail?: string | null;
+  driverAddress?: string | null;
+  vehicle?: string;
+  departureTime?: string;
+  employeeId?: string | null;
+  totalDistance?: number;
+  uom?: string | null;
+  emailNotificationSent?: boolean;
+  status?: DeliveryTripStatus;
+  deliveryStops?: DeliveryStopDto[];
+}
+
+export interface EvaluateQualityReviewDto {
+  actualValue?: number | null;
+  notes?: string | null;
+  passed?: boolean;
 }
 
 export interface GetBatchListDto extends PagedAndSortedResultRequestDto {
@@ -536,6 +761,17 @@ export interface InventoryTurnoverReportDto {
   items?: InventoryTurnoverItemDto[];
 }
 
+export interface ItemAlternativeDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  itemId?: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  alternativeItemId?: string;
+  alternativeItemCode?: string | null;
+  alternativeItemName?: string | null;
+  twoWay?: boolean;
+}
+
 export interface ItemAttributeDto {
   id?: string;
   name?: string;
@@ -617,6 +853,10 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   minOrderQty?: number;
   inspectionRequiredBeforePurchase?: boolean;
   inspectionRequiredBeforeDelivery?: boolean;
+  customsTariffNumberId?: string | null;
+  allowAlternativeItem?: boolean;
+  defaultManufacturerId?: string | null;
+  defaultManufacturerPartNo?: string | null;
   totalStockQty?: number;
   isLowStock?: boolean;
 }
@@ -626,6 +866,18 @@ export interface ItemGroupDto extends EntityDto<string> {
   parentId?: string | null;
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
+}
+
+export interface ItemManufacturerDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  itemId?: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  manufacturerId?: string;
+  manufacturerShortName?: string | null;
+  manufacturerPartNo?: string;
+  description?: string | null;
+  isDefault?: boolean;
 }
 
 export interface ItemMovementEntryDto {
@@ -769,6 +1021,16 @@ export interface ManufactureItemsDto {
   items?: ManufactureItemLineDto[];
 }
 
+export interface ManufacturerDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  shortName?: string;
+  fullName?: string | null;
+  website?: string | null;
+  country?: string | null;
+  logoUrl?: string | null;
+  notes?: string | null;
+}
+
 export interface MaterialRequestItemLineDto {
   itemId?: string;
   itemName?: string | null;
@@ -785,6 +1047,18 @@ export interface MaterialRequestItemsForSeDto {
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   items?: MaterialRequestItemLineDto[];
+}
+
+export interface NonConformanceDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  subject?: string;
+  procedureId?: string | null;
+  processOwner?: string | null;
+  details?: string | null;
+  correctiveAction?: string | null;
+  preventiveAction?: string | null;
+  status?: NonConformanceStatus;
+  resolutionDate?: string | null;
 }
 
 export interface PendingTransferDto {
@@ -843,6 +1117,7 @@ export interface PickListItemDto {
 
 export interface PriceListDto extends AuditedEntityDto<string> {
   name?: string;
+  priceListName?: string;
   currencyCode?: string;
   isSelling?: boolean;
   isBuying?: boolean;
@@ -884,12 +1159,50 @@ export interface QiTemplateParameterDto extends EntityDto<string> {
 }
 
 export interface QualityActionDto extends FullAuditedEntityDto<string> {
-  actionType?: number;
+  companyId?: string;
+  actionType?: QualityActionType;
   problemDescription?: string;
   resolution?: string | null;
-  status?: number;
+  status?: QualityActionStatus;
   relatedQualityGoalId?: string | null;
+  relatedQualityReviewId?: string | null;
+  relatedProcedureId?: string | null;
+  relatedFeedbackId?: string | null;
   assignedUserId?: string | null;
+  resolutions?: QualityActionResolutionDto[];
+}
+
+export interface QualityActionResolutionDto extends EntityDto<string> {
+  qualityActionId?: string;
+  problem?: string;
+  resolutionDetails?: string;
+  status?: QualityActionStatus;
+}
+
+export interface QualityFeedbackDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  documentType?: QualityFeedbackDocumentType;
+  documentName?: string;
+  templateId?: string;
+  remarks?: string | null;
+  parameters?: QualityFeedbackParameterDto[];
+}
+
+export interface QualityFeedbackParameterDto extends EntityDto<string> {
+  qualityFeedbackId?: string;
+  parameter?: string;
+  rating?: number;
+  remarks?: string | null;
+}
+
+export interface QualityFeedbackTemplateDto extends FullAuditedEntityDto<string> {
+  templateName?: string;
+  parameters?: QualityFeedbackTemplateParameterDto[];
+}
+
+export interface QualityFeedbackTemplateParameterDto extends EntityDto<string> {
+  qualityFeedbackTemplateId?: string;
+  parameter?: string;
 }
 
 export interface QualityGoalDto extends FullAuditedEntityDto<string> {
@@ -899,16 +1212,78 @@ export interface QualityGoalDto extends FullAuditedEntityDto<string> {
   targetValue?: number;
   uom?: string | null;
   responsibleUserId?: string | null;
+  procedureId?: string | null;
+  weekday?: string | null;
+  dayOfMonth?: number | null;
   isEnabled?: boolean;
+  objectives?: QualityGoalObjectiveDto[];
+}
+
+export interface QualityGoalObjectiveDto extends EntityDto<string> {
+  qualityGoalId?: string;
+  objective?: string;
+  target?: number;
+  uom?: string | null;
+}
+
+export interface QualityMeetingAgendaDto extends EntityDto<string> {
+  qualityMeetingId?: string;
+  agenda?: string;
+}
+
+export interface QualityMeetingDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  meetingDate?: string;
+  chairperson?: string | null;
+  attendees?: string | null;
+  status?: QualityMeetingStatus;
+  agendas?: QualityMeetingAgendaDto[];
+  minutes?: QualityMeetingMinutesDto[];
+}
+
+export interface QualityMeetingMinutesDto extends EntityDto<string> {
+  qualityMeetingId?: string;
+  discussion?: string;
+  actionPlan?: string | null;
+  assignedUserId?: string | null;
+}
+
+export interface QualityProcedureDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  parentQualityProcedureId?: string | null;
+  isGroup?: boolean;
+  description?: string | null;
+  processOwner?: string | null;
+  sequence?: number;
+  steps?: QualityProcedureStepDto[];
+}
+
+export interface QualityProcedureStepDto extends EntityDto<string> {
+  qualityProcedureId?: string;
+  description?: string;
+  sequence?: number;
+  childProcedureId?: string | null;
 }
 
 export interface QualityReviewDto extends FullAuditedEntityDto<string> {
   qualityGoalId?: string;
+  procedureId?: string | null;
   reviewDate?: string;
   actualValue?: number | null;
-  status?: number;
+  status?: QualityReviewStatus;
   notes?: string | null;
   reviewedByUserId?: string | null;
+  objectives?: QualityReviewObjectiveDto[];
+}
+
+export interface QualityReviewObjectiveDto extends EntityDto<string> {
+  qualityReviewId?: string;
+  objective?: string;
+  target?: number;
+  actual?: number | null;
+  uom?: string | null;
+  status?: QualityReviewStatus;
+  notes?: string | null;
 }
 
 export interface ReorderSuggestionDto {
@@ -942,6 +1317,11 @@ export interface RepostItemValuationDto extends EntityDto<string> {
   voucherId?: string | null;
   isDeduplicated?: boolean;
   creationTime?: string;
+}
+
+export interface ResolveNonConformanceDto {
+  correctiveAction?: string | null;
+  preventiveAction?: string | null;
 }
 
 export interface ResolveQualityActionDto {

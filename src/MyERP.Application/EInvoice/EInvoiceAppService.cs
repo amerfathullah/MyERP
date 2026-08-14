@@ -32,6 +32,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly TaxpayerValidationService _taxpayerValidationService;
     private readonly ISettingProvider _settingProvider;
 
     public EInvoiceAppService(
@@ -40,6 +41,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         InvoiceDocumentSigner documentSigner,
         EInvoiceValidationService validationService,
         EInvoiceConsolidationService consolidationService,
+        TaxpayerValidationService taxpayerValidationService,
         IRepository<EInvoiceSubmission, Guid> submissionRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
@@ -53,6 +55,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         _documentSigner = documentSigner;
         _validationService = validationService;
         _consolidationService = consolidationService;
+        _taxpayerValidationService = taxpayerValidationService;
         _submissionRepository = submissionRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
@@ -506,5 +509,33 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     public async Task<List<Guid>> ConsolidateInvoicesAsync(ConsolidateInvoicesDto input)
     {
         return await _consolidationService.ConsolidateInvoicesAsync(input.InvoiceIds, input.CompanyId, CurrentTenant.Id);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<TaxpayerSearchResultDto> SearchTaxpayerAsync(SearchTaxpayerDto input)
+    {
+        try
+        {
+            var response = await _taxpayerValidationService.ValidateTaxpayerAsync(input.IdType, input.IdValue);
+            return new TaxpayerSearchResultDto
+            {
+                IsSuccess = response.IsFound,
+                Tin = response.Tin,
+                Name = response.TaxpayerName,
+                IdType = input.IdType,
+                IdValue = input.IdValue,
+                ErrorMessage = response.IsFound ? null : "Taxpayer not found"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new TaxpayerSearchResultDto
+            {
+                IsSuccess = false,
+                IdType = input.IdType,
+                IdValue = input.IdValue,
+                ErrorMessage = ex.Message
+            };
+        }
     }
 }

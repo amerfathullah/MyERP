@@ -1,157 +1,179 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
-using MyERP.Shared;
-using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Assets;
 
-/// <summary>
-/// Manages Asset Capitalization — CWIP (Capital Work in Progress) to Asset conversion.
-/// Consumes: stock items, service/expense items, and existing assets to create a new composite asset.
-/// Per ERPNext: TotalAssetValue auto-calculated from all consumed sources.
-/// </summary>
-[Authorize(MyERPPermissions.Assets.Default)]
-public class AssetCapitalizationAppService : ApplicationService
+[Authorize(MyERPPermissions.AssetCapitalizations.Default)]
+public class AssetCapitalizationAppService : ApplicationService, IAssetCapitalizationAppService
 {
     private readonly IRepository<AssetCapitalization, Guid> _repository;
+    private readonly IRepository<Asset, Guid> _assetRepository;
+    private readonly IRepository<AssetActivity, Guid> _activityRepository;
+    private readonly AssetCapitalizationMapper _mapper;
 
-    public AssetCapitalizationAppService(IRepository<AssetCapitalization, Guid> repository)
+    public AssetCapitalizationAppService(
+        IRepository<AssetCapitalization, Guid> repository,
+        IRepository<Asset, Guid> assetRepository,
+        IRepository<AssetActivity, Guid> activityRepository,
+        AssetCapitalizationMapper mapper)
     {
         _repository = repository;
+        _assetRepository = assetRepository;
+        _activityRepository = activityRepository;
+        _mapper = mapper;
+    }
+
+    public async Task<PagedResultDto<AssetCapitalizationDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = await _repository.GetQueryableAsync();
+        var totalCount = await AsyncExecuter.CountAsync(query);
+        var items = await AsyncExecuter.ToListAsync(
+            query.OrderByDescending(x => x.PostingDate)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount));
+
+        return new PagedResultDto<AssetCapitalizationDto>(totalCount, items.Select(_mapper.Map).ToList());
     }
 
     public async Task<AssetCapitalizationDto> GetAsync(Guid id)
     {
         var cap = await _repository.GetAsync(id);
-        return ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>(cap);
+        return _mapper.Map(cap);
     }
 
-    public async Task<PagedResultDto<AssetCapitalizationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
+    [Authorize(MyERPPermissions.AssetCapitalizations.Create)]
+    public async Task<AssetCapitalizationDto> CreateAsync(CreateUpdateAssetCapitalizationDto input)
     {
-        var query = await _repository.GetQueryableAsync();
-
-        if (input.CompanyId.HasValue)
-            query = query.Where(x => x.CompanyId == input.CompanyId.Value);
-
-        if (!string.IsNullOrWhiteSpace(input.Filter))
-        {
-            var filter = input.Filter; query = query.Where(x => x.CapitalizationNumber.Contains(filter));
-        }
-
-        if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<AssetCapitalizationStatus>(input.Status, true, out var status))
-            query = query.Where(x => x.Status == status);
-
-        var count = query.Count();
-        var list = query.OrderByDescending(x => x.PostingDate)
-            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-
-        return new PagedResultDto<AssetCapitalizationDto>(count, list.Select(ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>).ToList());
-    }
-
-    [Authorize(MyERPPermissions.Assets.Create)]
-    public async Task<AssetCapitalizationDto> CreateAsync(CreateAssetCapitalizationDto input)
-    {
+        var capNumber = $"AS-CAP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
         var cap = new AssetCapitalization(
             GuidGenerator.Create(),
             input.CompanyId,
-            input.CapitalizationNumber,
+            capNumber,
             input.PostingDate,
             input.TargetAssetId,
-            CurrentTenant.Id);
-
-        cap.TargetAssetName = input.TargetAssetName;
-
-        foreach (var item in input.StockItems)
+            CurrentTenant.Id)
         {
-            cap.AddStockItem(item.ItemId, item.ItemName, item.Quantity, item.Rate, item.WarehouseId);
+            TargetAssetName = input.TargetAssetName,
+        };
+
+        if (input.StockItems != null)
+        {
+            foreach (var item in input.StockItems)
+            {
+                cap.AddStockItem(item.ItemId, item.ItemName, item.Qty, item.Rate, item.WarehouseId);
+            }
         }
 
-        foreach (var item in input.ServiceItems)
+        if (input.ServiceItems != null)
         {
-            cap.AddServiceItem(item.ItemId, item.ItemName, item.Amount, item.ExpenseAccountId);
+            foreach (var item in input.ServiceItems)
+            {
+                cap.AddServiceItem(item.ItemId, item.ItemName, item.Amount, item.ExpenseAccountId);
+            }
         }
 
-        foreach (var item in input.ConsumedAssets)
+        if (input.ConsumedAssets != null)
         {
-            cap.AddConsumedAsset(item.AssetId, item.AssetName, item.ValueAfterDepreciation);
+            foreach (var item in input.ConsumedAssets)
+            {
+                cap.AddConsumedAsset(item.AssetId, item.AssetName, item.CurrentValue);
+            }
         }
 
         await _repository.InsertAsync(cap);
-        return ObjectMapper.Map<AssetCapitalization, AssetCapitalizationDto>(cap);
+        return _mapper.Map(cap);
     }
 
-    [Authorize(MyERPPermissions.Assets.Submit)]
-    public async Task SubmitAsync(Guid id)
+    [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
+    public async Task<AssetCapitalizationDto> UpdateAsync(Guid id, CreateUpdateAssetCapitalizationDto input)
+    {
+        var cap = await _repository.GetAsync(id);
+        if (cap.Status != AssetCapitalizationStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        cap.PostingDate = input.PostingDate;
+        cap.TargetAssetId = input.TargetAssetId;
+        cap.TargetAssetName = input.TargetAssetName;
+
+        await _repository.UpdateAsync(cap);
+        return _mapper.Map(cap);
+    }
+
+    [Authorize(MyERPPermissions.AssetCapitalizations.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var cap = await _repository.GetAsync(id);
+        if (cap.Status != AssetCapitalizationStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        await _repository.DeleteAsync(id);
+    }
+
+    [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
+    public async Task<AssetCapitalizationDto> SubmitAsync(Guid id)
     {
         var cap = await _repository.GetAsync(id);
         cap.Submit();
+
+        var targetAsset = await _assetRepository.FindAsync(cap.TargetAssetId);
+        if (targetAsset != null)
+        {
+            targetAsset.ApplyRepairCapitalization(cap.TotalCapitalizedAmount, 0);
+            await _assetRepository.UpdateAsync(targetAsset);
+
+            var activity = new AssetActivity(
+                GuidGenerator.Create(),
+                targetAsset.Id,
+                AssetActivityType.Capitalized,
+                $"Asset Capitalization #{cap.CapitalizationNumber} submitted",
+                cap.PostingDate,
+                $"Capitalized amount: {cap.TotalCapitalizedAmount:N2}",
+                "AssetCapitalization",
+                cap.Id.ToString(),
+                CurrentTenant.Id);
+
+            await _activityRepository.InsertAsync(activity);
+        }
+
         await _repository.UpdateAsync(cap);
+        return _mapper.Map(cap);
     }
 
-    [Authorize(MyERPPermissions.Assets.Submit)]
-    public async Task CancelAsync(Guid id)
+    [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
+    public async Task<AssetCapitalizationDto> CancelAsync(Guid id)
     {
         var cap = await _repository.GetAsync(id);
         cap.Cancel();
+
+        var targetAsset = await _assetRepository.FindAsync(cap.TargetAssetId);
+        if (targetAsset != null)
+        {
+            targetAsset.ApplyRepairCapitalization(-1 * cap.TotalCapitalizedAmount, 0);
+            await _assetRepository.UpdateAsync(targetAsset);
+
+            var activity = new AssetActivity(
+                GuidGenerator.Create(),
+                targetAsset.Id,
+                AssetActivityType.Capitalized,
+                $"Asset Capitalization #{cap.CapitalizationNumber} cancelled",
+                DateTime.UtcNow,
+                $"Reverted capitalization of {cap.TotalCapitalizedAmount:N2}",
+                "AssetCapitalization",
+                cap.Id.ToString(),
+                CurrentTenant.Id);
+
+            await _activityRepository.InsertAsync(activity);
+        }
+
         await _repository.UpdateAsync(cap);
+        return _mapper.Map(cap);
     }
 }
-
-#region DTOs
-
-public class AssetCapitalizationDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public string? TargetAssetName { get; set; }
-    public Guid TargetAssetId { get; set; }
-    public DateTime PostingDate { get; set; }
-    public decimal TotalAssetValue { get; set; }
-    public string Status { get; set; } = null!;
-}
-
-public class CreateAssetCapitalizationDto
-{
-    public Guid CompanyId { get; set; }
-    public string CapitalizationNumber { get; set; } = null!;
-    public string? TargetAssetName { get; set; }
-    public Guid TargetAssetId { get; set; }
-    public DateTime PostingDate { get; set; }
-    public List<CapStockItemDto> StockItems { get; set; } = new();
-    public List<CapServiceItemDto> ServiceItems { get; set; } = new();
-    public List<CapConsumedAssetDto> ConsumedAssets { get; set; } = new();
-}
-
-public class CapStockItemDto
-{
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = null!;
-    public decimal Quantity { get; set; }
-    public decimal Rate { get; set; }
-    public Guid? WarehouseId { get; set; }
-}
-
-public class CapServiceItemDto
-{
-    public Guid ItemId { get; set; }
-    public string ItemName { get; set; } = null!;
-    public decimal Amount { get; set; }
-    public Guid? ExpenseAccountId { get; set; }
-}
-
-public class CapConsumedAssetDto
-{
-    public Guid AssetId { get; set; }
-    public string AssetName { get; set; } = null!;
-    public decimal ValueAfterDepreciation { get; set; }
-}
-
-#endregion
-

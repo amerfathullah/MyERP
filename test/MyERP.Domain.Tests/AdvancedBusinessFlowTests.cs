@@ -5,6 +5,7 @@ using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using MyERP.Sales.DomainServices;
 using Xunit;

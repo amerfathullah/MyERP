@@ -22,7 +22,7 @@ namespace MyERP.Tax;
 /// - Net payable = Output Tax - Input Tax (if positive → pay, if negative → refund/carry forward)
 /// </summary>
 [Authorize]
-public class TaxSummaryReportAppService : ApplicationService
+public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportAppService
 {
     private readonly IRepository<SalesInvoice, Guid> _siRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _piRepository;
@@ -291,104 +291,4 @@ public class TaxSummaryReportAppService : ApplicationService
             TotalDebitNotes = purchaseInvoices.Count(p => p.IsReturn),
         };
     }
-}
-
-public class TaxSummaryDto
-{
-    public Guid CompanyId { get; set; }
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-
-    // Output Tax (Sales)
-    public decimal TotalSalesAmount { get; set; }
-    public decimal OutputTax { get; set; }
-    public decimal CreditNoteTaxAdjustment { get; set; }
-    public decimal NetOutputTax { get; set; }
-    public int SalesInvoiceCount { get; set; }
-    public int CreditNoteCount { get; set; }
-
-    // Input Tax (Purchases)
-    public decimal TotalPurchaseAmount { get; set; }
-    public decimal InputTax { get; set; }
-    public decimal DebitNoteTaxAdjustment { get; set; }
-    public decimal NetInputTax { get; set; }
-    public int PurchaseInvoiceCount { get; set; }
-    public int DebitNoteCount { get; set; }
-
-    // Net Position
-    public decimal NetTaxPayable { get; set; }
-    public bool IsRefundable { get; set; }
-
-    // Rate Breakdowns
-    public List<TaxRateBreakdownDto> OutputTaxBreakdown { get; set; } = new();
-    public List<TaxRateBreakdownDto> InputTaxBreakdown { get; set; } = new();
-}
-
-public class TaxRateBreakdownDto
-{
-    public string TaxRate { get; set; } = null!;
-    public decimal TaxableAmount { get; set; }
-    public decimal TaxAmount { get; set; }
-    public int InvoiceCount { get; set; }
-}
-
-/// <summary>
-/// SST-02 Filing Data — structured data matching the Malaysian SST-02 return form.
-/// This is what accountants use to fill in the RMCD (Royal Malaysian Customs Department) form.
-/// 
-/// SST-02 Form Sections:
-/// A. Total value of taxable supplies (sales at 5%, 6%, 10%)
-/// B. Total value of exempt supplies (sales of exempt goods/services)
-/// C. Zero-rated supplies (exports, etc.)
-/// D. Total output tax payable (sum of tax on section A)
-/// E. Less: Input tax credit (purchases with tax paid)
-/// F. Tax adjustments (credit/debit notes, bad debt relief)
-/// G. Net tax payable / refundable (D - E ± F)
-/// </summary>
-public class Sst02FilingDataDto
-{
-    public Guid CompanyId { get; set; }
-    public string CompanyName { get; set; } = null!;
-    public string? SstRegistrationNumber { get; set; }
-    public string TaxPeriod { get; set; } = null!;
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-
-    // Section A: Taxable Supplies by Rate
-    public decimal TaxableSupplies6Percent { get; set; }       // Service Tax 6%
-    public decimal TaxableSupplies10Percent { get; set; }      // Sales Tax 10%
-    public decimal TaxableSupplies5Percent { get; set; }       // Sales Tax 5%
-    public decimal TaxableSuppliesOtherRate { get; set; }      // Other rates
-
-    // Section B: Exempt Supplies (no tax charged)
-    public decimal ExemptSupplies { get; set; }
-
-    // Section C: Zero-Rated Supplies (0% tax, typically exports)
-    public decimal ZeroRatedSupplies { get; set; }
-
-    // Section D: Output Tax
-    public decimal OutputTax6Percent { get; set; }
-    public decimal OutputTax10Percent { get; set; }
-    public decimal OutputTax5Percent { get; set; }
-    public decimal OutputTaxOther { get; set; }
-    public decimal TotalOutputTax { get; set; }
-
-    // Section E: Input Tax Credit
-    public decimal InputTaxCredit { get; set; }
-
-    // Section F: Adjustments
-    public decimal CreditNoteAdjustment { get; set; }  // Reduces output tax
-    public decimal DebitNoteAdjustment { get; set; }   // Reduces input tax
-    public decimal BadDebtRelief { get; set; }         // Recovery of tax on bad debts
-    public decimal NetAdjustment { get; set; }
-
-    // Section G: Net Tax Position
-    public decimal NetTaxPayable { get; set; }
-    public bool IsRefundable { get; set; }
-
-    // Supporting counts
-    public int TotalSalesInvoices { get; set; }
-    public int TotalPurchaseInvoices { get; set; }
-    public int TotalCreditNotes { get; set; }
-    public int TotalDebitNotes { get; set; }
 }

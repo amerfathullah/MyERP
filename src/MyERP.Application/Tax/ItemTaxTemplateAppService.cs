@@ -10,38 +10,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Tax;
 
-public class ItemTaxTemplateDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string Title { get; set; } = null!;
-    public bool IsDisabled { get; set; }
-    public ItemTaxTemplateDetailDto[] Details { get; set; } = [];
-}
-
-public class ItemTaxTemplateDetailDto
-{
-    public Guid Id { get; set; }
-    public Guid TaxAccountId { get; set; }
-    public decimal TaxRate { get; set; }
-    public bool NotApplicable { get; set; }
-}
-
-public class CreateItemTaxTemplateDto
-{
-    public Guid CompanyId { get; set; }
-    public string Title { get; set; } = null!;
-    public CreateItemTaxTemplateDetailDto[] Details { get; set; } = [];
-}
-
-public class CreateItemTaxTemplateDetailDto
-{
-    public Guid TaxAccountId { get; set; }
-    public decimal TaxRate { get; set; }
-    public bool NotApplicable { get; set; }
-}
-
 [Authorize(MyERPPermissions.TaxCategories.Default)]
-public class ItemTaxTemplateAppService : ApplicationService
+public class ItemTaxTemplateAppService : ApplicationService, IItemTaxTemplateAppService
 {
     private readonly IRepository<ItemTaxTemplate, Guid> _repository;
 

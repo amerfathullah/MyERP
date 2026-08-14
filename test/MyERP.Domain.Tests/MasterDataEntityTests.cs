@@ -1,6 +1,7 @@
 using System;
 using MyERP.Assets;
 using MyERP.Assets.Entities;
+using MyERP.HumanResources;
 using MyERP.HumanResources.Entities;
 using Shouldly;
 using Volo.Abp;

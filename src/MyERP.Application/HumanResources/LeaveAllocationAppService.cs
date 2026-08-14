@@ -17,7 +17,7 @@ namespace MyERP.HumanResources;
 /// HR admins allocate leaves at start of fiscal year; system deducts on approval.
 /// </summary>
 [Authorize(MyERPPermissions.Employees.Edit)]
-public class LeaveAllocationAppService : ApplicationService
+public class LeaveAllocationAppService : ApplicationService, ILeaveAllocationAppService
 {
     private readonly IRepository<LeaveAllocation, Guid> _repository;
     private readonly IRepository<LeaveType, Guid> _leaveTypeRepository;
@@ -149,49 +149,4 @@ public class LeaveAllocationAppService : ApplicationService
         }
         await _repository.DeleteAsync(id);
     }
-
-
-}
-
-// DTOs
-
-public class LeaveAllocationDto
-{
-    public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public Guid EmployeeId { get; set; }
-    public Guid LeaveTypeId { get; set; }
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-    public decimal TotalLeavesAllocated { get; set; }
-    public decimal CarryForwardDays { get; set; }
-    public decimal LeavesUsed { get; set; }
-    public decimal Balance { get; set; }
-}
-
-public class CreateLeaveAllocationDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid EmployeeId { get; set; }
-    [Required] public Guid LeaveTypeId { get; set; }
-    [Required] public DateTime FromDate { get; set; }
-    [Required] public DateTime ToDate { get; set; }
-    [Required] public decimal TotalLeavesAllocated { get; set; }
-    public decimal CarryForwardDays { get; set; }
-}
-
-public class BulkLeaveAllocationDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid LeaveTypeId { get; set; }
-    [Required] public DateTime FromDate { get; set; }
-    [Required] public DateTime ToDate { get; set; }
-    [Required] public decimal TotalLeavesPerEmployee { get; set; }
-}
-
-public class GetLeaveAllocationListDto : PagedAndSortedResultRequestDto
-{
-    public Guid? EmployeeId { get; set; }
-    public Guid? CompanyId { get; set; }
-    public Guid? LeaveTypeId { get; set; }
 }

@@ -1,4 +1,4 @@
-import type { TaxTemplateType } from './entities/tax-template-type.enum';
+import type { TaxTemplateType } from './tax-template-type.enum';
 import type { TaxType } from './tax-type.enum';
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 

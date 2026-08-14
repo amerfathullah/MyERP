@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MyERP.Core;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -6,43 +7,71 @@ using Volo.Abp.MultiTenancy;
 
 namespace MyERP.Assets.Entities;
 
-/// <summary>
-/// Asset Movement — transfers asset location or custodian.
-/// Tracks movement of assets between locations, employees, and companies.
-/// Maps to ERPNext assets/doctype/asset_movement.
-/// </summary>
 public class AssetMovement : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
+    public string MovementNumber { get; set; } = null!;
     public Guid CompanyId { get; set; }
-    public Guid AssetId { get; set; }
+    public AssetMovementPurpose Purpose { get; set; } = AssetMovementPurpose.Transfer;
+    public DateTime TransactionDate { get; set; }
+    public string? ReferenceType { get; set; }
+    public string? ReferenceId { get; set; }
 
-    /// <summary>Movement type: Transfer, Issue, Receipt.</summary>
-    public string MovementType { get; set; } = "Transfer";
-
+    // Legacy/single-asset convenience properties
+    public Guid? AssetId { get; set; }
+    public string? MovementType { get; set; } = "Transfer";
     public DateTime MovementDate { get; set; }
-
-    /// <summary>Source location/custodian.</summary>
     public string? SourceLocation { get; set; }
     public Guid? SourceEmployeeId { get; set; }
-
-    /// <summary>Target location/custodian.</summary>
     public string? TargetLocation { get; set; }
     public Guid? TargetEmployeeId { get; set; }
 
-    public string? Purpose { get; set; }
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
+
+    public List<AssetMovementItem> Items { get; private set; } = new();
 
     protected AssetMovement() { }
 
-    public AssetMovement(Guid id, Guid companyId, Guid assetId,
-        string movementType, DateTime movementDate, Guid? tenantId = null) : base(id)
+    public AssetMovement(
+        Guid id,
+        string movementNumber,
+        Guid companyId,
+        AssetMovementPurpose purpose,
+        DateTime transactionDate,
+        Guid? tenantId = null)
+        : base(id)
     {
+        MovementNumber = movementNumber;
         CompanyId = companyId;
-        AssetId = assetId;
-        MovementType = movementType;
-        MovementDate = movementDate;
+        Purpose = purpose;
+        TransactionDate = transactionDate;
+        MovementDate = transactionDate;
+        MovementType = purpose.ToString();
         TenantId = tenantId;
+    }
+
+    public AssetMovementItem AddItem(
+        Guid id,
+        Guid assetId,
+        string? assetName = null,
+        string? sourceLocation = null,
+        string? targetLocation = null,
+        Guid? fromEmployeeId = null,
+        Guid? toEmployeeId = null)
+    {
+        var item = new AssetMovementItem(
+            id,
+            Id,
+            assetId,
+            assetName,
+            sourceLocation,
+            targetLocation,
+            fromEmployeeId,
+            toEmployeeId,
+            TenantId);
+
+        Items.Add(item);
+        return item;
     }
 
     public void Submit()

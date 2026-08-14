@@ -4,14 +4,6 @@ using Volo.Abp.MultiTenancy;
 
 namespace MyERP.HumanResources.Entities;
 
-public enum AttendanceStatus
-{
-    Present,
-    Absent,
-    HalfDay,
-    OnLeave
-}
-
 /// <summary>
 /// Employee Attendance record for a specific date.
 /// Maps to ERPNext Attendance.

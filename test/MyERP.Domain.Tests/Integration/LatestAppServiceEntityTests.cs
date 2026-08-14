@@ -6,6 +6,7 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Manufacturing.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Assets;
 using Shouldly;
 using Xunit;
 

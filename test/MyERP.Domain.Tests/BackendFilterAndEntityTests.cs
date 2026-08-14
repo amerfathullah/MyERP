@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
+using MyERP.Projects;
 using MyERP.Projects.Entities;
 using MyERP.Shared;
 using Xunit;

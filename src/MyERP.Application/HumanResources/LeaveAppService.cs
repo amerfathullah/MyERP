@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.HumanResources;
 
 [Authorize(MyERPPermissions.Employees.Default)]
-public class LeaveAppService : ApplicationService
+public class LeaveAppService : ApplicationService, ILeaveAppService
 {
     private readonly IRepository<LeaveApplication, Guid> _leaveRepository;
     private readonly IRepository<LeaveType, Guid> _leaveTypeRepository;
@@ -138,64 +138,4 @@ public class LeaveAppService : ApplicationService
         await _leaveRepository.UpdateAsync(leave);
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
-
-
-}
-
-// DTOs
-
-public class LeaveTypeDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-    public decimal MaxDaysAllowed { get; set; }
-    public bool IsPaidLeave { get; set; }
-    public bool AllowCarryForward { get; set; }
-    public bool RequiresApproval { get; set; }
-}
-
-public class CreateLeaveTypeDto
-{
-    [Required][StringLength(100)] public string Name { get; set; } = null!;
-    [Required] public decimal MaxDaysAllowed { get; set; }
-    public bool IsPaidLeave { get; set; } = true;
-    public bool RequiresApproval { get; set; } = true;
-    public bool AllowCarryForward { get; set; }
-    public decimal MaxCarryForwardDays { get; set; }
-}
-
-public class LeaveApplicationDto : AuditedEntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public Guid EmployeeId { get; set; }
-    public string? EmployeeName { get; set; }
-    public Guid LeaveTypeId { get; set; }
-    public string? LeaveTypeName { get; set; }
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
-    public decimal TotalLeaveDays { get; set; }
-    public bool HalfDay { get; set; }
-    public string? Reason { get; set; }
-    public LeaveApplicationStatus Status { get; set; }
-}
-
-public class CreateLeaveApplicationDto
-{
-    [Required] public Guid CompanyId { get; set; }
-    [Required] public Guid EmployeeId { get; set; }
-    public string? EmployeeName { get; set; }
-    [Required] public Guid LeaveTypeId { get; set; }
-    public string? LeaveTypeName { get; set; }
-    [Required] public DateTime FromDate { get; set; }
-    [Required] public DateTime ToDate { get; set; }
-    [Required] public decimal TotalLeaveDays { get; set; }
-    public bool HalfDay { get; set; }
-    [StringLength(1000)] public string? Reason { get; set; }
-    public Guid? LeaveApproverId { get; set; }
-}
-
-public class GetLeaveListDto : PagedAndSortedResultRequestDto
-{
-    public Guid? EmployeeId { get; set; }
-    public LeaveApplicationStatus? Status { get; set; }
 }

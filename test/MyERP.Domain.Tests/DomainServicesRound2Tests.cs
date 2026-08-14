@@ -1,4 +1,5 @@
 using System;
+using MyERP.Assets;
 using MyERP.Assets.Entities;
 using MyERP.HumanResources;
 using MyERP.HumanResources.DomainServices;
@@ -18,7 +19,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_Create_SetsDefaults()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid());
         repair.Status.ShouldBe(AssetRepairStatus.Pending);
         repair.RepairCost.ShouldBe(0);
         repair.CapitalizeRepairCost.ShouldBeFalse();
@@ -28,7 +29,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_Complete_SetsStatus()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid());
         repair.Complete();
         repair.Status.ShouldBe(AssetRepairStatus.Completed);
         repair.CompletionDate.ShouldNotBeNull();
@@ -37,7 +38,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_Complete_DoubleComplete_Throws()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid());
         repair.Complete();
         Should.Throw<BusinessException>(() => repair.Complete());
     }
@@ -45,7 +46,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_Cancel_FromPending()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid());
         repair.Cancel();
         repair.Status.ShouldBe(AssetRepairStatus.Cancelled);
     }
@@ -53,7 +54,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_FullyDepreciated_ForcesNoCapitalize()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid())
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid())
         {
             CapitalizeRepairCost = true,
             IncreaseInAssetLife = 12
@@ -68,7 +69,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void AssetRepair_NotFullyDepreciated_KeepsCapitalize()
     {
-        var repair = new AssetRepair(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid())
+        var repair = new AssetRepair(Guid.NewGuid(), "REP-001", Guid.NewGuid(), Guid.NewGuid())
         {
             CapitalizeRepairCost = true,
             IncreaseInAssetLife = 12

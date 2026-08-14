@@ -1,3 +1,4 @@
+using MyERP.Purchasing;
 using System;
 using MyERP.Core;
 using MyERP.Inventory.Entities;

@@ -96,10 +96,3 @@ public class SubcontractingReceiptItem : Entity<Guid>
         SubcontractingReceiptId = scrId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate;
     }
 }
-
-public enum SubcontractingReceiptStatus
-{
-    Draft = 0,
-    Submitted = 1,
-    Cancelled = 2,
-}

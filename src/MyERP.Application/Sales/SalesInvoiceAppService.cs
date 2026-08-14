@@ -402,7 +402,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var tsQuery = await tsRepo.GetQueryableAsync();
             var timesheets = tsQuery
                 .Where(t => t.CompanyId == input.CompanyId
-                    && t.Status == MyERP.Projects.Entities.TimesheetStatus.Submitted)
+                    && t.Status == MyERP.Projects.TimesheetStatus.Submitted)
                 .ToList();
 
             var unbilledDetails = timesheets

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
+using MyERP.HumanResources;
 using MyERP.HumanResources.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;

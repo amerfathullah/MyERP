@@ -74,4 +74,17 @@ public class CreateUpdateItemDto
 
     /// <summary>Require QI before Delivery Note submission.</summary>
     public bool InspectionRequiredBeforeDelivery { get; set; }
+
+    /// <summary>Customs Tariff Number (HS Code) for export/import declaration.</summary>
+    public Guid? CustomsTariffNumberId { get; set; }
+
+    /// <summary>Allow alternative/substitute item in transactions.</summary>
+    public bool AllowAlternativeItem { get; set; }
+
+    /// <summary>Default item manufacturer.</summary>
+    public Guid? DefaultManufacturerId { get; set; }
+
+    /// <summary>Default manufacturer part number.</summary>
+    [StringLength(100)]
+    public string? DefaultManufacturerPartNo { get; set; }
 }

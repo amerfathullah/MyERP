@@ -16,7 +16,7 @@ namespace MyERP.Sales;
 /// Coupons link to Pricing Rules to provide discounts.
 /// </summary>
 [Authorize(MyERPPermissions.SalesInvoices.Default)]
-public class CouponCodeAppService : ApplicationService
+public class CouponCodeAppService : ApplicationService, ICouponCodeAppService
 {
     private readonly IRepository<CouponCode, Guid> _repository;
     private readonly IRepository<PricingRule, Guid> _pricingRuleRepository;
@@ -41,13 +41,13 @@ public class CouponCodeAppService : ApplicationService
 
         return new PagedResultDto<CouponCodeDto>(
             totalCount,
-            items.Select(MapToDto).ToList());
+            items.Select(ObjectMapper.Map<CouponCode, CouponCodeDto>).ToList());
     }
 
     public async Task<CouponCodeDto> GetAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        return MapToDto(entity);
+        return ObjectMapper.Map<CouponCode, CouponCodeDto>(entity);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
@@ -84,7 +84,7 @@ public class CouponCodeAppService : ApplicationService
         entity.Description = input.Description;
 
         await _repository.InsertAsync(entity);
-        return MapToDto(entity);
+        return ObjectMapper.Map<CouponCode, CouponCodeDto>(entity);
     }
 
     /// <summary>Validate and record coupon usage (called during SO/SI creation).</summary>
@@ -130,51 +130,4 @@ public class CouponCodeAppService : ApplicationService
     {
         await _repository.DeleteAsync(id);
     }
-
-    private static CouponCodeDto MapToDto(CouponCode e) => new()
-    {
-        Id = e.Id,
-        Code = e.Code,
-        CouponName = e.CouponName,
-        CouponType = e.CouponType,
-        PricingRuleId = e.PricingRuleId,
-        MaximumUse = e.MaximumUse,
-        Used = e.Used,
-        IsEnabled = e.IsEnabled,
-        ValidFrom = e.ValidFrom,
-        ValidUpto = e.ValidUpto,
-        CustomerId = e.CustomerId,
-        Description = e.Description
-    };
-}
-
-public class CouponCodeDto
-{
-    public Guid Id { get; set; }
-    public string Code { get; set; } = null!;
-    public string CouponName { get; set; } = null!;
-    public CouponType CouponType { get; set; }
-    public Guid PricingRuleId { get; set; }
-    public int MaximumUse { get; set; }
-    public int Used { get; set; }
-    public bool IsEnabled { get; set; }
-    public DateTime? ValidFrom { get; set; }
-    public DateTime? ValidUpto { get; set; }
-    public Guid? CustomerId { get; set; }
-    public string? Description { get; set; }
-}
-
-public class CreateCouponCodeDto
-{
-    public string? Code { get; set; }
-    public string CouponName { get; set; } = null!;
-    public CouponType CouponType { get; set; }
-    public Guid PricingRuleId { get; set; }
-    public Guid? CompanyId { get; set; }
-    public int MaximumUse { get; set; }
-    public int MaximumUsePerCustomer { get; set; }
-    public DateTime? ValidFrom { get; set; }
-    public DateTime? ValidUpto { get; set; }
-    public Guid? CustomerId { get; set; }
-    public string? Description { get; set; }
 }

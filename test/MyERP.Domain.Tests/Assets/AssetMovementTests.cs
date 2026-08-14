@@ -1,4 +1,5 @@
 using System;
+using MyERP.Assets;
 using MyERP.Assets.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -11,17 +12,17 @@ public class AssetMovementTests
     [Fact]
     public void Create_SetsDefaults()
     {
-        var am = new AssetMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Transfer", DateTime.UtcNow);
+        var am = new AssetMovement(Guid.NewGuid(), "MOV-001", Guid.NewGuid(),
+            AssetMovementPurpose.Transfer, DateTime.UtcNow);
         am.Status.ShouldBe(Core.DocumentStatus.Draft);
-        am.MovementType.ShouldBe("Transfer");
+        am.Purpose.ShouldBe(AssetMovementPurpose.Transfer);
     }
 
     [Fact]
     public void Submit_Succeeds()
     {
-        var am = new AssetMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Transfer", DateTime.UtcNow);
+        var am = new AssetMovement(Guid.NewGuid(), "MOV-001", Guid.NewGuid(),
+            AssetMovementPurpose.Transfer, DateTime.UtcNow);
         am.Submit();
         am.Status.ShouldBe(Core.DocumentStatus.Submitted);
     }
@@ -29,8 +30,8 @@ public class AssetMovementTests
     [Fact]
     public void Cancel_Submitted_Succeeds()
     {
-        var am = new AssetMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Issue", DateTime.UtcNow);
+        var am = new AssetMovement(Guid.NewGuid(), "MOV-001", Guid.NewGuid(),
+            AssetMovementPurpose.Issue, DateTime.UtcNow);
         am.Submit();
         am.Cancel();
         am.Status.ShouldBe(Core.DocumentStatus.Cancelled);
@@ -39,8 +40,8 @@ public class AssetMovementTests
     [Fact]
     public void Cancel_Draft_Throws()
     {
-        var am = new AssetMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Receipt", DateTime.UtcNow);
+        var am = new AssetMovement(Guid.NewGuid(), "MOV-001", Guid.NewGuid(),
+            AssetMovementPurpose.Receipt, DateTime.UtcNow);
         Should.Throw<BusinessException>(() => am.Cancel());
     }
 }

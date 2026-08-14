@@ -1,106 +1,159 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
-using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Assets;
 
-public class AssetCategoryDetailDto : EntityDto<Guid>
-{
-    public string CategoryName { get; set; } = null!;
-    public bool IsDepreciable { get; set; }
-    public DepreciationMethod DefaultDepreciationMethod { get; set; }
-    public int DefaultUsefulLifeMonths { get; set; }
-    public decimal? DefaultDepreciationRate { get; set; }
-    public Guid? AssetAccountId { get; set; }
-    public Guid? DepreciationAccountId { get; set; }
-    public Guid? AccumulatedDepreciationAccountId { get; set; }
-}
-
-public class CreateUpdateAssetCategoryDetailDto
-{
-    public string CategoryName { get; set; } = null!;
-    public bool IsDepreciable { get; set; } = true;
-    public DepreciationMethod DefaultDepreciationMethod { get; set; }
-    public int DefaultUsefulLifeMonths { get; set; } = 60;
-    public decimal? DefaultDepreciationRate { get; set; }
-    public Guid? AssetAccountId { get; set; }
-    public Guid? DepreciationAccountId { get; set; }
-    public Guid? AccumulatedDepreciationAccountId { get; set; }
-}
-
-[Authorize(MyERPPermissions.Assets.Default)]
-public class AssetCategoryAppService : ApplicationService
+[Authorize(MyERPPermissions.AssetCategories.Default)]
+public class AssetCategoryAppService : ApplicationService, IAssetCategoryAppService
 {
     private readonly IRepository<AssetCategory, Guid> _repository;
+    private readonly AssetCategoryMapper _mapper;
 
-    public AssetCategoryAppService(IRepository<AssetCategory, Guid> repository)
-        => _repository = repository;
-
-    public async Task<PagedResultDto<AssetCategoryDetailDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public AssetCategoryAppService(
+        IRepository<AssetCategory, Guid> repository,
+        AssetCategoryMapper mapper)
     {
-        var query = await _repository.GetQueryableAsync();
-        var totalCount = query.Count();
-        var items = query.OrderBy(c => c.CategoryName)
-            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<AssetCategoryDetailDto>(totalCount,
-            items.Select(ObjectMapper.Map<AssetCategory, AssetCategoryDetailDto>).ToList());
+        _repository = repository;
+        _mapper = mapper;
     }
 
-    public async Task<AssetCategoryDetailDto> GetAsync(Guid id)
-        => ObjectMapper.Map<AssetCategory, AssetCategoryDetailDto>(await _repository.GetAsync(id));
+    public async Task<PagedResultDto<AssetCategoryDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    {
+        var query = await _repository.WithDetailsAsync(c => c.Accounts);
+        var totalCount = await AsyncExecuter.CountAsync(query);
+        var items = await AsyncExecuter.ToListAsync(
+            query.OrderBy(c => c.CategoryName)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount));
 
-    [Authorize(MyERPPermissions.Assets.Create)]
-    public async Task<AssetCategoryDetailDto> CreateAsync(CreateUpdateAssetCategoryDetailDto input)
+        return new PagedResultDto<AssetCategoryDto>(totalCount, items.Select(_mapper.Map).ToList());
+    }
+
+    public async Task<AssetCategoryDto> GetAsync(Guid id)
+    {
+        var query = await _repository.WithDetailsAsync(c => c.Accounts);
+        var category = await AsyncExecuter.FirstOrDefaultAsync(query, c => c.Id == id);
+
+        if (category == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
+        return _mapper.Map(category);
+    }
+
+    [Authorize(MyERPPermissions.AssetCategories.Create)]
+    public async Task<AssetCategoryDto> CreateAsync(CreateUpdateAssetCategoryDto input)
     {
         var category = new AssetCategory(GuidGenerator.Create(), input.CategoryName, CurrentTenant.Id)
         {
             IsDepreciable = input.IsDepreciable,
+            EnableCwipAccounting = input.EnableCwipAccounting,
+            NonDepreciableCategory = input.NonDepreciableCategory,
             DefaultDepreciationMethod = input.DefaultDepreciationMethod,
             DefaultUsefulLifeMonths = input.DefaultUsefulLifeMonths,
             DefaultDepreciationRate = input.DefaultDepreciationRate,
+            DefaultFrequencyMonths = input.DefaultFrequencyMonths,
             AssetAccountId = input.AssetAccountId,
             DepreciationAccountId = input.DepreciationAccountId,
             AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId,
         };
+
+        if (input.Accounts != null)
+        {
+            foreach (var acc in input.Accounts)
+            {
+                category.AddAccount(
+                    GuidGenerator.Create(),
+                    acc.CompanyId,
+                    acc.FixedAssetAccountId,
+                    acc.AccumulatedDepreciationAccountId,
+                    acc.DepreciationExpenseAccountId,
+                    acc.CapitalWorkInProgressAccountId);
+            }
+        }
+
         await _repository.InsertAsync(category);
-        return ObjectMapper.Map<AssetCategory, AssetCategoryDetailDto>(category);
+        return _mapper.Map(category);
     }
 
-    [Authorize(MyERPPermissions.Assets.Edit)]
-    public async Task<AssetCategoryDetailDto> UpdateAsync(Guid id, CreateUpdateAssetCategoryDetailDto input)
+    [Authorize(MyERPPermissions.AssetCategories.Edit)]
+    public async Task<AssetCategoryDto> UpdateAsync(Guid id, CreateUpdateAssetCategoryDto input)
     {
-        var category = await _repository.GetAsync(id);
+        var query = await _repository.WithDetailsAsync(c => c.Accounts);
+        var category = await AsyncExecuter.FirstOrDefaultAsync(query, c => c.Id == id);
+
+        if (category == null)
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
         category.CategoryName = input.CategoryName;
         category.IsDepreciable = input.IsDepreciable;
+        category.EnableCwipAccounting = input.EnableCwipAccounting;
+        category.NonDepreciableCategory = input.NonDepreciableCategory;
         category.DefaultDepreciationMethod = input.DefaultDepreciationMethod;
         category.DefaultUsefulLifeMonths = input.DefaultUsefulLifeMonths;
         category.DefaultDepreciationRate = input.DefaultDepreciationRate;
+        category.DefaultFrequencyMonths = input.DefaultFrequencyMonths;
         category.AssetAccountId = input.AssetAccountId;
         category.DepreciationAccountId = input.DepreciationAccountId;
         category.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
+
+        category.Accounts.Clear();
+        if (input.Accounts != null)
+        {
+            foreach (var acc in input.Accounts)
+            {
+                category.AddAccount(
+                    acc.Id ?? GuidGenerator.Create(),
+                    acc.CompanyId,
+                    acc.FixedAssetAccountId,
+                    acc.AccumulatedDepreciationAccountId,
+                    acc.DepreciationExpenseAccountId,
+                    acc.CapitalWorkInProgressAccountId);
+            }
+        }
+
         await _repository.UpdateAsync(category);
-        return ObjectMapper.Map<AssetCategory, AssetCategoryDetailDto>(category);
+        return _mapper.Map(category);
     }
 
-    [Authorize(MyERPPermissions.Assets.Delete)]
+    [Authorize(MyERPPermissions.AssetCategories.Delete)]
     public async Task DeleteAsync(Guid id)
     {
-        // Block deletion if active assets use this category
         var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Asset, Guid>>();
         var query = await assetRepo.GetQueryableAsync();
-        var hasActive = query.Any(a => a.AssetCategoryId == id
-            && a.Status != AssetStatus.Cancelled);
+        var hasActive = query.Any(a => a.AssetCategoryId == id && a.Status != AssetStatus.Cancelled);
         if (hasActive)
         {
-            throw new Volo.Abp.BusinessException("MyERP:15002")
+            throw new BusinessException("MyERP:15002")
                 .WithData("reason", "Active assets are linked to this category.");
         }
         await _repository.DeleteAsync(id);
+    }
+
+    public async Task<AssetCategoryAccountDto?> GetAccountForCompanyAsync(Guid categoryId, Guid companyId)
+    {
+        var query = await _repository.WithDetailsAsync(c => c.Accounts);
+        var category = await AsyncExecuter.FirstOrDefaultAsync(query, c => c.Id == categoryId);
+
+        var account = category?.GetAccountForCompany(companyId);
+        if (account == null) return null;
+
+        return new AssetCategoryAccountDto
+        {
+            Id = account.Id,
+            AssetCategoryId = account.AssetCategoryId,
+            CompanyId = account.CompanyId,
+            FixedAssetAccountId = account.FixedAssetAccountId,
+            AccumulatedDepreciationAccountId = account.AccumulatedDepreciationAccountId,
+            DepreciationExpenseAccountId = account.DepreciationExpenseAccountId,
+            CapitalWorkInProgressAccountId = account.CapitalWorkInProgressAccountId,
+        };
     }
 }

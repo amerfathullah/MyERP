@@ -3,15 +3,15 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ApprovalRequestService, ApprovalRequestDto } from './approval-request.service';
+import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
+import type { ApprovalRequestDto } from '../../proxy/workflow/dtos/models';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-approval-inbox',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe, PaginationComponent, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe, PaginationComponent],
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -33,67 +33,71 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
       </div>
       <div class="card-body">
         @if (loading()) {
-          <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+          <div class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+          </div>
+        } @else if (requests().length === 0) {
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-check2-circle fs-1 text-success d-block mb-2"></i>
+            {{ 'MyERP::NoPendingApprovals' | abpLocalization }}
+          </div>
         } @else {
           <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-light">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
                 <tr>
                   <th>{{ 'MyERP::DocumentType' | abpLocalization }}</th>
-                  <th>{{ 'MyERP::Level' | abpLocalization }}</th>
-                  <th>{{ 'MyERP::RequestedOn' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'MyERP::Status' | abpLocalization }}</th>
-                  <th></th>
+                  <th>{{ 'MyERP::DocumentNumber' | abpLocalization }}</th>
+                  <th>{{ 'MyERP::RequestedBy' | abpLocalization }}</th>
+                  <th>{{ 'MyERP::RequestDate' | abpLocalization }}</th>
+                  <th>{{ 'MyERP::Notes' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'MyERP::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
-                @for (request of requests(); track request.id) {
+                @for (req of requests(); track req.id) {
                   <tr>
                     <td>
-                      <a [routerLink]="getDocumentLink(request)" class="text-decoration-none">
-                        <span class="badge bg-light text-dark me-1">{{ request.documentType }}</span>
-                        <span class="small text-muted">{{ request.documentNumber || '—' }}</span>
+                      <span class="badge bg-secondary">{{ req.documentType }}</span>
+                    </td>
+                    <td>
+                      <a [routerLink]="getDocumentLink(req)" class="fw-bold text-decoration-none">
+                        {{ req.documentId }}
                       </a>
                     </td>
-                    <td><span class="badge bg-info">{{ request.documentType }}</span></td>
-                    <td class="small">{{ request.creationTime | date:'medium' }}</td>
-                    <td class="text-center">
-                      <app-status-badge
-                        [status]="getStatusLabel(request.status ?? 0)" />
+                    <td>{{ req.requestedByUserId || '—' }}</td>
+                    <td>{{ req.creationTime | date:'medium' }}</td>
+                    <td>
+                      <small class="text-muted">{{ req.remarks || req.ruleName || '—' }}</small>
                     </td>
                     <td class="text-end">
-                      @if (request.status === 0) {
-                        <div class="btn-group btn-group-sm">
-                          <button class="btn btn-success" (click)="approve(request)" title="Approve">
-                            <i class="bi bi-check-lg"></i> {{ 'MyERP::Approve' | abpLocalization }}
-                          </button>
-                          <button class="btn btn-outline-danger" (click)="reject(request)" title="Reject">
-                            <i class="bi bi-x-lg"></i>
-                          </button>
-                        </div>
-                      }
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr>
-                    <td colspan="5" class="text-center text-muted py-5">
-                      <i class="bi bi-check-circle d-block mb-2" style="font-size: 2rem;"></i>
-                      <p>{{ 'MyERP::NoPendingApprovals' | abpLocalization }}</p>
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" (click)="approve(req)" title="Approve">
+                          <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Approve' | abpLocalization }}
+                        </button>
+                        <button class="btn btn-outline-danger" (click)="reject(req)" title="Reject">
+                          <i class="bi bi-x-lg me-1"></i>{{ 'MyERP::Reject' | abpLocalization }}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
-          <app-pagination [totalCount]="totalCount()" [pageSize]="pageSize" [currentPage]="currentPage"
-            (pageChange)="onPageChange($event)" />
+          <app-pagination
+            [totalCount]="totalCount()"
+            [currentPage]="currentPage"
+            [pageSize]="pageSize"
+            (pageChange)="onPageChange($event)">
+          </app-pagination>
         }
       </div>
     </div>
   `,
 })
 export class ApprovalInboxComponent implements OnInit {
-  private service = inject(ApprovalRequestService);
+  private service = inject(ApprovalWorkflowService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
@@ -107,12 +111,11 @@ export class ApprovalInboxComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
-    this.service.getPendingCount().subscribe(r => this.pendingCount.set(r.totalCount ?? 0));
   }
 
   loadData() {
     this.loading.set(true);
-    this.service.getMyPending({
+    this.service.getPendingApprovals({
       skipCount: this.currentPage * this.pageSize,
       maxResultCount: this.pageSize,
     }).subscribe({
@@ -123,6 +126,7 @@ export class ApprovalInboxComponent implements OnInit {
         }
         this.requests.set(items);
         this.totalCount.set(res.totalCount ?? 0);
+        this.pendingCount.set(res.totalCount ?? 0);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -130,23 +134,23 @@ export class ApprovalInboxComponent implements OnInit {
   }
 
   approve(request: ApprovalRequestDto) {
-    this.service.approve(request.id).subscribe({
+    if (!request.id) return;
+    this.service.approve({ requestId: request.id }).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyApproved');
         this.loadData();
-        this.pendingCount.update(c => Math.max(0, c - 1));
       },
     });
   }
 
   reject(request: ApprovalRequestDto) {
+    if (!request.id) return;
     this.confirmation.warn('::RejectConfirmation', '::AreYouSure').subscribe((status) => {
       if (status === Confirmation.Status.confirm) {
-        this.service.reject(request.id, 'Rejected by approver').subscribe({
+        this.service.reject({ requestId: request.id, remarks: 'Rejected by approver' }).subscribe({
           next: () => {
             this.toaster.success('::SuccessfullyRejected');
             this.loadData();
-            this.pendingCount.update(c => Math.max(0, c - 1));
           },
         });
       }
@@ -162,8 +166,8 @@ export class ApprovalInboxComponent implements OnInit {
       StockEntry: '/inventory/stock-entries',
       ExpenseClaim: '/hr/expense-claims',
     };
-    const base = typeRouteMap[request.documentType] ?? '/';
-    return [base, request.documentId];
+    const base = (request.documentType && typeRouteMap[request.documentType]) ? typeRouteMap[request.documentType] : '/';
+    return [base, request.documentId || ''];
   }
 
   getStatusLabel(status: number): string {

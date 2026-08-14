@@ -135,11 +135,3 @@ public class TimesheetDetail : Entity<Guid>
         Hours = hours;
     }
 }
-
-public enum TimesheetStatus
-{
-    Draft = 0,
-    Submitted = 1,
-    Billed = 2,
-    Cancelled = 3,
-}

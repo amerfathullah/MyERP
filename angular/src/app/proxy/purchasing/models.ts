@@ -1,9 +1,10 @@
 import type { ScorecardPeriodType } from './scorecard-period-type.enum';
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { SubcontractingOrderStatus } from './entities/subcontracting-order-status.enum';
+import type { SubcontractingOrderStatus } from './subcontracting-order-status.enum';
 import type { AnalyticsGroupBy } from '../sales/analytics-group-by.enum';
 import type { AnalyticsPeriodType } from '../sales/analytics-period-type.enum';
-import type { SubcontractingReceiptStatus } from './entities/subcontracting-receipt-status.enum';
+import type { SubcontractingInwardOrderStatus } from './subcontracting-inward-order-status.enum';
+import type { SubcontractingReceiptStatus } from './subcontracting-receipt-status.enum';
 
 export interface ComparisonItemDto {
   itemId?: string;
@@ -147,7 +148,7 @@ export interface CreateSQItemDto {
 }
 
 export interface CreateScioItemDto {
-  itemId?: string;
+  itemId: string;
   bomId?: string | null;
   quantity?: number;
   rate?: number;
@@ -198,9 +199,9 @@ export interface CreateStandingDto {
 }
 
 export interface CreateSubcontractingInwardOrderDto {
-  companyId?: string;
-  supplierId?: string;
-  orderDate?: string;
+  companyId: string;
+  supplierId: string;
+  orderDate: string;
   salesOrderId?: string | null;
   subcontractingOrderId?: string | null;
   currencyCode?: string;
@@ -566,8 +567,7 @@ export interface RmTransferResultDto {
   totalQty?: number;
 }
 
-export interface ScoItemDto {
-  id?: string;
+export interface ScoItemDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string;
   qty?: number;
@@ -575,15 +575,14 @@ export interface ScoItemDto {
   receivedQty?: number;
 }
 
-export interface ScorecardCriterionDto {
+export interface ScorecardCriterionDto extends EntityDto<string> {
   name?: string;
   weight?: number;
   maxScore?: number;
   formula?: string | null;
 }
 
-export interface ScorecardDto {
-  id?: string;
+export interface ScorecardDto extends EntityDto<string> {
   supplierId?: string;
   companyId?: string;
   periodType?: string;
@@ -594,12 +593,14 @@ export interface ScorecardDto {
   criteria?: ScorecardCriterionDto[];
 }
 
-export interface ScorecardStandingDto {
+export interface ScorecardStandingDto extends EntityDto<string> {
   name?: string;
   minScore?: number;
   maxScore?: number;
   preventPos?: boolean;
   preventRfqs?: boolean;
+  warnPos?: boolean;
+  warnRfqs?: boolean;
 }
 
 export interface SubcontractingInwardOrderDto extends EntityDto<string> {
@@ -612,7 +613,7 @@ export interface SubcontractingInwardOrderDto extends EntityDto<string> {
   currencyCode?: string;
   netTotal?: number;
   grandTotal?: number;
-  status?: number;
+  status?: SubcontractingInwardOrderStatus;
   perReceived?: number;
   perBilled?: number;
   items?: SubcontractingInwardOrderItemDto[];
@@ -652,6 +653,16 @@ export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   subcontractingOrderId?: string;
   netTotal?: number;
   status?: SubcontractingReceiptStatus;
+  items?: SubcontractingReceiptItemDto[];
+}
+
+export interface SubcontractingReceiptItemDto extends EntityDto<string> {
+  itemId?: string;
+  itemName?: string;
+  qty?: number;
+  rate?: number;
+  amount?: number;
+  warehouseId?: string | null;
 }
 
 export interface SupplierDeliveryPerformanceDto {

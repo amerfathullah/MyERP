@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -37,7 +37,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(SalesOrderService);
   private conversionService = inject(DocumentConversionService);
-  private http = inject(HttpClient);
+  private manufacturingService = inject(ManufacturingService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
   private documentEmailService = inject(DocumentEmailService);
@@ -298,12 +298,12 @@ export class SalesOrderDetailComponent implements OnInit {
         });
         break;
       case 'batch_work_orders':
-        this.http.post<any>(`/api/app/manufacturing/work-order/create-from-sales-order/${id}`, {}).subscribe({
+        this.manufacturingService.createWorkOrdersFromSalesOrder(id).subscribe({
           next: (result) => {
-            if (result.createdCount > 0) {
+            if (result.createdCount && result.createdCount > 0) {
               this.toaster.success(this.l.instant('::WorkOrdersCreated', result.createdCount.toString()));
             }
-            if (result.skippedCount > 0) {
+            if (result.skippedCount && result.skippedCount > 0) {
               this.toaster.info(this.l.instant('::ItemsSkippedNoBom', result.skippedCount.toString()));
             }
             this.reloadAfterAction();

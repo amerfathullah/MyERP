@@ -49,9 +49,3 @@ public class SalaryComponent : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 }
-
-public enum SalaryComponentType
-{
-    Earning = 0,
-    Deduction = 1,
-}

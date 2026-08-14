@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { HttpClient } from '@angular/common/http';
+import { DashboardService } from '../../proxy/core/dashboard.service';
+import type { QuickReorderResultDto } from '../../proxy/core/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface ReorderItem {
@@ -24,115 +25,120 @@ interface ReorderItem {
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-boxes-stacked me-2"></i>{{ '::StockReorderManagement' | abpLocalization }}</h5>
-        @if (items().length > 0) {
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-success" [disabled]="selectedCount() === 0 || isCreatingMR()"
-                    (click)="createMaterialRequest()">
-              @if (isCreatingMR()) {
-                <span class="spinner-border spinner-border-sm me-1"></span>
-              } @else {
-                <i class="fa fa-file-circle-plus me-1"></i>
-              }
-              {{ '::CreateMaterialRequest' | abpLocalization }} ({{ selectedCount() }})
-            </button>
-          </div>
-        }
-      </div>
-      <div class="card-body">
-        <!-- KPI Summary -->
-        @if (items().length > 0) {
-          <div class="row g-3 mb-4">
-            <div class="col-md-3">
-              <div class="border rounded p-3 text-center">
-                <div class="fs-4 fw-bold text-danger">{{ items().length }}</div>
-                <small class="text-muted">{{ '::ItemsBelowReorder' | abpLocalization }}</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="border rounded p-3 text-center">
-                <div class="fs-4 fw-bold text-warning">{{ criticalCount() }}</div>
-                <small class="text-muted">{{ '::CriticalItems' | abpLocalization }}</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="border rounded p-3 text-center">
-                <div class="fs-4 fw-bold text-primary">{{ totalShortage() | number:'1.0-0' }}</div>
-                <small class="text-muted">{{ '::TotalShortageUnits' | abpLocalization }}</small>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="border rounded p-3 text-center">
-                <div class="fs-4 fw-bold text-success">{{ selectedCount() }}</div>
-                <small class="text-muted">{{ '::SelectedForReorder' | abpLocalization }}</small>
-              </div>
-            </div>
-          </div>
-        }
-
-        <!-- Selection Controls -->
-        @if (items().length > 0) {
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="form-check">
-              <input type="checkbox" class="form-check-input" id="selectAll"
-                     [checked]="allSelected()" (change)="toggleSelectAll()">
-              <label class="form-check-label" for="selectAll">{{ '::SelectAll' | abpLocalization }}</label>
-            </div>
-            @if (selectedCount() > 0) {
-              <button class="btn btn-outline-secondary btn-sm" (click)="clearSelection()">
-                <i class="fa fa-times me-1"></i>{{ '::ClearSelection' | abpLocalization }}
-              </button>
+        <div>
+          <h5 class="mb-0">{{ '::StockReorderRecommendations' | abpLocalization }}</h5>
+          <small class="text-muted">{{ '::ItemsBelowReorderLevel' | abpLocalization }}</small>
+        </div>
+        <div class="d-flex gap-2">
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            [disabled]="loading()"
+            (click)="loadItems()">
+            <i class="fa fa-sync-alt" [class.fa-spin]="loading()"></i>
+            {{ '::Refresh' | abpLocalization }}
+          </button>
+          <button
+            class="btn btn-primary btn-sm"
+            [disabled]="selectedCount() === 0 || isCreatingMR()"
+            (click)="createMaterialRequest()">
+            @if (isCreatingMR()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-plus me-1"></i>
             }
+            {{ '::CreateMaterialRequest' | abpLocalization }}
+            @if (selectedCount() > 0) {
+              ({{ selectedCount() }})
+            }
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Summary Stats -->
+        @if (items().length > 0) {
+          <div class="row g-3 mb-3">
+            <div class="col-sm-4">
+              <div class="p-3 bg-light rounded text-center">
+                <div class="fs-4 fw-bold text-danger">{{ items().length }}</div>
+                <small class="text-muted">{{ '::ItemsNeedingReorder' | abpLocalization }}</small>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="p-3 bg-light rounded text-center">
+                <div class="fs-4 fw-bold text-warning">{{ criticalCount() }}</div>
+                <small class="text-muted">{{ '::CriticalShortage' | abpLocalization }}</small>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="p-3 bg-light rounded text-center">
+                <div class="fs-4 fw-bold text-primary">{{ totalShortage() | number:'1.0-0' }}</div>
+                <small class="text-muted">{{ '::TotalUnitsShort' | abpLocalization }}</small>
+              </div>
+            </div>
           </div>
         }
 
-        <!-- Items Table -->
+        <!-- Table of low stock items -->
         @if (loading()) {
-          <div class="text-center py-5"><span class="spinner-border"></span></div>
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>
         } @else if (items().length === 0) {
           <div class="text-center py-5 text-muted">
-            <i class="fa fa-check-circle fa-3x mb-3 text-success"></i>
-            <p class="fs-5">{{ '::AllStockLevelsAdequate' | abpLocalization }}</p>
-            <p class="small">{{ '::NoItemsBelowReorderLevel' | abpLocalization }}</p>
+            <i class="fa fa-check-circle text-success fs-1 mb-2 d-block"></i>
+            <p class="mb-0">{{ '::AllStockLevelsHealthy' | abpLocalization }}</p>
+            <small>{{ '::NoItemsBelowReorderLevel' | abpLocalization }}</small>
           </div>
         } @else {
           <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 40px"></th>
+                  <th style="width: 40px">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      [checked]="allSelected()"
+                      (change)="toggleSelectAll()" />
+                  </th>
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ReorderLevel' | abpLocalization }}</th>
                   <th class="text-end">{{ '::CurrentStock' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ProjectedQty' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Shortage' | abpLocalization }}</th>
-                  <th>{{ '::Severity' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of items(); track item.itemId) {
                   <tr [class.table-danger]="isCritical(item)" [class.table-warning]="!isCritical(item)">
                     <td>
-                      <input type="checkbox" class="form-check-input"
-                             [checked]="item.selected" (change)="toggleItem(item)">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        [checked]="item.selected"
+                        (change)="toggleItem(item)" />
                     </td>
                     <td>
-                      <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">
-                        <strong>{{ item.itemCode }}</strong>
-                      </a>
-                      <br><small class="text-muted">{{ item.itemName }}</small>
+                      <div class="fw-semibold">{{ item.itemName }}</div>
+                      <small class="text-muted">{{ item.itemCode }}</small>
                     </td>
                     <td class="text-end">{{ item.reorderLevel | number:'1.0-2' }}</td>
-                    <td class="text-end">{{ item.currentStock | number:'1.0-2' }}</td>
-                    <td class="text-end" [class.text-danger]="item.projectedQty < 0">
+                    <td class="text-end fw-semibold">{{ item.currentStock | number:'1.0-2' }}</td>
+                    <td class="text-end" [class.text-danger]="item.projectedQty <= 0">
                       {{ item.projectedQty | number:'1.0-2' }}
                     </td>
-                    <td class="text-end fw-bold text-danger">{{ item.shortageQty | number:'1.0-0' }}</td>
+                    <td class="text-end fw-bold text-danger">
+                      {{ item.shortageQty | number:'1.0-2' }}
+                    </td>
                     <td>
-                      @if (isCritical(item)) {
-                        <span class="badge bg-danger">{{ '::Critical' | abpLocalization }}</span>
+                      @if (item.currentStock <= 0) {
+                        <span class="badge bg-danger">{{ '::OutOfStock' | abpLocalization }}</span>
+                      } @else if (item.projectedQty <= 0) {
+                        <span class="badge bg-danger">{{ '::ProjectedDeficit' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-warning text-dark">{{ '::Warning' | abpLocalization }}</span>
+                        <span class="badge bg-warning text-dark">{{ '::BelowReorderLevel' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
@@ -142,11 +148,12 @@ interface ReorderItem {
           </div>
         }
 
-        <!-- Created MR Result -->
+        <!-- Success Message after MR creation -->
         @if (createdMR()) {
-          <div class="alert alert-success d-flex align-items-center mt-3">
-            <i class="fa fa-check-circle me-2"></i>
-            <span>{{ '::MaterialRequestCreatedForItems' | abpLocalization }}:
+          <div class="alert alert-success mt-3 d-flex align-items-center justify-content-between" role="alert">
+            <span>
+              <i class="fa fa-check me-2"></i>
+              {{ '::MaterialRequestCreatedSuccessfully' | abpLocalization }}:
               <a [routerLink]="['/purchasing/material-requests', createdMR()!.materialRequestId]" class="alert-link">
                 {{ createdMR()!.materialRequestNumber }}
               </a>
@@ -159,7 +166,7 @@ interface ReorderItem {
   `,
 })
 export class StockReorderComponent implements OnInit {
-  private http = inject(HttpClient);
+  private dashboardService = inject(DashboardService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   private companyContext = inject(CompanyContextService);
@@ -167,7 +174,7 @@ export class StockReorderComponent implements OnInit {
   items = signal<ReorderItem[]>([]);
   loading = signal(false);
   isCreatingMR = signal(false);
-  createdMR = signal<{ materialRequestId: string; materialRequestNumber: string; itemCount: number } | null>(null);
+  createdMR = signal<QuickReorderResultDto | null>(null);
 
   ngOnInit(): void {
     this.loadItems();
@@ -221,7 +228,7 @@ export class StockReorderComponent implements OnInit {
     this.isCreatingMR.set(true);
     this.createdMR.set(null);
 
-    this.http.post<any>('/api/app/dashboard/create-reorder-material-request', {
+    this.dashboardService.createReorderMaterialRequest({
       companyId,
       itemIds: selectedIds,
     }).subscribe({
@@ -239,19 +246,19 @@ export class StockReorderComponent implements OnInit {
     });
   }
 
-  private loadItems(): void {
+  loadItems(): void {
     this.loading.set(true);
-    this.http.get<any[]>('/api/app/dashboard/low-stock-items').subscribe({
+    this.dashboardService.getLowStockItems().subscribe({
       next: (result) => {
         this.loading.set(false);
         this.items.set((result ?? []).map(i => ({
-          itemId: i.itemId,
-          itemCode: i.itemCode,
-          itemName: i.itemName,
-          reorderLevel: i.reorderLevel,
-          currentStock: i.currentStock,
-          projectedQty: i.projectedQty,
-          shortageQty: Math.max(0, i.reorderLevel - i.projectedQty),
+          itemId: i.itemId || '',
+          itemCode: i.itemCode || '',
+          itemName: i.itemName || '',
+          reorderLevel: i.reorderLevel ?? 0,
+          currentStock: i.currentStock ?? 0,
+          projectedQty: i.projectedQty ?? 0,
+          shortageQty: Math.max(0, (i.reorderLevel ?? 0) - (i.projectedQty ?? 0)),
           selected: false,
         })));
       },

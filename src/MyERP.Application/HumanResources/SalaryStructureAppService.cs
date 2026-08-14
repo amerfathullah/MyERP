@@ -10,46 +10,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.HumanResources;
 
-public class SalaryStructureDto : EntityDto<Guid>
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsHourlyBased { get; set; }
-    public string PayrollFrequency { get; set; } = null!;
-    public bool IsActive { get; set; }
-    public string? Description { get; set; }
-    public SalaryStructureDetailDto[] Details { get; set; } = [];
-}
-
-public class SalaryStructureDetailDto
-{
-    public Guid Id { get; set; }
-    public Guid SalaryComponentId { get; set; }
-    public string ComponentName { get; set; } = null!;
-    public decimal Amount { get; set; }
-    public string? Formula { get; set; }
-}
-
-public class CreateSalaryStructureDto
-{
-    public Guid CompanyId { get; set; }
-    public string Name { get; set; } = null!;
-    public bool IsHourlyBased { get; set; }
-    public string PayrollFrequency { get; set; } = "Monthly";
-    public string? Description { get; set; }
-    public CreateSalaryStructureDetailDto[] Details { get; set; } = [];
-}
-
-public class CreateSalaryStructureDetailDto
-{
-    public Guid SalaryComponentId { get; set; }
-    public string ComponentName { get; set; } = null!;
-    public decimal Amount { get; set; }
-    public string? Formula { get; set; }
-}
-
 [Authorize(MyERPPermissions.Payroll.Default)]
-public class SalaryStructureAppService : ApplicationService
+public class SalaryStructureAppService : ApplicationService, ISalaryStructureAppService
 {
     private readonly IRepository<SalaryStructure, Guid> _repository;
 
@@ -82,7 +44,7 @@ public class SalaryStructureAppService : ApplicationService
         foreach (var d in input.Details)
             ss.AddDetail(new SalaryStructureDetail(Guid.NewGuid(), ss.Id,
                 d.SalaryComponentId, d.ComponentName, d.Amount,
-                HumanResources.Entities.SalaryComponentType.Earning)
+                SalaryComponentType.Earning)
             {
                 Formula = d.Formula,
             });

@@ -146,7 +146,7 @@ public class DunningDetailAndPipelineTests
     public void Session_DunningDto_IncludesOverduePaymentDetails()
     {
         // DunningDto now includes List<DunningOverduePaymentDto> with invoice numbers resolved
-        var type = Type.GetType("MyERP.Sales.DunningOverduePaymentDto, MyERP.Application");
+        var type = Type.GetType("MyERP.Sales.DunningOverduePaymentDto, MyERP.Application.Contracts");
         Assert.NotNull(type);
         Assert.NotNull(type!.GetProperty("InvoiceNumber"));
         Assert.NotNull(type.GetProperty("OverdueDays"));

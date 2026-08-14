@@ -5,6 +5,7 @@ using MyERP.Purchasing.Entities;
 using MyERP.Purchasing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Accounting.Entities;
+using MyERP.HumanResources;
 using MyERP.HumanResources.Entities;
 using MyERP.Assets.Entities;
 using MyERP.Core;

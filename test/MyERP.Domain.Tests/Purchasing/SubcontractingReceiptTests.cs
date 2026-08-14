@@ -1,3 +1,4 @@
+using MyERP.Purchasing;
 using System;
 using MyERP.Accounting.DomainServices;
 using MyERP.Purchasing.Entities;

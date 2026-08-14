@@ -4,12 +4,6 @@ using Volo.Abp.MultiTenancy;
 
 namespace MyERP.HumanResources.Entities;
 
-public enum ShiftAssignmentStatus
-{
-    Active,
-    Inactive
-}
-
 /// <summary>
 /// Assigns a shift to an employee for a specific period.
 /// Maps to ERPNext Shift Assignment.

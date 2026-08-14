@@ -1,3 +1,4 @@
+using MyERP.Purchasing;
 using System;
 using System.Collections.Generic;
 using MyERP.Accounting.Entities;

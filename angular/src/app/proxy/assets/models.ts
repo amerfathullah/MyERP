@@ -1,51 +1,107 @@
-import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AssetActivityType } from './asset-activity-type.enum';
+import type { AssetCapitalizationStatus } from './asset-capitalization-status.enum';
 import type { DepreciationMethod } from './depreciation-method.enum';
 import type { AssetStatus } from './asset-status.enum';
+import type { MaintenancePeriodicity } from './maintenance-periodicity.enum';
+import type { AssetMaintenanceStatus } from './asset-maintenance-status.enum';
+import type { AssetMovementPurpose } from './asset-movement-purpose.enum';
+import type { DocumentStatus } from '../core/document-status.enum';
+import type { AssetRepairStatus } from './asset-repair-status.enum';
 import type { MaintenanceVisitStatus } from './entities/maintenance-visit-status.enum';
 
-export interface AssetCapitalizationDto {
-  id?: string;
-  companyId?: string;
-  targetAssetName?: string | null;
-  targetAssetId?: string;
-  postingDate?: string;
-  totalAssetValue?: number;
-  status?: string;
+export interface AssetActivityDto extends FullAuditedEntityDto<string> {
+  assetId?: string;
+  activityType?: AssetActivityType;
+  subject?: string;
+  details?: string | null;
+  transactionDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
 }
 
-export interface AssetCategoryDetailDto extends EntityDto<string> {
+export interface AssetCapitalizationAssetItemDto extends EntityDto<string> {
+  assetId?: string;
+  assetName?: string;
+  currentValue?: number;
+}
+
+export interface AssetCapitalizationDto extends FullAuditedEntityDto<string> {
+  capitalizationNumber?: string;
+  companyId?: string;
+  postingDate?: string;
+  targetAssetId?: string;
+  targetAssetName?: string | null;
+  totalCapitalizedAmount?: number;
+  status?: AssetCapitalizationStatus;
+  stockItems?: AssetCapitalizationStockItemDto[];
+  serviceItems?: AssetCapitalizationServiceItemDto[];
+  consumedAssets?: AssetCapitalizationAssetItemDto[];
+}
+
+export interface AssetCapitalizationServiceItemDto extends EntityDto<string> {
+  itemId?: string;
+  itemName?: string;
+  amount?: number;
+  expenseAccountId?: string | null;
+}
+
+export interface AssetCapitalizationStockItemDto extends EntityDto<string> {
+  itemId?: string;
+  itemName?: string;
+  qty?: number;
+  rate?: number;
+  amount?: number;
+  warehouseId?: string | null;
+}
+
+export interface AssetCategoryAccountDto extends FullAuditedEntityDto<string> {
+  assetCategoryId?: string;
+  companyId?: string;
+  fixedAssetAccountId?: string;
+  accumulatedDepreciationAccountId?: string | null;
+  depreciationExpenseAccountId?: string | null;
+  capitalWorkInProgressAccountId?: string | null;
+}
+
+export interface AssetCategoryDto extends FullAuditedEntityDto<string> {
   categoryName?: string;
   isDepreciable?: boolean;
+  enableCwipAccounting?: boolean;
+  nonDepreciableCategory?: boolean;
   defaultDepreciationMethod?: DepreciationMethod;
   defaultUsefulLifeMonths?: number;
   defaultDepreciationRate?: number | null;
+  defaultFrequencyMonths?: number;
   assetAccountId?: string | null;
   depreciationAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
+  accounts?: AssetCategoryAccountDto[];
 }
 
-export interface AssetCategoryDto {
-  id?: string;
-  categoryName?: string;
-  isDepreciable?: boolean;
-  defaultDepreciationMethod?: DepreciationMethod;
-  defaultUsefulLifeMonths?: number;
-}
-
-export interface AssetDto extends AuditedEntityDto<string> {
+export interface AssetDto extends FullAuditedEntityDto<string> {
   assetNumber?: string;
   assetName?: string;
   status?: AssetStatus;
   companyId?: string;
   assetCategoryId?: string | null;
+  assetCategoryName?: string | null;
+  itemId?: string | null;
   location?: string | null;
+  custodianEmployeeId?: string | null;
   purchaseDate?: string;
   purchaseAmount?: number;
   additionalCost?: number;
   totalAssetCost?: number;
+  purchaseReceiptId?: string | null;
+  purchaseInvoiceId?: string | null;
   calculateDepreciation?: boolean;
   depreciationMethod?: DepreciationMethod;
   usefulLifeMonths?: number;
+  depreciationRate?: number;
+  frequencyMonths?: number;
+  availableForUseDate?: string | null;
+  openingAccumulatedDepreciation?: number;
   valueAfterDepreciation?: number;
   isFullyDepreciated?: boolean;
   disposalDate?: string | null;
@@ -54,68 +110,175 @@ export interface AssetDto extends AuditedEntityDto<string> {
   schedule?: DepreciationScheduleDto[];
 }
 
-export interface AssetMovementDto extends EntityDto<string> {
+export interface AssetMaintenanceDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   assetId?: string;
-  movementType?: string;
-  movementDate?: string;
+  assetName?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  maintenanceManagerId?: string | null;
+  maintenanceManagerName?: string | null;
+  maintenanceTeamId?: string | null;
+  maintenanceTeamName?: string | null;
+  tasks?: AssetMaintenanceTaskDto[];
+}
+
+export interface AssetMaintenanceLogDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  assetMaintenanceId?: string;
+  assetMaintenanceTaskId?: string;
+  assetId?: string;
+  assetName?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  maintenanceTask?: string;
+  periodicity?: MaintenancePeriodicity;
+  maintenanceType?: string | null;
+  dueDate?: string;
+  completionDate?: string | null;
+  status?: AssetMaintenanceStatus;
+  assignToEmployeeId?: string | null;
+  assignTo?: string | null;
+  assignToName?: string | null;
+  hasCertificate?: boolean;
+  certificateDetails?: string | null;
+  certificateNo?: string | null;
+  cost?: number | null;
+  description?: string | null;
+  actionsPerformed?: string | null;
+  remarks?: string | null;
+}
+
+export interface AssetMaintenanceTaskDto extends FullAuditedEntityDto<string> {
+  assetMaintenanceId?: string;
+  maintenanceTask?: string;
+  periodicity?: MaintenancePeriodicity;
+  maintenanceType?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  nextDueDate?: string;
+  lastCompletionDate?: string | null;
+  assignToEmployeeId?: string | null;
+  assignTo?: string | null;
+  assignToName?: string | null;
+  certificateRequired?: boolean;
+  description?: string | null;
+  certificateNo?: string | null;
+}
+
+export interface AssetMovementDto extends FullAuditedEntityDto<string> {
+  movementNumber?: string;
+  companyId?: string;
+  purpose?: AssetMovementPurpose;
+  transactionDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  assetId?: string | null;
+  sourceLocation?: string | null;
+  sourceEmployeeId?: string | null;
+  targetLocation?: string | null;
+  targetEmployeeId?: string | null;
+  status?: DocumentStatus;
+  items?: AssetMovementItemDto[];
+}
+
+export interface AssetMovementItemDto extends FullAuditedEntityDto<string> {
+  assetMovementId?: string;
+  assetId?: string;
+  assetName?: string | null;
   sourceLocation?: string | null;
   targetLocation?: string | null;
-  purpose?: string | null;
-  status?: number;
+  fromEmployeeId?: string | null;
+  toEmployeeId?: string | null;
 }
 
-export interface AssetRepairDto extends EntityDto<string> {
+export interface AssetRepairConsumedItemDto extends FullAuditedEntityDto<string> {
+  assetRepairId?: string;
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string | null;
+  qty?: number;
+  valuationRate?: number;
+  totalValue?: number;
+  serialAndBatchBundleId?: string | null;
+}
+
+export interface AssetRepairDto extends FullAuditedEntityDto<string> {
+  repairNumber?: string;
   companyId?: string;
   assetId?: string;
+  assetName?: string | null;
   repairDescription?: string | null;
+  actionsPerformed?: string | null;
+  downtime?: string | null;
   failureDate?: string | null;
   completionDate?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
   repairCost?: number;
+  consumedItemsCost?: number;
+  totalRepairCost?: number;
   capitalizeRepairCost?: boolean;
   increaseInAssetLife?: number;
-  stockItemConsumedCost?: number;
-  status?: number;
-  creationTime?: string;
+  status?: AssetRepairStatus;
+  stockItems?: AssetRepairConsumedItemDto[];
+  invoices?: AssetRepairPurchaseInvoiceDto[];
 }
 
-export interface CapConsumedAssetDto {
-  assetId?: string;
-  assetName?: string;
-  valueAfterDepreciation?: number;
-}
-
-export interface CapServiceItemDto {
-  itemId?: string;
-  itemName?: string;
-  amount?: number;
+export interface AssetRepairPurchaseInvoiceDto extends FullAuditedEntityDto<string> {
+  assetRepairId?: string;
+  purchaseInvoiceId?: string;
+  purchaseInvoiceNumber?: string | null;
+  repairCost?: number;
   expenseAccountId?: string | null;
 }
 
-export interface CapStockItemDto {
-  itemId?: string;
-  itemName?: string;
-  quantity?: number;
-  rate?: number;
-  warehouseId?: string | null;
+export interface AssetValueAdjustmentDto extends FullAuditedEntityDto<string> {
+  adjustmentNumber?: string;
+  companyId?: string;
+  assetId?: string;
+  assetName?: string | null;
+  financeBookId?: string | null;
+  date?: string;
+  currentAssetValue?: number;
+  newAssetValue?: number;
+  differenceAmount?: number;
+  differenceAccountId?: string;
+  costCenterId?: string | null;
+  journalEntryId?: string | null;
+  notes?: string | null;
+  status?: DocumentStatus;
 }
 
-export interface CreateAssetCapitalizationDto {
-  companyId?: string;
-  capitalizationNumber?: string;
-  targetAssetName?: string | null;
-  targetAssetId?: string;
-  postingDate?: string;
-  stockItems?: CapStockItemDto[];
-  serviceItems?: CapServiceItemDto[];
-  consumedAssets?: CapConsumedAssetDto[];
+export interface CompleteAssetMaintenanceLogDto {
+  completionDate?: string;
+  actionsPerformed?: string | null;
+  certificateNo?: string | null;
+  hasCertificate?: boolean;
+  certificateDetails?: string | null;
+  cost?: number | null;
+  remarks?: string | null;
+}
+
+export interface CreateAssetActivityDto {
+  assetId?: string;
+  activityType?: AssetActivityType;
+  subject: string;
+  details?: string | null;
+  transactionDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
 }
 
 export interface CreateAssetDto {
   assetName: string;
   companyId: string;
   assetCategoryId?: string | null;
+  itemId?: string | null;
   location?: string | null;
+  custodianEmployeeId?: string | null;
   purchaseDate: string;
   purchaseAmount?: number;
   additionalCost?: number;
@@ -125,29 +288,8 @@ export interface CreateAssetDto {
   depreciationRate?: number;
   frequencyMonths?: number;
   availableForUseDate?: string | null;
+  openingAccumulatedDepreciation?: number;
   notes?: string | null;
-}
-
-export interface CreateAssetMovementDto {
-  companyId?: string;
-  assetId?: string;
-  movementType?: string;
-  movementDate?: string;
-  sourceLocation?: string | null;
-  sourceEmployeeId?: string | null;
-  targetLocation?: string | null;
-  targetEmployeeId?: string | null;
-  purpose?: string | null;
-}
-
-export interface CreateAssetRepairDto {
-  companyId?: string;
-  assetId?: string;
-  repairDescription?: string | null;
-  failureDate?: string | null;
-  repairCost?: number;
-  capitalizeRepairCost?: boolean;
-  increaseInAssetLife?: number;
 }
 
 export interface CreateMaintenanceScheduleDto {
@@ -178,27 +320,187 @@ export interface CreateMaintenanceVisitPurposeDto {
   workDetails?: string | null;
 }
 
-export interface CreateUpdateAssetCategoryDetailDto {
-  categoryName?: string;
-  isDepreciable?: boolean;
-  defaultDepreciationMethod?: DepreciationMethod;
-  defaultUsefulLifeMonths?: number;
-  defaultDepreciationRate?: number | null;
-  assetAccountId?: string | null;
-  depreciationAccountId?: string | null;
+export interface CreateUpdateAssetCapitalizationAssetItemDto {
+  assetId?: string;
+  assetName?: string;
+  currentValue?: number;
+}
+
+export interface CreateUpdateAssetCapitalizationDto {
+  companyId?: string;
+  postingDate?: string;
+  targetAssetId?: string;
+  targetAssetName?: string | null;
+  stockItems?: CreateUpdateAssetCapitalizationStockItemDto[];
+  serviceItems?: CreateUpdateAssetCapitalizationServiceItemDto[];
+  consumedAssets?: CreateUpdateAssetCapitalizationAssetItemDto[];
+}
+
+export interface CreateUpdateAssetCapitalizationServiceItemDto {
+  itemId?: string;
+  itemName?: string;
+  amount?: number;
+  expenseAccountId?: string | null;
+}
+
+export interface CreateUpdateAssetCapitalizationStockItemDto {
+  itemId?: string;
+  itemName?: string;
+  qty?: number;
+  rate?: number;
+  warehouseId?: string | null;
+}
+
+export interface CreateUpdateAssetCategoryAccountDto {
+  id?: string | null;
+  companyId?: string;
+  fixedAssetAccountId?: string;
   accumulatedDepreciationAccountId?: string | null;
+  depreciationExpenseAccountId?: string | null;
+  capitalWorkInProgressAccountId?: string | null;
 }
 
 export interface CreateUpdateAssetCategoryDto {
   categoryName: string;
   isDepreciable?: boolean;
+  enableCwipAccounting?: boolean;
+  nonDepreciableCategory?: boolean;
   defaultDepreciationMethod?: DepreciationMethod;
   defaultUsefulLifeMonths?: number;
   defaultDepreciationRate?: number | null;
+  defaultFrequencyMonths?: number;
+  assetAccountId?: string | null;
+  depreciationAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
+  accounts?: CreateUpdateAssetCategoryAccountDto[];
 }
 
-export interface DepreciationScheduleDto {
-  id?: string;
+export interface CreateUpdateAssetMaintenanceDto {
+  companyId?: string;
+  assetId?: string;
+  assetName?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  maintenanceManagerId?: string | null;
+  maintenanceManagerName?: string | null;
+  maintenanceTeamId?: string | null;
+  maintenanceTeamName?: string | null;
+  tasks?: CreateUpdateAssetMaintenanceTaskDto[];
+}
+
+export interface CreateUpdateAssetMaintenanceLogDto {
+  companyId?: string;
+  assetMaintenanceId?: string;
+  assetMaintenanceTaskId?: string;
+  assetId?: string;
+  assetName?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  maintenanceTask?: string;
+  periodicity?: MaintenancePeriodicity;
+  maintenanceType?: string | null;
+  dueDate?: string;
+  assignToEmployeeId?: string | null;
+  assignTo?: string | null;
+  assignToName?: string | null;
+  hasCertificate?: boolean;
+  certificateDetails?: string | null;
+  certificateNo?: string | null;
+  cost?: number | null;
+  description?: string | null;
+  remarks?: string | null;
+}
+
+export interface CreateUpdateAssetMaintenanceTaskDto {
+  id?: string | null;
+  maintenanceTask?: string;
+  periodicity?: MaintenancePeriodicity;
+  maintenanceType?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  nextDueDate?: string | null;
+  assignToEmployeeId?: string | null;
+  assignTo?: string | null;
+  assignToName?: string | null;
+  certificateRequired?: boolean;
+  description?: string | null;
+  certificateNo?: string | null;
+}
+
+export interface CreateUpdateAssetMovementDto {
+  companyId?: string;
+  purpose?: AssetMovementPurpose;
+  transactionDate?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  assetId?: string | null;
+  sourceLocation?: string | null;
+  sourceEmployeeId?: string | null;
+  targetLocation?: string | null;
+  targetEmployeeId?: string | null;
+  items?: CreateUpdateAssetMovementItemDto[];
+}
+
+export interface CreateUpdateAssetMovementItemDto {
+  id?: string | null;
+  assetId?: string;
+  assetName?: string | null;
+  sourceLocation?: string | null;
+  targetLocation?: string | null;
+  fromEmployeeId?: string | null;
+  toEmployeeId?: string | null;
+}
+
+export interface CreateUpdateAssetRepairConsumedItemDto {
+  id?: string | null;
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string | null;
+  qty?: number;
+  valuationRate?: number;
+  serialAndBatchBundleId?: string | null;
+}
+
+export interface CreateUpdateAssetRepairDto {
+  companyId?: string;
+  assetId?: string;
+  repairDescription?: string | null;
+  actionsPerformed?: string | null;
+  downtime?: string | null;
+  failureDate?: string | null;
+  completionDate?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
+  repairCost?: number;
+  capitalizeRepairCost?: boolean;
+  increaseInAssetLife?: number;
+  stockItems?: CreateUpdateAssetRepairConsumedItemDto[];
+  invoices?: CreateUpdateAssetRepairPurchaseInvoiceDto[];
+}
+
+export interface CreateUpdateAssetRepairPurchaseInvoiceDto {
+  id?: string | null;
+  purchaseInvoiceId?: string;
+  purchaseInvoiceNumber?: string | null;
+  repairCost?: number;
+  expenseAccountId?: string | null;
+}
+
+export interface CreateUpdateAssetValueAdjustmentDto {
+  companyId?: string;
+  assetId?: string;
+  financeBookId?: string | null;
+  date?: string;
+  currentAssetValue?: number;
+  newAssetValue?: number;
+  differenceAccountId?: string;
+  costCenterId?: string | null;
+  notes?: string | null;
+}
+
+export interface DepreciationScheduleDto extends EntityDto<string> {
   scheduleDate?: string;
   depreciationAmount?: number;
   accumulatedDepreciation?: number;
@@ -212,6 +514,20 @@ export interface GetAssetListDto extends PagedAndSortedResultRequestDto {
   assetCategoryId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
+}
+
+export interface GetAssetMaintenanceListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  assetId?: string | null;
+  filter?: string | null;
+}
+
+export interface GetAssetMaintenanceLogListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  assetId?: string | null;
+  assetMaintenanceId?: string | null;
+  status?: AssetMaintenanceStatus | null;
+  filter?: string | null;
 }
 
 export interface GetMaintenanceVisitListDto extends PagedAndSortedResultRequestDto {
@@ -264,7 +580,15 @@ export interface MaintenanceVisitPurposeDto {
 export interface UpdateAssetDto {
   assetName: string;
   assetCategoryId?: string | null;
+  itemId?: string | null;
   location?: string | null;
+  custodianEmployeeId?: string | null;
   additionalCost?: number;
+  calculateDepreciation?: boolean;
+  depreciationMethod?: DepreciationMethod;
+  usefulLifeMonths?: number;
+  depreciationRate?: number;
+  frequencyMonths?: number;
+  availableForUseDate?: string | null;
   notes?: string | null;
 }

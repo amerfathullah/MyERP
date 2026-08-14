@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Inventory;
 
 [Authorize(MyERPPermissions.LandedCostVouchers.Default)]
-public class LandedCostVoucherAppService : ApplicationService
+public class LandedCostVoucherAppService : ApplicationService, ILandedCostVoucherAppService
 {
     private readonly IRepository<LandedCostVoucher, Guid> _repository;
     private readonly IRepository<SerialNo, Guid> _serialNoRepository;

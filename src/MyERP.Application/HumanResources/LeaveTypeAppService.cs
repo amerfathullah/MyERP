@@ -10,35 +10,8 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.HumanResources;
 
-public class LeaveTypeDetailDto : EntityDto<Guid>
-{
-    public string Name { get; set; } = null!;
-    public int MaxDaysAllowed { get; set; }
-    public bool IsActive { get; set; }
-    public bool RequiresApproval { get; set; }
-    public bool AllowCarryForward { get; set; }
-    public int MaxCarryForwardDays { get; set; }
-    public int CarryForwardExpiryMonths { get; set; }
-    public bool IsPaidLeave { get; set; }
-    public bool IncludeHolidays { get; set; }
-    public bool AllowNegativeBalance { get; set; }
-}
-
-public class CreateUpdateLeaveTypeDto
-{
-    public string Name { get; set; } = null!;
-    public int MaxDaysAllowed { get; set; }
-    public bool RequiresApproval { get; set; } = true;
-    public bool AllowCarryForward { get; set; }
-    public int MaxCarryForwardDays { get; set; }
-    public int CarryForwardExpiryMonths { get; set; }
-    public bool IsPaidLeave { get; set; } = true;
-    public bool IncludeHolidays { get; set; }
-    public bool AllowNegativeBalance { get; set; }
-}
-
 [Authorize(MyERPPermissions.Employees.Default)]
-public class LeaveTypeAppService : ApplicationService
+public class LeaveTypeAppService : ApplicationService, ILeaveTypeAppService
 {
     private readonly IRepository<LeaveType, Guid> _repository;
 
