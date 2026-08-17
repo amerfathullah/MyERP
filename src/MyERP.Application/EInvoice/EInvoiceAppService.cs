@@ -27,6 +27,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     private readonly EInvoiceValidationService _validationService;
     private readonly EInvoiceConsolidationService _consolidationService;
     private readonly IRepository<EInvoiceSubmission, Guid> _submissionRepository;
+    private readonly IRepository<EInvoiceConsolidation, Guid> _consolidationRepository;
+    private readonly IRepository<LhdnSuccessLog, Guid> _successLogRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
@@ -43,6 +45,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         EInvoiceConsolidationService consolidationService,
         TaxpayerValidationService taxpayerValidationService,
         IRepository<EInvoiceSubmission, Guid> submissionRepository,
+        IRepository<EInvoiceConsolidation, Guid> consolidationRepository,
+        IRepository<LhdnSuccessLog, Guid> successLogRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<Customer, Guid> customerRepository,
@@ -57,6 +61,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         _consolidationService = consolidationService;
         _taxpayerValidationService = taxpayerValidationService;
         _submissionRepository = submissionRepository;
+        _consolidationRepository = consolidationRepository;
+        _successLogRepository = successLogRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _customerRepository = customerRepository;
@@ -538,4 +544,452 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             };
         }
     }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<List<LhdnStatusReportItemDto>> GetSalesStatusReportAsync(LhdnStatusReportRequestDto input)
+    {
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var customerQuery = await _customerRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+        if (input.FromDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+        }
+        if (input.ToDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status))
+        {
+            if (input.Status.Equals("Not Submitted", StringComparison.OrdinalIgnoreCase) ||
+                input.Status.Equals("NotSubmitted", StringComparison.OrdinalIgnoreCase))
+            {
+                salesQuery = salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted);
+            }
+            else if (Enum.TryParse<Sales.EInvoiceStatus>(input.Status, true, out var parsedStatus))
+            {
+                salesQuery = salesQuery.Where(x => x.EInvoiceStatus == parsedStatus);
+            }
+        }
+
+        var query = from si in salesQuery
+                    join c in customerQuery on si.CustomerId equals c.Id into custJoin
+                    from c in custJoin.DefaultIfEmpty()
+                    orderby si.IssueDate descending, si.InvoiceNumber descending
+                    select new LhdnStatusReportItemDto
+                    {
+                        InvoiceId = si.Id,
+                        InvoiceNumber = si.InvoiceNumber,
+                        PostingDate = si.IssueDate,
+                        PartyName = c != null ? c.Name : "—",
+                        GrandTotal = si.GrandTotal,
+                        TaxAmount = si.TaxAmount,
+                        Status = si.EInvoiceStatus.ToString(),
+                        DocumentUuid = si.LhdnUuid,
+                        QrCodeUrl = si.QrCodeUrl,
+                        SubmittedAt = si.LhdnSubmittedAt
+                    };
+
+        return await AsyncExecuter.ToListAsync(query);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<List<LhdnStatusReportItemDto>> GetPurchaseStatusReportAsync(LhdnStatusReportRequestDto input)
+    {
+        var purchaseQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var supplierQuery = await _supplierRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            purchaseQuery = purchaseQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+        if (input.FromDate.HasValue)
+        {
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+        }
+        if (input.ToDate.HasValue)
+        {
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Status))
+        {
+            if (input.Status.Equals("Not Submitted", StringComparison.OrdinalIgnoreCase) ||
+                input.Status.Equals("NotSubmitted", StringComparison.OrdinalIgnoreCase))
+            {
+                purchaseQuery = purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted);
+            }
+            else if (Enum.TryParse<Sales.EInvoiceStatus>(input.Status, true, out var parsedStatus))
+            {
+                purchaseQuery = purchaseQuery.Where(x => x.EInvoiceStatus == parsedStatus);
+            }
+        }
+
+        var query = from pi in purchaseQuery
+                    join s in supplierQuery on pi.SupplierId equals s.Id into suppJoin
+                    from s in suppJoin.DefaultIfEmpty()
+                    orderby pi.IssueDate descending, pi.InvoiceNumber descending
+                    select new LhdnStatusReportItemDto
+                    {
+                        InvoiceId = pi.Id,
+                        InvoiceNumber = pi.InvoiceNumber,
+                        PostingDate = pi.IssueDate,
+                        PartyName = s != null ? s.Name : "—",
+                        GrandTotal = pi.GrandTotal,
+                        TaxAmount = pi.TaxAmount,
+                        Status = pi.EInvoiceStatus.ToString(),
+                        DocumentUuid = pi.LhdnUuid,
+                        QrCodeUrl = null,
+                        SubmittedAt = pi.LhdnSubmittedAt
+                    };
+
+        return await AsyncExecuter.ToListAsync(query);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<LhdnVatReportDto> GetVatReportAsync(LhdnVatReportRequestDto input)
+    {
+        var taxCategories = new Dictionary<string, string>
+        {
+            { "01", "Sales Tax" },
+            { "02", "Service Tax" },
+            { "03", "Tourism Tax" },
+            { "04", "High-Value Goods Tax" },
+            { "05", "Sales Tax on Low Value Goods" },
+            { "06", "Not Applicable" },
+            { "E", "Tax Exemption" }
+        };
+
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var purchaseQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+        if (input.FromDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+        }
+        if (input.ToDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+        }
+
+        salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted);
+        purchaseQuery = purchaseQuery.Where(x => x.Status == Core.DocumentStatus.Submitted);
+
+        var salesInvoices = await AsyncExecuter.ToListAsync(salesQuery);
+        var purchaseInvoices = await AsyncExecuter.ToListAsync(purchaseQuery);
+
+        var salesCatMap = taxCategories.ToDictionary(k => k.Key, v => new LhdnVatCategorySummaryDto
+        {
+            CategoryCode = v.Key,
+            CategoryName = v.Value
+        });
+
+        foreach (var si in salesInvoices)
+        {
+            var catCode = si.TaxAmount > 0 ? "01" : "E";
+            if (!salesCatMap.ContainsKey(catCode)) catCode = "E";
+
+            if (si.IsReturn)
+            {
+                salesCatMap[catCode].Adjustment += si.GrandTotal;
+                salesCatMap[catCode].VatAmount -= si.TaxAmount;
+            }
+            else
+            {
+                salesCatMap[catCode].Amount += si.GrandTotal;
+                salesCatMap[catCode].VatAmount += si.TaxAmount;
+            }
+        }
+
+        var purchaseCatMap = taxCategories.ToDictionary(k => k.Key, v => new LhdnVatCategorySummaryDto
+        {
+            CategoryCode = v.Key,
+            CategoryName = v.Value
+        });
+
+        foreach (var pi in purchaseInvoices)
+        {
+            var catCode = pi.TaxAmount > 0 ? "02" : "E";
+            if (!purchaseCatMap.ContainsKey(catCode)) catCode = "E";
+
+            if (pi.IsReturn)
+            {
+                purchaseCatMap[catCode].Adjustment += pi.GrandTotal;
+                purchaseCatMap[catCode].VatAmount -= pi.TaxAmount;
+            }
+            else
+            {
+                purchaseCatMap[catCode].Amount += pi.GrandTotal;
+                purchaseCatMap[catCode].VatAmount += pi.TaxAmount;
+            }
+        }
+
+        var report = new LhdnVatReportDto
+        {
+            SalesCategories = salesCatMap.Values.ToList(),
+            PurchaseCategories = purchaseCatMap.Values.ToList(),
+            TotalSalesAmount = salesCatMap.Values.Sum(x => x.Amount),
+            TotalSalesAdjustment = salesCatMap.Values.Sum(x => x.Adjustment),
+            TotalSalesVat = salesCatMap.Values.Sum(x => x.VatAmount),
+            TotalPurchaseAmount = purchaseCatMap.Values.Sum(x => x.Amount),
+            TotalPurchaseAdjustment = purchaseCatMap.Values.Sum(x => x.Adjustment),
+            TotalPurchaseVat = purchaseCatMap.Values.Sum(x => x.VatAmount)
+        };
+        report.NetVatPayable = report.TotalSalesVat - report.TotalPurchaseVat;
+
+        return report;
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<LhdnDashboardStatsDto> GetDashboardStatsAsync(Guid? companyId)
+    {
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var purchaseQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+
+        if (companyId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.CompanyId == companyId.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.CompanyId == companyId.Value);
+        }
+
+        var stats = new LhdnDashboardStatsDto
+        {
+            SalesValid = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Valid)),
+            SalesInvalid = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Invalid)),
+            SalesSubmitted = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Pending)),
+            SalesCancelled = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Cancelled)),
+            SalesFailed = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Rejected)),
+            SalesNotSubmitted = await AsyncExecuter.CountAsync(salesQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted)),
+
+            PurchaseValid = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Valid)),
+            PurchaseInvalid = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Invalid)),
+            PurchaseSubmitted = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Pending)),
+            PurchaseCancelled = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Cancelled)),
+            PurchaseFailed = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Rejected)),
+            PurchaseNotSubmitted = await AsyncExecuter.CountAsync(purchaseQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted))
+        };
+
+        return stats;
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<List<ConsolidationCandidateDto>> GetConsolidationCandidatesAsync(GetConsolidationCandidatesInputDto input)
+    {
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var custQuery = await _customerRepository.GetQueryableAsync();
+        var consolQuery = await _consolidationRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+        if (input.FromDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+        }
+        if (input.ToDate.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+        }
+
+        // Only submitted sales invoices not submitted to LHDN directly
+        salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted &&
+                                           x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted);
+
+        var alreadyConsolidatedIds = consolQuery.Select(c => c.OriginalInvoiceId);
+        salesQuery = salesQuery.Where(x => !alreadyConsolidatedIds.Contains(x.Id));
+
+        var maxAmount = input.MaxAmount ?? 10000m;
+        salesQuery = salesQuery.Where(x => x.GrandTotal <= maxAmount);
+
+        var query = from si in salesQuery
+                    join c in custQuery on si.CustomerId equals c.Id into custJoin
+                    from c in custJoin.DefaultIfEmpty()
+                    orderby si.IssueDate descending, si.InvoiceNumber descending
+                    select new ConsolidationCandidateDto
+                    {
+                        InvoiceId = si.Id,
+                        InvoiceNumber = si.InvoiceNumber,
+                        IssueDate = si.IssueDate,
+                        CustomerId = si.CustomerId,
+                        CustomerName = c != null ? c.Name : "General Public",
+                        GrandTotal = si.GrandTotal,
+                        ItemCount = si.Items.Count,
+                        CurrencyCode = si.CurrencyCode ?? "MYR",
+                        IsEligible = true
+                    };
+
+        return await AsyncExecuter.ToListAsync(query);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<PagedResultDto<EInvoiceConsolidationDto>> GetConsolidationsAsync(GetConsolidationsInputDto input)
+    {
+        var consolQuery = await _consolidationRepository.GetQueryableAsync();
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var custQuery = await _customerRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            consolQuery = consolQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+
+        var totalCount = await AsyncExecuter.CountAsync(
+            consolQuery.Select(x => x.ConsolidatedInvoiceId).Distinct()
+        );
+
+        var consolidatedInvoiceIds = await AsyncExecuter.ToListAsync(
+            consolQuery
+                .OrderByDescending(x => x.CreationTime)
+                .Select(x => x.ConsolidatedInvoiceId)
+                .Distinct()
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount)
+        );
+
+        var consolidatedInvoices = await AsyncExecuter.ToListAsync(
+            salesQuery.Where(x => consolidatedInvoiceIds.Contains(x.Id))
+        );
+
+        var consolRecords = await AsyncExecuter.ToListAsync(
+            consolQuery.Where(x => consolidatedInvoiceIds.Contains(x.ConsolidatedInvoiceId))
+        );
+
+        var originalInvoiceIds = consolRecords.Select(x => x.OriginalInvoiceId).Distinct().ToList();
+        var originalInvoices = await AsyncExecuter.ToListAsync(
+            salesQuery.Where(x => originalInvoiceIds.Contains(x.Id))
+        );
+        var originalCustomerIds = originalInvoices.Select(x => x.CustomerId).Distinct().ToList();
+        var customers = await AsyncExecuter.ToListAsync(
+            custQuery.Where(x => originalCustomerIds.Contains(x.Id))
+        );
+        var custMap = customers.ToDictionary(k => k.Id, v => v.Name);
+
+        var origMap = originalInvoices.ToDictionary(k => k.Id, v => new ConsolidationCandidateDto
+        {
+            InvoiceId = v.Id,
+            InvoiceNumber = v.InvoiceNumber,
+            IssueDate = v.IssueDate,
+            CustomerId = v.CustomerId,
+            CustomerName = custMap.TryGetValue(v.CustomerId, out var cName) ? cName : "General Public",
+            GrandTotal = v.GrandTotal,
+            ItemCount = v.Items.Count,
+            CurrencyCode = v.CurrencyCode ?? "MYR",
+            IsEligible = true
+        });
+
+        var resultList = new List<EInvoiceConsolidationDto>();
+        foreach (var cInv in consolidatedInvoices)
+        {
+            var matchedConsols = consolRecords.Where(x => x.ConsolidatedInvoiceId == cInv.Id).ToList();
+            var origList = matchedConsols
+                .Where(m => origMap.ContainsKey(m.OriginalInvoiceId))
+                .Select(m => origMap[m.OriginalInvoiceId])
+                .ToList();
+
+            resultList.Add(new EInvoiceConsolidationDto
+            {
+                Id = matchedConsols.FirstOrDefault()?.Id ?? cInv.Id,
+                CompanyId = cInv.CompanyId,
+                ConsolidatedInvoiceId = cInv.Id,
+                ConsolidatedInvoiceNumber = cInv.InvoiceNumber,
+                ConsolidatedIssueDate = cInv.IssueDate,
+                ConsolidatedGrandTotal = cInv.GrandTotal,
+                LhdnUuid = cInv.LhdnUuid,
+                EInvoiceStatus = cInv.EInvoiceStatus.ToString(),
+                QrCodeUrl = cInv.QrCodeUrl,
+                OriginalInvoices = origList,
+                CreationTime = matchedConsols.FirstOrDefault()?.CreationTime ?? cInv.CreationTime
+            });
+        }
+
+        return new PagedResultDto<EInvoiceConsolidationDto>(totalCount, resultList);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<PagedResultDto<LhdnSuccessLogDto>> GetSuccessLogsAsync(GetLhdnSuccessLogsInputDto input)
+    {
+        var logQuery = await _successLogRepository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            logQuery = logQuery.Where(x => x.CompanyId == input.CompanyId.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(input.SourceDocumentType))
+        {
+            logQuery = logQuery.Where(x => x.SourceDocumentType == input.SourceDocumentType);
+        }
+        if (input.FromDate.HasValue)
+        {
+            logQuery = logQuery.Where(x => x.SubmittedAt >= input.FromDate.Value);
+        }
+        if (input.ToDate.HasValue)
+        {
+            logQuery = logQuery.Where(x => x.SubmittedAt <= input.ToDate.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(input.SearchFilter))
+        {
+            var filter = input.SearchFilter.Trim().ToLower();
+            logQuery = logQuery.Where(x => x.DocumentUuid.ToLower().Contains(filter) ||
+                                           (x.SourceDocumentNumber != null && x.SourceDocumentNumber.ToLower().Contains(filter)));
+        }
+
+        var totalCount = await AsyncExecuter.CountAsync(logQuery);
+
+        var logs = await AsyncExecuter.ToListAsync(
+            logQuery.OrderByDescending(x => x.SubmittedAt)
+                    .Skip(input.SkipCount)
+                    .Take(input.MaxResultCount)
+        );
+
+        var dtoList = logs.Select(x => new LhdnSuccessLogDto
+        {
+            Id = x.Id,
+            CompanyId = x.CompanyId,
+            SubmissionId = x.SubmissionId,
+            DocumentUuid = x.DocumentUuid,
+            LongId = x.LongId,
+            SourceDocumentType = x.SourceDocumentType,
+            SourceDocumentId = x.SourceDocumentId,
+            SourceDocumentNumber = x.SourceDocumentNumber,
+            DocumentTypeCode = x.DocumentTypeCode,
+            SubmittedAt = x.SubmittedAt,
+            ValidatedAt = x.ValidatedAt,
+            ResponseJson = x.ResponseJson,
+            QrCodeUrl = x.QrCodeUrl,
+            GrandTotal = x.GrandTotal,
+            CurrencyCode = x.CurrencyCode
+        }).ToList();
+
+        return new PagedResultDto<LhdnSuccessLogDto>(totalCount, dtoList);
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<EInvoiceSubmissionDto> RefreshStatusAsync(Guid submissionId)
+    {
+        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
+            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
+                .WithData("reason", "LHDN access token not configured.");
+
+        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
+        var environment = Enum.Parse<LhdnEnvironment>(envString);
+
+        var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
+        await PropagateStatusToSourceAsync(submission);
+
+        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
+    }
 }
+

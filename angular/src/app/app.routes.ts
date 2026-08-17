@@ -191,6 +191,36 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.EInvoice' },
   },
   {
+    path: 'e-invoice/consolidation',
+    loadComponent: () => import('./e-invoice/consolidation/einvoice-consolidation.component').then(c => c.EinvoiceConsolidationComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.EInvoice' },
+  },
+  {
+    path: 'e-invoice/reports',
+    loadComponent: () => import('./e-invoice/reports/einvoice-status-report.component').then(c => c.EinvoiceStatusReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.EInvoice' },
+  },
+  {
+    path: 'e-invoice/logs',
+    loadComponent: () => import('./e-invoice/logs/einvoice-logs.component').then(c => c.EinvoiceLogsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.EInvoice' },
+  },
+  {
+    path: 'einvoice/batch-submit',
+    loadComponent: () => import('./einvoice/einvoice-batch-submit.component').then(c => c.EInvoiceBatchSubmitComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.EInvoice' },
+  },
+  {
+    path: 'einvoice/settings',
+    loadComponent: () => import('./einvoice/einvoice-settings.component').then(c => c.EInvoiceSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.EInvoice' },
+  },
+  {
     path: 'purchasing/orders',
     loadComponent: () => import('./purchasing/purchase-orders/purchase-order-list.component').then(c => c.PurchaseOrderListComponent),
     canActivate: [authGuard, permissionGuard],

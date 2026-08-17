@@ -1,4 +1,4 @@
-import type { EntityDto } from '@abp/ng.core';
+import type { EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 export interface BatchSubmitEInvoiceDto {
   companyId: string;
@@ -33,6 +33,18 @@ export interface ConsolidateInvoicesDto {
   invoiceIds: string[];
 }
 
+export interface ConsolidationCandidateDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  issueDate?: string;
+  customerId?: string;
+  customerName?: string;
+  grandTotal?: number;
+  itemCount?: number;
+  currencyCode?: string;
+  isEligible?: boolean;
+}
+
 export interface EInvoiceConnectResultDto {
   isSuccess?: boolean;
   errorMessage?: string | null;
@@ -49,6 +61,19 @@ export interface EInvoiceConnectionStatusDto {
   isCertificateConfigured?: boolean;
 }
 
+export interface EInvoiceConsolidationDto extends EntityDto<string> {
+  companyId?: string;
+  consolidatedInvoiceId?: string;
+  consolidatedInvoiceNumber?: string;
+  consolidatedIssueDate?: string;
+  consolidatedGrandTotal?: number;
+  lhdnUuid?: string | null;
+  eInvoiceStatus?: string | null;
+  qrCodeUrl?: string | null;
+  originalInvoices?: ConsolidationCandidateDto[];
+  creationTime?: string;
+}
+
 export interface EInvoiceSubmissionDto extends EntityDto<string> {
   companyId?: string;
   submissionUid?: string | null;
@@ -63,6 +88,105 @@ export interface EInvoiceSubmissionDto extends EntityDto<string> {
   submittedAt?: string | null;
   validatedAt?: string | null;
   cancelledAt?: string | null;
+}
+
+export interface GetConsolidationCandidatesInputDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  maxAmount?: number | null;
+}
+
+export interface GetConsolidationsInputDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface GetLhdnSuccessLogsInputDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  sourceDocumentType?: string | null;
+  searchFilter?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface LhdnDashboardStatsDto {
+  salesValid?: number;
+  salesInvalid?: number;
+  salesSubmitted?: number;
+  salesCancelled?: number;
+  salesFailed?: number;
+  salesNotSubmitted?: number;
+  purchaseValid?: number;
+  purchaseInvalid?: number;
+  purchaseSubmitted?: number;
+  purchaseCancelled?: number;
+  purchaseFailed?: number;
+  purchaseNotSubmitted?: number;
+}
+
+export interface LhdnStatusReportItemDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  postingDate?: string;
+  partyName?: string;
+  grandTotal?: number;
+  taxAmount?: number;
+  status?: string;
+  documentUuid?: string | null;
+  qrCodeUrl?: string | null;
+  submittedAt?: string | null;
+}
+
+export interface LhdnStatusReportRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: string | null;
+}
+
+export interface LhdnSuccessLogDto extends EntityDto<string> {
+  companyId?: string;
+  submissionId?: string;
+  documentUuid?: string;
+  longId?: string | null;
+  sourceDocumentType?: string;
+  sourceDocumentId?: string;
+  sourceDocumentNumber?: string | null;
+  documentTypeCode?: string;
+  submittedAt?: string;
+  validatedAt?: string | null;
+  responseJson?: string | null;
+  qrCodeUrl?: string | null;
+  grandTotal?: number;
+  currencyCode?: string;
+}
+
+export interface LhdnVatCategorySummaryDto {
+  categoryCode?: string;
+  categoryName?: string;
+  amount?: number;
+  adjustment?: number;
+  vatAmount?: number;
+}
+
+export interface LhdnVatReportDto {
+  salesCategories?: LhdnVatCategorySummaryDto[];
+  purchaseCategories?: LhdnVatCategorySummaryDto[];
+  totalSalesAmount?: number;
+  totalSalesAdjustment?: number;
+  totalSalesVat?: number;
+  totalPurchaseAmount?: number;
+  totalPurchaseAdjustment?: number;
+  totalPurchaseVat?: number;
+  netVatPayable?: number;
+}
+
+export interface LhdnVatReportRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 export interface SaveEInvoiceCertificateDto {

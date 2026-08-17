@@ -2,41 +2,75 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" class="d-flex flex-wrap align-items-end gap-2">
-        <div><label class="form-label">{{ '::From' | abpLocalization }}</label><input type="date" class="form-control" formControlName="fromDate" /></div>
-        <div><label class="form-label">{{ '::To' | abpLocalization }}</label><input type="date" class="form-control" formControlName="toDate" /></div>
-        <div><label class="form-label">{{ '::Type' | abpLocalization }}</label>
-          <select class="form-select" formControlName="documentType"><option value="sales">{{ '::Sales' | abpLocalization }}</option><option value="purchase">{{ '::Purchase' | abpLocalization }}</option></select>
+        <div>
+          <label class="form-label">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
         </div>
-        <div><label class="form-label">{{ '::Status' | abpLocalization }}</label>
-          <select class="form-select" formControlName="status"><option value="">{{ '::All' | abpLocalization }}</option><option value="Valid">{{ '::Valid' | abpLocalization }}</option><option value="Invalid">{{ '::Invalid' | abpLocalization }}</option><option value="Submitted">{{ '::Submitted' | abpLocalization }}</option><option value="NotSubmitted">{{ '::NotSubmitted' | abpLocalization }}</option></select>
+        <div>
+          <label class="form-label">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
         </div>
-        <button class="btn btn-primary" (click)="generate()"><i class="fa fa-sync me-1"></i>{{ '::Generate' | abpLocalization }}</button>
+        <div>
+          <label class="form-label">{{ '::ReportType' | abpLocalization }}</label>
+          <select class="form-select" formControlName="reportType">
+            <option value="sales">{{ '::SalesStatusReport' | abpLocalization }}</option>
+            <option value="purchase">{{ '::PurchaseStatusReport' | abpLocalization }}</option>
+            <option value="vat">{{ '::VatReportOnSalesAndPurchase' | abpLocalization }}</option>
+          </select>
+        </div>
+        @if (filters.get('reportType')?.value !== 'vat') {
+          <div>
+            <label class="form-label">{{ '::Status' | abpLocalization }}</label>
+            <select class="form-select" formControlName="status">
+              <option value="">{{ '::All' | abpLocalization }}</option>
+              <option value="Valid">{{ '::Valid' | abpLocalization }}</option>
+              <option value="Invalid">{{ '::Invalid' | abpLocalization }}</option>
+              <option value="Pending">{{ '::Pending' | abpLocalization }}</option>
+              <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
+              <option value="NotSubmitted">{{ '::NotSubmitted' | abpLocalization }}</option>
+            </select>
+          </div>
+        }
+        <button class="btn btn-primary" (click)="generate()" [disabled]="isLoading()">
+          <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
+        </button>
       </form>
     </div>
   </div>
-  @if (data.length > 0) {
+
+  @if (statusReportData().length > 0) {
     <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+          {{ (filters.get('reportType')?.value === 'purchase' ? '::PurchaseStatusReport' : '::SalesStatusReport') | abpLocalization }}
+        </h5>
+        <span class="badge bg-secondary">{{ statusReportData().length }} {{ '::Records' | abpLocalization }}</span>
+      </div>
       <div class="card-body">
         <div class="table-responsive">
-                    <table class="table table-hover w-100">
+          <table class="table table-hover w-100">
             <thead>
               <tr>
-                <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
-                <th>{{ 'Party' | abpLocalization }}</th>
-                <th>{{ 'Amount' | abpLocalization }}</th>
-                <th>{{ 'LhdnStatus' | abpLocalization }}</th>
-                <th>{{ 'Submitted' | abpLocalization }}</th>
+                <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::Party' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TaxAmount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                <th>{{ '::LhdnStatus' | abpLocalization }}</th>
+                <th>{{ '::DocumentUuid' | abpLocalization }}</th>
+                <th>{{ '::SubmittedAt' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
-              @for (r of data(); track $index) {
+              @for (r of statusReportData(); track r.invoiceId) {
                 <tr>
-                  <td class="fw-medium">{{ r.invoiceNumber }}</td>
-                  <td>{{ r.date | date:'dd/MM/yyyy' }}</td>
-                  <td>{{ r.party }}</td>
-                  <td class="font-monospace text-end">{{ r.amount | number:'1.2-2' }}</td>
-                  <td><app-lhdn-status-badge [status]="r.lhdnStatus" /></td>
+                  <td class="fw-medium font-monospace">{{ r.invoiceNumber }}</td>
+                  <td>{{ r.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ r.partyName }}</td>
+                  <td class="font-monospace text-end">{{ r.taxAmount | number:'1.2-2' }}</td>
+                  <td class="font-monospace text-end fw-bold">{{ r.grandTotal | number:'1.2-2' }}</td>
+                  <td><app-lhdn-status-badge [status]="r.status || 'NotSubmitted'" /></td>
+                  <td class="font-monospace small text-muted">{{ r.documentUuid || '—' }}</td>
                   <td>{{ r.submittedAt ? (r.submittedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
                 </tr>
               }
@@ -46,4 +80,109 @@
       </div>
     </div>
   }
+
+  @if (vatReportData(); as vat) {
+    <div class="row g-4">
+      <!-- Sales VAT -->
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-header bg-light">
+            <h5 class="card-title mb-0">{{ '::SalesVat' | abpLocalization }}</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Category' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Adjustment' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Vat' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (cat of vat.salesCategories; track cat.categoryCode) {
+                    <tr>
+                      <td><span class="badge bg-light text-dark me-1">{{ cat.categoryCode }}</span> {{ cat.categoryName }}</td>
+                      <td class="text-end font-monospace">{{ cat.amount | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace text-danger">{{ cat.adjustment | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-medium">{{ cat.vatAmount | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="table-light fw-bold">
+                    <td>{{ '::TotalSales' | abpLocalization }}</td>
+                    <td class="text-end font-monospace">{{ vat.totalSalesAmount | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-danger">{{ vat.totalSalesAdjustment | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-primary">{{ vat.totalSalesVat | number:'1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Purchase VAT -->
+      <div class="col-12 col-lg-6">
+        <div class="card h-100">
+          <div class="card-header bg-light">
+            <h5 class="card-title mb-0">{{ '::PurchaseVat' | abpLocalization }}</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Category' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Adjustment' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Vat' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (cat of vat.purchaseCategories; track cat.categoryCode) {
+                    <tr>
+                      <td><span class="badge bg-light text-dark me-1">{{ cat.categoryCode }}</span> {{ cat.categoryName }}</td>
+                      <td class="text-end font-monospace">{{ cat.amount | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace text-danger">{{ cat.adjustment | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-medium">{{ cat.vatAmount | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="table-light fw-bold">
+                    <td>{{ '::TotalPurchase' | abpLocalization }}</td>
+                    <td class="text-end font-monospace">{{ vat.totalPurchaseAmount | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-danger">{{ vat.totalPurchaseAdjustment | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-primary">{{ vat.totalPurchaseVat | number:'1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Net VAT Summary Card -->
+      <div class="col-12">
+        <div class="card bg-light">
+          <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1 fw-bold">{{ '::NetVatSummary' | abpLocalization }}</h6>
+              <span class="text-muted small">{{ '::NetVatDescription' | abpLocalization }}</span>
+            </div>
+            <div class="text-end">
+              <div class="fs-4 fw-bold font-monospace" [class.text-danger]="(vat.netVatPayable ?? 0) > 0" [class.text-success]="(vat.netVatPayable ?? 0) <= 0">
+                {{ vat.netVatPayable | number:'1.2-2' }} MYR
+              </div>
+              <small class="text-muted">{{ ((vat.netVatPayable ?? 0) >= 0 ? '::VatPayable' : '::VatClaimable') | abpLocalization }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 </abp-page>
+

@@ -16,4 +16,12 @@ public interface IEInvoiceAppService : IApplicationService
     Task<EInvoiceSubmissionDto> SubmitConsolidatedAsync(SubmitEInvoiceDto input);
     Task<List<Guid>> ConsolidateInvoicesAsync(ConsolidateInvoicesDto input);
     Task<TaxpayerSearchResultDto> SearchTaxpayerAsync(SearchTaxpayerDto input);
+    Task<List<LhdnStatusReportItemDto>> GetSalesStatusReportAsync(LhdnStatusReportRequestDto input);
+    Task<List<LhdnStatusReportItemDto>> GetPurchaseStatusReportAsync(LhdnStatusReportRequestDto input);
+    Task<LhdnVatReportDto> GetVatReportAsync(LhdnVatReportRequestDto input);
+    Task<LhdnDashboardStatsDto> GetDashboardStatsAsync(Guid? companyId);
+    Task<List<ConsolidationCandidateDto>> GetConsolidationCandidatesAsync(GetConsolidationCandidatesInputDto input);
+    Task<PagedResultDto<EInvoiceConsolidationDto>> GetConsolidationsAsync(GetConsolidationsInputDto input);
+    Task<PagedResultDto<LhdnSuccessLogDto>> GetSuccessLogsAsync(GetLhdnSuccessLogsInputDto input);
+    Task<EInvoiceSubmissionDto> RefreshStatusAsync(Guid submissionId);
 }

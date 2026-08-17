@@ -15,13 +15,16 @@ public class EInvoiceService : DomainService
 {
     private readonly ILhdnApiClient _lhdnApiClient;
     private readonly IRepository<EInvoiceSubmission, Guid> _submissionRepository;
+    private readonly IRepository<LhdnSuccessLog, Guid> _successLogRepository;
 
     public EInvoiceService(
         ILhdnApiClient lhdnApiClient,
-        IRepository<EInvoiceSubmission, Guid> submissionRepository)
+        IRepository<EInvoiceSubmission, Guid> submissionRepository,
+        IRepository<LhdnSuccessLog, Guid> successLogRepository)
     {
         _lhdnApiClient = lhdnApiClient;
         _submissionRepository = submissionRepository;
+        _successLogRepository = successLogRepository;
     }
 
     /// <summary>
@@ -53,6 +56,21 @@ public class EInvoiceService : DomainService
                 response.LongId,
                 response.QrCodeUrl,
                 response.RawJson);
+
+            var log = new LhdnSuccessLog(
+                GuidGenerator.Create(),
+                companyId,
+                submission.Id,
+                response.DocumentUuid!,
+                sourceDocumentType,
+                sourceDocumentId,
+                tenantId)
+            {
+                LongId = response.LongId,
+                QrCodeUrl = response.QrCodeUrl,
+                ResponseJson = response.RawJson
+            };
+            await _successLogRepository.InsertAsync(log);
         }
         else
         {
