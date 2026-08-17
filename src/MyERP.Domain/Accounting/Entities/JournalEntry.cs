@@ -51,6 +51,14 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Inter-company: the other company in an inter-company JE.</summary>
     public Guid? InterCompanyJournalEntryId { get; set; }
 
+    /// <summary>
+    /// Date the bank confirmed this entry cleared (from Bank Clearance / Bank Reconciliation).
+    /// Null = outstanding (not yet cleared at the bank). Only meaningful for BankEntry/ContraEntry/
+    /// CreditCardEntry voucher types that touch a bank GL account.
+    /// Maps to ERPNext accounts/doctype/bank_clearance clearance_date.
+    /// </summary>
+    public DateTime? ClearanceDate { get; private set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     public decimal TotalDebit { get; private set; }
@@ -217,6 +225,25 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         Status = DocumentStatus.Cancelled;
         AddLocalEvent(new JournalEntryCancelledEvent(this));
+    }
+
+    /// <summary>
+    /// Sets or clears the bank clearance date. Pass null to un-clear (reversible).
+    /// Per ERPNext bank_clearance.py: clearance_date must not precede PostingDate.
+    /// Opening entries (IsOpening) are excluded from clearance per ERPNext bank_clearance.py.
+    /// </summary>
+    public void SetClearanceDate(DateTime? clearanceDate)
+    {
+        if (IsOpening)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Opening journal entries cannot be bank-cleared.");
+
+        if (clearanceDate.HasValue && clearanceDate.Value.Date < PostingDate.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
+                .WithData("clearanceDate", clearanceDate.Value)
+                .WithData("postingDate", PostingDate);
+
+        ClearanceDate = clearanceDate;
     }
 
     private void RecalculateTotals()

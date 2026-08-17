@@ -299,6 +299,9 @@ public static class MyERPDomainErrorCodes
     // Bank Transaction — Auto-Reconcile
     public const string BankTransactionAlreadyReconciled = "MyERP:02048";
 
+    // Bank Clearance
+    public const string ClearanceDateBeforePostingDate = "MyERP:02049";
+
     // POS
     public const string NoPosOpeningEntry = "MyERP:16003";
     public const string PosProfileAlreadyOpen = "MyERP:16001";

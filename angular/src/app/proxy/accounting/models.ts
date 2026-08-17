@@ -232,6 +232,39 @@ export interface BankReconciliationSummaryDto {
   unreconciledBalance?: number;
 }
 
+export interface GetBankClearanceEntriesInput {
+  bankAccountId: string;
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  includeCleared?: boolean;
+}
+
+export interface BankClearanceEntryDto {
+  documentType: string;
+  documentId: string;
+  documentNumber: string;
+  postingDate: string;
+  debit?: number;
+  credit?: number;
+  referenceNumber?: string | null;
+  clearanceDate?: string | null;
+}
+
+export interface BankClearanceDocRefDto {
+  documentType: string;
+  documentId: string;
+}
+
+export interface SetClearanceDateDto {
+  entries: BankClearanceDocRefDto[];
+  clearanceDate?: string | null;
+}
+
+export interface BulkClearanceResultDto {
+  updatedCount?: number;
+}
+
 export interface BankStatementEntryDto {
   postingDate?: string;
   documentType?: string;

@@ -841,6 +841,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PaymentEntries.Default' },
   },
   {
+    path: 'accounting/bank-clearance',
+    loadComponent: () => import('./accounting/bank-clearance/bank-clearance.component').then(c => c.BankClearanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
+  },
+  {
     path: 'accounting/payment-reconciliation',
     loadComponent: () => import('./accounting/payment-reconciliation/payment-reconciliation.component').then(c => c.PaymentReconciliationComponent),
     canActivate: [authGuard, permissionGuard],

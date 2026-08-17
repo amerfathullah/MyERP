@@ -472,6 +472,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PaymentEntries.Default',
       },
       {
+        path: '/accounting/bank-clearance',
+        name: '::Menu:BankClearance',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-money-check-dollar',
+        order: 22,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PaymentEntries',
+      },
+      {
         path: '/accounting/payment-reconciliation',
         name: '::Menu:PaymentReconciliation',
         parentName: '::Menu:Accounting',

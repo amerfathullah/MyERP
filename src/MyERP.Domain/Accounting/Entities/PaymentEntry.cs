@@ -81,6 +81,13 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Bank reference / cheque number.</summary>
     public string? ReferenceNumber { get; set; }
 
+    /// <summary>
+    /// Date the bank confirmed this payment cleared (from Bank Clearance / Bank Reconciliation).
+    /// Null = outstanding (not yet cleared at the bank). Drives the Bank Reconciliation Statement.
+    /// Maps to ERPNext accounts/doctype/bank_clearance clearance_date.
+    /// </summary>
+    public DateTime? ClearanceDate { get; private set; }
+
     public string? Notes { get; set; }
 
     // Linked invoice (optional — can allocate to multiple invoices in future)
@@ -256,6 +263,22 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
         AddLocalEvent(new PaymentEntryCancelledEvent(this));
+    }
+
+    /// <summary>
+    /// Sets or clears the bank clearance date. Pass null to un-clear (reversible).
+    /// Per ERPNext bank_clearance.py: clearance_date must not be earlier than the
+    /// document's own date (cheque_date there; PostingDate here, since PE has no
+    /// separate cheque date field).
+    /// </summary>
+    public void SetClearanceDate(DateTime? clearanceDate)
+    {
+        if (clearanceDate.HasValue && clearanceDate.Value.Date < PostingDate.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
+                .WithData("clearanceDate", clearanceDate.Value)
+                .WithData("postingDate", PostingDate);
+
+        ClearanceDate = clearanceDate;
     }
 }
 

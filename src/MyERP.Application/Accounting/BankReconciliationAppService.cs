@@ -326,27 +326,22 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var totalCredit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
         var glBalance = totalDebit - totalCredit;
 
-        // Step 3: Find uncleared bank transactions (posted payments not yet cleared at bank)
-        // These are payments/receipts that hit GL but haven't been reconciled with bank statement
+        // Step 3: Find uncleared entries (posted payments/journals that hit GL but have no
+        // ClearanceDate yet). Per ERPNext: outstanding = entries without clearance_date.
         var peQuery = await _paymentEntryRepository.GetQueryableAsync();
         var unclearedPEs = peQuery
             .Where(pe => pe.CompanyId == input.CompanyId
                 && pe.Status == Core.DocumentStatus.Posted
                 && pe.PostingDate <= input.ReportDate
+                && pe.ClearanceDate == null
                 && (pe.PaidFromAccountId == input.BankAccountId || pe.PaidToAccountId == input.BankAccountId))
             .ToList();
-
-        // Filter to only those NOT reconciled (no matching reconciled bank transaction)
-        var reconciledPeIds = (await _repository.GetQueryableAsync())
-            .Where(bt => bt.IsReconciled && bt.PaymentEntryId.HasValue)
-            .Select(bt => bt.PaymentEntryId!.Value)
-            .ToHashSet();
 
         var unclearedEntries = new List<BankStatementEntryDto>();
         decimal outstandingDeposits = 0;
         decimal outstandingPayments = 0;
 
-        foreach (var pe in unclearedPEs.Where(pe => !reconciledPeIds.Contains(pe.Id)))
+        foreach (var pe in unclearedPEs)
         {
             // Determine direction: money INTO bank (deposit) or OUT of bank (payment)
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
@@ -366,9 +361,53 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 Debit = isDeposit ? amount : 0,
                 Credit = isDeposit ? 0 : amount,
                 ReferenceNumber = pe.ReferenceNumber,
-                ClearanceDate = null,
+                ClearanceDate = pe.ClearanceDate,
                 PartyName = null
             });
+        }
+
+        // Uncleared Journal Entries (Bank/Contra/Credit Card type) touching this account.
+        // Per ERPNext bank_clearance.py: opening entries excluded, lines aggregated per JE.
+        var unclearedJEs = (await jeRepo.GetQueryableAsync())
+            .Where(je => je.CompanyId == input.CompanyId
+                && je.Status == Core.DocumentStatus.Posted
+                && !je.IsOpening
+                && je.ClearanceDate == null
+                && je.PostingDate <= input.ReportDate
+                && (je.VoucherType == JournalEntryVoucherType.BankEntry
+                    || je.VoucherType == JournalEntryVoucherType.ContraEntry
+                    || je.VoucherType == JournalEntryVoucherType.CreditCardEntry))
+            .ToList();
+
+        if (unclearedJEs.Count > 0)
+        {
+            var unclearedJeIds = unclearedJEs.Select(je => je.Id).ToHashSet();
+            var jeLinesOnAccount = (await jeLineRepo.GetQueryableAsync())
+                .Where(l => l.AccountId == input.BankAccountId && unclearedJeIds.Contains(l.JournalEntryId))
+                .ToList();
+
+            foreach (var group in jeLinesOnAccount.GroupBy(l => l.JournalEntryId))
+            {
+                var je = unclearedJEs.First(j => j.Id == group.Key);
+                var debit = group.Where(l => l.IsDebit).Sum(l => l.Amount);
+                var credit = group.Where(l => !l.IsDebit).Sum(l => l.Amount);
+
+                outstandingDeposits += debit;
+                outstandingPayments += credit;
+
+                unclearedEntries.Add(new BankStatementEntryDto
+                {
+                    PostingDate = je.PostingDate,
+                    DocumentType = "Journal Entry",
+                    DocumentNumber = je.EntryNumber ?? je.Id.ToString()[..8],
+                    DocumentId = je.Id,
+                    Debit = debit,
+                    Credit = credit,
+                    ReferenceNumber = je.ReferenceNumber,
+                    ClearanceDate = je.ClearanceDate,
+                    PartyName = null
+                });
+            }
         }
 
         return new BankReconciliationStatementDto
