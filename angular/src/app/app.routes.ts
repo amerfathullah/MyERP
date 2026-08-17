@@ -655,6 +655,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ShareManagement.Edit' },
   },
   {
+    path: 'accounting/monthly-distributions',
+    loadComponent: () => import('./accounting/monthly-distributions/monthly-distribution-list.component').then(c => c.MonthlyDistributionListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets' },
+  },
+  {
+    path: 'accounting/monthly-distributions/new',
+    loadComponent: () => import('./accounting/monthly-distributions/monthly-distribution-form.component').then(c => c.MonthlyDistributionFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets.Create' },
+  },
+  {
+    path: 'accounting/monthly-distributions/:id',
+    loadComponent: () => import('./accounting/monthly-distributions/monthly-distribution-form.component').then(c => c.MonthlyDistributionFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Budgets.Edit' },
+  },
+  {
     path: 'inventory/warehouses',
     loadComponent: () => import('./inventory/warehouses/warehouse-list.component').then(c => c.WarehouseListComponent),
     canActivate: [authGuard, permissionGuard],

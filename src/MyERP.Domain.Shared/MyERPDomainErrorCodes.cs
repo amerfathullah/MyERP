@@ -386,4 +386,7 @@ public static class MyERPDomainErrorCodes
     public const string ShareTransferFolioMismatch = "MyERP:02057";
     public const string ShareTransferMissingParty = "MyERP:02058";
     public const string ShareTransferMissingAccount = "MyERP:02059";
+
+    // Monthly Distribution
+    public const string MonthlyDistributionMustTotal100 = "MyERP:02060";
 }

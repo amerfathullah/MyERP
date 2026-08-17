@@ -127,6 +127,8 @@ public class MyERPDbContext :
     public DbSet<Shareholder> Shareholders { get; set; }
     public DbSet<ShareBalanceEntry> ShareBalanceEntries { get; set; }
     public DbSet<ShareTransfer> ShareTransfers { get; set; }
+    public DbSet<MonthlyDistribution> MonthlyDistributions { get; set; }
+    public DbSet<MonthlyDistributionPercentage> MonthlyDistributionPercentages { get; set; }
 
     // Sales
     public DbSet<Customer> Customers { get; set; }
@@ -4130,6 +4132,23 @@ public class MyERPDbContext :
             b.HasOne<ShareType>().WithMany().HasForeignKey(x => x.ShareTypeId).IsRequired();
             b.HasOne<Account>().WithMany().HasForeignKey(x => x.EquityOrLiabilityAccountId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<MonthlyDistribution>(b =>
+        {
+            b.ToTable("Acc_MonthlyDistributions", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DistributionName).IsRequired().HasMaxLength(140);
+            b.HasMany(x => x.Percentages).WithOne().HasForeignKey(x => x.MonthlyDistributionId).IsRequired();
+            b.Navigation(x => x.Percentages).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.DistributionName }).IsUnique();
+        });
+
+        builder.Entity<MonthlyDistributionPercentage>(b =>
+        {
+            b.ToTable("Acc_MonthlyDistributionPercentages", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PercentageAllocation).HasColumnType("decimal(9,4)");
         });
 
         builder.Entity<CustomsTariffNumber>(b =>

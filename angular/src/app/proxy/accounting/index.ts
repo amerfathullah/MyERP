@@ -54,6 +54,7 @@ export * from './reporting.service';
 export * from './share-transfer-type.enum';
 export * from './share-transfer.service';
 export * from './share-type.service';
+export * from './monthly-distribution.service';
 export * from './shareholder.service';
 export * from './statement-of-accounts.service';
 export * from './unreconcile-payment.service';

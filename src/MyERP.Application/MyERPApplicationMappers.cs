@@ -214,6 +214,14 @@ public partial class ShareTransferMapper : MapperBase<Accounting.Entities.ShareT
     public override partial void Map(Accounting.Entities.ShareTransfer source, Accounting.ShareTransferDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class MonthlyDistributionMapper : MapperBase<Accounting.Entities.MonthlyDistribution, Accounting.MonthlyDistributionDto>
+{
+    public override partial Accounting.MonthlyDistributionDto Map(Accounting.Entities.MonthlyDistribution source);
+    public override partial void Map(Accounting.Entities.MonthlyDistribution source, Accounting.MonthlyDistributionDto destination);
+    private partial Accounting.MonthlyDistributionPercentageDto MapPercentage(Accounting.Entities.MonthlyDistributionPercentage source);
+}
+
 // ─── Sales ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

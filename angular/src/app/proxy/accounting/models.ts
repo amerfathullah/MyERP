@@ -81,6 +81,23 @@ export interface CreateUpdateShareTransferDto {
   remarks?: string | null;
 }
 
+export interface MonthlyDistributionPercentageDto {
+  month?: number;
+  percentageAllocation?: number;
+}
+
+export interface MonthlyDistributionDto extends EntityDto<string> {
+  distributionName?: string;
+  fiscalYearId?: string | null;
+  percentages?: MonthlyDistributionPercentageDto[];
+}
+
+export interface CreateUpdateMonthlyDistributionDto {
+  distributionName?: string;
+  fiscalYearId?: string | null;
+  percentages?: MonthlyDistributionPercentageDto[];
+}
+
 export interface AccountCategoryDto {
   id?: string;
   name?: string;

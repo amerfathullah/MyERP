@@ -499,6 +499,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Budgets',
       },
       {
+        path: '/accounting/monthly-distributions',
+        name: '::Menu:MonthlyDistributions',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-bar-chart',
+        order: 21,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Budgets',
+      },
+      {
         path: '/accounting/shareholders',
         name: '::Menu:Shareholders',
         parentName: '::Menu:Accounting',
