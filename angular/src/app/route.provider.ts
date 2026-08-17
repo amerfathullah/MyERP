@@ -901,6 +901,22 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaxCategories',
       },
       {
+        path: '/tax/templates',
+        name: '::Menu:TaxChargesTemplates',
+        iconClass: 'fas fa-receipt',
+        order: 58,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxTemplates',
+      },
+      {
+        path: '/tax/item-tax-templates',
+        name: '::Menu:ItemTaxTemplates',
+        iconClass: 'fas fa-tags',
+        order: 59,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxCategories',
+      },
+      {
         path: '/crm',
         name: '::Menu:CRM',
         iconClass: 'fas fa-handshake',

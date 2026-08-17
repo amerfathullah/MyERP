@@ -111,6 +111,13 @@ public class CreateItemTaxTemplateDto
     public CreateItemTaxTemplateDetailDto[] Details { get; set; } = [];
 }
 
+public class UpdateItemTaxTemplateDto
+{
+    public string Title { get; set; } = null!;
+    public bool IsDisabled { get; set; }
+    public CreateItemTaxTemplateDetailDto[] Details { get; set; } = [];
+}
+
 public class CreateItemTaxTemplateDetailDto
 {
     public Guid TaxAccountId { get; set; }

@@ -975,6 +975,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxTemplates' },
   },
+  {
+    path: 'tax/item-tax-templates',
+    loadComponent: () => import('./tax/item-tax-templates/item-tax-template-list.component').then(c => c.ItemTaxTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
   // CRM
   {
     path: 'crm/leads',

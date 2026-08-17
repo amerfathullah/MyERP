@@ -68,23 +68,44 @@
           <form [formGroup]="ruleForm" (ngSubmit)="saveRule()" class="row g-2 pt-2">
             <div class="col-12 col-md-2">
               <label class="form-label">Rate (%)</label>
-            <input class="form-control"/>
+              <input class="form-control" formControlName="rate" type="number"/>
             </div>
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-2">
               <label class="form-label">{{ '::EffectiveFrom' | abpLocalization }}</label>
-            <input class="form-control"/>
+              <input class="form-control" formControlName="effectiveFrom" type="date"/>
             </div>
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-2">
               <label class="form-label">{{ '::EffectiveTo' | abpLocalization }}</label>
-            <input class="form-control"/>
+              <input class="form-control" formControlName="effectiveTo" type="date"/>
             </div>
             <div class="col-12 col-md-2">
               <label class="form-label">{{ '::RegionFilter' | abpLocalization }}</label>
-            <input class="form-control"/>
+              <input class="form-control" formControlName="regionFilter"/>
             </div>
-            <div class="col-12 col-md-2 d-flex gap-2 align-items-center">
-              <button class="btn btn-primary" type="submit"><i class="fa fa-plus me-1"></i>{{ '::AddRule' | abpLocalization }}</button>
-              <button class="btn btn-outline-secondary" type="button" (click)="showRuleForm = null"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
+            <div class="col-12 col-md-2">
+              <label class="form-label">{{ '::ItemGroupFilter' | abpLocalization }}</label>
+              <input class="form-control" formControlName="itemGroupFilter"/>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">{{ '::Priority' | abpLocalization }}</label>
+              <input class="form-control" formControlName="priority" type="number"/>
+            </div>
+            <div class="col-12 col-md-8">
+              <label class="form-label">{{ '::Description' | abpLocalization }}</label>
+              <input class="form-control" formControlName="description"/>
+            </div>
+            <div class="col-12 col-md-2 d-flex align-items-center gap-2 pt-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" formControlName="isActive" id="ruleIsActive"/>
+                <label class="form-check-label" for="ruleIsActive">{{ '::IsActive' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2 align-items-center pt-4">
+              <button class="btn btn-primary" type="submit">
+                <i class="fa" [class.fa-plus]="!editingRuleId" [class.fa-save]="editingRuleId"></i>
+                {{ (editingRuleId ? '::Save' : '::AddRule') | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-secondary" type="button" (click)="showRuleForm = null; editingRuleId = null"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             </div>
           </form>
         }
@@ -111,6 +132,9 @@
                     <td>{{ r.effectiveTo ? (r.effectiveTo | date:'dd/MM/yyyy') : '—' }}</td>
                     <td>{{ r.regionFilter ?? 'All' }}</td>
                     <td>
+                      <button class="btn btn-sm btn-link p-1" (click)="editRule(r)" title="Edit">
+                      <i class="fa fa-pencil small"></i>
+                      </button>
                       <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteRule(r.id!, cat.id!)">
                       <i class="fa fa-times small"></i>
                       </button>

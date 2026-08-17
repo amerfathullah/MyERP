@@ -43,6 +43,12 @@ public class ItemTaxTemplate : FullAuditedAggregateRoot<Guid>, IMultiTenant
         _details.Add(new ItemTaxTemplateDetail(Guid.NewGuid(), Id, taxAccountId, effectiveRate, notApplicable));
     }
 
+    public void ClearDetails() => _details.Clear();
+
+    public void Rename(string title) => Title = Check.NotNullOrWhiteSpace(title, nameof(title), 200);
+
+    public void SetDisabled(bool isDisabled) => IsDisabled = isDisabled;
+
     /// <summary>
     /// Get the tax rate for a specific account. Returns null if account not in template
     /// (meaning use document-level rate).

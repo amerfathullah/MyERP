@@ -1,4 +1,4 @@
-import type { CreateItemTaxTemplateDto, ItemTaxTemplateDto } from './models';
+import type { CreateItemTaxTemplateDto, ItemTaxTemplateDto, UpdateItemTaxTemplateDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -41,6 +41,15 @@ export class ItemTaxTemplateService {
       method: 'GET',
       url: '/api/app/item-tax-template',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+
+
+  update = (id: string, input: UpdateItemTaxTemplateDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ItemTaxTemplateDto>({
+      method: 'PUT',
+      url: `/api/app/item-tax-template/${id}`,
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

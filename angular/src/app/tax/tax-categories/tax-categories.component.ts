@@ -29,6 +29,7 @@ export class TaxCategoriesComponent implements OnInit {
   isLoading = signal(false);
   showCategoryForm = false;
   showRuleForm: string | null = null;
+  editingRuleId: string | null = null;
 
   categoryForm = this.fb.group({
     code: ['', [Validators.required, Validators.maxLength(20)]],
@@ -94,16 +95,38 @@ export class TaxCategoriesComponent implements OnInit {
 
   openRuleForm(categoryId: string): void {
     this.showRuleForm = categoryId;
+    this.editingRuleId = null;
     this.ruleForm.reset({ taxCategoryId: categoryId, rate: 0, isActive: true, priority: 0 });
+  }
+
+  editRule(rule: TaxRuleDto): void {
+    this.showRuleForm = rule.taxCategoryId!;
+    this.editingRuleId = rule.id!;
+    this.ruleForm.reset({
+      taxCategoryId: rule.taxCategoryId,
+      rate: rule.rate,
+      effectiveFrom: rule.effectiveFrom ? rule.effectiveFrom.substring(0, 10) : '',
+      effectiveTo: rule.effectiveTo ? rule.effectiveTo.substring(0, 10) : '',
+      itemGroupFilter: rule.itemGroupFilter ?? '',
+      regionFilter: rule.regionFilter ?? '',
+      priority: rule.priority ?? 0,
+      description: rule.description ?? '',
+      isActive: rule.isActive ?? true,
+    });
   }
 
   saveRule(): void {
     if (this.ruleForm.invalid) { this.ruleForm.markAllAsTouched(); return; }
-    this.ruleService.create(this.ruleForm.getRawValue() as any).subscribe({
+    const payload = this.ruleForm.getRawValue() as any;
+    const request$ = this.editingRuleId
+      ? this.ruleService.update(this.editingRuleId, payload)
+      : this.ruleService.create(payload);
+    request$.subscribe({
       next: () => {
-        this.toaster.success('::SuccessfullyCreated');
+        this.toaster.success(this.editingRuleId ? '::SuccessfullyUpdated' : '::SuccessfullyCreated');
         this.loadRules(this.showRuleForm!);
         this.showRuleForm = null;
+        this.editingRuleId = null;
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });

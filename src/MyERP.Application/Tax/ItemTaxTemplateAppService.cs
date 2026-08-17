@@ -42,6 +42,19 @@ public class ItemTaxTemplateAppService : ApplicationService, IItemTaxTemplateApp
         return ObjectMapper.Map<ItemTaxTemplate, ItemTaxTemplateDto>(t);
     }
 
+    [Authorize(MyERPPermissions.TaxCategories.Edit)]
+    public async Task<ItemTaxTemplateDto> UpdateAsync(Guid id, UpdateItemTaxTemplateDto input)
+    {
+        var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+        t.Rename(input.Title);
+        t.SetDisabled(input.IsDisabled);
+        t.ClearDetails();
+        foreach (var d in input.Details)
+            t.AddDetail(d.TaxAccountId, d.TaxRate, d.NotApplicable);
+        await _repository.UpdateAsync(t);
+        return ObjectMapper.Map<ItemTaxTemplate, ItemTaxTemplateDto>(t);
+    }
+
     [Authorize(MyERPPermissions.TaxCategories.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 }
