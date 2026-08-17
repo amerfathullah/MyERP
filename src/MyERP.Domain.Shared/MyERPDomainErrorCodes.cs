@@ -389,4 +389,7 @@ public static class MyERPDomainErrorCodes
 
     // Monthly Distribution
     public const string MonthlyDistributionMustTotal100 = "MyERP:02060";
+
+    // Master Production Schedule
+    public const string MasterProductionScheduleHasNoItems = "MyERP:10025";
 }

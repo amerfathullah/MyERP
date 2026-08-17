@@ -10,6 +10,7 @@ export * from './operation.service';
 export * from './production-analytics.service';
 export * from './production-plan-status.enum';
 export * from './production-plan.service';
+export * from './master-production-schedule.service';
 export * from './routing.service';
 export * from './secondary-item-type.enum';
 export * from './sub-assembly-type.enum';

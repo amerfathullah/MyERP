@@ -536,6 +536,16 @@ public partial class ProductionPlanMapper : MapperBase<Manufacturing.Entities.Pr
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class MasterProductionScheduleMapper : MapperBase<Manufacturing.Entities.MasterProductionSchedule, Manufacturing.MasterProductionScheduleDto>
+{
+    public override partial Manufacturing.MasterProductionScheduleDto Map(Manufacturing.Entities.MasterProductionSchedule source);
+    public override partial void Map(Manufacturing.Entities.MasterProductionSchedule source, Manufacturing.MasterProductionScheduleDto destination);
+    private partial Manufacturing.MpsSalesOrderRefDto MapSalesOrderRef(Manufacturing.Entities.MpsSalesOrderRef source);
+    private partial Manufacturing.MpsMaterialRequestRefDto MapMaterialRequestRef(Manufacturing.Entities.MpsMaterialRequestRef source);
+    private partial Manufacturing.MasterProductionScheduleItemDto MapItem(Manufacturing.Entities.MasterProductionScheduleItem source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class TimesheetMapper : MapperBase<Projects.Entities.Timesheet, Projects.TimesheetDto>
 {
     public override partial Projects.TimesheetDto Map(Projects.Entities.Timesheet source);

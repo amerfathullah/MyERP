@@ -1414,6 +1414,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/master-production-schedules',
+        name: '::Menu:MasterProductionSchedules',
+        iconClass: 'fas fa-calendar-days',
+        order: 9,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.MasterProductionSchedules',
+      },
+      {
         path: '/sales/proforma-invoices',
         name: '::Menu:ProformaInvoices',
         iconClass: 'fas fa-file-invoice',

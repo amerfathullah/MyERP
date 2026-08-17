@@ -5,6 +5,7 @@ import type { SubAssemblyType } from './sub-assembly-type.enum';
 import type { SecondaryItemType } from './secondary-item-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
 import type { BomCreatorStatus } from './bom-creator-status.enum';
+import type { DocumentStatus } from '../core/document-status.enum';
 
 export interface DowntimeEntryDto extends EntityDto<string> {
   companyId?: string;
@@ -738,4 +739,68 @@ export interface WorkstationWorkingHourDto {
   dayOfWeek?: string;
   startTime?: string;
   endTime?: string;
+}
+
+export interface MpsSalesOrderRefDto {
+  salesOrderId?: string;
+  salesOrderDate?: string;
+  customerId?: string;
+  grandTotal?: number;
+  status?: string | null;
+}
+
+export interface MpsMaterialRequestRefDto {
+  materialRequestId?: string;
+  materialRequestDate?: string;
+}
+
+export interface MasterProductionScheduleItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  bomId?: string | null;
+  uom?: string;
+  warehouseId?: string | null;
+  deliveryDate?: string;
+  plannedQty?: number;
+  cumulativeLeadTimeDays?: number;
+  orderReleaseDate?: string;
+}
+
+export interface MasterProductionScheduleDto extends EntityDto<string> {
+  companyId?: string;
+  scheduleNumber?: string;
+  status?: DocumentStatus;
+  postingDate?: string;
+  fromDate?: string;
+  toDate?: string | null;
+  parentWarehouseId?: string | null;
+  salesOrders?: MpsSalesOrderRefDto[];
+  materialRequests?: MpsMaterialRequestRefDto[];
+  items?: MasterProductionScheduleItemDto[];
+}
+
+export interface CreateMasterProductionScheduleDto {
+  companyId?: string;
+  postingDate?: string;
+  fromDate?: string;
+  parentWarehouseId?: string | null;
+}
+
+export interface UpdateMasterProductionScheduleDto {
+  postingDate?: string;
+  fromDate?: string;
+  parentWarehouseId?: string | null;
+  items?: MasterProductionScheduleItemDto[];
+}
+
+export interface FetchSalesOrdersDto {
+  customerId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface FetchMaterialRequestsDto {
+  fromDate?: string | null;
+  toDate?: string | null;
 }

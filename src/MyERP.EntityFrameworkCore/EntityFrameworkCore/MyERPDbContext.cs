@@ -345,6 +345,10 @@ public class MyERPDbContext :
     public DbSet<ProductionPlan> ProductionPlans { get; set; }
     public DbSet<ProductionPlanItem> ProductionPlanItems { get; set; }
     public DbSet<ProductionPlanMrItem> ProductionPlanMrItems { get; set; }
+    public DbSet<MasterProductionSchedule> MasterProductionSchedules { get; set; }
+    public DbSet<MpsSalesOrderRef> MpsSalesOrderRefs { get; set; }
+    public DbSet<MpsMaterialRequestRef> MpsMaterialRequestRefs { get; set; }
+    public DbSet<MasterProductionScheduleItem> MasterProductionScheduleItems { get; set; }
     public DbSet<Workstation> Workstations { get; set; }
     public DbSet<WorkstationCost> WorkstationCosts { get; set; }
     public DbSet<WorkstationWorkingHour> WorkstationWorkingHours { get; set; }
@@ -2657,6 +2661,44 @@ public class MyERPDbContext :
             b.Property(x => x.MinOrderQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.SafetyStock).HasColumnType("decimal(18,4)");
             b.Property(x => x.Uom).HasMaxLength(ProductionPlanConsts.MaxUomLength);
+        });
+
+        builder.Entity<MasterProductionSchedule>(b =>
+        {
+            b.ToTable("Mfg_MasterProductionSchedules", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ScheduleNumber).IsRequired().HasMaxLength(50);
+            b.HasMany(x => x.SalesOrders).WithOne().HasForeignKey(x => x.MasterProductionScheduleId).IsRequired();
+            b.Navigation(x => x.SalesOrders).AutoInclude();
+            b.HasMany(x => x.MaterialRequests).WithOne().HasForeignKey(x => x.MasterProductionScheduleId).IsRequired();
+            b.Navigation(x => x.MaterialRequests).AutoInclude();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.MasterProductionScheduleId).IsRequired();
+            b.Navigation(x => x.Items).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.ScheduleNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<MpsSalesOrderRef>(b =>
+        {
+            b.ToTable("Mfg_MpsSalesOrderRefs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Status).HasMaxLength(30);
+        });
+
+        builder.Entity<MpsMaterialRequestRef>(b =>
+        {
+            b.ToTable("Mfg_MpsMaterialRequestRefs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+        });
+
+        builder.Entity<MasterProductionScheduleItem>(b =>
+        {
+            b.ToTable("Mfg_MasterProductionScheduleItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(280);
+            b.Property(x => x.Uom).HasMaxLength(50);
+            b.Property(x => x.PlannedQty).HasColumnType("decimal(18,4)");
         });
 
         // Workstation

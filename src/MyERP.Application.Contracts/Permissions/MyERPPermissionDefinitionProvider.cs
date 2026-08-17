@@ -200,6 +200,13 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         ppPermission.AddChild(MyERPPermissions.ProductionPlans.Submit, L("Permission:ProductionPlans.Submit"));
         ppPermission.AddChild(MyERPPermissions.ProductionPlans.Cancel, L("Permission:ProductionPlans.Cancel"));
 
+        var mpsPermission = myGroup.AddPermission(MyERPPermissions.MasterProductionSchedules.Default, L("Permission:MasterProductionSchedules"));
+        mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Create, L("Permission:MasterProductionSchedules.Create"));
+        mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Edit, L("Permission:MasterProductionSchedules.Edit"));
+        mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Delete, L("Permission:MasterProductionSchedules.Delete"));
+        mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Submit, L("Permission:MasterProductionSchedules.Submit"));
+        mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Cancel, L("Permission:MasterProductionSchedules.Cancel"));
+
         var materialRequestsPermission = myGroup.AddPermission(MyERPPermissions.MaterialRequests.Default, L("Permission:MaterialRequests"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Create, L("Permission:MaterialRequests.Create"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Edit, L("Permission:MaterialRequests.Edit"));

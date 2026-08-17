@@ -1468,6 +1468,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing.Edit' },
   },
   {
+    path: 'manufacturing/master-production-schedules',
+    loadComponent: () => import('./manufacturing/master-production-schedules/master-production-schedule-list.component').then(c => c.MasterProductionScheduleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MasterProductionSchedules' },
+  },
+  {
+    path: 'manufacturing/master-production-schedules/new',
+    loadComponent: () => import('./manufacturing/master-production-schedules/master-production-schedule-form.component').then(c => c.MasterProductionScheduleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MasterProductionSchedules.Create' },
+  },
+  {
+    path: 'manufacturing/master-production-schedules/:id',
+    loadComponent: () => import('./manufacturing/master-production-schedules/master-production-schedule-form.component').then(c => c.MasterProductionScheduleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MasterProductionSchedules.Edit' },
+  },
+  {
     path: 'manufacturing/bom/new',
     loadComponent: () => import('./manufacturing/bom/bom-form.component').then(c => c.BomFormComponent),
     canActivate: [authGuard, permissionGuard],
