@@ -1,4 +1,4 @@
-import type { ConvertLeadToCustomerDto, ConvertLeadToOpportunityDto, CreateLeadDto, GetLeadListDto, LeadDto, OpportunityDto, UpdateLeadDto } from './models';
+import type { AddCrmNoteDto, ConvertLeadToCustomerDto, ConvertLeadToOpportunityDto, CreateLeadDto, CrmNoteDto, GetLeadListDto, LeadDto, OpportunityDto, UpdateLeadDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,6 +9,15 @@ import { Injectable, inject } from '@angular/core';
 export class LeadService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  addNote = (id: string, input: AddCrmNoteDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto>({
+      method: 'POST',
+      url: `/api/app/lead/${id}/note`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
   
 
   convertToCustomer = (input: ConvertLeadToCustomerDto, config?: Partial<Rest.Config>) =>
@@ -60,6 +69,14 @@ export class LeadService {
       method: 'GET',
       url: '/api/app/lead',
       params: { status: input.status, source: input.source, filter: input.filter, companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getNotes = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto[]>({
+      method: 'GET',
+      url: `/api/app/lead/${id}/notes`,
     },
     { apiName: this.apiName,...config });
   

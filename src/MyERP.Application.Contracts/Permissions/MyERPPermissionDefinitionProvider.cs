@@ -105,6 +105,18 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Submit, L("Permission:PaymentEntries.Submit"));
         paymentEntriesPermission.AddChild(MyERPPermissions.PaymentEntries.Cancel, L("Permission:PaymentEntries.Cancel"));
 
+        var paymentOrdersPermission = myGroup.AddPermission(MyERPPermissions.PaymentOrders.Default, L("Permission:PaymentOrders"));
+        paymentOrdersPermission.AddChild(MyERPPermissions.PaymentOrders.Create, L("Permission:PaymentOrders.Create"));
+        paymentOrdersPermission.AddChild(MyERPPermissions.PaymentOrders.Edit, L("Permission:PaymentOrders.Edit"));
+        paymentOrdersPermission.AddChild(MyERPPermissions.PaymentOrders.Delete, L("Permission:PaymentOrders.Delete"));
+        paymentOrdersPermission.AddChild(MyERPPermissions.PaymentOrders.Submit, L("Permission:PaymentOrders.Submit"));
+        paymentOrdersPermission.AddChild(MyERPPermissions.PaymentOrders.Cancel, L("Permission:PaymentOrders.Cancel"));
+
+        var unreconcilePaymentsPermission = myGroup.AddPermission(MyERPPermissions.UnreconcilePayments.Default, L("Permission:UnreconcilePayments"));
+        unreconcilePaymentsPermission.AddChild(MyERPPermissions.UnreconcilePayments.Create, L("Permission:UnreconcilePayments.Create"));
+        unreconcilePaymentsPermission.AddChild(MyERPPermissions.UnreconcilePayments.Submit, L("Permission:UnreconcilePayments.Submit"));
+        unreconcilePaymentsPermission.AddChild(MyERPPermissions.UnreconcilePayments.Cancel, L("Permission:UnreconcilePayments.Cancel"));
+
         var deliveryNotesPermission = myGroup.AddPermission(MyERPPermissions.DeliveryNotes.Default, L("Permission:DeliveryNotes"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Create, L("Permission:DeliveryNotes.Create"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Edit, L("Permission:DeliveryNotes.Edit"));
@@ -199,6 +211,24 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         issuesPermission.AddChild(MyERPPermissions.Issues.Create, L("Permission:Issues.Create"));
         issuesPermission.AddChild(MyERPPermissions.Issues.Edit, L("Permission:Issues.Edit"));
         issuesPermission.AddChild(MyERPPermissions.Issues.Delete, L("Permission:Issues.Delete"));
+
+        var slaPermission = myGroup.AddPermission(MyERPPermissions.ServiceLevelAgreements.Default, L("Permission:ServiceLevelAgreements"));
+        slaPermission.AddChild(MyERPPermissions.ServiceLevelAgreements.Create, L("Permission:ServiceLevelAgreements.Create"));
+        slaPermission.AddChild(MyERPPermissions.ServiceLevelAgreements.Edit, L("Permission:ServiceLevelAgreements.Edit"));
+        slaPermission.AddChild(MyERPPermissions.ServiceLevelAgreements.Delete, L("Permission:ServiceLevelAgreements.Delete"));
+
+        var issuePrioritiesPermission = myGroup.AddPermission(MyERPPermissions.IssuePriorities.Default, L("Permission:IssuePriorities"));
+        issuePrioritiesPermission.AddChild(MyERPPermissions.IssuePriorities.Create, L("Permission:IssuePriorities.Create"));
+        issuePrioritiesPermission.AddChild(MyERPPermissions.IssuePriorities.Edit, L("Permission:IssuePriorities.Edit"));
+        issuePrioritiesPermission.AddChild(MyERPPermissions.IssuePriorities.Delete, L("Permission:IssuePriorities.Delete"));
+
+        var issueTypesPermission = myGroup.AddPermission(MyERPPermissions.IssueTypes.Default, L("Permission:IssueTypes"));
+        issueTypesPermission.AddChild(MyERPPermissions.IssueTypes.Create, L("Permission:IssueTypes.Create"));
+        issueTypesPermission.AddChild(MyERPPermissions.IssueTypes.Edit, L("Permission:IssueTypes.Edit"));
+        issueTypesPermission.AddChild(MyERPPermissions.IssueTypes.Delete, L("Permission:IssueTypes.Delete"));
+
+        var supportSettingsPermission = myGroup.AddPermission(MyERPPermissions.SupportSettings.Default, L("Permission:SupportSettings"));
+        supportSettingsPermission.AddChild(MyERPPermissions.SupportSettings.Edit, L("Permission:SupportSettings.Edit"));
 
         var budgetsPermission = myGroup.AddPermission(MyERPPermissions.Budgets.Default, L("Permission:Budgets"));
         budgetsPermission.AddChild(MyERPPermissions.Budgets.Create, L("Permission:Budgets.Create"));

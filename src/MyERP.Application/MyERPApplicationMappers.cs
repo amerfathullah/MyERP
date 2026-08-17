@@ -204,6 +204,27 @@ public partial class IssueMapper : MapperBase<Support.Entities.Issue, Support.Is
     public override partial void Map(Support.Entities.Issue source, Support.IssueDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class IssuePriorityMapper : MapperBase<Support.Entities.IssuePriority, Support.IssuePriorityDto>
+{
+    public override partial Support.IssuePriorityDto Map(Support.Entities.IssuePriority source);
+    public override partial void Map(Support.Entities.IssuePriority source, Support.IssuePriorityDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class IssueTypeMapper : MapperBase<Support.Entities.IssueType, Support.IssueTypeDto>
+{
+    public override partial Support.IssueTypeDto Map(Support.Entities.IssueType source);
+    public override partial void Map(Support.Entities.IssueType source, Support.IssueTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SupportSettingsMapper : MapperBase<Support.Entities.SupportSettings, Support.SupportSettingsDto>
+{
+    public override partial Support.SupportSettingsDto Map(Support.Entities.SupportSettings source);
+    public override partial void Map(Support.Entities.SupportSettings source, Support.SupportSettingsDto destination);
+}
+
 // ─── Tax ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -332,19 +353,19 @@ public partial class AssetMapper : MapperBase<Assets.Entities.Asset, Assets.Asse
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class MaintenanceScheduleMapper : MapperBase<Assets.Entities.MaintenanceSchedule, Assets.MaintenanceScheduleDto>
+public partial class MaintenanceScheduleMapper : MapperBase<Maintenance.Entities.MaintenanceSchedule, Assets.MaintenanceScheduleDto>
 {
-    public override partial Assets.MaintenanceScheduleDto Map(Assets.Entities.MaintenanceSchedule source);
-    public override partial void Map(Assets.Entities.MaintenanceSchedule source, Assets.MaintenanceScheduleDto destination);
-    private partial Assets.MaintenanceScheduleDetailDto MapChild(Assets.Entities.MaintenanceScheduleDetail source);
+    public override partial Assets.MaintenanceScheduleDto Map(Maintenance.Entities.MaintenanceSchedule source);
+    public override partial void Map(Maintenance.Entities.MaintenanceSchedule source, Assets.MaintenanceScheduleDto destination);
+    private partial Assets.MaintenanceScheduleDetailDto MapChild(Maintenance.Entities.MaintenanceScheduleDetail source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class MaintenanceVisitMapper : MapperBase<Assets.Entities.MaintenanceVisit, Assets.MaintenanceVisitDto>
+public partial class MaintenanceVisitMapper : MapperBase<Maintenance.Entities.MaintenanceVisit, Assets.MaintenanceVisitDto>
 {
-    public override partial Assets.MaintenanceVisitDto Map(Assets.Entities.MaintenanceVisit source);
-    public override partial void Map(Assets.Entities.MaintenanceVisit source, Assets.MaintenanceVisitDto destination);
-    private partial Assets.MaintenanceVisitPurposeDto MapChild(Assets.Entities.MaintenanceVisitPurpose source);
+    public override partial Assets.MaintenanceVisitDto Map(Maintenance.Entities.MaintenanceVisit source);
+    public override partial void Map(Maintenance.Entities.MaintenanceVisit source, Assets.MaintenanceVisitDto destination);
+    private partial Assets.MaintenanceVisitPurposeDto MapChild(Maintenance.Entities.MaintenanceVisitPurpose source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -1296,24 +1317,24 @@ public partial class DeliveryTripMapper : MapperBase<Inventory.Entities.Delivery
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class AssetMaintenanceTaskMapper : MapperBase<Assets.Entities.AssetMaintenanceTask, Assets.AssetMaintenanceTaskDto>
+public partial class AssetMaintenanceTaskMapper : MapperBase<Maintenance.Entities.AssetMaintenanceTask, Assets.AssetMaintenanceTaskDto>
 {
-    public override partial Assets.AssetMaintenanceTaskDto Map(Assets.Entities.AssetMaintenanceTask source);
-    public override partial void Map(Assets.Entities.AssetMaintenanceTask source, Assets.AssetMaintenanceTaskDto destination);
+    public override partial Assets.AssetMaintenanceTaskDto Map(Maintenance.Entities.AssetMaintenanceTask source);
+    public override partial void Map(Maintenance.Entities.AssetMaintenanceTask source, Assets.AssetMaintenanceTaskDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
-public partial class AssetMaintenanceMapper : MapperBase<Assets.Entities.AssetMaintenance, Assets.AssetMaintenanceDto>
+public partial class AssetMaintenanceMapper : MapperBase<Maintenance.Entities.AssetMaintenance, Assets.AssetMaintenanceDto>
 {
-    public override partial Assets.AssetMaintenanceDto Map(Assets.Entities.AssetMaintenance source);
-    public override partial void Map(Assets.Entities.AssetMaintenance source, Assets.AssetMaintenanceDto destination);
+    public override partial Assets.AssetMaintenanceDto Map(Maintenance.Entities.AssetMaintenance source);
+    public override partial void Map(Maintenance.Entities.AssetMaintenance source, Assets.AssetMaintenanceDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class AssetMaintenanceLogMapper : MapperBase<Assets.Entities.AssetMaintenanceLog, Assets.AssetMaintenanceLogDto>
+public partial class AssetMaintenanceLogMapper : MapperBase<Maintenance.Entities.AssetMaintenanceLog, Assets.AssetMaintenanceLogDto>
 {
-    public override partial Assets.AssetMaintenanceLogDto Map(Assets.Entities.AssetMaintenanceLog source);
-    public override partial void Map(Assets.Entities.AssetMaintenanceLog source, Assets.AssetMaintenanceLogDto destination);
+    public override partial Assets.AssetMaintenanceLogDto Map(Maintenance.Entities.AssetMaintenanceLog source);
+    public override partial void Map(Maintenance.Entities.AssetMaintenanceLog source, Assets.AssetMaintenanceLogDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

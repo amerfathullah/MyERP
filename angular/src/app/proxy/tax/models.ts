@@ -165,12 +165,6 @@ export interface TaxRuleDto extends EntityDto<string> {
   isActive?: boolean;
 }
 
-export interface UpdateItemTaxTemplateDto {
-  title: string;
-  isDisabled?: boolean;
-  details?: CreateItemTaxTemplateDetailDto[];
-}
-
 export interface TaxSummaryDto {
   companyId?: string;
   fromDate?: string;
@@ -191,4 +185,10 @@ export interface TaxSummaryDto {
   isRefundable?: boolean;
   outputTaxBreakdown?: TaxRateBreakdownDto[];
   inputTaxBreakdown?: TaxRateBreakdownDto[];
+}
+
+export interface UpdateItemTaxTemplateDto {
+  title?: string;
+  isDisabled?: boolean;
+  details?: CreateItemTaxTemplateDetailDto[];
 }

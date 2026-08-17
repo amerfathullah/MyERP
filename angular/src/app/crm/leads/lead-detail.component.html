@@ -121,6 +121,33 @@
       </div>
     </div>
 
+    <!-- Note Thread -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title mb-3">
+          <i class="fa fa-comments me-2"></i>{{ '::NoteThread' | abpLocalization }}
+        </h5>
+        <div class="input-group input-group-sm mb-3">
+          <input type="text" class="form-control" [(ngModel)]="newNoteText" (keyup.enter)="addNote()" [placeholder]="'::AddNoteHint' | abpLocalization">
+          <button class="btn btn-primary" (click)="addNote()"><i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}</button>
+        </div>
+        @if (notes().length === 0) {
+          <p class="text-muted mb-0">{{ '::NoNotesYet' | abpLocalization }}</p>
+        } @else {
+          <ul class="list-group list-group-flush">
+            @for (note of notes(); track note.id) {
+              <li class="list-group-item px-0">
+                <div class="d-flex justify-content-between">
+                  <span>{{ note.noteText }}</span>
+                  <small class="text-muted">{{ note.addedOn | date:'dd/MM/yyyy HH:mm' }}</small>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+
     @if (lead.convertedOpportunityId) {
       <div class="alert alert-info d-flex align-items-center">
         <i class="fa fa-info-circle me-2"></i>

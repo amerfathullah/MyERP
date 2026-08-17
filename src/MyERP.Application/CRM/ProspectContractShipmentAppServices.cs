@@ -126,12 +126,15 @@ public class ProspectAppService : ApplicationService, IProspectAppService
 public class ContractAppService : ApplicationService, IContractAppService
 {
     private readonly IRepository<Contract, Guid> _repository;
+    private readonly IRepository<ContractTemplate, Guid> _templateRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public ContractAppService(IRepository<Contract, Guid> repository,
+        IRepository<ContractTemplate, Guid> templateRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
+        _templateRepository = templateRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -168,9 +171,20 @@ public class ContractAppService : ApplicationService, IContractAppService
         entity.ContractName = input.ContractName;
         entity.EndDate = input.EndDate;
         entity.ContractTerms = input.ContractTerms;
+        entity.RequiresFulfilment = input.RequiresFulfilment;
+
+        if (input.ContractTemplateId.HasValue)
+        {
+            var template = await _templateRepository.GetAsync(input.ContractTemplateId.Value);
+            entity.ContractTemplateId = template.Id;
+            if (string.IsNullOrWhiteSpace(entity.ContractTerms))
+                entity.ContractTerms = template.ContractTerms;
+            if (!input.RequiresFulfilment)
+                entity.RequiresFulfilment = template.RequiresFulfilment;
+        }
+
         entity.ContractValue = input.ContractValue;
         entity.CurrencyCode = input.CurrencyCode;
-        entity.RequiresFulfilment = input.RequiresFulfilment;
         entity.IsAutoRenewal = input.IsAutoRenewal;
         entity.RenewalReminderDays = input.RenewalReminderDays;
         entity.Notes = input.Notes;
@@ -236,7 +250,9 @@ public class ContractAppService : ApplicationService, IContractAppService
         CurrencyCode = e.CurrencyCode,
         RequiresFulfilment = e.RequiresFulfilment,
         IsAutoRenewal = e.IsAutoRenewal,
-        Notes = e.Notes
+        Notes = e.Notes,
+        ContractTemplateId = e.ContractTemplateId,
+        ContractTerms = e.ContractTerms,
     };
 }
 

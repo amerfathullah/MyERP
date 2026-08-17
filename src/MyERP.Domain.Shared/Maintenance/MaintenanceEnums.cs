@@ -22,15 +22,11 @@ public enum WarrantyClaimStatus
     Cancelled = 3
 }
 
-/// <summary>Maintenance schedule periodicity for visit generation.</summary>
-public enum MaintenancePeriodicity
+/// <summary>Maintenance visit completion status.</summary>
+public enum MaintenanceVisitStatus
 {
-    Weekly = 0,
-    Monthly = 1,
-    Quarterly = 2,
-    HalfYearly = 3,
-    Yearly = 4,
-    TwoYearly = 5,
-    ThreeYearly = 6,
-    Random = 7
+    Open = 0,
+    PartiallyCompleted = 1,
+    Completed = 2,
+    Cancelled = 3,
 }

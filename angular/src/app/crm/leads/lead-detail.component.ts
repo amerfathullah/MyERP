@@ -1,20 +1,21 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import type { LeadDto } from '../../proxy/crm/models';
+import type { CrmNoteDto, LeadDto } from '../../proxy/crm/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
 @Component({
   selector: 'app-lead-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './lead-detail.component.html',
   styleUrls: ['./lead-detail.component.scss'],
 })
@@ -27,11 +28,28 @@ export class LeadDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
 
   lead: LeadDto | null = null;
+  notes = signal<CrmNoteDto[]>([]);
+  newNoteText = '';
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe((result) => {
       this.lead = result;
+    });
+    this.loadNotes();
+  }
+
+  loadNotes(): void {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.getNotes(id).subscribe({ next: (r) => this.notes.set(r ?? []), error: () => {} });
+  }
+
+  addNote(): void {
+    if (!this.newNoteText.trim()) return;
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.addNote(id, { noteText: this.newNoteText }).subscribe({
+      next: () => { this.newNoteText = ''; this.loadNotes(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
   }
 

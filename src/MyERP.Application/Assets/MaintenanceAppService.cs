@@ -1,7 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Assets.Entities;
+using MyERP.Maintenance.Entities;
+using MyERP.Maintenance;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;

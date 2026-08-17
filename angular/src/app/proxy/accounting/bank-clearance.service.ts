@@ -8,7 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class BankClearanceService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   getEntries = (input: GetBankClearanceEntriesInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankClearanceEntryDto[]>({
@@ -17,7 +17,7 @@ export class BankClearanceService {
       params: { bankAccountId: input.bankAccountId, companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, includeCleared: input.includeCleared },
     },
     { apiName: this.apiName,...config });
-
+  
 
   setClearanceDate = (input: SetClearanceDateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkClearanceResultDto>({

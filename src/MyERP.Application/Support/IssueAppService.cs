@@ -14,10 +14,12 @@ namespace MyERP.Support;
 public class IssueAppService : ApplicationService, IIssueAppService
 {
     private readonly IRepository<Issue, Guid> _issueRepository;
+    private readonly IRepository<ServiceLevelAgreement, Guid> _slaRepository;
 
-    public IssueAppService(IRepository<Issue, Guid> issueRepository)
+    public IssueAppService(IRepository<Issue, Guid> issueRepository, IRepository<ServiceLevelAgreement, Guid> slaRepository)
     {
         _issueRepository = issueRepository;
+        _slaRepository = slaRepository;
     }
 
     public async Task<IssueDto> GetAsync(Guid id)
@@ -57,8 +59,34 @@ public class IssueAppService : ApplicationService, IIssueAppService
             CustomerId = input.CustomerId,
             RaisedVia = input.RaisedVia,
         };
+
+        var sla = await FindApplicableSlaAsync(input.CompanyId, input.CustomerId);
+        if (sla != null)
+        {
+            var (responseHours, resolutionHours) = sla.GetTargets(issue.Priority);
+            issue.ApplySla(sla.Id, responseHours, resolutionHours);
+        }
+
         await _issueRepository.InsertAsync(issue);
         return ObjectMapper.Map<Issue, IssueDto>(issue);
+    }
+
+    /// <summary>
+    /// Resolves the applicable SLA: a Customer-scoped agreement takes precedence over the company default.
+    /// Mirrors ERPNext's get_active_service_level_agreement_for entity-priority lookup.
+    /// </summary>
+    private async Task<ServiceLevelAgreement?> FindApplicableSlaAsync(Guid companyId, Guid? customerId)
+    {
+        var query = (await _slaRepository.WithDetailsAsync())
+            .Where(s => s.CompanyId == companyId && s.IsActive);
+
+        if (customerId.HasValue)
+        {
+            var scoped = query.FirstOrDefault(s => s.EntityType == "Customer" && s.EntityId == customerId.Value);
+            if (scoped != null) return scoped;
+        }
+
+        return query.FirstOrDefault(s => s.IsDefault);
     }
 
     [Authorize(MyERPPermissions.Issues.Edit)]

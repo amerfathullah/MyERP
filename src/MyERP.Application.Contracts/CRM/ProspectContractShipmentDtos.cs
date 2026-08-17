@@ -52,6 +52,8 @@ public class ContractDto : EntityDto<Guid>
     public bool RequiresFulfilment { get; set; }
     public bool IsAutoRenewal { get; set; }
     public string? Notes { get; set; }
+    public Guid? ContractTemplateId { get; set; }
+    public string? ContractTerms { get; set; }
 }
 
 public class CreateContractDto
@@ -62,6 +64,7 @@ public class CreateContractDto
     public Guid PartyId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
+    public Guid? ContractTemplateId { get; set; }
     public string? ContractTerms { get; set; }
     public decimal? ContractValue { get; set; }
     public string? CurrencyCode { get; set; }

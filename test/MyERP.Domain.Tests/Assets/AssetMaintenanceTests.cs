@@ -1,5 +1,6 @@
 using System;
-using MyERP.Assets.Entities;
+using MyERP.Maintenance.Entities;
+using MyERP.Maintenance;
 using Shouldly;
 using Volo.Abp;
 using Xunit;

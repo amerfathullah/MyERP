@@ -29,6 +29,7 @@ using MyERP.Assets;
 using MyERP.Assets.Entities;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
+using MyERP.Support;
 using MyERP.Support.Entities;
 using MyERP.Maintenance;
 using MyERP.Maintenance.Entities;
@@ -87,6 +88,10 @@ public class MyERPDbContext :
     public DbSet<PaymentEntry> PaymentEntries { get; set; }
     public DbSet<PaymentEntryReference> PaymentEntryReferences { get; set; }
     public DbSet<PaymentEntryTax> PaymentEntryTaxes { get; set; }
+    public DbSet<PaymentOrder> PaymentOrders { get; set; }
+    public DbSet<PaymentOrderReference> PaymentOrderReferences { get; set; }
+    public DbSet<UnreconcilePayment> UnreconcilePayments { get; set; }
+    public DbSet<UnreconcilePaymentEntry> UnreconcilePaymentEntries { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
     public DbSet<BankTransaction> BankTransactions { get; set; }
     public DbSet<BankTransactionRule> BankTransactionRules { get; set; }
@@ -263,6 +268,10 @@ public class MyERPDbContext :
 
     // Support
     public DbSet<Issue> Issues { get; set; }
+    public DbSet<ServiceLevelAgreement> ServiceLevelAgreements { get; set; }
+    public DbSet<IssuePriority> IssuePriorities { get; set; }
+    public DbSet<IssueType> IssueTypes { get; set; }
+    public DbSet<SupportSettings> SupportSettings { get; set; }
 
     // Workflow
     public DbSet<ApprovalRule> ApprovalRules { get; set; }
@@ -355,6 +364,17 @@ public class MyERPDbContext :
     public DbSet<ProspectLead> ProspectLeads { get; set; }
     public DbSet<ProspectOpportunity> ProspectOpportunities { get; set; }
     public DbSet<Contract> Contracts { get; set; }
+    public DbSet<Competitor> Competitors { get; set; }
+    public DbSet<MarketSegment> MarketSegments { get; set; }
+    public DbSet<CrmNote> CrmNotes { get; set; }
+    public DbSet<Campaign> Campaigns { get; set; }
+    public DbSet<CampaignEmailSchedule> CampaignEmailSchedules { get; set; }
+    public DbSet<EmailCampaign> EmailCampaigns { get; set; }
+    public DbSet<AppointmentBookingSettings> AppointmentBookingSettings { get; set; }
+    public DbSet<AppointmentAvailability> AppointmentAvailabilities { get; set; }
+    public DbSet<Appointment> Appointments { get; set; }
+    public DbSet<ContractTemplate> ContractTemplates { get; set; }
+    public DbSet<ContractTemplateFulfilmentTerm> ContractTemplateFulfilmentTerms { get; set; }
 
     // Quality Management (additional)
     public DbSet<QualityInspectionTemplate> QualityInspectionTemplates { get; set; }
@@ -1405,6 +1425,45 @@ public class MyERPDbContext :
             b.HasIndex(x => x.PaymentEntryId);
         });
 
+        builder.Entity<PaymentOrder>(b =>
+        {
+            b.ToTable("Acc_PaymentOrders", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.OrderNumber).HasMaxLength(50);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.References).WithOne().HasForeignKey(x => x.PaymentOrderId).IsRequired();
+            b.Navigation(x => x.References).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<PaymentOrderReference>(b =>
+        {
+            b.ToTable("Acc_PaymentOrderReferences", MyERPConsts.DbSchema);
+            b.Property(x => x.ReferenceType).IsRequired().HasMaxLength(PaymentOrderConsts.MaxReferenceTypeLength);
+            b.Property(x => x.ModeOfPayment).HasMaxLength(PaymentOrderConsts.MaxModeOfPaymentLength);
+            b.Property(x => x.PaymentReference).HasMaxLength(PaymentOrderConsts.MaxPaymentReferenceLength);
+            b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.PaymentOrderId);
+        });
+
+        builder.Entity<UnreconcilePayment>(b =>
+        {
+            b.ToTable("Acc_UnreconcilePayments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.UnreconcilePaymentId).IsRequired();
+            b.Navigation(x => x.Allocations).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.VoucherType, x.VoucherId });
+        });
+
+        builder.Entity<UnreconcilePaymentEntry>(b =>
+        {
+            b.ToTable("Acc_UnreconcilePaymentEntries", MyERPConsts.DbSchema);
+            b.Property(x => x.AgainstVoucherType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.UnreconcilePaymentId);
+        });
+
         builder.Entity<BankAccount>(b =>
         {
             b.ToTable("Acc_BankAccounts", MyERPConsts.DbSchema);
@@ -2090,6 +2149,57 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.CustomerId, x.Status });
+        });
+
+        builder.Entity<ServiceLevelAgreement>(b =>
+        {
+            b.ToTable("Sup_ServiceLevelAgreements", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(ServiceLevelAgreementConsts.MaxNameLength);
+            b.Property(x => x.EntityType).HasMaxLength(ServiceLevelAgreementConsts.MaxEntityTypeLength);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Priorities).WithOne().HasForeignKey(x => x.ServiceLevelAgreementId).IsRequired();
+            b.Navigation(x => x.Priorities).AutoInclude();
+            b.HasMany(x => x.ServiceDays).WithOne().HasForeignKey(x => x.ServiceLevelAgreementId).IsRequired();
+            b.Navigation(x => x.ServiceDays).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<ServiceLevelPriority>(b =>
+        {
+            b.ToTable("Sup_ServiceLevelPriorities", MyERPConsts.DbSchema);
+            b.Property(x => x.PriorityName).IsRequired().HasMaxLength(ServiceLevelPriorityConsts.MaxPriorityNameLength);
+        });
+
+        builder.Entity<ServiceDay>(b =>
+        {
+            b.ToTable("Sup_ServiceDays", MyERPConsts.DbSchema);
+        });
+
+        builder.Entity<IssuePriority>(b =>
+        {
+            b.ToTable("Sup_IssuePriorities", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(IssuePriorityConsts.MaxNameLength);
+            b.Property(x => x.Description).HasMaxLength(IssuePriorityConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<IssueType>(b =>
+        {
+            b.ToTable("Sup_IssueTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(IssueTypeConsts.MaxNameLength);
+            b.Property(x => x.Description).HasMaxLength(IssueTypeConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<SupportSettings>(b =>
+        {
+            b.ToTable("Sup_Settings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
         });
 
         // Workflow
@@ -3680,7 +3790,108 @@ public class MyERPDbContext :
             b.Property(x => x.ContractValue).HasColumnType("decimal(18,4)");
             b.Property(x => x.CurrencyCode).HasMaxLength(10);
             b.Property(x => x.Notes).HasMaxLength(2000);
+            b.Property(x => x.ContractTemplateId);
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PartyType, x.PartyId, x.Status });
+        });
+
+        builder.Entity<Competitor>(b =>
+        {
+            b.ToTable("CRM_Competitors", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(CompetitorConsts.MaxNameLength);
+            b.Property(x => x.Website).HasMaxLength(CompetitorConsts.MaxWebsiteLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<MarketSegment>(b =>
+        {
+            b.ToTable("CRM_MarketSegments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(MarketSegmentConsts.MaxNameLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<CrmNote>(b =>
+        {
+            // Independent aggregate (no FK constraint on ParentId) — ParentType/ParentId is a
+            // polymorphic reference so the same note shape can attach to Lead, Opportunity, etc.
+            b.ToTable("CRM_Notes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ParentType).IsRequired().HasMaxLength(CrmNoteConsts.MaxParentTypeLength);
+            b.Property(x => x.NoteText).IsRequired().HasMaxLength(CrmNoteConsts.MaxNoteTextLength);
+            b.HasIndex(x => new { x.TenantId, x.ParentType, x.ParentId });
+        });
+
+        builder.Entity<Campaign>(b =>
+        {
+            b.ToTable("CRM_Campaigns", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CampaignName).IsRequired().HasMaxLength(CampaignConsts.MaxCampaignNameLength);
+            b.Property(x => x.Description).HasMaxLength(CampaignConsts.MaxDescriptionLength);
+            b.HasMany(x => x.EmailSchedules).WithOne().HasForeignKey(x => x.CampaignId).IsRequired();
+            b.Navigation(x => x.EmailSchedules).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CampaignName });
+        });
+
+        builder.Entity<CampaignEmailSchedule>(b =>
+        {
+            b.ToTable("CRM_CampaignEmailSchedules", MyERPConsts.DbSchema);
+            b.HasIndex(x => x.CampaignId);
+        });
+
+        builder.Entity<EmailCampaign>(b =>
+        {
+            b.ToTable("CRM_EmailCampaigns", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Campaign>().WithMany().HasForeignKey(x => x.CampaignId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.RecipientId, x.Status });
+        });
+
+        builder.Entity<AppointmentBookingSettings>(b =>
+        {
+            b.ToTable("CRM_AppointmentBookingSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.AvailabilityOfSlots).WithOne().HasForeignKey(x => x.AppointmentBookingSettingsId).IsRequired();
+            b.Navigation(x => x.AvailabilityOfSlots).AutoInclude();
+            b.Property(x => x.AgentUserIdsCsv).HasColumnName("AgentUserIds").HasMaxLength(4000);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
+        });
+
+        builder.Entity<AppointmentAvailability>(b =>
+        {
+            b.ToTable("CRM_AppointmentAvailabilities", MyERPConsts.DbSchema);
+            b.HasIndex(x => x.AppointmentBookingSettingsId);
+        });
+
+        builder.Entity<Appointment>(b =>
+        {
+            b.ToTable("CRM_Appointments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CustomerName).IsRequired().HasMaxLength(AppointmentConsts.MaxCustomerNameLength);
+            b.Property(x => x.Phone).HasMaxLength(AppointmentConsts.MaxPhoneLength);
+            b.Property(x => x.Email).HasMaxLength(AppointmentConsts.MaxEmailLength);
+            b.Property(x => x.Details).HasMaxLength(AppointmentConsts.MaxDetailsLength);
+            b.Property(x => x.PartyType).HasMaxLength(50);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ScheduledTime });
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<ContractTemplate>(b =>
+        {
+            b.ToTable("CRM_ContractTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(ContractTemplateConsts.MaxTitleLength);
+            b.HasMany(x => x.FulfilmentTerms).WithOne().HasForeignKey(x => x.ContractTemplateId).IsRequired();
+            b.Navigation(x => x.FulfilmentTerms).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.Title }).IsUnique();
+        });
+
+        builder.Entity<ContractTemplateFulfilmentTerm>(b =>
+        {
+            b.ToTable("CRM_ContractTemplateFulfilmentTerms", MyERPConsts.DbSchema);
+            b.Property(x => x.TermText).IsRequired().HasMaxLength(ContractTemplateConsts.MaxFulfilmentTermLength);
+            b.HasIndex(x => x.ContractTemplateId);
         });
 
         // ═══════════════════════════════════════════════════

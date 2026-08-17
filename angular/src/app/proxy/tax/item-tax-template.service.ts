@@ -43,7 +43,7 @@ export class ItemTaxTemplateService {
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: UpdateItemTaxTemplateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemTaxTemplateDto>({

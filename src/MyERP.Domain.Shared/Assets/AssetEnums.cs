@@ -60,10 +60,3 @@ public enum AssetActivityType
     Sold = 7,
 }
 
-public enum MaintenanceVisitStatus
-{
-    Open = 0,
-    PartiallyCompleted = 1,
-    Completed = 2,
-    Cancelled = 3,
-}

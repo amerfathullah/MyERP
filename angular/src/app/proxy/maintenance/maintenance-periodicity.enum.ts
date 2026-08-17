@@ -1,14 +1,15 @@
 import { mapEnumToOptions } from '@abp/ng.core';
 
 export enum MaintenancePeriodicity {
-  Weekly = 0,
-  Monthly = 1,
-  Quarterly = 2,
-  HalfYearly = 3,
-  Yearly = 4,
-  TwoYearly = 5,
-  ThreeYearly = 6,
-  Random = 7,
+  Daily = 0,
+  Weekly = 1,
+  Monthly = 2,
+  Quarterly = 3,
+  HalfYearly = 4,
+  Yearly = 5,
+  TwoYearly = 6,
+  ThreeYearly = 7,
+  Random = 8,
 }
 
 export const maintenancePeriodicityOptions = mapEnumToOptions(MaintenancePeriodicity);

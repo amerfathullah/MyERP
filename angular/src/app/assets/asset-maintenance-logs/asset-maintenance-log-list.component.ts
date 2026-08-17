@@ -5,7 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { AssetMaintenanceLogService } from '../../proxy/assets/asset-maintenance-log.service';
-import { AssetMaintenanceStatus } from '../../proxy/assets/asset-maintenance-status.enum';
+import { AssetMaintenanceStatus } from '../../proxy/maintenance/asset-maintenance-status.enum';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
@@ -50,7 +50,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
                     <td>{{ log.dueDate | date:'dd/MM/yyyy' }}</td>
                     <td>{{ log.assignToName || '—' }}</td>
                     <td>
-                      @switch (log.maintenanceStatus) {
+                      @switch (log.status) {
                         @case (AssetMaintenanceStatus.Planned) {
                           <span class="badge bg-primary">{{ 'Planned' | abpLocalization }}</span>
                         }
@@ -73,7 +73,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
                       <a class="btn btn-sm btn-outline-secondary me-1" [routerLink]="['/assets/maintenance-logs', log.id]">
                         <i class="fa fa-eye"></i>
                       </a>
-                      @if (log.maintenanceStatus === AssetMaintenanceStatus.Planned || log.maintenanceStatus === AssetMaintenanceStatus.Overdue) {
+                      @if (log.status === AssetMaintenanceStatus.Planned || log.status === AssetMaintenanceStatus.Overdue) {
                         <button class="btn btn-sm btn-outline-success me-1" (click)="completeLog(log.id!)" title="Complete">
                           <i class="fa fa-check"></i>
                         </button>
@@ -87,8 +87,8 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
               </tbody>
             </table>
             <app-pagination
-              [total]="totalCount()"
-              [page]="page()"
+              [totalCount]="totalCount()"
+              [currentPage]="currentPage"
               [pageSize]="pageSize"
               (pageChange)="onPageChange($event)">
             </app-pagination>
@@ -108,7 +108,7 @@ export class AssetMaintenanceLogListComponent implements OnInit {
   items = signal<AssetMaintenanceLogDto[]>([]);
   totalCount = signal(0);
   isLoading = signal(false);
-  page = signal(1);
+  currentPage = 0;
   pageSize = 10;
 
   ngOnInit() {
@@ -121,7 +121,7 @@ export class AssetMaintenanceLogListComponent implements OnInit {
     this.service
       .getList({
         companyId: companyId || undefined,
-        skipCount: (this.page() - 1) * this.pageSize,
+        skipCount: this.currentPage * this.pageSize,
         maxResultCount: this.pageSize,
       })
       .subscribe({
@@ -135,7 +135,7 @@ export class AssetMaintenanceLogListComponent implements OnInit {
   }
 
   onPageChange(event: PageEvent) {
-    this.page.set(event.pageIndex);
+    this.currentPage = event.pageIndex;
     this.loadData();
   }
 

@@ -7,6 +7,8 @@ import type { PaymentType } from './payment-type.enum';
 import type { FinancialReportDataSource } from './financial-report-data-source.enum';
 import type { FinancialReportType } from './financial-report-type.enum';
 import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum';
+import type { PaymentOrderType } from './payment-order-type.enum';
+import type { UnreconcileVoucherType } from './unreconcile-voucher-type.enum';
 
 export interface AccountCategoryDto {
   id?: string;
@@ -179,6 +181,22 @@ export interface BankAccountDto extends EntityDto<string> {
   lastIntegrationDate?: string | null;
 }
 
+export interface BankClearanceDocRefDto {
+  documentType: string;
+  documentId: string;
+}
+
+export interface BankClearanceEntryDto {
+  documentType?: string;
+  documentId?: string;
+  documentNumber?: string;
+  postingDate?: string;
+  debit?: number;
+  credit?: number;
+  referenceNumber?: string | null;
+  clearanceDate?: string | null;
+}
+
 export interface BankGuaranteeDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   bgType?: BankGuaranteeType;
@@ -230,39 +248,6 @@ export interface BankReconciliationSummaryDto {
   totalDeposits?: number;
   totalWithdrawals?: number;
   unreconciledBalance?: number;
-}
-
-export interface GetBankClearanceEntriesInput {
-  bankAccountId: string;
-  companyId: string;
-  fromDate: string;
-  toDate: string;
-  includeCleared?: boolean;
-}
-
-export interface BankClearanceEntryDto {
-  documentType: string;
-  documentId: string;
-  documentNumber: string;
-  postingDate: string;
-  debit?: number;
-  credit?: number;
-  referenceNumber?: string | null;
-  clearanceDate?: string | null;
-}
-
-export interface BankClearanceDocRefDto {
-  documentType: string;
-  documentId: string;
-}
-
-export interface SetClearanceDateDto {
-  entries: BankClearanceDocRefDto[];
-  clearanceDate?: string | null;
-}
-
-export interface BulkClearanceResultDto {
-  updatedCount?: number;
 }
 
 export interface BankStatementEntryDto {
@@ -376,6 +361,10 @@ export interface BudgetVarianceRowDto {
   variance?: number;
   variancePercent?: number;
   isOverBudget?: boolean;
+}
+
+export interface BulkClearanceResultDto {
+  updatedCount?: number;
 }
 
 export interface CashFlowForecastDto {
@@ -712,6 +701,25 @@ export interface CreatePaymentEntryDto {
   paymentCurrency?: string | null;
 }
 
+export interface CreatePaymentOrderDto {
+  companyId: string;
+  paymentOrderType?: PaymentOrderType;
+  postingDate?: string;
+  partyId?: string | null;
+  companyBankAccountId: string;
+  references?: CreatePaymentOrderReferenceDto[];
+}
+
+export interface CreatePaymentOrderReferenceDto {
+  referenceType: string;
+  referenceId: string;
+  amount?: number;
+  supplierId?: string | null;
+  modeOfPayment?: string | null;
+  bankAccountId: string;
+  paymentReference?: string | null;
+}
+
 export interface CreatePaymentRequestDto {
   companyId?: string;
   paymentRequestType?: string;
@@ -747,6 +755,12 @@ export interface CreateRevaluationDto {
   companyId?: string;
   postingDate?: string;
   roundingLossAllowance?: number;
+}
+
+export interface CreateUnreconcilePaymentDto {
+  companyId: string;
+  voucherType?: UnreconcileVoucherType;
+  voucherId: string;
 }
 
 export interface CreateUpdateAccountDto {
@@ -969,6 +983,14 @@ export interface GetBankAccountListDto extends PagedAndSortedResultRequestDto {
   isCompanyAccount?: boolean | null;
 }
 
+export interface GetBankClearanceEntriesInput {
+  bankAccountId: string;
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  includeCleared?: boolean;
+}
+
 export interface GetBankReconciliationStatementInput {
   bankAccountId: string;
   companyId: string;
@@ -991,6 +1013,10 @@ export interface GetOutstandingForBatchDto {
   companyId?: string;
   partyType?: string;
   partyId?: string;
+}
+
+export interface GetUnreconcilePaymentListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
 }
 
 export interface GetUpcomingPaymentsDueInput {
@@ -1079,6 +1105,11 @@ export interface JournalEntryLineDto {
   amount?: number;
   isDebit?: boolean;
   description?: string | null;
+}
+
+export interface MakePaymentRecordsDto {
+  supplierId: string;
+  modeOfPayment?: string | null;
 }
 
 export interface MatchCandidate {
@@ -1305,6 +1336,29 @@ export interface PaymentEntryDto extends EntityDto<string> {
   partyName?: string | null;
 }
 
+export interface PaymentOrderDto extends AuditedEntityDto<string> {
+  companyId?: string;
+  orderNumber?: string | null;
+  paymentOrderType?: PaymentOrderType;
+  postingDate?: string;
+  partyId?: string | null;
+  companyBankAccountId?: string;
+  status?: number;
+  amendedFromId?: string | null;
+  references?: PaymentOrderReferenceDto[];
+}
+
+export interface PaymentOrderReferenceDto {
+  id?: string;
+  referenceType?: string;
+  referenceId?: string;
+  amount?: number;
+  supplierId?: string | null;
+  modeOfPayment?: string | null;
+  bankAccountId?: string;
+  paymentReference?: string | null;
+}
+
 export interface PaymentReferenceDto {
   referenceType: string;
   referenceId: string;
@@ -1461,6 +1515,11 @@ export interface SendPaymentReminderInput {
   invoiceCount?: number;
 }
 
+export interface SetClearanceDateDto {
+  entries: BankClearanceDocRefDto[];
+  clearanceDate?: string | null;
+}
+
 export interface StatementEntryDto {
   date?: string;
   documentType?: string;
@@ -1530,6 +1589,23 @@ export interface UnreconcileDto {
   paymentVoucherId: string;
   invoiceVoucherType: string;
   invoiceVoucherId: string;
+}
+
+export interface UnreconcilePaymentAllocationDto {
+  id?: string;
+  paymentLedgerEntryId?: string;
+  againstVoucherType?: string;
+  againstVoucherId?: string;
+  amount?: number;
+  unlinked?: boolean;
+}
+
+export interface UnreconcilePaymentDto extends AuditedEntityDto<string> {
+  companyId?: string;
+  voucherType?: UnreconcileVoucherType;
+  voucherId?: string;
+  status?: number;
+  allocations?: UnreconcilePaymentAllocationDto[];
 }
 
 export interface UpcomingPaymentDueDto {

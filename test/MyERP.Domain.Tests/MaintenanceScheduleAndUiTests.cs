@@ -1,7 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
-using MyERP.Assets.Entities;
+using MyERP.Maintenance.Entities;
+using MyERP.Maintenance;
 using Xunit;
 
 namespace MyERP.Domain.Tests;

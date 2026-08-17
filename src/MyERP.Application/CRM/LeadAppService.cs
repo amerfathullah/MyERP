@@ -18,15 +18,18 @@ public class LeadAppService : ApplicationService, ILeadAppService
     private readonly IRepository<Lead, Guid> _leadRepository;
     private readonly IRepository<Opportunity, Guid> _opportunityRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
+    private readonly IRepository<CrmNote, Guid> _noteRepository;
 
     public LeadAppService(
         IRepository<Lead, Guid> leadRepository,
         IRepository<Opportunity, Guid> opportunityRepository,
-        IRepository<Customer, Guid> customerRepository)
+        IRepository<Customer, Guid> customerRepository,
+        IRepository<CrmNote, Guid> noteRepository)
     {
         _leadRepository = leadRepository;
         _opportunityRepository = opportunityRepository;
         _customerRepository = customerRepository;
+        _noteRepository = noteRepository;
     }
 
     public async Task<LeadDto> GetAsync(Guid id)
@@ -225,6 +228,32 @@ public class LeadAppService : ApplicationService, ILeadAppService
 
         return customer.Id;
     }
+
+    public async Task<List<CrmNoteDto>> GetNotesAsync(Guid id)
+    {
+        var query = await _noteRepository.GetQueryableAsync();
+        var notes = query.Where(n => n.ParentType == "Lead" && n.ParentId == id)
+            .OrderByDescending(n => n.AddedOn).ToList();
+        return notes.Select(MapNoteToDto).ToList();
+    }
+
+    public async Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input)
+    {
+        var lead = await _leadRepository.GetAsync(id);
+        var note = lead.AddNote(GuidGenerator.Create(), input.NoteText, CurrentUser.Id ?? Guid.Empty);
+        await _noteRepository.InsertAsync(note);
+        return MapNoteToDto(note);
+    }
+
+    private static CrmNoteDto MapNoteToDto(CrmNote note) => new()
+    {
+        Id = note.Id,
+        ParentType = note.ParentType,
+        ParentId = note.ParentId,
+        NoteText = note.NoteText,
+        AddedByUserId = note.AddedByUserId,
+        AddedOn = note.AddedOn,
+    };
 
     private static IQueryable<Lead> ApplySorting(IQueryable<Lead> query, string sorting)
     {

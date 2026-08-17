@@ -18,6 +18,9 @@ public interface ILeadAppService : IApplicationService
     Task<LeadDto> MarkLostAsync(Guid id);
     Task<OpportunityDto> ConvertToOpportunityAsync(ConvertLeadToOpportunityDto input);
     Task<Guid> ConvertToCustomerAsync(ConvertLeadToCustomerDto input);
+
+    Task<List<CrmNoteDto>> GetNotesAsync(Guid id);
+    Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input);
 }
 
 public interface IOpportunityAppService : IApplicationService

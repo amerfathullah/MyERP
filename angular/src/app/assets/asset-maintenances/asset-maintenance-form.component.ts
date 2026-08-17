@@ -8,7 +8,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetMaintenanceService } from '../../proxy/assets/asset-maintenance.service';
 import { AssetService } from '../../proxy/assets/asset.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { MaintenancePeriodicity, maintenancePeriodicityOptions } from '../../proxy/assets/maintenance-periodicity.enum';
+import { MaintenancePeriodicity, maintenancePeriodicityOptions } from '../../proxy/maintenance/maintenance-periodicity.enum';
 import type { AssetDto } from '../../proxy/assets/models';
 
 @Component({

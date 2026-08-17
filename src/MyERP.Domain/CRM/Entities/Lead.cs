@@ -54,6 +54,12 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string GetFullName() =>
         string.IsNullOrWhiteSpace(LastName) ? FirstName : $"{FirstName} {LastName}";
 
+    /// <summary>Creates a note-thread entry for this Lead. Callers are responsible for persisting
+    /// it via its own <see cref="CrmNote"/> repository — notes are independent aggregates, not a
+    /// child collection of Lead, since the same note type is meant to attach to other parents too.</summary>
+    public CrmNote AddNote(Guid noteId, string noteText, Guid addedByUserId) =>
+        new(noteId, "Lead", Id, noteText, addedByUserId, TenantId);
+
     public void MarkOpen()
     {
         if (Status != LeadStatus.New)

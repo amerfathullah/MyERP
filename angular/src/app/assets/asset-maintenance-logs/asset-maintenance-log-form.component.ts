@@ -6,7 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetMaintenanceLogService } from '../../proxy/assets/asset-maintenance-log.service';
-import { AssetMaintenanceStatus } from '../../proxy/assets/asset-maintenance-status.enum';
+import { AssetMaintenanceStatus } from '../../proxy/maintenance/asset-maintenance-status.enum';
 import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
 
 @Component({
@@ -39,7 +39,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
               </div>
               <div class="col-md-3">
                 <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
-                @switch (log()!.maintenanceStatus) {
+                @switch (log()!.status) {
                   @case (AssetMaintenanceStatus.Planned) {
                     <span class="badge bg-primary">{{ 'Planned' | abpLocalization }}</span>
                   }
@@ -56,7 +56,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
               </div>
             </div>
 
-            @if (log()!.maintenanceStatus === AssetMaintenanceStatus.Planned || log()!.maintenanceStatus === AssetMaintenanceStatus.Overdue) {
+            @if (log()!.status === AssetMaintenanceStatus.Planned || log()!.status === AssetMaintenanceStatus.Overdue) {
               <form [formGroup]="form" (ngSubmit)="completeLog()">
                 <div class="row mb-3">
                   <div class="col-md-6">

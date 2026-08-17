@@ -344,4 +344,23 @@ public static class MyERPDomainErrorCodes
     public const string DiscountExceeds100 = "MyERP:01015";
     public const string CustomerwiseNeedsCustomer = "MyERP:01016";
     public const string AuthorizationBlocked = "MyERP:01017";
+
+    // Support — Service Level Agreement
+    public const string DuplicateDefaultServiceLevelAgreement = "MyERP:18001";
+    public const string ServiceLevelPriorityNotFound = "MyERP:18002";
+
+    // Payment Order
+    public const string PaymentOrderHasNoReferences = "MyERP:02050";
+
+    // Unreconcile Payment
+    public const string UnreconcilePaymentHasNoAllocations = "MyERP:02051";
+
+    // CRM — Appointment
+    public const string AppointmentSlotFull = "MyERP:17003";
+    public const string AppointmentNotVerified = "MyERP:17004";
+    public const string AppointmentOutsideServiceWindow = "MyERP:17005";
+
+    // CRM — Email Campaign
+    public const string EmailCampaignStartDateInPast = "MyERP:17006";
+    public const string EmailCampaignDuplicateActive = "MyERP:17007";
 }

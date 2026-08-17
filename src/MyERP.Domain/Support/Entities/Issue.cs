@@ -62,6 +62,9 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>SLA breach: true if resolution exceeded target time.</summary>
     public bool IsSlaBreach { get; set; }
 
+    /// <summary>SLA agreement status, recomputed on every state transition.</summary>
+    public AgreementStatus AgreementStatus { get; private set; } = AgreementStatus.FirstResponseDue;
+
     /// <summary>
     /// Actual resolution time in hours (excludes hold time).
     /// Calculated: (ResolutionDate - OpeningDate).TotalHours - TotalHoldTime
@@ -98,6 +101,14 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    /// <summary>Assigns an SLA and its priority-specific (or SLA-default) response/resolution targets.</summary>
+    public void ApplySla(Guid serviceLevelAgreementId, decimal responseTimeHours, decimal resolutionTimeHours)
+    {
+        ServiceLevelAgreementId = serviceLevelAgreementId;
+        FirstResponseTime = responseTimeHours;
+        ResolutionTime = resolutionTimeHours;
+    }
+
     public void Reply()
     {
         if (Status == IssueStatus.Open && !FirstRespondedOn.HasValue)
@@ -105,6 +116,8 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         if (Status == IssueStatus.Open)
             Status = IssueStatus.Replied;
+
+        UpdateAgreementStatus();
     }
 
     public void Hold()
@@ -113,6 +126,7 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = IssueStatus.OnHold;
         HoldStartedOn = DateTime.UtcNow;
+        AgreementStatus = AgreementStatus.Paused;
     }
 
     public void Reopen()
@@ -129,6 +143,7 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         Status = IssueStatus.Open;
         ResolutionDate = null;
+        UpdateAgreementStatus();
     }
 
     public void Resolve(string? resolution = null)
@@ -150,6 +165,8 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         // Check SLA breach: actual resolution time > target
         if (ResolutionTime.HasValue && ActualResolutionTimeHours > ResolutionTime.Value)
             IsSlaBreach = true;
+
+        AgreementStatus = IsSlaBreach ? AgreementStatus.Failed : AgreementStatus.Fulfilled;
     }
 
     public void Cancel()
@@ -157,5 +174,22 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == IssueStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = IssueStatus.Cancelled;
+    }
+
+    /// <summary>Recomputes AgreementStatus from the current response/resolution state (called on non-terminal transitions).</summary>
+    private void UpdateAgreementStatus()
+    {
+        if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
+            return;
+
+        if (Status == IssueStatus.OnHold)
+        {
+            AgreementStatus = AgreementStatus.Paused;
+            return;
+        }
+
+        AgreementStatus = FirstRespondedOn.HasValue
+            ? AgreementStatus.ResolutionDue
+            : AgreementStatus.FirstResponseDue;
     }
 }

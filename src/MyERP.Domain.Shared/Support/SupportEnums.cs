@@ -10,13 +10,17 @@ public enum IssueStatus
     Cancelled = 4,
 }
 
-/// <summary>Issue priority levels.</summary>
-public enum IssuePriority
+/// <summary>
+/// SLA agreement status on an Issue — mirrors ERPNext's Issue.agreement_status.
+/// Driven by ServiceLevelAgreement deadlines and the Issue's own state transitions.
+/// </summary>
+public enum AgreementStatus
 {
-    Low = 0,
-    Medium = 1,
-    High = 2,
-    Critical = 3,
+    FirstResponseDue = 0,
+    ResolutionDue = 1,
+    Fulfilled = 2,
+    Failed = 3,
+    Paused = 4,
 }
 
 public static class IssueConsts
@@ -27,4 +31,27 @@ public static class IssueConsts
     public const int MaxPriorityLength = 20;
     public const int MaxIssueTypeLength = 100;
     public const int MaxRaisedViaLength = 50;
+}
+
+public static class ServiceLevelAgreementConsts
+{
+    public const int MaxNameLength = 100;
+    public const int MaxEntityTypeLength = 50;
+}
+
+public static class ServiceLevelPriorityConsts
+{
+    public const int MaxPriorityNameLength = 50;
+}
+
+public static class IssuePriorityConsts
+{
+    public const int MaxNameLength = 50;
+    public const int MaxDescriptionLength = 500;
+}
+
+public static class IssueTypeConsts
+{
+    public const int MaxNameLength = 50;
+    public const int MaxDescriptionLength = 500;
 }

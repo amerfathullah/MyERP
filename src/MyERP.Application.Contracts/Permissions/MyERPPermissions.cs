@@ -154,6 +154,24 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class PaymentOrders
+    {
+        public const string Default = GroupName + ".PaymentOrders";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class UnreconcilePayments
+    {
+        public const string Default = GroupName + ".UnreconcilePayments";
+        public const string Create = Default + ".Create";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class DeliveryNotes
     {
         public const string Default = GroupName + ".DeliveryNotes";
@@ -298,6 +316,36 @@ public static class MyERPPermissions
         public const string Create = Default + ".Create";
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";
+    }
+
+    public static class ServiceLevelAgreements
+    {
+        public const string Default = GroupName + ".ServiceLevelAgreements";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class IssuePriorities
+    {
+        public const string Default = GroupName + ".IssuePriorities";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class IssueTypes
+    {
+        public const string Default = GroupName + ".IssueTypes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class SupportSettings
+    {
+        public const string Default = GroupName + ".SupportSettings";
+        public const string Edit = Default + ".Edit";
     }
 
     public static class Budgets

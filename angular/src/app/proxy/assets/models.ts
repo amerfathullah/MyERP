@@ -3,12 +3,12 @@ import type { AssetActivityType } from './asset-activity-type.enum';
 import type { AssetCapitalizationStatus } from './asset-capitalization-status.enum';
 import type { DepreciationMethod } from './depreciation-method.enum';
 import type { AssetStatus } from './asset-status.enum';
-import type { MaintenancePeriodicity } from './maintenance-periodicity.enum';
-import type { AssetMaintenanceStatus } from './asset-maintenance-status.enum';
+import type { MaintenancePeriodicity } from '../maintenance/maintenance-periodicity.enum';
+import type { AssetMaintenanceStatus } from '../maintenance/asset-maintenance-status.enum';
 import type { AssetMovementPurpose } from './asset-movement-purpose.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { AssetRepairStatus } from './asset-repair-status.enum';
-import type { MaintenanceVisitStatus } from './maintenance-visit-status.enum';
+import type { MaintenanceVisitStatus } from '../maintenance/maintenance-visit-status.enum';
 
 export interface AssetActivityDto extends FullAuditedEntityDto<string> {
   assetId?: string;

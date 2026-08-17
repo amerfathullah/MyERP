@@ -1,6 +1,8 @@
 using System;
 using Volo.Abp.Application.Dtos;
 
+using MyERP.Maintenance;
+
 namespace MyERP.Assets;
 
 public class AssetMaintenanceLogDto : FullAuditedEntityDto<Guid>

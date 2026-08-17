@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
 
+using MyERP.Maintenance;
+
 namespace MyERP.Assets;
 
 public class AssetMaintenanceTaskDto : FullAuditedEntityDto<Guid>

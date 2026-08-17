@@ -24,6 +24,10 @@ public class IssueDto : AuditedEntityDto<Guid>
     public DateTime? FirstRespondedOn { get; set; }
     public double? TotalHoldTimeSeconds { get; set; }
     public bool IsSlaBreach { get; set; }
+    public Guid? ServiceLevelAgreementId { get; set; }
+    public decimal? FirstResponseTime { get; set; }
+    public decimal? ResolutionTime { get; set; }
+    public AgreementStatus AgreementStatus { get; set; }
 }
 
 /// <summary>DTO for creating a new issue.</summary>
