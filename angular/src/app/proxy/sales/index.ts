@@ -24,6 +24,8 @@ export * from './pricing-rule-apply-on.enum';
 export * from './pricing-rule-type.enum';
 export * from './pricing-rule.service';
 export * from './product-bundle.service';
+export * from './promotional-scheme-applicable-for.enum';
+export * from './promotional-scheme.service';
 export * from './proforma-invoice-basis.enum';
 export * from './proforma-invoice-status.enum';
 export * from './proforma-invoice.service';

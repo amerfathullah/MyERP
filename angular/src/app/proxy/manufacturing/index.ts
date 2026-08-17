@@ -1,4 +1,7 @@
+export * from './bom-creator-status.enum';
+export * from './bom-creator.service';
 export * from './bom-stock-analysis.service';
+export * from './downtime-entry.service';
 export * from './job-card-status.enum';
 export * from './job-card.service';
 export * from './manufacturing-settings.service';

@@ -177,6 +177,43 @@ public partial class OperationMapper : MapperBase<Manufacturing.Entities.Operati
     public override partial void Map(Manufacturing.Entities.Operation source, Manufacturing.OperationDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class DowntimeEntryMapper : MapperBase<Manufacturing.Entities.DowntimeEntry, Manufacturing.DowntimeEntryDto>
+{
+    public override partial Manufacturing.DowntimeEntryDto Map(Manufacturing.Entities.DowntimeEntry source);
+    public override partial void Map(Manufacturing.Entities.DowntimeEntry source, Manufacturing.DowntimeEntryDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BomCreatorMapper : MapperBase<Manufacturing.Entities.BomCreator, Manufacturing.BomCreatorDto>
+{
+    public override partial Manufacturing.BomCreatorDto Map(Manufacturing.Entities.BomCreator source);
+    public override partial void Map(Manufacturing.Entities.BomCreator source, Manufacturing.BomCreatorDto destination);
+    private partial Manufacturing.BomCreatorItemDto MapItem(Manufacturing.Entities.BomCreatorItem source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShareTypeMapper : MapperBase<Accounting.Entities.ShareType, Accounting.ShareTypeDto>
+{
+    public override partial Accounting.ShareTypeDto Map(Accounting.Entities.ShareType source);
+    public override partial void Map(Accounting.Entities.ShareType source, Accounting.ShareTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShareholderMapper : MapperBase<Accounting.Entities.Shareholder, Accounting.ShareholderDto>
+{
+    public override partial Accounting.ShareholderDto Map(Accounting.Entities.Shareholder source);
+    public override partial void Map(Accounting.Entities.Shareholder source, Accounting.ShareholderDto destination);
+    private partial Accounting.ShareBalanceEntryDto MapShareBalance(Accounting.Entities.ShareBalanceEntry source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShareTransferMapper : MapperBase<Accounting.Entities.ShareTransfer, Accounting.ShareTransferDto>
+{
+    public override partial Accounting.ShareTransferDto Map(Accounting.Entities.ShareTransfer source);
+    public override partial void Map(Accounting.Entities.ShareTransfer source, Accounting.ShareTransferDto destination);
+}
+
 // ─── Sales ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -184,6 +221,19 @@ public partial class PricingRuleMapper : MapperBase<Sales.Entities.PricingRule, 
 {
     public override partial Sales.PricingRuleDto Map(Sales.Entities.PricingRule source);
     public override partial void Map(Sales.Entities.PricingRule source, Sales.PricingRuleDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PromotionalSchemeMapper : MapperBase<Sales.Entities.PromotionalScheme, Sales.PromotionalSchemeDto>
+{
+    [MapperIgnoreTarget(nameof(Sales.PromotionalSchemeDto.GeneratedRuleCount))]
+    public override partial Sales.PromotionalSchemeDto Map(Sales.Entities.PromotionalScheme source);
+    [MapperIgnoreTarget(nameof(Sales.PromotionalSchemeDto.GeneratedRuleCount))]
+    public override partial void Map(Sales.Entities.PromotionalScheme source, Sales.PromotionalSchemeDto destination);
+    private partial Sales.PromotionalSchemeTargetDto MapTarget(Sales.Entities.PromotionalSchemeTarget source);
+    private partial Sales.PromotionalSchemePartyDto MapParty(Sales.Entities.PromotionalSchemeParty source);
+    private partial Sales.PromotionalSchemePriceDiscountSlabDto MapPriceSlab(Sales.Entities.PromotionalSchemePriceDiscountSlab source);
+    private partial Sales.PromotionalSchemeProductDiscountSlabDto MapProductSlab(Sales.Entities.PromotionalSchemeProductDiscountSlab source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

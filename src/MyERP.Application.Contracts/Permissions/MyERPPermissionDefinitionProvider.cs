@@ -257,6 +257,18 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Submit, L("Permission:LandedCostVouchers.Submit"));
         lcvPermission.AddChild(MyERPPermissions.LandedCostVouchers.Cancel, L("Permission:LandedCostVouchers.Cancel"));
 
+        var shareManagementPermission = myGroup.AddPermission(MyERPPermissions.ShareManagement.Default, L("Permission:ShareManagement"));
+        shareManagementPermission.AddChild(MyERPPermissions.ShareManagement.Create, L("Permission:ShareManagement.Create"));
+        shareManagementPermission.AddChild(MyERPPermissions.ShareManagement.Edit, L("Permission:ShareManagement.Edit"));
+        shareManagementPermission.AddChild(MyERPPermissions.ShareManagement.Delete, L("Permission:ShareManagement.Delete"));
+        shareManagementPermission.AddChild(MyERPPermissions.ShareManagement.Submit, L("Permission:ShareManagement.Submit"));
+        shareManagementPermission.AddChild(MyERPPermissions.ShareManagement.Cancel, L("Permission:ShareManagement.Cancel"));
+
+        var promoSchemePermission = myGroup.AddPermission(MyERPPermissions.PromotionalSchemes.Default, L("Permission:PromotionalSchemes"));
+        promoSchemePermission.AddChild(MyERPPermissions.PromotionalSchemes.Create, L("Permission:PromotionalSchemes.Create"));
+        promoSchemePermission.AddChild(MyERPPermissions.PromotionalSchemes.Edit, L("Permission:PromotionalSchemes.Edit"));
+        promoSchemePermission.AddChild(MyERPPermissions.PromotionalSchemes.Delete, L("Permission:PromotionalSchemes.Delete"));
+
         var loyaltyPermission = myGroup.AddPermission(MyERPPermissions.LoyaltyPrograms.Default, L("Permission:LoyaltyPrograms"));
         loyaltyPermission.AddChild(MyERPPermissions.LoyaltyPrograms.Create, L("Permission:LoyaltyPrograms.Create"));
         loyaltyPermission.AddChild(MyERPPermissions.LoyaltyPrograms.Edit, L("Permission:LoyaltyPrograms.Edit"));

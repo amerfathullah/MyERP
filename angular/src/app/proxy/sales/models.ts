@@ -9,6 +9,7 @@ import type { ProformaInvoiceStatus } from './proforma-invoice-status.enum';
 import type { AnalyticsGroupBy } from './analytics-group-by.enum';
 import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 import type { TrackingBoardStage } from './tracking-board-stage.enum';
+import type { PromotionalSchemeApplicableFor } from './promotional-scheme-applicable-for.enum';
 
 export interface ApplyPricingRuleDto {
   itemId?: string | null;
@@ -980,6 +981,93 @@ export interface PricingRuleResultDto {
   rate?: number;
   freeItemId?: string | null;
   freeItemQty?: number;
+}
+
+export interface PromotionalSchemeTargetDto {
+  targetId?: string;
+  targetName?: string | null;
+}
+
+export interface PromotionalSchemePartyDto {
+  partyId?: string;
+  partyName?: string | null;
+}
+
+export interface PromotionalSchemePriceDiscountSlabDto {
+  rateOrDiscount?: PricingRuleType;
+  discountPercentage?: number;
+  discountAmount?: number;
+  rate?: number;
+  minQty?: number;
+  maxQty?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  priority?: number;
+  warehouseId?: string | null;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface PromotionalSchemeProductDiscountSlabDto {
+  freeItemId?: string;
+  freeQty?: number;
+  freeItemRate?: number;
+  sameItem?: boolean;
+  minQty?: number;
+  maxQty?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  priority?: number;
+  warehouseId?: string | null;
+  description?: string | null;
+  isRecursive?: boolean;
+  recurseFor?: number;
+  roundFreeQty?: boolean;
+}
+
+export interface PromotionalSchemeDto extends EntityDto<string> {
+  companyId?: string;
+  title?: string;
+  isDisabled?: boolean;
+  applyOn?: PricingRuleApplyOn;
+  mixedConditions?: boolean;
+  isCumulative?: boolean;
+  applyRuleOnOtherItem?: boolean;
+  otherApplyOn?: PricingRuleApplyOn | null;
+  otherTargetId?: string | null;
+  selling?: boolean;
+  buying?: boolean;
+  applicableFor?: PromotionalSchemeApplicableFor;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  currencyId?: string | null;
+  targets?: PromotionalSchemeTargetDto[];
+  parties?: PromotionalSchemePartyDto[];
+  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
+  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
+  generatedRuleCount?: number;
+}
+
+export interface CreateUpdatePromotionalSchemeDto {
+  companyId?: string;
+  title?: string;
+  isDisabled?: boolean;
+  applyOn?: PricingRuleApplyOn;
+  mixedConditions?: boolean;
+  isCumulative?: boolean;
+  applyRuleOnOtherItem?: boolean;
+  otherApplyOn?: PricingRuleApplyOn | null;
+  otherTargetId?: string | null;
+  selling?: boolean;
+  buying?: boolean;
+  applicableFor?: PromotionalSchemeApplicableFor;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  currencyId?: string | null;
+  targets?: PromotionalSchemeTargetDto[];
+  parties?: PromotionalSchemePartyDto[];
+  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
+  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
 }
 
 export interface ProductBundleDto extends EntityDto<string> {

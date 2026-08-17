@@ -9,6 +9,77 @@ import type { FinancialReportType } from './financial-report-type.enum';
 import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum';
 import type { PaymentOrderType } from './payment-order-type.enum';
 import type { UnreconcileVoucherType } from './unreconcile-voucher-type.enum';
+import type { ShareTransferType } from './share-transfer-type.enum';
+
+export interface ShareTypeDto extends EntityDto<string> {
+  title?: string;
+  description?: string | null;
+}
+
+export interface CreateUpdateShareTypeDto {
+  title?: string;
+  description?: string | null;
+}
+
+export interface ShareBalanceEntryDto {
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  noOfShares?: number;
+  rate?: number;
+  amount?: number;
+  isCompany?: boolean;
+  currentState?: string | null;
+}
+
+export interface ShareholderDto extends EntityDto<string> {
+  companyId?: string;
+  title?: string;
+  folioNo?: string | null;
+  isCompany?: boolean;
+  shareBalances?: ShareBalanceEntryDto[];
+}
+
+export interface CreateUpdateShareholderDto {
+  companyId?: string;
+  title?: string;
+  folioNo?: string | null;
+}
+
+export interface ShareTransferDto extends EntityDto<string> {
+  companyId?: string;
+  transferType?: ShareTransferType;
+  date?: string;
+  fromShareholderId?: string | null;
+  fromFolioNo?: string | null;
+  toShareholderId?: string | null;
+  toFolioNo?: string | null;
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  noOfShares?: number;
+  rate?: number;
+  amount?: number;
+  equityOrLiabilityAccountId?: string;
+  assetAccountId?: string | null;
+  remarks?: string | null;
+  status?: DocumentStatus;
+}
+
+export interface CreateUpdateShareTransferDto {
+  companyId?: string;
+  transferType?: ShareTransferType;
+  date?: string;
+  fromShareholderId?: string | null;
+  toShareholderId?: string | null;
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  rate?: number;
+  equityOrLiabilityAccountId?: string;
+  assetAccountId?: string | null;
+  remarks?: string | null;
+}
 
 export interface AccountCategoryDto {
   id?: string;

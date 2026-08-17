@@ -4,6 +4,76 @@ import type { ProductionPlanStatus } from './production-plan-status.enum';
 import type { SubAssemblyType } from './sub-assembly-type.enum';
 import type { SecondaryItemType } from './secondary-item-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
+import type { BomCreatorStatus } from './bom-creator-status.enum';
+
+export interface DowntimeEntryDto extends EntityDto<string> {
+  companyId?: string;
+  workstationId?: string;
+  operatorId?: string;
+  fromTime?: string;
+  toTime?: string;
+  downtimeMinutes?: number;
+  stopReason?: string;
+  remarks?: string | null;
+}
+
+export interface CreateUpdateDowntimeEntryDto {
+  companyId?: string;
+  workstationId?: string;
+  operatorId?: string;
+  fromTime?: string;
+  toTime?: string;
+  stopReason?: string;
+  remarks?: string | null;
+}
+
+export interface BomCreatorItemDto {
+  itemId?: string;
+  itemName?: string;
+  fgItemId?: string;
+  isExpandable?: boolean;
+  qty?: number;
+  rate?: number;
+  amount?: number;
+  uom?: string | null;
+  conversionFactor?: number;
+  stockUom?: string;
+  operationId?: string | null;
+  isSubcontracted?: boolean;
+  isPhantomItem?: boolean;
+  sourcedBySupplier?: boolean;
+  instruction?: string | null;
+  bomCreated?: boolean;
+}
+
+export interface BomCreatorDto extends EntityDto<string> {
+  companyId?: string;
+  finishedGoodItemId?: string;
+  qty?: number;
+  uom?: string | null;
+  isPhantom?: boolean;
+  routingId?: string | null;
+  defaultWarehouseId?: string | null;
+  rmCostAsPer?: string;
+  rawMaterialCost?: number;
+  remarks?: string | null;
+  status?: BomCreatorStatus;
+  errorLog?: string | null;
+  items?: BomCreatorItemDto[];
+}
+
+export interface CreateUpdateBomCreatorDto {
+  companyId?: string;
+  finishedGoodItemId?: string;
+  qty?: number;
+  uom?: string | null;
+  isPhantom?: boolean;
+  routingId?: string | null;
+  defaultWarehouseId?: string | null;
+  rmCostAsPer?: string;
+  remarks?: string | null;
+  items?: BomCreatorItemDto[];
+}
 
 export interface AddTimeLogDto {
   fromTime?: string;

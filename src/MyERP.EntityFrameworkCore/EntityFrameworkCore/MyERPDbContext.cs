@@ -123,6 +123,10 @@ public class MyERPDbContext :
     public DbSet<FinancialReportTemplate> FinancialReportTemplates { get; set; }
     public DbSet<FinancialReportRow> FinancialReportRows { get; set; }
     public DbSet<BankGuarantee> BankGuarantees { get; set; }
+    public DbSet<ShareType> ShareTypes { get; set; }
+    public DbSet<Shareholder> Shareholders { get; set; }
+    public DbSet<ShareBalanceEntry> ShareBalanceEntries { get; set; }
+    public DbSet<ShareTransfer> ShareTransfers { get; set; }
 
     // Sales
     public DbSet<Customer> Customers { get; set; }
@@ -348,9 +352,17 @@ public class MyERPDbContext :
     public DbSet<JobCard> JobCards { get; set; }
     public DbSet<JobCardTimeLog> JobCardTimeLogs { get; set; }
     public DbSet<ManufacturingSettings> ManufacturingSettings { get; set; }
+    public DbSet<DowntimeEntry> DowntimeEntries { get; set; }
+    public DbSet<BomCreator> BomCreators { get; set; }
+    public DbSet<BomCreatorItem> BomCreatorItems { get; set; }
 
     // Sales (additional)
     public DbSet<PricingRule> PricingRules { get; set; }
+    public DbSet<PromotionalScheme> PromotionalSchemes { get; set; }
+    public DbSet<PromotionalSchemeTarget> PromotionalSchemeTargets { get; set; }
+    public DbSet<PromotionalSchemeParty> PromotionalSchemeParties { get; set; }
+    public DbSet<PromotionalSchemePriceDiscountSlab> PromotionalSchemePriceDiscountSlabs { get; set; }
+    public DbSet<PromotionalSchemeProductDiscountSlab> PromotionalSchemeProductDiscountSlabs { get; set; }
     public DbSet<ShippingRule> ShippingRules { get; set; }
     public DbSet<ShippingRuleCondition> ShippingRuleConditions { get; set; }
     public DbSet<ShippingRuleCountry> ShippingRuleCountries { get; set; }
@@ -2728,6 +2740,68 @@ public class MyERPDbContext :
             b.Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
             b.Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
             b.HasIndex(x => new { x.TenantId, x.ApplyOn, x.ApplyOnId, x.Priority });
+            b.HasIndex(x => x.PromotionalSchemeId);
+        });
+
+        // Promotional Scheme
+        builder.Entity<PromotionalScheme>(b =>
+        {
+            b.ToTable("Sal_PromotionalSchemes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(140);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Targets).WithOne().HasForeignKey(x => x.PromotionalSchemeId).IsRequired();
+            b.Navigation(x => x.Targets).AutoInclude();
+            b.HasMany(x => x.Parties).WithOne().HasForeignKey(x => x.PromotionalSchemeId).IsRequired();
+            b.Navigation(x => x.Parties).AutoInclude();
+            b.HasMany(x => x.PriceDiscountSlabs).WithOne().HasForeignKey(x => x.PromotionalSchemeId).IsRequired();
+            b.Navigation(x => x.PriceDiscountSlabs).AutoInclude();
+            b.HasMany(x => x.ProductDiscountSlabs).WithOne().HasForeignKey(x => x.PromotionalSchemeId).IsRequired();
+            b.Navigation(x => x.ProductDiscountSlabs).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsDisabled });
+        });
+
+        builder.Entity<PromotionalSchemeTarget>(b =>
+        {
+            b.ToTable("Sal_PromotionalSchemeTargets", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TargetName).HasMaxLength(200);
+        });
+
+        builder.Entity<PromotionalSchemeParty>(b =>
+        {
+            b.ToTable("Sal_PromotionalSchemeParties", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PartyName).HasMaxLength(200);
+        });
+
+        builder.Entity<PromotionalSchemePriceDiscountSlab>(b =>
+        {
+            b.ToTable("Sal_PromotionalSchemePriceDiscountSlabs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).HasMaxLength(200);
+            b.Property(x => x.DiscountPercentage).HasColumnType("decimal(18,4)");
+            b.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Rate).HasColumnType("decimal(18,2)");
+            b.Property(x => x.MinQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.MaxQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
+        });
+
+        builder.Entity<PromotionalSchemeProductDiscountSlab>(b =>
+        {
+            b.ToTable("Sal_PromotionalSchemeProductDiscountSlabs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).HasMaxLength(200);
+            b.Property(x => x.FreeQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.FreeItemRate).HasColumnType("decimal(18,2)");
+            b.Property(x => x.MinQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.MaxQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.RecurseFor).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.FreeItemId).IsRequired();
         });
 
         builder.Entity<ShippingRule>(b =>
@@ -2867,6 +2941,50 @@ public class MyERPDbContext :
             b.Property(x => x.BackflushRawMaterialsBasedOn).IsRequired().HasMaxLength(50);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
+        });
+
+        // Downtime Entry
+        builder.Entity<DowntimeEntry>(b =>
+        {
+            b.ToTable("Mfg_DowntimeEntries", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.StopReason).IsRequired().HasMaxLength(100);
+            b.Property(x => x.Remarks).HasMaxLength(2000);
+            b.Property(x => x.DowntimeMinutes).HasColumnType("decimal(18,2)");
+            b.HasOne<Workstation>().WithMany().HasForeignKey(x => x.WorkstationId).IsRequired();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.WorkstationId, x.FromTime });
+        });
+
+        // BOM Creator
+        builder.Entity<BomCreator>(b =>
+        {
+            b.ToTable("Mfg_BomCreators", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Uom).HasMaxLength(50);
+            b.Property(x => x.RmCostAsPer).IsRequired().HasMaxLength(30);
+            b.Property(x => x.Remarks).HasMaxLength(2000);
+            b.Property(x => x.ErrorLog).HasMaxLength(4000);
+            b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.RawMaterialCost).HasColumnType("decimal(18,2)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.FinishedGoodItemId).IsRequired();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.BomCreatorId).IsRequired();
+            b.Navigation(x => x.Items).AutoInclude();
+        });
+
+        builder.Entity<BomCreatorItem>(b =>
+        {
+            b.ToTable("Mfg_BomCreatorItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Uom).HasMaxLength(50);
+            b.Property(x => x.StockUom).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Instruction).HasMaxLength(1000);
+            b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Rate).HasColumnType("decimal(18,2)");
+            b.Property(x => x.ConversionFactor).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 
         // Item Tax Template
@@ -3968,6 +4086,49 @@ public class MyERPDbContext :
             b.Property(x => x.FixedDepositNumber).HasMaxLength(BankGuaranteeConsts.MaxFixedDepositNumberLength);
             b.Property(x => x.ClausesAndConditions).HasMaxLength(BankGuaranteeConsts.MaxClausesLength);
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.BankGuaranteeNumber });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        // Share Management
+        builder.Entity<ShareType>(b =>
+        {
+            b.ToTable("Acc_ShareTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(140);
+            b.Property(x => x.Description).HasMaxLength(2000);
+        });
+
+        builder.Entity<Shareholder>(b =>
+        {
+            b.ToTable("Acc_Shareholders", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.FolioNo).HasMaxLength(50);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.ShareBalances).WithOne().HasForeignKey(x => x.ShareholderId).IsRequired();
+            b.Navigation(x => x.ShareBalances).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsCompany });
+        });
+
+        builder.Entity<ShareBalanceEntry>(b =>
+        {
+            b.ToTable("Acc_ShareBalanceEntries", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.CurrentState).HasMaxLength(30);
+            b.HasOne<ShareType>().WithMany().HasForeignKey(x => x.ShareTypeId).IsRequired();
+        });
+
+        builder.Entity<ShareTransfer>(b =>
+        {
+            b.ToTable("Acc_ShareTransfers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Remarks).HasMaxLength(2000);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<ShareType>().WithMany().HasForeignKey(x => x.ShareTypeId).IsRequired();
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.EquityOrLiabilityAccountId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
         });
 

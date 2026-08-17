@@ -363,4 +363,27 @@ public static class MyERPDomainErrorCodes
     // CRM — Email Campaign
     public const string EmailCampaignStartDateInPast = "MyERP:17006";
     public const string EmailCampaignDuplicateActive = "MyERP:17007";
+
+    // Promotional Scheme
+    public const string PromotionalSchemeRequiresSellingOrBuying = "MyERP:03018";
+    public const string PromotionalSchemeRequiresSlabs = "MyERP:03019";
+    public const string PromotionalSchemeRecursiveWithMixedConditions = "MyERP:03020";
+    public const string PromotionalSchemeApplicableForRequiresParty = "MyERP:03021";
+
+    // Manufacturing — Downtime Entry
+    public const string DowntimeEntryToTimeBeforeFromTime = "MyERP:10022";
+
+    // Manufacturing — BOM Creator
+    public const string BomCreatorRequiresItems = "MyERP:10023";
+    public const string BomCreatorAlreadyProcessed = "MyERP:10024";
+
+    // Share Transfer
+    public const string ShareTransferSellerBuyerSame = "MyERP:02052";
+    public const string ShareTransferSharesAlreadyExist = "MyERP:02053";
+    public const string ShareTransferSharesDoNotExist = "MyERP:02054";
+    public const string ShareTransferCountMismatch = "MyERP:02055";
+    public const string ShareTransferAmountMismatch = "MyERP:02056";
+    public const string ShareTransferFolioMismatch = "MyERP:02057";
+    public const string ShareTransferMissingParty = "MyERP:02058";
+    public const string ShareTransferMissingAccount = "MyERP:02059";
 }

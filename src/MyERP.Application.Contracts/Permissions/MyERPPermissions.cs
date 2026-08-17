@@ -387,6 +387,24 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class ShareManagement
+    {
+        public const string Default = GroupName + ".ShareManagement";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class PromotionalSchemes
+    {
+        public const string Default = GroupName + ".PromotionalSchemes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class LoyaltyPrograms
     {
         public const string Default = GroupName + ".LoyaltyPrograms";
