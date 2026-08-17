@@ -332,6 +332,8 @@ public class MyERPDbContext :
     public DbSet<AssetValueAdjustment> AssetValueAdjustments { get; set; }
     public DbSet<AssetMaintenance> AssetMaintenances { get; set; }
     public DbSet<AssetMaintenanceTask> AssetMaintenanceTasks { get; set; }
+    public DbSet<AssetMaintenanceTeam> AssetMaintenanceTeams { get; set; }
+    public DbSet<AssetMaintenanceTeamMember> AssetMaintenanceTeamMembers { get; set; }
     public DbSet<AssetMaintenanceLog> AssetMaintenanceLogs { get; set; }
     public DbSet<WarrantyClaim> WarrantyClaims { get; set; }
 
@@ -4316,6 +4318,23 @@ public class MyERPDbContext :
             b.Property(x => x.Description).HasMaxLength(AssetMaintenanceConsts.MaxDescriptionLength);
             b.Property(x => x.CertificateNo).HasMaxLength(AssetMaintenanceConsts.MaxCertificateNoLength);
             b.HasIndex(x => new { x.TenantId, x.AssetMaintenanceId });
+        });
+
+        builder.Entity<AssetMaintenanceTeam>(b =>
+        {
+            b.ToTable("Ast_AssetMaintenanceTeams", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TeamName).IsRequired().HasMaxLength(140);
+            b.HasMany(x => x.Members).WithOne().HasForeignKey(x => x.AssetMaintenanceTeamId).IsRequired();
+            b.Navigation(x => x.Members).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.TeamName }).IsUnique();
+        });
+
+        builder.Entity<AssetMaintenanceTeamMember>(b =>
+        {
+            b.ToTable("Ast_AssetMaintenanceTeamMembers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.MaintenanceRole).HasMaxLength(140);
         });
 
         builder.Entity<AssetMaintenanceLog>(b =>

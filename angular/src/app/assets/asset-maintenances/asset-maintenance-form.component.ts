@@ -7,9 +7,10 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetMaintenanceService } from '../../proxy/assets/asset-maintenance.service';
 import { AssetService } from '../../proxy/assets/asset.service';
+import { AssetMaintenanceTeamService } from '../../proxy/assets/asset-maintenance-team.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { MaintenancePeriodicity, maintenancePeriodicityOptions } from '../../proxy/maintenance/maintenance-periodicity.enum';
-import type { AssetDto } from '../../proxy/assets/models';
+import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/models';
 
 @Component({
   selector: 'app-asset-maintenance-form',
@@ -49,7 +50,12 @@ import type { AssetDto } from '../../proxy/assets/models';
             <div class="row mb-3">
               <div class="col-md-6">
                 <label class="form-label">{{ 'MaintenanceTeam' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="maintenanceTeamName" placeholder="Team Name" />
+                <select class="form-select" formControlName="maintenanceTeamId">
+                  <option [ngValue]="null">--</option>
+                  @for (t of teams(); track t.id) {
+                    <option [value]="t.id">{{ t.teamName }}</option>
+                  }
+                </select>
               </div>
             </div>
 
@@ -135,6 +141,7 @@ export class AssetMaintenanceFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(AssetMaintenanceService);
   private assetService = inject(AssetService);
+  private teamService = inject(AssetMaintenanceTeamService);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
   private router = inject(Router);
@@ -145,13 +152,14 @@ export class AssetMaintenanceFormComponent implements OnInit {
   maintenanceId = signal<string | null>(null);
   assetDisplayName = signal('');
   assets = signal<AssetDto[]>([]);
+  teams = signal<AssetMaintenanceTeamDto[]>([]);
   periodicityOptions = maintenancePeriodicityOptions;
 
   form: FormGroup = this.fb.group({
     companyId: [null, Validators.required],
     assetId: [null, Validators.required],
     maintenanceManagerName: [''],
-    maintenanceTeamName: [''],
+    maintenanceTeamId: [null],
     tasks: this.fb.array([]),
   });
 
@@ -171,6 +179,9 @@ export class AssetMaintenanceFormComponent implements OnInit {
     this.assetService.getList({ maxResultCount: 100 }).subscribe((res) => {
       this.assets.set(res.items || []);
     });
+    this.teamService.getList({ maxResultCount: 200 }).subscribe((res) => {
+      this.teams.set(res.items || []);
+    });
 
     if (id && id !== 'new') {
       this.isEdit.set(true);
@@ -187,7 +198,7 @@ export class AssetMaintenanceFormComponent implements OnInit {
         companyId: res.companyId,
         assetId: res.assetId,
         maintenanceManagerName: res.maintenanceManagerName,
-        maintenanceTeamName: res.maintenanceTeamName,
+        maintenanceTeamId: res.maintenanceTeamId,
       });
       this.assetDisplayName.set(res.assetName || res.assetId);
 
@@ -239,9 +250,16 @@ export class AssetMaintenanceFormComponent implements OnInit {
       certificateRequired: !!t.certificateRequired,
     }));
 
+    const team = this.teams().find((t) => t.id === val.maintenanceTeamId);
+
     if (this.isEdit()) {
       this.service
         .update(this.maintenanceId()!, {
+          companyId: val.companyId,
+          assetId: val.assetId,
+          maintenanceManagerName: val.maintenanceManagerName || null,
+          maintenanceTeamId: val.maintenanceTeamId || null,
+          maintenanceTeamName: team?.teamName ?? null,
           tasks,
         })
         .subscribe({
@@ -259,6 +277,9 @@ export class AssetMaintenanceFormComponent implements OnInit {
         .create({
           companyId: val.companyId,
           assetId: val.assetId,
+          maintenanceManagerName: val.maintenanceManagerName || null,
+          maintenanceTeamId: val.maintenanceTeamId || null,
+          maintenanceTeamName: team?.teamName ?? null,
           tasks,
         })
         .subscribe({

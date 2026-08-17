@@ -2872,6 +2872,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.AssetMaintenances.Edit' },
   },
   {
+    path: 'assets/maintenance-teams',
+    loadComponent: () => import('./assets/asset-maintenance-teams/asset-maintenance-team-list.component').then(c => c.AssetMaintenanceTeamListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetMaintenances' },
+  },
+  {
+    path: 'assets/maintenance-teams/new',
+    loadComponent: () => import('./assets/asset-maintenance-teams/asset-maintenance-team-form.component').then(c => c.AssetMaintenanceTeamFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetMaintenances.Create' },
+  },
+  {
+    path: 'assets/maintenance-teams/:id',
+    loadComponent: () => import('./assets/asset-maintenance-teams/asset-maintenance-team-form.component').then(c => c.AssetMaintenanceTeamFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetMaintenances.Edit' },
+  },
+  {
     path: 'assets/maintenance-logs',
     loadComponent: () => import('./assets/asset-maintenance-logs/asset-maintenance-log-list.component').then(c => c.AssetMaintenanceLogListComponent),
     canActivate: [authGuard, permissionGuard],

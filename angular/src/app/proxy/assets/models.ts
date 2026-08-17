@@ -592,3 +592,23 @@ export interface UpdateAssetDto {
   availableForUseDate?: string | null;
   notes?: string | null;
 }
+
+export interface AssetMaintenanceTeamMemberDto {
+  employeeId?: string;
+  employeeName?: string | null;
+  maintenanceRole?: string | null;
+}
+
+export interface AssetMaintenanceTeamDto extends EntityDto<string> {
+  companyId?: string;
+  teamName?: string;
+  maintenanceManagerId?: string | null;
+  members?: AssetMaintenanceTeamMemberDto[];
+}
+
+export interface CreateUpdateAssetMaintenanceTeamDto {
+  companyId?: string;
+  teamName?: string;
+  maintenanceManagerId?: string | null;
+  members?: AssetMaintenanceTeamMemberDto[];
+}
