@@ -94,7 +94,67 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var customer = await customerRepo.FindAsync(invoice.CustomerId);
         if (customer != null) dto.CustomerName = customer.Name;
 
+        await AttachSalesTeamAsync(dto);
+
         return dto;
+    }
+
+    /// <summary>
+    /// Per ERPNext selling_controller.calculate_contribution(): allocated_amount is a percentage
+    /// split of the amount eligible for commission (here: NetTotal — MyERP has no per-item
+    /// grant_commission flag, so all items are eligible), and incentives = allocated_amount ×
+    /// the row's commission rate (falling back to the Sales Person's own rate when not overridden).
+    /// </summary>
+    private async Task CreateSalesTeamEntriesAsync(SalesInvoice invoice, List<SalesTeamAllocationInputDto> salesTeam)
+    {
+        var totalPercentage = salesTeam.Sum(s => s.AllocatedPercentage);
+        if (Math.Round(totalPercentage, 2) != 100m)
+            throw new BusinessException(MyERPDomainErrorCodes.SalesTeamPercentageMustTotal100)
+                .WithData("total", Math.Round(totalPercentage, 2));
+
+        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+
+        foreach (var row in salesTeam)
+        {
+            var commissionRate = row.CommissionRate;
+            if (!commissionRate.HasValue)
+            {
+                var salesPerson = await spRepo.FindAsync(row.SalesPersonId);
+                commissionRate = salesPerson?.CommissionRate ?? 0m;
+            }
+
+            var entry = new SalesTeamEntry(
+                GuidGenerator.Create(), row.SalesPersonId, "SalesInvoice", invoice.Id,
+                row.AllocatedPercentage, invoice.NetTotal, commissionRate.Value);
+            await teamRepo.InsertAsync(entry);
+        }
+    }
+
+    private async Task AttachSalesTeamAsync(SalesInvoiceDto dto)
+    {
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var teamQuery = await teamRepo.GetQueryableAsync();
+        var entries = teamQuery.Where(e => e.ParentType == "SalesInvoice" && e.ParentId == dto.Id).ToList();
+        if (entries.Count == 0) return;
+
+        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
+        var spQuery = await spRepo.GetQueryableAsync();
+        var spIds = entries.Select(e => e.SalesPersonId).Distinct().ToList();
+        var spNames = spQuery.Where(sp => spIds.Contains(sp.Id))
+            .Select(sp => new { sp.Id, sp.Name }).ToList()
+            .ToDictionary(sp => sp.Id, sp => sp.Name);
+
+        dto.SalesTeam = entries.Select(e => new SalesTeamEntryDto
+        {
+            SalesPersonId = e.SalesPersonId,
+            SalesPersonName = spNames.GetValueOrDefault(e.SalesPersonId),
+            AllocatedPercentage = e.AllocatedPercentage,
+            AllocatedAmount = e.AllocatedAmount,
+            CommissionRate = e.CommissionRate,
+            Incentives = e.Incentives,
+        }).ToList();
+        dto.TotalCommission = entries.Sum(e => e.Incentives);
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)
@@ -513,6 +573,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         await _repository.InsertAsync(invoice, autoSave: true);
+
+        if (input.SalesTeam is { Count: > 0 })
+        {
+            await CreateSalesTeamEntriesAsync(invoice, input.SalesTeam);
+        }
 
         // Persist payment schedule entries (after invoice saved so we have the ID)
         if (input.PaymentTermsTemplateId.HasValue && !invoice.IsOpening)

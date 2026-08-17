@@ -9,6 +9,7 @@ import { InvoiceItemGridComponent } from './components/invoice-item-grid.compone
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
+import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
@@ -16,7 +17,7 @@ import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchang
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
-import type { CreateSalesInvoiceDto, SalesInvoiceItemDto } from '../../proxy/sales/models';
+import type { CreateSalesInvoiceDto, SalesInvoiceItemDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -45,6 +46,7 @@ export class SalesInvoiceFormComponent implements OnInit {
   private taxCalc = inject(TaxCalculationService);
   private service = inject(SalesInvoiceService);
   private customerService = inject(CustomerService);
+  private salesPersonService = inject(SalesPersonService);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
@@ -76,6 +78,12 @@ export class SalesInvoiceFormComponent implements OnInit {
   isLoadingSoItems = signal(false);
   isLoadingDnItems = signal(false);
   paymentSchedulePreview = signal<{ dueDate: string; portion: number; amount: number }[]>([]);
+
+  // Sales Team (commission split)
+  salesPersons = signal<{ id: string; name: string; commissionRate: number }[]>([]);
+  salesTeamRows = signal<{ salesPersonId: string; allocatedPercentage: number; commissionRate: number | null }[]>([]);
+  salesTeamTotalPercentage = computed(() =>
+    Math.round(this.salesTeamRows().reduce((s, r) => s + (r.allocatedPercentage || 0), 0) * 100) / 100);
 
   // Document-level discount
   discountOn: 'GrandTotal' | 'NetTotal' = 'GrandTotal';
@@ -142,6 +150,15 @@ export class SalesInvoiceFormComponent implements OnInit {
     // Load payment terms templates
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
+
+    // Load sales persons for commission split
+    this.salesPersonService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
+      .subscribe({
+        next: (res: any) => this.salesPersons.set((res.items ?? [])
+          .filter((sp: any) => sp.isEnabled && !sp.isGroup)
+          .map((sp: any) => ({ id: sp.id, name: sp.name, commissionRate: sp.commissionRate ?? 0 }))),
+        error: () => {},
+      });
 
     // Load tax categories for tax template selector
     this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
@@ -435,6 +452,18 @@ export class SalesInvoiceFormComponent implements OnInit {
     });
   }
 
+  addSalesTeamRow(): void {
+    this.salesTeamRows.update(rows => [...rows, { salesPersonId: '', allocatedPercentage: 0, commissionRate: null }]);
+  }
+
+  removeSalesTeamRow(index: number): void {
+    this.salesTeamRows.update(rows => rows.filter((_, i) => i !== index));
+  }
+
+  updateSalesTeamRow(index: number, patch: Partial<{ salesPersonId: string; allocatedPercentage: number; commissionRate: number | null }>): void {
+    this.salesTeamRows.update(rows => rows.map((r, i) => i === index ? { ...r, ...patch } : r));
+  }
+
   /** Used by unsaved-changes route guard */
   hasUnsavedChanges(): boolean {
     return this.form.dirty;
@@ -510,6 +539,10 @@ export class SalesInvoiceFormComponent implements OnInit {
       this.router.navigate(['/sales/invoices', this.entityId]);
       return;
     }
+    const salesTeamRows = this.salesTeamRows().filter(r => r.salesPersonId);
+    if (salesTeamRows.length > 0 && this.salesTeamTotalPercentage() !== 100) {
+      return;
+    }
     this.recalculate();
 
     const raw = this.form.getRawValue() as any;
@@ -530,6 +563,13 @@ export class SalesInvoiceFormComponent implements OnInit {
         taxAmount: item.taxAmount ?? 0,
         uom: item.uom ?? 'Unit',
       })),
+      salesTeam: salesTeamRows.length > 0
+        ? salesTeamRows.map((r): SalesTeamAllocationInputDto => ({
+            salesPersonId: r.salesPersonId,
+            allocatedPercentage: r.allocatedPercentage,
+            commissionRate: r.commissionRate,
+          }))
+        : undefined,
     };
 
     this.service.create(dto).subscribe({

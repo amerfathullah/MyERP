@@ -205,6 +205,63 @@
       </div>
     </div>
 
+    <!-- Sales Team (commission split) -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="fa fa-people-group me-2"></i>{{ 'SalesTeam' | abpLocalization }}</h5>
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSalesTeamRow()">
+          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+        </button>
+      </div>
+      @if (salesTeamRows().length > 0) {
+        <div class="card-body">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>{{ 'SalesPerson' | abpLocalization }}</th>
+                <th style="width:140px">{{ 'AllocatedPercentage' | abpLocalization }}</th>
+                <th style="width:140px">{{ 'CommissionRate' | abpLocalization }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of salesTeamRows(); track $index) {
+                <tr>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.salesPersonId" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="updateSalesTeamRow($index, { salesPersonId: $event })">
+                      <option value="">--</option>
+                      @for (sp of salesPersons(); track sp.id) { <option [value]="sp.id">{{ sp.name }}</option> }
+                    </select>
+                  </td>
+                  <td>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="row.allocatedPercentage" [ngModelOptions]="{standalone: true}"
+                           (ngModelChange)="updateSalesTeamRow($index, { allocatedPercentage: $event })" min="0" max="100" step="0.01">
+                  </td>
+                  <td>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="row.commissionRate" [ngModelOptions]="{standalone: true}"
+                           (ngModelChange)="updateSalesTeamRow($index, { commissionRate: $event })" min="0" max="100" step="0.01">
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeSalesTeamRow($index)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+                <td class="fw-bold" [class.text-danger]="salesTeamTotalPercentage() !== 100">{{ salesTeamTotalPercentage() }}%</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+
     <!-- Tax Template -->
     <div class="card mb-4">
       <div class="card-header">

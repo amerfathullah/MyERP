@@ -927,10 +927,14 @@ public partial class SalesInvoiceMapper : MapperBase<Sales.Entities.SalesInvoice
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.DaysOverdue))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsOverdue))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.TotalCommission))]
     public override partial Sales.SalesInvoiceDto Map(Sales.Entities.SalesInvoice source);
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.DaysOverdue))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsOverdue))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.TotalCommission))]
     public override partial void Map(Sales.Entities.SalesInvoice source, Sales.SalesInvoiceDto destination);
     private partial Sales.SalesInvoiceItemDto MapChild(Sales.Entities.SalesInvoiceItem source);
 }

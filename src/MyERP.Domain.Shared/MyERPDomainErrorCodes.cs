@@ -295,6 +295,7 @@ public static class MyERPDomainErrorCodes
     // SO Update Items guards
     public const string SoItemQtyBelowDelivered = "MyERP:03024";
     public const string SoItemRateBelowBilled = "MyERP:03025";
+    public const string SalesTeamPercentageMustTotal100 = "MyERP:03026";
 
     // Bank Transaction — Auto-Reconcile
     public const string BankTransactionAlreadyReconciled = "MyERP:02048";

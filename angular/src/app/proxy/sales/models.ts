@@ -344,6 +344,22 @@ export interface CreateSalesInvoiceDto {
   discountAmount?: number;
   applyDiscountOn?: string | null;
   items: CreateSalesInvoiceItemDto[];
+  salesTeam?: SalesTeamAllocationInputDto[];
+}
+
+export interface SalesTeamAllocationInputDto {
+  salesPersonId: string;
+  allocatedPercentage: number;
+  commissionRate?: number | null;
+}
+
+export interface SalesTeamEntryDto {
+  salesPersonId?: string;
+  salesPersonName?: string | null;
+  allocatedPercentage?: number;
+  allocatedAmount?: number;
+  commissionRate?: number;
+  incentives?: number;
 }
 
 export interface CreateSalesInvoiceItemDto {
@@ -1238,6 +1254,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   daysOverdue?: number;
   isOverdue?: boolean;
   items?: SalesInvoiceItemDto[];
+  salesTeam?: SalesTeamEntryDto[];
+  totalCommission?: number;
 }
 
 export interface SalesInvoiceItemDto {

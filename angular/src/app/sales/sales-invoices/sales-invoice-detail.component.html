@@ -187,6 +187,49 @@
       </div>
     </div>
 
+    <!-- Sales Team (commission split) -->
+    @if ((invoice.salesTeam?.length ?? 0) > 0) {
+      <div class="card mb-3">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="fa fa-people-group me-2"></i>{{ 'SalesTeam' | abpLocalization }}
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover w-100">
+              <thead>
+                <tr>
+                  <th>{{ 'SalesPerson' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 100px;">{{ 'AllocatedPercentage' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 100px;">{{ 'CommissionRate' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 120px;">{{ 'Incentives' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of invoice.salesTeam ?? []; track row.salesPersonId) {
+                  <tr>
+                    <td>{{ row.salesPersonName }}</td>
+                    <td class="text-end">{{ row.allocatedPercentage }}%</td>
+                    <td class="text-end font-monospace">{{ row.allocatedAmount | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ row.commissionRate }}%</td>
+                    <td class="text-end font-monospace fw-semibold">{{ row.incentives | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" class="text-end fw-bold">{{ 'TotalCommission' | abpLocalization }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ invoice.totalCommission | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Totals -->
     <div class="d-flex justify-content-end">
       <div class="card card-narrow">

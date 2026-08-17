@@ -21,6 +21,29 @@ public class PaymentScheduleDto
     public decimal DiscountedAmount { get; set; }
 }
 
+public class SalesTeamEntryDto
+{
+    public Guid SalesPersonId { get; set; }
+    public string? SalesPersonName { get; set; }
+    public decimal AllocatedPercentage { get; set; }
+    public decimal AllocatedAmount { get; set; }
+    public decimal CommissionRate { get; set; }
+    public decimal Incentives { get; set; }
+}
+
+public class SalesTeamAllocationInputDto
+{
+    [Required]
+    public Guid SalesPersonId { get; set; }
+
+    [Range(0, 100)]
+    public decimal AllocatedPercentage { get; set; }
+
+    /// <summary>Row-level commission rate override. Falls back to the Sales Person's own rate when null.</summary>
+    [Range(0, 100)]
+    public decimal? CommissionRate { get; set; }
+}
+
 public class InvoicePaymentHistoryDto
 {
     public Guid Id { get; set; }
@@ -68,6 +91,12 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public bool IsOverdue { get; set; }
 
     public List<SalesInvoiceItemDto> Items { get; set; } = new();
+
+    /// <summary>Commission split across sales persons. Empty when no commission is tracked.</summary>
+    public List<SalesTeamEntryDto> SalesTeam { get; set; } = new();
+
+    /// <summary>Sum of SalesTeam.Incentives — total commission payable on this invoice.</summary>
+    public decimal TotalCommission { get; set; }
 }
 
 public class SalesInvoiceItemDto
@@ -139,6 +168,12 @@ public class CreateSalesInvoiceDto
     [Required]
     [MinLength(1)]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Commission split across sales persons (per ERPNext Sales Team child table).
+    /// When provided, AllocatedPercentage across all rows must sum to exactly 100.
+    /// </summary>
+    public List<SalesTeamAllocationInputDto>? SalesTeam { get; set; }
 }
 
 public class CreateSalesInvoiceItemDto
