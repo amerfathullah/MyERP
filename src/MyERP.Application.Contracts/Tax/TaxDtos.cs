@@ -220,6 +220,85 @@ public class TaxRateBreakdownDto
     public int InvoiceCount { get; set; }
 }
 
+public class TaxWithholdingCategoryDto : FullAuditedEntityDto<Guid>
+{
+    public string CategoryName { get; set; } = null!;
+    public string TaxDeductionBasis { get; set; } = null!;
+    public bool RoundOffTaxAmount { get; set; }
+    public bool TaxOnExcessAmount { get; set; }
+    public bool DisableCumulativeThreshold { get; set; }
+    public bool DisableTransactionThreshold { get; set; }
+    public TaxWithholdingRateDto[] Rates { get; set; } = [];
+    public TaxWithholdingAccountDto[] Accounts { get; set; } = [];
+}
+
+public class TaxWithholdingRateDto
+{
+    public Guid Id { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public decimal Rate { get; set; }
+    public decimal? SingleThreshold { get; set; }
+    public decimal? CumulativeThreshold { get; set; }
+    public string? Group { get; set; }
+}
+
+public class TaxWithholdingAccountDto
+{
+    public Guid Id { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid AccountId { get; set; }
+}
+
+public class CreateTaxWithholdingCategoryDto
+{
+    [Required]
+    [StringLength(256)]
+    public string CategoryName { get; set; } = null!;
+
+    [Required]
+    public TaxDeductionBasis TaxDeductionBasis { get; set; } = TaxDeductionBasis.NetTotal;
+
+    public bool RoundOffTaxAmount { get; set; }
+    public bool TaxOnExcessAmount { get; set; }
+    public bool DisableCumulativeThreshold { get; set; }
+    public bool DisableTransactionThreshold { get; set; }
+    public CreateTaxWithholdingRateDto[] Rates { get; set; } = [];
+    public CreateTaxWithholdingAccountDto[] Accounts { get; set; } = [];
+}
+
+public class UpdateTaxWithholdingCategoryDto : CreateTaxWithholdingCategoryDto
+{
+}
+
+public class CreateTaxWithholdingRateDto
+{
+    [Required]
+    public DateTime FromDate { get; set; }
+
+    [Required]
+    public DateTime ToDate { get; set; }
+
+    [Required]
+    [Range(0, 100)]
+    public decimal Rate { get; set; }
+
+    public decimal? SingleThreshold { get; set; }
+    public decimal? CumulativeThreshold { get; set; }
+
+    [StringLength(100)]
+    public string? Group { get; set; }
+}
+
+public class CreateTaxWithholdingAccountDto
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    public Guid AccountId { get; set; }
+}
+
 public class Sst02FilingDataDto
 {
     public Guid CompanyId { get; set; }

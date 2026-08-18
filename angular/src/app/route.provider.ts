@@ -962,6 +962,14 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaxCategories',
       },
       {
+        path: '/tax/withholding-categories',
+        name: '::Menu:TaxWithholdingCategories',
+        iconClass: 'fas fa-percentage',
+        order: 60,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxCategories',
+      },
+      {
         path: '/crm',
         name: '::Menu:CRM',
         iconClass: 'fas fa-handshake',

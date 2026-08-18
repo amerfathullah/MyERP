@@ -1090,6 +1090,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
+  {
+    path: 'tax/withholding-categories',
+    loadComponent: () => import('./tax/tax-withholding-categories/tax-withholding-category-list.component').then(c => c.TaxWithholdingCategoryListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
   // CRM
   {
     path: 'crm/leads',

@@ -1,3 +1,4 @@
+import type { TaxDeductionBasis } from './tax-deduction-basis.enum';
 import type { TaxTemplateType } from './tax-template-type.enum';
 import type { TaxType } from './tax-type.enum';
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
@@ -41,6 +42,31 @@ export interface CreateUpdateTaxCategoryDto {
   description?: string | null;
   taxType: TaxType;
   isActive?: boolean;
+}
+
+export interface CreateTaxWithholdingAccountDto {
+  companyId: string;
+  accountId: string;
+}
+
+export interface CreateTaxWithholdingCategoryDto {
+  categoryName: string;
+  taxDeductionBasis: TaxDeductionBasis;
+  roundOffTaxAmount?: boolean;
+  taxOnExcessAmount?: boolean;
+  disableCumulativeThreshold?: boolean;
+  disableTransactionThreshold?: boolean;
+  rates?: CreateTaxWithholdingRateDto[];
+  accounts?: CreateTaxWithholdingAccountDto[];
+}
+
+export interface CreateTaxWithholdingRateDto {
+  fromDate: string;
+  toDate: string;
+  rate: number;
+  singleThreshold?: number | null;
+  cumulativeThreshold?: number | null;
+  group?: string | null;
 }
 
 export interface CreateUpdateTaxRuleDto {
@@ -165,6 +191,33 @@ export interface TaxRuleDto extends EntityDto<string> {
   isActive?: boolean;
 }
 
+export interface TaxWithholdingAccountDto {
+  id?: string;
+  companyId?: string;
+  accountId?: string;
+}
+
+export interface TaxWithholdingCategoryDto extends FullAuditedEntityDto<string> {
+  categoryName?: string;
+  taxDeductionBasis?: string;
+  roundOffTaxAmount?: boolean;
+  taxOnExcessAmount?: boolean;
+  disableCumulativeThreshold?: boolean;
+  disableTransactionThreshold?: boolean;
+  rates?: TaxWithholdingRateDto[];
+  accounts?: TaxWithholdingAccountDto[];
+}
+
+export interface TaxWithholdingRateDto {
+  id?: string;
+  fromDate?: string;
+  toDate?: string;
+  rate?: number;
+  singleThreshold?: number | null;
+  cumulativeThreshold?: number | null;
+  group?: string | null;
+}
+
 export interface TaxSummaryDto {
   companyId?: string;
   fromDate?: string;
@@ -191,4 +244,7 @@ export interface UpdateItemTaxTemplateDto {
   title?: string;
   isDisabled?: boolean;
   details?: CreateItemTaxTemplateDetailDto[];
+}
+
+export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
 }

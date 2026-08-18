@@ -403,4 +403,11 @@ public static class MyERPDomainErrorCodes
 
     // Master Production Schedule
     public const string MasterProductionScheduleHasNoItems = "MyERP:10025";
+
+    // Tax Withholding Category
+    public const string TaxWithholdingRateDateRangeInvalid = "MyERP:03027";
+    public const string TaxWithholdingRateOverlap = "MyERP:03028";
+    public const string TaxWithholdingNoApplicableRate = "MyERP:03029";
+    public const string TaxWithholdingNoAccountForCompany = "MyERP:03030";
+    public const string TaxWithholdingDuplicateCompanyAccount = "MyERP:03031";
 }

@@ -696,6 +696,15 @@ public partial class ItemTaxTemplateMapper : MapperBase<Tax.Entities.ItemTaxTemp
     private partial Tax.ItemTaxTemplateDetailDto MapChild(Tax.Entities.ItemTaxTemplateDetail source);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class TaxWithholdingCategoryMapper : MapperBase<Tax.Entities.TaxWithholdingCategory, Tax.TaxWithholdingCategoryDto>
+{
+    public override partial Tax.TaxWithholdingCategoryDto Map(Tax.Entities.TaxWithholdingCategory source);
+    public override partial void Map(Tax.Entities.TaxWithholdingCategory source, Tax.TaxWithholdingCategoryDto destination);
+    private partial Tax.TaxWithholdingRateDto MapChild(Tax.Entities.TaxWithholdingRate source);
+    private partial Tax.TaxWithholdingAccountDto MapChild(Tax.Entities.TaxWithholdingAccount source);
+}
+
 // ━━━ COMPLEX mappers (AfterMap for computed props, [MapProperty] for renames) ━━━
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

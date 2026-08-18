@@ -13,3 +13,9 @@ public static class TaxRuleConsts
     public const int MaxRegionFilterLength = 100;
     public const int MaxDescriptionLength = 500;
 }
+
+public static class TaxWithholdingCategoryConsts
+{
+    public const int MaxCategoryNameLength = 256;
+    public const int MaxGroupLength = 100;
+}

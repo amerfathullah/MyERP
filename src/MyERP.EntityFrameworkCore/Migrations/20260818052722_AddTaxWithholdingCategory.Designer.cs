@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyERP.EntityFrameworkCore;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace MyERP.Migrations
 {
     [DbContext(typeof(MyERPDbContext))]
-    partial class MyERPDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818052722_AddTaxWithholdingCategory")]
+    partial class AddTaxWithholdingCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -246,6 +246,9 @@ public class MyERPDbContext :
     public DbSet<ItemTaxTemplate> ItemTaxTemplates { get; set; }
     public DbSet<ItemTaxTemplateDetail> ItemTaxTemplateDetails { get; set; }
     public DbSet<TaxWithholdingEntry> TaxWithholdingEntries { get; set; }
+    public DbSet<TaxWithholdingCategory> TaxWithholdingCategories { get; set; }
+    public DbSet<TaxWithholdingRate> TaxWithholdingRates { get; set; }
+    public DbSet<TaxWithholdingAccount> TaxWithholdingAccounts { get; set; }
     public DbSet<TaxChargesTemplate> TaxChargesTemplates { get; set; }
     public DbSet<TaxChargesTemplateRow> TaxChargesTemplateRows { get; set; }
 
@@ -3113,6 +3116,38 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.PartyId, x.PostingDate });
             b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
+        });
+
+        // Tax Withholding Category
+        builder.Entity<TaxWithholdingCategory>(b =>
+        {
+            b.ToTable("Tax_WithholdingCategories", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CategoryName).IsRequired().HasMaxLength(TaxWithholdingCategoryConsts.MaxCategoryNameLength);
+            b.HasMany(x => x.Rates).WithOne().HasForeignKey(x => x.TaxWithholdingCategoryId).IsRequired();
+            b.HasMany(x => x.Accounts).WithOne().HasForeignKey(x => x.TaxWithholdingCategoryId).IsRequired();
+            b.Navigation(x => x.Rates).AutoInclude();
+            b.Navigation(x => x.Accounts).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CategoryName }).IsUnique();
+        });
+
+        builder.Entity<TaxWithholdingRate>(b =>
+        {
+            b.ToTable("Tax_WithholdingRates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Rate).HasColumnType("decimal(8,4)");
+            b.Property(x => x.SingleThreshold).HasColumnType("decimal(18,4)");
+            b.Property(x => x.CumulativeThreshold).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Group).HasMaxLength(TaxWithholdingCategoryConsts.MaxGroupLength);
+        });
+
+        builder.Entity<TaxWithholdingAccount>(b =>
+        {
+            b.ToTable("Tax_WithholdingAccounts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).IsRequired();
+            b.HasIndex(x => new { x.TaxWithholdingCategoryId, x.CompanyId }).IsUnique();
         });
 
         // Blanket Order
