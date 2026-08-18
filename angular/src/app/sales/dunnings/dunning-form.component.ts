@@ -258,7 +258,7 @@ export class DunningFormComponent implements OnInit {
     const dto = {
       companyId: this.companyContext.currentCompanyId() || undefined,
       customerId: v.customerId || undefined,
-      postingDate: v.postingDate,
+      postingDate: v.postingDate ?? undefined,
       dunningLevel: v.dunningLevel ?? 1,
       dunningTypeId: v.dunningTypeId || undefined,
       dunningFee: v.dunningFee ?? 0,
