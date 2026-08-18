@@ -321,6 +321,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/subcontracting-boms',
+        name: '::Menu:SubcontractingBoms',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-diagram-project',
+        order: 7,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/purchasing/scorecards',
         name: '::Menu:SupplierScorecards',
         parentName: '::Menu:Purchasing',

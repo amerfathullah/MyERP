@@ -847,3 +847,26 @@ export interface UpdateOrderItemsResultDto {
   previousGrandTotal?: number;
   warnings?: string[];
 }
+
+export interface SubcontractingBomDto extends EntityDto<string> {
+  isActive?: boolean;
+  finishedGoodId?: string;
+  finishedGoodName?: string | null;
+  finishedGoodQty?: number;
+  finishedGoodBomId?: string;
+  finishedGoodUom?: string | null;
+  serviceItemId?: string;
+  serviceItemName?: string | null;
+  serviceItemQty?: number;
+  serviceItemUom?: string | null;
+  conversionFactor?: number;
+}
+
+export interface CreateUpdateSubcontractingBomDto {
+  isActive?: boolean;
+  finishedGoodId: string;
+  finishedGoodQty: number;
+  finishedGoodBomId: string;
+  serviceItemId: string;
+  serviceItemQty: number;
+}

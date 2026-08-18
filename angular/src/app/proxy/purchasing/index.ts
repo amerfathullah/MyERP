@@ -15,6 +15,7 @@ export * from './subcontracting-inward-order.service';
 export * from './subcontracting-order-status.enum';
 export * from './subcontracting-receipt-status.enum';
 export * from './subcontracting.service';
+export * from './subcontracting-bom.service';
 export * from './supplier-delivery-performance.service';
 export * from './supplier-payment-summary.service';
 export * from './supplier-quotation-comparison.service';

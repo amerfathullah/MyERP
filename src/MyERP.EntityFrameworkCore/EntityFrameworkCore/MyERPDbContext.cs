@@ -185,6 +185,7 @@ public class MyERPDbContext :
     public DbSet<SubcontractingReceiptItem> SubcontractingReceiptItems { get; set; }
     public DbSet<SubcontractingInwardOrder> SubcontractingInwardOrders { get; set; }
     public DbSet<SubcontractingInwardOrderItem> SubcontractingInwardOrderItems { get; set; }
+    public DbSet<SubcontractingBom> SubcontractingBoms { get; set; }
     public DbSet<SupplierQuotation> SupplierQuotations { get; set; }
     public DbSet<SupplierQuotationItem> SupplierQuotationItems { get; set; }
     public DbSet<SupplierScorecard> SupplierScorecards { get; set; }
@@ -1342,6 +1343,18 @@ public class MyERPDbContext :
             b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.ServiceCostPerQty).HasColumnType("decimal(18,4)");
+        });
+
+        builder.Entity<SubcontractingBom>(b =>
+        {
+            b.ToTable("Pur_SubcontractingBoms", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.FinishedGoodQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.FinishedGoodUom).HasMaxLength(50);
+            b.Property(x => x.ServiceItemQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ServiceItemUom).HasMaxLength(50);
+            b.Property(x => x.ConversionFactor).HasColumnType("decimal(18,6)");
+            b.HasIndex(x => new { x.TenantId, x.FinishedGoodId, x.IsActive });
         });
 
         // Serial and Batch Bundle

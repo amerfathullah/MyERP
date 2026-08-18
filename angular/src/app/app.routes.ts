@@ -1866,6 +1866,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/subcontracting-boms',
+    loadComponent: () => import('./purchasing/subcontracting-boms/subcontracting-bom-list.component').then(c => c.SubcontractingBomListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/subcontracting-boms/new',
+    loadComponent: () => import('./purchasing/subcontracting-boms/subcontracting-bom-form.component').then(c => c.SubcontractingBomFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
+  },
+  {
+    path: 'purchasing/subcontracting-boms/:id',
+    loadComponent: () => import('./purchasing/subcontracting-boms/subcontracting-bom-form.component').then(c => c.SubcontractingBomFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Edit' },
+  },
+  {
     path: 'purchasing/scorecards',
     loadComponent: () => import('./purchasing/scorecards/supplier-scorecard-list.component').then(c => c.SupplierScorecardListComponent),
     canActivate: [authGuard, permissionGuard],

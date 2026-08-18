@@ -184,6 +184,15 @@ public static class MyERPDomainErrorCodes
     public const string UpdateItemsQtyBelowReceived = "MyERP:04019";
     public const string UpdateItemsRateBelowBilled = "MyERP:04020";
 
+    // Subcontracting BOM
+    public const string SubcontractingBomInvalidQty = "MyERP:04021";
+    public const string SubcontractingBomFinishedGoodDisabled = "MyERP:04022";
+    public const string SubcontractingBomFinishedGoodNotStockItem = "MyERP:04023";
+    public const string SubcontractingBomFinishedGoodNoDefaultBom = "MyERP:04024";
+    public const string SubcontractingBomServiceItemDisabled = "MyERP:04025";
+    public const string SubcontractingBomServiceItemIsStockItem = "MyERP:04026";
+    public const string SubcontractingBomFinishedGoodAlreadyActive = "MyERP:04027";
+
     // Bank Transaction
     public const string BankTransactionCurrencyMismatch = "MyERP:02022";
     public const string ExcludedFeeExceedsDeposit = "MyERP:02023";
