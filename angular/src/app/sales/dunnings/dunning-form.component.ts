@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormArray, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -25,7 +25,7 @@ interface OverdueInvoice {
 
 @Component({
   selector: 'app-dunning-form', standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, SaveShortcutDirective, AutoValidationDirective],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, SaveShortcutDirective, AutoValidationDirective],
   template: `
     <abp-page [title]="'NewDunning' | abpLocalization">
       <form [formGroup]="form" (appSaveShortcut)="save()">
