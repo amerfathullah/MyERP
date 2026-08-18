@@ -2096,6 +2096,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'sales/dunning-types',
+    loadComponent: () => import('./sales/dunning-types/dunning-type-list.component').then(c => c.DunningTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'inventory/serial-numbers',
     loadComponent: () => import('./inventory/serial-numbers/serial-no-list.component').then(c => c.SerialNoListComponent),
     canActivate: [authGuard, permissionGuard],

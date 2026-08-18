@@ -24,6 +24,9 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime PostingDate { get; set; }
     public int DunningLevel { get; set; } = 1;
 
+    /// <summary>Dunning Type this document was configured from (fee/interest/income account defaults).</summary>
+    public Guid? DunningTypeId { get; set; }
+
     /// <summary>Total overdue amount across all linked invoices.</summary>
     public decimal TotalOutstanding { get; set; }
 

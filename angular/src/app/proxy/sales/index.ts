@@ -9,6 +9,7 @@ export * from './delivery-note.service';
 export * from './document-conversion.service';
 export * from './document-email.service';
 export * from './dunning.service';
+export * from './dunning-type.service';
 export * from './gross-profit-report.service';
 export * from './installation-note.service';
 export * from './item-sales.service';

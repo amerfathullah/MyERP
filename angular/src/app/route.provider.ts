@@ -1584,6 +1584,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesInvoices',
       },
       {
+        path: '/sales/dunning-types',
+        name: '::Menu:DunningTypes',
+        iconClass: 'fas fa-file-invoice-dollar',
+        order: 19,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesInvoices',
+      },
+      {
         path: '/inventory/serial-numbers',
         name: '::Menu:SerialNumbers',
         iconClass: 'fas fa-barcode',

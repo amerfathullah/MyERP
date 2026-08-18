@@ -824,6 +824,14 @@ public partial class DunningMapper : MapperBase<Sales.Entities.Dunning, Sales.Du
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class DunningTypeMapper : MapperBase<Sales.Entities.DunningType, Sales.DunningTypeDto>
+{
+    public override partial Sales.DunningTypeDto Map(Sales.Entities.DunningType source);
+    public override partial void Map(Sales.Entities.DunningType source, Sales.DunningTypeDto destination);
+    private partial Sales.DunningLetterTextDto MapLetterText(Sales.Entities.DunningLetterText source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class WorkstationMapper : MapperBase<Manufacturing.Entities.Workstation, Manufacturing.WorkstationDto>
 {
     [MapperIgnoreTarget(nameof(Manufacturing.WorkstationDto.Costs))]

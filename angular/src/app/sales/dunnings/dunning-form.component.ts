@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { DunningService } from '../../proxy/sales/dunning.service';
+import { DunningTypeService } from '../../proxy/sales/dunning-type.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -48,8 +49,24 @@ interface OverdueInvoice {
             <input type="number" class="form-control" formControlName="dunningLevel" min="1" />
           </div>
           <div class="col-md-3">
+            <label class="form-label">{{ 'DunningType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="dunningTypeId" (change)="onDunningTypeChanged()">
+              <option value="">{{ 'None' | abpLocalization }}</option>
+              @for (dt of dunningTypes(); track dt.id) {
+                <option [value]="dt.id">{{ dt.dunningTypeName }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-3">
             <label class="form-label">{{ 'Fee' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="dunningFee" step="0.01" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ 'InterestRate' | abpLocalization }} (%)</label>
+            <input type="number" class="form-control" formControlName="interestRate" step="0.01" />
           </div>
         </div>
       </div></div>
@@ -121,6 +138,7 @@ interface OverdueInvoice {
 export class DunningFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(DunningService);
+  private dunningTypeService = inject(DunningTypeService);
   private customerService = inject(CustomerService);
   private paymentReconciliationService = inject(PaymentReconciliationService);
   private router = inject(Router);
@@ -129,6 +147,7 @@ export class DunningFormComponent implements OnInit {
 
   saving = false;
   customers = signal<{ id: string; name: string }[]>([]);
+  dunningTypes = signal<{ id: string; dunningTypeName: string; dunningFee: number; rateOfInterest: number }[]>([]);
   overdueInvoices = signal<OverdueInvoice[]>([]);
   fetchingInvoices = signal(false);
   totalOutstanding = signal(0);
@@ -138,6 +157,7 @@ export class DunningFormComponent implements OnInit {
     customerId: ['', Validators.required],
     postingDate: [new Date().toISOString().split('T')[0], Validators.required],
     dunningLevel: [1, [Validators.required, Validators.min(1)]],
+    dunningTypeId: [''],
     dunningFee: [50, [Validators.min(0)]],
     interestRate: [1.5, [Validators.min(0)]],
   });
@@ -146,6 +166,22 @@ export class DunningFormComponent implements OnInit {
     this.customerService.getList({ maxResultCount: 200 } as any).subscribe(res => {
       this.customers.set((res.items ?? []).map((c: any) => ({ id: c.id, name: c.customerName || c.name || c.id })));
     });
+    this.dunningTypeService.getList({ maxResultCount: 200 } as any).subscribe(res => {
+      const types = (res.items ?? []) as any[];
+      this.dunningTypes.set(types);
+      const def = types.find(t => t.isDefault);
+      if (def) this.applyDunningType(def.id);
+    });
+  }
+
+  onDunningTypeChanged(): void {
+    this.applyDunningType(this.form.value.dunningTypeId || '');
+  }
+
+  private applyDunningType(id: string): void {
+    const dt = this.dunningTypes().find(t => t.id === id);
+    if (!dt) return;
+    this.form.patchValue({ dunningTypeId: id, dunningFee: dt.dunningFee, interestRate: dt.rateOfInterest });
   }
 
   onCustomerChanged() {
@@ -224,8 +260,10 @@ export class DunningFormComponent implements OnInit {
       customerId: v.customerId || undefined,
       postingDate: v.postingDate,
       dunningLevel: v.dunningLevel ?? 1,
+      dunningTypeId: v.dunningTypeId || undefined,
       dunningFee: v.dunningFee ?? 0,
       interestAmount: this.totalInterest(),
+      interestRatePerAnnum: v.interestRate ?? 0,
       overduePayments: selected.map(inv => ({
         salesInvoiceId: inv.id,
         outstandingAmount: inv.outstandingAmount,

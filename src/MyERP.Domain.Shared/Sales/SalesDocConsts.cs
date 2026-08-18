@@ -16,3 +16,10 @@ public static class SalesOrderConsts
     public const int MaxTermsLength = 2000;
     public const int MaxCustomerPoLength = 50;
 }
+
+public static class DunningTypeConsts
+{
+    public const int MaxDunningTypeNameLength = 100;
+    public const int MaxLanguageLength = 10;
+    public const int MaxTextLength = 4000;
+}

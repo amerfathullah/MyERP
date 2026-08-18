@@ -12,6 +12,7 @@ public class DunningDto : EntityDto<Guid>
     public string? CustomerName { get; set; }
     public DateTime PostingDate { get; set; }
     public int DunningLevel { get; set; }
+    public Guid? DunningTypeId { get; set; }
     public decimal TotalOutstanding { get; set; }
     public decimal DunningFee { get; set; }
     public decimal InterestAmount { get; set; }
@@ -41,6 +42,8 @@ public class CreateDunningDto
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public DateTime PostingDate { get; set; }
+    /// <summary>Optional Dunning Type to default DunningFee/InterestRatePerAnnum from when those are left at 0.</summary>
+    public Guid? DunningTypeId { get; set; }
     public decimal DunningFee { get; set; }
     public decimal InterestAmount { get; set; }
     /// <summary>Per-annum interest rate. If set and InterestAmount is 0, interest is auto-calculated.</summary>

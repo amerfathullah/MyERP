@@ -91,20 +91,39 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var level = await _dunningManager.DetermineDunningLevelAsync(
             input.CustomerId, input.CompanyId, CurrentTenant.Id);
 
+        // Default fee/interest rate from the Dunning Type when not explicitly overridden (per ERPNext fetch_from)
+        var dunningFee = input.DunningFee;
+        var interestRatePerAnnum = input.InterestRatePerAnnum;
+        if (input.DunningTypeId.HasValue)
+        {
+            var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+            var dunningType = await typeRepo.FindAsync(input.DunningTypeId.Value);
+            if (dunningType != null)
+            {
+                if (dunningFee == 0) dunningFee = dunningType.DunningFee;
+                if (interestRatePerAnnum == 0) interestRatePerAnnum = dunningType.RateOfInterest;
+            }
+        }
+
         // Calculate interest if rate provided but amount not explicitly set
         var interestAmount = input.InterestAmount;
-        if (interestAmount == 0 && input.InterestRatePerAnnum > 0 && input.OverduePayments.Length > 0)
+        if (interestAmount == 0 && interestRatePerAnnum > 0 && input.OverduePayments.Length > 0)
         {
             var overdueData = input.OverduePayments
                 .Select(p => (p.OutstandingAmount, p.OverdueDays))
                 .ToList();
             interestAmount = MyERP.Sales.DomainServices.DunningManager.CalculateInterest(
-                input.InterestRatePerAnnum, overdueData);
+                interestRatePerAnnum, overdueData);
         }
 
         var d = new Dunning(GuidGenerator.Create(), input.CompanyId, input.CustomerId,
             input.PostingDate, level, CurrentTenant.Id)
-        { CustomerName = input.CustomerName, DunningFee = input.DunningFee, InterestAmount = interestAmount };
+        {
+            CustomerName = input.CustomerName,
+            DunningTypeId = input.DunningTypeId,
+            DunningFee = dunningFee,
+            InterestAmount = interestAmount,
+        };
         foreach (var p in input.OverduePayments)
             d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
         await _repository.InsertAsync(d);
@@ -134,7 +153,17 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     .Where(f => f.CompanyId == d.CompanyId && f.StartDate <= d.PostingDate && f.EndDate >= d.PostingDate)
                     .FirstOrDefault();
 
-                if (fy != null && company.DefaultReceivableAccountId.HasValue && company.DefaultIncomeAccountId.HasValue)
+                // Prefer the Dunning Type's configured income account, falling back to the company default.
+                Guid? incomeAccountId = company.DefaultIncomeAccountId;
+                if (d.DunningTypeId.HasValue)
+                {
+                    var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+                    var dunningType = await typeRepo.FindAsync(d.DunningTypeId.Value);
+                    if (dunningType?.IncomeAccountId != null)
+                        incomeAccountId = dunningType.IncomeAccountId;
+                }
+
+                if (fy != null && company.DefaultReceivableAccountId.HasValue && incomeAccountId.HasValue)
                 {
                     var je = new JournalEntry(GuidGenerator.Create(), d.CompanyId, fy.Id, d.PostingDate, d.TenantId);
                     je.ReferenceType = "Dunning";
@@ -142,7 +171,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     // DR Receivable (customer owes fee + interest)
                     je.AddLine(company.DefaultReceivableAccountId.Value, d.GrandTotal, true);
                     // CR Income (dunning fee + interest earned)
-                    je.AddLine(company.DefaultIncomeAccountId.Value, d.GrandTotal, false);
+                    je.AddLine(incomeAccountId.Value, d.GrandTotal, false);
                     je.Post();
                     await jeRepo.InsertAsync(je);
                 }

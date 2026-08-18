@@ -155,6 +155,7 @@ export interface CreateDunningDto {
   customerId?: string;
   customerName?: string | null;
   postingDate?: string;
+  dunningTypeId?: string | null;
   dunningFee?: number;
   interestAmount?: number;
   interestRatePerAnnum?: number;
@@ -596,6 +597,7 @@ export interface DunningDto extends EntityDto<string> {
   customerName?: string | null;
   postingDate?: string;
   dunningLevel?: number;
+  dunningTypeId?: string | null;
   totalOutstanding?: number;
   dunningFee?: number;
   interestAmount?: number;
@@ -605,6 +607,46 @@ export interface DunningDto extends EntityDto<string> {
   emailSentAt?: string | null;
   emailSentTo?: string | null;
   overduePayments?: DunningOverduePaymentDto[];
+}
+
+export interface DunningLetterTextDto {
+  id?: string;
+  language?: string | null;
+  isDefaultLanguage?: boolean;
+  bodyText?: string | null;
+  closingText?: string | null;
+}
+
+export interface CreateDunningLetterTextDto {
+  language?: string | null;
+  isDefaultLanguage?: boolean;
+  bodyText?: string | null;
+  closingText?: string | null;
+}
+
+export interface DunningTypeDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  dunningTypeName?: string;
+  isDefault?: boolean;
+  dunningFee?: number;
+  rateOfInterest?: number;
+  incomeAccountId?: string | null;
+  costCenterId?: string | null;
+  letterText?: DunningLetterTextDto[];
+}
+
+export interface CreateDunningTypeDto {
+  companyId?: string;
+  dunningTypeName?: string;
+  isDefault?: boolean;
+  dunningFee?: number;
+  rateOfInterest?: number;
+  incomeAccountId?: string | null;
+  costCenterId?: string | null;
+  letterText?: CreateDunningLetterTextDto[];
+}
+
+export interface UpdateDunningTypeDto extends CreateDunningTypeDto {
 }
 
 export interface DunningOverduePaymentDto {

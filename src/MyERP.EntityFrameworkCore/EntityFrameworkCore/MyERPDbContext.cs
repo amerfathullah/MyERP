@@ -147,6 +147,8 @@ public class MyERPDbContext :
     public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
     public DbSet<Dunning> Dunnings { get; set; }
     public DbSet<DunningOverduePayment> DunningOverduePayments { get; set; }
+    public DbSet<DunningType> DunningTypes { get; set; }
+    public DbSet<DunningLetterText> DunningLetterTexts { get; set; }
     public DbSet<ProductBundle> ProductBundles { get; set; }
     public DbSet<ProductBundleItem> ProductBundleItems { get; set; }
     public DbSet<LoyaltyProgram> LoyaltyPrograms { get; set; }
@@ -3416,6 +3418,28 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.OutstandingAmount).HasColumnType("decimal(18,2)");
             b.HasOne<SalesInvoice>().WithMany().HasForeignKey(x => x.SalesInvoiceId).IsRequired();
+        });
+
+        builder.Entity<DunningType>(b =>
+        {
+            b.ToTable("Sal_DunningTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DunningTypeName).IsRequired().HasMaxLength(DunningTypeConsts.MaxDunningTypeNameLength);
+            b.Property(x => x.DunningFee).HasColumnType("decimal(18,2)");
+            b.Property(x => x.RateOfInterest).HasColumnType("decimal(8,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.LetterText).WithOne().HasForeignKey(x => x.DunningTypeId).IsRequired();
+            b.Navigation(x => x.LetterText).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DunningTypeName }).IsUnique();
+        });
+
+        builder.Entity<DunningLetterText>(b =>
+        {
+            b.ToTable("Sal_DunningLetterTexts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Language).HasMaxLength(DunningTypeConsts.MaxLanguageLength);
+            b.Property(x => x.BodyText).HasMaxLength(DunningTypeConsts.MaxTextLength);
+            b.Property(x => x.ClosingText).HasMaxLength(DunningTypeConsts.MaxTextLength);
         });
 
         // Pick List
