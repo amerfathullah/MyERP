@@ -410,4 +410,8 @@ public static class MyERPDomainErrorCodes
     public const string TaxWithholdingNoApplicableRate = "MyERP:03029";
     public const string TaxWithholdingNoAccountForCompany = "MyERP:03030";
     public const string TaxWithholdingDuplicateCompanyAccount = "MyERP:03031";
+
+    // Sales Forecast
+    public const string SalesForecastHasNoSelectedItems = "MyERP:10026";
+    public const string SalesForecastAlreadyUsedForMps = "MyERP:10027";
 }

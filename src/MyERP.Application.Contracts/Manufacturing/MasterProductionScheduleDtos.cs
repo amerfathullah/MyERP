@@ -45,6 +45,7 @@ public class MasterProductionScheduleDto : EntityDto<Guid>
     public DateTime FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public Guid? ParentWarehouseId { get; set; }
+    public Guid? SalesForecastId { get; set; }
     public List<MpsSalesOrderRefDto> SalesOrders { get; set; } = new();
     public List<MpsMaterialRequestRefDto> MaterialRequests { get; set; } = new();
     public List<MasterProductionScheduleItemDto> Items { get; set; } = new();

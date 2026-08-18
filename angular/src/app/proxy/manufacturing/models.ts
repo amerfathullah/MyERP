@@ -6,6 +6,7 @@ import type { SecondaryItemType } from './secondary-item-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
 import type { BomCreatorStatus } from './bom-creator-status.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
+import type { SalesForecastFrequency } from './sales-forecast-frequency.enum';
 
 export interface DowntimeEntryDto extends EntityDto<string> {
   companyId?: string;
@@ -775,6 +776,7 @@ export interface MasterProductionScheduleDto extends EntityDto<string> {
   fromDate?: string;
   toDate?: string | null;
   parentWarehouseId?: string | null;
+  salesForecastId?: string | null;
   salesOrders?: MpsSalesOrderRefDto[];
   materialRequests?: MpsMaterialRequestRefDto[];
   items?: MasterProductionScheduleItemDto[];
@@ -792,6 +794,47 @@ export interface UpdateMasterProductionScheduleDto {
   fromDate?: string;
   parentWarehouseId?: string | null;
   items?: MasterProductionScheduleItemDto[];
+}
+
+export interface SalesForecastItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  uom?: string;
+  warehouseId?: string | null;
+  deliveryDate?: string;
+  demandQty?: number;
+}
+
+export interface SalesForecastDto extends EntityDto<string> {
+  companyId?: string;
+  forecastNumber?: string;
+  status?: DocumentStatus;
+  forecastStatus?: string;
+  postingDate?: string;
+  fromDate?: string;
+  frequency?: string;
+  demandNumber?: number;
+  parentWarehouseId?: string;
+  selectedItemIds?: string[];
+  items?: SalesForecastItemDto[];
+}
+
+export interface CreateSalesForecastDto {
+  companyId?: string;
+  fromDate?: string;
+  parentWarehouseId?: string;
+  frequency?: SalesForecastFrequency;
+  demandNumber?: number;
+  selectedItemIds?: string[];
+}
+
+export interface UpdateSalesForecastDto {
+  fromDate?: string;
+  parentWarehouseId?: string;
+  frequency?: SalesForecastFrequency;
+  demandNumber?: number;
+  selectedItemIds?: string[];
 }
 
 export interface FetchSalesOrdersDto {

@@ -546,6 +546,16 @@ public partial class MasterProductionScheduleMapper : MapperBase<Manufacturing.E
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SalesForecastMapper : MapperBase<Manufacturing.Entities.SalesForecast, Manufacturing.SalesForecastDto>
+{
+    [MapperIgnoreTarget(nameof(Manufacturing.SalesForecastDto.SelectedItemIds))]
+    public override partial Manufacturing.SalesForecastDto Map(Manufacturing.Entities.SalesForecast source);
+    [MapperIgnoreTarget(nameof(Manufacturing.SalesForecastDto.SelectedItemIds))]
+    public override partial void Map(Manufacturing.Entities.SalesForecast source, Manufacturing.SalesForecastDto destination);
+    private partial Manufacturing.SalesForecastItemDto MapForecastItem(Manufacturing.Entities.SalesForecastItem source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class TimesheetMapper : MapperBase<Projects.Entities.Timesheet, Projects.TimesheetDto>
 {
     public override partial Projects.TimesheetDto Map(Projects.Entities.Timesheet source);

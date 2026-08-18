@@ -10,3 +10,18 @@ public enum WorkOrderStatus
     Stopped = 5,
     Cancelled = 6,
 }
+
+/// <summary>Demand-generation period for Sales Forecast. Maps to ERPNext frequency.</summary>
+public enum SalesForecastFrequency
+{
+    Weekly = 0,
+    Monthly = 1,
+}
+
+/// <summary>Business status of a Sales Forecast, independent of the submit/cancel docstatus.</summary>
+public enum SalesForecastStatus
+{
+    Planned = 0,
+    MpsGenerated = 1,
+    Cancelled = 2,
+}

@@ -207,6 +207,13 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Submit, L("Permission:MasterProductionSchedules.Submit"));
         mpsPermission.AddChild(MyERPPermissions.MasterProductionSchedules.Cancel, L("Permission:MasterProductionSchedules.Cancel"));
 
+        var salesForecastsPermission = myGroup.AddPermission(MyERPPermissions.SalesForecasts.Default, L("Permission:SalesForecasts"));
+        salesForecastsPermission.AddChild(MyERPPermissions.SalesForecasts.Create, L("Permission:SalesForecasts.Create"));
+        salesForecastsPermission.AddChild(MyERPPermissions.SalesForecasts.Edit, L("Permission:SalesForecasts.Edit"));
+        salesForecastsPermission.AddChild(MyERPPermissions.SalesForecasts.Delete, L("Permission:SalesForecasts.Delete"));
+        salesForecastsPermission.AddChild(MyERPPermissions.SalesForecasts.Submit, L("Permission:SalesForecasts.Submit"));
+        salesForecastsPermission.AddChild(MyERPPermissions.SalesForecasts.Cancel, L("Permission:SalesForecasts.Cancel"));
+
         var materialRequestsPermission = myGroup.AddPermission(MyERPPermissions.MaterialRequests.Default, L("Permission:MaterialRequests"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Create, L("Permission:MaterialRequests.Create"));
         materialRequestsPermission.AddChild(MyERPPermissions.MaterialRequests.Edit, L("Permission:MaterialRequests.Edit"));

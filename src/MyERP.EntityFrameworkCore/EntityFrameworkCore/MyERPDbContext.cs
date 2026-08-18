@@ -358,6 +358,9 @@ public class MyERPDbContext :
     public DbSet<MpsSalesOrderRef> MpsSalesOrderRefs { get; set; }
     public DbSet<MpsMaterialRequestRef> MpsMaterialRequestRefs { get; set; }
     public DbSet<MasterProductionScheduleItem> MasterProductionScheduleItems { get; set; }
+    public DbSet<SalesForecast> SalesForecasts { get; set; }
+    public DbSet<SalesForecastSelectedItem> SalesForecastSelectedItems { get; set; }
+    public DbSet<SalesForecastItem> SalesForecastItems { get; set; }
     public DbSet<Workstation> Workstations { get; set; }
     public DbSet<WorkstationCost> WorkstationCosts { get; set; }
     public DbSet<WorkstationWorkingHour> WorkstationWorkingHours { get; set; }
@@ -2725,6 +2728,34 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.ScheduleNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<SalesForecast>(b =>
+        {
+            b.ToTable("Mfg_SalesForecasts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ForecastNumber).IsRequired().HasMaxLength(50);
+            b.HasMany(x => x.SelectedItems).WithOne().HasForeignKey(x => x.SalesForecastId).IsRequired();
+            b.Navigation(x => x.SelectedItems).AutoInclude();
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SalesForecastId).IsRequired();
+            b.Navigation(x => x.Items).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.ForecastNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<SalesForecastSelectedItem>(b =>
+        {
+            b.ToTable("Mfg_SalesForecastSelectedItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+        });
+
+        builder.Entity<SalesForecastItem>(b =>
+        {
+            b.ToTable("Mfg_SalesForecastItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(280);
+            b.Property(x => x.Uom).HasMaxLength(50);
+            b.Property(x => x.DemandQty).HasColumnType("decimal(18,4)");
         });
 
         builder.Entity<MpsSalesOrderRef>(b =>

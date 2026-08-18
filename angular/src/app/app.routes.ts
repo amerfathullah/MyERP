@@ -1516,6 +1516,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.MasterProductionSchedules.Edit' },
   },
   {
+    path: 'manufacturing/sales-forecasts',
+    loadComponent: () => import('./manufacturing/sales-forecasts/sales-forecast-list.component').then(c => c.SalesForecastListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesForecasts' },
+  },
+  {
+    path: 'manufacturing/sales-forecasts/new',
+    loadComponent: () => import('./manufacturing/sales-forecasts/sales-forecast-form.component').then(c => c.SalesForecastFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesForecasts.Create' },
+  },
+  {
+    path: 'manufacturing/sales-forecasts/:id',
+    loadComponent: () => import('./manufacturing/sales-forecasts/sales-forecast-form.component').then(c => c.SalesForecastFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesForecasts.Edit' },
+  },
+  {
     path: 'manufacturing/bom/new',
     loadComponent: () => import('./manufacturing/bom/bom-form.component').then(c => c.BomFormComponent),
     canActivate: [authGuard, permissionGuard],

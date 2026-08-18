@@ -1458,6 +1458,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.MasterProductionSchedules',
       },
       {
+        path: '/manufacturing/sales-forecasts',
+        name: '::Menu:SalesForecasts',
+        iconClass: 'fas fa-chart-line',
+        order: 10,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesForecasts',
+      },
+      {
         path: '/sales/proforma-invoices',
         name: '::Menu:ProformaInvoices',
         iconClass: 'fas fa-file-invoice',

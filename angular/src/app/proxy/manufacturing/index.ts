@@ -12,6 +12,8 @@ export * from './production-plan-status.enum';
 export * from './production-plan.service';
 export * from './master-production-schedule.service';
 export * from './routing.service';
+export * from './sales-forecast-frequency.enum';
+export * from './sales-forecast.service';
 export * from './secondary-item-type.enum';
 export * from './sub-assembly-type.enum';
 export * from './work-order-status.enum';

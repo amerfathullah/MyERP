@@ -31,6 +31,9 @@ public class MasterProductionSchedule : FullAuditedAggregateRoot<Guid>, IMultiTe
     /// <summary>When set, demand is aggregated across all child warehouses under this one.</summary>
     public Guid? ParentWarehouseId { get; set; }
 
+    /// <summary>Source Sales Forecast this schedule was created from, if any (ERPNext create_mps).</summary>
+    public Guid? SalesForecastId { get; set; }
+
     private readonly List<MpsSalesOrderRef> _salesOrders = new();
     public IReadOnlyList<MpsSalesOrderRef> SalesOrders => _salesOrders.AsReadOnly();
 

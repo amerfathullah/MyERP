@@ -310,6 +310,16 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class SalesForecasts
+    {
+        public const string Default = GroupName + ".SalesForecasts";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class MaterialRequests
     {
         public const string Default = GroupName + ".MaterialRequests";
