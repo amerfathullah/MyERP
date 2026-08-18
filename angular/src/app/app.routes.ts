@@ -1373,6 +1373,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/activity-types',
+    loadComponent: () => import('./projects/activity-types/activity-type-list.component').then(c => c.ActivityTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
     path: 'projects/templates',
     loadComponent: () => import('./projects/project-templates/project-template-list.component').then(c => c.ProjectTemplateListComponent),
     canActivate: [authGuard, permissionGuard],

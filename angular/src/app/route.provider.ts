@@ -1333,6 +1333,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Projects',
       },
       {
+        path: '/projects/activity-types',
+        name: '::Menu:ActivityTypes',
+        iconClass: 'fas fa-list-check',
+        order: 16,
+        parentName: '::Menu:Projects',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Projects',
+      },
+      {
         path: '/projects/timesheet-billing',
         name: '::Menu:TimesheetBilling',
         iconClass: 'fas fa-file-invoice-dollar',
