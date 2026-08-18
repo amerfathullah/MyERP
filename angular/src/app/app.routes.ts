@@ -1139,6 +1139,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Employees.Edit' },
   },
   {
+    path: 'hr/designations',
+    loadComponent: () => import('./hr/designations/designation-list.component').then(c => c.DesignationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
     path: 'hr/payroll',
     loadComponent: () => import('./hr/payroll/payroll-list.component').then(c => c.PayrollListComponent),
     canActivate: [authGuard, permissionGuard],

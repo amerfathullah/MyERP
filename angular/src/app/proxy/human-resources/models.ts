@@ -1,6 +1,16 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { LeaveApplicationStatus } from './leave-application-status.enum';
 
+export interface DesignationDto extends FullAuditedEntityDto<string> {
+  name: string;
+  description?: string | null;
+}
+
+export interface CreateUpdateDesignationDto {
+  name: string;
+  description?: string | null;
+}
+
 export interface BulkLeaveAllocationDto {
   companyId: string;
   leaveTypeId: string;
