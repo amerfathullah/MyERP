@@ -299,6 +299,78 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.JournalEntries' },
   },
   {
+    path: 'purchasing/incoterms',
+    loadComponent: () => import('./purchasing/incoterms/incoterm-list.component').then(c => c.IncotermListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
+    path: 'purchasing/incoterms/new',
+    loadComponent: () => import('./purchasing/incoterms/incoterm-form.component').then(c => c.IncotermFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
+  },
+  {
+    path: 'purchasing/incoterms/:id/edit',
+    loadComponent: () => import('./purchasing/incoterms/incoterm-form.component').then(c => c.IncotermFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders.Edit' },
+  },
+  {
+    path: 'inventory/uom-categories',
+    loadComponent: () => import('./inventory/uom-categories/uom-category-list.component').then(c => c.UomCategoryListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'inventory/uom-categories/new',
+    loadComponent: () => import('./inventory/uom-categories/uom-category-form.component').then(c => c.UomCategoryFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items.Create' },
+  },
+  {
+    path: 'inventory/uom-categories/:id/edit',
+    loadComponent: () => import('./inventory/uom-categories/uom-category-form.component').then(c => c.UomCategoryFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items.Edit' },
+  },
+  {
+    path: 'projects/project-types',
+    loadComponent: () => import('./projects/project-types/project-type-list.component').then(c => c.ProjectTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/project-types/new',
+    loadComponent: () => import('./projects/project-types/project-type-form.component').then(c => c.ProjectTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Create' },
+  },
+  {
+    path: 'projects/project-types/:id/edit',
+    loadComponent: () => import('./projects/project-types/project-type-form.component').then(c => c.ProjectTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Edit' },
+  },
+  {
+    path: 'accounting/journal-entry-templates',
+    loadComponent: () => import('./accounting/journal-entry-templates/journal-entry-template-list.component').then(c => c.JournalEntryTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/journal-entry-templates/new',
+    loadComponent: () => import('./accounting/journal-entry-templates/journal-entry-template-form.component').then(c => c.JournalEntryTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts.Edit' },
+  },
+  {
+    path: 'accounting/journal-entry-templates/:id/edit',
+    loadComponent: () => import('./accounting/journal-entry-templates/journal-entry-template-form.component').then(c => c.JournalEntryTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts.Edit' },
+  },
+  {
     path: 'inventory/items',
     loadComponent: () => import('./inventory/items/item-list.component').then(c => c.ItemListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -555,6 +627,18 @@ export const APP_ROUTES: Routes = [
   {
     path: 'settings/accounts',
     loadComponent: () => import('./settings/accounts-settings/accounts-settings.component').then(c => c.AccountsSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Settings' },
+  },
+  {
+    path: 'settings/global',
+    loadComponent: () => import('./settings/global-settings/global-settings.component').then(c => c.GlobalSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Settings' },
+  },
+  {
+    path: 'settings/email-digest',
+    loadComponent: () => import('./settings/email-digest/email-digest.component').then(c => c.EmailDigestComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Settings' },
   },
@@ -2434,6 +2518,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts.Edit' },
   },
   {
+    path: 'accounting/payment-ledger-repost',
+    loadComponent: () => import('./accounting/payment-ledger-repost/payment-ledger-repost.component').then(c => c.PaymentLedgerRepostComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts.Edit' },
+  },
+  {
+    path: 'accounting/ledger-health-monitor',
+    loadComponent: () => import('./accounting/ledger-health-monitor/ledger-health-monitor.component').then(c => c.LedgerHealthMonitorComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'inventory/stock-closing',
     loadComponent: () => import('./inventory/stock-closing/stock-closing-list.component').then(c => c.StockClosingListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -3028,6 +3124,63 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./assets/locations/location-form.component').then(c => c.LocationFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Locations.Edit' },
+  },
+  // Vehicles
+  {
+    path: 'assets/vehicles',
+    loadComponent: () => import('./assets/vehicles/vehicle-list.component').then(c => c.VehicleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Vehicles' },
+  },
+  {
+    path: 'assets/vehicles/new',
+    loadComponent: () => import('./assets/vehicles/vehicle-form.component').then(c => c.VehicleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Vehicles.Create' },
+  },
+  {
+    path: 'assets/vehicles/:id/edit',
+    loadComponent: () => import('./assets/vehicles/vehicle-form.component').then(c => c.VehicleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Vehicles.Edit' },
+  },
+  // Drivers
+  {
+    path: 'assets/drivers',
+    loadComponent: () => import('./assets/drivers/driver-list.component').then(c => c.DriverListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Drivers' },
+  },
+  {
+    path: 'assets/drivers/new',
+    loadComponent: () => import('./assets/drivers/driver-form.component').then(c => c.DriverFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Drivers.Create' },
+  },
+  {
+    path: 'assets/drivers/:id/edit',
+    loadComponent: () => import('./assets/drivers/driver-form.component').then(c => c.DriverFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Drivers.Edit' },
+  },
+  // Driving License Categories
+  {
+    path: 'assets/driving-license-categories',
+    loadComponent: () => import('./assets/driving-license-categories/driving-license-category-list.component').then(c => c.DrivingLicenseCategoryListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DrivingLicenseCategories' },
+  },
+  {
+    path: 'assets/driving-license-categories/new',
+    loadComponent: () => import('./assets/driving-license-categories/driving-license-category-form.component').then(c => c.DrivingLicenseCategoryFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DrivingLicenseCategories.Create' },
+  },
+  {
+    path: 'assets/driving-license-categories/:id/edit',
+    loadComponent: () => import('./assets/driving-license-categories/driving-license-category-form.component').then(c => c.DrivingLicenseCategoryFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DrivingLicenseCategories.Edit' },
   },
   // Asset Shift Factors
   {

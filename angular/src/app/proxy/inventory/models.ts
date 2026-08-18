@@ -4,6 +4,7 @@ import type { QualityReviewStatus } from './quality-review-status.enum';
 import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
+import type { BarcodeType } from './barcode-type.enum';
 import type { QualityActionType } from './quality-action-type.enum';
 import type { DeliveryTripStatus } from './delivery-trip-status.enum';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
@@ -382,6 +383,12 @@ export interface CreateUpdateItemAlternativeDto {
   twoWay?: boolean;
 }
 
+export interface CreateItemBarcodeDto {
+  barcode: string;
+  barcodeType?: BarcodeType;
+  isDefault?: boolean;
+}
+
 export interface CreateUpdateItemDto {
   companyId: string;
   itemCode: string;
@@ -411,6 +418,7 @@ export interface CreateUpdateItemDto {
   allowAlternativeItem?: boolean;
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;
+  barcodes?: CreateItemBarcodeDto[];
 }
 
 export interface CreateUpdateItemManufacturerDto {
@@ -827,6 +835,12 @@ export interface ItemDetailsDto {
   blanketOrderRemainingQty?: number | null;
 }
 
+export interface ItemBarcodeDto extends EntityDto<string> {
+  barcode?: string;
+  barcodeType?: BarcodeType;
+  isDefault?: boolean;
+}
+
 export interface ItemDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   itemCode?: string;
@@ -858,6 +872,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   defaultManufacturerPartNo?: string | null;
   totalStockQty?: number;
   isLowStock?: boolean;
+  barcodes?: ItemBarcodeDto[];
 }
 
 export interface ItemGroupDto extends EntityDto<string> {
@@ -1607,4 +1622,12 @@ export interface UomConversionDto extends EntityDto<string> {
   toUom?: string;
   conversionFactor?: number;
   itemId?: string | null;
+}
+
+export interface UomCategoryDto extends FullAuditedEntityDto<string> {
+  name?: string;
+}
+
+export interface CreateUpdateUomCategoryDto {
+  name: string;
 }

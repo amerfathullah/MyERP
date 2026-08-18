@@ -139,7 +139,8 @@ public class PosAppService : ApplicationService, IPosAppService
             query = query.Where(i => i.IsActive &&
                 (i.ItemName.Contains(search) ||
                  i.ItemCode.Contains(search) ||
-                 (i.Barcode != null && i.Barcode.Contains(search))));
+                 (i.Barcode != null && i.Barcode.Contains(search)) ||
+                 i.Barcodes.Any(b => b.Barcode.Contains(search))));
         }
         else
         {
@@ -169,8 +170,11 @@ public class PosAppService : ApplicationService, IPosAppService
             return new BarcodeScanResultDto { Found = false };
 
         // Per ERPNext barcode_scanner.js: search barcode → item code → serial no
+        // Also checks the multi-barcode child table (case/carton codes, alternate symbologies)
+        // for items carrying more than one scannable code.
         var item = query.FirstOrDefault(i =>
-            i.IsActive && (i.Barcode == barcode || i.ItemCode == barcode));
+            i.IsActive && (i.Barcode == barcode || i.ItemCode == barcode
+                || i.Barcodes.Any(b => b.Barcode == barcode)));
 
         if (item == null)
             return new BarcodeScanResultDto { Found = false };

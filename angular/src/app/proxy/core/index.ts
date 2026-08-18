@@ -13,6 +13,8 @@ export * from './document-print.service';
 export * from './document-series.service';
 export * from './document-status.enum';
 export * from './draft-link-guard.service';
+export * from './email-digest-frequency.enum';
+export * from './email-digest.service';
 export * from './email-template.service';
 export * from './global-search.service';
 export * from './hierarchy-master-data.service';

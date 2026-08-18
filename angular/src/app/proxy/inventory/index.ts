@@ -1,4 +1,5 @@
 export * from './barcode-scan.service';
+export * from './barcode-type.enum';
 export * from './batch.service';
 export * from './customs-tariff-number.service';
 export * from './delivery-trip-status.enum';
@@ -17,6 +18,7 @@ export * from './item-standard-cost.service';
 export * from './item-type.enum';
 export * from './item.service';
 export * from './landed-cost-distribution-method.enum';
+export * from './uom-category.service';
 export * from './landed-cost-voucher.service';
 export * from './manufacturer.service';
 export * from './models';

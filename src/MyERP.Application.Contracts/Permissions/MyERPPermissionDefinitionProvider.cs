@@ -443,6 +443,21 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         locPermission.AddChild(MyERPPermissions.Locations.Edit, L("Permission:Locations.Edit"));
         locPermission.AddChild(MyERPPermissions.Locations.Delete, L("Permission:Locations.Delete"));
 
+        var vehiclePermission = myGroup.AddPermission(MyERPPermissions.Vehicles.Default, L("Permission:Vehicles"));
+        vehiclePermission.AddChild(MyERPPermissions.Vehicles.Create, L("Permission:Vehicles.Create"));
+        vehiclePermission.AddChild(MyERPPermissions.Vehicles.Edit, L("Permission:Vehicles.Edit"));
+        vehiclePermission.AddChild(MyERPPermissions.Vehicles.Delete, L("Permission:Vehicles.Delete"));
+
+        var driverPermission = myGroup.AddPermission(MyERPPermissions.Drivers.Default, L("Permission:Drivers"));
+        driverPermission.AddChild(MyERPPermissions.Drivers.Create, L("Permission:Drivers.Create"));
+        driverPermission.AddChild(MyERPPermissions.Drivers.Edit, L("Permission:Drivers.Edit"));
+        driverPermission.AddChild(MyERPPermissions.Drivers.Delete, L("Permission:Drivers.Delete"));
+
+        var licenseCategoryPermission = myGroup.AddPermission(MyERPPermissions.DrivingLicenseCategories.Default, L("Permission:DrivingLicenseCategories"));
+        licenseCategoryPermission.AddChild(MyERPPermissions.DrivingLicenseCategories.Create, L("Permission:DrivingLicenseCategories.Create"));
+        licenseCategoryPermission.AddChild(MyERPPermissions.DrivingLicenseCategories.Edit, L("Permission:DrivingLicenseCategories.Edit"));
+        licenseCategoryPermission.AddChild(MyERPPermissions.DrivingLicenseCategories.Delete, L("Permission:DrivingLicenseCategories.Delete"));
+
         var movPermission = myGroup.AddPermission(MyERPPermissions.AssetMovements.Default, L("Permission:AssetMovements"));
         movPermission.AddChild(MyERPPermissions.AssetMovements.Create, L("Permission:AssetMovements.Create"));
         movPermission.AddChild(MyERPPermissions.AssetMovements.Edit, L("Permission:AssetMovements.Edit"));

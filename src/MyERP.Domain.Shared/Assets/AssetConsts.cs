@@ -58,3 +58,27 @@ public static class AssetShiftAllocationConsts
 {
     public const int MaxAllocationNumberLength = 50;
 }
+
+public static class FleetConsts
+{
+    public const int MaxCategoryNameLength = 100;
+    public const int MaxDriverNameLength = 200;
+    public const int MaxLicenseNumberLength = 50;
+    public const int MaxLicensePlateLength = 30;
+}
+
+public enum DriverStatus
+{
+    Active = 0,
+    Suspended = 1,
+    Left = 2,
+}
+
+public enum VehicleFuelType
+{
+    Petrol = 0,
+    Diesel = 1,
+    Electric = 2,
+    Hybrid = 3,
+    Cng = 4,
+}

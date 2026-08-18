@@ -36,6 +36,15 @@
             <label class="form-label">{{ 'Narration' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="narration" [class.is-invalid]="form.get('narration')?.invalid && form.get('narration')?.touched" />
           </div>
+          @if (templates().length > 0) {
+            <div class="col-12 col-md-3 mb-3">
+              <label class="form-label">{{ 'LoadFromTemplate' | abpLocalization }}</label>
+              <select class="form-select" (change)="loadTemplate($any($event.target).value)">
+                <option value="">{{ 'SelectTemplate' | abpLocalization }}</option>
+                @for (t of templates(); track t.id) { <option [value]="t.id">{{ t.templateName }}</option> }
+              </select>
+            </div>
+          }
         </div>
       </div>
     </div>

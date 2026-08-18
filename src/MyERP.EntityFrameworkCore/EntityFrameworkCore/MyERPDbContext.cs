@@ -76,6 +76,7 @@ public class MyERPDbContext :
     public DbSet<SupplierGroup> SupplierGroups { get; set; }
     public DbSet<CompanyRestrictionEntry> CompanyRestrictionEntries { get; set; }
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
+    public DbSet<EmailDigestSettings> EmailDigestSettings { get; set; }
     public DbSet<NotificationLog> NotificationLogs { get; set; }
     public DbSet<PartyLink> PartyLinks { get; set; }
 
@@ -173,6 +174,7 @@ public class MyERPDbContext :
     // Purchasing
     public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+    public DbSet<Incoterm> Incoterms { get; set; }
     public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems { get; set; }
@@ -213,6 +215,7 @@ public class MyERPDbContext :
     public DbSet<ItemAttribute> ItemAttributes { get; set; }
     public DbSet<ItemAttributeValue> ItemAttributeValues { get; set; }
     public DbSet<ItemVariantAttribute> ItemVariantAttributes { get; set; }
+    public DbSet<ItemBarcode> ItemBarcodes { get; set; }
     public DbSet<SerialNo> SerialNos { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<QualityInspectionReading> QualityInspectionReadings { get; set; }
@@ -227,6 +230,7 @@ public class MyERPDbContext :
     public DbSet<StockClosingEntry> StockClosingEntries { get; set; }
     public DbSet<StockClosingBalance> StockClosingBalances { get; set; }
     public DbSet<Uom> Uoms { get; set; }
+    public DbSet<UomCategory> UomCategories { get; set; }
     public DbSet<ItemDefault> ItemDefaults { get; set; }
     public DbSet<PutawayRule> PutawayRules { get; set; }
     public DbSet<SerialAndBatchBundle> SerialAndBatchBundles { get; set; }
@@ -309,6 +313,7 @@ public class MyERPDbContext :
 
     // Projects
     public DbSet<Project> Projects { get; set; }
+    public DbSet<ProjectType> ProjectTypes { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
     public DbSet<TaskDependency> TaskDependencies { get; set; }
     public DbSet<ProjectTemplate> ProjectTemplates { get; set; }
@@ -324,7 +329,15 @@ public class MyERPDbContext :
     public DbSet<AssetCategory> AssetCategories { get; set; }
     public DbSet<AssetCategoryAccount> AssetCategoryAccounts { get; set; }
     public DbSet<AssetActivity> AssetActivities { get; set; }
+    public DbSet<JournalEntryTemplate> JournalEntryTemplates { get; set; }
+    public DbSet<JournalEntryTemplateLine> JournalEntryTemplateLines { get; set; }
+    public DbSet<LedgerHealthMonitorSettings> LedgerHealthMonitorSettings { get; set; }
+    public DbSet<LedgerHealthRecord> LedgerHealthRecords { get; set; }
     public DbSet<Location> Locations { get; set; }
+    public DbSet<Vehicle> Vehicles { get; set; }
+    public DbSet<Driver> Drivers { get; set; }
+    public DbSet<DriverLicenseCategory> DriverLicenseCategories { get; set; }
+    public DbSet<DrivingLicenseCategory> DrivingLicenseCategories { get; set; }
     public DbSet<AssetShiftFactor> AssetShiftFactors { get; set; }
     public DbSet<AssetShiftAllocation> AssetShiftAllocations { get; set; }
     public DbSet<AssetShiftAllocationLine> AssetShiftAllocationLines { get; set; }
@@ -649,6 +662,15 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
+        builder.Entity<EmailDigestSettings>(b =>
+        {
+            b.ToTable(MyERPConsts.DbTablePrefix + "EmailDigestSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Recipients).IsRequired().HasMaxLength(2000);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
+        });
+
         builder.Entity<NotificationLog>(b =>
         {
             b.ToTable(MyERPConsts.DbTablePrefix + "NotificationLogs", MyERPConsts.DbSchema);
@@ -783,6 +805,14 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.Name).IsRequired().HasMaxLength(50);
             b.Property(x => x.Category).HasMaxLength(50);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<UomCategory>(b =>
+        {
+            b.ToTable("Inv_UomCategories", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
@@ -1133,6 +1163,15 @@ public class MyERPDbContext :
         });
 
         // Purchase Orders
+        builder.Entity<Incoterm>(b =>
+        {
+            b.ToTable("Pur_Incoterms", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Code).IsRequired().HasMaxLength(10);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+        });
+
         builder.Entity<PurchaseOrder>(b =>
         {
             b.ToTable("Pur_PurchaseOrders", MyERPConsts.DbSchema);
@@ -1608,6 +1647,47 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
         });
 
+        builder.Entity<JournalEntryTemplate>(b =>
+        {
+            b.ToTable("Acc_JournalEntryTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TemplateName).IsRequired().HasMaxLength(200);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.TemplateName }).IsUnique();
+        });
+
+        builder.Entity<JournalEntryTemplateLine>(b =>
+        {
+            b.ToTable("Acc_JournalEntryTemplateLines", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DefaultAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.PartyType).HasMaxLength(50);
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.HasOne<JournalEntryTemplate>().WithMany(x => x.Lines).HasForeignKey(x => x.JournalEntryTemplateId).IsRequired();
+            b.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).IsRequired();
+            b.HasIndex(x => x.JournalEntryTemplateId);
+        });
+
+        builder.Entity<LedgerHealthMonitorSettings>(b =>
+        {
+            b.ToTable("Acc_LedgerHealthMonitorSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId }).IsUnique();
+        });
+
+        builder.Entity<LedgerHealthRecord>(b =>
+        {
+            b.ToTable("Acc_LedgerHealthRecords", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CheckType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Severity).IsRequired().HasMaxLength(20);
+            b.Property(x => x.VoucherType).HasMaxLength(50);
+            b.Property(x => x.Difference).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ExpectedValue).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ActualValue).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CheckedAt });
+        });
+
         builder.Entity<CostCenter>(b =>
         {
             b.ToTable("Acc_CostCenters", MyERPConsts.DbSchema);
@@ -1920,6 +2000,16 @@ public class MyERPDbContext :
             b.HasOne<Item>().WithMany(x => x.VariantAttributes).HasForeignKey(x => x.ItemId).IsRequired();
             b.HasOne<ItemAttribute>().WithMany().HasForeignKey(x => x.ItemAttributeId).IsRequired();
             b.HasIndex(x => new { x.ItemId, x.ItemAttributeId }).IsUnique();
+        });
+
+        builder.Entity<ItemBarcode>(b =>
+        {
+            b.ToTable("Inv_ItemBarcodes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Barcode).IsRequired().HasMaxLength(100);
+            b.HasOne<Item>().WithMany(x => x.Barcodes).HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.Barcode);
+            b.HasIndex(x => new { x.ItemId, x.Barcode }).IsUnique();
         });
 
         builder.Entity<SerialNo>(b =>
@@ -2409,6 +2499,14 @@ public class MyERPDbContext :
             b.Navigation(x => x.Tasks).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.ProjectNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<ProjectType>(b =>
+        {
+            b.ToTable("Prj_ProjectTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
         builder.Entity<ProjectTask>(b =>
@@ -4533,6 +4631,48 @@ public class MyERPDbContext :
             b.Property(x => x.LocationName).IsRequired().HasMaxLength(LocationConsts.MaxLocationNameLength);
             b.HasIndex(x => new { x.TenantId, x.LocationName });
             b.HasIndex(x => new { x.TenantId, x.ParentLocationId });
+        });
+
+        builder.Entity<DrivingLicenseCategory>(b =>
+        {
+            b.ToTable("Ast_DrivingLicenseCategories", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CategoryName).IsRequired().HasMaxLength(FleetConsts.MaxCategoryNameLength);
+            b.HasIndex(x => new { x.TenantId, x.CategoryName }).IsUnique();
+        });
+
+        builder.Entity<Driver>(b =>
+        {
+            b.ToTable("Ast_Drivers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.FullName).IsRequired().HasMaxLength(FleetConsts.MaxDriverNameLength);
+            b.Property(x => x.LicenseNumber).IsRequired().HasMaxLength(FleetConsts.MaxLicenseNumberLength);
+            b.HasMany(x => x.LicenseCategories)
+                .WithOne()
+                .HasForeignKey(x => x.DriverId)
+                .IsRequired()
+                .OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId });
+            b.HasIndex(x => new { x.TenantId, x.LicenseNumber });
+        });
+
+        builder.Entity<DriverLicenseCategory>(b =>
+        {
+            b.ToTable("Ast_DriverLicenseCategories", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.DriverId, x.CategoryId }).IsUnique();
+        });
+
+        builder.Entity<Vehicle>(b =>
+        {
+            b.ToTable("Ast_Vehicles", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LicensePlate).IsRequired().HasMaxLength(FleetConsts.MaxLicensePlateLength);
+            b.Property(x => x.LastOdometer).HasColumnType("decimal(18,2)");
+            b.Property(x => x.CarryingCapacity).HasColumnType("decimal(18,2)");
+            b.Property(x => x.VehicleValue).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.CompanyId });
+            b.HasIndex(x => new { x.TenantId, x.LicensePlate }).IsUnique();
         });
 
         builder.Entity<Asset>(b =>

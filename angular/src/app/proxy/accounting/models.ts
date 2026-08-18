@@ -1195,6 +1195,85 @@ export interface JournalEntryLineDto {
   description?: string | null;
 }
 
+export interface JournalEntryTemplateLineDto {
+  id?: string;
+  accountId?: string;
+  accountCode?: string | null;
+  accountName?: string | null;
+  isDebit?: boolean;
+  defaultAmount?: number;
+  partyType?: string | null;
+  description?: string | null;
+}
+
+export interface JournalEntryTemplateDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  templateName?: string;
+  voucherType?: JournalEntryVoucherType;
+  isActive?: boolean;
+  lines?: JournalEntryTemplateLineDto[];
+}
+
+export interface CreateJournalEntryTemplateLineDto {
+  accountId: string;
+  isDebit?: boolean;
+  defaultAmount?: number;
+  partyType?: string | null;
+  description?: string | null;
+}
+
+export interface CreateUpdateJournalEntryTemplateDto {
+  companyId: string;
+  templateName: string;
+  voucherType?: JournalEntryVoucherType;
+  isActive?: boolean;
+  lines: CreateJournalEntryTemplateLineDto[];
+}
+
+export interface GetJournalEntryTemplateListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+}
+
+export interface LedgerHealthMonitorSettingsDto {
+  companyId?: string;
+  isEnabled?: boolean;
+  lookbackPeriodDays?: number;
+}
+
+export interface GetLedgerHealthMonitorSettingsInput {
+  companyId: string;
+}
+
+export interface UpdateLedgerHealthMonitorSettingsDto {
+  companyId: string;
+  isEnabled: boolean;
+  lookbackPeriodDays: number;
+}
+
+export interface RunLedgerHealthCheckDto {
+  companyId: string;
+}
+
+export interface GetLedgerHealthRecordsInput extends PagedAndSortedResultRequestDto {
+  companyId: string;
+}
+
+export interface LedgerHealthRecordDto extends EntityDto<string> {
+  checkType?: string;
+  severity?: string;
+  description?: string;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  difference?: number | null;
+  checkedAt?: string;
+}
+
+export interface LedgerHealthCheckRunResultDto {
+  isHealthy?: boolean;
+  totalChecked?: number;
+  issues?: LedgerHealthRecordDto[];
+}
+
 export interface MakePaymentRecordsDto {
   supplierId: string;
   modeOfPayment?: string | null;
@@ -1424,6 +1503,14 @@ export interface PaymentEntryDto extends EntityDto<string> {
   partyName?: string | null;
 }
 
+export interface PaymentLedgerRepostResultDto {
+  totalVouchers?: number;
+  successCount?: number;
+  failedCount?: number;
+  hasErrors?: boolean;
+  errors?: string[];
+}
+
 export interface PaymentOrderDto extends AuditedEntityDto<string> {
   companyId?: string;
   orderNumber?: string | null;
@@ -1588,6 +1675,17 @@ export interface RepostGlDto {
   companyId?: string;
   voucherType?: string;
   voucherId?: string;
+}
+
+export interface RepostPaymentLedgerDto {
+  companyId?: string;
+  voucherType?: string;
+  voucherId?: string;
+}
+
+export interface RepostPaymentLedgerForCompanyDto {
+  companyId?: string;
+  fromDate?: string;
 }
 
 export interface RepostVoucherRefDto {

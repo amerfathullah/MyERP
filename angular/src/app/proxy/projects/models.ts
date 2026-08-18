@@ -1,4 +1,4 @@
-import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { ProjectPriority } from './project-priority.enum';
 import type { PercentCompleteMethod } from './percent-complete-method.enum';
 import type { ProjectStatus } from './project-status.enum';
@@ -246,4 +246,14 @@ export interface UpdateProjectTaskDto {
   expectedHours?: number;
   assignedUserId?: string | null;
   description?: string | null;
+}
+
+export interface ProjectTypeDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateProjectTypeDto {
+  name: string;
+  isActive?: boolean;
 }

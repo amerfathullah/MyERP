@@ -2,7 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { barcodeTypeOptions } from '../../proxy/inventory/barcode-type.enum';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -51,6 +52,7 @@ export class ItemFormComponent implements OnInit {
     minOrderQty: [0],
     inspectionRequiredBeforePurchase: [false],
     inspectionRequiredBeforeDelivery: [false],
+    barcodes: this.fb.array([]),
   });
 
   isEditMode = false;
@@ -60,6 +62,24 @@ export class ItemFormComponent implements OnInit {
     { value: 0, label: 'Goods' },
     { value: 1, label: 'Service' },
     { value: 2, label: 'Fixed Asset' }];
+
+  barcodeTypeOptions = barcodeTypeOptions;
+
+  get barcodesArray(): FormArray {
+    return this.form.get('barcodes') as FormArray;
+  }
+
+  addBarcode(barcode = '', barcodeType = 0, isDefault = false): void {
+    this.barcodesArray.push(this.fb.group({
+      barcode: [barcode, Validators.required],
+      barcodeType: [barcodeType],
+      isDefault: [isDefault],
+    }));
+  }
+
+  removeBarcode(index: number): void {
+    this.barcodesArray.removeAt(index);
+  }
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
@@ -71,6 +91,9 @@ export class ItemFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
         this.form.patchValue(item as any);
+        for (const b of item.barcodes ?? []) {
+          this.addBarcode(b.barcode, b.barcodeType, b.isDefault);
+        }
         // Load stock levels for this item
         this.stockBalanceService.getItemStock(this.entityId!)
           .subscribe(levels => this.stockLevels.set(levels ?? []));

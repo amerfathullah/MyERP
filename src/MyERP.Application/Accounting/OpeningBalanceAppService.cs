@@ -21,17 +21,13 @@ namespace MyERP.Accounting;
 /// Opening Balance Entry Tool — critical for go-live.
 /// Creates opening Journal Entries (Balance Sheet accounts) and opening invoices
 /// (AR/AP) to migrate legacy balances into MyERP.
-/// 
+///
 /// ERPNext equivalent: erpnext/accounts/doctype/opening_invoice_creation_tool/
 ///                     erpnext/accounts/utils.py → make_opening_entries
 /// </summary>
 [Authorize(MyERPPermissions.JournalEntries.Default)]
 public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppService
 {
-    /// <summary>Placeholder item ID for opening balance invoice items. 
-    /// Opening invoices are accounting-only and don't represent real items.</summary>
-    private static readonly Guid _defaultItemId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<JournalEntryLine, Guid> _lineRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
@@ -40,6 +36,7 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly Accounting.DomainServices.PaymentLedgerService _pleService;
 
     public OpeningBalanceAppService(
         IRepository<JournalEntry, Guid> journalRepository,
@@ -49,7 +46,8 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
         IRepository<FiscalYear, Guid> fiscalYearRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        Accounting.DomainServices.PaymentLedgerService pleService)
     {
         _journalRepository = journalRepository;
         _lineRepository = lineRepository;
@@ -59,6 +57,7 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _numberGenerator = numberGenerator;
+        _pleService = pleService;
     }
 
     /// <summary>
@@ -181,17 +180,29 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
     /// <summary>
     /// Bulk-creates opening Sales Invoices for customer receivable balances.
     /// Each invoice is created with IsOpening=true, no payment terms, no stock update.
-    /// 
+    ///
     /// Per ERPNext opening_invoice_creation_tool:
-    /// - Batch threshold: >50 invoices → background job
     /// - Party currency fallback from party account
-    /// - disable_rounded_total forced
     /// - No payment schedule generated
+    ///
+    /// GL: DR Company.DefaultReceivableAccountId / CR Temporary Opening account, posted as a
+    /// manually-composed JournalEntry (AccountingRuleEngine has no per-invoice account override,
+    /// same reasoning as the exchange-gain/loss JE built in PaymentEntryAppService). Also creates
+    /// the PLE row so the invoice actually shows outstanding — previously this method called
+    /// only Submit(), never Post(), so opening invoices never reached the ledger at all.
     /// </summary>
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<OpeningInvoiceResultDto> CreateOpeningSalesInvoicesAsync(
         CreateOpeningInvoicesDto input)
     {
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+        if (!company.DefaultReceivableAccountId.HasValue)
+            throw new BusinessException("MyERP:02001")
+                .WithData("reason", "No Default Receivable Account configured on the company.");
+
+        var tempOpeningAccount = await ResolveTemporaryOpeningAccountAsync(input.CompanyId);
+        var fiscalYear = await ResolveFiscalYearAsync(input.CompanyId, input.PostingDate);
+
         int created = 0;
         var errors = new List<string>();
 
@@ -204,6 +215,11 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
                     errors.Add($"Invoice for amount {invoice.OutstandingAmount}: Customer ID is required.");
                     continue;
                 }
+                if (!invoice.ItemId.HasValue || invoice.ItemId == Guid.Empty)
+                {
+                    errors.Add($"Invoice for customer {invoice.CustomerId}: ItemId is required (a placeholder 'Opening Balance' item).");
+                    continue;
+                }
 
                 var number = await _numberGenerator.GenerateAsync("SI", input.CompanyId, input.PostingDate);
 
@@ -213,18 +229,31 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
                     invoice.CustomerId.Value,
                     number,
                     input.PostingDate,
-                    CurrentTenant.Id);
+                    CurrentTenant.Id)
+                {
+                    IsOpening = true,
+                    DueDate = invoice.DueDate ?? input.PostingDate,
+                    DebitToAccountId = company.DefaultReceivableAccountId.Value,
+                };
 
-                si.IsOpening = true;
-                si.DueDate = invoice.DueDate ?? input.PostingDate;
-
-                // Single item line for the outstanding amount (use a placeholder item or company default)
-                var itemId = invoice.ItemId ?? _defaultItemId;
-                si.AddItem(itemId, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
-
+                si.AddItem(invoice.ItemId.Value, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
                 si.Submit();
-
+                si.Post();
                 await _salesInvoiceRepository.InsertAsync(si);
+
+                var je = BuildOpeningJournalEntry(input.CompanyId, fiscalYear.Id, input.PostingDate,
+                    "SalesInvoice", si.Id,
+                    debitAccountId: company.DefaultReceivableAccountId.Value,
+                    creditAccountId: tempOpeningAccount.Id,
+                    amount: invoice.OutstandingAmount);
+                await _journalRepository.InsertAsync(je);
+
+                await _pleService.CreateEntryAsync(
+                    input.CompanyId, input.PostingDate, company.DefaultReceivableAccountId.Value,
+                    "Customer", invoice.CustomerId.Value, "SalesInvoice", si.Id, "SalesInvoice", si.Id,
+                    invoice.OutstandingAmount, invoice.OutstandingAmount, input.Currency ?? si.CurrencyCode,
+                    invoice.DueDate, CurrentTenant.Id);
+
                 created++;
             }
             catch (Exception ex)
@@ -245,11 +274,21 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
     /// <summary>
     /// Bulk-creates opening Purchase Invoices for supplier payable balances.
     /// Each invoice is created with IsOpening=true, no payment terms, no stock update.
+    /// GL: DR Temporary Opening account / CR Company.DefaultPayableAccountId — see
+    /// CreateOpeningSalesInvoicesAsync for why this is a manual JE rather than the rule engine.
     /// </summary>
     [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
     public async Task<OpeningInvoiceResultDto> CreateOpeningPurchaseInvoicesAsync(
         CreateOpeningInvoicesDto input)
     {
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+        if (!company.DefaultPayableAccountId.HasValue)
+            throw new BusinessException("MyERP:02001")
+                .WithData("reason", "No Default Payable Account configured on the company.");
+
+        var tempOpeningAccount = await ResolveTemporaryOpeningAccountAsync(input.CompanyId);
+        var fiscalYear = await ResolveFiscalYearAsync(input.CompanyId, input.PostingDate);
+
         int created = 0;
         var errors = new List<string>();
 
@@ -262,6 +301,11 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
                     errors.Add($"Invoice for amount {invoice.OutstandingAmount}: Supplier ID is required.");
                     continue;
                 }
+                if (!invoice.ItemId.HasValue || invoice.ItemId == Guid.Empty)
+                {
+                    errors.Add($"Invoice for supplier {invoice.SupplierId}: ItemId is required (a placeholder 'Opening Balance' item).");
+                    continue;
+                }
 
                 var number = await _numberGenerator.GenerateAsync("PI", input.CompanyId, input.PostingDate);
 
@@ -271,18 +315,31 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
                     invoice.SupplierId.Value,
                     number,
                     input.PostingDate,
-                    CurrentTenant.Id);
+                    CurrentTenant.Id)
+                {
+                    IsOpening = true,
+                    DueDate = invoice.DueDate ?? input.PostingDate,
+                    CreditToAccountId = company.DefaultPayableAccountId.Value,
+                };
 
-                pi.IsOpening = true;
-                pi.DueDate = invoice.DueDate ?? input.PostingDate;
-
-                // Single item line for the outstanding amount (use placeholder item or company default)
-                var itemId = invoice.ItemId ?? _defaultItemId;
-                pi.AddItem(itemId, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
-
+                pi.AddItem(invoice.ItemId.Value, "Opening Balance", 1m, invoice.OutstandingAmount, 0m);
                 pi.Submit();
-
+                pi.Post();
                 await _purchaseInvoiceRepository.InsertAsync(pi);
+
+                var je = BuildOpeningJournalEntry(input.CompanyId, fiscalYear.Id, input.PostingDate,
+                    "PurchaseInvoice", pi.Id,
+                    debitAccountId: tempOpeningAccount.Id,
+                    creditAccountId: company.DefaultPayableAccountId.Value,
+                    amount: invoice.OutstandingAmount);
+                await _journalRepository.InsertAsync(je);
+
+                await _pleService.CreateEntryAsync(
+                    input.CompanyId, input.PostingDate, company.DefaultPayableAccountId.Value,
+                    "Supplier", invoice.SupplierId.Value, "PurchaseInvoice", pi.Id, "PurchaseInvoice", pi.Id,
+                    -invoice.OutstandingAmount, -invoice.OutstandingAmount, input.Currency ?? pi.CurrencyCode,
+                    invoice.DueDate, CurrentTenant.Id);
+
                 created++;
             }
             catch (Exception ex)
@@ -298,6 +355,46 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
             Errors = errors,
             Message = $"Created {created} opening purchase invoices."
         };
+    }
+
+    private JournalEntry BuildOpeningJournalEntry(
+        Guid companyId, Guid fiscalYearId, DateTime postingDate,
+        string referenceType, Guid referenceId, Guid debitAccountId, Guid creditAccountId, decimal amount)
+    {
+        var je = new JournalEntry(GuidGenerator.Create(), companyId, fiscalYearId, postingDate, CurrentTenant.Id)
+        {
+            ReferenceType = referenceType,
+            ReferenceId = referenceId,
+            IsOpening = true,
+        };
+        je.AddLine(debitAccountId, amount, true, "Opening balance");
+        je.AddLine(creditAccountId, amount, false, "Opening balance");
+        je.Validate();
+        je.Post();
+        return je;
+    }
+
+    private async Task<Account> ResolveTemporaryOpeningAccountAsync(Guid companyId)
+    {
+        var tempOpeningAccount = await _accountRepository.FindAsync(a =>
+            a.CompanyId == companyId && a.AccountSubType == AccountSubType.TemporaryOpening);
+
+        if (tempOpeningAccount == null)
+            throw new BusinessException("MyERP:02033").WithData("companyId", companyId);
+
+        return tempOpeningAccount;
+    }
+
+    private async Task<FiscalYear> ResolveFiscalYearAsync(Guid companyId, DateTime postingDate)
+    {
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fy =>
+            fy.CompanyId == companyId && fy.StartDate <= postingDate && fy.EndDate >= postingDate);
+
+        if (fiscalYear == null)
+            throw new BusinessException("MyERP:02002")
+                .WithData("reason", $"No fiscal year found for company covering posting date {postingDate:yyyy-MM-dd}. Create a fiscal year first.");
+
+        return fiscalYear;
     }
 
     /// <summary>

@@ -7,6 +7,9 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { OpeningBalanceService } from '../../proxy/accounting/opening-balance.service';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { ItemService } from '../../proxy/inventory/item.service';
 import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models';
 
 @Component({
@@ -153,22 +156,70 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
         </div>
         <div class="card-body">
           <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="invoicePostingDate" [ngModelOptions]="{standalone: true}" />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label class="form-label">{{ 'InvoiceType' | abpLocalization }}</label>
-              <select class="form-select" [(ngModel)]="invoiceType" [ngModelOptions]="{standalone: true}">
+              <select class="form-select" [(ngModel)]="invoiceType" [ngModelOptions]="{standalone: true}" (ngModelChange)="onInvoiceTypeChange()">
                 <option value="sales">{{ 'SalesInvoices' | abpLocalization }} ({{ 'Receivables' | abpLocalization }})</option>
                 <option value="purchase">{{ 'PurchaseInvoices' | abpLocalization }} ({{ 'Payables' | abpLocalization }})</option>
               </select>
             </div>
+            <div class="col-md-6">
+              <label class="form-label">{{ 'OpeningBalanceItem' | abpLocalization }}</label>
+              <select class="form-select" [(ngModel)]="openingItemId" [ngModelOptions]="{standalone: true}">
+                <option value="">{{ 'SelectItem' | abpLocalization }}...</option>
+                @for (item of items(); track item.id) {
+                  <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
+                }
+              </select>
+              <small class="form-text text-muted">{{ 'OpeningBalanceItemHelp' | abpLocalization }}</small>
+            </div>
           </div>
+
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>{{ (invoiceType === 'sales' ? 'Customer' : 'Supplier') | abpLocalization }}</th>
+                <th class="text-end" style="width: 160px">{{ 'OutstandingAmount' | abpLocalization }}</th>
+                <th style="width: 160px">{{ 'DueDate' | abpLocalization }}</th>
+                <th style="width: 50px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of invoiceRows(); track $index) {
+                <tr>
+                  <td>
+                    <select class="form-select form-select-sm" [(ngModel)]="row.partyId" [ngModelOptions]="{standalone: true}">
+                      <option value="">{{ (invoiceType === 'sales' ? 'SelectCustomer' : 'SelectSupplier') | abpLocalization }}...</option>
+                      @for (p of parties(); track p.id) {
+                        <option [value]="p.id">{{ p.name }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td><input type="number" class="form-control form-control-sm text-end" [(ngModel)]="row.amount" [ngModelOptions]="{standalone: true}" step="0.01" /></td>
+                  <td><input type="date" class="form-control form-control-sm" [(ngModel)]="row.dueDate" [ngModelOptions]="{standalone: true}" /></td>
+                  <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeInvoiceRow($index)"><i class="fa fa-times"></i></button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <button type="button" class="btn btn-sm btn-outline-primary mb-3" (click)="addInvoiceRow()">
+            <i class="fa fa-plus me-1"></i>{{ 'AddLine' | abpLocalization }}
+          </button>
+
           <div class="alert alert-info">
             <i class="fa fa-info-circle me-2"></i>
             {{ 'OpeningInvoiceHelp' | abpLocalization }}
           </div>
+
+          <button type="button" class="btn btn-primary" [disabled]="savingInvoices() || invoiceRows().length === 0"
+            (click)="createOpeningInvoices()">
+            @if (savingInvoices()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+            {{ 'CreateOpeningInvoices' | abpLocalization }}
+          </button>
         </div>
       </div>
     </abp-page>
@@ -177,6 +228,9 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
 export class OpeningBalanceComponent implements OnInit {
   private openingBalanceService = inject(OpeningBalanceService);
   private accountService = inject(AccountService);
+  private customerService = inject(CustomerService);
+  private supplierService = inject(SupplierService);
+  private itemService = inject(ItemService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
@@ -184,8 +238,14 @@ export class OpeningBalanceComponent implements OnInit {
   status = signal<OpeningStatusDto | null>(null);
   bsAccounts = signal<AccountDto[]>([]);
   saving = signal(false);
-  invoicePostingDate = '';
-  invoiceType = 'sales';
+  invoicePostingDate = new Date().toISOString().split('T')[0];
+  invoiceType: 'sales' | 'purchase' = 'sales';
+
+  items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  openingItemId = '';
+  parties = signal<{ id: string; name: string }[]>([]);
+  invoiceRows = signal<{ partyId: string; amount: number; dueDate: string }[]>([]);
+  savingInvoices = signal(false);
 
   jeForm = this.fb.group({
     postingDate: [new Date().toISOString().split('T')[0], Validators.required],
@@ -207,6 +267,84 @@ export class OpeningBalanceComponent implements OnInit {
     this.addLine();
     this.loadStatus();
     this.loadAccounts();
+    this.loadItems();
+    this.loadParties();
+    this.addInvoiceRow();
+  }
+
+  loadItems(): void {
+    this.itemService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'itemCode asc' } as any)
+      .subscribe(result => this.items.set((result.items ?? []).map((i: any) => ({ id: i.id!, itemCode: i.itemCode ?? '', itemName: i.itemName ?? '' }))));
+  }
+
+  onInvoiceTypeChange(): void {
+    this.parties.set([]);
+    this.invoiceRows.set([]);
+    this.loadParties();
+    this.addInvoiceRow();
+  }
+
+  loadParties(): void {
+    if (this.invoiceType === 'sales') {
+      this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'customerName asc' } as any)
+        .subscribe(result => this.parties.set((result.items ?? []).map((c: any) => ({ id: c.id!, name: c.customerName ?? '' }))));
+    } else {
+      this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'supplierName asc' } as any)
+        .subscribe(result => this.parties.set((result.items ?? []).map((s: any) => ({ id: s.id!, name: s.supplierName ?? '' }))));
+    }
+  }
+
+  addInvoiceRow(): void {
+    this.invoiceRows.update(rows => [...rows, { partyId: '', amount: 0, dueDate: '' }]);
+  }
+
+  removeInvoiceRow(index: number): void {
+    this.invoiceRows.update(rows => rows.filter((_, i) => i !== index));
+  }
+
+  createOpeningInvoices(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+    if (!this.openingItemId) {
+      this.toaster.warn('::PleaseSelectOpeningBalanceItem');
+      return;
+    }
+
+    const rows = this.invoiceRows().filter(r => r.partyId && r.amount > 0);
+    if (rows.length === 0) {
+      this.toaster.warn('::PleaseAddAtLeastOneLine');
+      return;
+    }
+
+    const invoices = rows.map(r => ({
+      customerId: this.invoiceType === 'sales' ? r.partyId : null,
+      supplierId: this.invoiceType === 'purchase' ? r.partyId : null,
+      itemId: this.openingItemId,
+      outstandingAmount: r.amount,
+      dueDate: r.dueDate || null,
+    }));
+
+    const dto = { companyId, postingDate: this.invoicePostingDate, invoices } as any;
+
+    this.savingInvoices.set(true);
+    const req$ = this.invoiceType === 'sales'
+      ? this.openingBalanceService.createOpeningSalesInvoices(dto)
+      : this.openingBalanceService.createOpeningPurchaseInvoices(dto);
+
+    req$.subscribe({
+      next: (result) => {
+        this.savingInvoices.set(false);
+        if (result.failed && result.failed > 0) {
+          this.toaster.warn(`${result.message} (${result.failed} failed)`);
+        } else {
+          this.toaster.success(result.message ?? 'Success');
+        }
+        this.loadStatus();
+        this.invoiceRows.set([]);
+        this.addInvoiceRow();
+      },
+      error: () => this.savingInvoices.set(false),
+    });
   }
 
   loadStatus(): void {

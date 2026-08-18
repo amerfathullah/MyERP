@@ -7,8 +7,9 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
+import { JournalEntryTemplateService } from '../../proxy/accounting/journal-entry-template.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import type { AccountDto } from '../../proxy/accounting/models';
+import type { AccountDto, JournalEntryTemplateDto } from '../../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -55,12 +56,14 @@ export class JournalEntryFormComponent implements OnInit {
   private router = inject(Router);
   private accountService = inject(AccountService);
   private journalEntryService = inject(JournalEntryService);
+  private templateService = inject(JournalEntryTemplateService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
   accounts = signal<AccountDto[]>([]);
   companies = signal<any[]>([]);
+  templates = signal<JournalEntryTemplateDto[]>([]);
   voucherTypes = VOUCHER_TYPES;
 
   form = this.fb.group({
@@ -95,6 +98,28 @@ export class JournalEntryFormComponent implements OnInit {
       .subscribe({ next: (res) => this.accounts.set(res.items ?? []), error: () => {} });
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe({ next: (res) => this.companies.set(res.items ?? []), error: () => {} });
+
+    if (cid) {
+      this.templateService.getList({ companyId: cid, maxResultCount: 100 } as any)
+        .subscribe({ next: (res) => this.templates.set((res.items ?? []).filter(t => t.isActive)), error: () => {} });
+    }
+  }
+
+  loadTemplate(templateId: string): void {
+    if (!templateId) return;
+    this.templateService.get(templateId).subscribe(t => {
+      this.form.patchValue({ voucherType: t.voucherType });
+      while (this.lines.length) this.lines.removeAt(0);
+      for (const line of t.lines ?? []) {
+        const account = this.accounts().find(a => a.id === line.accountId);
+        this.lines.push(this.fb.group({
+          accountId: [line.accountId, Validators.required],
+          accountName: [account?.accountName ?? line.accountName ?? ''],
+          debit: [line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
+          credit: [!line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
+        }));
+      }
+    });
   }
 
   addLine(): void {

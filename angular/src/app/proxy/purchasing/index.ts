@@ -5,6 +5,7 @@ export * from './models';
 export * from './purchase-analytics.service';
 export * from './purchase-conversion.service';
 export * from './purchase-invoice.service';
+export * from './incoterm.service';
 export * from './purchase-order.service';
 export * from './purchase-receipt.service';
 export * from './purchase-register.service';

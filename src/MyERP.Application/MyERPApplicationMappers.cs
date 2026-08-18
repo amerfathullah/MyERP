@@ -17,9 +17,11 @@ public partial class ItemToItemDtoMapper : MapperBase<Inventory.Entities.Item, I
 {
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.Barcodes))]
     public override partial Inventory.ItemDto Map(Inventory.Entities.Item source);
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.Barcodes))]
     public override partial void Map(Inventory.Entities.Item source, Inventory.ItemDto destination);
 }
 
@@ -1048,6 +1050,13 @@ public partial class LocationMapper : MapperBase<Assets.Entities.Location, Asset
 {
     public override partial Assets.LocationDto Map(Assets.Entities.Location source);
     public override partial void Map(Assets.Entities.Location source, Assets.LocationDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class DrivingLicenseCategoryMapper : MapperBase<Assets.Entities.DrivingLicenseCategory, Assets.DrivingLicenseCategoryDto>
+{
+    public override partial Assets.DrivingLicenseCategoryDto Map(Assets.Entities.DrivingLicenseCategory source);
+    public override partial void Map(Assets.Entities.DrivingLicenseCategory source, Assets.DrivingLicenseCategoryDto destination);
 }
 
 // ─── Automation ───

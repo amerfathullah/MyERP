@@ -20,6 +20,7 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid CompanyId { get; set; }
     public Guid? CustomerId { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? ProjectTypeId { get; set; }
 
     public DateTime? ExpectedStartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }

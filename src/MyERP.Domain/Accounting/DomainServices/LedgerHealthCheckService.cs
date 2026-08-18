@@ -17,13 +17,41 @@ public class LedgerHealthCheckService : DomainService
 {
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
+    private readonly IRepository<LedgerHealthRecord, Guid> _recordRepository;
 
     public LedgerHealthCheckService(
         IRepository<JournalEntry, Guid> journalEntryRepository,
-        IRepository<PaymentLedgerEntry, Guid> pleRepository)
+        IRepository<PaymentLedgerEntry, Guid> pleRepository,
+        IRepository<LedgerHealthRecord, Guid> recordRepository)
     {
         _journalEntryRepository = journalEntryRepository;
         _pleRepository = pleRepository;
+        _recordRepository = recordRepository;
+    }
+
+    /// <summary>
+    /// Runs the health check and persists every detected issue as a LedgerHealthRecord.
+    /// Used by the daily monitor job / manual "Run Check Now" trigger.
+    /// </summary>
+    public async Task<List<LedgerHealthRecord>> RunAndPersistAsync(Guid companyId)
+    {
+        var report = await RunHealthCheckAsync(companyId);
+        var records = new List<LedgerHealthRecord>();
+
+        foreach (var issue in report.Issues)
+        {
+            var record = new LedgerHealthRecord(
+                GuidGenerator.Create(), companyId, issue.IssueType, issue.Severity, issue.Description)
+            {
+                VoucherType = issue.IssueType == "UnbalancedJE" ? "JournalEntry" : null,
+                VoucherId = issue.DocumentId,
+                Difference = issue.Amount,
+            };
+            await _recordRepository.InsertAsync(record);
+            records.Add(record);
+        }
+
+        return records;
     }
 
     /// <summary>

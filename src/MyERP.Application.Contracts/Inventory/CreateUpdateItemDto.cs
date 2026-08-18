@@ -1,7 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace MyERP.Inventory;
+
+public class CreateItemBarcodeDto
+{
+    [Required]
+    [StringLength(100)]
+    public string Barcode { get; set; } = null!;
+
+    public BarcodeType BarcodeType { get; set; } = BarcodeType.Ean;
+    public bool IsDefault { get; set; }
+}
 
 public class CreateUpdateItemDto
 {
@@ -87,4 +98,7 @@ public class CreateUpdateItemDto
     /// <summary>Default manufacturer part number.</summary>
     [StringLength(100)]
     public string? DefaultManufacturerPartNo { get; set; }
+
+    /// <summary>Additional barcodes for this item (case codes, alternate symbologies, etc).</summary>
+    public List<CreateItemBarcodeDto> Barcodes { get; set; } = new();
 }

@@ -1,5 +1,6 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AuthorizationBasedOn } from './authorization-based-on.enum';
+import type { EmailDigestFrequency } from './email-digest-frequency.enum';
 import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 import type { DocumentStatus } from './document-status.enum';
@@ -824,4 +825,41 @@ export interface UpdateEmailTemplateDto {
   subject?: string;
   body?: string;
   documentType?: string | null;
+}
+
+export interface EmailDigestSettingsDto {
+  companyId?: string;
+  isEnabled?: boolean;
+  frequency?: EmailDigestFrequency;
+  recipients?: string;
+  includeOpenSalesOrders?: boolean;
+  includeOverdueInvoices?: boolean;
+  includeLowStockItems?: boolean;
+  lastSentAt?: string | null;
+}
+
+export interface UpdateEmailDigestSettingsDto {
+  companyId: string;
+  isEnabled: boolean;
+  frequency?: EmailDigestFrequency;
+  recipients: string;
+  includeOpenSalesOrders?: boolean;
+  includeOverdueInvoices?: boolean;
+  includeLowStockItems?: boolean;
+}
+
+export interface GetEmailDigestSettingsInput {
+  companyId: string;
+}
+
+export interface SendEmailDigestNowInput {
+  companyId: string;
+}
+
+export interface EmailDigestSendResultDto {
+  recipientCount?: number;
+  openSalesOrderCount?: number;
+  overdueInvoiceCount?: number;
+  overdueInvoiceAmount?: number;
+  lowStockItemCount?: number;
 }

@@ -26,8 +26,12 @@ public class Uom : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>
     /// UOM category for grouping (e.g., Mass, Length, Volume, Time).
     /// Per ERPNext v16: structured category field.
+    /// Free-text, kept for backward compatibility — see CategoryId for the controlled picklist.
     /// </summary>
     public string? Category { get; set; }
+
+    /// <summary>Optional link to the structured UomCategory master (controlled picklist).</summary>
+    public Guid? CategoryId { get; set; }
 
     public bool IsEnabled { get; set; } = true;
 

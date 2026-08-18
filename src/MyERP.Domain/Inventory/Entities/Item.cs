@@ -141,6 +141,15 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public ICollection<ItemVariantAttribute> VariantAttributes { get; private set; }
         = new List<ItemVariantAttribute>();
 
+    /// <summary>
+    /// Additional barcodes for this item (EAN/UPC/case codes, etc).
+    /// The legacy single Barcode field above remains as the primary/default scan code;
+    /// this collection supports items with multiple package sizes or barcode standards.
+    /// Per ERPNext stock/doctype/item_barcode (child table).
+    /// </summary>
+    public ICollection<ItemBarcode> Barcodes { get; private set; }
+        = new List<ItemBarcode>();
+
     protected Item() { }
 
     public Item(Guid id, Guid companyId, string itemCode, string itemName, ItemType itemType, Guid? tenantId = null)

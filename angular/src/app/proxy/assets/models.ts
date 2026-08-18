@@ -9,6 +9,8 @@ import type { AssetMovementPurpose } from './asset-movement-purpose.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { AssetRepairStatus } from './asset-repair-status.enum';
 import type { MaintenanceVisitStatus } from '../maintenance/maintenance-visit-status.enum';
+import type { VehicleFuelType } from './vehicle-fuel-type.enum';
+import type { DriverStatus } from './driver-status.enum';
 
 export interface AssetActivityDto extends FullAuditedEntityDto<string> {
   assetId?: string;
@@ -377,6 +379,93 @@ export interface CreateUpdateLocationDto {
   isGroup?: boolean;
   latitude?: number | null;
   longitude?: number | null;
+}
+
+export interface DrivingLicenseCategoryDto extends FullAuditedEntityDto<string> {
+  categoryName?: string;
+  description?: string;
+}
+
+export interface CreateUpdateDrivingLicenseCategoryDto {
+  categoryName: string;
+  description?: string;
+}
+
+export interface DriverDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  fullName?: string;
+  employeeId?: string;
+  transporterId?: string;
+  cellNumber?: string;
+  licenseNumber?: string;
+  licenseExpiryDate?: string;
+  address?: string;
+  status?: DriverStatus;
+  licenseCategoryIds?: string[];
+}
+
+export interface CreateUpdateDriverDto {
+  companyId: string;
+  fullName: string;
+  employeeId?: string;
+  transporterId?: string;
+  cellNumber?: string;
+  licenseNumber: string;
+  licenseExpiryDate?: string;
+  address?: string;
+  licenseCategoryIds?: string[];
+}
+
+export interface VehicleDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  licensePlate?: string;
+  make?: string;
+  model?: string;
+  chassisNumber?: string;
+  color?: string;
+  fuelType?: VehicleFuelType;
+  fuelUom?: string;
+  lastOdometer?: number;
+  carryingCapacity?: number;
+  wheels?: number;
+  doors?: number;
+  vehicleValue?: number;
+  acquisitionDate?: string;
+  driverId?: string;
+  driverName?: string;
+  locationId?: string;
+  insuranceCompany?: string;
+  policyNumber?: string;
+  insuranceStartDate?: string;
+  insuranceEndDate?: string;
+  roadTaxExpiryDate?: string;
+  fitnessCertificateExpiryDate?: string;
+  isDisabled?: boolean;
+}
+
+export interface CreateUpdateVehicleDto {
+  companyId: string;
+  licensePlate: string;
+  make?: string;
+  model?: string;
+  chassisNumber?: string;
+  color?: string;
+  fuelType?: VehicleFuelType;
+  fuelUom?: string;
+  lastOdometer?: number;
+  carryingCapacity?: number;
+  wheels?: number;
+  doors?: number;
+  vehicleValue?: number;
+  acquisitionDate?: string;
+  driverId?: string;
+  locationId?: string;
+  insuranceCompany?: string;
+  policyNumber?: string;
+  insuranceStartDate?: string;
+  insuranceEndDate?: string;
+  roadTaxExpiryDate?: string;
+  fitnessCertificateExpiryDate?: string;
 }
 
 export interface CreateUpdateAssetCategoryDto {

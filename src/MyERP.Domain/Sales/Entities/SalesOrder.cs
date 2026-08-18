@@ -18,6 +18,9 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public Guid? TenantId { get; set; }
     public Guid CompanyId { get; set; }
 
+    /// <summary>Shipping term (e.g. FOB, CIF, EXW) — who bears cost/risk at each stage.</summary>
+    public Guid? IncotermId { get; set; }
+
     public string OrderNumber { get; set; } = null!;
     public DateTime OrderDate { get; set; }
     public DateTime? DeliveryDate { get; set; }

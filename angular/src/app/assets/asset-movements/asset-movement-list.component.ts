@@ -53,7 +53,7 @@ const STATUS_LABELS: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: '
                   <tr>
                     <td>{{ assetNames()[m.assetId ?? ''] || '—' }}</td>
                     <td>{{ purposeLabel(m.purpose) }}</td>
-                    <td>{{ m.movementDate ? (m.movementDate | date:'dd/MM/yyyy') : '—' }}</td>
+                    <td>{{ m.transactionDate ? (m.transactionDate | date:'dd/MM/yyyy') : '—' }}</td>
                     <td class="text-muted small">{{ m.sourceLocation || '—' }}</td>
                     <td class="text-muted small">{{ m.targetLocation || '—' }}</td>
                     <td>

@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -133,6 +135,12 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                 consolidatedSi.Post();
                 await _invoiceRepository.InsertAsync(consolidatedSi, autoSave: true);
 
+                // GL + PLE posting for the consolidated invoice.
+                // Per ERPNext: individual POS Invoices carry no GL of their own — only the
+                // consolidated Sales Invoice posts to the ledger (pos-invoice-full.md line 201).
+                // This was previously missing entirely: POS shifts never reached the GL.
+                await PostConsolidatedInvoiceGlAsync(entry, consolidatedSi);
+
                 entry.ConsolidatedSalesInvoiceId = consolidatedSi.Id;
 
                 // Mark each source POS invoice with the consolidated SI to prevent re-consolidation
@@ -168,6 +176,87 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         entry.Retry();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
+    }
+
+    /// <summary>
+    /// Posts GL + PLE for a freshly-consolidated POS Sales Invoice:
+    /// 1. Standard SI GL (Receivable DR / Revenue+Tax CR) + PLE DR via the normal posting orchestrator.
+    /// 2. A payment JE per POS Closing payment mode: DR mode's default account / CR receivable
+    ///    (per gl-posting-patterns: "POS payment | payment_mode.account DR | doc.debit_to CR").
+    /// 3. A PLE reconciliation entry so the invoice's outstanding nets to zero (cash was already
+    ///    collected during the shift — the consolidated SI should not show as unpaid).
+    /// </summary>
+    private async Task PostConsolidatedInvoiceGlAsync(PosClosingEntry entry, SalesInvoice consolidatedSi)
+    {
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.GetAsync(consolidatedSi.CompanyId);
+
+        var receivableAccountId = consolidatedSi.DebitToAccountId != Guid.Empty
+            ? consolidatedSi.DebitToAccountId
+            : company.DefaultReceivableAccountId
+                ?? throw new BusinessException("MyERP:02001")
+                    .WithData("reason", "No receivable account configured. Set Default Receivable Account in Company settings.");
+        consolidatedSi.DebitToAccountId = receivableAccountId;
+
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.PostSalesInvoiceAsync(consolidatedSi, receivableAccountId);
+
+        // Payment JE: one DR/CR pair per payment mode with a positive expected amount.
+        var paidModes = entry.Payments.Where(p => p.ExpectedAmount > 0).ToList();
+        if (paidModes.Count == 0) return;
+
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var fiscalYear = fyQuery.FirstOrDefault(fy =>
+            fy.CompanyId == consolidatedSi.CompanyId
+            && fy.StartDate <= consolidatedSi.IssueDate
+            && fy.EndDate >= consolidatedSi.IssueDate);
+        if (fiscalYear == null) return;
+
+        var modeOfPaymentRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ModeOfPayment, Guid>>();
+
+        var je = new JournalEntry(
+            GuidGenerator.Create(), consolidatedSi.CompanyId, fiscalYear.Id,
+            consolidatedSi.IssueDate, consolidatedSi.TenantId)
+        {
+            ReferenceType = "PosClosingEntry",
+            ReferenceId = entry.Id,
+        };
+
+        var totalPaid = 0m;
+        foreach (var pay in paidModes)
+        {
+            var mop = await modeOfPaymentRepo.FindAsync(pay.ModeOfPaymentId);
+            var accountId = mop?.DefaultAccountId
+                ?? throw new BusinessException("MyERP:02001")
+                    .WithData("reason", $"Mode of Payment '{pay.ModeName}' has no default account configured for this company.");
+
+            // Cap at the invoice grand total — any excess is cashier variance, handled at closing reconciliation, not GL.
+            var amount = Math.Min(pay.ExpectedAmount, consolidatedSi.GrandTotal - totalPaid);
+            if (amount <= 0) continue;
+
+            je.AddLineWithDimensions(accountId, amount, true, null, null, null, $"POS Payment - {pay.ModeName}");
+            je.AddLineWithDimensions(receivableAccountId, amount, false, null, null, null, $"POS Payment - {pay.ModeName}");
+            totalPaid += amount;
+        }
+
+        if (totalPaid <= 0) return;
+
+        je.Validate();
+        je.Post();
+        await LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>().InsertAsync(je);
+
+        var pleService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.PaymentLedgerService>();
+        await pleService.ReconcileAsync(
+            consolidatedSi.CompanyId, consolidatedSi.IssueDate, receivableAccountId,
+            "Customer", consolidatedSi.CustomerId,
+            "PosClosingEntry", entry.Id,
+            "SalesInvoice", consolidatedSi.Id,
+            totalPaid, totalPaid, consolidatedSi.CurrencyCode, consolidatedSi.TenantId);
+
+        consolidatedSi.AmountPaid = totalPaid;
+        await _invoiceRepository.UpdateAsync(consolidatedSi);
     }
 
     /// <summary>

@@ -111,6 +111,44 @@
           </div>
         </div>
 
+        <!-- Barcodes -->
+        <div class="card border mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-barcode me-2"></i>{{ '::Barcodes' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addBarcode()">
+              <i class="fa fa-plus me-1"></i>{{ '::AddBarcode' | abpLocalization }}
+            </button>
+          </div>
+          <div class="card-body" formArrayName="barcodes">
+            @if (barcodesArray.length === 0) {
+              <p class="text-muted small mb-0">{{ '::NoBarcodesYet' | abpLocalization }}</p>
+            }
+            @for (row of barcodesArray.controls; track $index) {
+              <div class="row align-items-center mb-2" [formGroupName]="$index">
+                <div class="col-5">
+                  <input type="text" class="form-control form-control-sm" formControlName="barcode" [placeholder]="'::Barcode' | abpLocalization" />
+                </div>
+                <div class="col-4">
+                  <select class="form-select form-select-sm" formControlName="barcodeType">
+                    @for (o of barcodeTypeOptions; track o.value) { <option [ngValue]="o.value">{{ o.key }}</option> }
+                  </select>
+                </div>
+                <div class="col-2">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" formControlName="isDefault" [id]="'barcodeDefault' + $index" />
+                    <label class="form-check-label small" [for]="'barcodeDefault' + $index">{{ '::Default' | abpLocalization }}</label>
+                  </div>
+                </div>
+                <div class="col-1">
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeBarcode($index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
         <!-- Quality Inspection Settings -->
         <div class="card border mb-3">
           <div class="card-header py-2">

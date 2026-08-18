@@ -212,6 +212,26 @@ public class ItemAppService :
         entity.MinOrderQty = input.MinOrderQty;
         entity.InspectionRequiredBeforePurchase = input.InspectionRequiredBeforePurchase;
         entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
+
+        entity.Barcodes.Clear();
+        foreach (var b in input.Barcodes)
+        {
+            entity.Barcodes.Add(new ItemBarcode(GuidGenerator.Create(), entity.Id, b.Barcode, b.BarcodeType, b.IsDefault));
+        }
+    }
+
+    /// <summary>
+    /// Overridden to include the item's Barcodes child collection on the detail DTO
+    /// (list view omits it — see MapToEntity/GetListAsync for the lean list projection).
+    /// </summary>
+    public override async Task<ItemDto> GetAsync(Guid id)
+    {
+        var item = await Repository.GetAsync(id);
+        var dto = ObjectMapper.Map<Item, ItemDto>(item);
+        dto.Barcodes = item.Barcodes
+            .Select(b => new ItemBarcodeDto { Id = b.Id, Barcode = b.Barcode, BarcodeType = b.BarcodeType, IsDefault = b.IsDefault })
+            .ToList();
+        return dto;
     }
 
     /// <summary>

@@ -1,7 +1,15 @@
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Inventory;
+
+public class ItemBarcodeDto : EntityDto<Guid>
+{
+    public string Barcode { get; set; } = null!;
+    public BarcodeType BarcodeType { get; set; }
+    public bool IsDefault { get; set; }
+}
 
 public class ItemDto : FullAuditedEntityDto<Guid>
 {
@@ -35,4 +43,5 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public string? DefaultManufacturerPartNo { get; set; }
     public decimal TotalStockQty { get; set; }
     public bool IsLowStock { get; set; }
+    public List<ItemBarcodeDto> Barcodes { get; set; } = new();
 }

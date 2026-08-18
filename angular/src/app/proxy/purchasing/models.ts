@@ -870,3 +870,17 @@ export interface CreateUpdateSubcontractingBomDto {
   serviceItemId: string;
   serviceItemQty: number;
 }
+
+export interface IncotermDto extends FullAuditedEntityDto<string> {
+  code?: string;
+  title?: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateIncotermDto {
+  code: string;
+  title: string;
+  description?: string | null;
+  isActive?: boolean;
+}

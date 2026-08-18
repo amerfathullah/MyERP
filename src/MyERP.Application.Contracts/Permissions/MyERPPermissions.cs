@@ -659,6 +659,30 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class Vehicles
+    {
+        public const string Default = GroupName + ".Vehicles";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Drivers
+    {
+        public const string Default = GroupName + ".Drivers";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class DrivingLicenseCategories
+    {
+        public const string Default = GroupName + ".DrivingLicenseCategories";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class AssetMovements
     {
         public const string Default = GroupName + ".AssetMovements";
