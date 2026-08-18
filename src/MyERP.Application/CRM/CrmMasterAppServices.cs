@@ -142,3 +142,69 @@ public class MarketSegmentAppService : ApplicationService, IMarketSegmentAppServ
         LastModificationTime = e.LastModificationTime,
     };
 }
+
+[Authorize(MyERPPermissions.Leads.Default)]
+public class SalesStageAppService : ApplicationService, ISalesStageAppService
+{
+    private readonly IRepository<SalesStage, Guid> _repository;
+
+    public SalesStageAppService(IRepository<SalesStage, Guid> repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<SalesStageDto> GetAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        return MapToDto(entity);
+    }
+
+    public async Task<PagedResultDto<SalesStageDto>> GetListAsync(GetSalesStageListDto input)
+    {
+        var query = await _repository.GetQueryableAsync();
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var f = input.Filter;
+            query = query.Where(s => s.StageName.Contains(f));
+        }
+
+        var totalCount = query.Count();
+        var items = query.OrderBy(s => s.SortOrder).ThenBy(s => s.StageName)
+            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+
+        return new PagedResultDto<SalesStageDto>(totalCount, items.Select(MapToDto).ToList());
+    }
+
+    [Authorize(MyERPPermissions.Leads.Create)]
+    public async Task<SalesStageDto> CreateAsync(CreateUpdateSalesStageDto input)
+    {
+        var entity = new SalesStage(GuidGenerator.Create(), input.StageName, input.SortOrder, CurrentTenant.Id);
+        await _repository.InsertAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<SalesStageDto> UpdateAsync(Guid id, CreateUpdateSalesStageDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.StageName = input.StageName;
+        entity.SortOrder = input.SortOrder;
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        await _repository.DeleteAsync(id);
+    }
+
+    private static SalesStageDto MapToDto(SalesStage e) => new()
+    {
+        Id = e.Id,
+        StageName = e.StageName,
+        SortOrder = e.SortOrder,
+        CreationTime = e.CreationTime,
+        LastModificationTime = e.LastModificationTime,
+    };
+}

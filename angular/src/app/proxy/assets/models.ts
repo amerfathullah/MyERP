@@ -360,6 +360,25 @@ export interface CreateUpdateAssetCategoryAccountDto {
   capitalWorkInProgressAccountId?: string | null;
 }
 
+export interface LocationDto extends FullAuditedEntityDto<string> {
+  locationName?: string;
+  parentLocationId?: string | null;
+  parentLocationName?: string;
+  isContainer?: boolean;
+  isGroup?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface CreateUpdateLocationDto {
+  locationName: string;
+  parentLocationId?: string | null;
+  isContainer?: boolean;
+  isGroup?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
 export interface CreateUpdateAssetCategoryDto {
   categoryName: string;
   isDepreciable?: boolean;
@@ -505,6 +524,47 @@ export interface DepreciationScheduleDto extends EntityDto<string> {
   depreciationAmount?: number;
   accumulatedDepreciation?: number;
   isBooked?: boolean;
+  shiftFactorId?: string | null;
+}
+
+export interface AssetShiftFactorDto extends FullAuditedEntityDto<string> {
+  shiftName?: string;
+  factor?: number;
+  isDefault?: boolean;
+}
+
+export interface CreateUpdateAssetShiftFactorDto {
+  shiftName: string;
+  factor: number;
+  isDefault?: boolean;
+}
+
+export interface AssetShiftAllocationLineDto extends EntityDto<string> {
+  scheduleEntryId?: string;
+  shiftFactorId?: string;
+  shiftFactorName?: string | null;
+  scheduleDate?: string;
+  depreciationAmount?: number;
+  accumulatedDepreciation?: number;
+}
+
+export interface AssetShiftAllocationDto extends FullAuditedEntityDto<string> {
+  allocationNumber?: string;
+  assetId?: string;
+  financeBookId?: string | null;
+  status?: DocumentStatus;
+  lines?: AssetShiftAllocationLineDto[];
+}
+
+export interface AssignShiftLineDto {
+  scheduleEntryId: string;
+  shiftFactorId: string;
+}
+
+export interface CreateAssetShiftAllocationDto {
+  assetId: string;
+  financeBookId?: string | null;
+  lines: AssignShiftLineDto[];
 }
 
 export interface GetAssetListDto extends PagedAndSortedResultRequestDto {

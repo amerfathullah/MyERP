@@ -324,6 +324,10 @@ public class MyERPDbContext :
     public DbSet<AssetCategory> AssetCategories { get; set; }
     public DbSet<AssetCategoryAccount> AssetCategoryAccounts { get; set; }
     public DbSet<AssetActivity> AssetActivities { get; set; }
+    public DbSet<Location> Locations { get; set; }
+    public DbSet<AssetShiftFactor> AssetShiftFactors { get; set; }
+    public DbSet<AssetShiftAllocation> AssetShiftAllocations { get; set; }
+    public DbSet<AssetShiftAllocationLine> AssetShiftAllocationLines { get; set; }
     public DbSet<DepreciationScheduleEntry> DepreciationScheduleEntries { get; set; }
     public DbSet<AssetDepreciationDetail> AssetDepreciationDetails { get; set; }
     public DbSet<MaintenanceSchedule> MaintenanceSchedules { get; set; }
@@ -398,6 +402,7 @@ public class MyERPDbContext :
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<Competitor> Competitors { get; set; }
     public DbSet<MarketSegment> MarketSegments { get; set; }
+    public DbSet<SalesStage> SalesStages { get; set; }
     public DbSet<CrmNote> CrmNotes { get; set; }
     public DbSet<Campaign> Campaigns { get; set; }
     public DbSet<CampaignEmailSchedule> CampaignEmailSchedules { get; set; }
@@ -4109,6 +4114,14 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
+        builder.Entity<SalesStage>(b =>
+        {
+            b.ToTable("CRM_SalesStages", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.StageName).IsRequired().HasMaxLength(SalesStageConsts.MaxStageNameLength);
+            b.HasIndex(x => new { x.TenantId, x.StageName }).IsUnique();
+        });
+
         builder.Entity<CrmNote>(b =>
         {
             // Independent aggregate (no FK constraint on ParentId) — ParentType/ParentId is a
@@ -4513,6 +4526,15 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.AssetCategoryId, x.CompanyId });
         });
 
+        builder.Entity<Location>(b =>
+        {
+            b.ToTable("Ast_Locations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LocationName).IsRequired().HasMaxLength(LocationConsts.MaxLocationNameLength);
+            b.HasIndex(x => new { x.TenantId, x.LocationName });
+            b.HasIndex(x => new { x.TenantId, x.ParentLocationId });
+        });
+
         builder.Entity<Asset>(b =>
         {
             b.ToTable("Ast_Assets", MyERPConsts.DbSchema);
@@ -4540,7 +4562,38 @@ public class MyERPDbContext :
         {
             b.ToTable("Ast_DepreciationScheduleEntries", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
+            b.Property(x => x.BaseDepreciationAmount).HasColumnType("decimal(18,2)");
             b.HasIndex(x => new { x.AssetId, x.ScheduleDate });
+        });
+
+        builder.Entity<AssetShiftFactor>(b =>
+        {
+            b.ToTable("Ast_AssetShiftFactors", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ShiftName).IsRequired().HasMaxLength(AssetShiftFactorConsts.MaxShiftNameLength);
+            b.HasIndex(x => new { x.TenantId, x.ShiftName }).IsUnique();
+        });
+
+        builder.Entity<AssetShiftAllocation>(b =>
+        {
+            b.ToTable("Ast_AssetShiftAllocations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.AllocationNumber).IsRequired().HasMaxLength(AssetShiftAllocationConsts.MaxAllocationNumberLength);
+            b.HasMany(x => x.Lines)
+                .WithOne()
+                .HasForeignKey(x => x.AssetShiftAllocationId)
+                .IsRequired()
+                .OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.AssetId });
+        });
+
+        builder.Entity<AssetShiftAllocationLine>(b =>
+        {
+            b.ToTable("Ast_AssetShiftAllocationLines", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DepreciationAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccumulatedDepreciation).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.AssetShiftAllocationId, x.ScheduleEntryId });
         });
 
         builder.Entity<AssetDepreciationDetail>(b =>

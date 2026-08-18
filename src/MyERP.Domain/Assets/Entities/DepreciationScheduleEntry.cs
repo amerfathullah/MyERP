@@ -19,6 +19,18 @@ public class DepreciationScheduleEntry : FullAuditedEntity<Guid>
     /// </summary>
     public Guid? FinanceBookId { get; set; }
 
+    /// <summary>
+    /// Shift factor currently applied to this period (null = single-shift / no shift adjustment).
+    /// Set via Asset Shift Allocation. Per ERPNext: only unbooked periods may have their shift changed.
+    /// </summary>
+    public Guid? ShiftFactorId { get; set; }
+
+    /// <summary>
+    /// The period's depreciation amount before any shift factor was applied.
+    /// Preserved so shift reallocation can always recompute from the original baseline.
+    /// </summary>
+    public decimal BaseDepreciationAmount { get; set; }
+
     protected DepreciationScheduleEntry() { }
 
     public DepreciationScheduleEntry(Guid id, Guid assetId, DateTime scheduleDate,
@@ -28,6 +40,7 @@ public class DepreciationScheduleEntry : FullAuditedEntity<Guid>
         AssetId = assetId;
         ScheduleDate = scheduleDate;
         DepreciationAmount = depreciationAmount;
+        BaseDepreciationAmount = depreciationAmount;
         AccumulatedDepreciation = accumulatedDepreciation;
     }
 
@@ -35,5 +48,12 @@ public class DepreciationScheduleEntry : FullAuditedEntity<Guid>
     {
         IsBooked = true;
         JournalEntryId = journalEntryId;
+    }
+
+    /// <summary>Applies a shift factor, recomputing this period's amount from its baseline.</summary>
+    public void ApplyShift(Guid? shiftFactorId, decimal factor)
+    {
+        ShiftFactorId = shiftFactorId;
+        DepreciationAmount = Math.Round(BaseDepreciationAmount * factor, 2);
     }
 }

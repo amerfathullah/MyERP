@@ -43,3 +43,18 @@ public static class AssetValueAdjustmentConsts
     public const int MaxAdjustmentNumberLength = 50;
     public const int MaxNotesLength = 2000;
 }
+
+public static class LocationConsts
+{
+    public const int MaxLocationNameLength = 200;
+}
+
+public static class AssetShiftFactorConsts
+{
+    public const int MaxShiftNameLength = 100;
+}
+
+public static class AssetShiftAllocationConsts
+{
+    public const int MaxAllocationNumberLength = 50;
+}

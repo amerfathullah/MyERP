@@ -55,3 +55,29 @@ public interface IMarketSegmentAppService : IApplicationService
     Task<MarketSegmentDto> UpdateAsync(Guid id, CreateUpdateMarketSegmentDto input);
     Task DeleteAsync(Guid id);
 }
+
+public class SalesStageDto : AuditedEntityDto<Guid>
+{
+    public string StageName { get; set; } = null!;
+    public int SortOrder { get; set; }
+}
+
+public class CreateUpdateSalesStageDto
+{
+    [Required][StringLength(SalesStageConsts.MaxStageNameLength)] public string StageName { get; set; } = null!;
+    public int SortOrder { get; set; }
+}
+
+public class GetSalesStageListDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+}
+
+public interface ISalesStageAppService : IApplicationService
+{
+    Task<SalesStageDto> GetAsync(Guid id);
+    Task<PagedResultDto<SalesStageDto>> GetListAsync(GetSalesStageListDto input);
+    Task<SalesStageDto> CreateAsync(CreateUpdateSalesStageDto input);
+    Task<SalesStageDto> UpdateAsync(Guid id, CreateUpdateSalesStageDto input);
+    Task DeleteAsync(Guid id);
+}

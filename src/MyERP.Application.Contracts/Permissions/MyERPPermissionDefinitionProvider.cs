@@ -438,6 +438,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         acPermission.AddChild(MyERPPermissions.AssetCategories.Edit, L("Permission:AssetCategories.Edit"));
         acPermission.AddChild(MyERPPermissions.AssetCategories.Delete, L("Permission:AssetCategories.Delete"));
 
+        var locPermission = myGroup.AddPermission(MyERPPermissions.Locations.Default, L("Permission:Locations"));
+        locPermission.AddChild(MyERPPermissions.Locations.Create, L("Permission:Locations.Create"));
+        locPermission.AddChild(MyERPPermissions.Locations.Edit, L("Permission:Locations.Edit"));
+        locPermission.AddChild(MyERPPermissions.Locations.Delete, L("Permission:Locations.Delete"));
+
         var movPermission = myGroup.AddPermission(MyERPPermissions.AssetMovements.Default, L("Permission:AssetMovements"));
         movPermission.AddChild(MyERPPermissions.AssetMovements.Create, L("Permission:AssetMovements.Create"));
         movPermission.AddChild(MyERPPermissions.AssetMovements.Edit, L("Permission:AssetMovements.Edit"));

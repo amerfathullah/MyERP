@@ -320,6 +320,10 @@ export interface GetMarketSegmentListDto extends PagedAndSortedResultRequestDto 
   filter?: string | null;
 }
 
+export interface GetSalesStageListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetOpportunityListDto extends PagedAndSortedResultRequestDto {
   status?: OpportunityStatus | null;
   opportunityType?: OpportunityType | null;
@@ -355,6 +359,16 @@ export interface LeadDto extends AuditedEntityDto<string> {
 
 export interface MarketSegmentDto extends AuditedEntityDto<string> {
   name?: string;
+}
+
+export interface SalesStageDto extends AuditedEntityDto<string> {
+  stageName?: string;
+  sortOrder?: number;
+}
+
+export interface CreateUpdateSalesStageDto {
+  stageName: string;
+  sortOrder?: number;
 }
 
 export interface OpportunityDto extends AuditedEntityDto<string> {

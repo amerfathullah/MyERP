@@ -20,5 +20,6 @@ export * from './opportunity-type.enum';
 export * from './opportunity.service';
 export * from './prospect.service';
 export * from './sales-pipeline.service';
+export * from './sales-stage.service';
 export * from './shipment-status.enum';
 export * from './shipment.service';

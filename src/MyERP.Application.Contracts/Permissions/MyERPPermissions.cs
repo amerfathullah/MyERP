@@ -651,6 +651,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class Locations
+    {
+        public const string Default = GroupName + ".Locations";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class AssetMovements
     {
         public const string Default = GroupName + ".AssetMovements";

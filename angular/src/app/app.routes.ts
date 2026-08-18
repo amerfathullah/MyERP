@@ -1246,6 +1246,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Leads.Edit' },
   },
   {
+    path: 'crm/sales-stages',
+    loadComponent: () => import('./crm/sales-stages/sales-stage-list.component').then(c => c.SalesStageListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/sales-stages/new',
+    loadComponent: () => import('./crm/sales-stages/sales-stage-form.component').then(c => c.SalesStageFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Create' },
+  },
+  {
+    path: 'crm/sales-stages/:id',
+    loadComponent: () => import('./crm/sales-stages/sales-stage-form.component').then(c => c.SalesStageFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Edit' },
+  },
+  {
     path: 'crm/campaigns',
     loadComponent: () => import('./crm/campaigns/campaign-list.component').then(c => c.CampaignListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -2991,6 +3009,57 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./assets/asset-categories/asset-category-form.component').then(c => c.AssetCategoryFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Assets.Edit' },
+  },
+  // Locations
+  {
+    path: 'assets/locations',
+    loadComponent: () => import('./assets/locations/location-list.component').then(c => c.LocationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Locations' },
+  },
+  {
+    path: 'assets/locations/new',
+    loadComponent: () => import('./assets/locations/location-form.component').then(c => c.LocationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Locations.Create' },
+  },
+  {
+    path: 'assets/locations/:id/edit',
+    loadComponent: () => import('./assets/locations/location-form.component').then(c => c.LocationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Locations.Edit' },
+  },
+  // Asset Shift Factors
+  {
+    path: 'assets/shift-factors',
+    loadComponent: () => import('./assets/asset-shift-factors/asset-shift-factor-list.component').then(c => c.AssetShiftFactorListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetCategories' },
+  },
+  {
+    path: 'assets/shift-factors/new',
+    loadComponent: () => import('./assets/asset-shift-factors/asset-shift-factor-form.component').then(c => c.AssetShiftFactorFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetCategories.Create' },
+  },
+  {
+    path: 'assets/shift-factors/:id/edit',
+    loadComponent: () => import('./assets/asset-shift-factors/asset-shift-factor-form.component').then(c => c.AssetShiftFactorFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AssetCategories.Edit' },
+  },
+  // Asset Shift Allocations
+  {
+    path: 'assets/shift-allocations',
+    loadComponent: () => import('./assets/asset-shift-allocations/asset-shift-allocation-list.component').then(c => c.AssetShiftAllocationListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  {
+    path: 'assets/shift-allocations/new',
+    loadComponent: () => import('./assets/asset-shift-allocations/asset-shift-allocation-form.component').then(c => c.AssetShiftAllocationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets.Create' },
   },
   // Asset Movements
   {

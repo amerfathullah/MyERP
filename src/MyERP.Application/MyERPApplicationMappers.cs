@@ -1043,6 +1043,13 @@ public partial class AssetCategoryMapper : MapperBase<Assets.Entities.AssetCateg
     private partial Assets.AssetCategoryAccountDto MapCategoryAccount(Assets.Entities.AssetCategoryAccount source);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class LocationMapper : MapperBase<Assets.Entities.Location, Assets.LocationDto>
+{
+    public override partial Assets.LocationDto Map(Assets.Entities.Location source);
+    public override partial void Map(Assets.Entities.Location source, Assets.LocationDto destination);
+}
+
 // ─── Automation ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

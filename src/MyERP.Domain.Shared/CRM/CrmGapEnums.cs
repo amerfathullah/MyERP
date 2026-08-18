@@ -11,6 +11,11 @@ public static class MarketSegmentConsts
     public const int MaxNameLength = 100;
 }
 
+public static class SalesStageConsts
+{
+    public const int MaxStageNameLength = 100;
+}
+
 public static class CrmNoteConsts
 {
     public const int MaxParentTypeLength = 50;

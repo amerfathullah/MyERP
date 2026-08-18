@@ -47,6 +47,7 @@ public class DepreciationScheduleDto : EntityDto<Guid>
     public decimal DepreciationAmount { get; set; }
     public decimal AccumulatedDepreciation { get; set; }
     public bool IsBooked { get; set; }
+    public Guid? ShiftFactorId { get; set; }
 }
 
 public class CreateAssetDto
@@ -450,6 +451,113 @@ public class CreateAssetActivityDto
     public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
     public string? ReferenceType { get; set; }
     public string? ReferenceId { get; set; }
+}
+
+// === Locations ===
+
+public class LocationDto : FullAuditedEntityDto<Guid>
+{
+    public string LocationName { get; set; } = null!;
+    public Guid? ParentLocationId { get; set; }
+    public string? ParentLocationName { get; set; }
+    public bool IsContainer { get; set; }
+    public bool IsGroup { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+}
+
+public class CreateUpdateLocationDto
+{
+    [Required]
+    [StringLength(LocationConsts.MaxLocationNameLength)]
+    public string LocationName { get; set; } = null!;
+
+    public Guid? ParentLocationId { get; set; }
+    public bool IsContainer { get; set; }
+    public bool IsGroup { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+}
+
+public interface ILocationAppService : IApplicationService
+{
+    System.Threading.Tasks.Task<LocationDto> GetAsync(Guid id);
+    System.Threading.Tasks.Task<PagedResultDto<LocationDto>> GetListAsync(PagedAndSortedResultRequestDto input);
+    System.Threading.Tasks.Task<LocationDto> CreateAsync(CreateUpdateLocationDto input);
+    System.Threading.Tasks.Task<LocationDto> UpdateAsync(Guid id, CreateUpdateLocationDto input);
+    System.Threading.Tasks.Task DeleteAsync(Guid id);
+}
+
+// === Asset Shift Factors ===
+
+public class AssetShiftFactorDto : FullAuditedEntityDto<Guid>
+{
+    public string ShiftName { get; set; } = null!;
+    public decimal Factor { get; set; }
+    public bool IsDefault { get; set; }
+}
+
+public class CreateUpdateAssetShiftFactorDto
+{
+    [Required]
+    [StringLength(AssetShiftFactorConsts.MaxShiftNameLength)]
+    public string ShiftName { get; set; } = null!;
+
+    public decimal Factor { get; set; } = 1;
+    public bool IsDefault { get; set; }
+}
+
+public interface IAssetShiftFactorAppService : IApplicationService
+{
+    System.Threading.Tasks.Task<AssetShiftFactorDto> GetAsync(Guid id);
+    System.Threading.Tasks.Task<PagedResultDto<AssetShiftFactorDto>> GetListAsync(PagedAndSortedResultRequestDto input);
+    System.Threading.Tasks.Task<AssetShiftFactorDto> CreateAsync(CreateUpdateAssetShiftFactorDto input);
+    System.Threading.Tasks.Task<AssetShiftFactorDto> UpdateAsync(Guid id, CreateUpdateAssetShiftFactorDto input);
+    System.Threading.Tasks.Task DeleteAsync(Guid id);
+}
+
+// === Asset Shift Allocation ===
+
+public class AssetShiftAllocationLineDto : EntityDto<Guid>
+{
+    public Guid ScheduleEntryId { get; set; }
+    public Guid ShiftFactorId { get; set; }
+    public string? ShiftFactorName { get; set; }
+    public DateTime ScheduleDate { get; set; }
+    public decimal DepreciationAmount { get; set; }
+    public decimal AccumulatedDepreciation { get; set; }
+}
+
+public class AssetShiftAllocationDto : FullAuditedEntityDto<Guid>
+{
+    public string AllocationNumber { get; set; } = null!;
+    public Guid AssetId { get; set; }
+    public Guid? FinanceBookId { get; set; }
+    public DocumentStatus Status { get; set; }
+    public List<AssetShiftAllocationLineDto> Lines { get; set; } = new();
+}
+
+public class AssignShiftLineDto
+{
+    [Required] public Guid ScheduleEntryId { get; set; }
+    [Required] public Guid ShiftFactorId { get; set; }
+}
+
+public class CreateAssetShiftAllocationDto
+{
+    [Required] public Guid AssetId { get; set; }
+    public Guid? FinanceBookId { get; set; }
+    [Required][MinLength(1)] public List<AssignShiftLineDto> Lines { get; set; } = new();
+}
+
+public interface IAssetShiftAllocationAppService : IApplicationService
+{
+    System.Threading.Tasks.Task<AssetShiftAllocationDto> GetAsync(Guid id);
+    System.Threading.Tasks.Task<PagedResultDto<AssetShiftAllocationDto>> GetListAsync(PagedAndSortedResultRequestDto input);
+    System.Threading.Tasks.Task<PagedResultDto<DepreciationScheduleDto>> GetUnbookedScheduleAsync(Guid assetId, Guid? financeBookId);
+    System.Threading.Tasks.Task<AssetShiftAllocationDto> CreateAsync(CreateAssetShiftAllocationDto input);
+    System.Threading.Tasks.Task<AssetShiftAllocationDto> SubmitAsync(Guid id);
+    System.Threading.Tasks.Task<AssetShiftAllocationDto> CancelAsync(Guid id);
 }
 
 // === Interfaces ===
