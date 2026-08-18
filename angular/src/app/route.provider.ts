@@ -1324,6 +1324,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Projects',
       },
       {
+        path: '/projects/templates',
+        name: '::Menu:ProjectTemplates',
+        iconClass: 'fas fa-diagram-project',
+        order: 15,
+        parentName: '::Menu:Projects',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Projects',
+      },
+      {
         path: '/projects/timesheet-billing',
         name: '::Menu:TimesheetBilling',
         iconClass: 'fas fa-file-invoice-dollar',

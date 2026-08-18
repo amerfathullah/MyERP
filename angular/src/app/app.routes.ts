@@ -1373,6 +1373,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/templates',
+    loadComponent: () => import('./projects/project-templates/project-template-list.component').then(c => c.ProjectTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/templates/new',
+    loadComponent: () => import('./projects/project-templates/project-template-form.component').then(c => c.ProjectTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Create' },
+  },
+  {
+    path: 'projects/templates/:id',
+    loadComponent: () => import('./projects/project-templates/project-template-form.component').then(c => c.ProjectTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects.Edit' },
+  },
+  {
     path: 'projects/timesheet-billing',
     loadComponent: () => import('./projects/timesheet-billing/timesheet-billing.component').then(c => c.TimesheetBillingComponent),
     canActivate: [authGuard, permissionGuard],

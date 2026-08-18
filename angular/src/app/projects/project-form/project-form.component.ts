@@ -6,9 +6,11 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectStore } from '../store/project.store';
 import { ProjectService } from '../../proxy/projects/project.service';
+import { ProjectTemplateService } from '../../proxy/projects/project-template.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
+import type { ProjectTemplateDto } from '../../proxy/projects/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -28,9 +30,11 @@ export class ProjectFormComponent implements OnInit {
   private service = inject(ProjectService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
+  private projectTemplateService = inject(ProjectTemplateService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
+  projectTemplates = signal<ProjectTemplateDto[]>([]);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -48,6 +52,7 @@ export class ProjectFormComponent implements OnInit {
       endDate: [''],
       estimatedCost: [0],
       notes: [''],
+      projectTemplateId: [''],
     });
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
@@ -57,6 +62,9 @@ export class ProjectFormComponent implements OnInit {
     if (!this.isEditMode) {
       const cid = this.companyContext.currentCompanyId();
       if (cid) this.form.patchValue({ companyId: cid });
+
+      this.projectTemplateService.getList().subscribe((res) =>
+        this.projectTemplates.set((res.items ?? []).filter(t => !t.disabled)));
     }
   }
 
@@ -66,6 +74,7 @@ export class ProjectFormComponent implements OnInit {
       return;
     }
     const dto = this.form.getRawValue() as any;
+    dto.projectTemplateId = dto.projectTemplateId || null;
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => this.router.navigate(['/projects', this.entityId]),

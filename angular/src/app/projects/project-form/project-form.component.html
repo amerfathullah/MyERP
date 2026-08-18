@@ -38,6 +38,17 @@
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="notes" rows="2"></textarea>
           </div>
+          @if (!isEditMode) {
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label">{{ 'ProjectTemplate' | abpLocalization }}</label>
+              <select class="form-select" formControlName="projectTemplateId">
+                <option value="">--</option>
+                @for (t of projectTemplates(); track t.id) {
+                  <option [value]="t.id">{{ t.templateName }} ({{ t.tasks?.length ?? 0 }} {{ 'Tasks' | abpLocalization }})</option>
+                }
+              </select>
+            </div>
+          }
         </div>
       </div>
     </div>

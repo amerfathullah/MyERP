@@ -51,6 +51,9 @@ public class CreateProjectDto
 
     [StringLength(ProjectConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+
+    /// <summary>When set, clones the template's tasks (and their dependency edges) onto the new project.</summary>
+    public Guid? ProjectTemplateId { get; set; }
 }
 
 public class UpdateProjectDto

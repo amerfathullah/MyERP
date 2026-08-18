@@ -306,6 +306,9 @@ public class MyERPDbContext :
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
     public DbSet<TaskDependency> TaskDependencies { get; set; }
+    public DbSet<ProjectTemplate> ProjectTemplates { get; set; }
+    public DbSet<ProjectTemplateTask> ProjectTemplateTasks { get; set; }
+    public DbSet<ProjectTemplateTaskDependency> ProjectTemplateTaskDependencies { get; set; }
     public DbSet<Timesheet> Timesheets { get; set; }
     public DbSet<TimesheetDetail> TimesheetDetails { get; set; }
     public DbSet<ActivityType> ActivityTypes { get; set; }
@@ -2416,6 +2419,34 @@ public class MyERPDbContext :
             b.ToTable("Prj_TaskDependencies", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.HasIndex(x => new { x.TaskId, x.DependsOnTaskId }).IsUnique();
+        });
+
+        builder.Entity<ProjectTemplate>(b =>
+        {
+            b.ToTable("Prj_ProjectTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TemplateName).IsRequired().HasMaxLength(140);
+            b.HasMany(x => x.Tasks).WithOne().HasForeignKey(x => x.ProjectTemplateId).IsRequired();
+            b.Navigation(x => x.Tasks).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.TemplateName }).IsUnique();
+        });
+
+        builder.Entity<ProjectTemplateTask>(b =>
+        {
+            b.ToTable("Prj_ProjectTemplateTasks", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Subject).IsRequired().HasMaxLength(140);
+            b.Property(x => x.TaskWeight).HasColumnType("decimal(5,2)");
+            b.Property(x => x.ExpectedHours).HasColumnType("decimal(8,2)");
+            b.HasMany(x => x.Dependencies).WithOne().HasForeignKey(x => x.ProjectTemplateTaskId).IsRequired();
+            b.Navigation(x => x.Dependencies).AutoInclude();
+        });
+
+        builder.Entity<ProjectTemplateTaskDependency>(b =>
+        {
+            b.ToTable("Prj_ProjectTemplateTaskDependencies", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.ProjectTemplateTaskId, x.DependsOnTaskId }).IsUnique();
         });
 
         builder.Entity<Timesheet>(b =>

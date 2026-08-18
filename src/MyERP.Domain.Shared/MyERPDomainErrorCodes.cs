@@ -319,6 +319,7 @@ public static class MyERPDomainErrorCodes
 
     // Project
     public const string ProjectPercentOutOfRange = "MyERP:13003";
+    public const string ProjectTemplateDependencyNotInTemplate = "MyERP:13004";
 
     // Account
     public const string StockAccountTypeChangeLocked = "MyERP:02028";

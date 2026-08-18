@@ -74,7 +74,49 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         };
 
         await _projectRepository.InsertAsync(project);
+
+        if (input.ProjectTemplateId.HasValue)
+        {
+            await CreateTasksFromTemplateAsync(project.Id, input.ProjectTemplateId.Value);
+        }
+
         return ObjectMapper.Map<Project, ProjectDto>(project);
+    }
+
+    /// <summary>
+    /// Clones every task in the template onto the project, remapping intra-template
+    /// dependency edges to the newly-created ProjectTask ids. Per ERPNext
+    /// Project._create_task_from_template / check_depends_on_value.
+    /// </summary>
+    private async Task CreateTasksFromTemplateAsync(Guid projectId, Guid projectTemplateId)
+    {
+        var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProjectTemplate, Guid>>();
+        var template = await templateRepo.GetAsync(projectTemplateId, includeDetails: true);
+
+        var idByTemplateTaskId = new System.Collections.Generic.Dictionary<Guid, Guid>();
+        var newTasks = new System.Collections.Generic.List<ProjectTask>();
+
+        foreach (var templateTask in template.Tasks)
+        {
+            var taskNumber = $"TASK-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+            var task = new ProjectTask(GuidGenerator.Create(), projectId, taskNumber, templateTask.Subject)
+            {
+                TaskWeight = templateTask.TaskWeight,
+                ExpectedHours = templateTask.ExpectedHours,
+                IsMilestone = templateTask.IsMilestone,
+            };
+            idByTemplateTaskId[templateTask.Id] = task.Id;
+            newTasks.Add(task);
+        }
+
+        foreach (var (templateTask, task) in template.Tasks.Zip(newTasks))
+        {
+            foreach (var dep in templateTask.Dependencies)
+                task.AddDependency(idByTemplateTaskId[dep.DependsOnTaskId]);
+        }
+
+        foreach (var task in newTasks)
+            await _taskRepository.InsertAsync(task);
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]

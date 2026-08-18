@@ -36,6 +36,28 @@ export interface CreateProjectDto {
   expectedEndDate?: string | null;
   estimatedCost?: number;
   notes?: string | null;
+  projectTemplateId?: string | null;
+}
+
+export interface ProjectTemplateTaskDto {
+  key: string;
+  subject: string;
+  taskWeight?: number;
+  expectedHours?: number;
+  isMilestone?: boolean;
+  dependsOnKeys?: string[];
+}
+
+export interface ProjectTemplateDto extends EntityDto<string> {
+  templateName?: string;
+  disabled?: boolean;
+  tasks?: ProjectTemplateTaskDto[];
+}
+
+export interface CreateUpdateProjectTemplateDto {
+  templateName: string;
+  disabled?: boolean;
+  tasks: ProjectTemplateTaskDto[];
 }
 
 export interface CreateProjectTaskDto {
