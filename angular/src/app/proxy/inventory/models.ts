@@ -12,6 +12,24 @@ import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
 
+export interface BrandDto extends FullAuditedEntityDto<string> {
+  name: string;
+  description?: string | null;
+  defaultWarehouseId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateBrandDto {
+  name: string;
+  description?: string | null;
+  defaultWarehouseId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  isActive?: boolean;
+}
+
 export interface BarcodeScanResultDto {
   success?: boolean;
   scanType?: number;

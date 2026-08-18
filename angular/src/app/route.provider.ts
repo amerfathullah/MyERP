@@ -560,6 +560,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
+        path: '/inventory/brands',
+        name: '::Menu:Brands',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-certificate',
+        order: 3,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/uom-categories',
         name: '::Menu:UomCategories',
         parentName: '::Menu:Inventory',

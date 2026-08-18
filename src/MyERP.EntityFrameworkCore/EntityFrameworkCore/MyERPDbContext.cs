@@ -212,6 +212,7 @@ public class MyERPDbContext :
     public DbSet<Batch> Batches { get; set; }
     public DbSet<UomConversion> UomConversions { get; set; }
     public DbSet<ItemGroup> ItemGroups { get; set; }
+    public DbSet<Brand> Brands { get; set; }
     public DbSet<ItemAttribute> ItemAttributes { get; set; }
     public DbSet<ItemAttributeValue> ItemAttributeValues { get; set; }
     public DbSet<ItemVariantAttribute> ItemVariantAttributes { get; set; }
@@ -1968,6 +1969,15 @@ public class MyERPDbContext :
             b.ToTable("Inv_ItemGroups", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<Brand>(b =>
+        {
+            b.ToTable("Inv_Brands", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(2000);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 

@@ -869,6 +869,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Items' },
   },
   {
+    path: 'inventory/brands',
+    loadComponent: () => import('./inventory/brands/brand-list.component').then(c => c.BrandListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'inventory/item-attributes',
     loadComponent: () => import('./inventory/item-attributes/item-attribute-list.component').then(c => c.ItemAttributeListComponent),
     canActivate: [authGuard, permissionGuard],

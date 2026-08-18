@@ -33,6 +33,20 @@ public partial class CustomerToCustomerDtoMapper : MapperBase<Sales.Entities.Cus
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ItemGroupToItemGroupDtoMapper : MapperBase<Inventory.Entities.ItemGroup, Inventory.ItemGroupDto>
+{
+    public override partial Inventory.ItemGroupDto Map(Inventory.Entities.ItemGroup source);
+    public override partial void Map(Inventory.Entities.ItemGroup source, Inventory.ItemGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BrandToBrandDtoMapper : MapperBase<Inventory.Entities.Brand, Inventory.BrandDto>
+{
+    public override partial Inventory.BrandDto Map(Inventory.Entities.Brand source);
+    public override partial void Map(Inventory.Entities.Brand source, Inventory.BrandDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SupplierToSupplierDtoMapper : MapperBase<Purchasing.Entities.Supplier, Purchasing.SupplierDto>
 {
     public override partial Purchasing.SupplierDto Map(Purchasing.Entities.Supplier source);
