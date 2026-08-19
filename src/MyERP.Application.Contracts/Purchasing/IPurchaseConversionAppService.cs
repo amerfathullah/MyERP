@@ -20,7 +20,10 @@ public interface IPurchaseConversionAppService : IApplicationService
     Task<PurchaseInvoiceDto> ConvertPurchaseReceiptToInvoiceAsync(Guid purchaseReceiptId);
 
     /// <summary>Convert a submitted RFQ into a Supplier Quotation for a specific supplier.</summary>
-    Task<object> ConvertRfqToSupplierQuotationAsync(Guid rfqId, Guid supplierId);
+    Task<SupplierQuotationDto> ConvertRfqToSupplierQuotationAsync(Guid rfqId, Guid supplierId);
+
+    /// <summary>Convert a submitted Supplier Quotation into a Purchase Order.</summary>
+    Task<PurchaseOrderDto> ConvertSupplierQuotationToPurchaseOrderAsync(Guid supplierQuotationId);
 
     /// <summary>
     /// Create Purchase Orders from MR with per-item supplier selection and qty adjustment.

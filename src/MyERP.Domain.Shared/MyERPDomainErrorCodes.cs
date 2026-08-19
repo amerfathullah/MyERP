@@ -119,6 +119,7 @@ public static class MyERPDomainErrorCodes
     public const string InvalidExchangeRate = "MyERP:01005";
     public const string PaymentEntryUsedInReconciliation = "MyERP:01009";
     public const string CannotCancelWithSubmittedDependents = "MyERP:01010";
+    public const string InvalidDateRange = "MyERP:01011";
     public const string PriorFiscalYearNotClosed = "MyERP:02011";
 
     // Item Validation

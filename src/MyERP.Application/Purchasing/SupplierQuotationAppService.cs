@@ -58,6 +58,12 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
     public async Task<SupplierQuotationDto> CreateAsync(CreateSupplierQuotationDto input)
     {
+        // Valid till date cannot be before transaction date
+        if (input.ValidTill.HasValue && input.ValidTill.Value.Date < input.TransactionDate.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         // Supplier scorecard enforcement: prevent_rfqs blocks RFQ/SQ creation
         var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
         var supplier = await supplierRepo.GetAsync(input.SupplierId);
@@ -67,12 +73,18 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
                 .WithData("supplierName", supplier.Name);
         }
 
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var sq = new SupplierQuotation(GuidGenerator.Create(), input.CompanyId,
             input.SupplierId, input.TransactionDate, CurrentTenant.Id)
         {
             QuotationNumber = await _numberGenerator.GenerateAsync("SQ", input.CompanyId),
-            SupplierName = input.SupplierName, ValidTill = input.ValidTill,
-            Currency = input.Currency, RequestForQuotationId = input.RequestForQuotationId,
+            SupplierName = input.SupplierName ?? supplier.Name,
+            ValidTill = input.ValidTill,
+            Currency = input.Currency ?? "MYR",
+            RequestForQuotationId = input.RequestForQuotationId,
         };
         foreach (var item in input.Items)
             sq.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
@@ -86,6 +98,23 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
         sq.Submit();
         await _repository.UpdateAsync(sq);
+
+        // If created from RFQ, update RFQ activity
+        if (sq.RequestForQuotationId.HasValue)
+        {
+            var rfqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<RequestForQuotation, Guid>>();
+            var rfq = await rfqRepo.FindAsync(sq.RequestForQuotationId.Value);
+            if (rfq != null)
+            {
+                var rfqSupplier = rfq.Suppliers.FirstOrDefault(s => s.SupplierId == sq.SupplierId);
+                if (rfqSupplier != null)
+                {
+                    rfqSupplier.EmailSent = true;
+                    await rfqRepo.UpdateAsync(rfq);
+                }
+            }
+        }
+
         return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
 

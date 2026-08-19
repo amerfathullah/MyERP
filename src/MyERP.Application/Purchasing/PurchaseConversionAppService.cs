@@ -340,7 +340,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
     /// Per ERPNext: RFQ detail has "Make Supplier Quotation" per supplier.
     /// </summary>
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
-    public async Task<object> ConvertRfqToSupplierQuotationAsync(
+    public async Task<SupplierQuotationDto> ConvertRfqToSupplierQuotationAsync(
         Guid rfqId, Guid supplierId)
     {
         var rfq = await _rfqRepository.GetAsync(rfqId);
