@@ -111,6 +111,13 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     [Authorize(MyERPPermissions.Opportunities.Create)]
     public async Task<OpportunityDto> CreateAsync(CreateOpportunityDto input)
     {
+        var itemIds = input.Items.Where(i => i.ItemId.HasValue).Select(i => i.ItemId!.Value).Distinct().ToArray();
+        if (itemIds.Length > 0)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        }
+
         var oppNumber = $"OPP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var opp = new Opportunity(
             GuidGenerator.Create(),
@@ -214,6 +221,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Convert();
         await _repository.UpdateAsync(opp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "Converted", opp.CompanyId,
+            opp.OpportunityNumber, "Open", "Converted", CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} ({opp.Title}) marked as Converted", CurrentTenant.Id));
+
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
@@ -239,6 +254,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
 
         opp.DeclareLost(reason);
         await _repository.UpdateAsync(opp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "DeclaredLost", opp.CompanyId,
+            opp.OpportunityNumber, opp.Status.ToString(), "Lost", CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} declared as Lost. Reason: {reason}", CurrentTenant.Id));
+
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
@@ -248,6 +271,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Close();
         await _repository.UpdateAsync(opp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "Closed", opp.CompanyId,
+            opp.OpportunityNumber, "Open", "Closed", CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} ({opp.Title}) closed", CurrentTenant.Id));
+
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
@@ -257,6 +288,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         var opp = await _repository.GetAsync(id);
         opp.Reopen();
         await _repository.UpdateAsync(opp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "Reopened", opp.CompanyId,
+            opp.OpportunityNumber, "Closed", "Open", CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} ({opp.Title}) reopened", CurrentTenant.Id));
+
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 

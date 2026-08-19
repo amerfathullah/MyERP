@@ -144,6 +144,14 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.Qualify();
         await _leadRepository.UpdateAsync(lead);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Lead", lead.Id,
+            "Qualified", lead.CompanyId,
+            lead.LeadNumber, "Open", "Qualified", CurrentUser.Id,
+            $"Lead {lead.LeadNumber} ({lead.GetFullName()}) marked as Qualified", CurrentTenant.Id));
+
         return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
@@ -153,6 +161,14 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.MarkLost();
         await _leadRepository.UpdateAsync(lead);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Lead", lead.Id,
+            "MarkedLost", lead.CompanyId,
+            lead.LeadNumber, lead.Status.ToString(), "Lost", CurrentUser.Id,
+            $"Lead {lead.LeadNumber} ({lead.GetFullName()}) marked as Lost", CurrentTenant.Id));
+
         return ObjectMapper.Map<Lead, LeadDto>(lead);
     }
 
@@ -184,6 +200,13 @@ public class LeadAppService : ApplicationService, ILeadAppService
         await _opportunityRepository.InsertAsync(opportunity);
         lead.ConvertToOpportunity(opportunity.Id);
         await _leadRepository.UpdateAsync(lead);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Lead", lead.Id,
+            "ConvertedToOpportunity", lead.CompanyId,
+            lead.LeadNumber, lead.Status.ToString(), "Converted", CurrentUser.Id,
+            $"Lead {lead.LeadNumber} ({lead.GetFullName()}) converted to Opportunity {oppNumber}", CurrentTenant.Id));
 
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opportunity);
     }
@@ -225,6 +248,13 @@ public class LeadAppService : ApplicationService, ILeadAppService
         // Mark lead as converted
         lead.ConvertToCustomer(customer.Id);
         await _leadRepository.UpdateAsync(lead);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Lead", lead.Id,
+            "ConvertedToCustomer", lead.CompanyId,
+            lead.LeadNumber, lead.Status.ToString(), "Converted", CurrentUser.Id,
+            $"Lead {lead.LeadNumber} ({lead.GetFullName()}) converted to Customer {customerName}", CurrentTenant.Id));
 
         return customer.Id;
     }
