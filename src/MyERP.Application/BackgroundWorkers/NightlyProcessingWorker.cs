@@ -533,6 +533,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue customer credit limit monitoring and threshold alerts
+                // Per ERPNext: customer.update_credit_limit_status
+                await jobManager.EnqueueAsync(new Sales.BackgroundJobs.CustomerCreditLimitSyncJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -541,6 +549,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (55 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (56 jobs).", companies.Count);
     }
 }
