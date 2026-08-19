@@ -223,6 +223,7 @@ public static class MyERPDomainErrorCodes
 
     // Sales — Extended
     public const string InstallationDateBeforeDelivery = "MyERP:03016";
+    public const string InstallationQtyExceedsDeliveryNote = "MyERP:03032";
 
     // Stock Entry — Extended
     public const string ExcessMaterialTransfer = "MyERP:05030";
@@ -317,6 +318,7 @@ public static class MyERPDomainErrorCodes
     public const string PosProfileAlreadyOpen = "MyERP:16001";
     public const string PosUserAlreadyHasSession = "MyERP:16002";
     public const string PosProfileHasOpenSession = "MyERP:16004";
+    public const string PosOpeningHasUnconsolidatedInvoices = "MyERP:16005";
 
     // Project
     public const string ProjectPercentOutOfRange = "MyERP:13003";

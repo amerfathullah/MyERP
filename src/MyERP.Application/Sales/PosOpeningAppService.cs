@@ -22,10 +22,12 @@ namespace MyERP.Sales;
 public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
 {
     private readonly IRepository<PosOpeningEntry, Guid> _repository;
+    private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
 
-    public PosOpeningAppService(IRepository<PosOpeningEntry, Guid> repository)
+    public PosOpeningAppService(IRepository<PosOpeningEntry, Guid> repository, IRepository<SalesInvoice, Guid> invoiceRepository)
     {
         _repository = repository;
+        _invoiceRepository = invoiceRepository;
     }
 
     public async Task<PosOpeningDto> GetAsync(Guid id)
@@ -101,6 +103,21 @@ public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
     public async Task<PosOpeningDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // Per DO-NOT (see PosOpeningEntry docstring): cannot cancel while unconsolidated invoices
+        // exist for this shift — cancelling would orphan sales that never reached the GL.
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var hasUnconsolidatedInvoices = invoiceQuery.Any(si =>
+            si.CompanyId == entry.CompanyId
+            && si.IssueDate >= entry.OpeningDate
+            && si.Status != Core.DocumentStatus.Cancelled
+            && si.ConsolidatedSalesInvoiceId == null);
+        if (hasUnconsolidatedInvoices)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PosOpeningHasUnconsolidatedInvoices)
+                .WithData("reason", "Cannot cancel this POS Opening Entry while unconsolidated invoices exist for the shift. Close and consolidate the shift first.");
+        }
+
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
         return MapToDto(entry);

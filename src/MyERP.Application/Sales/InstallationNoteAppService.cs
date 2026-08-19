@@ -8,6 +8,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -16,19 +17,23 @@ namespace MyERP.Sales;
 
 /// <summary>
 /// Manages Installation Notes — tracks equipment/product installation after delivery.
-/// Linked to Delivery Notes; validates installation date >= DN posting date.
+/// Linked to Delivery Notes; validates installation date >= DN posting date and installed
+/// qty <= DN qty (per DO-NOT on both InstallationNote and its ValidateInstallationDate method).
 /// </summary>
 [Authorize(MyERPPermissions.DeliveryNotes.Default)]
 public class InstallationNoteAppService : ApplicationService, IInstallationNoteAppService
 {
     private readonly IRepository<InstallationNote, Guid> _repository;
+    private readonly IRepository<DeliveryNote, Guid> _deliveryNoteRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public InstallationNoteAppService(
         IRepository<InstallationNote, Guid> repository,
+        IRepository<DeliveryNote, Guid> deliveryNoteRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
+        _deliveryNoteRepository = deliveryNoteRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -63,6 +68,8 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     public async Task<InstallationNoteDto> CreateAsync(CreateInstallationNoteDto input)
     {
+        var deliveryNote = await _deliveryNoteRepository.GetAsync(input.DeliveryNoteId, includeDetails: true);
+
         var number = await _numberGenerator.GenerateAsync("IN", input.CompanyId);
         var note = new InstallationNote(
             GuidGenerator.Create(),
@@ -73,13 +80,53 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
             input.InstallationDate,
             CurrentTenant.Id);
 
+        // Per DO-NOT on InstallationNote: cannot install before the DN was delivered.
+        note.ValidateInstallationDate(deliveryNote.PostingDate);
+
         foreach (var item in input.Items)
         {
             note.AddItem(item.ItemId, item.Qty, item.SerialNo);
         }
 
+        // Per DO-NOT: installed qty must never exceed the DN's item qty, across all
+        // (non-cancelled) Installation Notes raised against this DN.
+        await ValidateItemQtyAsync(deliveryNote, note);
+
         await _repository.InsertAsync(note);
         return ObjectMapper.Map<InstallationNote, InstallationNoteDto>(note);
+    }
+
+    private async Task ValidateItemQtyAsync(DeliveryNote deliveryNote, InstallationNote note)
+    {
+        var query = await _repository.GetQueryableAsync();
+        var priorNotes = query
+            .Where(n => n.DeliveryNoteId == deliveryNote.Id
+                     && n.Id != note.Id
+                     && n.Status != DocumentStatus.Cancelled)
+            .ToList();
+
+        var alreadyInstalledByItem = priorNotes
+            .SelectMany(n => n.Items)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Qty));
+
+        var dnQtyByItem = deliveryNote.Items.GroupBy(i => i.ItemId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        foreach (var item in note.Items)
+        {
+            var dnQty = dnQtyByItem.GetValueOrDefault(item.ItemId);
+            var alreadyInstalled = alreadyInstalledByItem.GetValueOrDefault(item.ItemId);
+            var totalInstalled = alreadyInstalled + item.Qty;
+
+            if (totalInstalled > dnQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InstallationQtyExceedsDeliveryNote)
+                    .WithData("itemId", item.ItemId)
+                    .WithData("deliveryNoteQty", dnQty)
+                    .WithData("alreadyInstalled", alreadyInstalled)
+                    .WithData("newQty", item.Qty);
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
