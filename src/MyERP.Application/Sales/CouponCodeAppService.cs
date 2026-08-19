@@ -53,6 +53,17 @@ public class CouponCodeAppService : ApplicationService, ICouponCodeAppService
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<CouponCodeDto> CreateAsync(CreateCouponCodeDto input)
     {
+        if (input.ValidUpto.HasValue && input.ValidFrom.HasValue && input.ValidUpto.Value < input.ValidFrom.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.MaximumUse < 0 || input.MaximumUsePerCustomer < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MaximumUse/MaximumUsePerCustomer");
+        }
+
         // Validate pricing rule exists
         var rule = await _pricingRuleRepository.FindAsync(input.PricingRuleId);
         if (rule == null)
@@ -84,6 +95,14 @@ public class CouponCodeAppService : ApplicationService, ICouponCodeAppService
         entity.Description = input.Description;
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CouponCode", entity.Id,
+            "Created", entity.CompanyId ?? Guid.Empty,
+            entity.Code, "Draft", "Active", CurrentUser.Id,
+            $"Coupon code '{entity.Code}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<CouponCode, CouponCodeDto>(entity);
     }
 
@@ -123,6 +142,13 @@ public class CouponCodeAppService : ApplicationService, ICouponCodeAppService
         var entity = await _repository.GetAsync(id);
         entity.IsEnabled = !entity.IsEnabled;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CouponCode", entity.Id,
+            entity.IsEnabled ? "Enabled" : "Disabled", entity.CompanyId ?? Guid.Empty,
+            entity.Code, entity.IsEnabled ? "Disabled" : "Enabled", entity.IsEnabled ? "Enabled" : "Disabled", CurrentUser.Id,
+            $"Coupon code '{entity.Code}' {(entity.IsEnabled ? "enabled" : "disabled")}", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Delete)]

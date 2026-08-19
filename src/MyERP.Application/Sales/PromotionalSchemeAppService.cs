@@ -60,11 +60,20 @@ public class PromotionalSchemeAppService : ApplicationService, IPromotionalSchem
     [Authorize(MyERPPermissions.PromotionalSchemes.Create)]
     public async Task<PromotionalSchemeDto> CreateAsync(CreateUpdatePromotionalSchemeDto input)
     {
+        ValidateInput(input);
+
         var scheme = new PromotionalScheme(GuidGenerator.Create(), input.CompanyId, input.Title, input.ApplyOn, CurrentTenant.Id);
         ApplyInput(scheme, input);
 
         await _schemeService.RegeneratePricingRulesAsync(scheme);
         await _repository.InsertAsync(scheme);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PromotionalScheme", scheme.Id,
+            "Created", scheme.CompanyId,
+            scheme.Title, "Draft", "Active", CurrentUser.Id,
+            $"Promotional scheme '{scheme.Title}' created", CurrentTenant.Id));
 
         var dto = ObjectMapper.Map<PromotionalScheme, PromotionalSchemeDto>(scheme);
         await FillGeneratedRuleCountsAsync(new[] { dto });
@@ -74,6 +83,8 @@ public class PromotionalSchemeAppService : ApplicationService, IPromotionalSchem
     [Authorize(MyERPPermissions.PromotionalSchemes.Edit)]
     public async Task<PromotionalSchemeDto> UpdateAsync(Guid id, CreateUpdatePromotionalSchemeDto input)
     {
+        ValidateInput(input);
+
         var scheme = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
 
         scheme.Title = input.Title;
@@ -82,6 +93,13 @@ public class PromotionalSchemeAppService : ApplicationService, IPromotionalSchem
 
         await _schemeService.RegeneratePricingRulesAsync(scheme);
         await _repository.UpdateAsync(scheme);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PromotionalScheme", scheme.Id,
+            "Updated", scheme.CompanyId,
+            scheme.Title, "Active", "Active", CurrentUser.Id,
+            $"Promotional scheme '{scheme.Title}' updated", CurrentTenant.Id));
 
         var dto = ObjectMapper.Map<PromotionalScheme, PromotionalSchemeDto>(scheme);
         await FillGeneratedRuleCountsAsync(new[] { dto });
@@ -93,6 +111,28 @@ public class PromotionalSchemeAppService : ApplicationService, IPromotionalSchem
     {
         await _schemeService.DeleteGeneratedRulesAsync(id);
         await _repository.DeleteAsync(id);
+    }
+
+    private static void ValidateInput(CreateUpdatePromotionalSchemeDto input)
+    {
+        if (input.ValidUpto.HasValue && input.ValidFrom.HasValue && input.ValidUpto.Value < input.ValidFrom.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        foreach (var s in input.PriceDiscountSlabs)
+        {
+            if (s.DiscountPercentage < 0 || s.DiscountPercentage > 100)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+            }
+
+            if (s.DiscountAmount < 0 || s.Rate < 0 || s.MinQty < 0 || s.MaxQty < 0 || s.MinAmount < 0 || s.MaxAmount < 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "PriceDiscountSlabs");
+            }
+        }
     }
 
     private static void ApplyInput(PromotionalScheme scheme, CreateUpdatePromotionalSchemeDto input)

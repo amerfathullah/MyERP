@@ -68,6 +68,15 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     public async Task<InstallationNoteDto> CreateAsync(CreateInstallationNoteDto input)
     {
+        if (input.Items == null || input.Items.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
         var deliveryNote = await _deliveryNoteRepository.GetAsync(input.DeliveryNoteId, includeDetails: true);
 
         var number = await _numberGenerator.GenerateAsync("IN", input.CompanyId);
@@ -135,6 +144,13 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         var note = await _repository.GetAsync(id);
         note.Submit();
         await _repository.UpdateAsync(note);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "InstallationNote", note.Id,
+            "Submitted", note.CompanyId,
+            note.InstallationNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Installation Note {note.InstallationNumber} submitted", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Cancel)]
@@ -143,5 +159,12 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         var note = await _repository.GetAsync(id);
         note.Cancel();
         await _repository.UpdateAsync(note);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "InstallationNote", note.Id,
+            "Cancelled", note.CompanyId,
+            note.InstallationNumber, "Submitted", "Cancelled", CurrentUser.Id,
+            $"Installation Note {note.InstallationNumber} cancelled", CurrentTenant.Id));
     }
 }

@@ -64,6 +64,20 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
     [Authorize(MyERPPermissions.PackingSlips.Create)]
     public async Task<PackingSlipDto> CreateAsync(CreatePackingSlipDto input)
     {
+        if (input.ToCaseNo < input.FromCaseNo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Items == null || input.Items.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
         var dn = await _deliveryNoteRepository.FindAsync(input.DeliveryNoteId);
         if (dn == null)
             throw new BusinessException("MyERP:01004")
@@ -95,6 +109,14 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         var entity = await _repository.GetAsync(id);
         entity.Submit();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PackingSlip", entity.Id,
+            "Submitted", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Submitted", CurrentUser.Id,
+            $"Packing Slip ({entity.Id.ToString()[..8]}) submitted", CurrentTenant.Id));
+
         return await MapToDtoAsync(entity);
     }
 
@@ -104,6 +126,14 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PackingSlip", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.Id.ToString()[..8], "Submitted", "Cancelled", CurrentUser.Id,
+            $"Packing Slip ({entity.Id.ToString()[..8]}) cancelled", CurrentTenant.Id));
+
         return await MapToDtoAsync(entity);
     }
 
