@@ -59,11 +59,31 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
     {
         var asset = await _assetRepository.GetAsync(input.AssetId);
 
+        if (asset.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
+                .WithData("assetName", asset.AssetName);
+        }
+
         // Disallow repair on sold/scrapped assets
         if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
         {
-            throw new BusinessException("MyERP:15003")
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
+                .WithData("assetName", asset.AssetName)
                 .WithData("status", asset.Status.ToString());
+        }
+
+        // Validate completion date not before failure date
+        if (input.CompletionDate.HasValue && input.CompletionDate.Value < input.FailureDate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        // Validate stock items are active
+        if (input.StockItems != null && input.StockItems.Any())
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
         var repairNumber = $"AS-REP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
@@ -138,6 +158,30 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         var asset = await _assetRepository.GetAsync(input.AssetId);
+
+        if (asset.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
+                .WithData("assetName", asset.AssetName);
+        }
+
+        if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
+                .WithData("assetName", asset.AssetName)
+                .WithData("status", asset.Status.ToString());
+        }
+
+        if (input.CompletionDate.HasValue && input.CompletionDate.Value < input.FailureDate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.StockItems != null && input.StockItems.Any())
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
+        }
 
         repair.AssetId = input.AssetId;
         repair.RepairDescription = input.RepairDescription;
