@@ -110,6 +110,13 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
 
         await _repository.InsertAsync(entity);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WarrantyClaim", entity.Id,
+            "Created", entity.CompanyId,
+            entity.ClaimNumber, "Draft", "Open", CurrentUser.Id,
+            $"Warranty Claim {entity.ClaimNumber} created", CurrentTenant.Id));
+
         return MapToDto(entity,
             new System.Collections.Generic.Dictionary<Guid, string>(),
             new System.Collections.Generic.Dictionary<Guid, string>());
@@ -121,6 +128,13 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         var entity = await _repository.GetAsync(id);
         entity.StartWork();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WarrantyClaim", entity.Id,
+            "WorkStarted", entity.CompanyId,
+            entity.ClaimNumber, "Open", "WorkInProgress", CurrentUser.Id,
+            $"Work started on Warranty Claim {entity.ClaimNumber}", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.WarrantyClaims.Edit)]

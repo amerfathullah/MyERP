@@ -51,6 +51,15 @@ public class IssueTypeAppService : ApplicationService, IIssueTypeAppService
             Description = input.Description,
         };
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "IssueType", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Issue type '{entity.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<IssueType, IssueTypeDto>(entity);
     }
 
@@ -61,6 +70,15 @@ public class IssueTypeAppService : ApplicationService, IIssueTypeAppService
         entity.Name = input.Name;
         entity.Description = input.Description;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "IssueType", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Issue type '{entity.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<IssueType, IssueTypeDto>(entity);
     }
 

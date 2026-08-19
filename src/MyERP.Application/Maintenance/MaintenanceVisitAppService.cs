@@ -86,6 +86,14 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         }
 
         await _visitRepository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+            "Created", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser.Id,
+            $"Maintenance Visit {entity.Id.ToString()[..8]} created ({entity.MaintenanceType})", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

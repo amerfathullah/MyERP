@@ -80,6 +80,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         }
 
         await _repository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
+            "Created", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser.Id,
+            $"Maintenance Schedule {entity.Id.ToString()[..8]} created", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -119,6 +127,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         }
 
         await _repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
+            "ScheduleGenerated", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser.Id,
+            $"Maintenance Schedule {entity.Id.ToString()[..8]} generated {noOfVisits} visits", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

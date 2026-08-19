@@ -38,6 +38,14 @@ public class ProjectTemplateAppService : ApplicationService, IProjectTemplateApp
         };
         template.SetTasks(input.Tasks.Select(ToTaskTuple));
         await _repository.InsertAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProjectTemplate", template.Id,
+            "Created", Guid.Empty,
+            template.TemplateName, "Draft", "Active", CurrentUser.Id,
+            $"Project template '{template.TemplateName}' created with {template.Tasks.Count} tasks", CurrentTenant.Id));
+
         return MapToDto(template);
     }
 
@@ -49,6 +57,14 @@ public class ProjectTemplateAppService : ApplicationService, IProjectTemplateApp
         template.Disabled = input.Disabled;
         template.SetTasks(input.Tasks.Select(ToTaskTuple));
         await _repository.UpdateAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProjectTemplate", template.Id,
+            "Updated", Guid.Empty,
+            template.TemplateName, "Active", "Active", CurrentUser.Id,
+            $"Project template '{template.TemplateName}' updated", CurrentTenant.Id));
+
         return MapToDto(template);
     }
 

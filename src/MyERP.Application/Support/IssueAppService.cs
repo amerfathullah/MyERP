@@ -68,6 +68,14 @@ public class IssueAppService : ApplicationService, IIssueAppService
         }
 
         await _issueRepository.InsertAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Issue", issue.Id,
+            "Created", issue.CompanyId,
+            issue.Subject, "Draft", issue.Status.ToString(), CurrentUser.Id,
+            $"Issue '{issue.Subject}' created with priority {issue.Priority}", CurrentTenant.Id));
+
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
@@ -95,6 +103,14 @@ public class IssueAppService : ApplicationService, IIssueAppService
         var issue = await _issueRepository.GetAsync(id);
         issue.Reply();
         await _issueRepository.UpdateAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Issue", issue.Id,
+            "Replied", issue.CompanyId,
+            issue.Subject, issue.Status.ToString(), issue.Status.ToString(), CurrentUser.Id,
+            $"Reply added to issue '{issue.Subject}'", CurrentTenant.Id));
+
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 

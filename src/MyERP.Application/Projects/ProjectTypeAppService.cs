@@ -50,6 +50,14 @@ public class ProjectTypeAppService : ApplicationService, IProjectTypeAppService
             IsActive = input.IsActive,
         };
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProjectType", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active", CurrentUser.Id,
+            $"Project type '{entity.Name}' created", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 
@@ -60,6 +68,14 @@ public class ProjectTypeAppService : ApplicationService, IProjectTypeAppService
         entity.SetName(input.Name);
         entity.IsActive = input.IsActive;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProjectType", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Name, "Active", "Active", CurrentUser.Id,
+            $"Project type '{entity.Name}' updated", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 
