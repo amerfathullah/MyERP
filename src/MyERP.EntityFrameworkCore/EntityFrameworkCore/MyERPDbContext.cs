@@ -218,6 +218,8 @@ public class MyERPDbContext :
     public DbSet<ItemAttributeValue> ItemAttributeValues { get; set; }
     public DbSet<ItemVariantAttribute> ItemVariantAttributes { get; set; }
     public DbSet<ItemBarcode> ItemBarcodes { get; set; }
+    public DbSet<ItemSupplier> ItemSuppliers { get; set; }
+    public DbSet<ItemCustomerDetail> ItemCustomerDetails { get; set; }
     public DbSet<SerialNo> SerialNos { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<QualityInspectionReading> QualityInspectionReadings { get; set; }
@@ -2025,6 +2027,26 @@ public class MyERPDbContext :
             b.HasOne<Item>().WithMany(x => x.Barcodes).HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.Barcode);
             b.HasIndex(x => new { x.ItemId, x.Barcode }).IsUnique();
+        });
+
+        builder.Entity<ItemSupplier>(b =>
+        {
+            b.ToTable("Inv_ItemSuppliers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.SupplierPartNo).HasMaxLength(100);
+            b.HasOne<Item>().WithMany(x => x.Suppliers).HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
+            b.HasIndex(x => new { x.ItemId, x.SupplierId }).IsUnique();
+        });
+
+        builder.Entity<ItemCustomerDetail>(b =>
+        {
+            b.ToTable("Inv_ItemCustomerDetails", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.RefCode).IsRequired().HasMaxLength(100);
+            b.HasOne<Item>().WithMany(x => x.CustomerDetails).HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
+            b.HasIndex(x => new { x.ItemId, x.CustomerId }).IsUnique();
         });
 
         builder.Entity<SerialNo>(b =>

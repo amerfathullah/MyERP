@@ -150,6 +150,14 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public ICollection<ItemBarcode> Barcodes { get; private set; }
         = new List<ItemBarcode>();
 
+    /// <summary>Preferred/approved suppliers for this item. Per ERPNext stock/doctype/item_supplier (child table).</summary>
+    public ICollection<ItemSupplier> Suppliers { get; private set; }
+        = new List<ItemSupplier>();
+
+    /// <summary>Customer-specific item codes for this item. Per ERPNext stock/doctype/item_customer_detail (child table).</summary>
+    public ICollection<ItemCustomerDetail> CustomerDetails { get; private set; }
+        = new List<ItemCustomerDetail>();
+
     protected Item() { }
 
     public Item(Guid id, Guid companyId, string itemCode, string itemName, ItemType itemType, Guid? tenantId = null)

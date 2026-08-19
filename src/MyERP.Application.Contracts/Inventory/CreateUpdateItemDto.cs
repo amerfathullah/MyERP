@@ -14,6 +14,25 @@ public class CreateItemBarcodeDto
     public bool IsDefault { get; set; }
 }
 
+public class CreateItemSupplierDto
+{
+    [Required]
+    public Guid SupplierId { get; set; }
+
+    [StringLength(100)]
+    public string? SupplierPartNo { get; set; }
+}
+
+public class CreateItemCustomerDetailDto
+{
+    [Required]
+    public Guid CustomerId { get; set; }
+
+    [Required]
+    [StringLength(100)]
+    public string RefCode { get; set; } = null!;
+}
+
 public class CreateUpdateItemDto
 {
     [Required]
@@ -101,4 +120,10 @@ public class CreateUpdateItemDto
 
     /// <summary>Additional barcodes for this item (case codes, alternate symbologies, etc).</summary>
     public List<CreateItemBarcodeDto> Barcodes { get; set; } = new();
+
+    /// <summary>Preferred/approved suppliers for this item.</summary>
+    public List<CreateItemSupplierDto> Suppliers { get; set; } = new();
+
+    /// <summary>Customer-specific item codes for this item.</summary>
+    public List<CreateItemCustomerDetailDto> CustomerDetails { get; set; } = new();
 }

@@ -8,6 +8,8 @@ import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 import { ItemStore } from '../store/item.store';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -28,11 +30,15 @@ export class ItemFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private companyService = inject(CompanyService);
   private stockBalanceService = inject(StockBalanceService);
+  private supplierService = inject(SupplierService);
+  private customerService = inject(CustomerService);
   private store = inject(ItemStore);
   private service = inject(ItemService);
 
   stockLevels = signal<any[]>([]);
   companies = signal<any[]>([]);
+  suppliers = signal<any[]>([]);
+  customers = signal<any[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -53,6 +59,8 @@ export class ItemFormComponent implements OnInit {
     inspectionRequiredBeforePurchase: [false],
     inspectionRequiredBeforeDelivery: [false],
     barcodes: this.fb.array([]),
+    suppliers: this.fb.array([]),
+    customerDetails: this.fb.array([]),
   });
 
   isEditMode = false;
@@ -81,18 +89,58 @@ export class ItemFormComponent implements OnInit {
     this.barcodesArray.removeAt(index);
   }
 
+  get suppliersArray(): FormArray {
+    return this.form.get('suppliers') as FormArray;
+  }
+
+  addSupplier(supplierId = '', supplierPartNo = ''): void {
+    this.suppliersArray.push(this.fb.group({
+      supplierId: [supplierId, Validators.required],
+      supplierPartNo: [supplierPartNo],
+    }));
+  }
+
+  removeSupplier(index: number): void {
+    this.suppliersArray.removeAt(index);
+  }
+
+  get customerDetailsArray(): FormArray {
+    return this.form.get('customerDetails') as FormArray;
+  }
+
+  addCustomerDetail(customerId = '', refCode = ''): void {
+    this.customerDetailsArray.push(this.fb.group({
+      customerId: [customerId, Validators.required],
+      refCode: [refCode, Validators.required],
+    }));
+  }
+
+  removeCustomerDetail(index: number): void {
+    this.customerDetailsArray.removeAt(index);
+  }
+
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
       res => this.companies.set(res.items ?? []));
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
+      res => this.suppliers.set(res.items ?? []));
+    this.customerService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
+      res => this.customers.set(res.items ?? []));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
         this.form.patchValue(item as any);
         for (const b of item.barcodes ?? []) {
           this.addBarcode(b.barcode, b.barcodeType, b.isDefault);
+        }
+        for (const s of item.suppliers ?? []) {
+          this.addSupplier(s.supplierId, s.supplierPartNo ?? '');
+        }
+        for (const c of item.customerDetails ?? []) {
+          this.addCustomerDetail(c.customerId, c.refCode);
         }
         // Load stock levels for this item
         this.stockBalanceService.getItemStock(this.entityId!)

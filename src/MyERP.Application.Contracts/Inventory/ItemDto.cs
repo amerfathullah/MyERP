@@ -11,6 +11,18 @@ public class ItemBarcodeDto : EntityDto<Guid>
     public bool IsDefault { get; set; }
 }
 
+public class ItemSupplierDto : EntityDto<Guid>
+{
+    public Guid SupplierId { get; set; }
+    public string? SupplierPartNo { get; set; }
+}
+
+public class ItemCustomerDetailDto : EntityDto<Guid>
+{
+    public Guid CustomerId { get; set; }
+    public string RefCode { get; set; } = null!;
+}
+
 public class ItemDto : FullAuditedEntityDto<Guid>
 {
     public Guid CompanyId { get; set; }
@@ -44,4 +56,6 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public decimal TotalStockQty { get; set; }
     public bool IsLowStock { get; set; }
     public List<ItemBarcodeDto> Barcodes { get; set; } = new();
+    public List<ItemSupplierDto> Suppliers { get; set; } = new();
+    public List<ItemCustomerDetailDto> CustomerDetails { get; set; } = new();
 }

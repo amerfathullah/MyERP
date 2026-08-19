@@ -18,10 +18,14 @@ public partial class ItemToItemDtoMapper : MapperBase<Inventory.Entities.Item, I
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.Barcodes))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.Suppliers))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.CustomerDetails))]
     public override partial Inventory.ItemDto Map(Inventory.Entities.Item source);
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.TotalStockQty))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.IsLowStock))]
     [MapperIgnoreTarget(nameof(Inventory.ItemDto.Barcodes))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.Suppliers))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemDto.CustomerDetails))]
     public override partial void Map(Inventory.Entities.Item source, Inventory.ItemDto destination);
 }
 

@@ -250,6 +250,18 @@ public class ItemAppService :
         {
             entity.Barcodes.Add(new ItemBarcode(GuidGenerator.Create(), entity.Id, b.Barcode, b.BarcodeType, b.IsDefault));
         }
+
+        entity.Suppliers.Clear();
+        foreach (var s in input.Suppliers)
+        {
+            entity.Suppliers.Add(new ItemSupplier(GuidGenerator.Create(), entity.Id, s.SupplierId, s.SupplierPartNo));
+        }
+
+        entity.CustomerDetails.Clear();
+        foreach (var c in input.CustomerDetails)
+        {
+            entity.CustomerDetails.Add(new ItemCustomerDetail(GuidGenerator.Create(), entity.Id, c.CustomerId, c.RefCode));
+        }
     }
 
     /// <summary>
@@ -262,6 +274,12 @@ public class ItemAppService :
         var dto = ObjectMapper.Map<Item, ItemDto>(item);
         dto.Barcodes = item.Barcodes
             .Select(b => new ItemBarcodeDto { Id = b.Id, Barcode = b.Barcode, BarcodeType = b.BarcodeType, IsDefault = b.IsDefault })
+            .ToList();
+        dto.Suppliers = item.Suppliers
+            .Select(s => new ItemSupplierDto { Id = s.Id, SupplierId = s.SupplierId, SupplierPartNo = s.SupplierPartNo })
+            .ToList();
+        dto.CustomerDetails = item.CustomerDetails
+            .Select(c => new ItemCustomerDetailDto { Id = c.Id, CustomerId = c.CustomerId, RefCode = c.RefCode })
             .ToList();
         return dto;
     }

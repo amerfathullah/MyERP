@@ -407,6 +407,16 @@ export interface CreateUpdateItemAlternativeDto {
   twoWay?: boolean;
 }
 
+export interface CreateItemSupplierDto {
+  supplierId: string;
+  supplierPartNo?: string | null;
+}
+
+export interface CreateItemCustomerDetailDto {
+  customerId: string;
+  refCode: string;
+}
+
 export interface CreateUpdateItemDto {
   companyId: string;
   itemCode: string;
@@ -437,6 +447,8 @@ export interface CreateUpdateItemDto {
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;
   barcodes?: CreateItemBarcodeDto[];
+  suppliers?: CreateItemSupplierDto[];
+  customerDetails?: CreateItemCustomerDetailDto[];
 }
 
 export interface CreateUpdateItemManufacturerDto {
@@ -831,6 +843,16 @@ export interface ItemBarcodeDto extends EntityDto<string> {
   isDefault?: boolean;
 }
 
+export interface ItemSupplierDto extends EntityDto<string> {
+  supplierId?: string;
+  supplierPartNo?: string | null;
+}
+
+export interface ItemCustomerDetailDto extends EntityDto<string> {
+  customerId?: string;
+  refCode?: string;
+}
+
 export interface ItemDetailsDto {
   itemId?: string;
   itemCode?: string;
@@ -895,6 +917,8 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   totalStockQty?: number;
   isLowStock?: boolean;
   barcodes?: ItemBarcodeDto[];
+  suppliers?: ItemSupplierDto[];
+  customerDetails?: ItemCustomerDetailDto[];
 }
 
 export interface ItemGroupDto extends EntityDto<string> {

@@ -149,6 +149,72 @@
           </div>
         </div>
 
+        <!-- Preferred Suppliers -->
+        <div class="card border mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-truck me-2"></i>{{ '::Suppliers' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSupplier()">
+              <i class="fa fa-plus me-1"></i>{{ '::AddSupplier' | abpLocalization }}
+            </button>
+          </div>
+          <div class="card-body" formArrayName="suppliers">
+            @if (suppliersArray.length === 0) {
+              <p class="text-muted small mb-0">{{ '::NoSuppliersYet' | abpLocalization }}</p>
+            }
+            @for (row of suppliersArray.controls; track $index) {
+              <div class="row align-items-center mb-2" [formGroupName]="$index">
+                <div class="col-6">
+                  <select class="form-select form-select-sm" formControlName="supplierId">
+                    <option value="" disabled>{{ '::SelectSupplier' | abpLocalization }}</option>
+                    @for (s of suppliers(); track s.id) { <option [ngValue]="s.id">{{ s.name }}</option> }
+                  </select>
+                </div>
+                <div class="col-5">
+                  <input type="text" class="form-control form-control-sm" formControlName="supplierPartNo" [placeholder]="'::SupplierPartNo' | abpLocalization" />
+                </div>
+                <div class="col-1">
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSupplier($index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Customer Item Codes -->
+        <div class="card border mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-address-card me-2"></i>{{ '::CustomerItemCodes' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addCustomerDetail()">
+              <i class="fa fa-plus me-1"></i>{{ '::AddCustomerItemCode' | abpLocalization }}
+            </button>
+          </div>
+          <div class="card-body" formArrayName="customerDetails">
+            @if (customerDetailsArray.length === 0) {
+              <p class="text-muted small mb-0">{{ '::NoCustomerItemCodesYet' | abpLocalization }}</p>
+            }
+            @for (row of customerDetailsArray.controls; track $index) {
+              <div class="row align-items-center mb-2" [formGroupName]="$index">
+                <div class="col-6">
+                  <select class="form-select form-select-sm" formControlName="customerId">
+                    <option value="" disabled>{{ '::SelectCustomer' | abpLocalization }}</option>
+                    @for (c of customers(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+                  </select>
+                </div>
+                <div class="col-5">
+                  <input type="text" class="form-control form-control-sm" formControlName="refCode" [placeholder]="'::CustomerRefCode' | abpLocalization" />
+                </div>
+                <div class="col-1">
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeCustomerDetail($index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
         <!-- Quality Inspection Settings -->
         <div class="card border mb-3">
           <div class="card-header py-2">
