@@ -52,6 +52,11 @@ public class DeliveryTripAppService :
     [Authorize(MyERPPermissions.DeliveryTrips.Create)]
     public override async Task<DeliveryTripDto> CreateAsync(CreateUpdateDeliveryTripDto input)
     {
+        if (input.DeliveryStops == null || input.DeliveryStops.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var entity = new DeliveryTrip(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -68,27 +73,32 @@ public class DeliveryTripAppService :
             Uom = input.Uom,
         };
 
-        if (input.DeliveryStops != null)
+        foreach (var stopDto in input.DeliveryStops)
         {
-            foreach (var stopDto in input.DeliveryStops)
-            {
-                entity.AddStop(
-                    stopDto.Address,
-                    stopDto.CustomerId,
-                    stopDto.CustomerName,
-                    stopDto.DeliveryNoteId,
-                    stopDto.DeliveryNoteNumber,
-                    stopDto.GrandTotal,
-                    stopDto.EstimatedArrival,
-                    stopDto.Distance,
-                    stopDto.Uom,
-                    stopDto.Latitude,
-                    stopDto.Longitude,
-                    stopDto.Details);
-            }
+            entity.AddStop(
+                stopDto.Address,
+                stopDto.CustomerId,
+                stopDto.CustomerName,
+                stopDto.DeliveryNoteId,
+                stopDto.DeliveryNoteNumber,
+                stopDto.GrandTotal,
+                stopDto.EstimatedArrival,
+                stopDto.Distance,
+                stopDto.Uom,
+                stopDto.Latitude,
+                stopDto.Longitude,
+                stopDto.Details);
         }
 
         await Repository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DeliveryTrip", entity.Id,
+            "Created", entity.CompanyId,
+            entity.TripNumber ?? entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser.Id,
+            $"Delivery trip '{entity.TripNumber}' created with {entity.DeliveryStops.Count} stops", CurrentTenant.Id));
+
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }
 
@@ -188,6 +198,14 @@ public class DeliveryTripAppService :
 
         entity.Schedule();
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DeliveryTrip", entity.Id,
+            "Scheduled", entity.CompanyId,
+            entity.TripNumber ?? entity.Id.ToString()[..8], "Draft", "Scheduled", CurrentUser.Id,
+            $"Delivery trip '{entity.TripNumber}' scheduled", CurrentTenant.Id));
+
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }
 
@@ -203,6 +221,14 @@ public class DeliveryTripAppService :
 
         entity.StartTransit();
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DeliveryTrip", entity.Id,
+            "InTransit", entity.CompanyId,
+            entity.TripNumber ?? entity.Id.ToString()[..8], "Scheduled", "InTransit", CurrentUser.Id,
+            $"Delivery trip '{entity.TripNumber}' started transit", CurrentTenant.Id));
+
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }
 
@@ -218,6 +244,14 @@ public class DeliveryTripAppService :
 
         entity.Complete();
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DeliveryTrip", entity.Id,
+            "Completed", entity.CompanyId,
+            entity.TripNumber ?? entity.Id.ToString()[..8], "InTransit", "Completed", CurrentUser.Id,
+            $"Delivery trip '{entity.TripNumber}' completed", CurrentTenant.Id));
+
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }
 
@@ -233,6 +267,14 @@ public class DeliveryTripAppService :
 
         entity.Cancel();
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DeliveryTrip", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.TripNumber ?? entity.Id.ToString()[..8], "Active", "Cancelled", CurrentUser.Id,
+            $"Delivery trip '{entity.TripNumber}' cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }
 }

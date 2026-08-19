@@ -56,6 +56,9 @@ public class ItemManufacturerAppService :
                 .WithData("reason", "An entry for this item, manufacturer, and part number already exists.");
         }
 
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemAsync(input.ItemId);
+
         var entity = new ItemManufacturer(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -74,6 +77,14 @@ public class ItemManufacturerAppService :
         }
 
         await Repository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemManufacturer", entity.Id,
+            "Created", entity.CompanyId,
+            entity.ManufacturerPartNo, "Draft", "Active", CurrentUser.Id,
+            $"Item manufacturer part '{entity.ManufacturerPartNo}' created for item {entity.ItemId.ToString()[..8]}", CurrentTenant.Id));
+
         return await MapToDtoWithNamesAsync(entity);
     }
 
@@ -95,6 +106,9 @@ public class ItemManufacturerAppService :
                 .WithData("reason", "An entry for this item, manufacturer, and part number already exists.");
         }
 
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemAsync(input.ItemId);
+
         entity.ItemId = input.ItemId;
         entity.ManufacturerId = input.ManufacturerId;
         entity.SetManufacturerPartNo(input.ManufacturerPartNo);
@@ -108,6 +122,14 @@ public class ItemManufacturerAppService :
         }
 
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemManufacturer", entity.Id,
+            "Updated", entity.CompanyId,
+            entity.ManufacturerPartNo, "Active", "Active", CurrentUser.Id,
+            $"Item manufacturer part '{entity.ManufacturerPartNo}' updated for item {entity.ItemId.ToString()[..8]}", CurrentTenant.Id));
+
         return await MapToDtoWithNamesAsync(entity);
     }
 

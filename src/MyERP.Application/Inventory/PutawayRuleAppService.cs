@@ -44,6 +44,18 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
     [Authorize(MyERPPermissions.Warehouses.Create)]
     public async Task<PutawayRuleDto> CreateAsync(CreateUpdatePutawayRuleDto input)
     {
+        if (input.StockCapacity <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "StockCapacity");
+        }
+
+        if (input.ItemId.HasValue)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemAsync(input.ItemId.Value);
+        }
+
         var rule = new PutawayRule(GuidGenerator.Create(), input.CompanyId, input.WarehouseId, CurrentTenant.Id)
         {
             ItemId = input.ItemId,
@@ -53,12 +65,32 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
             Uom = input.Uom,
         };
         await _repository.InsertAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PutawayRule", rule.Id,
+            "Created", rule.CompanyId,
+            rule.WarehouseId.ToString()[..8], "Draft", "Active", CurrentUser.Id,
+            $"Putaway rule created for warehouse {rule.WarehouseId.ToString()[..8]} with capacity {rule.StockCapacity}", CurrentTenant.Id));
+
         return ObjectMapper.Map<PutawayRule, PutawayRuleDto>(rule);
     }
 
     [Authorize(MyERPPermissions.Warehouses.Edit)]
     public async Task<PutawayRuleDto> UpdateAsync(Guid id, CreateUpdatePutawayRuleDto input)
     {
+        if (input.StockCapacity <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "StockCapacity");
+        }
+
+        if (input.ItemId.HasValue)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemAsync(input.ItemId.Value);
+        }
+
         var rule = await _repository.GetAsync(id);
         rule.ItemId = input.ItemId;
         rule.ItemGroupId = input.ItemGroupId;
@@ -67,6 +99,14 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
         rule.Priority = input.Priority;
         rule.Uom = input.Uom;
         await _repository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PutawayRule", rule.Id,
+            "Updated", rule.CompanyId,
+            rule.WarehouseId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Putaway rule updated for warehouse {rule.WarehouseId.ToString()[..8]}", CurrentTenant.Id));
+
         return ObjectMapper.Map<PutawayRule, PutawayRuleDto>(rule);
     }
 
@@ -76,6 +116,13 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
         var rule = await _repository.GetAsync(id);
         rule.IsEnabled = !rule.IsEnabled;
         await _repository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PutawayRule", rule.Id,
+            rule.IsEnabled ? "Enabled" : "Disabled", rule.CompanyId,
+            rule.WarehouseId.ToString()[..8], "Active", rule.IsEnabled ? "Active" : "Disabled", CurrentUser.Id,
+            $"Putaway rule for warehouse {rule.WarehouseId.ToString()[..8]} {(rule.IsEnabled ? "enabled" : "disabled")}", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.Warehouses.Delete)]

@@ -52,6 +52,14 @@ public class CustomsTariffNumberAppService : MyERPAppService, ICustomsTariffNumb
             CurrentTenant.Id);
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CustomsTariffNumber", entity.Id,
+            "Created", entity.CompanyId,
+            entity.TariffNumber, "Draft", "Active", CurrentUser.Id,
+            $"Customs tariff number '{entity.TariffNumber}' created", CurrentTenant.Id));
+
         return new CustomsTariffNumberMapper().Map(entity);
     }
 
@@ -63,6 +71,14 @@ public class CustomsTariffNumberAppService : MyERPAppService, ICustomsTariffNumb
         entity.Description = input.Description;
 
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CustomsTariffNumber", entity.Id,
+            "Updated", entity.CompanyId,
+            entity.TariffNumber, "Active", "Active", CurrentUser.Id,
+            $"Customs tariff number '{entity.TariffNumber}' updated", CurrentTenant.Id));
+
         return new CustomsTariffNumberMapper().Map(entity);
     }
 

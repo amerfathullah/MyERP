@@ -49,6 +49,14 @@ public class ManufacturerAppService :
         };
 
         await Repository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Manufacturer", entity.Id,
+            "Created", entity.CompanyId,
+            entity.ShortName, "Draft", "Active", CurrentUser.Id,
+            $"Manufacturer '{entity.ShortName}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Manufacturer, ManufacturerDto>(entity);
     }
 
@@ -71,6 +79,14 @@ public class ManufacturerAppService :
         entity.Notes = input.Notes;
 
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Manufacturer", entity.Id,
+            "Updated", entity.CompanyId,
+            entity.ShortName, "Active", "Active", CurrentUser.Id,
+            $"Manufacturer '{entity.ShortName}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Manufacturer, ManufacturerDto>(entity);
     }
 }
