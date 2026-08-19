@@ -54,6 +54,11 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
     [Authorize(MyERPPermissions.SupplierScorecards.Create)]
     public async Task<ScorecardDto> CreateAsync(CreateScorecardDto input)
     {
+        if (input.Standings == null || input.Standings.Count == 0 || input.Criteria == null || input.Criteria.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var scorecard = new SupplierScorecard(
             GuidGenerator.Create(),
             input.SupplierId,
@@ -80,6 +85,13 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
         // Sync enforcement flags to supplier
         await SyncEnforcementFlagsAsync(scorecard);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SupplierScorecard", scorecard.Id,
+            "Created", scorecard.CompanyId,
+            scorecard.SupplierId.ToString()[..8], "Draft", "Active", CurrentUser.Id,
+            $"Supplier scorecard created for supplier {scorecard.SupplierId.ToString()[..8]}", CurrentTenant.Id));
+
         return ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard);
     }
 
@@ -96,6 +108,13 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
         // Sync enforcement flags to supplier
         await SyncEnforcementFlagsAsync(scorecard);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SupplierScorecard", scorecard.Id,
+            "ScoreUpdated", scorecard.CompanyId,
+            scorecard.SupplierId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Supplier scorecard score updated to {newScore:F2}", CurrentTenant.Id));
+
         return ObjectMapper.Map<SupplierScorecard, ScorecardDto>(scorecard);
     }
 
@@ -105,6 +124,11 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
     [Authorize(MyERPPermissions.SupplierScorecards.Edit)]
     public async Task SubmitPeriodAsync(Guid scorecardId, CreateScorecardPeriodDto input)
     {
+        if (input.EndDate < input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var scorecard = await _repository.GetAsync(scorecardId);
 
         var period = new ScorecardPeriod(
@@ -122,6 +146,13 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
         scorecard.UpdateScore(input.Score);
         await _repository.UpdateAsync(scorecard);
         await SyncEnforcementFlagsAsync(scorecard);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SupplierScorecard", scorecard.Id,
+            "PeriodSubmitted", scorecard.CompanyId,
+            scorecard.SupplierId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Scorecard period ({input.StartDate:yyyy-MM-dd} to {input.EndDate:yyyy-MM-dd}) submitted with score {input.Score:F2}", CurrentTenant.Id));
     }
 
     /// <summary>

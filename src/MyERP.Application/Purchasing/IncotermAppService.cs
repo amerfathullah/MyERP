@@ -53,6 +53,14 @@ public class IncotermAppService : ApplicationService, IIncotermAppService
             IsActive = input.IsActive,
         };
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Incoterm", entity.Id,
+            "Created", Guid.Empty,
+            entity.Code, "Draft", "Active", CurrentUser.Id,
+            $"Incoterm '{entity.Code}' created", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 
@@ -65,6 +73,14 @@ public class IncotermAppService : ApplicationService, IIncotermAppService
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Incoterm", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Code, "Active", "Active", CurrentUser.Id,
+            $"Incoterm '{entity.Code}' updated", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 

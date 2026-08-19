@@ -63,6 +63,19 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         if (input.Items == null || input.Items.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var supplier = await supplierRepo.GetAsync(input.SupplierId);
+        if (supplier.RepresentsCompanyId == input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+        }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.ItemTransactionValidationService>();
+        foreach (var item in input.Items)
+        {
+            await itemValidation.ValidateItemAsync(item.ItemId);
+        }
+
         var orderNumber = $"SCIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
         var entity = new SubcontractingInwardOrder(GuidGenerator.Create(), input.CompanyId,
             orderNumber, input.OrderDate, input.SupplierId, CurrentTenant.Id);
@@ -82,6 +95,14 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+            "Created", entity.CompanyId,
+            entity.OrderNumber, "Draft", "Draft", CurrentUser.Id,
+            $"Subcontracting inward order '{entity.OrderNumber}' created with {entity.Items.Count} items", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
 
@@ -91,6 +112,14 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         var entity = await _repository.GetAsync(id);
         entity.Submit();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+            "Submitted", entity.CompanyId,
+            entity.OrderNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Subcontracting inward order '{entity.OrderNumber}' submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
 
@@ -100,6 +129,14 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.OrderNumber, "Submitted", "Cancelled", CurrentUser.Id,
+            $"Subcontracting inward order '{entity.OrderNumber}' cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
 
@@ -109,6 +146,14 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         var entity = await _repository.GetAsync(id);
         entity.Close();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+            "Closed", entity.CompanyId,
+            entity.OrderNumber, "Submitted", "Closed", CurrentUser.Id,
+            $"Subcontracting inward order '{entity.OrderNumber}' closed", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
 }

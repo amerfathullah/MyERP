@@ -55,6 +55,14 @@ public class SubcontractingBomAppService : ApplicationService, ISubcontractingBo
             IsActive = input.IsActive,
         };
         await _repository.InsertAsync(bom);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingBom", bom.Id,
+            "Created", Guid.Empty,
+            bom.FinishedGoodId.ToString()[..8], "Draft", "Active", CurrentUser.Id,
+            $"Subcontracting BOM created for finished good {bom.FinishedGoodId.ToString()[..8]}", CurrentTenant.Id));
+
         return (await MapWithItemNamesAsync(new[] { bom })).Single();
     }
 
@@ -66,6 +74,14 @@ public class SubcontractingBomAppService : ApplicationService, ISubcontractingBo
         var bom = await _repository.GetAsync(id);
         bom.Update(input.FinishedGoodId, input.FinishedGoodQty, input.FinishedGoodBomId, input.ServiceItemId, input.ServiceItemQty, input.IsActive);
         await _repository.UpdateAsync(bom);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingBom", bom.Id,
+            "Updated", Guid.Empty,
+            bom.FinishedGoodId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Subcontracting BOM updated for finished good {bom.FinishedGoodId.ToString()[..8]}", CurrentTenant.Id));
+
         return (await MapWithItemNamesAsync(new[] { bom })).Single();
     }
 
