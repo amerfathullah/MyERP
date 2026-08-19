@@ -1,18 +1,18 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { CompetitorDetailDto } from '../crm/models';
 import type { CouponType } from './coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ProformaInvoiceBasis } from './proforma-invoice-basis.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
 import type { ShippingRuleType } from './shipping-rule-type.enum';
+import type { PartySpecificItemPartyType } from './party-specific-item-party-type.enum';
+import type { PartySpecificItemRestrictBasedOn } from './party-specific-item-restrict-based-on.enum';
 import type { PromotionalSchemeApplicableFor } from './promotional-scheme-applicable-for.enum';
 import type { ProformaInvoiceStatus } from './proforma-invoice-status.enum';
+import type { CompetitorDetailDto } from '../crm/models';
 import type { AnalyticsGroupBy } from './analytics-group-by.enum';
 import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 import type { TrackingBoardStage } from './tracking-board-stage.enum';
-import type { PartySpecificItemPartyType } from './party-specific-item-party-type.enum';
-import type { PartySpecificItemRestrictBasedOn } from './party-specific-item-restrict-based-on.enum';
 
 export interface ApplyPricingRuleDto {
   itemId?: string | null;
@@ -484,6 +484,20 @@ export interface CreateUpdateCustomerDto {
   country?: string | null;
   defaultReceivableAccountId?: string | null;
   isActive?: boolean;
+  creditLimit?: number;
+  representsCompanyId?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
+  loyaltyProgramId?: string | null;
+  defaultPaymentTermsTemplateId?: string | null;
+  restrictToCompanies?: boolean;
+}
+
+export interface CreateUpdatePartySpecificItemDto {
+  partyType?: PartySpecificItemPartyType;
+  partyId?: string;
+  restrictBasedOn?: PartySpecificItemRestrictBasedOn;
+  basedOnValueId?: string;
 }
 
 export interface CreateUpdatePosProfileDto {
@@ -554,6 +568,13 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   country?: string | null;
   defaultReceivableAccountId?: string | null;
   isActive?: boolean;
+  creditLimit?: number;
+  representsCompanyId?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
+  loyaltyProgramId?: string | null;
+  defaultPaymentTermsTemplateId?: string | null;
+  restrictToCompanies?: boolean;
 }
 
 export interface CustomerRevenueLineDto {
@@ -679,6 +700,11 @@ export interface GeneratedInvoiceDto {
 
 export interface GetCustomerListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+}
+
+export interface GetPartySpecificItemListDto extends PagedAndSortedResultRequestDto {
+  partyType?: PartySpecificItemPartyType | null;
+  partyId?: string | null;
 }
 
 export interface GetPosProfileListDto extends PagedAndSortedResultRequestDto {
@@ -836,6 +862,15 @@ export interface PartialDeliveryItemDto {
   salesOrderItemId?: string;
   quantity?: number;
   warehouseId?: string | null;
+}
+
+export interface PartySpecificItemDto extends EntityDto<string> {
+  partyType?: PartySpecificItemPartyType;
+  partyId?: string;
+  partyName?: string | null;
+  restrictBasedOn?: PartySpecificItemRestrictBasedOn;
+  basedOnValueId?: string;
+  basedOnValueName?: string | null;
 }
 
 export interface PaymentScheduleDto {
@@ -1592,25 +1627,4 @@ export interface OrderReceiptDto {
   postingDate?: string;
   status?: string;
   itemCount?: number;
-}
-
-export interface PartySpecificItemDto extends EntityDto<string> {
-  partyType?: PartySpecificItemPartyType;
-  partyId?: string;
-  partyName?: string | null;
-  restrictBasedOn?: PartySpecificItemRestrictBasedOn;
-  basedOnValueId?: string;
-  basedOnValueName?: string | null;
-}
-
-export interface CreateUpdatePartySpecificItemDto {
-  partyType: PartySpecificItemPartyType;
-  partyId: string;
-  restrictBasedOn: PartySpecificItemRestrictBasedOn;
-  basedOnValueId: string;
-}
-
-export interface GetPartySpecificItemListDto extends PagedAndSortedResultRequestDto {
-  partyType?: PartySpecificItemPartyType;
-  partyId?: string;
 }

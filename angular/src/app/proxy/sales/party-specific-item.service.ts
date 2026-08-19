@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class PartySpecificItemService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdatePartySpecificItemDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({
@@ -18,7 +18,7 @@ export class PartySpecificItemService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class PartySpecificItemService {
       url: `/api/app/party-specific-item/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({
@@ -34,7 +34,7 @@ export class PartySpecificItemService {
       url: `/api/app/party-specific-item/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: GetPartySpecificItemListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PartySpecificItemDto>>({
@@ -43,7 +43,7 @@ export class PartySpecificItemService {
       params: { partyType: input.partyType, partyId: input.partyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdatePartySpecificItemDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({

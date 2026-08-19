@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class ShiftAssignmentService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateShiftAssignmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({
@@ -18,7 +18,7 @@ export class ShiftAssignmentService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class ShiftAssignmentService {
       url: `/api/app/shift-assignment/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({
@@ -34,7 +34,7 @@ export class ShiftAssignmentService {
       url: `/api/app/shift-assignment/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: GetShiftAssignmentListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ShiftAssignmentDto>>({
@@ -43,7 +43,7 @@ export class ShiftAssignmentService {
       params: { companyId: input.companyId, employeeId: input.employeeId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateShiftAssignmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({

@@ -1,76 +1,18 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
-import type { LeaveApplicationStatus } from './leave-application-status.enum';
 import type { AttendanceStatus } from './attendance-status.enum';
+import type { LeaveApplicationStatus } from './leave-application-status.enum';
 import type { ShiftAssignmentStatus } from './shift-assignment-status.enum';
 
 export interface AttendanceDto extends FullAuditedEntityDto<string> {
-  companyId: string;
-  employeeId: string;
+  companyId?: string;
+  employeeId?: string;
   employeeName?: string | null;
-  date: string;
-  status: AttendanceStatus;
+  date?: string;
+  status?: AttendanceStatus;
   shiftTypeId?: string | null;
   inTime?: string | null;
   outTime?: string | null;
   leaveApplicationId?: string | null;
-}
-
-export interface CreateAttendanceDto {
-  companyId: string;
-  employeeId: string;
-  date: string;
-  status: AttendanceStatus;
-  shiftTypeId?: string | null;
-  inTime?: string | null;
-  outTime?: string | null;
-}
-
-export interface GetAttendanceListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  employeeId?: string | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-  status?: AttendanceStatus | null;
-}
-
-export interface ShiftTypeDto extends FullAuditedEntityDto<string> {
-  companyId: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  holidayListId?: string | null;
-}
-
-export interface CreateShiftTypeDto {
-  companyId: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  holidayListId?: string | null;
-}
-
-export interface ShiftAssignmentDto extends FullAuditedEntityDto<string> {
-  companyId: string;
-  employeeId: string;
-  employeeName?: string | null;
-  shiftTypeId: string;
-  shiftTypeName?: string | null;
-  startDate: string;
-  endDate?: string | null;
-  status: ShiftAssignmentStatus;
-}
-
-export interface CreateShiftAssignmentDto {
-  companyId: string;
-  employeeId: string;
-  shiftTypeId: string;
-  startDate: string;
-  endDate?: string | null;
-}
-
-export interface GetShiftAssignmentListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  employeeId?: string | null;
 }
 
 export interface BulkLeaveAllocationDto {
@@ -79,6 +21,16 @@ export interface BulkLeaveAllocationDto {
   fromDate: string;
   toDate: string;
   totalLeavesPerEmployee: number;
+}
+
+export interface CreateAttendanceDto {
+  companyId?: string;
+  employeeId?: string;
+  date?: string;
+  status?: AttendanceStatus;
+  shiftTypeId?: string | null;
+  inTime?: string | null;
+  outTime?: string | null;
 }
 
 export interface CreateExpenseClaimDto {
@@ -182,6 +134,22 @@ export interface CreateSalaryStructureDto {
   payrollFrequency?: string;
   description?: string | null;
   details?: CreateSalaryStructureDetailDto[];
+}
+
+export interface CreateShiftAssignmentDto {
+  companyId?: string;
+  employeeId?: string;
+  shiftTypeId?: string;
+  startDate?: string;
+  endDate?: string | null;
+}
+
+export interface CreateShiftTypeDto {
+  companyId?: string;
+  name?: string;
+  startTime?: string;
+  endTime?: string;
+  holidayListId?: string | null;
 }
 
 export interface CreateUpdateDepartmentDto {
@@ -292,6 +260,14 @@ export interface ExpenseClaimDto extends EntityDto<string> {
   expenses?: ExpenseClaimDetailDto[];
 }
 
+export interface GetAttendanceListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  employeeId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: AttendanceStatus | null;
+}
+
 export interface GetEmployeeListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
@@ -312,6 +288,11 @@ export interface GetPayrollListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   filter?: string | null;
   status?: string | null;
+}
+
+export interface GetShiftAssignmentListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  employeeId?: string | null;
 }
 
 export interface HolidayDto {
@@ -476,6 +457,13 @@ export interface SalaryComponentDto extends EntityDto<string> {
   description?: string | null;
 }
 
+export interface SalarySlipComponentDto extends EntityDto<string> {
+  salaryComponentId?: string;
+  componentName?: string;
+  amount?: number;
+  isStatutory?: boolean;
+}
+
 export interface SalarySlipDto extends EntityDto<string> {
   companyId?: string;
   employeeId?: string;
@@ -489,13 +477,6 @@ export interface SalarySlipDto extends EntityDto<string> {
   status?: number;
   earnings?: SalarySlipComponentDto[];
   deductions?: SalarySlipComponentDto[];
-}
-
-export interface SalarySlipComponentDto extends EntityDto<string> {
-  salaryComponentId?: string;
-  componentName?: string;
-  amount?: number;
-  isStatutory?: boolean;
 }
 
 export interface SalaryStructureDetailDto {
@@ -514,4 +495,23 @@ export interface SalaryStructureDto extends EntityDto<string> {
   isActive?: boolean;
   description?: string | null;
   details?: SalaryStructureDetailDto[];
+}
+
+export interface ShiftAssignmentDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  employeeId?: string;
+  employeeName?: string | null;
+  shiftTypeId?: string;
+  shiftTypeName?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  status?: ShiftAssignmentStatus;
+}
+
+export interface ShiftTypeDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  name?: string;
+  startTime?: string;
+  endTime?: string;
+  holidayListId?: string | null;
 }

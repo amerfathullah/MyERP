@@ -61,4 +61,12 @@ public class CreateUpdateSupplierDto
     public Guid? DefaultPayableAccountId { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public SupplierHoldType HoldType { get; set; } = SupplierHoldType.None;
+    public bool PreventPurchaseOrders { get; set; }
+    public bool PreventRfqs { get; set; }
+    public Guid? RepresentsCompanyId { get; set; }
+    public Guid? SupplierGroupId { get; set; }
+    public string? TaxWithholdingCategory { get; set; }
+    public Guid? DefaultPaymentTermsTemplateId { get; set; }
+    public bool RestrictToCompanies { get; set; }
 }

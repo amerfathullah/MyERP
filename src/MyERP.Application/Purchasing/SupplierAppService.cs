@@ -93,6 +93,31 @@ public class SupplierAppService :
             items.Select(ObjectMapper.Map<Supplier, SupplierDto>).ToList());
     }
 
+    public override async Task<SupplierDto> CreateAsync(CreateUpdateSupplierDto input)
+    {
+        await ValidateSupplierNameAsync(input.Name);
+        return await base.CreateAsync(input);
+    }
+
+    public override async Task<SupplierDto> UpdateAsync(Guid id, CreateUpdateSupplierDto input)
+    {
+        await ValidateSupplierNameAsync(input.Name);
+        return await base.UpdateAsync(id, input);
+    }
+
+    private async Task ValidateSupplierNameAsync(string name)
+    {
+        var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.SupplierGroup, Guid>>();
+        var query = await groupRepo.GetQueryableAsync();
+        var trimmed = name.Trim();
+        var groupExists = query.Any(g => g.Name.ToLower() == trimmed.ToLower());
+        if (groupExists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SupplierNameCannotMatchSupplierGroup)
+                .WithData("name", name);
+        }
+    }
+
     protected override Supplier MapToEntity(CreateUpdateSupplierDto input)
     {
         var supplier = new Supplier(
@@ -121,6 +146,14 @@ public class SupplierAppService :
         entity.Country = input.Country;
         entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
         entity.IsActive = input.IsActive;
+        entity.HoldType = input.HoldType;
+        entity.PreventPurchaseOrders = input.PreventPurchaseOrders;
+        entity.PreventRfqs = input.PreventRfqs;
+        entity.RepresentsCompanyId = input.RepresentsCompanyId;
+        entity.SupplierGroupId = input.SupplierGroupId;
+        entity.TaxWithholdingCategory = input.TaxWithholdingCategory;
+        entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
+        entity.RestrictToCompanies = input.RestrictToCompanies;
     }
 }
 

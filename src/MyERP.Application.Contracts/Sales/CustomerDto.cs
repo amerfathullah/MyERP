@@ -24,4 +24,11 @@ public class CustomerDto : FullAuditedEntityDto<Guid>
     public string? Country { get; set; }
     public Guid? DefaultReceivableAccountId { get; set; }
     public bool IsActive { get; set; }
+    public decimal CreditLimit { get; set; }
+    public Guid? RepresentsCompanyId { get; set; }
+    public Guid? CustomerGroupId { get; set; }
+    public Guid? TerritoryId { get; set; }
+    public Guid? LoyaltyProgramId { get; set; }
+    public Guid? DefaultPaymentTermsTemplateId { get; set; }
+    public bool RestrictToCompanies { get; set; }
 }

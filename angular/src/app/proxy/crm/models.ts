@@ -11,6 +11,12 @@ import type { LeadStatus } from './lead-status.enum';
 import type { OpportunityStatus } from './opportunity-status.enum';
 import type { ShipmentStatus } from './shipment-status.enum';
 
+export interface AddCompetitorDetailDto {
+  parentType: string;
+  parentId: string;
+  competitorId: string;
+}
+
 export interface AddCrmNoteDto {
   noteText: string;
 }
@@ -63,6 +69,14 @@ export interface CampaignEmailScheduleDto {
   id?: string;
   emailTemplateId?: string;
   sendAfterDays?: number;
+}
+
+export interface CompetitorDetailDto {
+  id?: string;
+  parentType?: string;
+  parentId?: string;
+  competitorId?: string;
+  competitorName?: string | null;
 }
 
 export interface CompetitorDto extends AuditedEntityDto<string> {
@@ -421,20 +435,6 @@ export interface OpportunityItemDto {
   unitPrice?: number;
   amount?: number;
   uom?: string | null;
-}
-
-export interface CompetitorDetailDto {
-  id?: string;
-  parentType?: string;
-  parentId?: string;
-  competitorId?: string;
-  competitorName?: string | null;
-}
-
-export interface AddCompetitorDetailDto {
-  parentType?: string;
-  parentId?: string;
-  competitorId?: string;
 }
 
 export interface PipelineOpportunityDto {

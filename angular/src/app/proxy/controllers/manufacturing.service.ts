@@ -72,6 +72,24 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  createOperation = (input: CreateOperationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OperationDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/operations',
+      params: { name: input.name, description: input.description, workstationId: input.workstationId, workstationType: input.workstationType, createJobCardBasedOnBatchSize: input.createJobCardBasedOnBatchSize, batchSize: input.batchSize, isCorrectiveOperation: input.isCorrectiveOperation, isActive: input.isActive, subOperations: input.subOperations },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createRouting = (input: CreateRoutingDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RoutingDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/routings',
+      params: { name: input.name, isDisabled: input.isDisabled, operations: input.operations },
+    },
+    { apiName: this.apiName,...config });
+  
+
   createWorkOrder = (input: CreateWorkOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderDto>({
       method: 'POST',
@@ -89,97 +107,11 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
-  createOperation = (input: CreateOperationDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, OperationDto>({
-      method: 'POST',
-      url: '/api/app/manufacturing/operations',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  updateOperation = (id: string, input: CreateOperationDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, OperationDto>({
-      method: 'PUT',
-      url: `/api/app/manufacturing/operations/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  deleteOperation = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/manufacturing/operations/${id}`,
-    },
-    { apiName: this.apiName,...config });
-
-
-  getOperation = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, OperationDto>({
-      method: 'GET',
-      url: `/api/app/manufacturing/operations/${id}`,
-    },
-    { apiName: this.apiName,...config });
-
-
-  getOperationList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<OperationDto>>({
-      method: 'GET',
-      url: '/api/app/manufacturing/operations',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-
-
-  createRouting = (input: CreateRoutingDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, RoutingDto>({
-      method: 'POST',
-      url: '/api/app/manufacturing/routings',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  updateRouting = (id: string, input: CreateRoutingDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, RoutingDto>({
-      method: 'PUT',
-      url: `/api/app/manufacturing/routings/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  deleteRouting = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/manufacturing/routings/${id}`,
-    },
-    { apiName: this.apiName,...config });
-
-
-  getRouting = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, RoutingDto>({
-      method: 'GET',
-      url: `/api/app/manufacturing/routings/${id}`,
-    },
-    { apiName: this.apiName,...config });
-
-
-  getRoutingList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<RoutingDto>>({
-      method: 'GET',
-      url: '/api/app/manufacturing/routings',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-
-
   createWorkstation = (input: CreateWorkstationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkstationDto>({
       method: 'POST',
       url: '/api/app/manufacturing/workstations',
-      body: input,
+      params: { companyId: input.companyId, name: input.name, workstationType: input.workstationType, productionCapacity: input.productionCapacity, description: input.description, costs: input.costs },
     },
     { apiName: this.apiName,...config });
   
@@ -188,6 +120,22 @@ export class ManufacturingService {
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/manufacturing/bom/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteOperation = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/manufacturing/operations/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteRouting = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/manufacturing/routings/${id}`,
     },
     { apiName: this.apiName,...config });
   
@@ -261,6 +209,23 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  getOperation = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OperationDto>({
+      method: 'GET',
+      url: `/api/app/manufacturing/operations/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getOperationList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<OperationDto>>({
+      method: 'GET',
+      url: '/api/app/manufacturing/operations',
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getProductionCostBreakdown = (workOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProductionCostBreakdownDto>({
       method: 'GET',
@@ -274,6 +239,23 @@ export class ManufacturingService {
       method: 'GET',
       url: '/api/app/manufacturing/production-schedule',
       params: { companyId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getRouting = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RoutingDto>({
+      method: 'GET',
+      url: `/api/app/manufacturing/routings/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getRoutingList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<RoutingDto>>({
+      method: 'GET',
+      url: '/api/app/manufacturing/routings',
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
@@ -302,15 +284,6 @@ export class ManufacturingService {
     },
     { apiName: this.apiName,...config });
   
-
-  updateWorkstation = (id: string, input: CreateWorkstationDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, WorkstationDto>({
-      method: 'PUT',
-      url: `/api/app/manufacturing/workstations/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
 
   getWorkstation = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkstationDto>({
@@ -383,6 +356,33 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'POST',
       url: `/api/app/manufacturing/bom/${id}/update-cost`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateOperation = (id: string, input: CreateOperationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OperationDto>({
+      method: 'PUT',
+      url: `/api/app/manufacturing/operations/${id}`,
+      params: { name: input.name, description: input.description, workstationId: input.workstationId, workstationType: input.workstationType, createJobCardBasedOnBatchSize: input.createJobCardBasedOnBatchSize, batchSize: input.batchSize, isCorrectiveOperation: input.isCorrectiveOperation, isActive: input.isActive, subOperations: input.subOperations },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateRouting = (id: string, input: CreateRoutingDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RoutingDto>({
+      method: 'PUT',
+      url: `/api/app/manufacturing/routings/${id}`,
+      params: { name: input.name, isDisabled: input.isDisabled, operations: input.operations },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateWorkstation = (id: string, input: CreateWorkstationDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkstationDto>({
+      method: 'PUT',
+      url: `/api/app/manufacturing/workstations/${id}`,
+      params: { companyId: input.companyId, name: input.name, workstationType: input.workstationType, productionCapacity: input.productionCapacity, description: input.description, costs: input.costs },
     },
     { apiName: this.apiName,...config });
 }

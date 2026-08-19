@@ -43,15 +43,7 @@ export class OpportunityService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
-
-  deleteCompetitor = (competitorDetailId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/opportunity/competitor/${competitorDetailId}`,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   declareLost = (id: string, reason: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityDto>({
@@ -60,12 +52,20 @@ export class OpportunityService {
       params: { reason },
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/opportunity/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteCompetitor = (competitorDetailId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/opportunity/competitor/${competitorDetailId}`,
     },
     { apiName: this.apiName,...config });
   

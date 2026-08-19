@@ -85,24 +85,6 @@ export interface CreateMasterProductionScheduleDto {
   parentWarehouseId?: string | null;
 }
 
-export interface CreateOperationDto {
-  name?: string;
-  description?: string | null;
-  workstationId?: string | null;
-  workstationType?: string | null;
-  createJobCardBasedOnBatchSize?: boolean;
-  batchSize?: number;
-  isCorrectiveOperation?: boolean;
-  isActive?: boolean;
-  subOperations?: CreateSubOperationDto[];
-}
-
-export interface CreateSubOperationDto {
-  operationId?: string;
-  timeInMins?: number;
-  description?: string | null;
-}
-
 export interface CreateProductionPlanDto {
   companyId: string;
   postingDate?: string;
@@ -126,19 +108,6 @@ export interface CreateProductionPlanItemDto {
   plannedStartDate?: string | null;
   salesOrderId?: string | null;
   materialRequestId?: string | null;
-}
-
-export interface CreateRoutingDto {
-  name?: string;
-  isDisabled?: boolean;
-  operations?: CreateRoutingOperationDto[];
-}
-
-export interface CreateRoutingOperationDto {
-  operationId?: string;
-  sequenceId?: number;
-  timeInMins?: number;
-  workstationId?: string | null;
 }
 
 export interface CreateSalesForecastDto {
@@ -301,26 +270,6 @@ export interface MpsSalesOrderRefDto {
   status?: string | null;
 }
 
-export interface OperationDto extends EntityDto<string> {
-  name?: string;
-  description?: string | null;
-  workstationId?: string | null;
-  workstationType?: string | null;
-  createJobCardBasedOnBatchSize?: boolean;
-  batchSize?: number;
-  isCorrectiveOperation?: boolean;
-  isActive?: boolean;
-  totalOperationTime?: number;
-  subOperations?: SubOperationDto[];
-}
-
-export interface SubOperationDto {
-  id?: string;
-  operationId?: string;
-  timeInMins?: number;
-  description?: string | null;
-}
-
 export interface ProductionAnalyticsDto {
   totalWorkOrders?: number;
   completedCount?: number;
@@ -386,21 +335,6 @@ export interface ProductionStatusCountDto {
   status?: string;
   count?: number;
   color?: string;
-}
-
-export interface RoutingDto extends EntityDto<string> {
-  name?: string;
-  isDisabled?: boolean;
-  operations?: RoutingOperationDto[];
-}
-
-export interface RoutingOperationDto {
-  id?: string;
-  operationId?: string;
-  sequenceId?: number;
-  timeInMins?: number;
-  workstationId?: string | null;
-  operatingCost?: number;
 }
 
 export interface SalesForecastDto extends EntityDto<string> {
@@ -616,6 +550,37 @@ export interface CreateMaterialConsumptionDto {
   items: ConsumptionItemDto[];
 }
 
+export interface CreateOperationDto {
+  name?: string;
+  description?: string | null;
+  workstationId?: string | null;
+  workstationType?: string | null;
+  createJobCardBasedOnBatchSize?: boolean;
+  batchSize?: number;
+  isCorrectiveOperation?: boolean;
+  isActive?: boolean;
+  subOperations?: CreateSubOperationDto[];
+}
+
+export interface CreateRoutingDto {
+  name?: string;
+  isDisabled?: boolean;
+  operations?: CreateRoutingOperationDto[];
+}
+
+export interface CreateRoutingOperationDto {
+  operationId?: string;
+  sequenceId?: number;
+  timeInMins?: number;
+  workstationId?: string | null;
+}
+
+export interface CreateSubOperationDto {
+  operationId?: string;
+  timeInMins?: number;
+  description?: string | null;
+}
+
 export interface CreateWorkOrderDto {
   itemId: string;
   bomId: string;
@@ -630,6 +595,11 @@ export interface CreateWorkOrderDto {
   notes?: string | null;
 }
 
+export interface CreateWorkstationCostDto {
+  component?: string;
+  operatingCost?: number;
+}
+
 export interface CreateWorkstationDto {
   companyId?: string;
   name?: string;
@@ -637,11 +607,6 @@ export interface CreateWorkstationDto {
   productionCapacity?: number;
   description?: string | null;
   costs?: CreateWorkstationCostDto[];
-}
-
-export interface CreateWorkstationCostDto {
-  component?: string;
-  operatingCost?: number;
 }
 
 export interface CreatedWorkOrderInfo {
@@ -705,6 +670,19 @@ export interface MaterialShortageItemDto {
   mostUrgentWO?: string;
 }
 
+export interface OperationDto extends EntityDto<string> {
+  name?: string;
+  description?: string | null;
+  workstationId?: string | null;
+  workstationType?: string | null;
+  createJobCardBasedOnBatchSize?: boolean;
+  batchSize?: number;
+  isCorrectiveOperation?: boolean;
+  isActive?: boolean;
+  totalOperationTime?: number;
+  subOperations?: SubOperationDto[];
+}
+
 export interface ProductionCostBreakdownDto {
   workOrderId?: string;
   workOrderNumber?: string | null;
@@ -750,12 +728,34 @@ export interface ProductionScheduleItemDto {
   statusColor?: string;
 }
 
+export interface RoutingDto extends EntityDto<string> {
+  name?: string;
+  isDisabled?: boolean;
+  operations?: RoutingOperationDto[];
+}
+
+export interface RoutingOperationDto {
+  id?: string;
+  operationId?: string;
+  sequenceId?: number;
+  timeInMins?: number;
+  workstationId?: string | null;
+  operatingCost?: number;
+}
+
 export interface StockEntryResultDto {
   stockEntryId?: string;
   entryNumber?: string | null;
   entryType?: string | null;
   itemCount?: number;
   totalValue?: number;
+}
+
+export interface SubOperationDto {
+  id?: string;
+  operationId?: string;
+  timeInMins?: number;
+  description?: string | null;
 }
 
 export interface SubcontractingBomItemLineDto {

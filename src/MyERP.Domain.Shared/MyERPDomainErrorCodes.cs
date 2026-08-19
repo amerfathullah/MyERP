@@ -155,9 +155,11 @@ public static class MyERPDomainErrorCodes
     public const string ScorecardBlockedPO = "MyERP:04006";
     public const string ScorecardBlockedRFQ = "MyERP:04007";
     public const string CannotDeleteCustomer = "MyERP:03003";
+    public const string CustomerNameCannotMatchCustomerGroup = "MyERP:03004";
     public const string CannotDeleteSupplier = "MyERP:04008";
     public const string DuplicateSupplierInvoice = "MyERP:04009";
     public const string DuplicateRfqSupplier = "MyERP:04010";
+    public const string SupplierNameCannotMatchSupplierGroup = "MyERP:04011";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";

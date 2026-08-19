@@ -1,5 +1,6 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { BarcodeType } from './barcode-type.enum';
+import type { MaterialRequestType } from '../purchasing/material-request-type.enum';
 import type { QualityFeedbackDocumentType } from './quality-feedback-document-type.enum';
 import type { QualityReviewStatus } from './quality-review-status.enum';
 import type { StockEntryType } from './stock-entry-type.enum';
@@ -11,7 +12,6 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
-import type { MaterialRequestType } from '../purchasing/material-request-type.enum';
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -189,6 +189,11 @@ export interface CreateItemBarcodeDto {
   isDefault?: boolean;
 }
 
+export interface CreateItemCustomerDetailDto {
+  customerId: string;
+  refCode: string;
+}
+
 export interface CreateItemGroupDto {
   name?: string;
   parentId?: string | null;
@@ -196,11 +201,24 @@ export interface CreateItemGroupDto {
   defaultWarehouseId?: string | null;
 }
 
+export interface CreateItemReorderDto {
+  warehouseId: string;
+  warehouseGroupId?: string | null;
+  warehouseReorderLevel?: number;
+  warehouseReorderQty?: number;
+  materialRequestType?: MaterialRequestType;
+}
+
 export interface CreateItemStandardCostDto {
   companyId?: string;
   itemId?: string;
   standardRate?: number;
   effectiveDate?: string;
+}
+
+export interface CreateItemSupplierDto {
+  supplierId: string;
+  supplierPartNo?: string | null;
 }
 
 export interface CreateItemVariantDto {
@@ -406,24 +424,6 @@ export interface CreateUpdateItemAlternativeDto {
   itemId: string;
   alternativeItemId: string;
   twoWay?: boolean;
-}
-
-export interface CreateItemSupplierDto {
-  supplierId: string;
-  supplierPartNo?: string | null;
-}
-
-export interface CreateItemCustomerDetailDto {
-  customerId: string;
-  refCode: string;
-}
-
-export interface CreateItemReorderDto {
-  warehouseId: string;
-  warehouseGroupId?: string | null;
-  warehouseReorderLevel?: number;
-  warehouseReorderQty?: number;
-  materialRequestType?: MaterialRequestType;
 }
 
 export interface CreateUpdateItemDto {
@@ -700,6 +700,8 @@ export interface GetItemListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
   itemType?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
 }
 
 export interface GetItemPriceListDto extends PagedAndSortedResultRequestDto {
@@ -853,22 +855,9 @@ export interface ItemBarcodeDto extends EntityDto<string> {
   isDefault?: boolean;
 }
 
-export interface ItemSupplierDto extends EntityDto<string> {
-  supplierId?: string;
-  supplierPartNo?: string | null;
-}
-
 export interface ItemCustomerDetailDto extends EntityDto<string> {
   customerId?: string;
   refCode?: string;
-}
-
-export interface ItemReorderDto extends EntityDto<string> {
-  warehouseId?: string;
-  warehouseGroupId?: string | null;
-  warehouseReorderLevel?: number;
-  warehouseReorderQty?: number;
-  materialRequestType?: MaterialRequestType;
 }
 
 export interface ItemDetailsDto {
@@ -1024,6 +1013,14 @@ export interface ItemRateResultDto {
   source?: string | null;
 }
 
+export interface ItemReorderDto extends EntityDto<string> {
+  warehouseId?: string;
+  warehouseGroupId?: string | null;
+  warehouseReorderLevel?: number;
+  warehouseReorderQty?: number;
+  materialRequestType?: MaterialRequestType;
+}
+
 export interface ItemStandardCostDto extends EntityDto<string> {
   companyId?: string;
   itemId?: string;
@@ -1044,6 +1041,11 @@ export interface ItemStockMovementDto {
   balanceValue?: number;
   voucherType?: string;
   voucherId?: string | null;
+}
+
+export interface ItemSupplierDto extends EntityDto<string> {
+  supplierId?: string;
+  supplierPartNo?: string | null;
 }
 
 export interface ItemTransactionSummaryDto {

@@ -2,8 +2,8 @@ import type { CreateQuotationDto, QuotationDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { AddCompetitorDetailDto, CompetitorDetailDto } from '../crm/models';
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -45,7 +45,7 @@ export class QuotationService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   deleteCompetitor = (competitorDetailId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -53,7 +53,7 @@ export class QuotationService {
       url: `/api/app/quotation/competitor/${competitorDetailId}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QuotationDto>({
@@ -61,7 +61,7 @@ export class QuotationService {
       url: `/api/app/quotation/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<QuotationDto>>({

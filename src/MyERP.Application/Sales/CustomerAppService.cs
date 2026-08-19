@@ -93,6 +93,31 @@ public class CustomerAppService :
             items.Select(ObjectMapper.Map<Customer, CustomerDto>).ToList());
     }
 
+    public override async Task<CustomerDto> CreateAsync(CreateUpdateCustomerDto input)
+    {
+        await ValidateCustomerNameAsync(input.Name);
+        return await base.CreateAsync(input);
+    }
+
+    public override async Task<CustomerDto> UpdateAsync(Guid id, CreateUpdateCustomerDto input)
+    {
+        await ValidateCustomerNameAsync(input.Name);
+        return await base.UpdateAsync(id, input);
+    }
+
+    private async Task ValidateCustomerNameAsync(string name)
+    {
+        var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();
+        var query = await groupRepo.GetQueryableAsync();
+        var trimmed = name.Trim();
+        var groupExists = query.Any(g => g.Name.ToLower() == trimmed.ToLower());
+        if (groupExists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CustomerNameCannotMatchCustomerGroup)
+                .WithData("name", name);
+        }
+    }
+
     protected override Customer MapToEntity(CreateUpdateCustomerDto input)
     {
         var customer = new Customer(
@@ -121,6 +146,13 @@ public class CustomerAppService :
         entity.Country = input.Country;
         entity.DefaultReceivableAccountId = input.DefaultReceivableAccountId;
         entity.IsActive = input.IsActive;
+        entity.CreditLimit = input.CreditLimit;
+        entity.RepresentsCompanyId = input.RepresentsCompanyId;
+        entity.CustomerGroupId = input.CustomerGroupId;
+        entity.TerritoryId = input.TerritoryId;
+        entity.LoyaltyProgramId = input.LoyaltyProgramId;
+        entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
+        entity.RestrictToCompanies = input.RestrictToCompanies;
     }
 }
 

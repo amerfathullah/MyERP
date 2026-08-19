@@ -49,7 +49,7 @@ export class ItemService {
     this.restService.request<any, PagedResultDto<ItemDto>>({
       method: 'GET',
       url: '/api/app/item',
-      params: { filter: input.filter, companyId: input.companyId, itemType: input.itemType, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { filter: input.filter, companyId: input.companyId, itemType: input.itemType, customerId: input.customerId, supplierId: input.supplierId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

@@ -59,7 +59,7 @@ export class ProjectService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   createUser = (input: AddProjectUserDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectUserDto>({
@@ -68,24 +68,7 @@ export class ProjectService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
-
-  updateUser = (projectUserId: string, input: UpdateProjectUserDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ProjectUserDto>({
-      method: 'PUT',
-      url: `/api/app/project/user/${projectUserId}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  deleteUser = (projectUserId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/project/user/${projectUserId}`,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -99,6 +82,14 @@ export class ProjectService {
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/project/task/${taskId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteUser = (projectUserId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/project/user/${projectUserId}`,
     },
     { apiName: this.apiName,...config });
   
@@ -149,6 +140,15 @@ export class ProjectService {
     this.restService.request<any, ProjectTaskDto>({
       method: 'PUT',
       url: `/api/app/project/task/${taskId}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateUser = (projectUserId: string, input: UpdateProjectUserDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectUserDto>({
+      method: 'PUT',
+      url: `/api/app/project/user/${projectUserId}`,
       body: input,
     },
     { apiName: this.apiName,...config });

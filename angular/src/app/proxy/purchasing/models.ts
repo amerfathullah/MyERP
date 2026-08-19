@@ -1,11 +1,11 @@
 import type { ScorecardPeriodType } from './scorecard-period-type.enum';
+import type { SupplierHoldType } from './supplier-hold-type.enum';
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { SubcontractingOrderStatus } from './subcontracting-order-status.enum';
 import type { AnalyticsGroupBy } from '../sales/analytics-group-by.enum';
 import type { AnalyticsPeriodType } from '../sales/analytics-period-type.enum';
 import type { SubcontractingInwardOrderStatus } from './subcontracting-inward-order-status.enum';
 import type { SubcontractingReceiptStatus } from './subcontracting-receipt-status.enum';
-import type { SupplierHoldType } from './supplier-hold-type.enum';
 
 export interface ComparisonItemDto {
   itemId?: string;
@@ -274,6 +274,14 @@ export interface CreateUpdateSupplierDto {
   country?: string | null;
   defaultPayableAccountId?: string | null;
   isActive?: boolean;
+  holdType?: SupplierHoldType;
+  preventPurchaseOrders?: boolean;
+  preventRfqs?: boolean;
+  representsCompanyId?: string | null;
+  supplierGroupId?: string | null;
+  taxWithholdingCategory?: string | null;
+  defaultPaymentTermsTemplateId?: string | null;
+  restrictToCompanies?: boolean;
 }
 
 export interface CreatedPurchaseOrderInfo {
@@ -719,6 +727,13 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   defaultPayableAccountId?: string | null;
   isActive?: boolean;
   holdType?: SupplierHoldType;
+  preventPurchaseOrders?: boolean;
+  preventRfqs?: boolean;
+  representsCompanyId?: string | null;
+  supplierGroupId?: string | null;
+  taxWithholdingCategory?: string | null;
+  defaultPaymentTermsTemplateId?: string | null;
+  restrictToCompanies?: boolean;
 }
 
 export interface SupplierPaymentLineDto {

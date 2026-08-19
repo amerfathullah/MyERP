@@ -743,6 +743,7 @@ export interface UpdateAssetDto {
   depreciationRate?: number;
   frequencyMonths?: number;
   availableForUseDate?: string | null;
+  openingAccumulatedDepreciation?: number;
   notes?: string | null;
 }
 

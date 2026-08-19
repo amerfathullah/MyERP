@@ -25,4 +25,11 @@ public class SupplierDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultPayableAccountId { get; set; }
     public bool IsActive { get; set; }
     public SupplierHoldType HoldType { get; set; }
+    public bool PreventPurchaseOrders { get; set; }
+    public bool PreventRfqs { get; set; }
+    public Guid? RepresentsCompanyId { get; set; }
+    public Guid? SupplierGroupId { get; set; }
+    public string? TaxWithholdingCategory { get; set; }
+    public Guid? DefaultPaymentTermsTemplateId { get; set; }
+    public bool RestrictToCompanies { get; set; }
 }

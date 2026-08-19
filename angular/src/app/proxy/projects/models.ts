@@ -19,6 +19,13 @@ export interface ActivityTypeDto extends EntityDto<string> {
   isEnabled?: boolean;
 }
 
+export interface AddProjectUserDto {
+  projectId: string;
+  userId: string;
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
+}
+
 export interface CreateActivityTypeDto {
   name: string;
   defaultBillingRate?: number;
@@ -131,26 +138,6 @@ export interface ProjectDto extends AuditedEntityDto<string> {
   users?: ProjectUserDto[];
 }
 
-export interface ProjectUserDto extends EntityDto<string> {
-  projectId?: string;
-  userId?: string;
-  userName?: string | null;
-  viewAttachments?: boolean;
-  hideTimesheets?: boolean;
-}
-
-export interface AddProjectUserDto {
-  projectId?: string;
-  userId?: string;
-  viewAttachments?: boolean;
-  hideTimesheets?: boolean;
-}
-
-export interface UpdateProjectUserDto {
-  viewAttachments?: boolean;
-  hideTimesheets?: boolean;
-}
-
 export interface ProjectTaskDto {
   id?: string;
   projectId?: string;
@@ -191,6 +178,14 @@ export interface ProjectTemplateTaskDto {
 export interface ProjectTypeDto extends FullAuditedEntityDto<string> {
   name?: string;
   isActive?: boolean;
+}
+
+export interface ProjectUserDto extends EntityDto<string> {
+  projectId?: string;
+  userId?: string;
+  userName?: string | null;
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
 }
 
 export interface SetActivityCostDto {
@@ -277,4 +272,9 @@ export interface UpdateProjectTaskDto {
   expectedHours?: number;
   assignedUserId?: string | null;
   description?: string | null;
+}
+
+export interface UpdateProjectUserDto {
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
 }

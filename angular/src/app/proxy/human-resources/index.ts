@@ -1,3 +1,5 @@
+export * from './attendance-status.enum';
+export * from './attendance.service';
 export * from './department.service';
 export * from './designation.service';
 export * from './employee.service';
@@ -13,3 +15,6 @@ export * from './payroll.service';
 export * from './salary-component.service';
 export * from './salary-slip.service';
 export * from './salary-structure.service';
+export * from './shift-assignment-status.enum';
+export * from './shift-assignment.service';
+export * from './shift-type.service';
