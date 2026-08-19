@@ -56,6 +56,14 @@ public class AssetMaintenanceTeamAppService : ApplicationService, IAssetMaintena
         };
         team.SetMembers(input.Members.Select(m => (m.EmployeeId, m.MaintenanceRole)));
         await _repository.InsertAsync(team);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetMaintenanceTeam", team.Id,
+            "Created", team.CompanyId,
+            team.TeamName, "Draft", "Active", CurrentUser.Id,
+            $"Asset maintenance team '{team.TeamName}' created with {team.Members.Count} members", CurrentTenant.Id));
+
         return (await MapWithEmployeeNamesAsync(new[] { team })).Single();
     }
 
@@ -67,6 +75,14 @@ public class AssetMaintenanceTeamAppService : ApplicationService, IAssetMaintena
         team.MaintenanceManagerId = input.MaintenanceManagerId;
         team.SetMembers(input.Members.Select(m => (m.EmployeeId, m.MaintenanceRole)));
         await _repository.UpdateAsync(team);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetMaintenanceTeam", team.Id,
+            "Updated", team.CompanyId,
+            team.TeamName, "Active", "Active", CurrentUser.Id,
+            $"Asset maintenance team '{team.TeamName}' updated", CurrentTenant.Id));
+
         return (await MapWithEmployeeNamesAsync(new[] { team })).Single();
     }
 

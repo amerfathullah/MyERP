@@ -75,6 +75,14 @@ public class LocationAppService : ApplicationService, ILocationAppService
         };
 
         await _repository.InsertAsync(location);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Location", location.Id,
+            "Created", Guid.Empty,
+            location.LocationName, "Draft", "Active", CurrentUser.Id,
+            $"Location '{location.LocationName}' created", CurrentTenant.Id));
+
         return _mapper.Map(location);
     }
 
@@ -94,6 +102,14 @@ public class LocationAppService : ApplicationService, ILocationAppService
         location.Longitude = input.Longitude;
 
         await _repository.UpdateAsync(location);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Location", location.Id,
+            "Updated", Guid.Empty,
+            location.LocationName, "Active", "Active", CurrentUser.Id,
+            $"Location '{location.LocationName}' updated", CurrentTenant.Id));
+
         return _mapper.Map(location);
     }
 

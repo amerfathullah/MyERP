@@ -80,6 +80,14 @@ public class AssetCategoryAppService : ApplicationService, IAssetCategoryAppServ
         }
 
         await _repository.InsertAsync(category);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetCategory", category.Id,
+            "Created", Guid.Empty,
+            category.CategoryName, "Draft", "Active", CurrentUser.Id,
+            $"Asset category '{category.CategoryName}' created", CurrentTenant.Id));
+
         return _mapper.Map(category);
     }
 
@@ -120,6 +128,14 @@ public class AssetCategoryAppService : ApplicationService, IAssetCategoryAppServ
         }
 
         await _repository.UpdateAsync(category);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetCategory", category.Id,
+            "Updated", Guid.Empty,
+            category.CategoryName, "Active", "Active", CurrentUser.Id,
+            $"Asset category '{category.CategoryName}' updated", CurrentTenant.Id));
+
         return _mapper.Map(category);
     }
 

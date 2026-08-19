@@ -42,22 +42,50 @@ public class AssetShiftFactorAppService : ApplicationService, IAssetShiftFactorA
     [Authorize(MyERPPermissions.AssetCategories.Create)]
     public async Task<AssetShiftFactorDto> CreateAsync(CreateUpdateAssetShiftFactorDto input)
     {
+        if (input.Factor <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Factor");
+        }
+
         var entity = new AssetShiftFactor(GuidGenerator.Create(), input.ShiftName, input.Factor, CurrentTenant.Id)
         {
             IsDefault = input.IsDefault,
         };
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetShiftFactor", entity.Id,
+            "Created", Guid.Empty,
+            entity.ShiftName, "Draft", "Active", CurrentUser.Id,
+            $"Asset shift factor '{entity.ShiftName}' created (Factor: {entity.Factor})", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
     [Authorize(MyERPPermissions.AssetCategories.Edit)]
     public async Task<AssetShiftFactorDto> UpdateAsync(Guid id, CreateUpdateAssetShiftFactorDto input)
     {
+        if (input.Factor <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Factor");
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.ShiftName = input.ShiftName;
         entity.Factor = input.Factor;
         entity.IsDefault = input.IsDefault;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AssetShiftFactor", entity.Id,
+            "Updated", Guid.Empty,
+            entity.ShiftName, "Active", "Active", CurrentUser.Id,
+            $"Asset shift factor '{entity.ShiftName}' updated (Factor: {entity.Factor})", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
