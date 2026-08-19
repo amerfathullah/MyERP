@@ -455,6 +455,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue monthly stock balance closing snapshots
+                // Per ERPNext: stock_closing_entry.process
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.StockClosingJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -463,6 +472,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (46 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (47 jobs).", companies.Count);
     }
 }
