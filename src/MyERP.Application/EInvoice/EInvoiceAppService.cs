@@ -123,6 +123,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         // Update source document e-Invoice status
         await UpdateSourceDocumentStatusAsync(input.SourceDocumentType, input.SourceDocumentId, submission);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "EInvoiceSubmission", submission.Id,
+            "Submitted", submission.CompanyId,
+            submission.DocumentUuid ?? submission.Id.ToString(), "Draft", submission.Status, CurrentUser.Id,
+            $"LHDN e-Invoice submitted. UUID: {submission.DocumentUuid}", CurrentTenant.Id));
+
         return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
 
@@ -404,6 +411,16 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         var submission = await _eInvoiceService.CancelAsync(
             input.SubmissionId, input.Reason, accessToken, environment);
+
+        // Propagate cancellation status back to source invoice
+        await PropagateStatusToSourceAsync(submission);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "EInvoiceSubmission", submission.Id,
+            "Cancelled", submission.CompanyId,
+            submission.DocumentUuid ?? submission.Id.ToString(), "Submitted", "Cancelled", CurrentUser.Id,
+            $"LHDN e-Invoice {submission.DocumentUuid} cancelled. Reason: {input.Reason}", CurrentTenant.Id));
 
         return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
     }
