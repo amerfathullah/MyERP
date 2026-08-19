@@ -95,26 +95,31 @@ public class CustomerAppService :
 
     public override async Task<CustomerDto> CreateAsync(CreateUpdateCustomerDto input)
     {
-        await ValidateCustomerNameAsync(input.Name);
+        await ValidateCustomerAsync(input);
         return await base.CreateAsync(input);
     }
 
     public override async Task<CustomerDto> UpdateAsync(Guid id, CreateUpdateCustomerDto input)
     {
-        await ValidateCustomerNameAsync(input.Name);
+        await ValidateCustomerAsync(input);
         return await base.UpdateAsync(id, input);
     }
 
-    private async Task ValidateCustomerNameAsync(string name)
+    private async Task ValidateCustomerAsync(CreateUpdateCustomerDto input)
     {
+        if (input.RepresentsCompanyId.HasValue && input.RepresentsCompanyId.Value == input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+        }
+
         var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();
         var query = await groupRepo.GetQueryableAsync();
-        var trimmed = name.Trim();
+        var trimmed = input.Name.Trim();
         var groupExists = query.Any(g => g.Name.ToLower() == trimmed.ToLower());
         if (groupExists)
         {
             throw new BusinessException(MyERPDomainErrorCodes.CustomerNameCannotMatchCustomerGroup)
-                .WithData("name", name);
+                .WithData("name", input.Name);
         }
     }
 

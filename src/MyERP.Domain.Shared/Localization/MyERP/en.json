@@ -3910,6 +3910,7 @@
     "NoLimit": "No Limit",
     "VerifyTaxpayer": "Verify Taxpayer",
     "HoldInvoices": "Hold (Invoices)",
-    "HoldPayments": "Hold (Payments)"
+    "HoldPayments": "Hold (Payments)",
+    "MyERP:03005": "A party cannot represent the company it belongs to."
   }
 }

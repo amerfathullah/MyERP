@@ -160,6 +160,7 @@ public static class MyERPDomainErrorCodes
     public const string DuplicateSupplierInvoice = "MyERP:04009";
     public const string DuplicateRfqSupplier = "MyERP:04010";
     public const string SupplierNameCannotMatchSupplierGroup = "MyERP:04030";
+    public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";

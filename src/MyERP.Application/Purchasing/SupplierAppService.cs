@@ -95,26 +95,31 @@ public class SupplierAppService :
 
     public override async Task<SupplierDto> CreateAsync(CreateUpdateSupplierDto input)
     {
-        await ValidateSupplierNameAsync(input.Name);
+        await ValidateSupplierAsync(input);
         return await base.CreateAsync(input);
     }
 
     public override async Task<SupplierDto> UpdateAsync(Guid id, CreateUpdateSupplierDto input)
     {
-        await ValidateSupplierNameAsync(input.Name);
+        await ValidateSupplierAsync(input);
         return await base.UpdateAsync(id, input);
     }
 
-    private async Task ValidateSupplierNameAsync(string name)
+    private async Task ValidateSupplierAsync(CreateUpdateSupplierDto input)
     {
+        if (input.RepresentsCompanyId.HasValue && input.RepresentsCompanyId.Value == input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+        }
+
         var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.SupplierGroup, Guid>>();
         var query = await groupRepo.GetQueryableAsync();
-        var trimmed = name.Trim();
+        var trimmed = input.Name.Trim();
         var groupExists = query.Any(g => g.Name.ToLower() == trimmed.ToLower());
         if (groupExists)
         {
             throw new BusinessException(MyERPDomainErrorCodes.SupplierNameCannotMatchSupplierGroup)
-                .WithData("name", name);
+                .WithData("name", input.Name);
         }
     }
 
