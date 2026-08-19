@@ -12,8 +12,8 @@ using Volo.Abp.Identity;
 namespace MyERP.Maintenance.BackgroundJobs;
 
 /// <summary>
-/// Background job that notifies maintenance personnel and customers of upcoming maintenance schedules.
-/// Per ERPNext: maintenance_schedule.generate_schedule (daily scheduler).
+/// Background job that monitors upcoming preventive maintenance schedules and alerts service technicians.
+/// Per ERPNext: maintenance_schedule.send_maintenance_reminder (daily scheduler).
 /// </summary>
 public class MaintenanceScheduleReminderJob : AsyncBackgroundJob<MaintenanceScheduleReminderJobArgs>, ITransientDependency
 {
@@ -39,52 +39,52 @@ public class MaintenanceScheduleReminderJob : AsyncBackgroundJob<MaintenanceSche
         var asOfDate = args.AsOfDate ?? DateTime.UtcNow.Date;
         var upcomingWindow = asOfDate.AddDays(7);
 
-        _logger.LogInformation("MaintenanceScheduleReminderJob: Checking maintenance schedules for company {CompanyId} up to {Window}",
-            args.CompanyId, upcomingWindow);
+        _logger.LogInformation("MaintenanceScheduleReminderJob: Checking upcoming maintenance visits for company {CompanyId} up to {Date}",
+            args.CompanyId, upcomingWindow.ToString("yyyy-MM-dd"));
 
         var query = await _scheduleRepository.WithDetailsAsync(s => s.Details);
         var activeSchedules = query
-            .Where(s => s.CompanyId == args.CompanyId &&
-                        s.Status == MaintenanceScheduleStatus.Submitted)
+            .Where(s => s.CompanyId == args.CompanyId && s.Status == MaintenanceScheduleStatus.Submitted)
             .ToList();
 
-        var remindedCount = 0;
-        foreach (var schedule in activeSchedules)
+        if (!activeSchedules.Any())
+            return;
+
+        var dueSchedules = activeSchedules
+            .Where(s => s.Details.Any(d => !d.IsCompleted && d.ScheduledDate <= upcomingWindow))
+            .ToList();
+
+        if (!dueSchedules.Any())
+            return;
+
+        var usersQuery = await _userRepository.GetQueryableAsync();
+        var technicians = usersQuery
+            .Where(u => u.Email != null && u.Email.Length > 0 && u.IsActive)
+            .Take(5)
+            .ToList();
+
+        var subject = $"[MAINTENANCE REMINDER] {dueSchedules.Count} Scheduled Maintenance Visits Due";
+        var body = $@"<h3>Upcoming Preventive Maintenance Visits</h3>
+<p>There are {dueSchedules.Count} maintenance contract schedule(s) with visits due in the next 7 days:</p>
+<ul>
+{string.Join("", dueSchedules.Select(s => $"<li><strong>Schedule: {s.Id}</strong> - Periodicity: {s.Periodicity} | Due visits: {s.Details.Count(d => !d.IsCompleted && d.ScheduledDate <= upcomingWindow)}</li>"))}
+</ul>
+<p><em>Please review schedule details and dispatch field technicians.</em></p>";
+
+        foreach (var tech in technicians)
         {
-            var dueDetails = schedule.Details
-                .Where(d => d.ScheduledDate >= asOfDate &&
-                            d.ScheduledDate <= upcomingWindow &&
-                            !d.IsCompleted)
-                .ToList();
-
-            if (!dueDetails.Any())
-                continue;
-
-            if (schedule.SalesPersonId.HasValue)
+            try
             {
-                var user = await _userRepository.FindAsync(schedule.SalesPersonId.Value);
-                if (user != null && !string.IsNullOrEmpty(user.Email))
-                {
-                    try
-                    {
-                        var subject = $"Upcoming Maintenance Visits: {schedule.Periodicity} Schedule";
-                        var body = $@"<h3>Upcoming Preventive Maintenance</h3>
-<p>You have {dueDetails.Count} maintenance visit(s) scheduled between {asOfDate:yyyy-MM-dd} and {upcomingWindow:yyyy-MM-dd}.</p>
-<p>Schedule ID: {schedule.Id}</p>";
-
-                        await _emailSender.SendAsync(user.Email, subject, body, isBodyHtml: true);
-                        remindedCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "MaintenanceScheduleReminderJob: Failed to send maintenance reminder to user {UserId}", user.Id);
-                    }
-                }
+                await _emailSender.SendAsync(tech.Email, subject, body, isBodyHtml: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "MaintenanceScheduleReminderJob: Failed to send maintenance reminder to {Email}", tech.Email);
             }
         }
 
-        _logger.LogInformation("MaintenanceScheduleReminderJob: Sent {Count} maintenance reminders for company {CompanyId}",
-            remindedCount, args.CompanyId);
+        _logger.LogInformation("MaintenanceScheduleReminderJob: Sent reminder for {Count} due schedules for company {CompanyId}",
+            dueSchedules.Count, args.CompanyId);
     }
 }
 
