@@ -52,6 +52,48 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     [Authorize(MyERPPermissions.AssetCapitalizations.Create)]
     public async Task<AssetCapitalizationDto> CreateAsync(CreateUpdateAssetCapitalizationDto input)
     {
+        var targetAsset = await _assetRepository.GetAsync(input.TargetAssetId);
+        if (targetAsset.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
+                .WithData("assetName", targetAsset.AssetName);
+        }
+        if (targetAsset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
+                .WithData("assetName", targetAsset.AssetName)
+                .WithData("status", targetAsset.Status.ToString());
+        }
+
+        if (input.StockItems != null && input.StockItems.Any())
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
+        }
+
+        if (input.ConsumedAssets != null)
+        {
+            foreach (var ca in input.ConsumedAssets)
+            {
+                if (ca.AssetId == input.TargetAssetId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ConsumedAssetCannotBeTargetAsset);
+                }
+                var consumedAsset = await _assetRepository.GetAsync(ca.AssetId);
+                if (consumedAsset.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
+                        .WithData("assetName", consumedAsset.AssetName);
+                }
+                if (consumedAsset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
+                        .WithData("assetName", consumedAsset.AssetName)
+                        .WithData("status", consumedAsset.Status.ToString());
+                }
+            }
+        }
+
         var capNumber = $"AS-CAP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
         var cap = new AssetCapitalization(
             GuidGenerator.Create(),
@@ -121,6 +163,11 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     public async Task<AssetCapitalizationDto> SubmitAsync(Guid id)
     {
         var cap = await _repository.GetAsync(id);
+        if (!cap.StockItems.Any() && !cap.ServiceItems.Any() && !cap.ConsumedAssets.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         cap.Submit();
 
         var targetAsset = await _assetRepository.FindAsync(cap.TargetAssetId);

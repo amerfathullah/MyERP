@@ -440,8 +440,9 @@ public static class MyERPDomainErrorCodes
     public const string AlternativeItemStockMismatch = "MyERP:05050";
     public const string DuplicateItemAlternative = "MyERP:05051";
 
-    // Asset Movement
+    // Asset Movement & Capitalization
     public const string AssetCompanyMismatch = "MyERP:06001";
     public const string AssetCannotBeMoved = "MyERP:06002";
     public const string AssetMovementSameLocationAndCustodian = "MyERP:06003";
+    public const string ConsumedAssetCannotBeTargetAsset = "MyERP:06004";
 }
