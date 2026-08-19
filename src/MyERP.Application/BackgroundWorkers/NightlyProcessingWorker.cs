@@ -568,6 +568,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue contract expiration, auto-renewal and renewal notices
+                // Per ERPNext: contract.update_contract_status
+                await jobManager.EnqueueAsync(new CRM.BackgroundJobs.ContractExpiryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -576,6 +585,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (59 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (60 jobs).", companies.Count);
     }
 }
