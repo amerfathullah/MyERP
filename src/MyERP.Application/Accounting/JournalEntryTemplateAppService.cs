@@ -71,6 +71,15 @@ public class JournalEntryTemplateAppService : ApplicationService, IJournalEntryT
             template.AddLine(line.AccountId, line.IsDebit, line.DefaultAmount, line.PartyType, line.Description);
 
         await _repository.InsertAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JournalEntryTemplate", template.Id,
+            "Created", template.CompanyId,
+            template.TemplateName, "Draft", "Active",
+            CurrentUser.Id,
+            $"Journal entry template '{template.TemplateName}' created", CurrentTenant.Id));
+
         return await ToDtoAsync(template);
     }
 
@@ -90,6 +99,15 @@ public class JournalEntryTemplateAppService : ApplicationService, IJournalEntryT
             template.AddLine(line.AccountId, line.IsDebit, line.DefaultAmount, line.PartyType, line.Description);
 
         await _repository.UpdateAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JournalEntryTemplate", template.Id,
+            "Updated", template.CompanyId,
+            template.TemplateName, "Active", "Active",
+            CurrentUser.Id,
+            $"Journal entry template '{template.TemplateName}' updated", CurrentTenant.Id));
+
         return await ToDtoAsync(template);
     }
 

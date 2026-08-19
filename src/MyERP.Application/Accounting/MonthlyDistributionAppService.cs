@@ -33,20 +33,48 @@ public class MonthlyDistributionAppService : ApplicationService, IMonthlyDistrib
     [Authorize(MyERPPermissions.Budgets.Create)]
     public async Task<MonthlyDistributionDto> CreateAsync(CreateUpdateMonthlyDistributionDto input)
     {
+        if (input.Percentages == null || input.Percentages.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var distribution = new MonthlyDistribution(GuidGenerator.Create(), input.DistributionName, input.FiscalYearId, CurrentTenant.Id);
         distribution.SetPercentages(input.Percentages.Select(p => (p.Month, p.PercentageAllocation)));
         await _repository.InsertAsync(distribution);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MonthlyDistribution", distribution.Id,
+            "Created", Guid.Empty,
+            distribution.DistributionName, "Draft", "Active",
+            CurrentUser.Id,
+            $"Monthly distribution '{distribution.DistributionName}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<MonthlyDistribution, MonthlyDistributionDto>(distribution);
     }
 
     [Authorize(MyERPPermissions.Budgets.Edit)]
     public async Task<MonthlyDistributionDto> UpdateAsync(Guid id, CreateUpdateMonthlyDistributionDto input)
     {
+        if (input.Percentages == null || input.Percentages.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var distribution = await _repository.GetAsync(id);
         distribution.DistributionName = input.DistributionName;
         distribution.FiscalYearId = input.FiscalYearId;
         distribution.SetPercentages(input.Percentages.Select(p => (p.Month, p.PercentageAllocation)));
         await _repository.UpdateAsync(distribution);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MonthlyDistribution", distribution.Id,
+            "Updated", Guid.Empty,
+            distribution.DistributionName, "Active", "Active",
+            CurrentUser.Id,
+            $"Monthly distribution '{distribution.DistributionName}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<MonthlyDistribution, MonthlyDistributionDto>(distribution);
     }
 

@@ -43,6 +43,15 @@ public class PaymentTermsTemplateAppService : ApplicationService, IPaymentTermsT
         }
         template.ValidatePortions();
         await _repository.InsertAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentTermsTemplate", template.Id,
+            "Created", Guid.Empty,
+            template.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Payment terms template '{template.Name}' created with {template.Terms.Count} terms", CurrentTenant.Id));
+
         return ObjectMapper.Map<PaymentTermsTemplate, PaymentTermsTemplateDto>(template);
     }
 
@@ -62,6 +71,15 @@ public class PaymentTermsTemplateAppService : ApplicationService, IPaymentTermsT
         }
         updated.ValidatePortions();
         await _repository.InsertAsync(updated);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentTermsTemplate", updated.Id,
+            "Updated", Guid.Empty,
+            updated.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Payment terms template '{updated.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<PaymentTermsTemplate, PaymentTermsTemplateDto>(updated);
     }
 

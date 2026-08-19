@@ -64,6 +64,15 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         dimension.CompanyId = input.CompanyId;
 
         await _repository.InsertAsync(dimension);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountingDimension", dimension.Id,
+            "Created", dimension.CompanyId ?? Guid.Empty,
+            dimension.Label, "Draft", "Active",
+            CurrentUser.Id,
+            $"Accounting dimension '{dimension.Label}' created for document type '{dimension.DocumentType}'", CurrentTenant.Id));
+
         return ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>(dimension);
     }
 
@@ -76,6 +85,15 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         dimension.CompanyId = input.CompanyId;
         dimension.HideDisabledValues = input.HideDisabledValues;
         await _repository.UpdateAsync(dimension);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountingDimension", dimension.Id,
+            "Updated", dimension.CompanyId ?? Guid.Empty,
+            dimension.Label, "Active", "Active",
+            CurrentUser.Id,
+            $"Accounting dimension '{dimension.Label}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<AccountingDimension, AccountingDimensionDto>(dimension);
     }
 
@@ -85,6 +103,14 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         var dimension = await _repository.GetAsync(id);
         dimension.Enable();
         await _repository.UpdateAsync(dimension);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountingDimension", dimension.Id,
+            "Enabled", dimension.CompanyId ?? Guid.Empty,
+            dimension.Label, "Disabled", "Active",
+            CurrentUser.Id,
+            $"Accounting dimension '{dimension.Label}' enabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.Accounts.Edit)]
@@ -93,6 +119,14 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         var dimension = await _repository.GetAsync(id);
         dimension.Disable();
         await _repository.UpdateAsync(dimension);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountingDimension", dimension.Id,
+            "Disabled", dimension.CompanyId ?? Guid.Empty,
+            dimension.Label, "Active", "Disabled",
+            CurrentUser.Id,
+            $"Accounting dimension '{dimension.Label}' disabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.Accounts.Delete)]
