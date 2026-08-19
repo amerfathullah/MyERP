@@ -316,6 +316,7 @@ public static class MyERPDomainErrorCodes
     public const string NoPosOpeningEntry = "MyERP:16003";
     public const string PosProfileAlreadyOpen = "MyERP:16001";
     public const string PosUserAlreadyHasSession = "MyERP:16002";
+    public const string PosProfileHasOpenSession = "MyERP:16004";
 
     // Project
     public const string ProjectPercentOutOfRange = "MyERP:13003";

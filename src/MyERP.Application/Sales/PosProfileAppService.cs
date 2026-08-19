@@ -162,6 +162,18 @@ public class PosProfileAppService : CrudAppService<
     public async Task<PosProfileDto> DisableAsync(Guid id)
     {
         var entity = await _posProfileRepository.GetAsync(id);
+
+        // Per PosProfile docstring / ERPNext: cannot disable while open POS Opening Entries exist —
+        // the cashier session would keep selling against a profile the back office thinks is off.
+        var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+        var openingQuery = await openingRepo.GetQueryableAsync();
+        var hasOpenSession = openingQuery.Any(e => e.PosProfileId == id && e.Status == PosOpeningStatus.Open);
+        if (hasOpenSession)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PosProfileHasOpenSession)
+                .WithData("reason", "Cannot disable a POS Profile while an open POS Opening Entry exists for it. Close the shift first.");
+        }
+
         entity.Disable();
         await _posProfileRepository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
