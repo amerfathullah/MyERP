@@ -62,16 +62,35 @@ public class ServiceLevelAgreementAppService : ApplicationService, IServiceLevel
 
         foreach (var p in input.Priorities)
         {
+            if (p.ResponseTimeHours <= 0 || p.ResolutionTimeHours <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "ResponseTimeHours/ResolutionTimeHours");
+            }
+
             entity.AddPriority(new ServiceLevelPriority(GuidGenerator.Create(), entity.Id,
                 p.PriorityName, p.ResponseTimeHours, p.ResolutionTimeHours) { IsDefault = p.IsDefault });
         }
 
         foreach (var d in input.ServiceDays)
         {
+            if (d.EndTime < d.StartTime)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+            }
+
             entity.AddServiceDay(new ServiceDay(GuidGenerator.Create(), entity.Id, d.DayOfWeek, d.StartTime, d.EndTime));
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ServiceLevelAgreement", entity.Id,
+            "Created", entity.CompanyId,
+            entity.Name, "Draft", "Active", CurrentUser.Id,
+            $"Service Level Agreement '{entity.Name}' created", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -91,6 +110,14 @@ public class ServiceLevelAgreementAppService : ApplicationService, IServiceLevel
         entity.ApplyOnResolution = input.ApplyOnResolution;
 
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ServiceLevelAgreement", entity.Id,
+            "Updated", entity.CompanyId,
+            entity.Name, "Active", "Active", CurrentUser.Id,
+            $"Service Level Agreement '{entity.Name}' updated", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

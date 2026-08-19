@@ -33,6 +33,12 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
     [Authorize(MyERPPermissions.ApprovalWorkflows.Create)]
     public async Task<ApprovalRuleDto> CreateRuleAsync(CreateApprovalRuleDto input)
     {
+        if (input.MinimumAmount < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MinimumAmount");
+        }
+
         var rule = new ApprovalRule(
             GuidGenerator.Create(),
             input.DocumentType,
@@ -101,6 +107,14 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
     {
         await _workflowManager.ApproveAndAdvanceAsync(input.RequestId, CurrentUser.GetId(), input.Remarks);
         var request = await _requestRepository.GetAsync(input.RequestId);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), request.DocumentType, request.DocumentId,
+            "Approved", Guid.Empty,
+            request.DocumentId.ToString()[..8], "PendingApproval", request.Status.ToString(), CurrentUser.Id,
+            $"Approval request for {request.DocumentType} ({request.DocumentId}) approved at level {request.Level}. Remarks: {input.Remarks}", CurrentTenant.Id));
+
         return ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>(request);
     }
 
@@ -110,6 +124,14 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         var request = await _requestRepository.GetAsync(input.RequestId);
         request.Reject(CurrentUser.GetId(), input.Remarks);
         await _requestRepository.UpdateAsync(request);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), request.DocumentType, request.DocumentId,
+            "Rejected", Guid.Empty,
+            request.DocumentId.ToString()[..8], "PendingApproval", "Rejected", CurrentUser.Id,
+            $"Approval request for {request.DocumentType} ({request.DocumentId}) rejected at level {request.Level}. Remarks: {input.Remarks}", CurrentTenant.Id));
+
         return ObjectMapper.Map<ApprovalRequest, ApprovalRequestDto>(request);
     }
 
