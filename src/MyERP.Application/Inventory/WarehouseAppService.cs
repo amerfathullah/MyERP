@@ -31,6 +31,36 @@ public class WarehouseAppService :
         DeletePolicyName = MyERPPermissions.Warehouses.Delete;
     }
 
+    public override async Task<WarehouseDto> CreateAsync(CreateUpdateWarehouseDto input)
+    {
+        var result = await base.CreateAsync(input);
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Warehouse", result.Id,
+            "Created", result.CompanyId,
+            result.Name, "Draft", "Active", CurrentUser.Id,
+            $"Warehouse '{result.Name}' created", CurrentTenant.Id));
+        return result;
+    }
+
+    public override async Task<WarehouseDto> UpdateAsync(Guid id, CreateUpdateWarehouseDto input)
+    {
+        if (input.ParentWarehouseId == id)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidParentWarehouse)
+                .WithData("warehouseId", id);
+        }
+
+        var result = await base.UpdateAsync(id, input);
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Warehouse", result.Id,
+            "Updated", result.CompanyId,
+            result.Name, "Active", "Active", CurrentUser.Id,
+            $"Warehouse '{result.Name}' updated", CurrentTenant.Id));
+        return result;
+    }
+
     protected override Warehouse MapToEntity(CreateUpdateWarehouseDto input)
     {
         var entity = new Warehouse(

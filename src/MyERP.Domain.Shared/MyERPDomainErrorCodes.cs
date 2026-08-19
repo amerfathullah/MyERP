@@ -455,4 +455,7 @@ public static class MyERPDomainErrorCodes
 
     // Payroll
     public const string DuplicatePayrollEntry = "MyERP:07001";
+
+    // Warehouse
+    public const string InvalidParentWarehouse = "MyERP:05052";
 }

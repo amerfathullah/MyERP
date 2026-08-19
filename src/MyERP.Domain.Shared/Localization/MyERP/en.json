@@ -3921,6 +3921,7 @@
     "MyERP:06003": "Target location and custodian cannot be identical to source for asset {assetName}.",
     "MyERP:06004": "Consumed asset cannot be the same as the target capitalized asset.",
     "MyERP:01012": "The document company does not match the referenced record company.",
-    "MyERP:03036": "Discount percentage must be between 0 and 100."
+    "MyERP:03036": "Discount percentage must be between 0 and 100.",
+    "MyERP:05052": "A warehouse cannot be its own parent warehouse."
   }
 }

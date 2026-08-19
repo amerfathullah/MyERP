@@ -19,6 +19,46 @@ public class PriceListAppService :
     {
     }
 
+    public override async Task<PriceListDto> CreateAsync(CreateUpdatePriceListDto input)
+    {
+        if (!input.IsSelling && !input.IsBuying)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:05018")
+                .WithData("message", "A price list must apply to Buying, Selling, or both.");
+        }
+
+        var result = await base.CreateAsync(input);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PriceList", result.Id,
+            "Created", result.CompanyId ?? Guid.Empty,
+            result.Name, "Draft", "Active", CurrentUser.Id,
+            $"Price list '{result.Name}' created", CurrentTenant.Id));
+
+        return result;
+    }
+
+    public override async Task<PriceListDto> UpdateAsync(Guid id, CreateUpdatePriceListDto input)
+    {
+        if (!input.IsSelling && !input.IsBuying)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:05018")
+                .WithData("message", "A price list must apply to Buying, Selling, or both.");
+        }
+
+        var result = await base.UpdateAsync(id, input);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PriceList", result.Id,
+            "Updated", result.CompanyId ?? Guid.Empty,
+            result.Name, "Active", "Active", CurrentUser.Id,
+            $"Price list '{result.Name}' updated", CurrentTenant.Id));
+
+        return result;
+    }
+
     protected override async Task<PriceList> MapToEntityAsync(CreateUpdatePriceListDto createInput)
     {
         var priceList = new PriceList(

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
@@ -171,6 +172,26 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
     [Authorize(MyERPPermissions.Items.Create)]
     public async Task<ItemPriceDto> CreateAsync(CreateUpdateItemPriceDto input)
     {
+        if (input.PriceListRate < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "PriceListRate");
+        }
+
+        if (input.MinQty < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MinQty");
+        }
+
+        if (input.ValidUpto.HasValue && input.ValidFrom.HasValue && input.ValidUpto.Value < input.ValidFrom.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
+        await itemValidation.ValidateItemAsync(input.ItemId);
+
         var price = new ItemPrice(
             GuidGenerator.Create(),
             input.ItemId,
@@ -189,12 +210,37 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         };
 
         await _itemPriceRepo.InsertAsync(price);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemPrice", price.Id,
+            "Created", Guid.Empty,
+            price.PriceListRate.ToString("F2"), "Draft", "Active", CurrentUser.Id,
+            $"Item price for item {input.ItemId.ToString()[..8]} created with rate {price.PriceListRate}", CurrentTenant.Id));
+
         return await GetAsync(price.Id);
     }
 
     [Authorize(MyERPPermissions.Items.Edit)]
     public async Task<ItemPriceDto> UpdateAsync(Guid id, CreateUpdateItemPriceDto input)
     {
+        if (input.PriceListRate < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "PriceListRate");
+        }
+
+        if (input.MinQty < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MinQty");
+        }
+
+        if (input.ValidUpto.HasValue && input.ValidFrom.HasValue && input.ValidUpto.Value < input.ValidFrom.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var price = await _itemPriceRepo.GetAsync(id);
         price.PriceListRate = input.PriceListRate;
         price.MinQty = input.MinQty;
@@ -204,6 +250,14 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         price.SupplierId = input.SupplierId;
         price.BatchNo = input.BatchNo;
         await _itemPriceRepo.UpdateAsync(price);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemPrice", price.Id,
+            "Updated", Guid.Empty,
+            price.PriceListRate.ToString("F2"), "Active", "Active", CurrentUser.Id,
+            $"Item price for item {price.ItemId.ToString()[..8]} updated with rate {price.PriceListRate}", CurrentTenant.Id));
+
         return await GetAsync(price.Id);
     }
 
@@ -238,6 +292,13 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         }
 
         await _itemPriceRepo.UpdateManyAsync(prices);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PriceList", input.PriceListId,
+            "BulkUpdated", Guid.Empty,
+            input.PriceListId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Bulk updated {prices.Count} item prices in price list by {input.PercentageChange}%", CurrentTenant.Id));
 
         return new BulkPriceUpdateResultDto
         {
