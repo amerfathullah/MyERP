@@ -42,6 +42,12 @@ public class BankTransactionRuleAppService : ApplicationService, IBankTransactio
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
     public async Task<BankTransactionRuleDto> CreateAsync(CreateBankTransactionRuleDto input)
     {
+        if (input.MinAmount.HasValue && input.MaxAmount.HasValue && input.MaxAmount.Value < input.MinAmount.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "MaxAmount cannot be less than MinAmount.");
+        }
+
         var priority = await _service.GetNextPriorityAsync(input.CompanyId);
         var rule = new BankTransactionRule(
             GuidGenerator.Create(), input.CompanyId, input.RuleName, priority, CurrentTenant.Id)
@@ -56,6 +62,15 @@ public class BankTransactionRuleAppService : ApplicationService, IBankTransactio
             rule.AddCondition(BankRuleMatchType.Contains, input.DescriptionContains);
         }
         await _repository.InsertAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankTransactionRule", rule.Id,
+            "Created", rule.CompanyId,
+            rule.RuleName, "Draft", "Active",
+            CurrentUser.Id,
+            $"Bank transaction rule '{rule.RuleName}' created with priority {rule.Priority}", CurrentTenant.Id));
+
         return MapToDto(rule);
     }
 
@@ -65,6 +80,14 @@ public class BankTransactionRuleAppService : ApplicationService, IBankTransactio
         var rule = await _repository.GetAsync(id);
         rule.IsEnabled = false;
         await _repository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankTransactionRule", rule.Id,
+            "Disabled", rule.CompanyId,
+            rule.RuleName, "Active", "Disabled",
+            CurrentUser.Id,
+            $"Bank transaction rule '{rule.RuleName}' disabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Edit)]
@@ -73,6 +96,14 @@ public class BankTransactionRuleAppService : ApplicationService, IBankTransactio
         var rule = await _repository.GetAsync(id);
         rule.IsEnabled = true;
         await _repository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankTransactionRule", rule.Id,
+            "Enabled", rule.CompanyId,
+            rule.RuleName, "Disabled", "Active",
+            CurrentUser.Id,
+            $"Bank transaction rule '{rule.RuleName}' enabled", CurrentTenant.Id));
     }
 
     /// <summary>

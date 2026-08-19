@@ -47,18 +47,42 @@ public class CostCenterAppService : ApplicationService, ICostCenterAppService
             input.IsGroup, input.ParentId, CurrentTenant.Id)
         { CostCenterNumber = input.CostCenterNumber };
         await _repository.InsertAsync(cc);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CostCenter", cc.Id,
+            "Created", cc.CompanyId,
+            cc.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Cost center '{cc.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
 
     [Authorize(MyERPPermissions.Accounts.Edit)]
     public async Task<CostCenterDto> UpdateAsync(Guid id, CreateCostCenterDto input)
     {
+        if (input.ParentId == id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A cost center cannot be its own parent.");
+        }
+
         var cc = await _repository.GetAsync(id);
         cc.Name = input.Name;
         cc.CostCenterNumber = input.CostCenterNumber;
         cc.IsGroup = input.IsGroup;
         cc.ParentId = input.ParentId;
         await _repository.UpdateAsync(cc);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CostCenter", cc.Id,
+            "Updated", cc.CompanyId,
+            cc.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Cost center '{cc.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
 }

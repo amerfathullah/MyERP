@@ -71,6 +71,15 @@ public class FinanceBookAppService : ApplicationService, IFinanceBookAppService
         };
 
         await _repository.InsertAsync(book, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "FinanceBook", book.Id,
+            "Created", book.CompanyId,
+            book.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Finance book '{book.Name}' created", CurrentTenant.Id));
+
         return MapToDto(book);
     }
 
@@ -91,6 +100,15 @@ public class FinanceBookAppService : ApplicationService, IFinanceBookAppService
 
         book.IsDefault = true;
         await _repository.UpdateAsync(book, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "FinanceBook", book.Id,
+            "SetDefault", book.CompanyId,
+            book.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Finance book '{book.Name}' set as default", CurrentTenant.Id));
+
         return MapToDto(book);
     }
 

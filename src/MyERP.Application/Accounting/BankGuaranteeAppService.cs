@@ -77,14 +77,35 @@ public class BankGuaranteeAppService : MyERPAppService, IBankGuaranteeAppService
             ClausesAndConditions = input.ClausesAndConditions
         };
 
+        if (input.Amount <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Amount");
+        }
+
         entity.RecalculateEndDate();
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankGuarantee", entity.Id,
+            "Created", entity.CompanyId,
+            entity.BankGuaranteeNumber ?? entity.Id.ToString()[..8], "Draft", "Draft",
+            CurrentUser.Id,
+            $"Bank guarantee '{entity.BankGuaranteeNumber}' created with amount {entity.Amount:C}", CurrentTenant.Id));
+
         return new BankGuaranteeMapper().Map(entity);
     }
 
     [Authorize(MyERPPermissions.BankGuarantees.Edit)]
     public async Task<BankGuaranteeDto> UpdateAsync(Guid id, CreateUpdateBankGuaranteeDto input)
     {
+        if (input.Amount <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Amount");
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.BgType = input.BgType;
         entity.ReferenceDocType = input.ReferenceDocType;
@@ -117,6 +138,15 @@ public class BankGuaranteeAppService : MyERPAppService, IBankGuaranteeAppService
         entity.ValidateParty();
 
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankGuarantee", entity.Id,
+            "Updated", entity.CompanyId,
+            entity.BankGuaranteeNumber ?? entity.Id.ToString()[..8], "Draft", "Draft",
+            CurrentUser.Id,
+            $"Bank guarantee '{entity.BankGuaranteeNumber}' updated", CurrentTenant.Id));
+
         return new BankGuaranteeMapper().Map(entity);
     }
 
@@ -132,6 +162,15 @@ public class BankGuaranteeAppService : MyERPAppService, IBankGuaranteeAppService
         var entity = await _repository.GetAsync(id);
         entity.Submit();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankGuarantee", entity.Id,
+            "Submitted", entity.CompanyId,
+            entity.BankGuaranteeNumber ?? entity.Id.ToString()[..8], "Draft", "Submitted",
+            CurrentUser.Id,
+            $"Bank guarantee '{entity.BankGuaranteeNumber}' submitted", CurrentTenant.Id));
+
         return new BankGuaranteeMapper().Map(entity);
     }
 
@@ -141,6 +180,15 @@ public class BankGuaranteeAppService : MyERPAppService, IBankGuaranteeAppService
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BankGuarantee", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.BankGuaranteeNumber ?? entity.Id.ToString()[..8], "Submitted", "Cancelled",
+            CurrentUser.Id,
+            $"Bank guarantee '{entity.BankGuaranteeNumber}' cancelled", CurrentTenant.Id));
+
         return new BankGuaranteeMapper().Map(entity);
     }
 }
