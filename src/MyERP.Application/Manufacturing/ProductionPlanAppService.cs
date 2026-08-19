@@ -72,6 +72,16 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     [Authorize(MyERPPermissions.ProductionPlans.Create)]
     public async Task<ProductionPlanDto> CreateAsync(CreateProductionPlanDto input)
     {
+        if (input.Items == null || !input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        foreach (var item in input.Items)
+        {
+            if (item.PlannedQty <= 0)
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "PlannedQty");
+        }
+
         var number = await _numberGenerator.GenerateAsync("PP", input.CompanyId);
         var plan = new ProductionPlan(
             GuidGenerator.Create(), input.CompanyId, number, input.PostingDate, CurrentTenant.Id)
@@ -119,6 +129,14 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
         plan.Submit();
         await _planRepository.UpdateAsync(plan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProductionPlan", plan.Id,
+            "Submitted", plan.CompanyId,
+            plan.PlanNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Production Plan {plan.PlanNumber} submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
@@ -126,8 +144,47 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     public async Task<ProductionPlanDto> CancelAsync(Guid id)
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        // Check for submitted Work Orders generated from this plan
+        var woIds = plan.PlannedItems.Where(i => i.WorkOrderId.HasValue).Select(i => i.WorkOrderId!.Value).ToList();
+        if (woIds.Any())
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var woQ = await woRepo.GetQueryableAsync();
+            var hasSubmittedWo = woQ.Any(wo => woIds.Contains(wo.Id) && wo.Status != WorkOrderStatus.Draft && wo.Status != WorkOrderStatus.Cancelled);
+            if (hasSubmittedWo)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                    .WithData("documentType", "ProductionPlan")
+                    .WithData("dependent", "WorkOrder");
+            }
+        }
+
+        // Check for submitted Material Requests generated from this plan
+        var mrIds = plan.MaterialRequirements.Where(i => i.MaterialRequestId.HasValue).Select(i => i.MaterialRequestId!.Value).ToList();
+        if (mrIds.Any())
+        {
+            var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+            var mrQ = await mrRepo.GetQueryableAsync();
+            var hasSubmittedMr = mrQ.Any(mr => mrIds.Contains(mr.Id) && mr.Status != Core.DocumentStatus.Draft && mr.Status != Core.DocumentStatus.Cancelled);
+            if (hasSubmittedMr)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                    .WithData("documentType", "ProductionPlan")
+                    .WithData("dependent", "MaterialRequest");
+            }
+        }
+
         plan.Cancel();
         await _planRepository.UpdateAsync(plan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProductionPlan", plan.Id,
+            "Cancelled", plan.CompanyId,
+            plan.PlanNumber, plan.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Production Plan {plan.PlanNumber} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
