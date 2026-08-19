@@ -422,6 +422,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue stock reservation auto-cancellation for completed/cancelled orders
+                // Per ERPNext: stock_reservation_entry.auto_cancel_stock_reservation_entries
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.StockReservationAutoCancelJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -430,6 +438,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (42 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (43 jobs).", companies.Count);
     }
 }
