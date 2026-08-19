@@ -1,6 +1,9 @@
-<abp-page [title]="'::Assets:NewAsset' | abpLocalization">
+<abp-page [title]="(isEdit() ? ('::Edit' | abpLocalization) : ('::Assets:NewAsset' | abpLocalization))">
   <form [formGroup]="form" (ngSubmit)="save()">
-    <div class="card">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="card-title mb-0">{{ '::GeneralInformation' | abpLocalization }}</h5>
+      </div>
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-6 mb-3">
@@ -41,29 +44,99 @@
             </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Custodian' | abpLocalization }}</label>
+            <select class="form-select" formControlName="custodianEmployeeId">
+              <option [ngValue]="null">—</option>
+              @for (emp of employees(); track emp.id) {
+                <option [ngValue]="emp.id">{{ emp.employeeName || emp.employeeNumber }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="card-title mb-0">{{ '::PurchaseDetails' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Assets:PurchaseDate' | abpLocalization }} <span class="text-danger">*</span></label>
             <input type="date" class="form-control" formControlName="purchaseDate" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::AvailableForUseDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="availableForUseDate" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Assets:PurchaseAmount' | abpLocalization }} <span class="text-danger">*</span></label>
             <input type="number" class="form-control" formControlName="purchaseAmount" min="0" step="0.01" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
+          <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::AdditionalCost' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="additionalCost" min="0" step="0.01" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ '::UsefulLife' | abpLocalization }}</label>
-            <div class="input-group">
-              <input type="number" class="form-control" formControlName="usefulLifeMonths" min="1" />
-              <span class="input-group-text">months</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">{{ '::Depreciation' | abpLocalization }}</h5>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" id="calcDeprSwitch" formControlName="calculateDepreciation" />
+          <label class="form-check-label" for="calcDeprSwitch">{{ '::CalculateDepreciation' | abpLocalization }}</label>
+        </div>
+      </div>
+      @if (form.get('calculateDepreciation')?.value) {
+        <div class="card-body">
+          <div class="row">
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label">{{ '::DepreciationMethod' | abpLocalization }}</label>
+              <select class="form-select" formControlName="depreciationMethod">
+                @for (m of depreciationMethods; track m.value) {
+                  <option [ngValue]="m.value">{{ m.key }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label">{{ '::UsefulLife' | abpLocalization }}</label>
+              <div class="input-group">
+                <input type="number" class="form-control" formControlName="usefulLifeMonths" min="1" />
+                <span class="input-group-text">months</span>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::DepreciationRate' | abpLocalization }} (%)</label>
+              <div class="input-group">
+                <input type="number" class="form-control" formControlName="depreciationRate" min="0" max="100" step="0.01" />
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::Frequency' | abpLocalization }}</label>
+              <div class="input-group">
+                <input type="number" class="form-control" formControlName="frequencyMonths" min="1" />
+                <span class="input-group-text">months</span>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::OpeningAccumulatedDepreciation' | abpLocalization }}</label>
+              <input type="number" class="form-control" formControlName="openingAccumulatedDepreciation" min="0" step="0.01" />
             </div>
           </div>
-          <div class="col-12 mb-3">
-            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
-            <textarea class="form-control" formControlName="notes" rows="2"></textarea>
-          </div>
         </div>
+      }
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="card-title mb-0">{{ '::Notes' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <textarea class="form-control" formControlName="notes" rows="3" placeholder="Enter asset notes..."></textarea>
       </div>
     </div>
 

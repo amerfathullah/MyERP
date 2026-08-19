@@ -111,6 +111,7 @@ public class UpdateAssetDto
     public decimal DepreciationRate { get; set; }
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
+    public decimal OpeningAccumulatedDepreciation { get; set; }
 
     [StringLength(AssetConsts.MaxNoteLength)]
     public string? Notes { get; set; }

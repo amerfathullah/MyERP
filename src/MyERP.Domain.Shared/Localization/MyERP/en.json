@@ -4089,7 +4089,26 @@
     "Permission:SupplierScorecards": "Supplier Scorecards",
     "Permission:SupplierScorecards.Create": "Create Supplier Scorecard",
     "Permission:SupplierScorecards.Edit": "Edit Supplier Scorecard",
-    "Permission:SupplierScorecards.Delete": "Delete Supplier Scorecard"
+    "Permission:SupplierScorecards.Delete": "Delete Supplier Scorecard",
+    "Assets:NewAsset": "New Asset",
+    "Assets:PurchaseDate": "Purchase Date",
+    "Assets:PurchaseAmount": "Purchase Amount",
+    "GeneralInformation": "General Information",
+    "PurchaseDetails": "Purchase Details",
+    "Depreciation": "Depreciation",
+    "CalculateDepreciation": "Calculate Depreciation",
+    "DepreciationMethod": "Depreciation Method",
+    "UsefulLife": "Useful Life",
+    "DepreciationRate": "Depreciation Rate",
+    "Frequency": "Frequency",
+    "OpeningAccumulatedDepreciation": "Opening Accumulated Depreciation",
+    "AvailableForUseDate": "Available For Use Date",
+    "TotalAssetCost": "Total Asset Cost",
+    "AssetCategory": "Asset Category",
+    "Custodian": "Custodian",
+    "Booked": "Booked",
+    "Pending": "Pending",
+    "DepreciationSchedule": "Depreciation Schedule"
   }
 }
 

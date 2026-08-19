@@ -152,6 +152,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.DepreciationRate = input.DepreciationRate;
         asset.FrequencyMonths = input.FrequencyMonths > 0 ? input.FrequencyMonths : 12;
         asset.AvailableForUseDate = input.AvailableForUseDate;
+        asset.OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation;
         asset.Notes = input.Notes;
 
         if (asset.CalculateDepreciation)
