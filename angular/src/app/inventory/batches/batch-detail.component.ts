@@ -6,7 +6,7 @@ import { BatchService } from '../../proxy/inventory/batch.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
-import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/inventory/models';
+import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-batch-detail',
@@ -19,8 +19,8 @@ import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fas fa-layer-group me-2"></i>{{ b.batchNumber }}
-              @if (b.disabled) {
+              <i class="fas fa-layer-group me-2"></i>{{ b.batchNo }}
+              @if (b.isDisabled) {
                 <span class="badge bg-danger ms-2">{{ 'Disabled' | abpLocalization }}</span>
               } @else if (isExpired()) {
                 <span class="badge bg-warning text-dark ms-2">{{ 'Expired' | abpLocalization }}</span>
@@ -28,7 +28,7 @@ import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/
                 <span class="badge bg-success ms-2">{{ 'Active' | abpLocalization }}</span>
               }
             </h5>
-            @if (!b.disabled) {
+            @if (!b.isDisabled) {
               <button class="btn btn-outline-danger btn-sm" (click)="disable()">
                 <i class="fas fa-ban me-1"></i>{{ 'Disable' | abpLocalization }}
               </button>
@@ -38,7 +38,7 @@ import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/
             <div class="row mb-4">
               <div class="col-md-3">
                 <small class="text-muted">{{ 'Item' | abpLocalization }}</small>
-                <div class="fw-bold">{{ b.itemName || b.itemId }}</div>
+                <div class="fw-bold">{{ b.itemId }}</div>
               </div>
               <div class="col-md-3">
                 <small class="text-muted">{{ 'ExpiryDate' | abpLocalization }}</small>
@@ -63,27 +63,13 @@ import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/
               </div>
               <div class="col-md-3">
                 <small class="text-muted">{{ 'ShelfLifeDays' | abpLocalization }}</small>
-                <div>{{ b.shelfLifeDays ?? '—' }}</div>
+                <div>{{ b.shelfLifeInDays ?? '—' }}</div>
               </div>
             </div>
             <div class="row">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Supplier' | abpLocalization }}</small>
-                <div>{{ b.supplierId || '—' }}</div>
-              </div>
-              <div class="col-md-3">
                 <small class="text-muted">{{ 'SupplierBatchNo' | abpLocalization }}</small>
                 <div>{{ b.supplierBatchNo || '—' }}</div>
-              </div>
-              <div class="col-md-3">
-                <small class="text-muted">{{ 'BatchWiseValuation' | abpLocalization }}</small>
-                <div>
-                  @if (b.useBatchwiseValuation) {
-                    <span class="badge bg-info">{{ 'Enabled' | abpLocalization }}</span>
-                  } @else {
-                    <span class="badge bg-secondary">{{ 'Disabled' | abpLocalization }}</span>
-                  }
-                </div>
               </div>
             </div>
           </div>
@@ -175,7 +161,7 @@ import type { BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/
           </div>
         }
 
-        <app-activity-log documentType="Batch" [documentId]="b.id" />
+        <app-activity-log documentType="Batch" [documentId]="b.id!" />
       } @else {
         <div class="text-center py-5">
           <div class="spinner-border text-primary" role="status"></div>
@@ -190,7 +176,7 @@ export class BatchDetailComponent implements OnInit {
   private batchService = inject(BatchService);
   private router = inject(Router);
 
-  batch = signal<any>(null);
+  batch = signal<BatchDto | null>(null);
   stockBalance = signal<BatchStockBalanceDto | null>(null);
   movementHistory = signal<BatchMovementHistoryDto | null>(null);
 
@@ -235,7 +221,7 @@ export class BatchDetailComponent implements OnInit {
       this.batchService.disable(this.batch()?.id!).subscribe({
         next: () => {
           const b = this.batch();
-          if (b) this.batch.set({ ...b, disabled: true });
+          if (b) this.batch.set({ ...b, isDisabled: true });
         }
       });
     });

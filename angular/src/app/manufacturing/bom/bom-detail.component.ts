@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import type { BomDto } from '../../proxy/manufacturing/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
@@ -54,21 +55,21 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 <small class="text-muted">{{ 'MaterialCost' | abpLocalization }}</small>
                 <div class="fw-bold fs-5 text-primary">{{ b.totalCost | number:'1.2-2' }}</div>
               </div>
-              @if (b.operatingCost > 0) {
+              @if ((b.operatingCost ?? 0) > 0) {
                 <div class="col-md-3">
                   <small class="text-muted">{{ 'OperatingCost' | abpLocalization }}</small>
                   <div class="fw-bold fs-5 text-info">{{ b.operatingCost | number:'1.2-2' }}</div>
                 </div>
                 <div class="col-md-3">
                   <small class="text-muted">{{ 'TotalCost' | abpLocalization }}</small>
-                  <div class="fw-bold fs-5 text-success">{{ (b.totalCost + b.operatingCost) | number:'1.2-2' }}</div>
+                  <div class="fw-bold fs-5 text-success">{{ ((b.totalCost ?? 0) + (b.operatingCost ?? 0)) | number:'1.2-2' }}</div>
                 </div>
               }
             </div>
 
             <!-- Materials -->
             <h6 class="mb-3"><i class="fas fa-cube me-2"></i>{{ 'Materials' | abpLocalization }} ({{ b.items?.length || 0 }})</h6>
-            @if (b.items?.length > 0) {
+            @if ((b.items?.length ?? 0) > 0) {
               <table class="table table-hover table-sm mb-4">
                 <thead class="table-light">
                   <tr>
@@ -84,13 +85,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                     <tr>
                       <td class="text-muted">{{ i + 1 }}</td>
                       <td>
-                        <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">{{ item.description || item.itemId }}</a>
-                        @if (item.isPhantom) {
-                          <span class="badge bg-warning text-dark ms-1">Phantom</span>
-                        }
-                        @if (item.subBomId) {
-                          <span class="badge bg-info ms-1">Sub-Assembly</span>
-                        }
+                        <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">{{ item.itemName || item.itemId }}</a>
                       </td>
                       <td class="text-end">{{ item.quantity | number:'1.2-4' }}</td>
                       <td class="text-end">{{ item.rate | number:'1.2-2' }}</td>
@@ -108,8 +103,8 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
             }
 
             <!-- Operations -->
-            @if (b.operations?.length > 0) {
-              <h6 class="mb-3"><i class="fas fa-cogs me-2"></i>{{ 'Operations' | abpLocalization }} ({{ b.operations.length }})</h6>
+            @if ((b.operations?.length ?? 0) > 0) {
+              <h6 class="mb-3"><i class="fas fa-cogs me-2"></i>{{ 'Operations' | abpLocalization }} ({{ b.operations?.length }})</h6>
               <table class="table table-hover table-sm mb-4">
                 <thead class="table-light">
                   <tr>
@@ -143,7 +138,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
             }
 
             <!-- Secondary Items -->
-            @if (b.secondaryItems?.length > 0) {
+            @if ((b.secondaryItems?.length ?? 0) > 0) {
               <h6 class="mb-3"><i class="fas fa-recycle me-2"></i>{{ 'SecondaryItems' | abpLocalization }}</h6>
               <table class="table table-hover table-sm">
                 <thead class="table-light">
@@ -157,7 +152,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 <tbody>
                   @for (si of b.secondaryItems; track si.itemId) {
                     <tr>
-                      <td>{{ si.description || si.itemId }}</td>
+                      <td>{{ si.itemName || si.itemId }}</td>
                       <td>
                         @switch (si.secondaryItemType) {
                           @case (0) { <span class="badge bg-info">Co-Product</span> }
@@ -192,7 +187,7 @@ export class BomDetailComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
   private toaster = inject(ToasterService);
 
-  bom = signal<any>(null);
+  bom = signal<BomDto | null>(null);
   bomId = '';
   isUpdatingCost = signal(false);
 

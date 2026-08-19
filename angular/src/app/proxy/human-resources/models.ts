@@ -415,6 +415,15 @@ export interface SalarySlipDto extends EntityDto<string> {
   totalDeductions?: number;
   netAmount?: number;
   status?: number;
+  earnings?: SalarySlipComponentDto[];
+  deductions?: SalarySlipComponentDto[];
+}
+
+export interface SalarySlipComponentDto extends EntityDto<string> {
+  salaryComponentId?: string;
+  componentName?: string;
+  amount?: number;
+  isStatutory?: boolean;
 }
 
 export interface SalaryStructureDetailDto {

@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
+import type { ItemDto } from '../../proxy/inventory/models';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -68,11 +69,11 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::ItemGroup' | abpLocalization }}</th>
-                    <td>{{ item.itemGroupName || '—' }}</td>
+                    <td>{{ item.itemGroup || '—' }}</td>
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::UOM' | abpLocalization }}</th>
-                    <td>{{ item.stockUom || '—' }}</td>
+                    <td>{{ item.uom || '—' }}</td>
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::Brand' | abpLocalization }}</th>
@@ -97,19 +98,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <tbody>
                   <tr>
                     <th class="text-muted w-40">{{ '::SellingPrice' | abpLocalization }}</th>
-                    <td>{{ (item.standardSellingRate ?? 0) | number:'1.2-2' }}</td>
+                    <td>{{ (item.standardSellingPrice ?? 0) | number:'1.2-2' }}</td>
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::BuyingPrice' | abpLocalization }}</th>
-                    <td>{{ (item.standardBuyingRate ?? item.lastPurchaseRate ?? 0) | number:'1.2-2' }}</td>
+                    <td>{{ (item.standardBuyingPrice ?? 0) | number:'1.2-2' }}</td>
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::ValuationMethod' | abpLocalization }}</th>
                     <td>{{ item.valuationMethod || 'FIFO' }}</td>
-                  </tr>
-                  <tr>
-                    <th class="text-muted">{{ '::ValuationRate' | abpLocalization }}</th>
-                    <td>{{ (item.valuationRate ?? 0) | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -187,17 +184,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
       </div>
 
       <!-- Quality Flags -->
-      @if (item.inspectionRequired || item.qualityInspectionTemplate) {
+      @if (item.inspectionRequiredBeforePurchase || item.inspectionRequiredBeforeDelivery) {
         <div class="card mb-4">
           <div class="card-header"><i class="fas fa-clipboard-check me-2"></i>{{ '::QualityFlags' | abpLocalization }}</div>
           <div class="card-body">
-            @if (item.inspectionRequired) {
+            @if (item.inspectionRequiredBeforePurchase) {
               <span class="badge bg-warning text-dark me-2">
-                <i class="fas fa-check-circle me-1"></i>{{ '::InspectionRequired' | abpLocalization }}
+                <i class="fas fa-check-circle me-1"></i>{{ '::InspectionRequiredBeforePurchase' | abpLocalization }}
               </span>
             }
-            @if (item.qualityInspectionTemplate) {
-              <span class="text-muted">{{ '::Template' | abpLocalization }}: {{ item.qualityInspectionTemplate }}</span>
+            @if (item.inspectionRequiredBeforeDelivery) {
+              <span class="badge bg-warning text-dark me-2">
+                <i class="fas fa-check-circle me-1"></i>{{ '::InspectionRequiredBeforeDelivery' | abpLocalization }}
+              </span>
             }
           </div>
         </div>
@@ -525,7 +524,7 @@ export class ItemDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
 
-  entity = signal<any>(null);
+  entity = signal<ItemDto | null>(null);
   entityId = '';
   loading = signal(true);
   stockLoading = signal(true);

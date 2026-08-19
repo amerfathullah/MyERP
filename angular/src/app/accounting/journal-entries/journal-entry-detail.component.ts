@@ -11,6 +11,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
+import type { JournalEntryDto } from '../../proxy/accounting/models';
 
 const VOUCHER_TYPE_LABELS: Record<number, string> = {
   0: 'Journal Entry', 1: 'Inter Company Journal Entry', 2: 'Bank Entry', 3: 'Cash Entry',
@@ -70,15 +71,14 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
                 <table class="table table-borderless table-sm mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ 'EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ je()!.entryNumber }}</td></tr>
                   <tr><td class="text-muted">{{ 'EntryType' | abpLocalization }}</td><td>{{ voucherTypeLabel(je()!.voucherType) }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="je()!.status" /></td></tr>
+                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="je()!.status!" /></td></tr>
                   <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ je()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
               </div>
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ 'ReferenceType' | abpLocalization }}</td><td>{{ je()!.referenceType || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Notes' | abpLocalization }}</td><td>{{ je()!.notes || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'CreatedDate' | abpLocalization }}</td><td>{{ je()!.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
+                  <tr><td class="text-muted">{{ 'Notes' | abpLocalization }}</td><td>{{ je()!.narration || '-' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -131,7 +131,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
 
         <app-document-connections [documentType]="'JournalEntry'" [documentId]="je()!.id!" />
 
-        <app-activity-log documentType="JournalEntry" [documentId]="je()!.id" />
+        <app-activity-log documentType="JournalEntry" [documentId]="je()!.id!" />
 
         <!-- Ledger View (JE IS the GL entry, show for Posted entries) -->
         @if (je()!.status === 'Posted') {
@@ -150,7 +150,7 @@ export class JournalEntryDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
-  je = signal<any>(null);
+  je = signal<JournalEntryDto | null>(null);
   totalDebit = signal(0);
   totalCredit = signal(0);
   difference = signal(0);

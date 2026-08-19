@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.HumanResources;
@@ -15,4 +16,14 @@ public class SalarySlipDto : EntityDto<Guid>
     public decimal TotalDeductions { get; set; }
     public decimal NetAmount { get; set; }
     public int Status { get; set; }
+    public List<SalarySlipComponentDto> Earnings { get; set; } = new();
+    public List<SalarySlipComponentDto> Deductions { get; set; } = new();
+}
+
+public class SalarySlipComponentDto : EntityDto<Guid>
+{
+    public Guid SalaryComponentId { get; set; }
+    public string ComponentName { get; set; } = null!;
+    public decimal Amount { get; set; }
+    public bool IsStatutory { get; set; }
 }

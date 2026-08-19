@@ -5,6 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { WarrantyClaimService } from '../../proxy/maintenance/warranty-claim.service';
+import type { WarrantyClaimDto } from '../../proxy/maintenance/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -23,7 +24,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
               <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
-              <span class="badge mt-1" [class]="getStatusClass(c.status)">{{ getStatusName(c.status) }}</span>
+              <span class="badge mt-1" [class]="getStatusClass(c.status ?? 0)">{{ getStatusName(c.status ?? 0) }}</span>
             </div></div>
           </div>
           <div class="col-md-3">
@@ -56,10 +57,10 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <tr><td class="text-muted" style="width:40%">{{ 'Customer' | abpLocalization }}</td><td><strong>{{ c.customerName || '—' }}</strong></td></tr>
                 <tr><td class="text-muted">{{ 'Item' | abpLocalization }}</td><td>{{ c.itemName || '—' }}</td></tr>
                 <tr><td class="text-muted">{{ 'SerialNo' | abpLocalization }}</td><td>
-                  @if (c.serialNoId) { <a [routerLink]="['/inventory/serial-numbers', c.serialNoId]">{{ c.serialNumber || c.serialNoId }}</a> } @else { — }
+                  @if (c.serialNoId) { <a [routerLink]="['/inventory/serial-numbers', c.serialNoId]">{{ c.serialNoId }}</a> } @else { — }
                 </td></tr>
                 <tr><td class="text-muted">{{ 'SalesInvoice' | abpLocalization }}</td><td>
-                  @if (c.salesInvoiceId) { <a [routerLink]="['/sales/invoices', c.salesInvoiceId]">{{ c.invoiceNumber || c.salesInvoiceId }}</a> } @else { — }
+                  @if (c.salesInvoiceId) { <a [routerLink]="['/sales/invoices', c.salesInvoiceId]">{{ c.salesInvoiceId }}</a> } @else { — }
                 </td></tr>
               </table>
             </div>
@@ -133,7 +134,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
 
   private localization = inject(LocalizationService);
 
-  claim = signal<any>(null);
+  claim = signal<WarrantyClaimDto | null>(null);
   isLoading = signal(true);
   showResolutionPrompt = signal(false);
   claimId = '';

@@ -8,6 +8,7 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { AssetService } from '../../proxy/assets/asset.service';
+import type { AssetDto } from '../../proxy/assets/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
@@ -30,9 +31,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               <div class="card-body">
                 <div class="row g-3">
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'AssetName' | abpLocalization }}</small><strong>{{ asset()!.assetName }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'AssetCode' | abpLocalization }}</small><strong>{{ asset()!.assetCode ?? '—' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ 'AssetCode' | abpLocalization }}</small><strong>{{ asset()!.assetNumber ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'PurchaseDate' | abpLocalization }}</small><strong>{{ asset()!.purchaseDate | date:'dd/MM/yyyy' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'GrossAmount' | abpLocalization }}</small><strong>{{ asset()!.grossPurchaseAmount | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ 'GrossAmount' | abpLocalization }}</small><strong>{{ asset()!.purchaseAmount | number:'1.2-2' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'BookValue' | abpLocalization }}</small>
                     <strong class="fs-5" [class.text-danger]="(asset()!.valueAfterDepreciation ?? 0) <= 0">{{ asset()!.valueAfterDepreciation | number:'1.2-2' }}</strong>
                   </div>
@@ -53,7 +54,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           </div>
         </div>
 
-        @if ((asset()!.depreciationSchedule ?? []).length > 0) {
+        @if ((asset()!.schedule ?? []).length > 0) {
           <div class="card mb-3">
             <div class="card-header"><h6 class="mb-0">{{ 'DepreciationSchedule' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
@@ -65,10 +66,10 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                   <th>{{ 'Status' | abpLocalization }}</th>
                 </tr></thead>
                 <tbody>
-                  @for (entry of asset()!.depreciationSchedule ?? []; track entry.id; let i = $index) {
+                  @for (entry of asset()!.schedule ?? []; track entry.id; let i = $index) {
                     <tr [class.table-success]="entry.isBooked">
                       <td>{{ i + 1 }}</td>
-                      <td>{{ entry.scheduledDate | date:'dd/MM/yyyy' }}</td>
+                      <td>{{ entry.scheduleDate | date:'dd/MM/yyyy' }}</td>
                       <td class="text-end">{{ entry.depreciationAmount | number:'1.2-2' }}</td>
                       <td>
                         @if (entry.isBooked) {
@@ -96,7 +97,7 @@ export class AssetDetailComponent implements OnInit {
   private service = inject(AssetService);
   private confirmation = inject(ConfirmationService);
 
-  asset = signal<any>(null);
+  asset = signal<AssetDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

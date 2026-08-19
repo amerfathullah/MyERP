@@ -8,6 +8,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
+import type { PosClosingDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-pos-closing-detail',
@@ -93,9 +94,9 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 </tr>
               </thead>
               <tbody>
-                @for (p of entry()!.payments || []; track p.modeOfPayment) {
+                @for (p of entry()!.payments || []; track p.modeName) {
                   <tr>
-                    <td><i class="fa fa-credit-card me-2 text-muted"></i>{{ p.modeOfPayment }}</td>
+                    <td><i class="fa fa-credit-card me-2 text-muted"></i>{{ p.modeName }}</td>
                     <td class="text-end">{{ p.expectedAmount | number:'1.2-2' }}</td>
                     <td class="text-end">{{ p.closingAmount | number:'1.2-2' }}</td>
                     <td class="text-end" [class.text-success]="(p.difference || 0) >= 0"
@@ -126,11 +127,11 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 </tr>
               </thead>
               <tbody>
-                @for (inv of entry()!.invoices || []; track inv.salesInvoiceId) {
+                @for (inv of entry()!.invoices || []; track inv.posInvoiceId) {
                   <tr>
                     <td>
-                      <a [routerLink]="['/sales/invoices', inv.salesInvoiceId]">
-                        {{ inv.invoiceNumber || inv.salesInvoiceId || '—' }}
+                      <a [routerLink]="['/sales/invoices', inv.posInvoiceId]">
+                        {{ inv.invoiceNumber || inv.posInvoiceId || '—' }}
                       </a>
                     </td>
                     <td class="text-end">{{ inv.grandTotal | number:'1.2-2' }}</td>
@@ -173,7 +174,7 @@ export class PosClosingDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
 
-  entry = signal<any>(null);
+  entry = signal<PosClosingDto | null>(null);
   entryId = '';
 
   ngOnInit() {

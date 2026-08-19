@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CustomerService } from '../proxy/sales/customer.service';
+import type { CustomerDto } from '../proxy/sales/models';
 import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { PartyPerformanceService } from '../proxy/core/party-performance.service';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -71,7 +72,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::BRN' | abpLocalization }}</th>
-                    <td class="font-monospace">{{ customer.businessRegistrationNumber || '—' }}</td>
+                    <td class="font-monospace">{{ customer.registrationNumber || '—' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -292,7 +293,7 @@ export class CustomerDetailComponent implements OnInit {
   private reconciliationService = inject(PaymentReconciliationService);
   private partyPerformanceService = inject(PartyPerformanceService);
 
-  entity = signal<any>(null);
+  entity = signal<CustomerDto | null>(null);
   entityId = '';
   loading = signal(true);
   outstandingLoading = signal(true);

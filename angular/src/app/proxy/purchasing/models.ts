@@ -5,6 +5,7 @@ import type { AnalyticsGroupBy } from '../sales/analytics-group-by.enum';
 import type { AnalyticsPeriodType } from '../sales/analytics-period-type.enum';
 import type { SubcontractingInwardOrderStatus } from './subcontracting-inward-order-status.enum';
 import type { SubcontractingReceiptStatus } from './subcontracting-receipt-status.enum';
+import type { SupplierHoldType } from './supplier-hold-type.enum';
 
 export interface ComparisonItemDto {
   itemId?: string;
@@ -717,6 +718,7 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   country?: string | null;
   defaultPayableAccountId?: string | null;
   isActive?: boolean;
+  holdType?: SupplierHoldType;
 }
 
 export interface SupplierPaymentLineDto {

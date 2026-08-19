@@ -9,6 +9,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalization.service';
+import type { AssetCapitalizationDto } from '../../proxy/assets/models';
 
 @Component({
   selector: 'app-asset-capitalization-detail',
@@ -31,13 +32,13 @@ import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalizat
               </small>
             </div>
             <div class="d-flex gap-2 align-items-center">
-              <app-status-badge [status]="cap()!.status" />
-              @if (cap()!.status === 'Draft') {
+              <app-status-badge [status]="getStatusLabel(cap()!.status)" />
+              @if (cap()!.status === 0) {
                 <button class="btn btn-sm btn-primary" (click)="submit()">
                   <i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}
                 </button>
               }
-              @if (cap()!.status === 'Submitted') {
+              @if (cap()!.status === 1) {
                 <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
                   <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
                 </button>
@@ -62,7 +63,7 @@ import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalizat
               </div>
               <div class="col-md-4">
                 <label class="form-label text-muted small mb-0">{{ 'TotalAssetValue' | abpLocalization }}</label>
-                <div class="fw-bold text-primary fs-5">{{ cap()!.totalAssetValue | number:'1.2-2' }}</div>
+                <div class="fw-bold text-primary fs-5">{{ cap()!.totalCapitalizedAmount | number:'1.2-2' }}</div>
               </div>
             </div>
           </div>
@@ -90,9 +91,9 @@ import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalizat
                     <tr>
                       <td>{{ i + 1 }}</td>
                       <td>{{ item.itemName || item.itemId }}</td>
-                      <td class="text-end">{{ item.quantity | number:'1.0-4' }}</td>
+                      <td class="text-end">{{ item.qty | number:'1.0-4' }}</td>
                       <td class="text-end">{{ item.rate | number:'1.2-4' }}</td>
-                      <td class="text-end fw-semibold">{{ (item.quantity ?? 0) * (item.rate ?? 0) | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold">{{ (item.qty ?? 0) * (item.rate ?? 0) | number:'1.2-2' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -168,7 +169,7 @@ import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalizat
                           {{ asset.assetName || '—' }}
                         }
                       </td>
-                      <td class="text-end fw-semibold">{{ asset.valueAfterDepreciation | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold">{{ asset.currentValue | number:'1.2-2' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -188,13 +189,13 @@ import { AssetCapitalizationService } from '../../proxy/assets/asset-capitalizat
           <div class="card mb-3">
             <div class="card-body text-center text-muted py-4">
               <i class="fa fa-info-circle me-2"></i>{{ 'CapitalizationValueSummary' | abpLocalization }}:
-              <span class="fw-bold text-primary ms-1">{{ cap()!.totalAssetValue | number:'1.2-2' }}</span>
+              <span class="fw-bold text-primary ms-1">{{ cap()!.totalCapitalizedAmount | number:'1.2-2' }}</span>
             </div>
           </div>
         }
 
-        <app-activity-log documentType="AssetCapitalization" [documentId]="cap()!.id" />
-        <app-voucher-ledger voucherType="AssetCapitalization" [voucherId]="cap()!.id" [showStock]="true" [showAccounting]="true" />
+        <app-activity-log documentType="AssetCapitalization" [documentId]="cap()!.id!" />
+        <app-voucher-ledger voucherType="AssetCapitalization" [voucherId]="cap()!.id!" [showStock]="true" [showAccounting]="true" />
       }
     </div>
   `
@@ -206,19 +207,23 @@ export class AssetCapitalizationDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
-  cap = signal<any>(null);
+  cap = signal<AssetCapitalizationDto | null>(null);
   loading = signal(true);
 
   get stockItemsTotal(): number {
-    return (this.cap()?.stockItems ?? []).reduce((sum: number, i: any) => sum + (i.quantity ?? 0) * (i.rate ?? 0), 0);
+    return (this.cap()?.stockItems ?? []).reduce((sum, i) => sum + (i.qty ?? 0) * (i.rate ?? 0), 0);
   }
 
   get serviceItemsTotal(): number {
-    return (this.cap()?.serviceItems ?? []).reduce((sum: number, i: any) => sum + (i.amount ?? 0), 0);
+    return (this.cap()?.serviceItems ?? []).reduce((sum, i) => sum + (i.amount ?? 0), 0);
   }
 
   get consumedAssetsTotal(): number {
-    return (this.cap()?.consumedAssets ?? []).reduce((sum: number, i: any) => sum + (i.valueAfterDepreciation ?? 0), 0);
+    return (this.cap()?.consumedAssets ?? []).reduce((sum, i) => sum + (i.currentValue ?? 0), 0);
+  }
+
+  getStatusLabel(status: number | undefined): string {
+    return ['Draft', 'Submitted', 'Cancelled'][status ?? 0] ?? 'Draft';
   }
 
   ngOnInit() {

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
+import type { PickListDto } from '../../proxy/inventory/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -25,7 +26,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             {{ pickList()!.pickListNumber || 'Pick List' }}
           </h4>
           <div class="btn-group">
-            @if (pickList()!.status === 'Draft') {
+            @if (pickList()!.status === 0) {
               <a [routerLink]="['/inventory/pick-lists', pickListId, 'edit']" class="btn btn-outline-primary btn-sm">
                 <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
               </a>
@@ -33,7 +34,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
               </button>
             }
-            @if (pickList()!.status === 'Submitted') {
+            @if (pickList()!.status === 1) {
               @if (!pickList()!.isFullyTransferred) {
                 <button class="btn btn-outline-primary btn-sm" (click)="createDeliveryNote()">
                   <i class="fa fa-truck me-1"></i>{{ '::CreateDeliveryNote' | abpLocalization }}
@@ -54,7 +55,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="col-md-3">
             <div class="card border-0 shadow-sm text-center py-3">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
-              <div class="mt-1"><app-status-badge [status]="pickList()!.status || 'Draft'" /></div>
+              <div class="mt-1"><app-status-badge [status]="getStatusLabel(pickList()!.status)" /></div>
             </div>
           </div>
           <div class="col-md-3">
@@ -86,7 +87,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         </div>
 
         <!-- Barcode Scan Mode (for Submitted pick lists with pending items) -->
-        @if (pickList()!.status === 'Submitted' && !pickList()!.isFullyTransferred) {
+        @if (pickList()!.status === 1 && !pickList()!.isFullyTransferred) {
           <div class="card shadow-sm mb-3 border-primary">
             <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
               <span class="fw-bold"><i class="fa fa-barcode me-2"></i>{{ '::ScanToPick' | abpLocalization }}</span>
@@ -134,24 +135,24 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               </thead>
               <tbody>
                 @for (item of pickList()!.items || []; track $index; let i = $index) {
-                  <tr [class.table-success]="isItemScanned(item.itemId)">
+                  <tr [class.table-success]="isItemScanned(item.itemId || '')">
                     <td class="text-muted">
-                      @if (isItemScanned(item.itemId)) { <i class="fa fa-check-circle text-success"></i> }
+                      @if (isItemScanned(item.itemId || '')) { <i class="fa fa-check-circle text-success"></i> }
                       @else { {{ i + 1 }} }
                     </td>
                     <td>{{ item.itemName || item.itemId || '—' }}</td>
-                    <td>{{ item.warehouseName || item.warehouseId || '—' }}</td>
-                    <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                    <td>{{ item.warehouseId || '—' }}</td>
+                    <td class="text-end">{{ item.qty | number:'1.2-2' }}</td>
                     <td class="text-end">{{ item.transferredQty | number:'1.2-2' }}</td>
-                    <td class="text-end" [class.text-warning]="item.pendingQty > 0">
+                    <td class="text-end" [class.text-warning]="(item.pendingQty ?? 0) > 0">
                       {{ item.pendingQty | number:'1.2-2' }}
                     </td>
                     <td>
-                      @if (item.quantity > 0) {
+                      @if ((item.qty ?? 0) > 0) {
                         <div class="progress" style="height: 8px;">
-                          <div class="progress-bar" [class.bg-success]="item.transferredQty >= item.quantity"
-                            [class.bg-warning]="item.transferredQty > 0 && item.transferredQty < item.quantity"
-                            [style.width.%]="(item.transferredQty / item.quantity) * 100"></div>
+                          <div class="progress-bar" [class.bg-success]="(item.transferredQty ?? 0) >= (item.qty ?? 0)"
+                            [class.bg-warning]="(item.transferredQty ?? 0) > 0 && (item.transferredQty ?? 0) < (item.qty ?? 0)"
+                            [style.width.%]="((item.transferredQty ?? 0) / (item.qty ?? 1)) * 100"></div>
                         </div>
                       }
                     </td>
@@ -168,7 +169,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="card shadow-sm mb-3">
             <div class="card-body">
               <small class="text-muted">{{ '::Customer' | abpLocalization }}</small>
-              <div class="fw-bold">{{ pickList()!.customerName || pickList()!.customerId || '—' }}</div>
+              <div class="fw-bold">{{ pickList()!.customerId || '—' }}</div>
             </div>
           </div>
         }
@@ -186,7 +187,7 @@ export class PickListDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
 
-  pickList = signal<any>(null);
+  pickList = signal<PickListDto | null>(null);
   pickListId = '';
   scanInput = '';
   scanMode = signal(false);
@@ -202,6 +203,10 @@ export class PickListDetailComponent implements OnInit {
   ngOnInit() {
     this.pickListId = this.route.snapshot.params['id'];
     this.loadData();
+  }
+
+  getStatusLabel(status: number | undefined): string {
+    return ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled', 'Rejected'][status ?? 0] ?? 'Draft';
   }
 
   loadData() {
@@ -244,12 +249,12 @@ export class PickListDetailComponent implements OnInit {
     const barcode = this.scanInput.trim();
     this.scanInput = '';
     const items = this.pickList()?.items ?? [];
-    const match = items.find((i: any) => i.itemCode === barcode || i.itemId === barcode || i.itemName?.toLowerCase().includes(barcode.toLowerCase()));
+    const match = items.find(i => i.itemId === barcode || i.itemName?.toLowerCase().includes(barcode.toLowerCase()));
     if (match) {
       const s = new Set(this.scannedItems());
-      s.add(match.itemId);
+      s.add(match.itemId!);
       this.scannedItems.set(s);
-      this.toaster.success(this.l('::ItemScanned') + ': ' + (match.itemName || match.itemCode));
+      this.toaster.success(this.l('::ItemScanned') + ': ' + (match.itemName || match.itemId));
     } else {
       this.toaster.warn(this.l('::ItemNotFoundInPickList') + ': ' + barcode);
     }

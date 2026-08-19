@@ -934,6 +934,10 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   defaultManufacturerPartNo?: string | null;
   totalStockQty?: number;
   isLowStock?: boolean;
+  hasSerialNo?: boolean;
+  hasBatchNo?: boolean;
+  hasVariants?: boolean;
+  leadTimeDays?: number;
   barcodes?: ItemBarcodeDto[];
   suppliers?: ItemSupplierDto[];
   customerDetails?: ItemCustomerDetailDto[];

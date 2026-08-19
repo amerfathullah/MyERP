@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { SalarySlipService } from '../../proxy/human-resources/salary-slip.service';
+import type { SalarySlipDto } from '../../proxy/human-resources/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -39,7 +40,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           </div>
         </div>
 
-        @if (components().length > 0) {
+        @if ((s.earnings?.length ?? 0) > 0 || (s.deductions?.length ?? 0) > 0) {
           <div class="row">
             <div class="col-md-6">
               <div class="card">
@@ -47,7 +48,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      @for (c of earnings(); track c.componentName) {
+                      @for (c of s.earnings ?? []; track c.id) {
                         <tr><td class="ps-3">{{ c.componentName }}</td><td class="text-end pe-3 font-monospace">{{ c.amount | number:'1.2-2' }}</td></tr>
                       }
                     </tbody>
@@ -62,7 +63,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      @for (c of deductions(); track c.componentName) {
+                      @for (c of s.deductions ?? []; track c.id) {
                         <tr><td class="ps-3">{{ c.componentName }}</td><td class="text-end pe-3 font-monospace">{{ c.amount | number:'1.2-2' }}</td></tr>
                       }
                     </tbody>
@@ -90,17 +91,12 @@ export class SalarySlipDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private salarySlipService = inject(SalarySlipService);
 
-  slip = signal<any>(null);
-  components = signal<any[]>([]);
-
-  get earnings() { return () => this.components().filter((c: any) => c.type === 'Earning'); }
-  get deductions() { return () => this.components().filter((c: any) => c.type === 'Deduction'); }
+  slip = signal<SalarySlipDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.salarySlipService.get(id).subscribe(s => {
       this.slip.set(s);
-      if ((s as any).components) this.components.set((s as any).components);
     });
   }
 }

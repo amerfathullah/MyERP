@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
+import type { MaintenanceVisitDto } from '../../proxy/assets/models';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -48,7 +49,7 @@ import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
             <div class="col-md-4">
               <label class="form-label text-muted small">{{ 'MyERP::MaintenanceType' | abpLocalization }}</label>
               <div>
-                <span class="badge" [class]="getTypeBadge(visit()!.maintenanceType)">
+                <span class="badge" [class]="getTypeBadge(visit()!.maintenanceType ?? '')">
                   {{ visit()!.maintenanceType }}
                 </span>
               </div>
@@ -95,7 +96,7 @@ export class MaintenanceVisitDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
-  visit = signal<any>(null);
+  visit = signal<MaintenanceVisitDto | null>(null);
   customerName = signal('');
 
   ngOnInit() {
@@ -110,7 +111,7 @@ export class MaintenanceVisitDetailComponent implements OnInit {
 
   private loadCustomerName(id: string) {
     this.customerService.get(id).subscribe({
-      next: (c: any) => this.customerName.set(c.customerName || c.id),
+      next: (c: any) => this.customerName.set(c.name || c.id),
       error: () => {},
     });
   }

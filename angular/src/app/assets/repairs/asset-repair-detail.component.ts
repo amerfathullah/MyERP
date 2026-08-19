@@ -8,6 +8,7 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { AssetRepairService } from '../../proxy/assets/asset-repair.service';
+import type { AssetRepairDto } from '../../proxy/assets/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
@@ -57,7 +58,7 @@ export class AssetRepairDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(AssetRepairService);
   private confirmation = inject(ConfirmationService);
-  repair = signal<any>(null);
+  repair = signal<AssetRepairDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

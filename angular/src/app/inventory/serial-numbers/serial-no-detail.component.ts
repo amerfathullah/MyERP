@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { SerialNoService } from '../../proxy/inventory/serial-no.service';
+import type { SerialNoDto } from '../../proxy/inventory/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -30,11 +31,11 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <div class="row mb-4">
               <div class="col-md-3">
                 <small class="text-muted">{{ 'Item' | abpLocalization }}</small>
-                <div class="fw-bold">{{ s.itemName || s.itemId }}</div>
+                <div class="fw-bold">{{ s.itemId }}</div>
               </div>
               <div class="col-md-3">
                 <small class="text-muted">{{ 'Warehouse' | abpLocalization }}</small>
-                <div>{{ s.warehouseName || s.warehouseId || '—' }}</div>
+                <div>{{ s.warehouseId || '—' }}</div>
               </div>
               <div class="col-md-3">
                 <small class="text-muted">{{ 'PurchaseRate' | abpLocalization }}</small>
@@ -43,7 +44,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               <div class="col-md-3">
                 <small class="text-muted">{{ 'Status' | abpLocalization }}</small>
                 <div>
-                  @if (s.isActive) {
+                  @if (s.status === 0) {
                     <span class="badge bg-success">Active</span>
                   } @else {
                     <span class="badge bg-danger">Inactive</span>
@@ -64,21 +65,11 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <small class="text-muted">{{ 'Customer' | abpLocalization }}</small>
                 <div>{{ s.customerId || '—' }}</div>
               </div>
-              <div class="col-md-3">
-                <small class="text-muted">{{ 'Supplier' | abpLocalization }}</small>
-                <div>{{ s.supplierId || '—' }}</div>
-              </div>
             </div>
-            @if (s.supplierBatchNo) {
-              <div class="mb-3">
-                <small class="text-muted">{{ 'SupplierBatchNo' | abpLocalization }}</small>
-                <div>{{ s.supplierBatchNo }}</div>
-              </div>
-            }
           </div>
         </div>
 
-        <app-activity-log documentType="SerialNo" [documentId]="s.id" />
+        <app-activity-log documentType="SerialNo" [documentId]="s.id!" />
       } @else {
         <div class="text-center py-5">
           <div class="spinner-border text-primary" role="status"></div>
@@ -92,7 +83,7 @@ export class SerialNoDetailComponent implements OnInit {
   private serialNoService = inject(SerialNoService);
   private router = inject(Router);
 
-  serial = signal<any>(null);
+  serial = signal<SerialNoDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';

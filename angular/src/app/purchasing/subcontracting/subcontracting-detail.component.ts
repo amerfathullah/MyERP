@@ -9,6 +9,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
+import type { SubcontractingOrderDto } from '../../proxy/purchasing/models';
 
 @Component({
   selector: 'app-subcontracting-detail',
@@ -32,7 +33,6 @@ import { SubcontractingService } from '../../proxy/purchasing/subcontracting.ser
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'Date' | abpLocalization }}</small><strong>{{ order()!.orderDate | date:'dd/MM/yyyy' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ 'GrandTotal' | abpLocalization }}</small><strong class="fs-5">{{ order()!.grandTotal | number:'1.2-2' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Currency' | abpLocalization }}</small><strong>{{ order()!.currencyCode ?? 'MYR' }}</strong></div>
                 </div>
               </div>
             </div>
@@ -57,15 +57,15 @@ import { SubcontractingService } from '../../proxy/purchasing/subcontracting.ser
                 <tbody>
                   @for (item of order()!.items ?? []; track item.id) {
                     <tr>
-                      <td>{{ item.description ?? item.itemId }}</td>
-                      <td class="text-end">{{ item.quantity }}</td>
+                      <td>{{ item.itemName ?? item.itemId }}</td>
+                      <td class="text-end">{{ item.qty }}</td>
                       <td class="text-end">
-                        <span [class.text-success]="(item.receivedQty ?? 0) >= item.quantity" [class.text-warning]="(item.receivedQty ?? 0) > 0 && (item.receivedQty ?? 0) < item.quantity">
+                        <span [class.text-success]="(item.receivedQty ?? 0) >= (item.qty ?? 0)" [class.text-warning]="(item.receivedQty ?? 0) > 0 && (item.receivedQty ?? 0) < (item.qty ?? 0)">
                           {{ item.receivedQty ?? 0 }}
                         </span>
                       </td>
-                      <td class="text-end">{{ item.unitPrice | number:'1.2-2' }}</td>
-                      <td class="text-end fw-semibold">{{ item.quantity * item.unitPrice | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.rate | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold">{{ (item.qty ?? 0) * (item.rate ?? 0) | number:'1.2-2' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -74,34 +74,9 @@ import { SubcontractingService } from '../../proxy/purchasing/subcontracting.ser
           </div>
         }
 
-        @if ((order()!.suppliedItems ?? []).length > 0) {
-          <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0">{{ 'SuppliedMaterials' | abpLocalization }} (RM)</h6>
-              @if (isTransferring()) {
-                <span class="badge bg-info"><i class="fa fa-spinner fa-spin me-1"></i>Creating transfer...</span>
-              }
-            </div>
-            <div class="card-body p-0">
-              <table class="table table-sm mb-0">
-                <thead><tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Required' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Transferred' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Consumed' | abpLocalization }}</th>
-                </tr></thead>
-                <tbody>
-                  @for (rm of order()!.suppliedItems ?? []; track rm.id) {
-                    <tr>
-                      <td>{{ rm.description ?? rm.itemId }}</td>
-                      <td class="text-end">{{ rm.requiredQty }}</td>
-                      <td class="text-end">{{ rm.transferredQty ?? 0 }}</td>
-                      <td class="text-end">{{ rm.consumedQty ?? 0 }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
+        @if (isTransferring()) {
+          <div class="alert alert-info d-flex align-items-center">
+            <i class="fa fa-spinner fa-spin me-2"></i>Creating transfer...
           </div>
         }
 
@@ -116,7 +91,7 @@ export class SubcontractingDetailComponent implements OnInit {
   private service = inject(SubcontractingService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
-  order = signal<any>(null);
+  order = signal<SubcontractingOrderDto | null>(null);
   isTransferring = signal(false);
 
   ngOnInit(): void {

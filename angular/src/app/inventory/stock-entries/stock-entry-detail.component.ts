@@ -13,6 +13,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { StockEntryPrintLayoutComponent } from '../../shared/components/se-print-layout/se-print-layout.component';
 import { CompanyService } from '../../proxy/core/company.service';
+import type { StockEntryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-stock-entry-detail',
@@ -45,7 +46,7 @@ import { CompanyService } from '../../proxy/core/company.service';
               <div class="card-body">
                 <table class="table table-borderless mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ 'EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.entryNumber }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status" /></td></tr>
+                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
                   <tr><td class="text-muted">{{ 'EntryType' | abpLocalization }}</td><td>{{ entry()!.entryType }}</td></tr>
                   <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ entry()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
@@ -90,7 +91,7 @@ import { CompanyService } from '../../proxy/core/company.service';
                     <td>{{ item.sourceWarehouseName || item.sourceWarehouseId || '-' }}</td>
                     <td>{{ item.targetWarehouseName || item.targetWarehouseId || '-' }}</td>
                     <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
-                    <td class="text-end">{{ (item.quantity * item.valuationRate) | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ ((item.quantity ?? 0) * (item.valuationRate ?? 0)) | number:'1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -108,7 +109,7 @@ import { CompanyService } from '../../proxy/core/company.service';
 
         <app-document-connections [documentType]="'StockEntry'" [documentId]="entry()!.id!" />
 
-        <app-activity-log documentType="StockEntry" [documentId]="entry()!.id" />
+        <app-activity-log documentType="StockEntry" [documentId]="entry()!.id!" />
 
         <!-- Print Button -->
         <div class="mt-3 text-end">
@@ -120,7 +121,7 @@ import { CompanyService } from '../../proxy/core/company.service';
         @if (entry()!.status === 'Posted' || entry()!.status === 'Cancelled') {
           <app-voucher-ledger
             voucherType="StockEntry"
-            [voucherId]="entry()!.id"
+            [voucherId]="entry()!.id!"
             [showAccounting]="true"
             [showStock]="true" />
         }
@@ -142,7 +143,7 @@ export class StockEntryDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
 
-  entry = signal<any>(null);
+  entry = signal<StockEntryDto | null>(null);
   totalAmount = signal(0);
   companyName = '';
   companyAddress = '';

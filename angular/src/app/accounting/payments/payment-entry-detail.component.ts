@@ -12,6 +12,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { PaymentEntryPrintLayoutComponent } from '../../shared/components/pe-print-layout/pe-print-layout.component';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
+import type { PaymentEntryDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-payment-entry-detail',
@@ -50,7 +51,7 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
               <div class="card-body">
                 <table class="table table-borderless mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ 'PaymentNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.paymentNumber }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status" /></td></tr>
+                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
                   <tr><td class="text-muted">{{ 'PaymentType' | abpLocalization }}</td><td>
                     <span class="badge" [class.bg-success]="entry()!.paymentType === 'Receive'" [class.bg-primary]="entry()!.paymentType === 'Pay'" [class.bg-info]="entry()!.paymentType === 'InternalTransfer'">
                       {{ entry()!.paymentType }}
@@ -162,7 +163,7 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
           </div>
         }
 
-        <app-activity-log documentType="PaymentEntry" [documentId]="entry()!.id" />
+        <app-activity-log documentType="PaymentEntry" [documentId]="entry()!.id!" />
 
         <!-- Ledger Views (GL entries for posted payments) -->
         @if (entry()!.status === 'Posted') {
@@ -199,7 +200,7 @@ export class PaymentEntryDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
 
-  entry = signal<any>(null);
+  entry = signal<PaymentEntryDto | null>(null);
   references = signal<any[]>([]);
   taxes = signal<any[]>([]);
   companyData = signal<{ name: string; tin: string; sst: string; address: string; phone: string }>({ name: '', tin: '', sst: '', address: '', phone: '' });

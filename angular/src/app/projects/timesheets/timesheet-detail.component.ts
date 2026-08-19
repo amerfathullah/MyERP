@@ -8,6 +8,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { TimesheetService } from '../../proxy/projects/timesheet.service';
+import type { TimesheetDto } from '../../proxy/projects/models';
 
 @Component({
   selector: 'app-timesheet-detail',
@@ -15,7 +16,7 @@ import { TimesheetService } from '../../proxy/projects/timesheet.service';
   imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent],
   template: `
     <app-breadcrumb />
-    <abp-page [title]="ts()?.timesheetNumber || ('Timesheet' | abpLocalization)">
+    <abp-page [title]="ts()?.employeeName || ('Timesheet' | abpLocalization)">
       @if (!ts()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -54,7 +55,7 @@ import { TimesheetService } from '../../proxy/projects/timesheet.service';
             <div class="row">
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="ts()!.status" /></td></tr>
+                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="getStatusLabel(ts()!.status)" /></td></tr>
                   <tr><td class="text-muted">{{ 'Employee' | abpLocalization }}</td><td>{{ ts()!.employeeId }}</td></tr>
                 </table>
               </div>
@@ -112,16 +113,20 @@ export class TimesheetDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
 
-  ts = signal<any>(null);
+  ts = signal<TimesheetDto | null>(null);
+
+  getStatusLabel(status: number | undefined): string {
+    return ['Draft', 'Submitted', 'Billed', 'Cancelled'][status ?? 0] ?? 'Draft';
+  }
 
   get workflowActions(): WorkflowAction[] {
     const t = this.ts();
     if (!t) return [];
     const actions: WorkflowAction[] = [];
-    if (t.status === 'Draft') {
+    if (t.status === 0) {
       actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
-    if (t.status === 'Submitted') {
+    if (t.status === 1) {
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;

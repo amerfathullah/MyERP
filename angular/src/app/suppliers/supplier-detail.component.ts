@@ -2,6 +2,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
+import type { SupplierDto } from '../proxy/purchasing/models';
+import { SupplierHoldType } from '../proxy/purchasing/supplier-hold-type.enum';
 import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { PartyPerformanceService } from '../proxy/core/party-performance.service';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -34,9 +36,9 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
             <span class="badge" [class]="supplier.isActive ? 'bg-success' : 'bg-secondary'">
               {{ (supplier.isActive ? '::Active' : '::Inactive') | abpLocalization }}
             </span>
-            @if (supplier.holdStatus && supplier.holdStatus !== 'None') {
-              <span class="badge ms-2" [class]="getHoldBadgeClass(supplier.holdStatus)">
-                <i class="fas fa-ban me-1"></i>{{ '::HoldStatus' | abpLocalization }}: {{ supplier.holdStatus }}
+            @if (supplier.holdType) {
+              <span class="badge ms-2" [class]="getHoldBadgeClass(supplier.holdType)">
+                <i class="fas fa-ban me-1"></i>{{ '::HoldStatus' | abpLocalization }}: {{ getHoldLabel(supplier.holdType) }}
               </span>
             }
             @if (supplier.supplierCode) {
@@ -76,7 +78,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </tr>
                   <tr>
                     <th class="text-muted">{{ '::BRN' | abpLocalization }}</th>
-                    <td class="font-monospace">{{ supplier.businessRegistrationNumber || '—' }}</td>
+                    <td class="font-monospace">{{ supplier.registrationNumber || '—' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -134,27 +136,6 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               @if (supplier.postalCode) { {{ supplier.postalCode }} }
               @if (supplier.country) { <br>{{ supplier.country }} }
             </p>
-          </div>
-        </div>
-      }
-
-      <!-- Scorecard -->
-      @if (supplier.scorecardStanding) {
-        <div class="card mb-4">
-          <div class="card-header"><i class="fas fa-chart-line me-2"></i>{{ '::SupplierScorecard' | abpLocalization }}</div>
-          <div class="card-body">
-            <div class="row text-center">
-              <div class="col-sm-4">
-                <div class="fs-5 fw-bold">{{ supplier.scorecardStanding }}</div>
-                <div class="text-muted small">{{ '::Standing' | abpLocalization }}</div>
-              </div>
-              @if (supplier.scorecardScore !== null) {
-                <div class="col-sm-4">
-                  <div class="fs-5 fw-bold">{{ supplier.scorecardScore | number:'1.1-1' }}%</div>
-                  <div class="text-muted small">{{ '::Score' | abpLocalization }}</div>
-                </div>
-              }
-            </div>
           </div>
         </div>
       }
@@ -274,7 +255,7 @@ export class SupplierDetailComponent implements OnInit {
   private reconciliationService = inject(PaymentReconciliationService);
   private partyPerformanceService = inject(PartyPerformanceService);
 
-  entity = signal<any>(null);
+  entity = signal<SupplierDto | null>(null);
   entityId = '';
   loading = signal(true);
   outstandingLoading = signal(true);
@@ -323,12 +304,16 @@ export class SupplierDetailComponent implements OnInit {
     return Math.max(5, (amount / max) * 100);
   }
 
-  getHoldBadgeClass(holdStatus: string): string {
-    switch (holdStatus) {
-      case 'All': return 'bg-danger';
-      case 'Invoices': return 'bg-warning text-dark';
-      case 'Payments': return 'bg-info text-dark';
+  getHoldBadgeClass(holdType: SupplierHoldType): string {
+    switch (holdType) {
+      case SupplierHoldType.All: return 'bg-danger';
+      case SupplierHoldType.Invoices: return 'bg-warning text-dark';
+      case SupplierHoldType.Payments: return 'bg-info text-dark';
       default: return 'bg-secondary';
     }
+  }
+
+  getHoldLabel(holdType: SupplierHoldType): string {
+    return ['None', 'All', 'Invoices', 'Payments'][holdType] ?? 'None';
   }
 }

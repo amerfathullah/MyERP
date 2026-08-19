@@ -64,6 +64,10 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public string? DefaultManufacturerPartNo { get; set; }
     public decimal TotalStockQty { get; set; }
     public bool IsLowStock { get; set; }
+    public bool HasSerialNo { get; set; }
+    public bool HasBatchNo { get; set; }
+    public bool HasVariants { get; set; }
+    public int LeadTimeDays { get; set; }
     public List<ItemBarcodeDto> Barcodes { get; set; } = new();
     public List<ItemSupplierDto> Suppliers { get; set; } = new();
     public List<ItemCustomerDetailDto> CustomerDetails { get; set; } = new();

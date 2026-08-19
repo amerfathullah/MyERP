@@ -24,4 +24,5 @@ public class SupplierDto : FullAuditedEntityDto<Guid>
     public string? Country { get; set; }
     public Guid? DefaultPayableAccountId { get; set; }
     public bool IsActive { get; set; }
+    public SupplierHoldType HoldType { get; set; }
 }
