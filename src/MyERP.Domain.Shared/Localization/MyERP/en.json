@@ -3919,6 +3919,7 @@
     "MyERP:05050": "Is Stock Item property differs between item {itemCode} and alternative item {alternativeItemCode}.",
     "MyERP:05051": "An alternative entry for this item already exists.",
     "MyERP:06003": "Target location and custodian cannot be identical to source for asset {assetName}.",
-    "MyERP:06004": "Consumed asset cannot be the same as the target capitalized asset."
+    "MyERP:06004": "Consumed asset cannot be the same as the target capitalized asset.",
+    "MyERP:01012": "The document company does not match the referenced record company."
   }
 }

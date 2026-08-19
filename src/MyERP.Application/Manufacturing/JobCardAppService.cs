@@ -51,6 +51,25 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<JobCardDto> CreateAsync(CreateJobCardDto input)
     {
+        if (input.ForQuantity <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ForQuantity");
+        }
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.GetAsync(input.WorkOrderId);
+        if (wo.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
+        }
+        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled or WorkOrderStatus.Completed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "WorkOrder")
+                .WithData("status", wo.Status.ToString());
+        }
+
         var jc = new JobCard(GuidGenerator.Create(), input.CompanyId, input.WorkOrderId,
             input.OperationId, input.ForQuantity, input.SequenceId, CurrentTenant.Id)
         {
@@ -110,6 +129,11 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<JobCardDto> AddTimeLogAsync(Guid id, AddTimeLogDto input)
     {
+        if (input.ToTime < input.FromTime)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
         jc.AddTimeLog(input.FromTime, input.ToTime, input.CompletedQty);
         await _repository.UpdateAsync(jc);
@@ -122,6 +146,13 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var jc = await _repository.GetAsync(id);
         jc.Complete();
         await _repository.UpdateAsync(jc);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JobCard", jc.Id,
+            "Completed", jc.CompanyId,
+            jc.Id.ToString(), "InProcess", "Completed", CurrentUser.Id,
+            $"Job Card for sequence {jc.SequenceId} completed ({jc.CompletedQty} qty)", CurrentTenant.Id));
 
         // Update Work Order produced qty using bottleneck formula (MIN across operations)
         var jcManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();

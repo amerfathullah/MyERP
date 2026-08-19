@@ -445,4 +445,7 @@ public static class MyERPDomainErrorCodes
     public const string AssetCannotBeMoved = "MyERP:06002";
     public const string AssetMovementSameLocationAndCustodian = "MyERP:06003";
     public const string ConsumedAssetCannotBeTargetAsset = "MyERP:06004";
+
+    // General Company
+    public const string CompanyMismatch = "MyERP:01012";
 }
