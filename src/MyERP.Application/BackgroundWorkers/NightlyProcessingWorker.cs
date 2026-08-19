@@ -186,6 +186,44 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                     UserId = Guid.Empty,
                 });
+
+                // Enqueue opportunity auto-close (inactivity cleanup)
+                // Per ERPNext: crm/doctype/opportunity/opportunity.py auto_close_opportunity
+                await jobManager.EnqueueAsync(new CRM.BackgroundJobs.OpportunityAutoCloseJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    InactiveDays = 30,
+                });
+
+                // Enqueue portal appointment expiry (unverified cleanup)
+                // Per ERPNext PR #57270
+                await jobManager.EnqueueAsync(new CRM.BackgroundJobs.AppointmentExpiryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow,
+                });
+
+                // Enqueue contract status update (expired contracts to InactiveByExpiry)
+                // Per ERPNext: crm/doctype/contract/contract.py update_status_for_contracts
+                await jobManager.EnqueueAsync(new CRM.BackgroundJobs.ContractStatusUpdateJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue issue auto-close (inactivity cleanup for replied tickets)
+                // Per ERPNext: support/doctype/issue/issue.py auto_close_tickets
+                await jobManager.EnqueueAsync(new Support.BackgroundJobs.IssueAutoCloseJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    InactiveDays = 7,
+                });
             }
             catch (Exception ex)
             {
@@ -194,6 +232,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (16 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (20 jobs).", companies.Count);
     }
 }
