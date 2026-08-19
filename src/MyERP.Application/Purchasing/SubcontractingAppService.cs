@@ -9,6 +9,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -64,6 +65,22 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
     public async Task<SubcontractingOrderDto> CreateOrderAsync(CreateSubcontractingOrderDto input)
     {
+        if (input.Items == null || !input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        var poManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.PurchaseOrderManager>();
+        await poManager.ValidateSupplierEligibilityAsync(input.SupplierId);
+
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var supplier = await supplierRepo.GetAsync(input.SupplierId);
+        if (supplier.RepresentsCompanyId.HasValue && supplier.RepresentsCompanyId.Value == input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+        }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var number = await _numberGenerator.GenerateAsync("SCO", input.CompanyId);
         var sco = new SubcontractingOrder(GuidGenerator.Create(), input.CompanyId, number,
             input.OrderDate, input.SupplierId, CurrentTenant.Id)
@@ -86,6 +103,14 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Submit();
         await _scoRepository.UpdateAsync(sco);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingOrder", sco.Id,
+            "Submitted", sco.CompanyId,
+            sco.OrderNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Subcontracting Order {sco.OrderNumber} submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
@@ -95,6 +120,14 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Cancel();
         await _scoRepository.UpdateAsync(sco);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingOrder", sco.Id,
+            "Cancelled", sco.CompanyId,
+            sco.OrderNumber, sco.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Subcontracting Order {sco.OrderNumber} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);
     }
 
@@ -172,6 +205,19 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
     public async Task<SubcontractingReceiptDto> CreateReceiptAsync(CreateSubcontractingReceiptDto input)
     {
+        if (input.Items == null || !input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var supplier = await supplierRepo.GetAsync(input.SupplierId);
+        if (supplier.RepresentsCompanyId.HasValue && supplier.RepresentsCompanyId.Value == input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+        }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var number = await _numberGenerator.GenerateAsync("SCR", input.CompanyId);
         var scr = new SubcontractingReceipt(GuidGenerator.Create(), input.CompanyId, number,
             input.PostingDate, input.SupplierId, input.SubcontractingOrderId, CurrentTenant.Id)
@@ -246,6 +292,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.PostPurchaseReceiptAsync(scr);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingReceipt", scr.Id,
+            "Submitted", scr.CompanyId,
+            scr.ReceiptNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Subcontracting Receipt {scr.ReceiptNumber} submitted", CurrentTenant.Id));
+
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
@@ -302,6 +355,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         // Reverse GL entries for the receipt
         var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ReversePleForDocumentAsync("SubcontractingReceipt", scr.Id);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingReceipt", scr.Id,
+            "Cancelled", scr.CompanyId,
+            scr.ReceiptNumber, "Submitted", "Cancelled", CurrentUser.Id,
+            $"Subcontracting Receipt {scr.ReceiptNumber} cancelled", CurrentTenant.Id));
 
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
