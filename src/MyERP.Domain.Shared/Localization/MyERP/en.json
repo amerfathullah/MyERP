@@ -2096,7 +2096,7 @@
     "MyERP:03015": "Selling price for item '{itemName}' is below its buying/valuation rate. Selling: {sellingRate}, Cost: {valuationRate}",
     "MyERP:03016": "Installation date cannot be before delivery note posting date.",
     "MyERP:04009": "A purchase invoice with supplier invoice number '{supplierInvoiceNumber}' already exists for this supplier.",
-    "MyERP:04010": "Supplier '{supplierName}' is already added to this Request for Quotation.",
+    "MyERP:04010": "The same supplier has been added multiple times.",
     "MyERP:05029": "Quantity must be a whole number for UOM '{uomName}' (must_be_whole_number is enabled).",
     "MyERP:05030": "Cannot transfer more than the allowed quantity. Required: {requiredQty}, Already transferred: {transferredQty}, Attempting: {attemptedQty}",
     "MyERP:05032": "Serial and Batch Bundle quantity ({bundleQty}) does not match transaction line quantity ({transactionQty}).",

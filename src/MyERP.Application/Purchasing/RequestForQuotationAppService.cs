@@ -74,6 +74,12 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
         foreach (var item in input.Items)
             rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom);
 
+        // Validate no duplicate suppliers
+        if (input.Suppliers.Select(s => s.SupplierId).Distinct().Count() != input.Suppliers.Count)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateRfqSupplier);
+        }
+
         foreach (var supplier in input.Suppliers)
         {
             // Validate supplier scorecard: prevent_rfqs blocks
