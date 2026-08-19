@@ -1,8 +1,9 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Sales.Entities;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
@@ -45,6 +46,17 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<DunningTypeDto> CreateAsync(CreateDunningTypeDto input)
     {
+        if (input.DunningFee < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "DunningFee");
+        }
+        if (input.RateOfInterest < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RateOfInterest");
+        }
+
         var t = new DunningType(GuidGenerator.Create(), input.CompanyId, input.DunningTypeName, CurrentTenant.Id);
         ApplyFields(t, input);
         await _repository.InsertAsync(t);
@@ -52,12 +64,30 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
         if (t.IsDefault)
             await DemoteOtherDefaultsAsync(t.CompanyId, t.Id);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+            "DunningType", t.Id, "Created", t.CompanyId,
+            t.DunningTypeName, "Draft", "Active",
+            CurrentUser.Id,
+            $"Dunning type '{t.DunningTypeName}' created", t.TenantId));
+
         return ObjectMapper.Map<DunningType, DunningTypeDto>(t);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Edit)]
     public async Task<DunningTypeDto> UpdateAsync(Guid id, UpdateDunningTypeDto input)
     {
+        if (input.DunningFee < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "DunningFee");
+        }
+        if (input.RateOfInterest < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RateOfInterest");
+        }
+
         var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
         t.Rename(input.DunningTypeName);
         ApplyFields(t, input);
@@ -65,6 +95,13 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
 
         if (t.IsDefault)
             await DemoteOtherDefaultsAsync(t.CompanyId, t.Id);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+            "DunningType", t.Id, "Updated", t.CompanyId,
+            t.DunningTypeName, "Active", "Active",
+            CurrentUser.Id,
+            $"Dunning type '{t.DunningTypeName}' updated", t.TenantId));
 
         return ObjectMapper.Map<DunningType, DunningTypeDto>(t);
     }

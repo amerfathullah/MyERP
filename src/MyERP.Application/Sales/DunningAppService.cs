@@ -127,6 +127,14 @@ public class DunningAppService : ApplicationService, IDunningAppService
         foreach (var p in input.OverduePayments)
             d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
         await _repository.InsertAsync(d);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+            "Dunning", d.Id, "Created", d.CompanyId,
+            d.DunningLevel.ToString(), "Draft", "Draft",
+            CurrentUser.Id,
+            $"Dunning level {d.DunningLevel} created for customer {d.CustomerName}", d.TenantId));
+
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
@@ -203,6 +211,14 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var d = await _repository.GetAsync(id);
         d.Resolve();
         await _repository.UpdateAsync(d);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+            "Dunning", d.Id, "Resolved", d.CompanyId,
+            d.DunningLevel.ToString(), "Submitted", "Resolved",
+            CurrentUser.Id,
+            $"Dunning level {d.DunningLevel} resolved for customer {d.CustomerName}", d.TenantId));
+
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
@@ -212,6 +228,14 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var d = await _repository.GetAsync(id);
         d.Cancel();
         await _repository.UpdateAsync(d);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+            "Dunning", d.Id, "Cancelled", d.CompanyId,
+            d.DunningLevel.ToString(), "Submitted", "Cancelled",
+            CurrentUser.Id,
+            $"Dunning level {d.DunningLevel} cancelled for customer {d.CustomerName}", d.TenantId));
+
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 

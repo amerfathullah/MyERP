@@ -48,6 +48,23 @@ public class LoyaltyProgramAppService : ApplicationService, ILoyaltyProgramAppSe
     [Authorize(MyERPPermissions.LoyaltyPrograms.Create)]
     public async Task<LoyaltyProgramDto> CreateAsync(CreateLoyaltyProgramDto input)
     {
+        if (input.Tiers == null || input.Tiers.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        if (input.ConversionFactor <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ConversionFactor");
+        }
+
+        if (input.ExpiryDurationDays < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ExpiryDurationDays");
+        }
+
         var program = new LoyaltyProgram(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -66,12 +83,33 @@ public class LoyaltyProgramAppService : ApplicationService, ILoyaltyProgramAppSe
 
         program.Validate();
         await _repository.InsertAsync(program);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LoyaltyProgram", program.Id,
+            "Created", program.CompanyId,
+            program.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Loyalty program '{program.Name}' created with {program.Tiers.Count} tiers", CurrentTenant.Id));
+
         return ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(program);
     }
 
     [Authorize(MyERPPermissions.LoyaltyPrograms.Edit)]
     public async Task<LoyaltyProgramDto> UpdateAsync(Guid id, UpdateLoyaltyProgramDto input)
     {
+        if (input.ConversionFactor <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ConversionFactor");
+        }
+
+        if (input.ExpiryDurationDays < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ExpiryDurationDays");
+        }
+
         var program = await _repository.GetAsync(id);
         program.Name = input.Name;
         program.ConversionFactor = input.ConversionFactor;
@@ -80,6 +118,15 @@ public class LoyaltyProgramAppService : ApplicationService, ILoyaltyProgramAppSe
         program.ExpenseAccountId = input.ExpenseAccountId;
         program.CostCenterId = input.CostCenterId;
         await _repository.UpdateAsync(program);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LoyaltyProgram", program.Id,
+            "Updated", program.CompanyId,
+            program.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Loyalty program '{program.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<LoyaltyProgram, LoyaltyProgramDto>(program);
     }
 

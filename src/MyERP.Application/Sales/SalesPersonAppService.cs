@@ -51,6 +51,11 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
     [Authorize(MyERPPermissions.SalesPersons.Create)]
     public async Task<SalesPersonDto> CreateAsync(CreateSalesPersonDto input)
     {
+        if (input.CommissionRate < 0 || input.CommissionRate > 100)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
         var sp = new SalesPerson(
             GuidGenerator.Create(),
             input.Name,
@@ -62,18 +67,47 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         sp.SetCommissionRate(input.CommissionRate);
 
         await _repository.InsertAsync(sp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPerson", sp.Id,
+            "Created", Guid.Empty,
+            sp.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Sales person '{sp.Name}' created with commission rate {sp.CommissionRate}%", CurrentTenant.Id));
+
         return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
     }
 
     [Authorize(MyERPPermissions.SalesPersons.Edit)]
     public async Task<SalesPersonDto> UpdateAsync(Guid id, UpdateSalesPersonDto input)
     {
+        if (input.CommissionRate < 0 || input.CommissionRate > 100)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
+        if (input.ParentSalesPersonId == id)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A sales person cannot be their own parent.");
+        }
+
         var sp = await _repository.GetAsync(id);
         sp.SetCommissionRate(input.CommissionRate);
         sp.IsGroup = input.IsGroup;
         sp.EmployeeId = input.EmployeeId;
         sp.ParentSalesPersonId = input.ParentSalesPersonId;
         await _repository.UpdateAsync(sp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPerson", sp.Id,
+            "Updated", Guid.Empty,
+            sp.Name, "Active", "Active",
+            CurrentUser.Id,
+            $"Sales person '{sp.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
     }
 
@@ -97,6 +131,14 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         var sp = await _repository.GetAsync(id);
         sp.Disable();
         await _repository.UpdateAsync(sp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPerson", sp.Id,
+            "Disabled", Guid.Empty,
+            sp.Name, "Active", "Disabled",
+            CurrentUser.Id,
+            $"Sales person '{sp.Name}' disabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.SalesPersons.Delete)]
