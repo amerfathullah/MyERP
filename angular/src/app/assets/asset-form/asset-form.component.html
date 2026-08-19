@@ -48,7 +48,7 @@
             <select class="form-select" formControlName="custodianEmployeeId">
               <option [ngValue]="null">—</option>
               @for (emp of employees(); track emp.id) {
-                <option [ngValue]="emp.id">{{ emp.employeeName || emp.employeeNumber }}</option>
+                <option [ngValue]="emp.id">{{ emp.fullName || emp.firstName || emp.employeeId }}</option>
               }
             </select>
           </div>

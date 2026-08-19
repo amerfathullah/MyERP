@@ -38,7 +38,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::AvailableForUseDate' | abpLocalization }}</small><strong>{{ asset()!.availableForUseDate ? (asset()!.availableForUseDate | date:'dd/MM/yyyy') : '—' }}</strong></div>
                   <div class="col-md-4"><small class="text-muted d-block">{{ '::PurchaseAmount' | abpLocalization }}</small><strong>{{ asset()!.purchaseAmount | number:'1.2-2' }}</strong></div>
                   <div class="col-md-4"><small class="text-muted d-block">{{ '::AdditionalCost' | abpLocalization }}</small><strong>{{ asset()!.additionalCost | number:'1.2-2' }}</strong></div>
-                  <div class="col-md-4"><small class="text-muted d-block">{{ '::TotalAssetCost' | abpLocalization }}</small><strong>{{ (asset()!.totalAssetCost || (asset()!.purchaseAmount + asset()!.additionalCost)) | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-4"><small class="text-muted d-block">{{ '::TotalAssetCost' | abpLocalization }}</small><strong>{{ (asset()!.totalAssetCost || ((asset()!.purchaseAmount || 0) + (asset()!.additionalCost || 0))) | number:'1.2-2' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::BookValue' | abpLocalization }}</small>
                     <strong class="fs-5 text-primary" [class.text-danger]="(asset()!.valueAfterDepreciation ?? 0) <= 0">{{ asset()!.valueAfterDepreciation | number:'1.2-2' }}</strong>
                   </div>

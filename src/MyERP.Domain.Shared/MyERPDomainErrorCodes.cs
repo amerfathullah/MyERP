@@ -159,7 +159,7 @@ public static class MyERPDomainErrorCodes
     public const string CannotDeleteSupplier = "MyERP:04008";
     public const string DuplicateSupplierInvoice = "MyERP:04009";
     public const string DuplicateRfqSupplier = "MyERP:04010";
-    public const string SupplierNameCannotMatchSupplierGroup = "MyERP:04011";
+    public const string SupplierNameCannotMatchSupplierGroup = "MyERP:04030";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";
@@ -424,7 +424,7 @@ public static class MyERPDomainErrorCodes
     public const string SalesForecastAlreadyUsedForMps = "MyERP:10027";
 
     // Stock Reservation — Settings
-    public const string StockReservationDisabled = "MyERP:05033";
+    public const string StockReservationDisabled = "MyERP:05048";
 
     // Selling Settings — Mandatory Linkage
     public const string SalesOrderLinkRequired = "MyERP:03033";
