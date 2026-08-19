@@ -438,6 +438,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Enqueue queued stock valuation reposting
+                // Per ERPNext: stock_reposting_settings.repost_incorrect_valuation_entries
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.StockValuationCorrectionJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -446,6 +454,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (44 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (45 jobs).", companies.Count);
     }
 }
