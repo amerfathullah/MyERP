@@ -1,8 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { ConfigStateService, LocalizationPipe } from '@abp/ng.core';
 import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
+import { PosProfileService } from '../../proxy/sales/pos-profile.service';
+import { ModeOfPaymentService } from '../../proxy/accounting/mode-of-payment.service';
+import type { ModeOfPaymentDto } from '../../proxy/accounting/models';
+import type { PosProfileDto } from '../../proxy/sales/models';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
@@ -37,9 +41,24 @@ interface PosOpeningDto {
           <div class="card-body border-bottom bg-light">
             <div class="row g-2 mb-2">
               <div class="col-md-4">
+                <label class="form-label small">{{ '::PosProfile' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="selectedProfileId">
+                  <option value="">—</option>
+                  @for (p of profiles(); track p.id) {
+                    <option [value]="p.id">{{ p.profileName }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-md-4">
                 <label class="form-label small">{{ '::PaymentMode' | abpLocalization }}</label>
-                <input type="text" class="form-control form-control-sm" [(ngModel)]="newPayment.modeName"
-                  [placeholder]="'::Placeholder:PaymentMode' | abpLocalization">
+                <select class="form-select form-select-sm" [(ngModel)]="newPayment.modeOfPaymentId">
+                  <option value="">—</option>
+                  @for (m of modesOfPayment(); track m.id) {
+                    <option [value]="m.id">{{ m.name }}</option>
+                  }
+                </select>
               </div>
               <div class="col-md-3">
                 <label class="form-label small">{{ '::OpeningAmount' | abpLocalization }}</label>
@@ -54,13 +73,13 @@ interface PosOpeningDto {
 
             @if (pendingPayments.length > 0) {
               <div class="mb-2">
-                @for (p of pendingPayments; track p.modeName) {
-                  <span class="badge bg-info me-1">{{ p.modeName }}: {{ p.openingAmount | number:'1.2-2' }}</span>
+                @for (p of pendingPayments; track p.modeOfPaymentId) {
+                  <span class="badge bg-info me-1">{{ modeName(p.modeOfPaymentId) }}: {{ p.openingAmount | number:'1.2-2' }}</span>
                 }
               </div>
             }
 
-            <button class="btn btn-success btn-sm" (click)="openShift()" [disabled]="pendingPayments.length === 0">
+            <button class="btn btn-success btn-sm" (click)="openShift()" [disabled]="pendingPayments.length === 0 || !selectedProfileId">
               <i class="fa fa-play me-1"></i>{{ '::OpenShift' | abpLocalization }}
             </button>
           </div>
@@ -127,19 +146,45 @@ interface PosOpeningDto {
 })
 export class PosOpeningListComponent implements OnInit {
   private posOpeningService = inject(PosOpeningService);
+  private posProfileService = inject(PosProfileService);
+  private modeOfPaymentService = inject(ModeOfPaymentService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
   private companyContext = inject(CompanyContextService);
+  private configState = inject(ConfigStateService);
 
   entries = signal<PosOpeningDto[]>([]);
+  profiles = signal<PosProfileDto[]>([]);
+  modesOfPayment = signal<ModeOfPaymentDto[]>([]);
   totalCount = signal(0);
   currentPage = 0;
   showForm = false;
-  newPayment = { modeName: 'Cash', openingAmount: 0 };
-  pendingPayments: { modeName: string; openingAmount: number }[] = [];
+  selectedProfileId = '';
+  newPayment = { modeOfPaymentId: '', openingAmount: 0 };
+  pendingPayments: { modeOfPaymentId: string; openingAmount: number }[] = [];
 
   ngOnInit() {
     this.load();
+    this.loadProfiles();
+    this.modeOfPaymentService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: (res) => this.modesOfPayment.set(res.items ?? []),
+      error: () => {},
+    });
+  }
+
+  loadProfiles() {
+    const companyId = this.companyContext.currentCompanyId();
+    this.posProfileService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
+      next: (res) => {
+        const items = (res.items ?? []) as PosProfileDto[];
+        this.profiles.set(companyId ? items.filter(p => p.companyId === companyId) : items);
+      },
+      error: () => {},
+    });
+  }
+
+  modeName(id: string): string {
+    return this.modesOfPayment().find(m => m.id === id)?.name ?? id;
   }
 
   load() {
@@ -154,27 +199,39 @@ export class PosOpeningListComponent implements OnInit {
   }
 
   addPaymentMode() {
-    if (!this.newPayment.modeName) return;
+    if (!this.newPayment.modeOfPaymentId) return;
     this.pendingPayments.push({
-      modeName: this.newPayment.modeName,
+      modeOfPaymentId: this.newPayment.modeOfPaymentId,
       openingAmount: this.newPayment.openingAmount || 0,
     });
-    this.newPayment = { modeName: '', openingAmount: 0 };
+    this.newPayment = { modeOfPaymentId: '', openingAmount: 0 };
   }
 
   openShift() {
     const companyId = this.companyContext.currentCompanyId();
-    if (!companyId) return;
+    if (!companyId || !this.selectedProfileId) return;
+
+    const userId = this.configState.getOne('currentUser')?.id;
+    if (!userId) {
+      this.toaster.error('::AuthenticationRequired');
+      return;
+    }
 
     this.posOpeningService.create({
       companyId,
-      posProfileId: companyId,
-      payments: this.pendingPayments
+      posProfileId: this.selectedProfileId,
+      userId,
+      payments: this.pendingPayments.map(p => ({
+        modeOfPaymentId: p.modeOfPaymentId,
+        modeName: this.modeName(p.modeOfPaymentId),
+        openingAmount: p.openingAmount,
+      })),
     }).subscribe({
       next: () => {
         this.toaster.success('::PosShiftOpened');
         this.showForm = false;
         this.pendingPayments = [];
+        this.selectedProfileId = '';
         this.load();
       }
     });

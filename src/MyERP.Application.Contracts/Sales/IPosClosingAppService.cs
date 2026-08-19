@@ -16,4 +16,5 @@ public interface IPosClosingAppService : IApplicationService
     Task<PosClosingDto> CancelAsync(Guid id);
     Task<PosClosingDto> RetryAsync(Guid id);
     Task<List<PosExpectedPaymentDto>> CalculateExpectedAmountsAsync(Guid posOpeningEntryId);
+    Task<List<PosClosingInvoiceDto>> GetUnconsolidatedInvoicesAsync(Guid posOpeningEntryId);
 }

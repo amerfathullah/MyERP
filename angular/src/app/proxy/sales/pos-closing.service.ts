@@ -1,4 +1,4 @@
-import type { CreatePosClosingDto, PosClosingDto, PosExpectedPaymentDto } from './models';
+import type { CreatePosClosingDto, PosClosingDto, PosClosingInvoiceDto, PosExpectedPaymentDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -44,6 +44,14 @@ export class PosClosingService {
     },
     { apiName: this.apiName,...config });
   
+
+  getUnconsolidatedInvoices = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosClosingInvoiceDto[]>({
+      method: 'GET',
+      url: `/api/app/pos-closing/unconsolidated-invoices/${posOpeningEntryId}`,
+    },
+    { apiName: this.apiName,...config });
+
 
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosClosingDto>>({

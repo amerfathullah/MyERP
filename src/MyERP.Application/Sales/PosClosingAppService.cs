@@ -260,6 +260,43 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
     }
 
     /// <summary>
+    /// Finds Sales Invoices belonging to a POS shift: same company, issued on/after the shift's
+    /// opening, not cancelled, and not yet folded into a consolidated invoice.
+    /// Shared by <see cref="CalculateExpectedAmountsAsync"/> and <see cref="GetUnconsolidatedInvoicesAsync"/>
+    /// so both agree on what counts as "this shift's invoices".
+    /// </summary>
+    private async Task<List<SalesInvoice>> GetShiftInvoicesAsync(PosOpeningEntry opening)
+    {
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        return invoiceQuery
+            .Where(si => si.CompanyId == opening.CompanyId
+                      && si.IssueDate >= opening.OpeningDate
+                      && si.Status != Core.DocumentStatus.Cancelled
+                      && si.ConsolidatedSalesInvoiceId == null) // Not yet consolidated = POS invoices
+            .ToList();
+    }
+
+    /// <summary>
+    /// Lists this shift's unconsolidated Sales Invoices in the shape a POS Closing Entry expects
+    /// for its Invoices child table — used by the Angular closing form to populate
+    /// CreatePosClosingDto.Invoices before submitting the shift for consolidation.
+    /// </summary>
+    public async Task<List<PosClosingInvoiceDto>> GetUnconsolidatedInvoicesAsync(Guid posOpeningEntryId)
+    {
+        var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+        var opening = await openingRepo.FindAsync(posOpeningEntryId);
+        if (opening == null) return [];
+
+        var shiftInvoices = await GetShiftInvoicesAsync(opening);
+        return shiftInvoices.Select(i => new PosClosingInvoiceDto
+        {
+            PosInvoiceId = i.Id,
+            InvoiceNumber = i.InvoiceNumber,
+            GrandTotal = i.GrandTotal,
+        }).ToList();
+    }
+
+    /// <summary>
     /// Calculates expected payment amounts per payment mode for a POS shift.
     /// Formula per ERPNext: Expected = Opening Balance + Sum(POS Invoice payments during shift).
     /// Returns: per-MOP expected amount (used to pre-fill closing form before cashier enters actuals).
@@ -273,14 +310,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         if (opening == null) return [];
 
         // 2. Find total POS revenue during shift from invoices in the same company/date
-        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
-        var shiftInvoices = invoiceQuery
-            .Where(si => si.CompanyId == opening.CompanyId
-                      && si.IssueDate >= opening.OpeningDate
-                      && si.Status != Core.DocumentStatus.Cancelled
-                      && si.ConsolidatedSalesInvoiceId == null) // Not yet consolidated = POS invoices
-            .ToList();
-
+        var shiftInvoices = await GetShiftInvoicesAsync(opening);
         var totalInvoiceAmount = shiftInvoices.Sum(i => i.GrandTotal);
 
         // 3. For each payment mode, calculate: opening balance + proportional invoice amount
