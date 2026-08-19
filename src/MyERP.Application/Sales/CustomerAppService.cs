@@ -158,6 +158,8 @@ public class CustomerAppService :
         entity.LoyaltyProgramId = input.LoyaltyProgramId;
         entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
         entity.RestrictToCompanies = input.RestrictToCompanies;
+        entity.SoRequired = input.SoRequired;
+        entity.DnRequired = input.DnRequired;
     }
 }
 

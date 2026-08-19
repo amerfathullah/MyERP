@@ -74,6 +74,8 @@ export class CustomerFormComponent implements OnInit {
     country: ['MYS'],
     isActive: [true],
     restrictToCompanies: [false],
+    soRequired: [false],
+    dnRequired: [false],
   });
 
   isEditMode = false;

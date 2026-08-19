@@ -78,6 +78,18 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <th class="text-muted">{{ '::CreditLimit' | abpLocalization }}</th>
                     <td class="font-monospace fw-semibold">{{ (customer.creditLimit ? (customer.creditLimit | number:'1.2-2') : ('::NoLimit' | abpLocalization)) }}</td>
                   </tr>
+                  @if (customer.soRequired) {
+                    <tr>
+                      <th class="text-muted">{{ '::SalesOrderRequired' | abpLocalization }}</th>
+                      <td><span class="badge bg-warning text-dark">{{ '::Yes' | abpLocalization }}</span></td>
+                    </tr>
+                  }
+                  @if (customer.dnRequired) {
+                    <tr>
+                      <th class="text-muted">{{ '::DeliveryNoteRequired' | abpLocalization }}</th>
+                      <td><span class="badge bg-info text-dark">{{ '::Yes' | abpLocalization }}</span></td>
+                    </tr>
+                  }
                 </tbody>
               </table>
             </div>

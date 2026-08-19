@@ -675,9 +675,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     action: "Stop");
             }
 
-            // Mandatory SO/DN linkage (Selling Settings: "Is SO/DN required for Sales Invoice?")
-            var soRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
-            var dnRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
+            // Mandatory SO/DN linkage (Selling Settings or Customer flags: "Is SO/DN required for Sales Invoice?")
+            var customerEntity = await _customerRepository.FindAsync(invoice.CustomerId);
+            var soRequired = (customerEntity?.SoRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
+            var dnRequired = (customerEntity?.DnRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
             SalesInvoiceManager.ValidateSoRequired(invoice, soRequired);
             SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired);
 

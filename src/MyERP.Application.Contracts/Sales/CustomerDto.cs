@@ -31,4 +31,6 @@ public class CustomerDto : FullAuditedEntityDto<Guid>
     public Guid? LoyaltyProgramId { get; set; }
     public Guid? DefaultPaymentTermsTemplateId { get; set; }
     public bool RestrictToCompanies { get; set; }
+    public bool SoRequired { get; set; }
+    public bool DnRequired { get; set; }
 }

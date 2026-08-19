@@ -254,6 +254,23 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await _batchValidation.ValidateForStockOutAsync(batchItems, dn.PostingDate);
         }
 
+        // Mandatory SO linkage (Selling Settings or Customer flag)
+        if (!dn.IsReturn)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(dn.CustomerId);
+            var soRequired = (customer?.SoRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
+            if (soRequired)
+            {
+                var unlinkedItem = dn.Items.FirstOrDefault(i => !i.SalesOrderItemId.HasValue && !dn.SalesOrderId.HasValue);
+                if (unlinkedItem != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SalesOrderLinkRequired)
+                        .WithData("itemDescription", unlinkedItem.Description);
+                }
+            }
+        }
+
         // Over-delivery validation + SO status guard (domain service)
         if (!dn.IsReturn && dn.SalesOrderId.HasValue)
         {

@@ -74,6 +74,12 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool RestrictToCompanies { get; set; }
 
+    /// <summary>Sales Order required before Delivery Note / Sales Invoice can be created for this customer.</summary>
+    public bool SoRequired { get; set; }
+
+    /// <summary>Delivery Note required before Sales Invoice can be created for this customer.</summary>
+    public bool DnRequired { get; set; }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

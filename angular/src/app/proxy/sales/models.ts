@@ -575,6 +575,8 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   loyaltyProgramId?: string | null;
   defaultPaymentTermsTemplateId?: string | null;
   restrictToCompanies?: boolean;
+  soRequired?: boolean;
+  dnRequired?: boolean;
 }
 
 export interface CustomerRevenueLineDto {
