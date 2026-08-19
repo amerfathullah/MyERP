@@ -51,6 +51,13 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
     [Authorize(MyERPPermissions.MaintenanceVisits.Create)]
     public async Task<MaintenanceVisitDto> CreateAsync(CreateMaintenanceVisitDto input)
     {
+        var itemIds = input.Purposes.Where(p => p.ItemId != Guid.Empty).Select(p => p.ItemId).Distinct().ToArray();
+        if (itemIds.Length > 0)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        }
+
         var typeStr = input.MaintenanceType switch
         {
             0 => "Scheduled",
@@ -104,6 +111,14 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         var entity = await _visitRepository.GetAsync(id);
         entity.Complete();
         await _visitRepository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+            "Completed", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Completed", CurrentUser.Id,
+            $"Maintenance Visit {entity.Id.ToString()[..8]} completed on {entity.VisitDate:yyyy-MM-dd}", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -113,6 +128,14 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         var entity = await _visitRepository.GetAsync(id);
         entity.Cancel();
         await _visitRepository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.Id.ToString()[..8], entity.CompletionStatus.ToString(), "Cancelled", CurrentUser.Id,
+            $"Maintenance Visit {entity.Id.ToString()[..8]} cancelled", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

@@ -104,6 +104,14 @@ public class IssueAppService : ApplicationService, IIssueAppService
         var issue = await _issueRepository.GetAsync(id);
         issue.Resolve(input.Resolution);
         await _issueRepository.UpdateAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Issue", issue.Id,
+            "Resolved", issue.CompanyId,
+            issue.Subject, issue.Status.ToString(), "Resolved", CurrentUser.Id,
+            $"Issue {issue.Subject} resolved. Resolution: {input.Resolution}", CurrentTenant.Id));
+
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
@@ -113,6 +121,14 @@ public class IssueAppService : ApplicationService, IIssueAppService
         var issue = await _issueRepository.GetAsync(id);
         issue.Reopen();
         await _issueRepository.UpdateAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Issue", issue.Id,
+            "Reopened", issue.CompanyId,
+            issue.Subject, issue.Status.ToString(), "Open", CurrentUser.Id,
+            $"Issue {issue.Subject} reopened", CurrentTenant.Id));
+
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 
@@ -122,6 +138,14 @@ public class IssueAppService : ApplicationService, IIssueAppService
         var issue = await _issueRepository.GetAsync(id);
         issue.Hold();
         await _issueRepository.UpdateAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Issue", issue.Id,
+            "OnHold", issue.CompanyId,
+            issue.Subject, issue.Status.ToString(), "OnHold", CurrentUser.Id,
+            $"Issue {issue.Subject} put on hold", CurrentTenant.Id));
+
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
 }

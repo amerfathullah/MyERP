@@ -48,10 +48,25 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
     [Authorize(MyERPPermissions.MaintenanceSchedules.Create)]
     public async Task<MaintenanceScheduleDto> CreateAsync(CreateMaintenanceScheduleDto input)
     {
+        if (input.Items == null || input.Items.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var firstItem = input.Items.First();
+        if (firstItem.EndDate < firstItem.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
         var entity = new MaintenanceSchedule(
             GuidGenerator.Create(), input.CompanyId,
-            input.Items.First().StartDate, input.Items.First().EndDate,
-            input.Items.First().Periodicity.ToString(), CurrentTenant.Id)
+            firstItem.StartDate, firstItem.EndDate,
+            firstItem.Periodicity.ToString(), CurrentTenant.Id)
         {
             CustomerId = input.CustomerId,
             SalesOrderId = input.SalesOrderId
@@ -59,9 +74,9 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
 
         if (input.Items.Any())
         {
-            entity.ItemId = input.Items.First().ItemId;
-            entity.SerialNoId = input.Items.First().SerialNoId;
-            entity.SalesPersonId = input.Items.First().SalesPersonId;
+            entity.ItemId = firstItem.ItemId;
+            entity.SerialNoId = firstItem.SerialNoId;
+            entity.SalesPersonId = firstItem.SalesPersonId;
         }
 
         await _repository.InsertAsync(entity, autoSave: true);
@@ -113,6 +128,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         var entity = await _repository.GetAsync(id);
         entity.Submit();
         await _repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
+            "Submitted", entity.CompanyId,
+            entity.Id.ToString()[..8], "Draft", "Submitted", CurrentUser.Id,
+            $"Maintenance Schedule {entity.Id.ToString()[..8]} submitted", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -122,6 +145,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
         await _repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.Id.ToString()[..8], entity.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Maintenance Schedule {entity.Id.ToString()[..8]} cancelled", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
