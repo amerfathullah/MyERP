@@ -224,6 +224,33 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                     InactiveDays = 7,
                 });
+
+                // Enqueue supplier quotation auto-expiry
+                // Per ERPNext: supplier_quotation.set_expired_status
+                await jobManager.EnqueueAsync(new Purchasing.BackgroundJobs.SupplierQuotationExpiryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue task overdue status update
+                // Per ERPNext: task.set_tasks_as_overdue
+                await jobManager.EnqueueAsync(new Projects.BackgroundJobs.TaskOverdueJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue fiscal year auto-creation
+                // Per ERPNext: fiscal_year.auto_create_fiscal_year
+                await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.FiscalYearAutoCreationJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -232,6 +259,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (20 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (23 jobs).", companies.Count);
     }
 }
