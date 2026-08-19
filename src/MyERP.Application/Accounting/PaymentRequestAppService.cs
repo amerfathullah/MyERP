@@ -48,6 +48,12 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
     [Authorize(MyERPPermissions.PaymentEntries.Create)]
     public async Task<PaymentRequestDto> CreateAsync(CreatePaymentRequestDto input)
     {
+        if (input.GrandTotal <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "GrandTotal");
+        }
+
         var pr = new PaymentRequest(GuidGenerator.Create(), input.CompanyId,
             input.ReferenceDoctype, input.ReferenceId, input.PartyId, input.PartyType,
             input.GrandTotal, CurrentTenant.Id)
@@ -56,6 +62,15 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             EmailTo = input.EmailTo, Subject = input.Subject, Message = input.Message,
         };
         await _repository.InsertAsync(pr);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentRequest", pr.Id,
+            "Created", pr.CompanyId,
+            pr.PartyName ?? pr.Id.ToString()[..8], "Draft", "Draft",
+            CurrentUser.Id,
+            $"Payment request created for party '{pr.PartyName}' with amount {pr.GrandTotal:C}", CurrentTenant.Id));
+
         return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 
@@ -65,6 +80,15 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
         var pr = await _repository.GetAsync(id);
         pr.Submit();
         await _repository.UpdateAsync(pr);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentRequest", pr.Id,
+            "Submitted", pr.CompanyId,
+            pr.PartyName ?? pr.Id.ToString()[..8], "Draft", "Requested",
+            CurrentUser.Id,
+            $"Payment request submitted for party '{pr.PartyName}'", CurrentTenant.Id));
+
         return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 
@@ -74,6 +98,15 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
         var pr = await _repository.GetAsync(id);
         pr.Cancel();
         await _repository.UpdateAsync(pr);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PaymentRequest", pr.Id,
+            "Cancelled", pr.CompanyId,
+            pr.PartyName ?? pr.Id.ToString()[..8], "Requested", "Cancelled",
+            CurrentUser.Id,
+            $"Payment request cancelled for party '{pr.PartyName}'", CurrentTenant.Id));
+
         return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
 }

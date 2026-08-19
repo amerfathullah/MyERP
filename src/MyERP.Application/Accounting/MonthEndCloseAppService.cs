@@ -59,5 +59,13 @@ public class MonthEndCloseAppService : ApplicationService, IMonthEndCloseAppServ
     public async Task FreezeAsync(FreezeAccountingPeriodDto input)
     {
         await _monthEndService.FreezeAccountingPeriodAsync(input.CompanyId, input.FreezeUpTo);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountingPeriod", Guid.Empty,
+            "Frozen", input.CompanyId,
+            input.FreezeUpTo.ToString("yyyy-MM-dd"), "Active", "Frozen",
+            CurrentUser.Id,
+            $"Accounting period frozen up to {input.FreezeUpTo:yyyy-MM-dd}", CurrentTenant.Id));
     }
 }

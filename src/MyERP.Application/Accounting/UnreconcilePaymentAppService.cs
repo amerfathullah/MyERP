@@ -61,6 +61,11 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
                 && p.VoucherId == input.VoucherId && !p.Delinked)
             .ToList();
 
+        if (linkedEntries.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var entity = new UnreconcilePayment(GuidGenerator.Create(), input.CompanyId, input.VoucherType, input.VoucherId, CurrentTenant.Id);
 
         foreach (var ple in linkedEntries)
@@ -69,6 +74,15 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "UnreconcilePayment", entity.Id,
+            "Created", entity.CompanyId,
+            entity.VoucherType.ToString(), "Draft", "Draft",
+            CurrentUser.Id,
+            $"Unreconcile payment created for {entity.VoucherType} with {entity.Allocations.Count} allocations", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -87,6 +101,15 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
         }
 
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "UnreconcilePayment", entity.Id,
+            "Submitted", entity.CompanyId,
+            entity.VoucherType.ToString(), "Draft", "Submitted",
+            CurrentUser.Id,
+            $"Unreconcile payment submitted for {entity.VoucherType}", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -96,6 +119,15 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
         var entity = (await _repository.WithDetailsAsync()).First(u => u.Id == id);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "UnreconcilePayment", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.VoucherType.ToString(), "Submitted", "Cancelled",
+            CurrentUser.Id,
+            $"Unreconcile payment cancelled for {entity.VoucherType}", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

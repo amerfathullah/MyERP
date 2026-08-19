@@ -65,6 +65,15 @@ public class AccountCategoryAppService : ApplicationService, IAccountCategoryApp
             Description = input.Description,
         };
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AccountCategory", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active",
+            CurrentUser.Id,
+            $"Account category '{entity.Name}' created for root type '{entity.RootType}'", CurrentTenant.Id));
+
         return new AccountCategoryDto
         {
             Id = entity.Id,

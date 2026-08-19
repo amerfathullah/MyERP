@@ -37,9 +37,24 @@ public class CurrencyExchangeAppService : ApplicationService, ICurrencyExchangeA
     [Authorize(MyERPPermissions.Accounts.Create)]
     public async Task<CurrencyExchangeDto> CreateAsync(CreateCurrencyExchangeDto input)
     {
+        if (input.ExchangeRate <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ExchangeRate");
+        }
+
         var ce = new CurrencyExchange(GuidGenerator.Create(), input.FromCurrency,
             input.ToCurrency, input.ExchangeRate, input.Date, CurrentTenant.Id);
         await _repository.InsertAsync(ce);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CurrencyExchange", ce.Id,
+            "Created", Guid.Empty,
+            $"{ce.FromCurrency}->{ce.ToCurrency}", "Draft", "Active",
+            CurrentUser.Id,
+            $"Currency exchange rate {ce.FromCurrency}->{ce.ToCurrency} set to {ce.ExchangeRate}", CurrentTenant.Id));
+
         return ObjectMapper.Map<CurrencyExchange, CurrencyExchangeDto>(ce);
     }
 
