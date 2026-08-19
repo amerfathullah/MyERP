@@ -1921,7 +1921,7 @@
     "MyERP:04003": "E-Invoice status check failed. LHDN service may be unavailable.",
     "MyERP:02003": "Account is a group account and cannot receive direct postings.",
     "MyERP:06002": "Asset {assetName} with status {status} cannot be moved.",
-    "MyERP:11001": "Multiple pricing rules match with the same priority. Pricing rule ambiguity detected.",
+    "MyERP:11001": "Multiple pricing rules match at the same highest priority. Please adjust rule priorities to resolve ambiguity.",
     "MyERP:08006": "Over-receipt: item {itemName} has ordered qty {orderedQty}, already received {receivedQty}, attempting {attemptedQty}.",
     "MyERP:03001": "No applicable tax rule found for the given criteria.",
     "MyERP:05001": "Unsupported entity type for this operation.",
@@ -3920,6 +3920,7 @@
     "MyERP:05051": "An alternative entry for this item already exists.",
     "MyERP:06003": "Target location and custodian cannot be identical to source for asset {assetName}.",
     "MyERP:06004": "Consumed asset cannot be the same as the target capitalized asset.",
-    "MyERP:01012": "The document company does not match the referenced record company."
+    "MyERP:01012": "The document company does not match the referenced record company.",
+    "MyERP:03036": "Discount percentage must be between 0 and 100."
   }
 }

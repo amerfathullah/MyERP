@@ -434,6 +434,7 @@ public static class MyERPDomainErrorCodes
 
     // Maintain Same Rate (Buying/Selling Settings)
     public const string RateMismatchWithReferenceDoc = "MyERP:03035";
+    public const string InvalidDiscountPercentage = "MyERP:03036";
 
     // Item Alternative
     public const string ItemDoesNotAllowAlternatives = "MyERP:05049";
@@ -448,4 +449,7 @@ public static class MyERPDomainErrorCodes
 
     // General Company
     public const string CompanyMismatch = "MyERP:01012";
+
+    // Pricing Rules
+    public const string AmbiguousPricingRule = "MyERP:11001";
 }

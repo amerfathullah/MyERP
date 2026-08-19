@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -36,6 +37,28 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<PricingRuleDto> CreateAsync(CreatePricingRuleDto input)
     {
+        if (input.ValidFrom.HasValue && input.ValidUpto.HasValue && input.ValidUpto.Value < input.ValidFrom.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.DiscountPercentage < 0 || input.DiscountPercentage > 100)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
+        if (input.DiscountAmount < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "DiscountAmount");
+        }
+
+        if (input.Rate < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Rate");
+        }
+
         var rule = new PricingRule(GuidGenerator.Create(), input.Title, input.ApplyOn, input.RuleType, CurrentTenant.Id)
         {
             CompanyId = input.CompanyId,
@@ -77,8 +100,8 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
         var topPriority = matching[0].Priority;
         var topRules = matching.Where(r => r.Priority == topPriority).ToList();
         if (topRules.Count > 1)
-            throw new Volo.Abp.BusinessException("MyERP:11001")
-                .WithData("detail", $"Multiple pricing rules at priority {topPriority} match. Resolve ambiguity.");
+            throw new BusinessException(MyERPDomainErrorCodes.AmbiguousPricingRule)
+                .WithData("priority", topPriority);
 
         return topRules.Select(r => new PricingRuleResultDto
         {
@@ -94,6 +117,4 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
 
     [Authorize(MyERPPermissions.SalesInvoices.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
-
-
 }
