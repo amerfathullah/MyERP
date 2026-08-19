@@ -54,6 +54,13 @@ public partial class DesignationToDesignationDtoMapper : MapperBase<HumanResourc
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class DepartmentToDepartmentDtoMapper : MapperBase<HumanResources.Entities.Department, HumanResources.DepartmentDto>
+{
+    public override partial HumanResources.DepartmentDto Map(HumanResources.Entities.Department source);
+    public override partial void Map(HumanResources.Entities.Department source, HumanResources.DepartmentDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SupplierToSupplierDtoMapper : MapperBase<Purchasing.Entities.Supplier, Purchasing.SupplierDto>
 {
     public override partial Purchasing.SupplierDto Map(Purchasing.Entities.Supplier source);

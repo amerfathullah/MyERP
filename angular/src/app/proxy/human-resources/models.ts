@@ -11,6 +11,22 @@ export interface CreateUpdateDesignationDto {
   description?: string | null;
 }
 
+export interface DepartmentDto extends FullAuditedEntityDto<string> {
+  name: string;
+  companyId: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateDepartmentDto {
+  name: string;
+  companyId: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  isActive?: boolean;
+}
+
 export interface BulkLeaveAllocationDto {
   companyId: string;
   leaveTypeId: string;

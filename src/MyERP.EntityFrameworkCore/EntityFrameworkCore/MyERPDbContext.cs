@@ -266,6 +266,7 @@ public class MyERPDbContext :
     // Human Resources
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Designation> Designations { get; set; }
+    public DbSet<Department> Departments { get; set; }
     public DbSet<ContributionRule> ContributionRules { get; set; }
     public DbSet<PayrollEntry> PayrollEntries { get; set; }
     public DbSet<PayrollEntryLine> PayrollEntryLines { get; set; }
@@ -2161,6 +2162,15 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Description).HasMaxLength(2000);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<Department>(b =>
+        {
+            b.ToTable("Hr_Departments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Name }).IsUnique();
         });
 
         builder.Entity<ContributionRule>(b =>

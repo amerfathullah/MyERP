@@ -949,6 +949,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Employees',
       },
       {
+        path: '/hr/departments',
+        name: '::Menu:Departments',
+        parentName: '::Menu:HR',
+        iconClass: 'fas fa-sitemap',
+        order: 3,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Employees',
+      },
+      {
         path: '/hr/payroll',
         name: '::Menu:Payroll',
         parentName: '::Menu:HR',
