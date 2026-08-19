@@ -323,6 +323,24 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue asset depreciation scheduler
+                // Per ERPNext: assets/doctype/asset/depreciation.py
+                await jobManager.EnqueueAsync(new Assets.BackgroundJobs.DepreciationSchedulerArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue maintenance schedule reminders
+                // Per ERPNext: maintenance_schedule.generate_schedule
+                await jobManager.EnqueueAsync(new Maintenance.BackgroundJobs.MaintenanceScheduleReminderJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -331,6 +349,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (31 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (33 jobs).", companies.Count);
     }
 }
