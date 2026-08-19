@@ -38,6 +38,9 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public List<ProjectTask> Tasks { get; private set; } = new();
 
+    /// <summary>Team members assigned to this project, with per-member access flags.</summary>
+    public ICollection<ProjectUser> Users { get; private set; } = new List<ProjectUser>();
+
     protected Project() { }
 
     public Project(Guid id, Guid companyId, string projectNumber, string projectName, Guid? tenantId = null)

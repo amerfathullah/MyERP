@@ -24,6 +24,7 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     /// <summary>SO conversion completion %. 0 = not ordered, 100 = fully ordered.</summary>
     public decimal PerOrdered { get; set; }
     public List<QuotationItemDto> Items { get; set; } = new();
+    public List<MyERP.CRM.CompetitorDetailDto> Competitors { get; set; } = new();
 }
 
 public class QuotationItemDto

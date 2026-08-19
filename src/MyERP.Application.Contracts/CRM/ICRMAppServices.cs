@@ -35,6 +35,8 @@ public interface IOpportunityAppService : IApplicationService
     Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason);
     Task<OpportunityDto> CloseAsync(Guid id);
     Task<OpportunityDto> ReopenAsync(Guid id);
+    Task<CompetitorDetailDto> CreateCompetitorAsync(AddCompetitorDetailDto input);
+    Task DeleteCompetitorAsync(Guid competitorDetailId);
 }
 
 public interface IProspectAppService : IApplicationService

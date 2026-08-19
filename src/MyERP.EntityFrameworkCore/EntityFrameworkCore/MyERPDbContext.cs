@@ -322,6 +322,7 @@ public class MyERPDbContext :
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectType> ProjectTypes { get; set; }
     public DbSet<ProjectTask> ProjectTasks { get; set; }
+    public DbSet<ProjectUser> ProjectUsers { get; set; }
     public DbSet<TaskDependency> TaskDependencies { get; set; }
     public DbSet<ProjectTemplate> ProjectTemplates { get; set; }
     public DbSet<ProjectTemplateTask> ProjectTemplateTasks { get; set; }
@@ -421,6 +422,7 @@ public class MyERPDbContext :
     public DbSet<ProspectOpportunity> ProspectOpportunities { get; set; }
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<Competitor> Competitors { get; set; }
+    public DbSet<CompetitorDetail> CompetitorDetails { get; set; }
     public DbSet<MarketSegment> MarketSegments { get; set; }
     public DbSet<IndustryType> IndustryTypes { get; set; }
     public DbSet<SalesStage> SalesStages { get; set; }
@@ -2571,6 +2573,8 @@ public class MyERPDbContext :
             b.Property(x => x.PercentComplete).HasColumnType("decimal(5,1)");
             b.HasMany(x => x.Tasks).WithOne().HasForeignKey(x => x.ProjectId).IsRequired();
             b.Navigation(x => x.Tasks).AutoInclude();
+            b.HasMany(x => x.Users).WithOne().HasForeignKey(x => x.ProjectId).IsRequired();
+            b.Navigation(x => x.Users).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.ProjectNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
         });
@@ -2581,6 +2585,13 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.Name).IsRequired().HasMaxLength(100);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<ProjectUser>(b =>
+        {
+            b.ToTable("Prj_ProjectUsers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
         });
 
         builder.Entity<ProjectTask>(b =>
@@ -4295,6 +4306,15 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(CompetitorConsts.MaxNameLength);
             b.Property(x => x.Website).HasMaxLength(CompetitorConsts.MaxWebsiteLength);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<CompetitorDetail>(b =>
+        {
+            b.ToTable("CRM_CompetitorDetails", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ParentType).IsRequired().HasMaxLength(50);
+            b.HasIndex(x => new { x.ParentType, x.ParentId });
+            b.HasIndex(x => new { x.ParentType, x.ParentId, x.CompetitorId }).IsUnique();
         });
 
         builder.Entity<MarketSegment>(b =>

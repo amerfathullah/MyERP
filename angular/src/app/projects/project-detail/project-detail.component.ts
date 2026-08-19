@@ -1,18 +1,19 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectService } from '../../proxy/projects/project.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
-import type { ProjectDto, ProjectTaskDto } from '../../proxy/projects/models';
+import type { ProjectDto, ProjectTaskDto, ProjectUserDto } from '../../proxy/projects/models';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, RouterLink, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, RouterLink, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     @if (loading()) {
@@ -163,6 +164,61 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
         </div>
       }
 
+      <!-- Team Members -->
+      <div class="card mb-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="fas fa-users me-2"></i>{{ '::TeamMembers' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body">
+          @if (project()!.users!.length > 0) {
+            <div class="table-responsive mb-3">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::User' | abpLocalization }}</th>
+                    <th>{{ '::ViewAttachments' | abpLocalization }}</th>
+                    <th>{{ '::HideTimesheets' | abpLocalization }}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (member of project()!.users!; track member.id) {
+                    <tr>
+                      <td>{{ member.userId }}</td>
+                      <td>
+                        <input type="checkbox" class="form-check-input"
+                          [checked]="member.viewAttachments"
+                          (change)="toggleMemberFlag(member, 'viewAttachments')" />
+                      </td>
+                      <td>
+                        <input type="checkbox" class="form-check-input"
+                          [checked]="member.hideTimesheets"
+                          (change)="toggleMemberFlag(member, 'hideTimesheets')" />
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger" (click)="removeMember(member)">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="text-muted mb-3">{{ '::NoTeamMembersYet' | abpLocalization }}</p>
+          }
+
+          <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm" style="max-width: 320px;"
+              [(ngModel)]="newMemberUserId" placeholder="{{ '::UserIdPlaceholder' | abpLocalization }}" />
+            <button class="btn btn-sm btn-outline-primary" (click)="addMember()" [disabled]="!newMemberUserId">
+              <i class="fas fa-plus me-1"></i>{{ '::AddMember' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <app-activity-log documentType="Project" [documentId]="project()!.id!" />
     }
   `,
@@ -179,6 +235,7 @@ export class ProjectDetailComponent implements OnInit {
   project = signal<ProjectDto | null>(null);
   tasks = signal<ProjectTaskDto[]>([]);
   loading = signal(true);
+  newMemberUserId = '';
 
   statusLabel = computed(() => {
     const s = this.project()?.status;
@@ -271,5 +328,40 @@ export class ProjectDetailComponent implements OnInit {
   getPriorityLabel(priority: number): string {
     const map: Record<number, string> = { 0: 'Low', 1: 'Medium', 2: 'High', 3: 'Urgent' };
     return map[priority] ?? 'Medium';
+  }
+
+  addMember(): void {
+    const projectId = this.project()?.id;
+    const userId = this.newMemberUserId.trim();
+    if (!projectId || !userId) return;
+
+    this.service.createUser({ projectId, userId }).subscribe({
+      next: () => {
+        this.newMemberUserId = '';
+        this.ngOnInit();
+      },
+      error: () => {}
+    });
+  }
+
+  removeMember(member: ProjectUserDto): void {
+    if (!member.id) return;
+    this.confirmation.warn('::RemoveMemberConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.deleteUser(member.id!).subscribe({
+        next: () => this.ngOnInit(),
+        error: () => {}
+      });
+    });
+  }
+
+  toggleMemberFlag(member: ProjectUserDto, flag: 'viewAttachments' | 'hideTimesheets'): void {
+    if (!member.id) return;
+    const updated = { viewAttachments: !!member.viewAttachments, hideTimesheets: !!member.hideTimesheets };
+    updated[flag] = !updated[flag];
+    this.service.updateUser(member.id, updated).subscribe({
+      next: () => this.ngOnInit(),
+      error: () => {}
+    });
   }
 }

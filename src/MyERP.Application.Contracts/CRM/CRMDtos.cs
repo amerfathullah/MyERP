@@ -166,6 +166,7 @@ public class OpportunityDto : AuditedEntityDto<Guid>
     public string? LostReason { get; set; }
     public string? Notes { get; set; }
     public List<OpportunityItemDto> Items { get; set; } = new();
+    public List<CompetitorDetailDto> Competitors { get; set; } = new();
 }
 
 public class OpportunityItemDto
@@ -177,6 +178,29 @@ public class OpportunityItemDto
     public decimal UnitPrice { get; set; }
     public decimal Amount { get; set; }
     public string? Uom { get; set; }
+}
+
+// === Competitor Detail DTOs (polymorphic: Opportunity, Quotation) ===
+
+public class CompetitorDetailDto
+{
+    public Guid Id { get; set; }
+    public string ParentType { get; set; } = null!;
+    public Guid ParentId { get; set; }
+    public Guid CompetitorId { get; set; }
+    public string? CompetitorName { get; set; }
+}
+
+public class AddCompetitorDetailDto
+{
+    [Required]
+    public string ParentType { get; set; } = null!;
+
+    [Required]
+    public Guid ParentId { get; set; }
+
+    [Required]
+    public Guid CompetitorId { get; set; }
 }
 
 public class CreateOpportunityDto

@@ -1,9 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
+import { CompetitorService } from '../../proxy/crm/competitor.service';
+import type { CompetitorDto, OpportunityDto } from '../../proxy/crm/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
@@ -12,9 +15,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 @Component({
   selector: 'app-opportunity-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   template: `
-    <abp-page [title]="opp()?.opportunityName ?? ('Opportunity' | abpLocalization)">
+    <abp-page [title]="opp()?.title ?? ('Opportunity' | abpLocalization)">
   <app-breadcrumb />
       @if (isLoading()) { <app-loading-overlay /> }
       @if (opp(); as o) {
@@ -38,13 +41,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               </div>
               <div class="col-md-4 mb-3">
                 <small class="text-muted d-block">{{ '::Amount' | abpLocalization }}</small>
-                <span class="fw-bold">{{ o.amount | number:'1.2-2' }} {{ o.currencyCode }}</span>
+                <span class="fw-bold">{{ o.opportunityAmount | number:'1.2-2' }} {{ o.currencyCode }}</span>
               </div>
             </div>
             @if (o.probability) {
               <div class="row">
                 <div class="col-md-4">
-                  <small class="text-muted d-block">Probability</small>
+                  <small class="text-muted d-block">{{ '::Probability' | abpLocalization }}</small>
                   <div class="d-flex align-items-center gap-2">
                     <div class="progress flex-grow-1" style="height: 8px;">
                       <div class="progress-bar" [style.width.%]="o.probability"></div>
@@ -72,9 +75,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                 <tbody>
                   @for (item of o.items; track item.id) {
                     <tr>
-                      <td>{{ item.itemName }}</td>
-                      <td class="text-end">{{ item.qty }}</td>
-                      <td class="text-end">{{ item.rate | number:'1.2-2' }}</td>
+                      <td>{{ item.description }}</td>
+                      <td class="text-end">{{ item.quantity }}</td>
+                      <td class="text-end">{{ item.unitPrice | number:'1.2-2' }}</td>
                       <td class="text-end">{{ item.amount | number:'1.2-2' }}</td>
                     </tr>
                   }
@@ -83,6 +86,38 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
           </div>
         }
+
+        <!-- Competitors -->
+        <div class="card mt-3">
+          <div class="card-header fw-bold">{{ '::Competitors' | abpLocalization }}</div>
+          <div class="card-body">
+            @if (o.competitors && o.competitors.length > 0) {
+              <ul class="list-group mb-3">
+                @for (c of o.competitors; track c.id) {
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ competitorName(c.competitorId) }}
+                    <button class="btn btn-sm btn-outline-danger" (click)="removeCompetitor(c.id)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="text-muted mb-3">{{ '::NoCompetitorsYet' | abpLocalization }}</p>
+            }
+            <div class="d-flex gap-2">
+              <select class="form-select form-select-sm" style="max-width: 320px;" [(ngModel)]="selectedCompetitorId">
+                <option value="">{{ '::SelectCompetitor' | abpLocalization }}</option>
+                @for (comp of competitors(); track comp.id) {
+                  <option [value]="comp.id">{{ comp.name }}</option>
+                }
+              </select>
+              <button class="btn btn-sm btn-outline-primary" (click)="addCompetitor()" [disabled]="!selectedCompetitorId">
+                <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
       }
     </abp-page>
   `,
@@ -90,9 +125,12 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class OpportunityDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(OpportunityService);
+  private competitorService = inject(CompetitorService);
 
-  opp = signal<any>(null);
+  opp = signal<OpportunityDto | null>(null);
   isLoading = signal(false);
+  competitors = signal<CompetitorDto[]>([]);
+  selectedCompetitorId = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -103,9 +141,42 @@ export class OpportunityDetailComponent implements OnInit {
         error: () => this.isLoading.set(false),
       });
     }
+    this.competitorService.getList({ maxResultCount: 1000, skipCount: 0 }).subscribe({
+      next: (res: any) => this.competitors.set(res?.items ?? []),
+      error: () => {}
+    });
   }
 
   getStatus(s: number | undefined): string {
     return ['Open', 'Replied', 'Quotation', 'Converted', 'Lost', 'Closed'][s ?? 0] ?? 'Open';
+  }
+
+  competitorName(competitorId: string | undefined): string {
+    return this.competitors().find(c => c.id === competitorId)?.name ?? competitorId ?? '';
+  }
+
+  addCompetitor(): void {
+    const opportunityId = this.opp()?.id;
+    if (!opportunityId || !this.selectedCompetitorId) return;
+
+    this.service.createCompetitor({
+      parentType: 'Opportunity',
+      parentId: opportunityId,
+      competitorId: this.selectedCompetitorId,
+    }).subscribe({
+      next: () => {
+        this.selectedCompetitorId = '';
+        this.ngOnInit();
+      },
+      error: () => {}
+    });
+  }
+
+  removeCompetitor(competitorDetailId: string | undefined): void {
+    if (!competitorDetailId) return;
+    this.service.deleteCompetitor(competitorDetailId).subscribe({
+      next: () => this.ngOnInit(),
+      error: () => {}
+    });
   }
 }

@@ -410,6 +410,7 @@ export interface OpportunityDto extends AuditedEntityDto<string> {
   lostReason?: string | null;
   notes?: string | null;
   items?: OpportunityItemDto[];
+  competitors?: CompetitorDetailDto[];
 }
 
 export interface OpportunityItemDto {
@@ -420,6 +421,20 @@ export interface OpportunityItemDto {
   unitPrice?: number;
   amount?: number;
   uom?: string | null;
+}
+
+export interface CompetitorDetailDto {
+  id?: string;
+  parentType?: string;
+  parentId?: string;
+  competitorId?: string;
+  competitorName?: string | null;
+}
+
+export interface AddCompetitorDetailDto {
+  parentType?: string;
+  parentId?: string;
+  competitorId?: string;
 }
 
 export interface PipelineOpportunityDto {

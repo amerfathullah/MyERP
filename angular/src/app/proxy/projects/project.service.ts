@@ -1,4 +1,4 @@
-import type { CreateProjectDto, CreateProjectTaskDto, GetProjectListDto, ProjectDto, ProjectTaskDto, UpdateProjectDto, UpdateProjectTaskDto } from './models';
+import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, GetProjectListDto, ProjectDto, ProjectTaskDto, ProjectUserDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -59,7 +59,33 @@ export class ProjectService {
       body: input,
     },
     { apiName: this.apiName,...config });
-  
+
+
+  createUser = (input: AddProjectUserDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectUserDto>({
+      method: 'POST',
+      url: '/api/app/project/user',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+
+  updateUser = (projectUserId: string, input: UpdateProjectUserDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectUserDto>({
+      method: 'PUT',
+      url: `/api/app/project/user/${projectUserId}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+
+  deleteUser = (projectUserId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/project/user/${projectUserId}`,
+    },
+    { apiName: this.apiName,...config });
+
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({

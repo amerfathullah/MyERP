@@ -18,19 +18,61 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
 {
     private readonly IRepository<Opportunity, Guid> _repository;
     private readonly IRepository<Quotation, Guid> _quotationRepository;
+    private readonly IRepository<CompetitorDetail, Guid> _competitorDetailRepository;
 
     public OpportunityAppService(
         IRepository<Opportunity, Guid> repository,
-        IRepository<Quotation, Guid> quotationRepository)
+        IRepository<Quotation, Guid> quotationRepository,
+        IRepository<CompetitorDetail, Guid> competitorDetailRepository)
     {
         _repository = repository;
         _quotationRepository = quotationRepository;
+        _competitorDetailRepository = competitorDetailRepository;
     }
 
     public async Task<OpportunityDto> GetAsync(Guid id)
     {
         var opp = await _repository.GetAsync(id, includeDetails: true);
-        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
+        var dto = ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
+        dto.Competitors = (await _competitorDetailRepository.GetListAsync(
+                c => c.ParentType == "Opportunity" && c.ParentId == id))
+            .Select(c => new CompetitorDetailDto
+            {
+                Id = c.Id,
+                ParentType = c.ParentType,
+                ParentId = c.ParentId,
+                CompetitorId = c.CompetitorId,
+            }).ToList();
+        return dto;
+    }
+
+    // --- Competitors ---
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<CompetitorDetailDto> CreateCompetitorAsync(AddCompetitorDetailDto input)
+    {
+        var exists = await _competitorDetailRepository.AnyAsync(
+            c => c.ParentType == input.ParentType && c.ParentId == input.ParentId && c.CompetitorId == input.CompetitorId);
+        if (exists)
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("entity", "Competitor Detail");
+
+        var detail = new CompetitorDetail(GuidGenerator.Create(), input.ParentType, input.ParentId, input.CompetitorId, CurrentTenant.Id);
+        await _competitorDetailRepository.InsertAsync(detail);
+
+        return new CompetitorDetailDto
+        {
+            Id = detail.Id,
+            ParentType = detail.ParentType,
+            ParentId = detail.ParentId,
+            CompetitorId = detail.CompetitorId,
+        };
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task DeleteCompetitorAsync(Guid competitorDetailId)
+    {
+        await _competitorDetailRepository.DeleteAsync(competitorDetailId);
     }
 
     public async Task<PagedResultDto<OpportunityDto>> GetListAsync(GetOpportunityListDto input)

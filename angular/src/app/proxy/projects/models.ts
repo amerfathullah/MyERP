@@ -128,6 +128,27 @@ export interface ProjectDto extends AuditedEntityDto<string> {
   grossMargin?: number;
   notes?: string | null;
   taskCount?: number;
+  users?: ProjectUserDto[];
+}
+
+export interface ProjectUserDto extends EntityDto<string> {
+  projectId?: string;
+  userId?: string;
+  userName?: string | null;
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
+}
+
+export interface AddProjectUserDto {
+  projectId?: string;
+  userId?: string;
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
+}
+
+export interface UpdateProjectUserDto {
+  viewAttachments?: boolean;
+  hideTimesheets?: boolean;
 }
 
 export interface ProjectTaskDto {

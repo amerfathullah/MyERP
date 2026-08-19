@@ -1,4 +1,5 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { CompetitorDetailDto } from '../crm/models';
 import type { CouponType } from './coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
@@ -1188,6 +1189,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   convertedToSalesOrderId?: string | null;
   perOrdered?: number;
   items?: QuotationItemDto[];
+  competitors?: CompetitorDetailDto[];
 }
 
 export interface QuotationItemDto {

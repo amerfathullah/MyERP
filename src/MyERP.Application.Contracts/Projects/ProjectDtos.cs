@@ -29,6 +29,7 @@ public class ProjectDto : AuditedEntityDto<Guid>
     public decimal GrossMargin { get; set; }
     public string? Notes { get; set; }
     public int TaskCount { get; set; }
+    public List<ProjectUserDto> Users { get; set; } = new();
 }
 
 public class CreateProjectDto
@@ -78,6 +79,35 @@ public class GetProjectListDto : PagedAndSortedResultRequestDto
     public ProjectStatus? Status { get; set; }
     public string? Filter { get; set; }
     public Guid? CompanyId { get; set; }
+}
+
+// === Project User DTOs ===
+
+public class ProjectUserDto : EntityDto<Guid>
+{
+    public Guid ProjectId { get; set; }
+    public Guid UserId { get; set; }
+    public string? UserName { get; set; }
+    public bool ViewAttachments { get; set; }
+    public bool HideTimesheets { get; set; }
+}
+
+public class AddProjectUserDto
+{
+    [Required]
+    public Guid ProjectId { get; set; }
+
+    [Required]
+    public Guid UserId { get; set; }
+
+    public bool ViewAttachments { get; set; }
+    public bool HideTimesheets { get; set; }
+}
+
+public class UpdateProjectUserDto
+{
+    public bool ViewAttachments { get; set; }
+    public bool HideTimesheets { get; set; }
 }
 
 // === Task DTOs ===

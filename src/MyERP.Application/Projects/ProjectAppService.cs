@@ -16,15 +16,18 @@ public class ProjectAppService : ApplicationService, IProjectAppService
 {
     private readonly IRepository<Project, Guid> _projectRepository;
     private readonly IRepository<ProjectTask, Guid> _taskRepository;
+    private readonly IRepository<ProjectUser, Guid> _projectUserRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public ProjectAppService(
         IRepository<Project, Guid> projectRepository,
         IRepository<ProjectTask, Guid> taskRepository,
+        IRepository<ProjectUser, Guid> projectUserRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _projectRepository = projectRepository;
         _taskRepository = taskRepository;
+        _projectUserRepository = projectUserRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -158,6 +161,58 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         project.Cancel();
         await _projectRepository.UpdateAsync(project);
         return ObjectMapper.Map<Project, ProjectDto>(project);
+    }
+
+    // --- Team Members ---
+
+    [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<ProjectUserDto> CreateUserAsync(AddProjectUserDto input)
+    {
+        var exists = await _projectUserRepository.AnyAsync(
+            u => u.ProjectId == input.ProjectId && u.UserId == input.UserId);
+        if (exists)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("entity", "Project User");
+
+        var projectUser = new ProjectUser(GuidGenerator.Create(), input.ProjectId, input.UserId)
+        {
+            ViewAttachments = input.ViewAttachments,
+            HideTimesheets = input.HideTimesheets,
+        };
+        await _projectUserRepository.InsertAsync(projectUser);
+
+        return new ProjectUserDto
+        {
+            Id = projectUser.Id,
+            ProjectId = projectUser.ProjectId,
+            UserId = projectUser.UserId,
+            ViewAttachments = projectUser.ViewAttachments,
+            HideTimesheets = projectUser.HideTimesheets,
+        };
+    }
+
+    [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<ProjectUserDto> UpdateUserAsync(Guid projectUserId, UpdateProjectUserDto input)
+    {
+        var projectUser = await _projectUserRepository.GetAsync(projectUserId);
+        projectUser.ViewAttachments = input.ViewAttachments;
+        projectUser.HideTimesheets = input.HideTimesheets;
+        await _projectUserRepository.UpdateAsync(projectUser);
+
+        return new ProjectUserDto
+        {
+            Id = projectUser.Id,
+            ProjectId = projectUser.ProjectId,
+            UserId = projectUser.UserId,
+            ViewAttachments = projectUser.ViewAttachments,
+            HideTimesheets = projectUser.HideTimesheets,
+        };
+    }
+
+    [Authorize(MyERPPermissions.Projects.Delete)]
+    public async Task DeleteUserAsync(Guid projectUserId)
+    {
+        await _projectUserRepository.DeleteAsync(projectUserId);
     }
 
     // --- Tasks ---

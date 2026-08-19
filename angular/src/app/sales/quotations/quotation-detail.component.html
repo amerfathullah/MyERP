@@ -97,6 +97,39 @@
       </div>
     </div>
 
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-user-secret me-2"></i>{{ '::Competitors' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        @if (quotation.competitors && quotation.competitors.length > 0) {
+          <ul class="list-group mb-3">
+            @for (c of quotation.competitors; track c.id) {
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ competitorName(c.competitorId) }}
+                <button class="btn btn-sm btn-outline-danger" (click)="removeCompetitor(c.id)">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="text-muted mb-3">{{ '::NoCompetitorsYet' | abpLocalization }}</p>
+        }
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" style="max-width: 320px;" [(ngModel)]="selectedCompetitorId">
+            <option value="">{{ '::SelectCompetitor' | abpLocalization }}</option>
+            @for (comp of competitors(); track comp.id) {
+              <option [value]="comp.id">{{ comp.name }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-primary" (click)="addCompetitor()" [disabled]="!selectedCompetitorId">
+            <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <app-activity-log [documentType]="'Quotation'" [documentId]="quotation.id!"></app-activity-log>
 
     @if (quotation.status !== 'Draft') {

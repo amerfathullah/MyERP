@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyERP.EntityFrameworkCore;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace MyERP.Migrations
 {
     [DbContext(typeof(MyERPDbContext))]
-    partial class MyERPDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819043731_AddProjectUser")]
+    partial class AddProjectUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6367,36 +6370,6 @@ namespace MyERP.Migrations
                         .IsUnique();
 
                     b.ToTable("CRM_Competitors", (string)null);
-                });
-
-            modelBuilder.Entity("MyERP.CRM.Entities.CompetitorDetail", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompetitorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ParentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ParentType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<Guid?>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("TenantId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentType", "ParentId");
-
-                    b.HasIndex("ParentType", "ParentId", "CompetitorId")
-                        .IsUnique();
-
-                    b.ToTable("CRM_CompetitorDetails", (string)null);
                 });
 
             modelBuilder.Entity("MyERP.CRM.Entities.Contract", b =>

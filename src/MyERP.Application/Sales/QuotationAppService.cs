@@ -19,15 +19,18 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 {
     private readonly IRepository<Quotation, Guid> _repository;
     private readonly IRepository<Customer, Guid> _customerRepository;
+    private readonly IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> _competitorDetailRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public QuotationAppService(
         IRepository<Quotation, Guid> repository,
         IRepository<Customer, Guid> customerRepository,
+        IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> competitorDetailRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
         _customerRepository = customerRepository;
+        _competitorDetailRepository = competitorDetailRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -42,7 +45,45 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         dto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
+        dto.Competitors = (await _competitorDetailRepository.GetListAsync(
+                c => c.ParentType == "Quotation" && c.ParentId == id))
+            .Select(c => new MyERP.CRM.CompetitorDetailDto
+            {
+                Id = c.Id,
+                ParentType = c.ParentType,
+                ParentId = c.ParentId,
+                CompetitorId = c.CompetitorId,
+            }).ToList();
         return dto;
+    }
+
+    // --- Competitors ---
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task<MyERP.CRM.CompetitorDetailDto> CreateCompetitorAsync(MyERP.CRM.AddCompetitorDetailDto input)
+    {
+        var exists = await _competitorDetailRepository.AnyAsync(
+            c => c.ParentType == input.ParentType && c.ParentId == input.ParentId && c.CompetitorId == input.CompetitorId);
+        if (exists)
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("entity", "Competitor Detail");
+
+        var detail = new MyERP.CRM.Entities.CompetitorDetail(GuidGenerator.Create(), input.ParentType, input.ParentId, input.CompetitorId, CurrentTenant.Id);
+        await _competitorDetailRepository.InsertAsync(detail);
+
+        return new MyERP.CRM.CompetitorDetailDto
+        {
+            Id = detail.Id,
+            ParentType = detail.ParentType,
+            ParentId = detail.ParentId,
+            CompetitorId = detail.CompetitorId,
+        };
+    }
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task DeleteCompetitorAsync(Guid competitorDetailId)
+    {
+        await _competitorDetailRepository.DeleteAsync(competitorDetailId);
     }
 
     public async Task<PagedResultDto<QuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)

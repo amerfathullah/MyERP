@@ -14,6 +14,9 @@ public interface IProjectAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<ProjectDto> CompleteAsync(Guid id);
     Task<ProjectDto> CancelAsync(Guid id);
+    Task<ProjectUserDto> CreateUserAsync(AddProjectUserDto input);
+    Task<ProjectUserDto> UpdateUserAsync(Guid projectUserId, UpdateProjectUserDto input);
+    Task DeleteUserAsync(Guid projectUserId);
     Task<ProjectTaskDto[]> GetTasksAsync(Guid projectId);
     Task<ProjectTaskDto> CreateTaskAsync(CreateProjectTaskDto input);
     Task<ProjectTaskDto> UpdateTaskAsync(Guid taskId, UpdateProjectTaskDto input);

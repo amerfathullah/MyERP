@@ -1,4 +1,4 @@
-import type { CreateOpportunityDto, GetOpportunityListDto, OpportunityDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
+import type { AddCompetitorDetailDto, CompetitorDetailDto, CreateOpportunityDto, GetOpportunityListDto, OpportunityDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -36,6 +36,23 @@ export class OpportunityService {
     { apiName: this.apiName,...config });
   
 
+  createCompetitor = (input: AddCompetitorDetailDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CompetitorDetailDto>({
+      method: 'POST',
+      url: '/api/app/opportunity/competitor',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+
+  deleteCompetitor = (competitorDetailId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/opportunity/competitor/${competitorDetailId}`,
+    },
+    { apiName: this.apiName,...config });
+
+
   declareLost = (id: string, reason: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityDto>({
       method: 'POST',
@@ -43,7 +60,7 @@ export class OpportunityService {
       params: { reason },
     },
     { apiName: this.apiName,...config });
-  
+
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({

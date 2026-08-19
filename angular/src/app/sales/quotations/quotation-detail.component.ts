@@ -14,6 +14,8 @@ import { QuotationService } from '../../proxy/sales/quotation.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { QuotationStore } from '../store/quotation.store';
 import type { QuotationDto } from '../../proxy/sales/models';
+import { CompetitorService } from '../../proxy/crm/competitor.service';
+import type { CompetitorDto } from '../../proxy/crm/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -40,9 +42,12 @@ export class QuotationDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   private emailService = inject(DocumentEmailService);
+  private competitorService = inject(CompetitorService);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
+  competitors = signal<CompetitorDto[]>([]);
+  selectedCompetitorId = '';
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   showEmailDialog = false;
@@ -81,6 +86,39 @@ export class QuotationDetailComponent implements OnInit {
         });
       }
     }, error: () => {} });
+    this.competitorService.getList({ maxResultCount: 1000, skipCount: 0 }).subscribe({
+      next: (res: any) => this.competitors.set(res?.items ?? []),
+      error: () => {}
+    });
+  }
+
+  competitorName(competitorId: string | undefined): string {
+    return this.competitors().find(c => c.id === competitorId)?.name ?? competitorId ?? '';
+  }
+
+  addCompetitor(): void {
+    const quotationId = this.quotation?.id;
+    if (!quotationId || !this.selectedCompetitorId) return;
+
+    this.service.createCompetitor({
+      parentType: 'Quotation',
+      parentId: quotationId,
+      competitorId: this.selectedCompetitorId,
+    }).subscribe({
+      next: () => {
+        this.selectedCompetitorId = '';
+        this.reloadAfterAction();
+      },
+      error: () => {}
+    });
+  }
+
+  removeCompetitor(competitorDetailId: string | undefined): void {
+    if (!competitorDetailId) return;
+    this.service.deleteCompetitor(competitorDetailId).subscribe({
+      next: () => this.reloadAfterAction(),
+      error: () => {}
+    });
   }
 
   get isExpired(): boolean {

@@ -463,7 +463,9 @@ public partial class MaintenanceVisitMapper : MapperBase<Maintenance.Entities.Ma
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class OpportunityMapper : MapperBase<CRM.Entities.Opportunity, CRM.OpportunityDto>
 {
+    [MapperIgnoreTarget(nameof(CRM.OpportunityDto.Competitors))]
     public override partial CRM.OpportunityDto Map(CRM.Entities.Opportunity source);
+    [MapperIgnoreTarget(nameof(CRM.OpportunityDto.Competitors))]
     public override partial void Map(CRM.Entities.Opportunity source, CRM.OpportunityDto destination);
     private partial CRM.OpportunityItemDto MapChild(CRM.Entities.OpportunityItem source);
 }
@@ -823,12 +825,24 @@ public partial class BatchMapper : MapperBase<Inventory.Entities.Batch, Inventor
 public partial class ProjectMapper : MapperBase<Projects.Entities.Project, Projects.ProjectDto>
 {
     [MapperIgnoreTarget(nameof(Projects.ProjectDto.TaskCount))]
+    [MapperIgnoreTarget(nameof(Projects.ProjectDto.Users))]
     public override partial Projects.ProjectDto Map(Projects.Entities.Project source);
     [MapperIgnoreTarget(nameof(Projects.ProjectDto.TaskCount))]
+    [MapperIgnoreTarget(nameof(Projects.ProjectDto.Users))]
     public override partial void Map(Projects.Entities.Project source, Projects.ProjectDto destination);
 
     public override void AfterMap(Projects.Entities.Project source, Projects.ProjectDto destination)
-        => destination.TaskCount = source.Tasks.Count;
+    {
+        destination.TaskCount = source.Tasks.Count;
+        destination.Users = source.Users.Select(u => new Projects.ProjectUserDto
+        {
+            Id = u.Id,
+            ProjectId = u.ProjectId,
+            UserId = u.UserId,
+            ViewAttachments = u.ViewAttachments,
+            HideTimesheets = u.HideTimesheets,
+        }).ToList();
+    }
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -1026,8 +1040,10 @@ public partial class SalesOrderMapper : MapperBase<Sales.Entities.SalesOrder, Sa
 public partial class QuotationMapper : MapperBase<Sales.Entities.Quotation, Sales.QuotationDto>
 {
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.QuotationDto.Competitors))]
     public override partial Sales.QuotationDto Map(Sales.Entities.Quotation source);
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.QuotationDto.Competitors))]
     public override partial void Map(Sales.Entities.Quotation source, Sales.QuotationDto destination);
     private partial Sales.QuotationItemDto MapChild(Sales.Entities.QuotationItem source);
 }
