@@ -69,10 +69,19 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<StockReservationEntryDto> CreateAsync(CreateStockReservationDto input)
     {
+        if (input.ReservedQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ReservedQty");
+        }
+
         if (!await _settingProvider.IsTrueAsync(MyERPSettings.Stock.EnableStockReservation))
         {
             throw new BusinessException(MyERPDomainErrorCodes.StockReservationDisabled);
         }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
+        await itemValidation.ValidateItemAsync(input.ItemId);
 
         // Validate availability using domain service
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
@@ -93,6 +102,13 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
         // Update Bin reserved qty
         var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
         await binService.UpdateReservedQtyAsync(input.ItemId, input.WarehouseId, input.ReservedQty);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "StockReservationEntry", sre.Id,
+            "Submitted", sre.CompanyId,
+            sre.Id.ToString()[..8], "Draft", "Submitted", CurrentUser.Id,
+            $"Reserved {sre.ReservedQty} qty of item {sre.ItemId.ToString()[..8]} for {sre.VoucherType} {sre.VoucherId.ToString()[..8]}", CurrentTenant.Id));
 
         return ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(sre);
     }
@@ -115,6 +131,13 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
             var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
             await binService.UpdateReservedQtyAsync(sre.ItemId, sre.WarehouseId, -remainingReserved);
         }
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "StockReservationEntry", sre.Id,
+            "Cancelled", sre.CompanyId,
+            sre.Id.ToString()[..8], "Submitted", "Cancelled", CurrentUser.Id,
+            $"Cancelled reservation of {sre.ReservedQty} qty for item {sre.ItemId.ToString()[..8]}", CurrentTenant.Id));
 
         return ObjectMapper.Map<StockReservationEntry, StockReservationEntryDto>(sre);
     }

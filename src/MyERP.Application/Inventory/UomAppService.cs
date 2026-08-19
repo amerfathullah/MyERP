@@ -70,6 +70,13 @@ public class UomAppService : ApplicationService, IUomAppService
 
         await _repository.InsertAsync(uom);
 
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Uom", uom.Id,
+            "Created", Guid.Empty,
+            uom.Name, "Draft", "Active", CurrentUser.Id,
+            $"UOM '{uom.Name}' created", CurrentTenant.Id));
+
         return new UomDto
         {
             Id = uom.Id,

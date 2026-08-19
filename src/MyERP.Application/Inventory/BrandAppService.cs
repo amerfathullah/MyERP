@@ -41,6 +41,14 @@ public class BrandAppService : ApplicationService, IBrandAppService
             IsActive = input.IsActive,
         };
         await _repository.InsertAsync(brand);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Brand", brand.Id,
+            "Created", Guid.Empty,
+            brand.Name, "Draft", "Active", CurrentUser.Id,
+            $"Brand '{brand.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Brand, BrandDto>(brand);
     }
 
@@ -55,6 +63,14 @@ public class BrandAppService : ApplicationService, IBrandAppService
         brand.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
         brand.IsActive = input.IsActive;
         await _repository.UpdateAsync(brand);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Brand", brand.Id,
+            "Updated", Guid.Empty,
+            brand.Name, "Active", "Active", CurrentUser.Id,
+            $"Brand '{brand.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Brand, BrandDto>(brand);
     }
 

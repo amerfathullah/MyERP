@@ -41,6 +41,21 @@ public class ItemAttributeAppService : ApplicationService, IItemAttributeAppServ
     [Authorize(MyERPPermissions.Items.Create)]
     public async Task<ItemAttributeDto> CreateAsync(CreateItemAttributeDto input)
     {
+        if (input.IsNumeric)
+        {
+            if (input.ToRange < input.FromRange)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange)
+                    .WithData("reason", "ToRange must be greater than or equal to FromRange");
+            }
+
+            if (input.Increment <= 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "Increment");
+            }
+        }
+
         var attr = new ItemAttribute(GuidGenerator.Create(), input.Name, input.IsNumeric, CurrentTenant.Id);
 
         if (input.IsNumeric)
@@ -56,6 +71,14 @@ public class ItemAttributeAppService : ApplicationService, IItemAttributeAppServ
         }
 
         await _repository.InsertAsync(attr);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemAttribute", attr.Id,
+            "Created", Guid.Empty,
+            attr.AttributeName, "Draft", "Active", CurrentUser.Id,
+            $"Item attribute '{attr.AttributeName}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(attr);
     }
 
@@ -65,6 +88,14 @@ public class ItemAttributeAppService : ApplicationService, IItemAttributeAppServ
         var attr = await _repository.GetAsync(id);
         attr.AddValue(input.Value, input.Abbreviation);
         await _repository.UpdateAsync(attr);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemAttribute", attr.Id,
+            "Updated", Guid.Empty,
+            attr.AttributeName, "Active", "Active", CurrentUser.Id,
+            $"Item attribute '{attr.AttributeName}' added value '{input.Value}'", CurrentTenant.Id));
+
         return ObjectMapper.Map<ItemAttribute, ItemAttributeDto>(attr);
     }
 
