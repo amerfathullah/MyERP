@@ -368,6 +368,16 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue inactive lead follow-up notifications
+                // Per ERPNext: crm.send_lead_followup_email
+                await jobManager.EnqueueAsync(new CRM.BackgroundJobs.LeadFollowupJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                    InactivityThresholdDays = 7,
+                });
             }
             catch (Exception ex)
             {
@@ -376,6 +386,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (36 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (37 jobs).", companies.Count);
     }
 }
