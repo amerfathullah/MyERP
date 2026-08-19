@@ -34,6 +34,14 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
             DefaultWarehouseId = input.DefaultWarehouseId,
         };
         await _repository.InsertAsync(ig);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemGroup", ig.Id,
+            "Created", Guid.Empty,
+            ig.Name, "Draft", "Active", CurrentUser.Id,
+            $"Item group '{ig.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
     }
 }

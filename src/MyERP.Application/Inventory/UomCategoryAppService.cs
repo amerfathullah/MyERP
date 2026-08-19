@@ -46,6 +46,14 @@ public class UomCategoryAppService : ApplicationService, IUomCategoryAppService
     {
         var entity = new UomCategory(GuidGenerator.Create(), input.Name, CurrentTenant.Id);
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "UomCategory", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active", CurrentUser.Id,
+            $"UOM category '{entity.Name}' created", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 
@@ -55,6 +63,14 @@ public class UomCategoryAppService : ApplicationService, IUomCategoryAppService
         var entity = await _repository.GetAsync(id);
         entity.SetName(input.Name);
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "UomCategory", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Name, "Active", "Active", CurrentUser.Id,
+            $"UOM category '{entity.Name}' updated", CurrentTenant.Id));
+
         return ToDto(entity);
     }
 
