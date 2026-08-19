@@ -101,9 +101,19 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
     [Authorize(MyERPPermissions.LandedCostVouchers.Create)]
     public async Task<LandedCostVoucherDto> CreateAsync(CreateLandedCostVoucherDto input)
     {
+        if (input.Items == null || !input.Items.Any())
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.LandedCostHasNoItems);
+        if (input.Charges == null || !input.Charges.Any())
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.LandedCostHasNoCharges);
+
+        // Validate all items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
         var lcv = new LandedCostVoucher(GuidGenerator.Create(), input.CompanyId,
             input.PostingDate, CurrentTenant.Id)
         {
+            VoucherNumber = await _numberGenerator.GenerateAsync("LCV", input.CompanyId),
             DistributionMethod = input.DistributionMethod,
             Notes = input.Notes,
         };
