@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
@@ -11,7 +11,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   selector: 'app-pos-opening-detail',
   standalone: true,
-  imports: [CommonModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">
