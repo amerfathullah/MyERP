@@ -550,6 +550,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue unbilled timesheet tracking and reminders
+                // Per ERPNext: timesheet.update_billing_status
+                await jobManager.EnqueueAsync(new Projects.BackgroundJobs.TimesheetBillingStatusJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -558,6 +567,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (57 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (58 jobs).", companies.Count);
     }
 }
