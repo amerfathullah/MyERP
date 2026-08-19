@@ -482,6 +482,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue support ticket SLA variance and breach alerts
+                // Per ERPNext: support.doctype.issue.issue.set_service_level_agreement_variance
+                await jobManager.EnqueueAsync(new Support.BackgroundJobs.SupportSlaBreachJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
             }
             catch (Exception ex)
             {
@@ -490,6 +498,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (49 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (50 jobs).", companies.Count);
     }
 }
