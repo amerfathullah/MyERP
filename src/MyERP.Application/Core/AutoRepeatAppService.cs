@@ -53,6 +53,11 @@ public class AutoRepeatAppService : ApplicationService, IAutoRepeatAppService
     [Authorize(MyERPPermissions.AutomationRules.Create)]
     public async Task<AutoRepeatDto> CreateAsync(CreateAutoRepeatDto input)
     {
+        if (input.EndDate.HasValue && input.EndDate.Value < input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var entity = new AutoRepeat(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -79,6 +84,13 @@ public class AutoRepeatAppService : ApplicationService, IAutoRepeatAppService
         var entity = await _repository.GetAsync(id);
         entity.Enable();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(
+            GuidGenerator.Create(), "AutoRepeat", entity.Id,
+            "Enabled", entity.CompanyId,
+            entity.ReferenceDocumentType, "Disabled", "Enabled", CurrentUser.Id,
+            $"Auto Repeat schedule for {entity.ReferenceDocumentType} ({entity.ReferenceDocumentNumber}) enabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Edit)]
@@ -87,6 +99,13 @@ public class AutoRepeatAppService : ApplicationService, IAutoRepeatAppService
         var entity = await _repository.GetAsync(id);
         entity.Disable();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new DocumentActivityLog(
+            GuidGenerator.Create(), "AutoRepeat", entity.Id,
+            "Disabled", entity.CompanyId,
+            entity.ReferenceDocumentType, "Enabled", "Disabled", CurrentUser.Id,
+            $"Auto Repeat schedule for {entity.ReferenceDocumentType} ({entity.ReferenceDocumentNumber}) disabled", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.AutomationRules.Delete)]

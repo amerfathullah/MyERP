@@ -90,6 +90,9 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
     [Authorize(MyERPPermissions.WarrantyClaims.Create)]
     public async Task<WarrantyClaimDto> CreateAsync(CreateWarrantyClaimDto input)
     {
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemAsync(input.ItemId);
+
         var entity = new WarrantyClaim(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -126,6 +129,13 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         var entity = await _repository.GetAsync(id);
         entity.Close(resolution);
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WarrantyClaim", entity.Id,
+            "Closed", entity.CompanyId,
+            entity.ClaimNumber, "WorkInProgress", "Closed", CurrentUser.Id,
+            $"Warranty Claim {entity.ClaimNumber} closed. Resolution: {resolution}", CurrentTenant.Id));
     }
 
     [Authorize(MyERPPermissions.WarrantyClaims.Edit)]
@@ -134,6 +144,13 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WarrantyClaim", entity.Id,
+            "Cancelled", entity.CompanyId,
+            entity.ClaimNumber, entity.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Warranty Claim {entity.ClaimNumber} cancelled", CurrentTenant.Id));
     }
 
     private static WarrantyClaimDto MapToDto(
