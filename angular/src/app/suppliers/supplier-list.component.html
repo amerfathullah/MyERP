@@ -67,7 +67,14 @@
                     <span class="d-inline-block text-truncate" style="max-width: 180px;"
                     [title]="supplier.email">{{ supplier.email }}</span>
                   </td>
-                  <td><app-status-badge [status]="supplier.isActive ? 'Active' : 'Inactive'" /></td>
+                  <td>
+                    <app-status-badge [status]="supplier.isActive ? 'Active' : 'Inactive'" />
+                    @if (supplier.holdType) {
+                      <span class="badge bg-danger ms-1" [title]="'::HoldStatus' | abpLocalization">
+                        {{ (supplier.holdType === 1 ? '::Hold' : (supplier.holdType === 2 ? '::HoldInvoices' : '::HoldPayments')) | abpLocalization }}
+                      </span>
+                    }
+                  </td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-primary" [routerLink]="[supplier.id, 'edit']"

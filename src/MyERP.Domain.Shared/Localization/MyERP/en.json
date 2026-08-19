@@ -3908,6 +3908,8 @@
     "PreventPurchaseOrders": "Prevent Purchase Orders",
     "PreventRfqs": "Prevent RFQs",
     "NoLimit": "No Limit",
-    "VerifyTaxpayer": "Verify Taxpayer"
+    "VerifyTaxpayer": "Verify Taxpayer",
+    "HoldInvoices": "Hold (Invoices)",
+    "HoldPayments": "Hold (Payments)"
   }
 }
