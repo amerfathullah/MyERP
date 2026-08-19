@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Settings;
 using MyERP.Tax.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Settings;
 
 namespace MyERP.Tax.DomainServices;
 
@@ -18,13 +20,16 @@ public class TransactionTaxRecalculationService : DomainService
 {
     private readonly TaxesAndTotalsService _taxService;
     private readonly IRepository<TransactionTaxRow, Guid> _taxRowRepo;
+    private readonly ISettingProvider _settingProvider;
 
     public TransactionTaxRecalculationService(
         TaxesAndTotalsService taxService,
-        IRepository<TransactionTaxRow, Guid> taxRowRepo)
+        IRepository<TransactionTaxRow, Guid> taxRowRepo,
+        ISettingProvider settingProvider)
     {
         _taxService = taxService;
         _taxRowRepo = taxRowRepo;
+        _settingProvider = settingProvider;
     }
 
     /// <summary>
@@ -65,12 +70,14 @@ public class TransactionTaxRecalculationService : DomainService
         }).ToList();
 
         // Run the tax cascade
+        var roundRowWiseTax = await _settingProvider.IsTrueAsync(MyERPSettings.Accounts.RoundRowWiseTax);
         var calcResult = _taxService.Calculate(
             transactionItems,
             taxRows,
             input.ExchangeRate,
             input.DiscountAmount,
-            input.IsDiscountOnGrandTotal ? "Grand Total" : "Net Total");
+            input.IsDiscountOnGrandTotal ? "Grand Total" : "Net Total",
+            roundRowWiseTax: roundRowWiseTax);
 
         return new RecalculatedTotals
         {

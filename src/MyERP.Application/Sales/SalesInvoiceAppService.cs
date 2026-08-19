@@ -19,6 +19,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales;
 
@@ -654,9 +655,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Credit limit notification failed for SI {Id}", invoice.Id); }
 
-            // Selling price validation: selling rate must be >= valuation rate
-            // Per ERPNext validate_selling_price (Selling Settings configurable: Stop/Warn)
-            if (invoice.WarehouseId.HasValue)
+            // Selling price validation: selling rate must be >= valuation rate.
+            // Per ERPNext validate_selling_price — gated entirely by Selling Settings.validate_selling_price
+            // (a plain on/off Check field; ERPNext always hard-Stops when enabled, no Warn mode).
+            if (invoice.WarehouseId.HasValue
+                && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
             {
                 var siItemData = invoice.Items
                     .Select(i => (i.ItemId, i.UnitPrice, i.Description))
@@ -669,7 +672,46 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                             .GetCurrentBalanceAsync(itemId, invoice.WarehouseId.Value);
                         return balance.ValuationRate;
                     },
-                    action: "Warn");
+                    action: "Stop");
+            }
+
+            // Mandatory SO/DN linkage (Selling Settings: "Is SO/DN required for Sales Invoice?")
+            var soRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
+            var dnRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
+            SalesInvoiceManager.ValidateSoRequired(invoice, soRequired);
+            SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired);
+
+            // Maintain same rate throughout the sales cycle (Selling Settings)
+            if (await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.MaintainSameRate))
+            {
+                var rateCheckSoItemIds = invoice.Items
+                    .Where(i => i.SalesOrderItemId.HasValue)
+                    .Select(i => i.SalesOrderItemId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (rateCheckSoItemIds.Any())
+                {
+                    var rateCheckOrders = (await _salesOrderRepository.GetQueryableAsync())
+                        .Where(so => so.Items.Any(soi => rateCheckSoItemIds.Contains(soi.Id)))
+                        .ToList();
+                    var soItemRates = rateCheckOrders.SelectMany(so => so.Items)
+                        .Where(soi => rateCheckSoItemIds.Contains(soi.Id))
+                        .ToDictionary(soi => soi.Id, soi => soi.UnitPrice);
+
+                    var rateAction = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Selling.MaintainSameRateAction) ?? "Stop";
+                    var overrideRole = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Selling.RoleToOverrideStopAction);
+                    var canOverride = !string.IsNullOrEmpty(overrideRole)
+                        && (CurrentUser.Roles ?? Array.Empty<string>()).Contains(overrideRole);
+
+                    var rateLines = invoice.Items
+                        .Where(i => i.SalesOrderItemId.HasValue && soItemRates.ContainsKey(i.SalesOrderItemId.Value))
+                        .Select(i => (i.Description, i.UnitPrice, soItemRates[i.SalesOrderItemId!.Value], "Sales Order"));
+
+                    var transactionValidation = LazyServiceProvider
+                        .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+                    transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
+                }
             }
         }
 
@@ -810,7 +852,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Over-billing validation + SO BilledQty update (domain service)
         if (!invoice.IsReturn)
         {
-            await _invoiceManager.ValidateOverBillingAsync(invoice);
+            var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
+            await _invoiceManager.ValidateOverBillingAsync(invoice, billingCompany.OverBillingAllowance);
             await _invoiceManager.UpdateLinkedOrderBillingAsync(invoice);
         }
 

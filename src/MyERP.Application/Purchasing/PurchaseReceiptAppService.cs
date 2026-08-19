@@ -15,6 +15,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -24,6 +25,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     private readonly IRepository<PurchaseReceipt, Guid> _repository;
     private readonly IRepository<PurchaseOrder, Guid> _purchaseOrderRepository;
     private readonly IRepository<DocumentActivityLog, Guid> _activityLogRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly StockValuationService _valuationService;
     private readonly BinService _binService;
@@ -35,6 +37,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         IRepository<PurchaseReceipt, Guid> repository,
         IRepository<PurchaseOrder, Guid> purchaseOrderRepository,
         IRepository<DocumentActivityLog, Guid> activityLogRepository,
+        IRepository<Company, Guid> companyRepository,
         IDocumentNumberGenerator numberGenerator,
         StockValuationService valuationService,
         BinService binService,
@@ -45,6 +48,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         _repository = repository;
         _purchaseOrderRepository = purchaseOrderRepository;
         _activityLogRepository = activityLogRepository;
+        _companyRepository = companyRepository;
         _numberGenerator = numberGenerator;
         _valuationService = valuationService;
         _binService = binService;
@@ -221,6 +225,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var prManager = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
 
+        // Mandatory PO linkage (Buying Settings: "Is Purchase Order required for Purchase Receipt?")
+        var poRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ValidatePoRequired(receipt, poRequired);
+
         // Temporal ordering + over-receipt + PO status validation
         await prManager.ValidateAgainstPurchaseOrderAsync(receipt);
 
@@ -251,10 +259,20 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         .WithData("status", po.Status.ToString());
                 }
 
+                // Over-receipt tolerance: max allowed = ordered × (1 + allowance% / 100).
+                // Per ERPNext StatusUpdater; allowance comes from Company.OverDeliveryReceiptAllowance.
+                var company = await _companyRepository.GetAsync(receipt.CompanyId);
+                var allowancePct = company.OverDeliveryReceiptAllowance;
+
                 foreach (var prItem in receipt.Items.Where(i => i.PurchaseOrderItemId.HasValue))
                 {
                     var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId!.Value);
-                    if (poItem != null && prItem.Quantity > poItem.PendingReceiptQty)
+                    if (poItem == null) continue;
+
+                    var maxAllowedTotal = poItem.Quantity * (1m + allowancePct / 100m);
+                    var remainingAllowed = maxAllowedTotal - poItem.ReceivedQty;
+
+                    if (prItem.Quantity > remainingAllowed)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverReceipt)
                             .WithData("item", prItem.Description)
@@ -262,6 +280,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                             .WithData("received", poItem.ReceivedQty)
                             .WithData("attempted", prItem.Quantity);
                     }
+                }
+
+                // Maintain same rate throughout the purchase cycle (Buying Settings)
+                if (await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.MaintainSameRate))
+                {
+                    var rateAction = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Buying.MaintainSameRateAction) ?? "Stop";
+                    var overrideRole = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Buying.RoleToOverrideStopAction);
+                    var canOverride = !string.IsNullOrEmpty(overrideRole)
+                        && (CurrentUser.Roles ?? Array.Empty<string>()).Contains(overrideRole);
+
+                    var rateLines = receipt.Items
+                        .Where(i => i.PurchaseOrderItemId.HasValue)
+                        .Select(i => (i.Description,
+                            i.UnitPrice,
+                            po.Items.FirstOrDefault(poi => poi.Id == i.PurchaseOrderItemId!.Value)?.UnitPrice ?? i.UnitPrice,
+                            "Purchase Order"));
+
+                    var transactionValidation = LazyServiceProvider
+                        .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+                    transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
                 }
             }
         }

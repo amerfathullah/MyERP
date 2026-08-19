@@ -8,6 +8,7 @@ using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Purchasing.DomainServices;
@@ -20,6 +21,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -41,6 +43,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly TaxWithholdingService _taxWithholdingService;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Item, Guid> _itemRepository;
 
     public PurchaseInvoiceAppService(
         IRepository<PurchaseInvoice, Guid> repository,
@@ -50,6 +53,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         IRepository<PaymentScheduleEntry, Guid> paymentScheduleRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Item, Guid> itemRepository,
         IDocumentNumberGenerator numberGenerator,
         DocumentPostingOrchestrator postingOrchestrator,
         TaxesAndTotalsService taxService,
@@ -66,6 +70,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         _paymentScheduleRepository = paymentScheduleRepository;
         _companyRepository = companyRepository;
         _fiscalYearRepository = fiscalYearRepository;
+        _itemRepository = itemRepository;
         _numberGenerator = numberGenerator;
         _postingOrchestrator = postingOrchestrator;
         _taxService = taxService;
@@ -702,6 +707,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Mandatory PO/PR linkage (Buying Settings: "Is PO/PR required for Purchase Invoice?")
+        var poRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired);
+        var prRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PrRequired);
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidatePoRequired(invoice, poRequired);
+
+        if (prRequired && !invoice.IsReturn)
+        {
+            var invoiceItemIds = invoice.Items.Select(i => i.ItemId).Distinct().ToList();
+            var stockItemIds = (await _itemRepository.GetListAsync(i => invoiceItemIds.Contains(i.Id) && i.MaintainStock))
+                .Select(i => i.Id).ToHashSet();
+            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidatePrRequiredLinkage(
+                invoice, prRequired, itemId => stockItemIds.Contains(itemId));
+        }
+
         // 3-Way Matching: block billing more than received (PO↔PR↔PI fraud prevention)
         if (!invoice.IsReturn)
         {
@@ -724,8 +743,40 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             Func<Guid, decimal> getReceivedQty = (poItemId) =>
                 receivedQtyMap.TryGetValue(poItemId, out var qty) ? qty : 0m;
 
-            // prRequired comes from Buying Settings — defaults to true for safety
-            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateThreeWayMatching(invoice, getReceivedQty, prRequired: true);
+            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateThreeWayMatching(invoice, getReceivedQty, prRequired);
+        }
+
+        // Maintain same rate throughout the purchase cycle (Buying Settings)
+        if (!invoice.IsReturn && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.MaintainSameRate))
+        {
+            var rateCheckPoItemIds = invoice.Items
+                .Where(i => i.PurchaseOrderItemId.HasValue)
+                .Select(i => i.PurchaseOrderItemId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (rateCheckPoItemIds.Any())
+            {
+                var rateCheckOrders = (await _purchaseOrderRepository.GetQueryableAsync())
+                    .Where(po => po.Items.Any(poi => rateCheckPoItemIds.Contains(poi.Id)))
+                    .ToList();
+                var poItemRates = rateCheckOrders.SelectMany(po => po.Items)
+                    .Where(poi => rateCheckPoItemIds.Contains(poi.Id))
+                    .ToDictionary(poi => poi.Id, poi => poi.UnitPrice);
+
+                var rateAction = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Buying.MaintainSameRateAction) ?? "Stop";
+                var overrideRole = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Buying.RoleToOverrideStopAction);
+                var canOverride = !string.IsNullOrEmpty(overrideRole)
+                    && (CurrentUser.Roles ?? Array.Empty<string>()).Contains(overrideRole);
+
+                var rateLines = invoice.Items
+                    .Where(i => i.PurchaseOrderItemId.HasValue && poItemRates.ContainsKey(i.PurchaseOrderItemId.Value))
+                    .Select(i => (i.Description, i.UnitPrice, poItemRates[i.PurchaseOrderItemId!.Value], "Purchase Order"));
+
+                var transactionValidation = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+                transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
+            }
         }
 
         invoice.Submit();
@@ -804,13 +855,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
                     .ToList();
 
-                // Over-billing validation: billed qty cannot exceed ordered qty
+                // Over-billing tolerance: max allowed = ordered × (1 + allowance% / 100).
+                // Per ERPNext StatusUpdater; allowance comes from Company.OverBillingAllowance.
+                var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
+                var billingAllowancePct = billingCompany.OverBillingAllowance;
+
                 foreach (var po in affectedOrders)
                 {
                     foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
                     {
                         var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
-                        if (poItem != null && (poItem.BilledQty + piItem.Quantity) > poItem.Quantity)
+                        if (poItem == null) continue;
+
+                        var maxAllowedTotal = poItem.Quantity * (1m + billingAllowancePct / 100m);
+                        if (poItem.BilledQty + piItem.Quantity > maxAllowedTotal)
                         {
                             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
                                 .WithData("item", piItem.Description ?? piItem.ItemId.ToString())

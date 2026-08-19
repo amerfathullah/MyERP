@@ -138,15 +138,17 @@ public class PurchaseOrderManager : DomainService
     }
 
     /// <summary>
-    /// Validates a Purchase Invoice item does not exceed the PO's pending billing qty.
-    /// Prevents over-billing against purchase orders.
+    /// Validates a Purchase Invoice item does not exceed the PO's pending billing qty,
+    /// including the company's over-billing tolerance percentage.
+    /// Per ERPNext: max_allowed = ordered_qty × (1 + allowance_pct / 100).
     /// </summary>
-    public void ValidateBillingQty(PurchaseOrder order, Guid itemId, decimal billingQty)
+    public void ValidateBillingQty(PurchaseOrder order, Guid itemId, decimal billingQty, decimal overBillingAllowancePct = 0m)
     {
         var poItem = order.Items.FirstOrDefault(i => i.ItemId == itemId);
         if (poItem == null) return;
 
-        if (poItem.BilledQty + billingQty > poItem.Quantity)
+        var maxAllowedTotal = poItem.Quantity * (1m + overBillingAllowancePct / 100m);
+        if (poItem.BilledQty + billingQty > maxAllowedTotal)
         {
             throw new BusinessException("MyERP:08007")
                 .WithData("itemName", poItem.Description)

@@ -3,28 +3,33 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
+using MyERP.Settings;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory.DomainServices;
 
 /// <summary>
 /// Calculates stock valuation rates using the item's configured method (FIFO, LIFO, Moving Average).
 /// Dispatches to the appropriate algorithm based on Item.ValuationMethod.
-/// 
+///
 /// ERPNext equivalent: stock/valuation.py + stock_ledger.py
 /// </summary>
 public class StockValuationService : DomainService
 {
     private readonly IRepository<StockLedgerEntry, Guid> _ledgerRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly ISettingProvider _settingProvider;
 
     public StockValuationService(
         IRepository<StockLedgerEntry, Guid> ledgerRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        ISettingProvider settingProvider)
     {
         _ledgerRepository = ledgerRepository;
         _itemRepository = itemRepository;
+        _settingProvider = settingProvider;
     }
 
     /// <summary>
@@ -71,8 +76,10 @@ public class StockValuationService : DomainService
         }
 
         // Negative stock validation: block stock-out that would go negative
-        // unless item explicitly allows it
-        if (quantityChange < 0 && newBalanceQty < -0.0001m && !item.AllowNegativeStock)
+        // unless the item explicitly allows it, or the global Stock Settings toggle does
+        if (quantityChange < 0 && newBalanceQty < -0.0001m
+            && !item.AllowNegativeStock
+            && !await _settingProvider.IsTrueAsync(MyERPSettings.Stock.AllowNegativeStock))
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InsufficientStock)
                 .WithData("itemId", itemId)

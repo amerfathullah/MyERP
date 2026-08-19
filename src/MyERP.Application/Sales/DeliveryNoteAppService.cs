@@ -17,6 +17,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales;
 
@@ -270,6 +271,27 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
             var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
             await dnManager.ValidateAgainstSalesOrderAsync(dn);
+
+            // Maintain same rate throughout the sales cycle (Selling Settings)
+            if (await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.MaintainSameRate))
+            {
+                var so = await _salesOrderRepository.GetAsync(dn.SalesOrderId.Value);
+                var rateAction = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Selling.MaintainSameRateAction) ?? "Stop";
+                var overrideRole = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Selling.RoleToOverrideStopAction);
+                var canOverride = !string.IsNullOrEmpty(overrideRole)
+                    && (CurrentUser.Roles ?? Array.Empty<string>()).Contains(overrideRole);
+
+                var rateLines = dn.Items
+                    .Where(i => so.Items.Any(soi => soi.ItemId == i.ItemId))
+                    .Select(i => (i.Description,
+                        i.UnitPrice,
+                        so.Items.First(soi => soi.ItemId == i.ItemId).UnitPrice,
+                        "Sales Order"));
+
+                var transactionValidation = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+                transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
+            }
         }
 
         dn.Submit();

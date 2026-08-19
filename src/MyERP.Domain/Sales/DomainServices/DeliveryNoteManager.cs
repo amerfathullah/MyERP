@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -17,18 +18,23 @@ public class DeliveryNoteManager : DomainService
 {
     private readonly IRepository<DeliveryNote, Guid> _dnRepository;
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public DeliveryNoteManager(
         IRepository<DeliveryNote, Guid> dnRepository,
-        IRepository<SalesOrder, Guid> orderRepository)
+        IRepository<SalesOrder, Guid> orderRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _dnRepository = dnRepository;
         _orderRepository = orderRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
     /// Validates receipt quantities against the linked Sales Order.
-    /// Prevents over-delivery: each DN item qty must not exceed SO item's PendingDeliveryQty.
+    /// Prevents over-delivery: each DN item qty must not exceed SO item's allowed qty,
+    /// including the company's over-delivery tolerance percentage.
+    /// Per ERPNext StatusUpdater: max_allowed = ordered_qty × (1 + allowance_pct / 100).
     /// Only applies to non-return DNs linked to a SO.
     /// </summary>
     public async Task ValidateAgainstSalesOrderAsync(DeliveryNote dn)
@@ -45,10 +51,18 @@ public class DeliveryNoteManager : DomainService
                 .WithData("status", so.Status.ToString());
         }
 
+        var company = await _companyRepository.GetAsync(dn.CompanyId);
+        var allowancePct = company.OverDeliveryReceiptAllowance;
+
         foreach (var dnItem in dn.Items)
         {
             var soItem = so.Items.FirstOrDefault(i => i.ItemId == dnItem.ItemId);
-            if (soItem != null && dnItem.Quantity > soItem.PendingDeliveryQty)
+            if (soItem == null) continue;
+
+            var maxAllowedTotal = soItem.Quantity * (1m + allowancePct / 100m);
+            var remainingAllowed = maxAllowedTotal - soItem.DeliveredQty;
+
+            if (dnItem.Quantity > remainingAllowed)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.OverDelivery)
                     .WithData("itemName", dnItem.Description)

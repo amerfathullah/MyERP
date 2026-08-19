@@ -221,6 +221,45 @@ public class PurchaseInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Mandatory PO linkage: every PI item must reference a Purchase Order.
+    /// Per ERPNext accounts/doctype/purchase_invoice/purchase_invoice.py → po_required().
+    /// Skipped for return invoices.
+    /// </summary>
+    public static void ValidatePoRequired(PurchaseInvoice invoice, bool poRequired)
+    {
+        if (!poRequired || invoice.IsReturn) return;
+
+        var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.PurchaseOrderItemId.HasValue);
+        if (unlinkedItem != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PurchaseOrderLinkRequired)
+                .WithData("itemDescription", unlinkedItem.Description);
+        }
+    }
+
+    /// <summary>
+    /// Mandatory PR linkage: every stock/asset PI item must reference a Purchase Receipt.
+    /// Per ERPNext accounts/doctype/purchase_invoice/purchase_invoice.py → pr_required().
+    /// Distinct from <see cref="ValidateThreeWayMatching"/>, which checks billed qty against
+    /// received qty for items that already have a link — this checks the link itself exists.
+    /// Skipped for return invoices.
+    /// </summary>
+    /// <param name="isStockItem">Resolves whether an item requires stock (Item.MaintainStock).</param>
+    public static void ValidatePrRequiredLinkage(
+        PurchaseInvoice invoice, bool prRequired, Func<Guid, bool> isStockItem)
+    {
+        if (!prRequired || invoice.IsReturn) return;
+
+        var unlinkedItem = invoice.Items.FirstOrDefault(
+            i => !i.PurchaseReceiptItemId.HasValue && isStockItem(i.ItemId));
+        if (unlinkedItem != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PurchaseReceiptLinkRequired)
+                .WithData("itemDescription", unlinkedItem.Description);
+        }
+    }
+
+    /// <summary>
     /// 3-Way Matching Validation: validates PI items against PR received qty.
     /// Per ERPNext buying_controller.validate_received_qty:
     /// - If pr_required is enabled (Buying Settings), PI cannot bill more than received.

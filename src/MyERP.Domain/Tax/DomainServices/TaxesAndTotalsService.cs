@@ -19,13 +19,19 @@ public class TaxesAndTotalsService : DomainService
     /// Supports per-item tax rate overrides via ItemTaxTemplate.
     /// Supports inclusive taxes (included_in_print_rate) via exclusive rate calculation.
     /// </summary>
+    /// <param name="roundRowWiseTax">
+    /// Per ERPNext Accounts Settings.round_row_wise_tax: when true, each item's per-tax-row
+    /// contribution is rounded to 2 decimals before being accumulated into the tax row's total,
+    /// instead of accumulating unrounded and rounding once at the end. Off by default.
+    /// </param>
     public TransactionTotals Calculate(
         List<TransactionItem> items,
         List<TransactionTaxRow> taxRows,
         decimal exchangeRate = 1m,
         decimal discountAmount = 0m,
         string applyDiscountOn = "Grand Total",
-        List<Guid>? roundOffApplicableAccountIds = null)
+        List<Guid>? roundOffApplicableAccountIds = null,
+        bool roundRowWiseTax = false)
     {
         // Step 0: Calculate exclusive rates for inclusive taxes
         // Per ERPNext taxes_and_totals.py: determine_exclusive_rate()
@@ -87,6 +93,9 @@ public class TaxesAndTotalsService : DomainService
                 }
 
                 decimal currentTaxAmount = CalculateTaxForItem(tax, item, orderedTaxes, i, netTotal, perItemGrandTotal, effectiveRate);
+
+                if (roundRowWiseTax)
+                    currentTaxAmount = Math.Round(currentTaxAmount, 2);
 
                 tax.TaxAmount += currentTaxAmount;
 

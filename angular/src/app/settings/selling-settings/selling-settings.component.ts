@@ -72,6 +72,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <label class="form-check-label" for="editRate">Editable Price List Rate</label>
                 </div>
               </div>
+              <div class="col-md-4">
+                <label class="form-label">Role Allowed to Override Stop Action</label>
+                <input type="text" class="form-control form-control-sm"
+                  [(ngModel)]="settings['MyERP.Selling.RoleToOverrideStopAction']" name="roleOverrideRate"
+                  placeholder="e.g. Sales Manager" />
+              </div>
             </div>
 
             <div class="row mb-3">

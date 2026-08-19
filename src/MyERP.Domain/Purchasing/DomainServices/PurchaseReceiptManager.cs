@@ -27,6 +27,23 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
+    /// Mandatory PO linkage: every PR item must reference a Purchase Order.
+    /// Per ERPNext stock/doctype/purchase_receipt/purchase_receipt.py → po_required().
+    /// Skipped for return receipts.
+    /// </summary>
+    public static void ValidatePoRequired(PurchaseReceipt receipt, bool poRequired)
+    {
+        if (!poRequired || receipt.IsReturn) return;
+
+        var unlinkedItem = receipt.Items.FirstOrDefault(i => !i.PurchaseOrderItemId.HasValue);
+        if (unlinkedItem != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PurchaseOrderLinkRequired)
+                .WithData("itemDescription", unlinkedItem.Description);
+        }
+    }
+
+    /// <summary>
     /// Validates receipt quantities and posting date against the linked Purchase Order.
     /// Prevents over-receipt and temporal ordering violations.
     /// </summary>

@@ -178,6 +178,8 @@ public static class MyERPDomainErrorCodes
     public const string FromWarehouseEqualsTargetWarehouse = "MyERP:04013";
     public const string FromWarehouseOnSubcontractedDocument = "MyERP:04014";
     public const string ThreeWayMatchingFailed = "MyERP:04015";
+    public const string PurchaseOrderLinkRequired = "MyERP:04028";
+    public const string PurchaseReceiptLinkRequired = "MyERP:04029";
     public const string DropShipItemNotFound = "MyERP:04016";
     public const string DropShipQtyReductionExceeded = "MyERP:04017";
     public const string DropShipQtyIncreaseExceeded = "MyERP:04018";
@@ -417,4 +419,14 @@ public static class MyERPDomainErrorCodes
     // Sales Forecast
     public const string SalesForecastHasNoSelectedItems = "MyERP:10026";
     public const string SalesForecastAlreadyUsedForMps = "MyERP:10027";
+
+    // Stock Reservation — Settings
+    public const string StockReservationDisabled = "MyERP:05033";
+
+    // Selling Settings — Mandatory Linkage
+    public const string SalesOrderLinkRequired = "MyERP:03033";
+    public const string DeliveryNoteLinkRequired = "MyERP:03034";
+
+    // Maintain Same Rate (Buying/Selling Settings)
+    public const string RateMismatchWithReferenceDoc = "MyERP:03035";
 }

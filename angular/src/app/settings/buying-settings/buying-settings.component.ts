@@ -69,6 +69,12 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <input type="number" class="form-control form-control-sm" min="0" max="100"
                   [(ngModel)]="settings['MyERP.Buying.OverOrderAllowance']" name="overOrder" />
               </div>
+              <div class="col-md-4">
+                <label class="form-label">Role Allowed to Override Stop Action</label>
+                <input type="text" class="form-control form-control-sm"
+                  [(ngModel)]="settings['MyERP.Buying.RoleToOverrideStopAction']" name="bRoleOverrideRate"
+                  placeholder="e.g. Purchase Manager" />
+              </div>
             </div>
 
             <h6 class="text-muted mb-3 mt-4">Subcontracting</h6>

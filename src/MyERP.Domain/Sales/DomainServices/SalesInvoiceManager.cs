@@ -29,6 +29,40 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Mandatory SO linkage: every SI item must reference a Sales Order.
+    /// Per ERPNext accounts/doctype/sales_invoice/sales_invoice.py → so_dn_required().
+    /// Skipped for returns and POS/opening invoices (which post stock immediately with no SO).
+    /// </summary>
+    public static void ValidateSoRequired(SalesInvoice invoice, bool soRequired)
+    {
+        if (!soRequired || invoice.IsReturn || invoice.UpdateStock) return;
+
+        var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.SalesOrderItemId.HasValue);
+        if (unlinkedItem != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SalesOrderLinkRequired)
+                .WithData("itemDescription", unlinkedItem.Description);
+        }
+    }
+
+    /// <summary>
+    /// Mandatory DN linkage: every SI item must reference a Delivery Note.
+    /// Per ERPNext accounts/doctype/sales_invoice/sales_invoice.py → so_dn_required().
+    /// Skipped for returns and invoices that update stock directly (no separate DN in that flow).
+    /// </summary>
+    public static void ValidateDnRequired(SalesInvoice invoice, bool dnRequired)
+    {
+        if (!dnRequired || invoice.IsReturn || invoice.UpdateStock) return;
+
+        var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.DeliveryNoteItemId.HasValue);
+        if (unlinkedItem != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DeliveryNoteLinkRequired)
+                .WithData("itemDescription", unlinkedItem.Description);
+        }
+    }
+
+    /// <summary>
     /// Validates return invoice (credit note) business rules.
     /// Per DO-NOT: negative qty required, must reference original, exchange rate must match,
     /// return qty cannot exceed original.
@@ -86,10 +120,12 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
-    /// Validates over-billing: SI item qty cannot cause SO BilledQty to exceed ordered qty.
+    /// Validates over-billing: SI item qty cannot cause SO BilledQty to exceed ordered qty,
+    /// including the company's over-billing tolerance percentage.
+    /// Per ERPNext StatusUpdater: max_allowed = ordered_qty × (1 + allowance_pct / 100).
     /// Only applies to non-return invoices linked to a Sales Order.
     /// </summary>
-    public async Task ValidateOverBillingAsync(SalesInvoice invoice)
+    public async Task ValidateOverBillingAsync(SalesInvoice invoice, decimal overBillingAllowancePct = 0m)
     {
         if (invoice.IsReturn) return;
 
@@ -111,7 +147,10 @@ public class SalesInvoiceManager : DomainService
             foreach (var siItem in invoice.Items.Where(i => i.SalesOrderItemId.HasValue))
             {
                 var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
-                if (soItem != null && (soItem.BilledQty + siItem.Quantity) > soItem.Quantity)
+                if (soItem == null) continue;
+
+                var maxAllowedTotal = soItem.Quantity * (1m + overBillingAllowancePct / 100m);
+                if (soItem.BilledQty + siItem.Quantity > maxAllowedTotal)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.OverBilling)
                         .WithData("itemName", siItem.Description)

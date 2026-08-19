@@ -6,11 +6,14 @@ using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Settings;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -23,10 +26,14 @@ namespace MyERP.Inventory;
 public class StockReservationAppService : ApplicationService, IStockReservationAppService
 {
     private readonly IRepository<StockReservationEntry, Guid> _repository;
+    private readonly ISettingProvider _settingProvider;
 
-    public StockReservationAppService(IRepository<StockReservationEntry, Guid> repository)
+    public StockReservationAppService(
+        IRepository<StockReservationEntry, Guid> repository,
+        ISettingProvider settingProvider)
     {
         _repository = repository;
+        _settingProvider = settingProvider;
     }
 
     public async Task<PagedResultDto<StockReservationEntryDto>> GetListAsync(GetStockReservationListDto input)
@@ -62,6 +69,11 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<StockReservationEntryDto> CreateAsync(CreateStockReservationDto input)
     {
+        if (!await _settingProvider.IsTrueAsync(MyERPSettings.Stock.EnableStockReservation))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.StockReservationDisabled);
+        }
+
         // Validate availability using domain service
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         await reservationManager.ValidateAvailabilityAsync(input.ItemId, input.WarehouseId, input.ReservedQty);

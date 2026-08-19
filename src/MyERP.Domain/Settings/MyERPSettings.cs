@@ -44,6 +44,7 @@ public static class MyERPSettings
         public const string AllowMultipleItems = G + ".AllowMultipleItems";
         public const string MaintainSameRate = G + ".MaintainSameRate";
         public const string MaintainSameRateAction = G + ".MaintainSameRateAction";
+        public const string RoleToOverrideStopAction = G + ".RoleToOverrideStopAction";
         public const string EditablePriceListRate = G + ".EditablePriceListRate";
         public const string ValidateSellingPrice = G + ".ValidateSellingPrice";
         public const string BlanketOrderAllowance = G + ".BlanketOrderAllowance";
@@ -64,6 +65,7 @@ public static class MyERPSettings
         public const string PrRequired = G + ".PrRequired";
         public const string MaintainSameRate = G + ".MaintainSameRate";
         public const string MaintainSameRateAction = G + ".MaintainSameRateAction";
+        public const string RoleToOverrideStopAction = G + ".RoleToOverrideStopAction";
         public const string OverOrderAllowance = G + ".OverOrderAllowance";
         public const string BackflushSubcontractBasedOn = G + ".BackflushSubcontractBasedOn";
         public const string BillForRejectedQty = G + ".BillForRejectedQty";

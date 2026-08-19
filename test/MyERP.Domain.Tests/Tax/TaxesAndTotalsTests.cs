@@ -72,6 +72,47 @@ public class TaxesAndTotalsTests
     }
 
     [Fact]
+    public void Calculate_RoundRowWiseTaxOff_Default_SumsUnroundedThenRoundsOnce()
+    {
+        // 3 items × 5% of 0.05 = 0.0025 each. Summed unrounded = 0.0075, rounded once → 0.01.
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "SI", Guid.NewGuid(), 1, "SST 5%", "On Net Total", 5),
+        };
+
+        var result = _service.Calculate(items, taxes);
+
+        result.TotalTax.ShouldBe(0.01m);
+    }
+
+    [Fact]
+    public void Calculate_RoundRowWiseTaxOn_RoundsEachItemContributionFirst()
+    {
+        // Same inputs as the default-off test, but round_row_wise_tax rounds each
+        // item's 0.0025 contribution down to 0.00 before summing → total 0.00.
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 0.05m, NetAmount = 0.05m },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "SI", Guid.NewGuid(), 1, "SST 5%", "On Net Total", 5),
+        };
+
+        var result = _service.Calculate(items, taxes, roundRowWiseTax: true);
+
+        result.TotalTax.ShouldBe(0.00m);
+    }
+
+    [Fact]
     public void Calculate_ActualTax_FixedAmount()
     {
         var items = new List<TransactionItem>

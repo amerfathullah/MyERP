@@ -1,10 +1,13 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyERP.Inventory.Entities;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory.DomainServices;
 
@@ -12,19 +15,29 @@ namespace MyERP.Inventory.DomainServices;
 /// Enforces Quality Inspection requirements on stock transactions.
 /// Per ERPNext: items with inspection_required flags must have a
 /// submitted+accepted QI linked before the source document can be submitted.
-/// Respects ActionIfQualityInspectionNotSubmitted setting (Stop/Warn).
+/// Respects ActionIfQualityInspectionNotSubmitted / ActionIfQualityInspectionRejected
+/// settings (Stop blocks the transaction, Warn logs and lets it proceed).
 /// </summary>
 public class QualityInspectionEnforcementService : DomainService
 {
     private readonly IRepository<QualityInspection, Guid> _qiRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly ISettingProvider _settingProvider;
 
     public QualityInspectionEnforcementService(
         IRepository<QualityInspection, Guid> qiRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        ISettingProvider settingProvider)
     {
         _qiRepository = qiRepository;
         _itemRepository = itemRepository;
+        _settingProvider = settingProvider;
+    }
+
+    private async Task<bool> ShouldStopAsync(string settingName)
+    {
+        var action = await _settingProvider.GetOrNullAsync(settingName);
+        return !string.Equals(action, "Warn", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -109,9 +122,21 @@ public class QualityInspectionEnforcementService : DomainService
 
             if (hasRejected)
             {
+                if (!await ShouldStopAsync(MyERPSettings.Stock.ActionIfQualityInspectionRejected))
+                {
+                    Logger.LogWarning("QI rejected for item {ItemName} on WorkOrder {WorkOrderId}, allowed to proceed (Warn action).", item.ItemName, workOrderId);
+                    return;
+                }
+
                 throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRejected)
                     .WithData("items", item.ItemName)
                     .WithData("referenceType", "WorkOrder");
+            }
+
+            if (!await ShouldStopAsync(MyERPSettings.Stock.ActionIfQualityInspectionNotSubmitted))
+            {
+                Logger.LogWarning("QI not submitted for item {ItemName} on WorkOrder {WorkOrderId}, allowed to proceed (Warn action).", item.ItemName, workOrderId);
+                return;
             }
 
             throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRequired)
@@ -148,9 +173,16 @@ public class QualityInspectionEnforcementService : DomainService
         if (missingQi.Any())
         {
             var itemNames = string.Join(", ", missingQi.Select(i => i.ItemName));
-            throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRequired)
-                .WithData("items", itemNames)
-                .WithData("referenceType", referenceType);
+            if (!await ShouldStopAsync(MyERPSettings.Stock.ActionIfQualityInspectionNotSubmitted))
+            {
+                Logger.LogWarning("QI not submitted for items {ItemNames} on {ReferenceType} {ReferenceId}, allowed to proceed (Warn action).", itemNames, referenceType, referenceId);
+            }
+            else
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRequired)
+                    .WithData("items", itemNames)
+                    .WithData("referenceType", referenceType);
+            }
         }
 
         // Also check for any rejected QIs (hard block)
@@ -166,6 +198,12 @@ public class QualityInspectionEnforcementService : DomainService
         if (rejectedItems.Any())
         {
             var itemNames = string.Join(", ", rejectedItems.Select(i => i.ItemName));
+            if (!await ShouldStopAsync(MyERPSettings.Stock.ActionIfQualityInspectionRejected))
+            {
+                Logger.LogWarning("QI rejected for items {ItemNames} on {ReferenceType} {ReferenceId}, allowed to proceed (Warn action).", itemNames, referenceType, referenceId);
+                return;
+            }
+
             throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionRejected)
                 .WithData("items", itemNames)
                 .WithData("referenceType", referenceType);
