@@ -367,10 +367,21 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "Quantity");
 
+        if (input.PlannedEndDate.HasValue && input.PlannedEndDate.Value < input.PlannedStartDate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         // Validate item eligibility and BOM (per WorkOrderManager domain logic)
         var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
         await woManager.ValidateProductionItemAsync(input.ItemId);
         await woManager.ValidateBomAsync(input.BomId, input.ItemId);
+
+        var bom = await _bomRepository.GetAsync(input.BomId, includeDetails: true);
+
+        // Validate active items for FG and all BOM raw materials
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(bom.Items.Select(i => i.ItemId).Concat(new[] { input.ItemId }).Distinct().ToArray());
 
         var number = await _numberGenerator.GenerateAsync("WO", input.CompanyId);
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
@@ -384,7 +395,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);
 
         // Populate required items from BOM
-        var bom = await _bomRepository.GetAsync(input.BomId, includeDetails: true);
         var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
         foreach (var bi in bom.Items)
         {
@@ -494,6 +504,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WorkOrder", wo.Id,
+            "Submitted", wo.CompanyId,
+            wo.WorkOrderNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Work Order {wo.WorkOrderNumber} submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -909,6 +927,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WorkOrder", wo.Id,
+            "Cancelled", wo.CompanyId,
+            wo.WorkOrderNumber, wo.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Work Order {wo.WorkOrderNumber} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
