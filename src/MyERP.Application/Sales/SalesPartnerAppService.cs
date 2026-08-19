@@ -52,6 +52,11 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
     [Authorize(MyERPPermissions.SalesPartners.Create)]
     public async Task<SalesPartnerDto> CreateAsync(CreateSalesPartnerDto input)
     {
+        if (input.CommissionRate < 0 || input.CommissionRate > 100)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
         var entity = new SalesPartner(
             GuidGenerator.Create(),
             input.Name,
@@ -65,12 +70,25 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         entity.ReferralCode = input.ReferralCode;
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPartner", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active", CurrentUser.Id,
+            $"Sales partner '{entity.Name}' created with commission rate {entity.CommissionRate}%", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
     [Authorize(MyERPPermissions.SalesPartners.Edit)]
     public async Task<SalesPartnerDto> UpdateAsync(Guid id, CreateSalesPartnerDto input)
     {
+        if (input.CommissionRate < 0 || input.CommissionRate > 100)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.SetName(input.Name);
         entity.PartnerType = (PartnerType)input.PartnerType;
@@ -81,6 +99,14 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         entity.ReferralCode = input.ReferralCode;
 
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPartner", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Name, "Active", "Active", CurrentUser.Id,
+            $"Sales partner '{entity.Name}' updated", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -97,6 +123,13 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         if (entity.IsEnabled) entity.Disable();
         else entity.Enable();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesPartner", entity.Id,
+            entity.IsEnabled ? "Enabled" : "Disabled", Guid.Empty,
+            entity.Name, "Active", entity.IsEnabled ? "Active" : "Disabled", CurrentUser.Id,
+            $"Sales partner '{entity.Name}' {(entity.IsEnabled ? "enabled" : "disabled")}", CurrentTenant.Id));
     }
 
     private static SalesPartnerDto MapToDto(SalesPartner e) => new()

@@ -106,6 +106,12 @@ public class PartySpecificItemAppService :
                 .WithData("reason", "This item filter has already been applied for the party.");
         }
 
+        if (input.RestrictBasedOn == PartySpecificItemRestrictBasedOn.Item)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemAsync(input.BasedOnValueId);
+        }
+
         var entity = new PartySpecificItem(
             GuidGenerator.Create(),
             input.PartyType, input.PartyId,
@@ -113,6 +119,14 @@ public class PartySpecificItemAppService :
             CurrentTenant.Id);
 
         await Repository.InsertAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PartySpecificItem", entity.Id,
+            "Created", Guid.Empty,
+            entity.PartyId.ToString()[..8], "Draft", "Active", CurrentUser.Id,
+            $"Party-specific item rule created for {entity.PartyType} {entity.PartyId.ToString()[..8]} restricting {entity.RestrictBasedOn}", CurrentTenant.Id));
+
         return await MapToDtoWithNamesAsync(entity);
     }
 
@@ -134,12 +148,26 @@ public class PartySpecificItemAppService :
                 .WithData("reason", "This item filter has already been applied for the party.");
         }
 
+        if (input.RestrictBasedOn == PartySpecificItemRestrictBasedOn.Item)
+        {
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.ItemTransactionValidationService>();
+            await itemValidation.ValidateItemAsync(input.BasedOnValueId);
+        }
+
         entity.PartyType = input.PartyType;
         entity.PartyId = input.PartyId;
         entity.RestrictBasedOn = input.RestrictBasedOn;
         entity.BasedOnValueId = input.BasedOnValueId;
 
         await Repository.UpdateAsync(entity, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PartySpecificItem", entity.Id,
+            "Updated", Guid.Empty,
+            entity.PartyId.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Party-specific item rule updated for {entity.PartyType} {entity.PartyId.ToString()[..8]}", CurrentTenant.Id));
+
         return await MapToDtoWithNamesAsync(entity);
     }
 

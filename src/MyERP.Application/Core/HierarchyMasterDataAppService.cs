@@ -49,6 +49,14 @@ public class HierarchyMasterDataAppService : ApplicationService, IHierarchyMaste
         var territory = new Territory(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id);
         territory.TerritoryManagerId = input.ManagerId;
         await _territoryRepository.InsertAsync(territory);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Territory", territory.Id,
+            "Created", Guid.Empty,
+            territory.Name, "Draft", "Active", CurrentUser.Id,
+            $"Territory '{territory.Name}' created", CurrentTenant.Id));
+
         return new HierarchyNodeDto { Id = territory.Id, Name = territory.Name, ParentId = territory.ParentId, IsGroup = territory.IsGroup };
     }
 
@@ -71,6 +79,14 @@ public class HierarchyMasterDataAppService : ApplicationService, IHierarchyMaste
     {
         var group = new CustomerGroup(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id);
         await _customerGroupRepository.InsertAsync(group);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "CustomerGroup", group.Id,
+            "Created", Guid.Empty,
+            group.Name, "Draft", "Active", CurrentUser.Id,
+            $"Customer group '{group.Name}' created", CurrentTenant.Id));
+
         return new HierarchyNodeDto { Id = group.Id, Name = group.Name, ParentId = group.ParentId, IsGroup = group.IsGroup };
     }
 
@@ -93,6 +109,14 @@ public class HierarchyMasterDataAppService : ApplicationService, IHierarchyMaste
     {
         var group = new SupplierGroup(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id);
         await _supplierGroupRepository.InsertAsync(group);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SupplierGroup", group.Id,
+            "Created", Guid.Empty,
+            group.Name, "Draft", "Active", CurrentUser.Id,
+            $"Supplier group '{group.Name}' created", CurrentTenant.Id));
+
         return new HierarchyNodeDto { Id = group.Id, Name = group.Name, ParentId = group.ParentId, IsGroup = group.IsGroup };
     }
 
