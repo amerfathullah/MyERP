@@ -189,6 +189,36 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
         if (am == null)
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
 
+        if (!am.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        // Validate each asset item before submit
+        foreach (var item in am.Items)
+        {
+            var asset = await _assetRepository.GetAsync(item.AssetId);
+
+            if (asset.CompanyId != am.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
+                    .WithData("assetName", asset.AssetName);
+            }
+
+            if (asset.Status == AssetStatus.Draft || asset.Status == AssetStatus.Scrapped || asset.Status == AssetStatus.Sold)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
+                    .WithData("assetName", asset.AssetName)
+                    .WithData("status", asset.Status.ToString());
+            }
+
+            if (item.SourceLocationId.HasValue && item.TargetLocationId.HasValue &&
+                item.SourceLocationId == item.TargetLocationId &&
+                item.FromEmployeeId == item.ToEmployeeId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AssetMovementSameLocationAndCustodian)
+                    .WithData("assetName", asset.AssetName);
+            }
+        }
+
         am.Submit();
 
         // Update target assets location and custodian

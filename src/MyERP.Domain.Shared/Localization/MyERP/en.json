@@ -1910,7 +1910,7 @@
     "MyERP:01004": "Exchange rate must be 1.0 for base currency transactions.",
     "MyERP:04002": "E-Invoice cancellation failed. The 72-hour cancellation window may have expired.",
     "MyERP:EInvoice:00010": "E-Invoice validation failed. Check document details before submission.",
-    "MyERP:06001": "Approval is pending for this document. Submit is blocked until approval is granted.",
+    "MyERP:06001": "Asset {assetName} belongs to a different company.",
     "MyERP:01003": "Posting date cannot be more than 1 day in the future.",
     "MyERP:02002": "Fiscal year is closed. Cannot post transactions in closed fiscal year {fiscalYear}.",
     "MyERP:08005": "Over-delivery: item {itemName} has ordered qty {orderedQty}, already delivered {deliveredQty}, attempting {attemptedQty}.",
@@ -1920,7 +1920,7 @@
     "MyERP:09001": "Inter-company party mismatch. Customer/Supplier does not represent the target company.",
     "MyERP:04003": "E-Invoice status check failed. LHDN service may be unavailable.",
     "MyERP:02003": "Account is a group account and cannot receive direct postings.",
-    "MyERP:06002": "Approval request was rejected. Document cannot be submitted.",
+    "MyERP:06002": "Asset {assetName} with status {status} cannot be moved.",
     "MyERP:11001": "Multiple pricing rules match with the same priority. Pricing rule ambiguity detected.",
     "MyERP:08006": "Over-receipt: item {itemName} has ordered qty {orderedQty}, already received {receivedQty}, attempting {attemptedQty}.",
     "MyERP:03001": "No applicable tax rule found for the given criteria.",
@@ -3917,6 +3917,7 @@
     "MyERP:01011": "Valid Till date cannot be before Transaction Date.",
     "MyERP:05049": "Cannot set alternative item for {itemCode} because Allow Alternative Item is disabled.",
     "MyERP:05050": "Is Stock Item property differs between item {itemCode} and alternative item {alternativeItemCode}.",
-    "MyERP:05051": "An alternative entry for this item already exists."
+    "MyERP:05051": "An alternative entry for this item already exists.",
+    "MyERP:06003": "Target location and custodian cannot be identical to source for asset {assetName}."
   }
 }
