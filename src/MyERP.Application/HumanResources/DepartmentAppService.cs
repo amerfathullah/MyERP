@@ -37,12 +37,26 @@ public class DepartmentAppService : ApplicationService, IDepartmentAppService
             IsActive = input.IsActive,
         };
         await _repository.InsertAsync(department);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Department", department.Id,
+            "Created", department.CompanyId,
+            department.Name, "Draft", "Active", CurrentUser.Id,
+            $"Department '{department.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Department, DepartmentDto>(department);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
     public async Task<DepartmentDto> UpdateAsync(Guid id, CreateUpdateDepartmentDto input)
     {
+        if (input.ParentId == id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A department cannot be its own parent.");
+        }
+
         var department = await _repository.GetAsync(id);
         department.Rename(input.Name);
         department.CompanyId = input.CompanyId;
@@ -50,6 +64,14 @@ public class DepartmentAppService : ApplicationService, IDepartmentAppService
         department.IsGroup = input.IsGroup;
         department.IsActive = input.IsActive;
         await _repository.UpdateAsync(department);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Department", department.Id,
+            "Updated", department.CompanyId,
+            department.Name, "Active", "Active", CurrentUser.Id,
+            $"Department '{department.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Department, DepartmentDto>(department);
     }
 

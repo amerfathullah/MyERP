@@ -56,6 +56,14 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         };
 
         await _ruleRepository.InsertAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ApprovalRule", rule.Id,
+            "Created", rule.CompanyId ?? Guid.Empty,
+            rule.Name, "Draft", "Active", CurrentUser.Id,
+            $"Approval rule '{rule.Name}' created for {rule.DocumentType} (Level {rule.Level})", CurrentTenant.Id));
+
         return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 
@@ -74,6 +82,14 @@ public class ApprovalWorkflowAppService : ApplicationService, IApprovalWorkflowA
         rule.Description = input.Description;
 
         await _ruleRepository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ApprovalRule", rule.Id,
+            "Updated", rule.CompanyId ?? Guid.Empty,
+            rule.Name, "Active", "Active", CurrentUser.Id,
+            $"Approval rule '{rule.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<ApprovalRule, ApprovalRuleDto>(rule);
     }
 

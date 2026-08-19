@@ -41,6 +41,14 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
         };
 
         await _ruleRepository.InsertAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AutomationRule", rule.Id,
+            "Created", rule.CompanyId ?? Guid.Empty,
+            rule.Name, "Draft", "Active", CurrentUser.Id,
+            $"Automation rule '{rule.Name}' created for {rule.DocumentType}", CurrentTenant.Id));
+
         return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
 
@@ -58,6 +66,14 @@ public class AutomationRuleAppService : ApplicationService, IAutomationRuleAppSe
         rule.Priority = input.Priority;
 
         await _ruleRepository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AutomationRule", rule.Id,
+            "Updated", rule.CompanyId ?? Guid.Empty,
+            rule.Name, "Active", "Active", CurrentUser.Id,
+            $"Automation rule '{rule.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<AutomationRule, AutomationRuleDto>(rule);
     }
 

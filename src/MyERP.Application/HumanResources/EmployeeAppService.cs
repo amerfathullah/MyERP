@@ -84,6 +84,14 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.TaxNumber = input.TaxNumber;
 
         await _repository.InsertAsync(employee, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Employee", employee.Id,
+            "Created", employee.CompanyId,
+            $"{employee.FirstName} {employee.LastName}".Trim(), "Draft", "Active", CurrentUser.Id,
+            $"Employee '{employee.FirstName} {employee.LastName}' ({employee.EmployeeId}) created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 
@@ -106,6 +114,14 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.TaxNumber = input.TaxNumber;
 
         await _repository.UpdateAsync(employee, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Employee", employee.Id,
+            "Updated", employee.CompanyId,
+            $"{employee.FirstName} {employee.LastName}".Trim(), "Active", "Active", CurrentUser.Id,
+            $"Employee '{employee.FirstName} {employee.LastName}' ({employee.EmployeeId}) updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 

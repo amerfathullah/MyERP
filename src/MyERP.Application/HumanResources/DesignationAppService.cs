@@ -37,6 +37,14 @@ public class DesignationAppService : ApplicationService, IDesignationAppService
             Description = input.Description,
         };
         await _repository.InsertAsync(designation);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Designation", designation.Id,
+            "Created", Guid.Empty,
+            designation.Name, "Draft", "Active", CurrentUser.Id,
+            $"Designation '{designation.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Designation, DesignationDto>(designation);
     }
 
@@ -47,6 +55,14 @@ public class DesignationAppService : ApplicationService, IDesignationAppService
         designation.Rename(input.Name);
         designation.Description = input.Description;
         await _repository.UpdateAsync(designation);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Designation", designation.Id,
+            "Updated", Guid.Empty,
+            designation.Name, "Active", "Active", CurrentUser.Id,
+            $"Designation '{designation.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Designation, DesignationDto>(designation);
     }
 
