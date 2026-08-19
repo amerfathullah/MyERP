@@ -133,7 +133,7 @@
             <select id="defaultPaymentTermsTemplateId" class="form-select" formControlName="defaultPaymentTermsTemplateId">
               <option [ngValue]="null">— {{ '::SelectPaymentTerms' | abpLocalization }} —</option>
               @for (pt of paymentTerms(); track pt.id) {
-                <option [value]="pt.id">{{ pt.templateName }}</option>
+                <option [value]="pt.id">{{ pt.name }}</option>
               }
             </select>
           </div>
@@ -143,7 +143,7 @@
             <select id="defaultReceivableAccountId" class="form-select" formControlName="defaultReceivableAccountId">
               <option [ngValue]="null">— {{ '::DefaultCompanyAccount' | abpLocalization }} —</option>
               @for (acc of accounts(); track acc.id) {
-                <option [value]="acc.id">{{ acc.accountNumber }} - {{ acc.accountName }}</option>
+                <option [value]="acc.id">{{ acc.accountCode ? (acc.accountCode + ' - ') : '' }}{{ acc.accountName }}</option>
               }
             </select>
           </div>
