@@ -51,6 +51,17 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<ExpenseClaimDto> CreateAsync(CreateExpenseClaimDto input)
     {
+        if (input.Expenses == null || input.Expenses.Length == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        if (input.Expenses.Any(e => e.Amount <= 0))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Amount");
+        }
+
         var ec = new ExpenseClaim(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.PostingDate, CurrentTenant.Id)
         { EmployeeName = input.EmployeeName, ExpenseType = input.ExpenseType };
@@ -66,6 +77,14 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
         ec.Approve();
         await _repository.UpdateAsync(ec);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ExpenseClaim", ec.Id,
+            "Approved", ec.CompanyId,
+            ec.EmployeeName ?? ec.Id.ToString(), "Draft", "Approved", CurrentUser.Id,
+            $"Expense Claim for {ec.EmployeeName} ({ec.TotalClaimedAmount:C}) approved", CurrentTenant.Id));
+
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
@@ -75,6 +94,14 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         var ec = await _repository.GetAsync(id);
         ec.Submit();
         await _repository.UpdateAsync(ec);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ExpenseClaim", ec.Id,
+            "Submitted", ec.CompanyId,
+            ec.EmployeeName ?? ec.Id.ToString(), "Draft", "Submitted", CurrentUser.Id,
+            $"Expense Claim for {ec.EmployeeName} ({ec.TotalClaimedAmount:C}) submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
@@ -84,6 +111,14 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         var ec = await _repository.GetAsync(id);
         ec.Reject();
         await _repository.UpdateAsync(ec);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ExpenseClaim", ec.Id,
+            "Rejected", ec.CompanyId,
+            ec.EmployeeName ?? ec.Id.ToString(), "Draft", "Rejected", CurrentUser.Id,
+            $"Expense Claim for {ec.EmployeeName} rejected", CurrentTenant.Id));
+
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 
@@ -93,6 +128,14 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         var ec = await _repository.GetAsync(id);
         ec.Cancel();
         await _repository.UpdateAsync(ec);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ExpenseClaim", ec.Id,
+            "Cancelled", ec.CompanyId,
+            ec.EmployeeName ?? ec.Id.ToString(), "Submitted", "Cancelled", CurrentUser.Id,
+            $"Expense Claim for {ec.EmployeeName} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }
 

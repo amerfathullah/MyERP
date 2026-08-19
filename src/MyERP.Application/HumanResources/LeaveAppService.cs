@@ -78,6 +78,17 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<LeaveApplicationDto> ApplyAsync(CreateLeaveApplicationDto input)
     {
+        if (input.ToDate < input.FromDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.TotalLeaveDays <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "TotalLeaveDays");
+        }
+
         var leave = new LeaveApplication(
             GuidGenerator.Create(), input.CompanyId, input.EmployeeId, input.LeaveTypeId,
             input.FromDate, input.ToDate, input.TotalLeaveDays, CurrentTenant.Id)
@@ -95,6 +106,14 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
         await leaveManager.ValidateNoOverlapAsync(leave);
 
         await _leaveRepository.InsertAsync(leave);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveApplication", leave.Id,
+            "Applied", leave.CompanyId,
+            leave.EmployeeName ?? leave.EmployeeId.ToString(), "Draft", "Open", CurrentUser.Id,
+            $"Leave Application for {leave.EmployeeName} ({leave.TotalLeaveDays} days from {leave.FromDate:yyyy-MM-dd} to {leave.ToDate:yyyy-MM-dd}) applied", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
@@ -109,6 +128,14 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
 
         leave.Approve();
         await _leaveRepository.UpdateAsync(leave);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveApplication", leave.Id,
+            "Approved", leave.CompanyId,
+            leave.EmployeeName ?? leave.EmployeeId.ToString(), "Open", "Approved", CurrentUser.Id,
+            $"Leave Application for {leave.EmployeeName} approved", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
@@ -118,6 +145,14 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
         var leave = await _leaveRepository.GetAsync(id);
         leave.Reject();
         await _leaveRepository.UpdateAsync(leave);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveApplication", leave.Id,
+            "Rejected", leave.CompanyId,
+            leave.EmployeeName ?? leave.EmployeeId.ToString(), "Open", "Rejected", CurrentUser.Id,
+            $"Leave Application for {leave.EmployeeName} rejected", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 
@@ -136,6 +171,14 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
         }
 
         await _leaveRepository.UpdateAsync(leave);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveApplication", leave.Id,
+            "Cancelled", leave.CompanyId,
+            leave.EmployeeName ?? leave.EmployeeId.ToString(), wasApproved ? "Approved" : "Open", "Cancelled", CurrentUser.Id,
+            $"Leave Application for {leave.EmployeeName} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
     }
 }

@@ -58,6 +58,24 @@ public class LoanAppService : ApplicationService, ILoanAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<LoanDto> CreateAsync(CreateLoanDto input)
     {
+        if (input.LoanAmount <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "LoanAmount");
+        }
+
+        if (input.TenureMonths <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "TenureMonths");
+        }
+
+        if (input.AnnualInterestRate < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "AnnualInterestRate");
+        }
+
         var number = await _numberGenerator.GenerateAsync("LOAN", input.CompanyId);
 
         var loan = new Loan(
@@ -80,6 +98,14 @@ public class LoanAppService : ApplicationService, ILoanAppService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.Sanction();
         await _repository.UpdateAsync(loan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Loan", loan.Id,
+            "Sanctioned", loan.CompanyId,
+            loan.LoanNumber, "Draft", "Sanctioned", CurrentUser.Id,
+            $"Loan {loan.LoanNumber} ({loan.LoanAmount:C}) sanctioned", CurrentTenant.Id));
+
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
@@ -90,6 +116,14 @@ public class LoanAppService : ApplicationService, ILoanAppService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.Disburse(input.DisbursementDate, input.RepaymentStartDate);
         await _repository.UpdateAsync(loan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Loan", loan.Id,
+            "Disbursed", loan.CompanyId,
+            loan.LoanNumber, "Sanctioned", "Disbursed", CurrentUser.Id,
+            $"Loan {loan.LoanNumber} disbursed on {input.DisbursementDate:yyyy-MM-dd}", CurrentTenant.Id));
+
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 
@@ -125,6 +159,14 @@ public class LoanAppService : ApplicationService, ILoanAppService
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
         loan.Cancel();
         await _repository.UpdateAsync(loan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Loan", loan.Id,
+            "Cancelled", loan.CompanyId,
+            loan.LoanNumber, loan.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Loan {loan.LoanNumber} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }
 }
