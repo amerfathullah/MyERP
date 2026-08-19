@@ -54,6 +54,12 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<WorkstationDto> CreateAsync(CreateWorkstationDto input)
     {
+        if (input.ProductionCapacity < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ProductionCapacity");
+        }
+
         var ws = new Workstation(GuidGenerator.Create(), input.CompanyId, input.Name, CurrentTenant.Id)
         {
             WorkstationType = input.WorkstationType,
@@ -62,6 +68,14 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         };
         ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
         await _repository.InsertAsync(ws);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Workstation", ws.Id,
+            "Created", ws.CompanyId,
+            ws.Name, "Draft", "Active", CurrentUser.Id,
+            $"Workstation '{ws.Name}' created (Capacity: {ws.ProductionCapacity})", CurrentTenant.Id));
+
         return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }
 
@@ -73,6 +87,12 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<WorkstationDto> UpdateAsync(Guid id, CreateWorkstationDto input)
     {
+        if (input.ProductionCapacity < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "ProductionCapacity");
+        }
+
         var ws = await _repository.GetAsync(id);
         var previousHourRate = ws.HourRate;
 
@@ -89,6 +109,13 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         {
             await PropagateHourRateToBomOperationsAsync(ws.Id, ws.HourRate);
         }
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Workstation", ws.Id,
+            "Updated", ws.CompanyId,
+            ws.Name, "Active", "Active", CurrentUser.Id,
+            $"Workstation '{ws.Name}' updated", CurrentTenant.Id));
 
         return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }

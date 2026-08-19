@@ -36,6 +36,12 @@ public class OperationAppService : ApplicationService, IOperationAppService
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<OperationDto> CreateAsync(CreateOperationDto input)
     {
+        if (input.BatchSize < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "BatchSize");
+        }
+
         var op = new Operation(GuidGenerator.Create(), input.Name, CurrentTenant.Id)
         {
             Description = input.Description,
@@ -48,12 +54,26 @@ public class OperationAppService : ApplicationService, IOperationAppService
         };
         op.SetSubOperations(input.SubOperations.Select(s => (s.OperationId, s.TimeInMins, s.Description)));
         await _repository.InsertAsync(op);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Operation", op.Id,
+            "Created", Guid.Empty,
+            op.Name, "Draft", "Active", CurrentUser.Id,
+            $"Operation '{op.Name}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<Operation, OperationDto>(op);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<OperationDto> UpdateAsync(Guid id, CreateOperationDto input)
     {
+        if (input.BatchSize < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "BatchSize");
+        }
+
         var op = await _repository.GetAsync(id, includeDetails: true);
         op.Description = input.Description;
         op.WorkstationId = input.WorkstationId;
@@ -64,6 +84,14 @@ public class OperationAppService : ApplicationService, IOperationAppService
         op.IsActive = input.IsActive;
         op.SetSubOperations(input.SubOperations.Select(s => (s.OperationId, s.TimeInMins, s.Description)));
         await _repository.UpdateAsync(op);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Operation", op.Id,
+            "Updated", Guid.Empty,
+            op.Name, "Active", "Active", CurrentUser.Id,
+            $"Operation '{op.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Operation, OperationDto>(op);
     }
 
@@ -100,6 +128,14 @@ public class RoutingAppService : ApplicationService, IRoutingAppService
         foreach (var op in input.Operations)
             routing.AddOperation(op.OperationId, op.SequenceId, op.TimeInMins, op.WorkstationId);
         await _repository.InsertAsync(routing);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Routing", routing.Id,
+            "Created", Guid.Empty,
+            routing.Name, "Draft", "Active", CurrentUser.Id,
+            $"Routing '{routing.Name}' created with {routing.Operations.Count} operations", CurrentTenant.Id));
+
         return ObjectMapper.Map<Routing, RoutingDto>(routing);
     }
 
@@ -112,6 +148,14 @@ public class RoutingAppService : ApplicationService, IRoutingAppService
         routing.ReplaceOperations(input.Operations
             .Select(o => (o.OperationId, o.SequenceId, o.TimeInMins, o.WorkstationId, (string?)null)));
         await _repository.UpdateAsync(routing);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Routing", routing.Id,
+            "Updated", Guid.Empty,
+            routing.Name, "Active", "Active", CurrentUser.Id,
+            $"Routing '{routing.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<Routing, RoutingDto>(routing);
     }
 

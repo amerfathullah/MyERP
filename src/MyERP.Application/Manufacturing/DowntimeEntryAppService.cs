@@ -44,18 +44,36 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<DowntimeEntryDto> CreateAsync(CreateUpdateDowntimeEntryDto input)
     {
+        if (input.ToTime < input.FromTime)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var entry = new DowntimeEntry(GuidGenerator.Create(), input.CompanyId, input.WorkstationId,
             input.OperatorId, input.FromTime, input.ToTime, input.StopReason, CurrentTenant.Id)
         {
             Remarks = input.Remarks,
         };
         await _repository.InsertAsync(entry);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DowntimeEntry", entry.Id,
+            "Created", entry.CompanyId,
+            entry.Id.ToString()[..8], "Draft", "Active", CurrentUser.Id,
+            $"Downtime entry created ({entry.DowntimeMinutes} mins, Reason: {entry.StopReason})", CurrentTenant.Id));
+
         return ObjectMapper.Map<DowntimeEntry, DowntimeEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<DowntimeEntryDto> UpdateAsync(Guid id, CreateUpdateDowntimeEntryDto input)
     {
+        if (input.ToTime < input.FromTime)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var entry = await _repository.GetAsync(id);
         entry.WorkstationId = input.WorkstationId;
         entry.OperatorId = input.OperatorId;
@@ -63,6 +81,14 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
         entry.StopReason = input.StopReason;
         entry.Remarks = input.Remarks;
         await _repository.UpdateAsync(entry);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "DowntimeEntry", entry.Id,
+            "Updated", entry.CompanyId,
+            entry.Id.ToString()[..8], "Active", "Active", CurrentUser.Id,
+            $"Downtime entry updated ({entry.DowntimeMinutes} mins)", CurrentTenant.Id));
+
         return ObjectMapper.Map<DowntimeEntry, DowntimeEntryDto>(entry);
     }
 

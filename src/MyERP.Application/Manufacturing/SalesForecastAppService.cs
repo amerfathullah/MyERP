@@ -55,6 +55,11 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
     [Authorize(MyERPPermissions.SalesForecasts.Create)]
     public async Task<SalesForecastDto> CreateAsync(CreateSalesForecastDto input)
     {
+        if (input.SelectedItemIds == null || input.SelectedItemIds.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var number = await _numberGenerator.GenerateAsync("SF", input.CompanyId);
         var forecast = new SalesForecast(GuidGenerator.Create(), input.CompanyId, number, input.FromDate, input.ParentWarehouseId, CurrentTenant.Id)
         {
@@ -63,6 +68,14 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
         };
         forecast.SetSelectedItems(input.SelectedItemIds);
         await _repository.InsertAsync(forecast);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesForecast", forecast.Id,
+            "Created", forecast.CompanyId,
+            forecast.ForecastNumber, "Draft", "Draft", CurrentUser.Id,
+            $"Sales forecast {forecast.ForecastNumber} created with {forecast.SelectedItems.Count} items", CurrentTenant.Id));
+
         return ToDto(forecast);
     }
 
@@ -76,6 +89,14 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
         forecast.DemandNumber = input.DemandNumber;
         forecast.SetSelectedItems(input.SelectedItemIds);
         await _repository.UpdateAsync(forecast);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesForecast", forecast.Id,
+            "Updated", forecast.CompanyId,
+            forecast.ForecastNumber, "Draft", "Draft", CurrentUser.Id,
+            $"Sales forecast {forecast.ForecastNumber} updated", CurrentTenant.Id));
+
         return ToDto(forecast);
     }
 
@@ -95,6 +116,14 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
 
         forecast.GenerateDemand(itemDetails);
         await _repository.UpdateAsync(forecast);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesForecast", forecast.Id,
+            "DemandGenerated", forecast.CompanyId,
+            forecast.ForecastNumber, "Draft", "Draft", CurrentUser.Id,
+            $"Demand generated for sales forecast {forecast.ForecastNumber} ({forecast.Items.Count} projected entries)", CurrentTenant.Id));
+
         return ToDto(forecast);
     }
 
@@ -104,6 +133,14 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
         var forecast = await _repository.GetAsync(id, includeDetails: true);
         forecast.Submit();
         await _repository.UpdateAsync(forecast);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesForecast", forecast.Id,
+            "Submitted", forecast.CompanyId,
+            forecast.ForecastNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Sales forecast {forecast.ForecastNumber} submitted", CurrentTenant.Id));
+
         return ToDto(forecast);
     }
 
@@ -113,6 +150,14 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
         var forecast = await _repository.GetAsync(id, includeDetails: true);
         forecast.Cancel();
         await _repository.UpdateAsync(forecast);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalesForecast", forecast.Id,
+            "Cancelled", forecast.CompanyId,
+            forecast.ForecastNumber, "Submitted", "Cancelled", CurrentUser.Id,
+            $"Sales forecast {forecast.ForecastNumber} cancelled", CurrentTenant.Id));
+
         return ToDto(forecast);
     }
 
