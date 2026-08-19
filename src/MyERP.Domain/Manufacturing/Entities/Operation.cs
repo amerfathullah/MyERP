@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -37,11 +39,51 @@ public class Operation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Auto-calculated: SUM of all sub-operation TimeInMins.</summary>
+    public decimal TotalOperationTime { get; private set; }
+
+    private readonly List<SubOperation> _subOperations = new();
+    public IReadOnlyList<SubOperation> SubOperations => _subOperations.AsReadOnly();
+
     protected Operation() { }
 
     public Operation(Guid id, string name, Guid? tenantId = null) : base(id)
     {
         Name = Check.NotNullOrWhiteSpace(name, nameof(name), 200);
         TenantId = tenantId;
+    }
+
+    /// <summary>Replaces the sub-operation breakdown and recalculates TotalOperationTime.</summary>
+    public void SetSubOperations(IEnumerable<(Guid OperationId, decimal TimeInMins, string? Description)> rows)
+    {
+        _subOperations.Clear();
+        foreach (var row in rows)
+            _subOperations.Add(new SubOperation(Guid.NewGuid(), Id, row.OperationId, row.TimeInMins, row.Description));
+        TotalOperationTime = _subOperations.Sum(s => s.TimeInMins);
+    }
+}
+
+/// <summary>
+/// Sub Operation — a step composed of another Operation, used to build up
+/// TotalOperationTime for the parent Operation. Maps to ERPNext manufacturing/doctype/sub_operation.
+/// </summary>
+public class SubOperation : FullAuditedEntity<Guid>
+{
+    public Guid ParentOperationId { get; set; }
+
+    /// <summary>The Operation referenced as this step.</summary>
+    public Guid OperationId { get; set; }
+
+    public decimal TimeInMins { get; set; }
+    public string? Description { get; set; }
+
+    protected SubOperation() { }
+
+    public SubOperation(Guid id, Guid parentOperationId, Guid operationId, decimal timeInMins, string? description) : base(id)
+    {
+        ParentOperationId = parentOperationId;
+        OperationId = operationId;
+        TimeInMins = timeInMins;
+        Description = description;
     }
 }

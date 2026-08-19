@@ -17,6 +17,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetCategory, Guid> _categoryRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
+    private readonly IRepository<Location, Guid> _locationRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly AssetMapper _assetMapper;
     private readonly AssetCategoryMapper _categoryMapper;
@@ -25,6 +26,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetCategory, Guid> categoryRepository,
         IRepository<AssetActivity, Guid> activityRepository,
+        IRepository<Location, Guid> locationRepository,
         IDocumentNumberGenerator numberGenerator,
         AssetMapper assetMapper,
         AssetCategoryMapper categoryMapper)
@@ -32,9 +34,18 @@ public class AssetAppService : ApplicationService, IAssetAppService
         _assetRepository = assetRepository;
         _categoryRepository = categoryRepository;
         _activityRepository = activityRepository;
+        _locationRepository = locationRepository;
         _numberGenerator = numberGenerator;
         _assetMapper = assetMapper;
         _categoryMapper = categoryMapper;
+    }
+
+    /// <summary>Resolves LocationId to the Location master's name for the denormalized display field.</summary>
+    private async Task<string?> ResolveLocationNameAsync(Guid? locationId, string? fallback)
+    {
+        if (!locationId.HasValue) return fallback;
+        var location = await _locationRepository.FindAsync(locationId.Value);
+        return location?.LocationName ?? fallback;
     }
 
     public async Task<AssetDto> GetAsync(Guid id)
@@ -89,7 +100,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
         {
             AssetCategoryId = input.AssetCategoryId,
             ItemId = input.ItemId,
-            Location = input.Location,
+            Location = await ResolveLocationNameAsync(input.LocationId, input.Location),
+            LocationId = input.LocationId,
             CustodianEmployeeId = input.CustodianEmployeeId,
             AdditionalCost = input.AdditionalCost,
             CalculateDepreciation = input.CalculateDepreciation,
@@ -130,7 +142,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.AssetName = input.AssetName;
         asset.AssetCategoryId = input.AssetCategoryId;
         asset.ItemId = input.ItemId;
-        asset.Location = input.Location;
+        asset.Location = await ResolveLocationNameAsync(input.LocationId, input.Location);
+        asset.LocationId = input.LocationId;
         asset.CustodianEmployeeId = input.CustodianEmployeeId;
         asset.AdditionalCost = input.AdditionalCost;
         asset.CalculateDepreciation = input.CalculateDepreciation;

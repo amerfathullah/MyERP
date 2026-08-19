@@ -120,12 +120,7 @@
               @for (row of items.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
                   <td>
-                    <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $event)">
-                      <option value="">{{ '::SelectItem' | abpLocalization }}</option>
-                      @for (item of availableItems(); track item.id) {
-                        <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
-                      }
-                    </select>
+                    <app-item-picker formControlName="itemId" (itemSelected)="onItemSelected(i, $event)" />
                   </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="qty" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>

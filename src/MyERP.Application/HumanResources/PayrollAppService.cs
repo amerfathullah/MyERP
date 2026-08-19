@@ -20,17 +20,23 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
 {
     private readonly IRepository<PayrollEntry, Guid> _repository;
     private readonly IRepository<Employee, Guid> _employeeRepository;
+    private readonly IRepository<SalarySlip, Guid> _salarySlipRepository;
+    private readonly IRepository<SalaryComponent, Guid> _salaryComponentRepository;
     private readonly PayrollEngine _payrollEngine;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public PayrollAppService(
         IRepository<PayrollEntry, Guid> repository,
         IRepository<Employee, Guid> employeeRepository,
+        IRepository<SalarySlip, Guid> salarySlipRepository,
+        IRepository<SalaryComponent, Guid> salaryComponentRepository,
         PayrollEngine payrollEngine,
         IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
         _employeeRepository = employeeRepository;
+        _salarySlipRepository = salarySlipRepository;
+        _salaryComponentRepository = salaryComponentRepository;
         _payrollEngine = payrollEngine;
         _numberGenerator = numberGenerator;
     }
@@ -69,6 +75,21 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         // Get all active employees for the company
         var employees = await _employeeRepository.GetListAsync(e =>
             e.CompanyId == input.CompanyId && e.Status == EmploymentStatus.Active);
+
+        // Resolve standard Salary Components by name for the individual Salary Slips (best-effort;
+        // SalarySlipComponent has no FK on SalaryComponentId, so a miss just falls back to Guid.Empty).
+        var components = await _salaryComponentRepository.GetListAsync();
+        Guid ComponentId(string name) => components
+            .FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
+        var basicSalaryComponentId = ComponentId("Basic Salary");
+        var epfComponentId = ComponentId("EPF");
+        var socsoComponentId = ComponentId("SOCSO");
+        var eisComponentId = ComponentId("EIS");
+        var pcbComponentId = ComponentId("PCB");
+        var loanComponentId = ComponentId("Loan Repayment");
+
+        var salarySlips = new List<SalarySlip>();
+        var totalWorkingDays = DateTime.DaysInMonth(input.Year, input.Month);
 
         foreach (var employee in employees)
         {
@@ -126,9 +147,32 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
                 lastLine.LoanDeduction = emiDeduction;
                 lastLine.LoanId = activeLoan.Id;
             }
+
+            // Build the individual Salary Slip for this employee (payslip view, per ERPNext salary_slip).
+            // Only the employee-side deductions are shown; employer contributions don't affect net pay.
+            var payLine = entry.Lines.Last();
+            var slip = new SalarySlip(GuidGenerator.Create(), input.CompanyId, employee.Id,
+                periodStart, periodEnd, postingDate, CurrentTenant.Id)
+            {
+                EmployeeName = employee.FullName,
+                PayrollEntryId = entry.Id,
+                TotalWorkingDays = totalWorkingDays,
+                PaymentDays = totalWorkingDays - (int)unpaidDays,
+                LeavesWithoutPay = (int)unpaidDays,
+            };
+            slip.AddEarning(basicSalaryComponentId, "Basic Salary", payLine.GrossSalary);
+            if (payLine.EpfEmployee > 0) slip.AddDeduction(epfComponentId, "EPF", payLine.EpfEmployee, isStatutory: true);
+            if (payLine.SocsoEmployee > 0) slip.AddDeduction(socsoComponentId, "SOCSO", payLine.SocsoEmployee, isStatutory: true);
+            if (payLine.EisEmployee > 0) slip.AddDeduction(eisComponentId, "EIS", payLine.EisEmployee, isStatutory: true);
+            if (payLine.Pcb > 0) slip.AddDeduction(pcbComponentId, "PCB", payLine.Pcb, isStatutory: true);
+            if (payLine.LoanDeduction > 0) slip.AddDeduction(loanComponentId, "Loan Repayment", payLine.LoanDeduction);
+            salarySlips.Add(slip);
         }
 
         await _repository.InsertAsync(entry, autoSave: true);
+        foreach (var slip in salarySlips)
+            await _salarySlipRepository.InsertAsync(slip, autoSave: true);
+
         return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 
@@ -142,6 +186,14 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         var postingService = LazyServiceProvider
             .LazyGetRequiredService<HumanResources.DomainServices.PayrollPostingService>();
         var journalEntryId = await postingService.PostPayrollAsync(entry);
+
+        // Submit the linked Salary Slips (individual payslips) alongside the payroll run
+        var slipsQuery = await _salarySlipRepository.GetQueryableAsync();
+        foreach (var slip in slipsQuery.Where(s => s.PayrollEntryId == entry.Id && s.Status == Core.DocumentStatus.Draft).ToList())
+        {
+            slip.Submit();
+            await _salarySlipRepository.UpdateAsync(slip);
+        }
 
         // Record loan repayments for employees with EMI deductions
         var loanRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
@@ -185,6 +237,14 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ReversePleForDocumentAsync("PayrollEntry", entry.Id);
+
+        // Cancel the linked Salary Slips alongside the payroll run
+        var slipsQuery = await _salarySlipRepository.GetQueryableAsync();
+        foreach (var slip in slipsQuery.Where(s => s.PayrollEntryId == entry.Id && s.Status == Core.DocumentStatus.Submitted).ToList())
+        {
+            slip.Cancel();
+            await _salarySlipRepository.UpdateAsync(slip);
+        }
 
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);

@@ -6,16 +6,20 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { AssetStore } from '../store/asset.store';
 import { AssetService } from '../../proxy/assets/asset.service';
+import { AssetCategoryService } from '../../proxy/assets/asset-category.service';
+import { LocationService } from '../../proxy/assets/location.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
+import type { AssetCategoryDto, LocationDto } from '../../proxy/assets/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
+import { ItemPickerComponent } from '../../shared/components/item-picker/item-picker.component';
 
 @Component({
   selector: 'app-asset-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, ItemPickerComponent],
   templateUrl: './asset-form.component.html',
   styleUrls: ['./asset-form.component.scss'],
 })
@@ -24,17 +28,23 @@ export class AssetFormComponent implements OnInit {
   private router = inject(Router);
   private store = inject(AssetStore);
   private assetService = inject(AssetService);
+  private assetCategoryService = inject(AssetCategoryService);
+  private locationService = inject(LocationService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
+  categories = signal<AssetCategoryDto[]>([]);
+  locations = signal<LocationDto[]>([]);
 
   ngOnInit(): void {
     this.form = this.fb.group({
       companyId: ['', Validators.required],
       assetName: ['', [Validators.required, Validators.maxLength(200)]],
-      location: [''],
+      assetCategoryId: [null],
+      itemId: [null],
+      locationId: [null],
       purchaseDate: [new Date().toISOString().split('T')[0], Validators.required],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
       additionalCost: [0],
@@ -47,6 +57,12 @@ export class AssetFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe((res) => this.companies.set(res.items ?? []));
+
+    this.assetCategoryService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' })
+      .subscribe((res) => this.categories.set(res.items ?? []));
+
+    this.locationService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' })
+      .subscribe((res) => this.locations.set(res.items ?? []));
 
     // Auto-fill companyId from context for new documents
     const cid = this.companyContext.currentCompanyId();

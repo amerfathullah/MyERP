@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
+using MyERP.Core.DomainServices;
 using MyERP.Dtos;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -16,17 +20,92 @@ namespace MyERP.Inventory;
 public class StockReconciliationAppService : ApplicationService, IStockReconciliationAppService
 {
     private readonly IRepository<StockReconciliation, Guid> _repository;
+    private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly StockValuationService _valuationService;
     private readonly BinService _binService;
+    private readonly WarehouseAccountService _warehouseAccountService;
+    private readonly IDocumentNumberGenerator _numberGenerator;
 
     public StockReconciliationAppService(
         IRepository<StockReconciliation, Guid> repository,
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
         StockValuationService valuationService,
-        BinService binService)
+        BinService binService,
+        WarehouseAccountService warehouseAccountService,
+        IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
+        _journalEntryRepository = journalEntryRepository;
+        _fiscalYearRepository = fiscalYearRepository;
         _valuationService = valuationService;
         _binService = binService;
+        _warehouseAccountService = warehouseAccountService;
+        _numberGenerator = numberGenerator;
+    }
+
+    /// <summary>
+    /// Posts the GL impact of a stock reconciliation's valuation change: one Stock-account line per
+    /// affected warehouse (DR if that warehouse's value increased, CR if it decreased), balanced
+    /// against a single line on the document's own Difference/Expense Account for the net total.
+    /// Per ERPNext stock_reconciliation.py: the same "Difference Account" pattern.
+    /// </summary>
+    private async Task<JournalEntry?> BuildReconciliationJournalEntryAsync(StockReconciliation sr, bool isReversal)
+    {
+        var warehouseTotals = new Dictionary<Guid, decimal>();
+        foreach (var item in sr.Items)
+        {
+            if (item.DifferenceAmount == 0) continue;
+            warehouseTotals[item.WarehouseId] = warehouseTotals.GetValueOrDefault(item.WarehouseId) + item.DifferenceAmount;
+        }
+        // Remove warehouses that net to zero across their items
+        foreach (var key in warehouseTotals.Where(kv => kv.Value == 0).Select(kv => kv.Key).ToList())
+            warehouseTotals.Remove(key);
+
+        if (warehouseTotals.Count == 0) return null;
+
+        var totalDiff = warehouseTotals.Values.Sum();
+        if (totalDiff != 0 && !sr.ExpenseAccountId.HasValue)
+            throw new BusinessException(MyERPDomainErrorCodes.StockReconciliationMissingExpenseAccount);
+
+        var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
+        var fiscalYear = fyQuery.FirstOrDefault(fy =>
+            fy.CompanyId == sr.CompanyId && fy.StartDate <= sr.PostingDate && fy.EndDate >= sr.PostingDate);
+        if (fiscalYear == null)
+            throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                .WithData("postingDate", sr.PostingDate.ToString("yyyy-MM-dd"));
+
+        var multiplier = isReversal ? -1m : 1m;
+        var jeNumber = await _numberGenerator.GenerateAsync("JE", sr.CompanyId);
+        var je = new JournalEntry(GuidGenerator.Create(), sr.CompanyId, fiscalYear.Id, sr.PostingDate, sr.TenantId)
+        {
+            EntryNumber = jeNumber,
+            ReferenceType = "StockReconciliation",
+            ReferenceId = sr.Id,
+            Narration = isReversal
+                ? $"Reversal of stock reconciliation valuation adjustment ({sr.ReconciliationNumber})"
+                : $"Stock reconciliation valuation adjustment ({sr.ReconciliationNumber})",
+        };
+
+        foreach (var (warehouseId, amount) in warehouseTotals)
+        {
+            var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(warehouseId, sr.CompanyId);
+            var lineAmount = amount * multiplier;
+            je.AddLine(stockAccountId, Math.Abs(lineAmount), isDebit: lineAmount > 0,
+                description: "Stock reconciliation valuation adjustment");
+        }
+
+        if (totalDiff != 0)
+        {
+            var netAmount = totalDiff * multiplier;
+            je.AddLine(sr.ExpenseAccountId!.Value, Math.Abs(netAmount), isDebit: netAmount < 0,
+                description: "Stock reconciliation difference account");
+        }
+
+        je.Validate();
+        je.Post();
+        return je;
     }
 
     public async Task<PagedResultDto<StockReconciliationDto>> GetListAsync(GetStockReconciliationListDto input)
@@ -110,6 +189,13 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 qtyDiff, valueDiff, sr.TenantId);
         }
 
+        // Post GL: DR/CR the affected warehouses' Stock accounts, balanced against the Difference/
+        // Expense Account. Never previously wired — physical count adjustments only ever touched
+        // Stock Ledger + Bin, GL and inventory value permanently diverged.
+        var je = await BuildReconciliationJournalEntryAsync(sr, isReversal: false);
+        if (je != null)
+            await _journalEntryRepository.InsertAsync(je);
+
         await _repository.UpdateAsync(sr);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
@@ -149,6 +235,12 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 item.ItemId, item.WarehouseId,
                 -qtyDiff, -valueDiff, sr.TenantId);
         }
+
+        // Reverse the GL entry posted on Submit (recomputed from the same item data, swapped sign —
+        // consistent with how the SLE reversal above also recomputes rather than looking up the original).
+        var reversalJe = await BuildReconciliationJournalEntryAsync(sr, isReversal: true);
+        if (reversalJe != null)
+            await _journalEntryRepository.InsertAsync(reversalJe);
 
         await _repository.UpdateAsync(sr);
 

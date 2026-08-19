@@ -46,6 +46,22 @@ public class Routing : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         return _operations.Sum(o => o.OperatingCost);
     }
+
+    /// <summary>Replaces the full operations list (used by Update).</summary>
+    public void ReplaceOperations(IEnumerable<(Guid OperationId, int SequenceId, decimal TimeInMins, Guid? WorkstationId, string? Description)> rows)
+    {
+        _operations.Clear();
+        var lastSequence = -1;
+        foreach (var row in rows)
+        {
+            if (row.SequenceId < lastSequence)
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("detail", "Routing sequence_id must be monotonically increasing");
+            _operations.Add(new RoutingOperation(Guid.NewGuid(), Id, row.OperationId,
+                row.SequenceId, row.TimeInMins, row.WorkstationId, row.Description));
+            lastSequence = row.SequenceId;
+        }
+    }
 }
 
 public class RoutingOperation : FullAuditedEntity<Guid>

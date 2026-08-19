@@ -19,6 +19,7 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public string? AssetCategoryName { get; set; }
     public Guid? ItemId { get; set; }
     public string? Location { get; set; }
+    public Guid? LocationId { get; set; }
     public Guid? CustodianEmployeeId { get; set; }
     public DateTime PurchaseDate { get; set; }
     public decimal PurchaseAmount { get; set; }
@@ -65,6 +66,8 @@ public class CreateAssetDto
     [StringLength(AssetConsts.MaxLocationLength)]
     public string? Location { get; set; }
 
+    public Guid? LocationId { get; set; }
+
     public Guid? CustodianEmployeeId { get; set; }
 
     [Required]
@@ -97,6 +100,8 @@ public class UpdateAssetDto
 
     [StringLength(AssetConsts.MaxLocationLength)]
     public string? Location { get; set; }
+
+    public Guid? LocationId { get; set; }
 
     public Guid? CustodianEmployeeId { get; set; }
     public decimal AdditionalCost { get; set; }
@@ -186,7 +191,9 @@ public class AssetMovementItemDto : FullAuditedEntityDto<Guid>
     public Guid AssetId { get; set; }
     public string? AssetName { get; set; }
     public string? SourceLocation { get; set; }
+    public Guid? SourceLocationId { get; set; }
     public string? TargetLocation { get; set; }
+    public Guid? TargetLocationId { get; set; }
     public Guid? FromEmployeeId { get; set; }
     public Guid? ToEmployeeId { get; set; }
 }
@@ -197,7 +204,9 @@ public class CreateUpdateAssetMovementItemDto
     public Guid AssetId { get; set; }
     public string? AssetName { get; set; }
     public string? SourceLocation { get; set; }
+    public Guid? SourceLocationId { get; set; }
     public string? TargetLocation { get; set; }
+    public Guid? TargetLocationId { get; set; }
     public Guid? FromEmployeeId { get; set; }
     public Guid? ToEmployeeId { get; set; }
 }
@@ -212,8 +221,10 @@ public class AssetMovementDto : FullAuditedEntityDto<Guid>
     public string? ReferenceId { get; set; }
     public Guid? AssetId { get; set; }
     public string? SourceLocation { get; set; }
+    public Guid? SourceLocationId { get; set; }
     public Guid? SourceEmployeeId { get; set; }
     public string? TargetLocation { get; set; }
+    public Guid? TargetLocationId { get; set; }
     public Guid? TargetEmployeeId { get; set; }
     public DocumentStatus Status { get; set; }
     public List<AssetMovementItemDto> Items { get; set; } = new();
@@ -228,8 +239,10 @@ public class CreateUpdateAssetMovementDto
     public string? ReferenceId { get; set; }
     public Guid? AssetId { get; set; }
     public string? SourceLocation { get; set; }
+    public Guid? SourceLocationId { get; set; }
     public Guid? SourceEmployeeId { get; set; }
     public string? TargetLocation { get; set; }
+    public Guid? TargetLocationId { get; set; }
     public Guid? TargetEmployeeId { get; set; }
     public List<CreateUpdateAssetMovementItemDto> Items { get; set; } = new();
 }

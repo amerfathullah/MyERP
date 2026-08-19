@@ -60,6 +60,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
             ProductionCapacity = input.ProductionCapacity,
             Description = input.Description,
         };
+        ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
         await _repository.InsertAsync(ws);
         return ObjectMapper.Map<Workstation, WorkstationDto>(ws);
     }
@@ -79,6 +80,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         ws.WorkstationType = input.WorkstationType;
         ws.ProductionCapacity = input.ProductionCapacity;
         ws.Description = input.Description;
+        ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
 
         await _repository.UpdateAsync(ws);
 

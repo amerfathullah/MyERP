@@ -12,7 +12,9 @@ public class AssetMovementItem : FullAuditedEntity<Guid>, IMultiTenant
     public string? AssetName { get; set; }
 
     public string? SourceLocation { get; set; }
+    public Guid? SourceLocationId { get; set; }
     public string? TargetLocation { get; set; }
+    public Guid? TargetLocationId { get; set; }
     public Guid? FromEmployeeId { get; set; }
     public Guid? ToEmployeeId { get; set; }
 
@@ -27,14 +29,18 @@ public class AssetMovementItem : FullAuditedEntity<Guid>, IMultiTenant
         string? targetLocation = null,
         Guid? fromEmployeeId = null,
         Guid? toEmployeeId = null,
-        Guid? tenantId = null)
+        Guid? tenantId = null,
+        Guid? sourceLocationId = null,
+        Guid? targetLocationId = null)
         : base(id)
     {
         AssetMovementId = assetMovementId;
         AssetId = assetId;
         AssetName = assetName;
         SourceLocation = sourceLocation;
+        SourceLocationId = sourceLocationId;
         TargetLocation = targetLocation;
+        TargetLocationId = targetLocationId;
         FromEmployeeId = fromEmployeeId;
         ToEmployeeId = toEmployeeId;
         TenantId = tenantId;

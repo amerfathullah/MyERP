@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import type { WorkstationDto } from '../../proxy/manufacturing/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
 @Component({
@@ -13,6 +14,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   template: `
     <app-breadcrumb />
     <abp-page [title]="ws?.name ?? 'Workstation'">
+      @if (ws) {
+        <div class="d-flex justify-content-end mb-2">
+          <a class="btn btn-outline-primary btn-sm" [routerLink]="['/manufacturing/workstations', ws.id, 'edit']">
+            <i class="fa fa-pen me-1"></i>{{ 'Edit' | abpLocalization }}
+          </a>
+        </div>
+      }
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (ws) {
@@ -82,7 +90,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class WorkstationDetailComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
   private route = inject(ActivatedRoute);
-  ws: any = null;
+  ws: WorkstationDto | null = null;
   isLoading = false;
 
   ngOnInit() {

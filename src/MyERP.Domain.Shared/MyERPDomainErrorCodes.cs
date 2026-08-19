@@ -274,6 +274,7 @@ public static class MyERPDomainErrorCodes
     public const string DisassembleCrossWorkOrder = "MyERP:05044";
     public const string DisassembleQtyExceedsSource = "MyERP:05045";
     public const string DisassembleScaleFactorMismatch = "MyERP:05046";
+    public const string StockReconciliationMissingExpenseAccount = "MyERP:05047";
 
     // Manufacturing
     public const string AllMaterialsAlreadyTransferred = "MyERP:10013";

@@ -17,7 +17,13 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid CompanyId { get; set; }
     public Guid? AssetCategoryId { get; set; }
     public Guid? ItemId { get; set; }
+
+    /// <summary>Denormalized display name, kept in sync with <see cref="LocationId"/> when set.</summary>
     public string? Location { get; set; }
+
+    /// <summary>Link to the Location master (hierarchical, tree-based). Null = free-text Location only.</summary>
+    public Guid? LocationId { get; set; }
+
     public Guid? CustodianEmployeeId { get; set; }
 
     // Purchase
@@ -195,11 +201,12 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         GenerateDepreciationSchedule();
     }
 
-    public void UpdateLocationAndCustodian(string? location, Guid? custodianEmployeeId)
+    public void UpdateLocationAndCustodian(string? location, Guid? custodianEmployeeId, Guid? locationId = null)
     {
         if (!string.IsNullOrWhiteSpace(location))
         {
             Location = location;
+            LocationId = locationId;
         }
         if (custodianEmployeeId.HasValue)
         {

@@ -13,6 +13,23 @@ public class OperationDto : EntityDto<Guid>
     public int BatchSize { get; set; }
     public bool IsCorrectiveOperation { get; set; }
     public bool IsActive { get; set; }
+    public decimal TotalOperationTime { get; set; }
+    public SubOperationDto[] SubOperations { get; set; } = [];
+}
+
+public class SubOperationDto
+{
+    public Guid Id { get; set; }
+    public Guid OperationId { get; set; }
+    public decimal TimeInMins { get; set; }
+    public string? Description { get; set; }
+}
+
+public class CreateSubOperationDto
+{
+    public Guid OperationId { get; set; }
+    public decimal TimeInMins { get; set; }
+    public string? Description { get; set; }
 }
 
 public class RoutingDto : EntityDto<Guid>
@@ -40,11 +57,15 @@ public class CreateOperationDto
     public string? WorkstationType { get; set; }
     public bool CreateJobCardBasedOnBatchSize { get; set; }
     public int BatchSize { get; set; }
+    public bool IsCorrectiveOperation { get; set; }
+    public bool IsActive { get; set; } = true;
+    public CreateSubOperationDto[] SubOperations { get; set; } = [];
 }
 
 public class CreateRoutingDto
 {
     public string Name { get; set; } = null!;
+    public bool IsDisabled { get; set; }
     public CreateRoutingOperationDto[] Operations { get; set; } = [];
 }
 

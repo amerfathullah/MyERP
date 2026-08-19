@@ -1,7 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
@@ -10,7 +10,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
   selector: 'app-workstation-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   template: `
-    <abp-page [title]="'NewWorkstation' | abpLocalization">
+    <abp-page [title]="(isEdit ? 'EditWorkstation' : 'NewWorkstation') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
@@ -53,20 +53,43 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
     </abp-page>
   `,
 })
-export class WorkstationFormComponent {
+export class WorkstationFormComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   saving = false;
   isDirty = false;
+  isEdit = false;
+  workstationId: string | null = null;
   form: any = { name: '', workstationType: '', productionCapacity: 1, costs: [{ component: 'Labor', operatingCost: 0 }] };
+
+  ngOnInit(): void {
+    this.workstationId = this.route.snapshot.paramMap.get('id');
+    if (this.workstationId) {
+      this.isEdit = true;
+      this.manufacturingService.getWorkstation(this.workstationId).subscribe((ws) => {
+        this.form = {
+          name: ws.name,
+          workstationType: ws.workstationType ?? '',
+          productionCapacity: ws.productionCapacity ?? 1,
+          description: ws.description ?? '',
+          costs: (ws.costs ?? []).map(c => ({ component: c.name, operatingCost: c.amount })),
+        };
+      });
+    }
+  }
 
   getHourRate(): number { return this.form.costs.reduce((s: number, c: any) => s + (c.operatingCost || 0), 0); }
 
   save() {
     this.saving = true;
-    this.manufacturingService.createWorkstation(this.form)
-      .subscribe({ next: () => this.router.navigate(['/manufacturing/workstations']), error: () => { this.saving = false;
-  this.isDirty = false; } });
+    const request = this.isEdit && this.workstationId
+      ? this.manufacturingService.updateWorkstation(this.workstationId, this.form)
+      : this.manufacturingService.createWorkstation(this.form);
+    request.subscribe({
+      next: () => { this.isDirty = false; this.router.navigate(['/manufacturing/workstations']); },
+      error: () => { this.saving = false; },
+    });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

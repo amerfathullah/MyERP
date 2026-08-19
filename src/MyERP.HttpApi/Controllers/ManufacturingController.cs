@@ -13,14 +13,52 @@ public class ManufacturingController : MyERPController
 {
     private readonly IManufacturingAppService _service;
     private readonly IWorkstationAppService _workstationService;
+    private readonly IOperationAppService _operationService;
+    private readonly IRoutingAppService _routingService;
 
     public ManufacturingController(
         IManufacturingAppService service,
-        IWorkstationAppService workstationService)
+        IWorkstationAppService workstationService,
+        IOperationAppService operationService,
+        IRoutingAppService routingService)
     {
         _service = service;
         _workstationService = workstationService;
+        _operationService = operationService;
+        _routingService = routingService;
     }
+
+    // Operations
+    [HttpGet("operations/{id}")]
+    public Task<OperationDto> GetOperationAsync(Guid id) => _operationService.GetAsync(id);
+
+    [HttpGet("operations")]
+    public Task<PagedResultDto<OperationDto>> GetOperationListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _operationService.GetListAsync(input);
+
+    [HttpPost("operations")]
+    public Task<OperationDto> CreateOperationAsync(CreateOperationDto input) => _operationService.CreateAsync(input);
+
+    [HttpPut("operations/{id}")]
+    public Task<OperationDto> UpdateOperationAsync(Guid id, CreateOperationDto input) => _operationService.UpdateAsync(id, input);
+
+    [HttpDelete("operations/{id}")]
+    public Task DeleteOperationAsync(Guid id) => _operationService.DeleteAsync(id);
+
+    // Routings
+    [HttpGet("routings/{id}")]
+    public Task<RoutingDto> GetRoutingAsync(Guid id) => _routingService.GetAsync(id);
+
+    [HttpGet("routings")]
+    public Task<PagedResultDto<RoutingDto>> GetRoutingListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _routingService.GetListAsync(input);
+
+    [HttpPost("routings")]
+    public Task<RoutingDto> CreateRoutingAsync(CreateRoutingDto input) => _routingService.CreateAsync(input);
+
+    [HttpPut("routings/{id}")]
+    public Task<RoutingDto> UpdateRoutingAsync(Guid id, CreateRoutingDto input) => _routingService.UpdateAsync(id, input);
+
+    [HttpDelete("routings/{id}")]
+    public Task DeleteRoutingAsync(Guid id) => _routingService.DeleteAsync(id);
 
     // Workstations
     [HttpGet("workstations/{id}")]
@@ -28,6 +66,9 @@ public class ManufacturingController : MyERPController
 
     [HttpGet("workstations")]
     public Task<PagedResultDto<WorkstationDto>> GetWorkstationListAsync([FromQuery] CompanyFilteredPagedRequestDto input) => _workstationService.GetListAsync(input);
+
+    [HttpPut("workstations/{id}")]
+    public Task<WorkstationDto> UpdateWorkstationAsync(Guid id, CreateWorkstationDto input) => _workstationService.UpdateAsync(id, input);
 
     [HttpPost("workstations")]
     public Task<WorkstationDto> CreateWorkstationAsync(CreateWorkstationDto input) => _workstationService.CreateAsync(input);

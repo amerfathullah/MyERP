@@ -1,5 +1,77 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { LeaveApplicationStatus } from './leave-application-status.enum';
+import type { AttendanceStatus } from './attendance-status.enum';
+import type { ShiftAssignmentStatus } from './shift-assignment-status.enum';
+
+export interface AttendanceDto extends FullAuditedEntityDto<string> {
+  companyId: string;
+  employeeId: string;
+  employeeName?: string | null;
+  date: string;
+  status: AttendanceStatus;
+  shiftTypeId?: string | null;
+  inTime?: string | null;
+  outTime?: string | null;
+  leaveApplicationId?: string | null;
+}
+
+export interface CreateAttendanceDto {
+  companyId: string;
+  employeeId: string;
+  date: string;
+  status: AttendanceStatus;
+  shiftTypeId?: string | null;
+  inTime?: string | null;
+  outTime?: string | null;
+}
+
+export interface GetAttendanceListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  employeeId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: AttendanceStatus | null;
+}
+
+export interface ShiftTypeDto extends FullAuditedEntityDto<string> {
+  companyId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  holidayListId?: string | null;
+}
+
+export interface CreateShiftTypeDto {
+  companyId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  holidayListId?: string | null;
+}
+
+export interface ShiftAssignmentDto extends FullAuditedEntityDto<string> {
+  companyId: string;
+  employeeId: string;
+  employeeName?: string | null;
+  shiftTypeId: string;
+  shiftTypeName?: string | null;
+  startDate: string;
+  endDate?: string | null;
+  status: ShiftAssignmentStatus;
+}
+
+export interface CreateShiftAssignmentDto {
+  companyId: string;
+  employeeId: string;
+  shiftTypeId: string;
+  startDate: string;
+  endDate?: string | null;
+}
+
+export interface GetShiftAssignmentListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  employeeId?: string | null;
+}
 
 export interface BulkLeaveAllocationDto {
   companyId: string;

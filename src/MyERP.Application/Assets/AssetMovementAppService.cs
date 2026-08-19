@@ -17,18 +17,29 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
     private readonly IRepository<AssetMovement, Guid> _repository;
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
+    private readonly IRepository<Location, Guid> _locationRepository;
     private readonly AssetMovementMapper _mapper;
 
     public AssetMovementAppService(
         IRepository<AssetMovement, Guid> repository,
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
+        IRepository<Location, Guid> locationRepository,
         AssetMovementMapper mapper)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
+        _locationRepository = locationRepository;
         _mapper = mapper;
+    }
+
+    /// <summary>Resolves a LocationId to the Location master's name for the denormalized display field.</summary>
+    private async Task<string?> ResolveLocationNameAsync(Guid? locationId, string? fallback)
+    {
+        if (!locationId.HasValue) return fallback;
+        var location = await _locationRepository.FindAsync(locationId.Value);
+        return location?.LocationName ?? fallback;
     }
 
     public async Task<PagedResultDto<AssetMovementDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -58,6 +69,8 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
     public async Task<AssetMovementDto> CreateAsync(CreateUpdateAssetMovementDto input)
     {
         var movementNumber = $"AS-MOV-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
+        var sourceLocationName = await ResolveLocationNameAsync(input.SourceLocationId, input.SourceLocation);
+        var targetLocationName = await ResolveLocationNameAsync(input.TargetLocationId, input.TargetLocation);
         var am = new AssetMovement(
             GuidGenerator.Create(),
             movementNumber,
@@ -69,9 +82,11 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
             ReferenceType = input.ReferenceType,
             ReferenceId = input.ReferenceId,
             AssetId = input.AssetId,
-            SourceLocation = input.SourceLocation,
+            SourceLocation = sourceLocationName,
+            SourceLocationId = input.SourceLocationId,
             SourceEmployeeId = input.SourceEmployeeId,
-            TargetLocation = input.TargetLocation,
+            TargetLocation = targetLocationName,
+            TargetLocationId = input.TargetLocationId,
             TargetEmployeeId = input.TargetEmployeeId,
         };
 
@@ -83,10 +98,12 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
                     GuidGenerator.Create(),
                     item.AssetId,
                     item.AssetName,
-                    item.SourceLocation,
-                    item.TargetLocation,
+                    await ResolveLocationNameAsync(item.SourceLocationId, item.SourceLocation),
+                    await ResolveLocationNameAsync(item.TargetLocationId, item.TargetLocation),
                     item.FromEmployeeId,
-                    item.ToEmployeeId);
+                    item.ToEmployeeId,
+                    item.SourceLocationId,
+                    item.TargetLocationId);
             }
         }
         else if (input.AssetId.HasValue)
@@ -95,10 +112,12 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
                 GuidGenerator.Create(),
                 input.AssetId.Value,
                 null,
-                input.SourceLocation,
-                input.TargetLocation,
+                sourceLocationName,
+                targetLocationName,
                 input.SourceEmployeeId,
-                input.TargetEmployeeId);
+                input.TargetEmployeeId,
+                input.SourceLocationId,
+                input.TargetLocationId);
         }
 
         await _repository.InsertAsync(am);
@@ -122,9 +141,11 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
         am.ReferenceType = input.ReferenceType;
         am.ReferenceId = input.ReferenceId;
         am.AssetId = input.AssetId;
-        am.SourceLocation = input.SourceLocation;
+        am.SourceLocation = await ResolveLocationNameAsync(input.SourceLocationId, input.SourceLocation);
+        am.SourceLocationId = input.SourceLocationId;
         am.SourceEmployeeId = input.SourceEmployeeId;
-        am.TargetLocation = input.TargetLocation;
+        am.TargetLocation = await ResolveLocationNameAsync(input.TargetLocationId, input.TargetLocation);
+        am.TargetLocationId = input.TargetLocationId;
         am.TargetEmployeeId = input.TargetEmployeeId;
 
         am.Items.Clear();
@@ -136,10 +157,12 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
                     item.Id ?? GuidGenerator.Create(),
                     item.AssetId,
                     item.AssetName,
-                    item.SourceLocation,
-                    item.TargetLocation,
+                    await ResolveLocationNameAsync(item.SourceLocationId, item.SourceLocation),
+                    await ResolveLocationNameAsync(item.TargetLocationId, item.TargetLocation),
                     item.FromEmployeeId,
-                    item.ToEmployeeId);
+                    item.ToEmployeeId,
+                    item.SourceLocationId,
+                    item.TargetLocationId);
             }
         }
 
@@ -174,7 +197,7 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
             var asset = await _assetRepository.FindAsync(item.AssetId);
             if (asset != null)
             {
-                asset.UpdateLocationAndCustodian(item.TargetLocation, item.ToEmployeeId);
+                asset.UpdateLocationAndCustodian(item.TargetLocation, item.ToEmployeeId, item.TargetLocationId);
                 await _assetRepository.UpdateAsync(asset);
 
                 // Audit Activity
@@ -214,7 +237,7 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
             var asset = await _assetRepository.FindAsync(item.AssetId);
             if (asset != null)
             {
-                asset.UpdateLocationAndCustodian(item.SourceLocation, item.FromEmployeeId);
+                asset.UpdateLocationAndCustodian(item.SourceLocation, item.FromEmployeeId, item.SourceLocationId);
                 await _assetRepository.UpdateAsync(asset);
 
                 var activity = new AssetActivity(

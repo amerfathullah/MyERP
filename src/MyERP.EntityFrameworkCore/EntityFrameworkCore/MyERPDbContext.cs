@@ -266,6 +266,7 @@ public class MyERPDbContext :
     // E-Invoice
     public DbSet<EInvoiceSubmission> EInvoiceSubmissions { get; set; }
     public DbSet<LhdnSuccessLog> LhdnSuccessLogs { get; set; }
+    public DbSet<EInvoiceConsolidation> EInvoiceConsolidations { get; set; }
 
     // Human Resources
     public DbSet<Employee> Employees { get; set; }
@@ -281,6 +282,9 @@ public class MyERPDbContext :
     public DbSet<LeaveApplication> LeaveApplications { get; set; }
     public DbSet<LeaveAllocation> LeaveAllocations { get; set; }
     public DbSet<HolidayList> HolidayLists { get; set; }
+    public DbSet<Attendance> Attendances { get; set; }
+    public DbSet<ShiftType> ShiftTypes { get; set; }
+    public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
     public DbSet<Holiday> Holidays { get; set; }
     public DbSet<SalarySlip> SalarySlips { get; set; }
     public DbSet<SalarySlipComponent> SalarySlipComponents { get; set; }
@@ -392,6 +396,7 @@ public class MyERPDbContext :
     public DbSet<WorkstationCost> WorkstationCosts { get; set; }
     public DbSet<WorkstationWorkingHour> WorkstationWorkingHours { get; set; }
     public DbSet<Operation> Operations { get; set; }
+    public DbSet<SubOperation> SubOperations { get; set; }
     public DbSet<Routing> Routings { get; set; }
     public DbSet<RoutingOperation> RoutingOperations { get; set; }
     public DbSet<JobCard> JobCards { get; set; }
@@ -1863,6 +1868,21 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.DocumentUuid }).IsUnique();
         });
 
+        // Re-wired into the EF model after falling out of it — same incident class as Attendance/ShiftType/
+        // ShiftAssignment (see remarks on migration RewireHrAttendanceAndShifts). Migration
+        // 20260803064747_Added_EInvoiceConsolidation already created this exact table (EInv_Consolidations)
+        // on any DB that ran it; EInvoiceConsolidationService.ConsolidateInvoicesAsync (called live from
+        // EInvoiceAppService.ConsolidateInvoicesAsync) has been injecting IRepository<EInvoiceConsolidation, Guid>
+        // this whole time with no DbSet/config backing it — a real, currently-broken production code path,
+        // not just an unreachable feature.
+        builder.Entity<EInvoiceConsolidation>(b =>
+        {
+            b.ToTable("EInv_Consolidations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<SalesInvoice>().WithMany().HasForeignKey(x => x.ConsolidatedInvoiceId).IsRequired();
+            b.HasOne<SalesInvoice>().WithMany().HasForeignKey(x => x.OriginalInvoiceId).IsRequired();
+        });
+
         // Stock Entries & Ledger
         builder.Entity<StockEntry>(b =>
         {
@@ -2337,6 +2357,39 @@ public class MyERPDbContext :
             b.HasMany(x => x.Holidays).WithOne().HasForeignKey(x => x.HolidayListId).IsRequired();
             b.Navigation(x => x.Holidays).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Year });
+        });
+
+        // Attendance / Shift — re-wired into the EF model after falling out of it (entity + DbSet + config
+        // existed nowhere in this file even though migration 20260803065737_AddHrAttendanceAndShifts already
+        // created these exact tables on any DB that ran it). Table names/columns/FKs below intentionally
+        // mirror that migration exactly so a fresh `dotnet ef migrations add` is a no-op against it.
+        builder.Entity<Attendance>(b =>
+        {
+            b.ToTable("AppAttendances", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).IsRequired();
+            b.HasIndex(x => x.EmployeeId);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.EmployeeId, x.Date });
+        });
+
+        builder.Entity<ShiftType>(b =>
+        {
+            b.ToTable("AppShiftTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<ShiftAssignment>(b =>
+        {
+            b.ToTable("AppShiftAssignments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).IsRequired();
+            b.HasOne<ShiftType>().WithMany().HasForeignKey(x => x.ShiftTypeId).IsRequired();
+            b.HasIndex(x => x.EmployeeId);
+            b.HasIndex(x => x.ShiftTypeId);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.EmployeeId, x.ShiftTypeId, x.StartDate });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
         });
 
         builder.Entity<Holiday>(b =>
@@ -3011,7 +3064,19 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Description).HasMaxLength(2000);
             b.Property(x => x.WorkstationType).HasMaxLength(100);
+            b.Property(x => x.TotalOperationTime).HasColumnType("decimal(18,2)");
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            b.HasMany(x => x.SubOperations).WithOne().HasForeignKey(x => x.ParentOperationId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(x => x.SubOperations).AutoInclude();
+        });
+
+        builder.Entity<SubOperation>(b =>
+        {
+            b.ToTable("Mfg_SubOperations", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.TimeInMins).HasColumnType("decimal(18,2)");
+            b.HasOne<Operation>().WithMany().HasForeignKey(x => x.OperationId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // Routing
@@ -4817,6 +4882,8 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.AssetNumber });
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.AssetCategoryId });
+            b.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Restrict);
+            b.HasIndex(x => x.LocationId);
         });
 
         builder.Entity<DepreciationScheduleEntry>(b =>
@@ -4889,6 +4956,8 @@ public class MyERPDbContext :
                 .OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.MovementNumber });
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+            b.HasOne<Location>().WithMany().HasForeignKey(x => x.SourceLocationId).OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Restrict);
+            b.HasOne<Location>().WithMany().HasForeignKey(x => x.TargetLocationId).OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Restrict);
         });
 
         builder.Entity<AssetMovementItem>(b =>
@@ -4900,6 +4969,8 @@ public class MyERPDbContext :
             b.Property(x => x.TargetLocation).HasMaxLength(AssetMovementConsts.MaxLocationLength);
             b.HasIndex(x => new { x.TenantId, x.AssetMovementId });
             b.HasIndex(x => new { x.TenantId, x.AssetId });
+            b.HasOne<Location>().WithMany().HasForeignKey(x => x.SourceLocationId).OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Restrict);
+            b.HasOne<Location>().WithMany().HasForeignKey(x => x.TargetLocationId).OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.Restrict);
         });
 
         builder.Entity<AssetRepair>(b =>

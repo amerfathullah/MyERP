@@ -9,12 +9,12 @@ import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.serv
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import type { SupplierDto } from '../../proxy/purchasing/models';
 import type { CompanyDto } from '../../proxy/core/models';
+import type { ItemDto } from '../../proxy/inventory/models';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
@@ -23,12 +23,13 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ItemPickerComponent } from '../../shared/components/item-picker/item-picker.component';
 
 @Component({
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
+    CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective, ItemPickerComponent],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })
@@ -40,7 +41,6 @@ export class PurchaseOrderFormComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private supplierQuotationService = inject(SupplierQuotationService);
   private companyService = inject(CompanyService);
-  private itemService = inject(ItemService);
   private itemDetailsService = inject(ItemDetailsService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -57,7 +57,6 @@ export class PurchaseOrderFormComponent implements OnInit {
 
   companies = signal<CompanyDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
-  availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   selectedTaxRules = signal<any[]>([]);
@@ -102,8 +101,6 @@ export class PurchaseOrderFormComponent implements OnInit {
       .subscribe(r => this.companies.set(r.items ?? []));
     this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'name asc' })
       .subscribe(r => this.suppliers.set(r.items ?? []));
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'itemCode asc' } as any)
-      .subscribe(r => this.availableItems.set(r.items ?? []));
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(r => this.warehouses.set((r.items ?? []).filter((w: any) => !w.isGroup)));
 
@@ -150,8 +147,8 @@ export class PurchaseOrderFormComponent implements OnInit {
     this.items.removeAt(index);
   }
 
-  onItemSelected(index: number, itemId: string): void {
-    const item = this.availableItems().find((i: any) => i.id === itemId);
+  onItemSelected(index: number, item: ItemDto | null): void {
+    const itemId = item?.id;
     const row = this.items.at(index) as FormGroup;
     if (item) {
       row.patchValue({ description: item.itemName || item.itemCode });

@@ -38,6 +38,13 @@ public class CreateWorkstationDto
     public string? WorkstationType { get; set; }
     public int ProductionCapacity { get; set; } = 1;
     public string? Description { get; set; }
+    public CreateWorkstationCostDto[] Costs { get; set; } = [];
+}
+
+public class CreateWorkstationCostDto
+{
+    public string Component { get; set; } = null!;
+    public decimal OperatingCost { get; set; }
 }
 
 public interface IWorkstationAppService : IApplicationService

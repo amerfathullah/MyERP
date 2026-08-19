@@ -90,6 +90,7 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   assetCategoryName?: string | null;
   itemId?: string | null;
   location?: string | null;
+  locationId?: string | null;
   custodianEmployeeId?: string | null;
   purchaseDate?: string;
   purchaseAmount?: number;
@@ -192,8 +193,10 @@ export interface AssetMovementDto extends FullAuditedEntityDto<string> {
   referenceId?: string | null;
   assetId?: string | null;
   sourceLocation?: string | null;
+  sourceLocationId?: string | null;
   sourceEmployeeId?: string | null;
   targetLocation?: string | null;
+  targetLocationId?: string | null;
   targetEmployeeId?: string | null;
   status?: DocumentStatus;
   items?: AssetMovementItemDto[];
@@ -204,7 +207,9 @@ export interface AssetMovementItemDto extends FullAuditedEntityDto<string> {
   assetId?: string;
   assetName?: string | null;
   sourceLocation?: string | null;
+  sourceLocationId?: string | null;
   targetLocation?: string | null;
+  targetLocationId?: string | null;
   fromEmployeeId?: string | null;
   toEmployeeId?: string | null;
 }
@@ -321,6 +326,7 @@ export interface CreateAssetDto {
   assetCategoryId?: string | null;
   itemId?: string | null;
   location?: string | null;
+  locationId?: string | null;
   custodianEmployeeId?: string | null;
   purchaseDate: string;
   purchaseAmount?: number;
@@ -493,8 +499,10 @@ export interface CreateUpdateAssetMovementDto {
   referenceId?: string | null;
   assetId?: string | null;
   sourceLocation?: string | null;
+  sourceLocationId?: string | null;
   sourceEmployeeId?: string | null;
   targetLocation?: string | null;
+  targetLocationId?: string | null;
   targetEmployeeId?: string | null;
   items?: CreateUpdateAssetMovementItemDto[];
 }
@@ -504,7 +512,9 @@ export interface CreateUpdateAssetMovementItemDto {
   assetId?: string;
   assetName?: string | null;
   sourceLocation?: string | null;
+  sourceLocationId?: string | null;
   targetLocation?: string | null;
+  targetLocationId?: string | null;
   fromEmployeeId?: string | null;
   toEmployeeId?: string | null;
 }
@@ -724,6 +734,7 @@ export interface UpdateAssetDto {
   assetCategoryId?: string | null;
   itemId?: string | null;
   location?: string | null;
+  locationId?: string | null;
   custodianEmployeeId?: string | null;
   additionalCost?: number;
   calculateDepreciation?: boolean;

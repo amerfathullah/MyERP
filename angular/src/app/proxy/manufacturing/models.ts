@@ -92,6 +92,15 @@ export interface CreateOperationDto {
   workstationType?: string | null;
   createJobCardBasedOnBatchSize?: boolean;
   batchSize?: number;
+  isCorrectiveOperation?: boolean;
+  isActive?: boolean;
+  subOperations?: CreateSubOperationDto[];
+}
+
+export interface CreateSubOperationDto {
+  operationId?: string;
+  timeInMins?: number;
+  description?: string | null;
 }
 
 export interface CreateProductionPlanDto {
@@ -121,6 +130,7 @@ export interface CreateProductionPlanItemDto {
 
 export interface CreateRoutingDto {
   name?: string;
+  isDisabled?: boolean;
   operations?: CreateRoutingOperationDto[];
 }
 
@@ -300,6 +310,15 @@ export interface OperationDto extends EntityDto<string> {
   batchSize?: number;
   isCorrectiveOperation?: boolean;
   isActive?: boolean;
+  totalOperationTime?: number;
+  subOperations?: SubOperationDto[];
+}
+
+export interface SubOperationDto {
+  id?: string;
+  operationId?: string;
+  timeInMins?: number;
+  description?: string | null;
 }
 
 export interface ProductionAnalyticsDto {
@@ -617,6 +636,12 @@ export interface CreateWorkstationDto {
   workstationType?: string | null;
   productionCapacity?: number;
   description?: string | null;
+  costs?: CreateWorkstationCostDto[];
+}
+
+export interface CreateWorkstationCostDto {
+  component?: string;
+  operatingCost?: number;
 }
 
 export interface CreatedWorkOrderInfo {

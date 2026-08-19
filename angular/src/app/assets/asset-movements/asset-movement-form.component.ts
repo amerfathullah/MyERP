@@ -7,8 +7,9 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetMovementService } from '../../proxy/assets/asset-movement.service';
 import { AssetService } from '../../proxy/assets/asset.service';
+import { LocationService } from '../../proxy/assets/location.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import type { AssetDto } from '../../proxy/assets/models';
+import type { AssetDto, LocationDto } from '../../proxy/assets/models';
 
 @Component({
   selector: 'app-asset-movement-form',
@@ -43,11 +44,21 @@ import type { AssetDto } from '../../proxy/assets/models';
               </div>
               <div class="col-md-6">
                 <label class="form-label">{{ 'FromLocation' | abpLocalization }}</label>
-                <input class="form-control" formControlName="sourceLocation" />
+                <select class="form-select" formControlName="sourceLocationId">
+                  <option [ngValue]="null">—</option>
+                  @for (loc of locations(); track loc.id) {
+                    <option [ngValue]="loc.id">{{ loc.locationName }}</option>
+                  }
+                </select>
               </div>
               <div class="col-md-6">
                 <label class="form-label">{{ 'ToLocation' | abpLocalization }}</label>
-                <input class="form-control" formControlName="targetLocation" />
+                <select class="form-select" formControlName="targetLocationId">
+                  <option [ngValue]="null">—</option>
+                  @for (loc of locations(); track loc.id) {
+                    <option [ngValue]="loc.id">{{ loc.locationName }}</option>
+                  }
+                </select>
               </div>
             </div>
             <hr />
@@ -67,20 +78,22 @@ import type { AssetDto } from '../../proxy/assets/models';
 export class AssetMovementFormComponent implements OnInit {
   private service = inject(AssetMovementService);
   private assetService = inject(AssetService);
+  private locationService = inject(LocationService);
   private companyContext = inject(CompanyContextService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private toaster = inject(ToasterService);
 
   assets = signal<AssetDto[]>([]);
+  locations = signal<LocationDto[]>([]);
   isSaving = signal(false);
 
   form = this.fb.group({
     assetId: ['', Validators.required],
     movementType: ['Transfer', Validators.required],
     movementDate: [new Date().toISOString().split('T')[0], Validators.required],
-    sourceLocation: [''],
-    targetLocation: [''],
+    sourceLocationId: [null as string | null],
+    targetLocationId: [null as string | null],
     sourceEmployeeId: [null as string | null],
     targetEmployeeId: [null as string | null],
   });
@@ -88,6 +101,9 @@ export class AssetMovementFormComponent implements OnInit {
   ngOnInit(): void {
     this.assetService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe(r => {
       this.assets.set(r.items ?? []);
+    });
+    this.locationService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(r => {
+      this.locations.set(r.items ?? []);
     });
   }
 

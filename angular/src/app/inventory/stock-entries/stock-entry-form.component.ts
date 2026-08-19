@@ -9,7 +9,6 @@ import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { StockEntryType } from '../../proxy/inventory/stock-entry-type.enum';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import { ItemService } from '../../proxy/inventory/item.service';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 
@@ -17,6 +16,8 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { BarcodeScannerComponent, ScanEvent } from '../../shared/components/barcode-scanner/barcode-scanner.component';
+import { ItemPickerComponent } from '../../shared/components/item-picker/item-picker.component';
+import type { ItemDto } from '../../proxy/inventory/models';
 
 // Map display labels → numeric enum values for API
 const ENTRY_TYPE_TO_ENUM: Record<string, number> = {
@@ -44,7 +45,7 @@ const ENUM_TO_ENTRY_TYPE: Record<number, string> = Object.entries(ENTRY_TYPE_TO_
   selector: 'app-stock-entry-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, BarcodeScannerComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, BarcodeScannerComponent, ItemPickerComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
   styleUrls: ['./stock-entry-form.component.scss'],
 })
@@ -55,7 +56,6 @@ export class StockEntryFormComponent implements OnInit {
   private service = inject(StockEntryService);
   private warehouseService = inject(WarehouseService);
   private companyService = inject(CompanyService);
-  private itemService = inject(ItemService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
   private mfgService = inject(ManufacturingService);
@@ -63,7 +63,6 @@ export class StockEntryFormComponent implements OnInit {
 
   warehouses = signal<any[]>([]);
   companies = signal<any[]>([]);
-  availableItems = signal<any[]>([]);
   workOrders = signal<any[]>([]);
   linkedWorkOrderId: string | null = null;
   isLoadingBOM = false;
@@ -105,8 +104,6 @@ export class StockEntryFormComponent implements OnInit {
       res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
       res => this.companies.set(res.items ?? []));
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
-      res => this.availableItems.set(res.items ?? []));
     // Load active work orders for BOM picker
     this.mfgService.getWorkOrderList({ maxResultCount: 100, skipCount: 0, sorting: '' } as any).subscribe({
       next: (res: any) => this.workOrders.set(res.items ?? []),
@@ -296,12 +293,10 @@ export class StockEntryFormComponent implements OnInit {
     this.items.removeAt(index);
   }
 
-  onItemSelected(index: number, event: Event): void {
-    const itemId = (event.target as HTMLSelectElement).value;
-    const item = this.availableItems().find((i: any) => i.id === itemId);
-    if (item) {
+  onItemSelected(index: number, item: ItemDto | null): void {
+    if (item?.id) {
       this.items.at(index).patchValue({ itemName: item.itemName ?? item.itemCode });
-      this.fetchStockForItem(itemId);
+      this.fetchStockForItem(item.id);
     }
   }
 

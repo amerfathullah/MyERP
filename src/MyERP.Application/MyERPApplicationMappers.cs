@@ -209,6 +209,7 @@ public partial class OperationMapper : MapperBase<Manufacturing.Entities.Operati
 {
     public override partial Manufacturing.OperationDto Map(Manufacturing.Entities.Operation source);
     public override partial void Map(Manufacturing.Entities.Operation source, Manufacturing.OperationDto destination);
+    private partial Manufacturing.SubOperationDto MapChild(Manufacturing.Entities.SubOperation source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -484,6 +485,33 @@ public partial class HolidayListMapper : MapperBase<HumanResources.Entities.Holi
     public override partial HumanResources.HolidayListDto Map(HumanResources.Entities.HolidayList source);
     public override partial void Map(HumanResources.Entities.HolidayList source, HumanResources.HolidayListDto destination);
     private partial HumanResources.HolidayDto MapChild(HumanResources.Entities.Holiday source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class AttendanceMapper : MapperBase<HumanResources.Entities.Attendance, HumanResources.AttendanceDto>
+{
+    [MapperIgnoreTarget(nameof(HumanResources.AttendanceDto.EmployeeName))]
+    public override partial HumanResources.AttendanceDto Map(HumanResources.Entities.Attendance source);
+    [MapperIgnoreTarget(nameof(HumanResources.AttendanceDto.EmployeeName))]
+    public override partial void Map(HumanResources.Entities.Attendance source, HumanResources.AttendanceDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShiftTypeMapper : MapperBase<HumanResources.Entities.ShiftType, HumanResources.ShiftTypeDto>
+{
+    public override partial HumanResources.ShiftTypeDto Map(HumanResources.Entities.ShiftType source);
+    public override partial void Map(HumanResources.Entities.ShiftType source, HumanResources.ShiftTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShiftAssignmentMapper : MapperBase<HumanResources.Entities.ShiftAssignment, HumanResources.ShiftAssignmentDto>
+{
+    [MapperIgnoreTarget(nameof(HumanResources.ShiftAssignmentDto.EmployeeName))]
+    [MapperIgnoreTarget(nameof(HumanResources.ShiftAssignmentDto.ShiftTypeName))]
+    public override partial HumanResources.ShiftAssignmentDto Map(HumanResources.Entities.ShiftAssignment source);
+    [MapperIgnoreTarget(nameof(HumanResources.ShiftAssignmentDto.EmployeeName))]
+    [MapperIgnoreTarget(nameof(HumanResources.ShiftAssignmentDto.ShiftTypeName))]
+    public override partial void Map(HumanResources.Entities.ShiftAssignment source, HumanResources.ShiftAssignmentDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

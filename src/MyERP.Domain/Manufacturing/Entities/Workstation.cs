@@ -57,6 +57,15 @@ public class Workstation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateHourRate();
     }
 
+    /// <summary>Replaces the full cost-component breakdown and recalculates HourRate.</summary>
+    public void ReplaceCosts(IEnumerable<(string Component, decimal OperatingCost)> rows)
+    {
+        _costs.Clear();
+        foreach (var row in rows)
+            _costs.Add(new WorkstationCost(Guid.NewGuid(), Id, row.Component, row.OperatingCost));
+        RecalculateHourRate();
+    }
+
     public void AddWorkingHour(string day, TimeSpan startTime, TimeSpan endTime)
     {
         if (startTime >= endTime)

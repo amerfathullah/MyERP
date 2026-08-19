@@ -19,8 +19,26 @@
               [class.is-invalid]="form.get('assetName')?.invalid && form.get('assetName')?.touched" />
           </div>
           <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::AssetCategory' | abpLocalization }}</label>
+            <select class="form-select" formControlName="assetCategoryId">
+              <option [ngValue]="null">—</option>
+              @for (cat of categories(); track cat.id) {
+                <option [ngValue]="cat.id">{{ cat.categoryName }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+            <app-item-picker formControlName="itemId" [companyId]="form.get('companyId')?.value || null" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Location' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="location" />
+            <select class="form-select" formControlName="locationId">
+              <option [ngValue]="null">—</option>
+              @for (loc of locations(); track loc.id) {
+                <option [ngValue]="loc.id">{{ loc.locationName }}</option>
+              }
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Assets:PurchaseDate' | abpLocalization }} <span class="text-danger">*</span></label>
