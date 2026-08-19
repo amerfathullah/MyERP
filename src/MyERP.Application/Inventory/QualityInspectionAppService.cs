@@ -57,6 +57,10 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
     [Authorize(MyERPPermissions.QualityInspections.Create)]
     public async Task<QualityInspectionDto> CreateAsync(CreateQualityInspectionDto input)
     {
+        // Validate active item
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(new[] { input.ItemId });
+
         var number = await _numberGenerator.GenerateAsync("QI", input.CompanyId);
         var qi = new QualityInspection(GuidGenerator.Create(), input.CompanyId, input.ItemId,
             input.InspectionType, input.InspectionDate, CurrentTenant.Id)
@@ -70,9 +74,27 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
             ManualInspection = input.ManualInspection,
         };
 
-        foreach (var r in input.Readings)
-            qi.AddReading(r.Specification, r.ExpectedValue, r.MinValue, r.MaxValue,
-                r.ReadingValue, r.IsNumeric, r.FormulaBased, r.Formula);
+        if (input.Readings != null && input.Readings.Any())
+        {
+            foreach (var r in input.Readings)
+                qi.AddReading(r.Specification, r.ExpectedValue, r.MinValue, r.MaxValue,
+                    r.ReadingValue, r.IsNumeric, r.FormulaBased, r.Formula);
+        }
+        else
+        {
+            // Auto-load parameters from Item's Quality Inspection Template if readings not provided
+            var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<QualityInspectionTemplate, Guid>>();
+            var template = (await templateRepo.WithDetailsAsync())
+                .FirstOrDefault(t => t.ItemId == input.ItemId && t.IsEnabled);
+            if (template != null)
+            {
+                foreach (var p in template.Parameters)
+                {
+                    qi.AddReading(p.Specification, p.ExpectedValue, p.MinValue, p.MaxValue,
+                        null, p.IsNumeric, p.FormulaBased, p.Formula);
+                }
+            }
+        }
 
         await _repository.InsertAsync(qi);
         return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
@@ -84,6 +106,13 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
         var qi = (await _repository.WithDetailsAsync()).First(q => q.Id == id);
         qi.Submit();
         await _repository.UpdateAsync(qi);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "QualityInspection", qi.Id, "Submitted",
+            qi.CompanyId, qi.InspectionNumber, "Draft", "Submitted",
+            CurrentUser.Id, tenantId: qi.TenantId));
+
         return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
 
@@ -93,6 +122,13 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
         var qi = await _repository.GetAsync(id);
         qi.Cancel();
         await _repository.UpdateAsync(qi);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "QualityInspection", qi.Id, "Cancelled",
+            qi.CompanyId, qi.InspectionNumber, "Submitted", "Cancelled",
+            CurrentUser.Id, tenantId: qi.TenantId));
+
         return ObjectMapper.Map<QualityInspection, QualityInspectionDto>(qi);
     }
 }
