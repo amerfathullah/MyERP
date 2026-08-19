@@ -413,6 +413,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Enqueue promotional coupons and schemes expiry
+                // Per ERPNext: coupon_code.update_coupon_code_status
+                await jobManager.EnqueueAsync(new Sales.BackgroundJobs.PromotionalExpiryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -421,6 +430,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (41 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (42 jobs).", companies.Count);
     }
 }
