@@ -30,23 +30,49 @@ public class ShiftTypeAppService : ApplicationService, IShiftTypeAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<ShiftTypeDto> CreateAsync(CreateShiftTypeDto input)
     {
+        if (input.EndTime < input.StartTime)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var shiftType = new ShiftType(GuidGenerator.Create(), input.CompanyId, input.Name, input.StartTime, input.EndTime, CurrentTenant.Id)
         {
             HolidayListId = input.HolidayListId,
         };
         await _repository.InsertAsync(shiftType);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ShiftType", shiftType.Id,
+            "Created", shiftType.CompanyId,
+            shiftType.Name, "Draft", "Active", CurrentUser.Id,
+            $"Shift type '{shiftType.Name}' created ({shiftType.StartTime:hh\\:mm} - {shiftType.EndTime:hh\\:mm})", CurrentTenant.Id));
+
         return ObjectMapper.Map<ShiftType, ShiftTypeDto>(shiftType);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
     public async Task<ShiftTypeDto> UpdateAsync(Guid id, CreateShiftTypeDto input)
     {
+        if (input.EndTime < input.StartTime)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
         var shiftType = await _repository.GetAsync(id);
         shiftType.Name = input.Name;
         shiftType.StartTime = input.StartTime;
         shiftType.EndTime = input.EndTime;
         shiftType.HolidayListId = input.HolidayListId;
         await _repository.UpdateAsync(shiftType);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ShiftType", shiftType.Id,
+            "Updated", shiftType.CompanyId,
+            shiftType.Name, "Active", "Active", CurrentUser.Id,
+            $"Shift type '{shiftType.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<ShiftType, ShiftTypeDto>(shiftType);
     }
 

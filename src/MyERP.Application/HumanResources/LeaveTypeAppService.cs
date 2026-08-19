@@ -34,6 +34,12 @@ public class LeaveTypeAppService : ApplicationService, ILeaveTypeAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<LeaveTypeDetailDto> CreateAsync(CreateUpdateLeaveTypeDto input)
     {
+        if (input.MaxDaysAllowed < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MaxDaysAllowed");
+        }
+
         var leaveType = new LeaveType(GuidGenerator.Create(), input.Name, (decimal)input.MaxDaysAllowed, CurrentTenant.Id)
         {
             RequiresApproval = input.RequiresApproval,
@@ -45,12 +51,26 @@ public class LeaveTypeAppService : ApplicationService, ILeaveTypeAppService
             AllowNegativeBalance = input.AllowNegativeBalance,
         };
         await _repository.InsertAsync(leaveType);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveType", leaveType.Id,
+            "Created", Guid.Empty,
+            leaveType.Name, "Draft", "Active", CurrentUser.Id,
+            $"Leave type '{leaveType.Name}' created with {leaveType.MaxDaysAllowed} max days allowed", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveType, LeaveTypeDetailDto>(leaveType);
     }
 
     [Authorize(MyERPPermissions.Employees.Edit)]
     public async Task<LeaveTypeDetailDto> UpdateAsync(Guid id, CreateUpdateLeaveTypeDto input)
     {
+        if (input.MaxDaysAllowed < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "MaxDaysAllowed");
+        }
+
         var leaveType = await _repository.GetAsync(id);
         leaveType.Name = input.Name;
         leaveType.MaxDaysAllowed = (decimal)input.MaxDaysAllowed;
@@ -62,6 +82,14 @@ public class LeaveTypeAppService : ApplicationService, ILeaveTypeAppService
         leaveType.IncludeHolidays = input.IncludeHolidays;
         leaveType.AllowNegativeBalance = input.AllowNegativeBalance;
         await _repository.UpdateAsync(leaveType);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "LeaveType", leaveType.Id,
+            "Updated", Guid.Empty,
+            leaveType.Name, "Active", "Active", CurrentUser.Id,
+            $"Leave type '{leaveType.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<LeaveType, LeaveTypeDetailDto>(leaveType);
     }
 

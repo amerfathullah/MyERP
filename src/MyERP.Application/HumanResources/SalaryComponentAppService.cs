@@ -46,6 +46,14 @@ public class SalaryComponentAppService : ApplicationService, ISalaryComponentApp
             Description = input.Description,
         };
         await _repository.InsertAsync(component);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalaryComponent", component.Id,
+            "Created", Guid.Empty,
+            component.Name, "Draft", "Active", CurrentUser.Id,
+            $"Salary component '{component.Name}' ({component.ComponentType}) created", CurrentTenant.Id));
+
         return ObjectMapper.Map<SalaryComponent, SalaryComponentDto>(component);
     }
 
@@ -60,6 +68,14 @@ public class SalaryComponentAppService : ApplicationService, ISalaryComponentApp
         component.DefaultAccountId = input.DefaultAccountId;
         component.Description = input.Description;
         await _repository.UpdateAsync(component);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SalaryComponent", component.Id,
+            "Updated", Guid.Empty,
+            component.Name, "Active", "Active", CurrentUser.Id,
+            $"Salary component '{component.Name}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<SalaryComponent, SalaryComponentDto>(component);
     }
 

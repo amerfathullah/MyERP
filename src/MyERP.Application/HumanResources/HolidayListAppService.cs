@@ -43,6 +43,14 @@ public class HolidayListAppService : ApplicationService, IHolidayListAppService
         foreach (var h in input.Holidays)
             hl.AddHoliday(new Holiday(Guid.NewGuid(), hl.Id, h.HolidayDate, h.Description, h.IsWeeklyOff));
         await _repository.InsertAsync(hl);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "HolidayList", hl.Id,
+            "Created", hl.CompanyId,
+            hl.Name, "Draft", "Active", CurrentUser.Id,
+            $"Holiday list '{hl.Name}' ({hl.Year}) created with {hl.Holidays.Count} holidays", CurrentTenant.Id));
+
         return ObjectMapper.Map<HolidayList, HolidayListDto>(hl);
     }
 
