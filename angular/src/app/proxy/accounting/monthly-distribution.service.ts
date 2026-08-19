@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class MonthlyDistributionService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateMonthlyDistributionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({
@@ -18,7 +18,7 @@ export class MonthlyDistributionService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class MonthlyDistributionService {
       url: `/api/app/monthly-distribution/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({
@@ -34,7 +34,7 @@ export class MonthlyDistributionService {
       url: `/api/app/monthly-distribution/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<MonthlyDistributionDto>>({
@@ -42,7 +42,7 @@ export class MonthlyDistributionService {
       url: '/api/app/monthly-distribution',
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateMonthlyDistributionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({

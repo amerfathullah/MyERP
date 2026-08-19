@@ -2,13 +2,7 @@ import type { CreateDunningTypeDto, DunningTypeDto, UpdateDunningTypeDto } from 
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-
-export interface GetDunningTypeListDto {
-  companyId?: string;
-  sorting?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-}
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -16,7 +10,7 @@ export interface GetDunningTypeListDto {
 export class DunningTypeService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateDunningTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DunningTypeDto>({
@@ -25,7 +19,7 @@ export class DunningTypeService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -33,7 +27,7 @@ export class DunningTypeService {
       url: `/api/app/dunning-type/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DunningTypeDto>({
@@ -41,16 +35,16 @@ export class DunningTypeService {
       url: `/api/app/dunning-type/${id}`,
     },
     { apiName: this.apiName,...config });
+  
 
-
-  getList = (input: GetDunningTypeListDto, config?: Partial<Rest.Config>) =>
+  getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DunningTypeDto>>({
       method: 'GET',
       url: '/api/app/dunning-type',
-      params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: UpdateDunningTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DunningTypeDto>({

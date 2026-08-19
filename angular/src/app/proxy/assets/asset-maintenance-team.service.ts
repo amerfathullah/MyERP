@@ -2,14 +2,7 @@ import type { AssetMaintenanceTeamDto, CreateUpdateAssetMaintenanceTeamDto } fro
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-
-export interface GetAssetMaintenanceTeamListDto {
-  companyId?: string;
-  filter?: string;
-  sorting?: string;
-  skipCount?: number;
-  maxResultCount?: number;
-}
+import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
   providedIn: 'root',
@@ -17,7 +10,7 @@ export interface GetAssetMaintenanceTeamListDto {
 export class AssetMaintenanceTeamService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateAssetMaintenanceTeamDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceTeamDto>({
@@ -26,7 +19,7 @@ export class AssetMaintenanceTeamService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -34,7 +27,7 @@ export class AssetMaintenanceTeamService {
       url: `/api/app/asset-maintenance-team/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceTeamDto>({
@@ -42,16 +35,16 @@ export class AssetMaintenanceTeamService {
       url: `/api/app/asset-maintenance-team/${id}`,
     },
     { apiName: this.apiName,...config });
+  
 
-
-  getList = (input: GetAssetMaintenanceTeamListDto, config?: Partial<Rest.Config>) =>
+  getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetMaintenanceTeamDto>>({
       method: 'GET',
       url: '/api/app/asset-maintenance-team',
-      params: { companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateAssetMaintenanceTeamDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceTeamDto>({

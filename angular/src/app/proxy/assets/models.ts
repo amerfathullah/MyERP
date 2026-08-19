@@ -8,9 +8,9 @@ import type { AssetMaintenanceStatus } from '../maintenance/asset-maintenance-st
 import type { AssetMovementPurpose } from './asset-movement-purpose.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { AssetRepairStatus } from './asset-repair-status.enum';
-import type { MaintenanceVisitStatus } from '../maintenance/maintenance-visit-status.enum';
 import type { VehicleFuelType } from './vehicle-fuel-type.enum';
 import type { DriverStatus } from './driver-status.enum';
+import type { MaintenanceVisitStatus } from '../maintenance/maintenance-visit-status.enum';
 
 export interface AssetActivityDto extends FullAuditedEntityDto<string> {
   assetId?: string;
@@ -170,6 +170,19 @@ export interface AssetMaintenanceTaskDto extends FullAuditedEntityDto<string> {
   certificateNo?: string | null;
 }
 
+export interface AssetMaintenanceTeamDto extends EntityDto<string> {
+  companyId?: string;
+  teamName?: string;
+  maintenanceManagerId?: string | null;
+  members?: AssetMaintenanceTeamMemberDto[];
+}
+
+export interface AssetMaintenanceTeamMemberDto {
+  employeeId?: string;
+  employeeName?: string | null;
+  maintenanceRole?: string | null;
+}
+
 export interface AssetMovementDto extends FullAuditedEntityDto<string> {
   movementNumber?: string;
   companyId?: string;
@@ -237,6 +250,29 @@ export interface AssetRepairPurchaseInvoiceDto extends FullAuditedEntityDto<stri
   expenseAccountId?: string | null;
 }
 
+export interface AssetShiftAllocationDto extends FullAuditedEntityDto<string> {
+  allocationNumber?: string;
+  assetId?: string;
+  financeBookId?: string | null;
+  status?: DocumentStatus;
+  lines?: AssetShiftAllocationLineDto[];
+}
+
+export interface AssetShiftAllocationLineDto extends EntityDto<string> {
+  scheduleEntryId?: string;
+  shiftFactorId?: string;
+  shiftFactorName?: string | null;
+  scheduleDate?: string;
+  depreciationAmount?: number;
+  accumulatedDepreciation?: number;
+}
+
+export interface AssetShiftFactorDto extends FullAuditedEntityDto<string> {
+  shiftName?: string;
+  factor?: number;
+  isDefault?: boolean;
+}
+
 export interface AssetValueAdjustmentDto extends FullAuditedEntityDto<string> {
   adjustmentNumber?: string;
   companyId?: string;
@@ -252,6 +288,11 @@ export interface AssetValueAdjustmentDto extends FullAuditedEntityDto<string> {
   journalEntryId?: string | null;
   notes?: string | null;
   status?: DocumentStatus;
+}
+
+export interface AssignShiftLineDto {
+  scheduleEntryId: string;
+  shiftFactorId: string;
 }
 
 export interface CompleteAssetMaintenanceLogDto {
@@ -292,6 +333,12 @@ export interface CreateAssetDto {
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
   notes?: string | null;
+}
+
+export interface CreateAssetShiftAllocationDto {
+  assetId: string;
+  financeBookId?: string | null;
+  lines: AssignShiftLineDto[];
 }
 
 export interface CreateMaintenanceScheduleDto {
@@ -360,112 +407,6 @@ export interface CreateUpdateAssetCategoryAccountDto {
   accumulatedDepreciationAccountId?: string | null;
   depreciationExpenseAccountId?: string | null;
   capitalWorkInProgressAccountId?: string | null;
-}
-
-export interface LocationDto extends FullAuditedEntityDto<string> {
-  locationName?: string;
-  parentLocationId?: string | null;
-  parentLocationName?: string;
-  isContainer?: boolean;
-  isGroup?: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
-}
-
-export interface CreateUpdateLocationDto {
-  locationName: string;
-  parentLocationId?: string | null;
-  isContainer?: boolean;
-  isGroup?: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
-}
-
-export interface DrivingLicenseCategoryDto extends FullAuditedEntityDto<string> {
-  categoryName?: string;
-  description?: string;
-}
-
-export interface CreateUpdateDrivingLicenseCategoryDto {
-  categoryName: string;
-  description?: string;
-}
-
-export interface DriverDto extends FullAuditedEntityDto<string> {
-  companyId?: string;
-  fullName?: string;
-  employeeId?: string;
-  transporterId?: string;
-  cellNumber?: string;
-  licenseNumber?: string;
-  licenseExpiryDate?: string;
-  address?: string;
-  status?: DriverStatus;
-  licenseCategoryIds?: string[];
-}
-
-export interface CreateUpdateDriverDto {
-  companyId: string;
-  fullName: string;
-  employeeId?: string;
-  transporterId?: string;
-  cellNumber?: string;
-  licenseNumber: string;
-  licenseExpiryDate?: string;
-  address?: string;
-  licenseCategoryIds?: string[];
-}
-
-export interface VehicleDto extends FullAuditedEntityDto<string> {
-  companyId?: string;
-  licensePlate?: string;
-  make?: string;
-  model?: string;
-  chassisNumber?: string;
-  color?: string;
-  fuelType?: VehicleFuelType;
-  fuelUom?: string;
-  lastOdometer?: number;
-  carryingCapacity?: number;
-  wheels?: number;
-  doors?: number;
-  vehicleValue?: number;
-  acquisitionDate?: string;
-  driverId?: string;
-  driverName?: string;
-  locationId?: string;
-  insuranceCompany?: string;
-  policyNumber?: string;
-  insuranceStartDate?: string;
-  insuranceEndDate?: string;
-  roadTaxExpiryDate?: string;
-  fitnessCertificateExpiryDate?: string;
-  isDisabled?: boolean;
-}
-
-export interface CreateUpdateVehicleDto {
-  companyId: string;
-  licensePlate: string;
-  make?: string;
-  model?: string;
-  chassisNumber?: string;
-  color?: string;
-  fuelType?: VehicleFuelType;
-  fuelUom?: string;
-  lastOdometer?: number;
-  carryingCapacity?: number;
-  wheels?: number;
-  doors?: number;
-  vehicleValue?: number;
-  acquisitionDate?: string;
-  driverId?: string;
-  locationId?: string;
-  insuranceCompany?: string;
-  policyNumber?: string;
-  insuranceStartDate?: string;
-  insuranceEndDate?: string;
-  roadTaxExpiryDate?: string;
-  fitnessCertificateExpiryDate?: string;
 }
 
 export interface CreateUpdateAssetCategoryDto {
@@ -537,6 +478,13 @@ export interface CreateUpdateAssetMaintenanceTaskDto {
   certificateNo?: string | null;
 }
 
+export interface CreateUpdateAssetMaintenanceTeamDto {
+  companyId?: string;
+  teamName?: string;
+  maintenanceManagerId?: string | null;
+  members?: AssetMaintenanceTeamMemberDto[];
+}
+
 export interface CreateUpdateAssetMovementDto {
   companyId?: string;
   purpose?: AssetMovementPurpose;
@@ -596,6 +544,12 @@ export interface CreateUpdateAssetRepairPurchaseInvoiceDto {
   expenseAccountId?: string | null;
 }
 
+export interface CreateUpdateAssetShiftFactorDto {
+  shiftName: string;
+  factor?: number;
+  isDefault?: boolean;
+}
+
 export interface CreateUpdateAssetValueAdjustmentDto {
   companyId?: string;
   assetId?: string;
@@ -608,6 +562,57 @@ export interface CreateUpdateAssetValueAdjustmentDto {
   notes?: string | null;
 }
 
+export interface CreateUpdateDriverDto {
+  companyId: string;
+  fullName: string;
+  employeeId?: string | null;
+  transporterId?: string | null;
+  cellNumber?: string | null;
+  licenseNumber: string;
+  licenseExpiryDate?: string | null;
+  address?: string | null;
+  licenseCategoryIds?: string[];
+}
+
+export interface CreateUpdateDrivingLicenseCategoryDto {
+  categoryName: string;
+  description?: string | null;
+}
+
+export interface CreateUpdateLocationDto {
+  locationName: string;
+  parentLocationId?: string | null;
+  isContainer?: boolean;
+  isGroup?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface CreateUpdateVehicleDto {
+  companyId: string;
+  licensePlate: string;
+  make?: string | null;
+  model?: string | null;
+  chassisNumber?: string | null;
+  color?: string | null;
+  fuelType?: VehicleFuelType;
+  fuelUom?: string | null;
+  lastOdometer?: number;
+  carryingCapacity?: number | null;
+  wheels?: number | null;
+  doors?: number | null;
+  vehicleValue?: number | null;
+  acquisitionDate?: string | null;
+  driverId?: string | null;
+  locationId?: string | null;
+  insuranceCompany?: string | null;
+  policyNumber?: string | null;
+  insuranceStartDate?: string | null;
+  insuranceEndDate?: string | null;
+  roadTaxExpiryDate?: string | null;
+  fitnessCertificateExpiryDate?: string | null;
+}
+
 export interface DepreciationScheduleDto extends EntityDto<string> {
   scheduleDate?: string;
   depreciationAmount?: number;
@@ -616,44 +621,22 @@ export interface DepreciationScheduleDto extends EntityDto<string> {
   shiftFactorId?: string | null;
 }
 
-export interface AssetShiftFactorDto extends FullAuditedEntityDto<string> {
-  shiftName?: string;
-  factor?: number;
-  isDefault?: boolean;
+export interface DriverDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  fullName?: string;
+  employeeId?: string | null;
+  transporterId?: string | null;
+  cellNumber?: string | null;
+  licenseNumber?: string;
+  licenseExpiryDate?: string | null;
+  address?: string | null;
+  status?: DriverStatus;
+  licenseCategoryIds?: string[];
 }
 
-export interface CreateUpdateAssetShiftFactorDto {
-  shiftName: string;
-  factor: number;
-  isDefault?: boolean;
-}
-
-export interface AssetShiftAllocationLineDto extends EntityDto<string> {
-  scheduleEntryId?: string;
-  shiftFactorId?: string;
-  shiftFactorName?: string | null;
-  scheduleDate?: string;
-  depreciationAmount?: number;
-  accumulatedDepreciation?: number;
-}
-
-export interface AssetShiftAllocationDto extends FullAuditedEntityDto<string> {
-  allocationNumber?: string;
-  assetId?: string;
-  financeBookId?: string | null;
-  status?: DocumentStatus;
-  lines?: AssetShiftAllocationLineDto[];
-}
-
-export interface AssignShiftLineDto {
-  scheduleEntryId: string;
-  shiftFactorId: string;
-}
-
-export interface CreateAssetShiftAllocationDto {
-  assetId: string;
-  financeBookId?: string | null;
-  lines: AssignShiftLineDto[];
+export interface DrivingLicenseCategoryDto extends FullAuditedEntityDto<string> {
+  categoryName?: string;
+  description?: string | null;
 }
 
 export interface GetAssetListDto extends PagedAndSortedResultRequestDto {
@@ -684,6 +667,16 @@ export interface GetMaintenanceVisitListDto extends PagedAndSortedResultRequestD
   maintenanceScheduleId?: string | null;
   maintenanceType?: string | null;
   customerId?: string | null;
+}
+
+export interface LocationDto extends FullAuditedEntityDto<string> {
+  locationName?: string;
+  parentLocationId?: string | null;
+  parentLocationName?: string | null;
+  isContainer?: boolean;
+  isGroup?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface MaintenanceScheduleDetailDto {
@@ -742,22 +735,29 @@ export interface UpdateAssetDto {
   notes?: string | null;
 }
 
-export interface AssetMaintenanceTeamMemberDto {
-  employeeId?: string;
-  employeeName?: string | null;
-  maintenanceRole?: string | null;
-}
-
-export interface AssetMaintenanceTeamDto extends EntityDto<string> {
+export interface VehicleDto extends FullAuditedEntityDto<string> {
   companyId?: string;
-  teamName?: string;
-  maintenanceManagerId?: string | null;
-  members?: AssetMaintenanceTeamMemberDto[];
-}
-
-export interface CreateUpdateAssetMaintenanceTeamDto {
-  companyId?: string;
-  teamName?: string;
-  maintenanceManagerId?: string | null;
-  members?: AssetMaintenanceTeamMemberDto[];
+  licensePlate?: string;
+  make?: string | null;
+  model?: string | null;
+  chassisNumber?: string | null;
+  color?: string | null;
+  fuelType?: VehicleFuelType;
+  fuelUom?: string | null;
+  lastOdometer?: number;
+  carryingCapacity?: number | null;
+  wheels?: number | null;
+  doors?: number | null;
+  vehicleValue?: number | null;
+  acquisitionDate?: string | null;
+  driverId?: string | null;
+  driverName?: string | null;
+  locationId?: string | null;
+  insuranceCompany?: string | null;
+  policyNumber?: string | null;
+  insuranceStartDate?: string | null;
+  insuranceEndDate?: string | null;
+  roadTaxExpiryDate?: string | null;
+  fitnessCertificateExpiryDate?: string | null;
+  isDisabled?: boolean;
 }

@@ -9,7 +9,16 @@ import { Injectable, inject } from '@angular/core';
 export class LedgerHealthMonitorService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  getRecords = (input: GetLedgerHealthRecordsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<LedgerHealthRecordDto>>({
+      method: 'GET',
+      url: '/api/app/ledger-health-monitor/records',
+      params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
 
   getSettings = (input: GetLedgerHealthMonitorSettingsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LedgerHealthMonitorSettingsDto>({
@@ -18,16 +27,7 @@ export class LedgerHealthMonitorService {
       params: { companyId: input.companyId },
     },
     { apiName: this.apiName,...config });
-
-
-  updateSettings = (input: UpdateLedgerHealthMonitorSettingsDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, LedgerHealthMonitorSettingsDto>({
-      method: 'PUT',
-      url: '/api/app/ledger-health-monitor/settings',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   runCheck = (input: RunLedgerHealthCheckDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LedgerHealthCheckRunResultDto>({
@@ -36,13 +36,13 @@ export class LedgerHealthMonitorService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
 
-
-  getRecords = (input: GetLedgerHealthRecordsInput, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<LedgerHealthRecordDto>>({
-      method: 'GET',
-      url: '/api/app/ledger-health-monitor/records',
-      params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+  updateSettings = (input: UpdateLedgerHealthMonitorSettingsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LedgerHealthMonitorSettingsDto>({
+      method: 'PUT',
+      url: '/api/app/ledger-health-monitor/settings',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

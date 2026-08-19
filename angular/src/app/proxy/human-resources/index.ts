@@ -1,3 +1,5 @@
+export * from './department.service';
+export * from './designation.service';
 export * from './employee.service';
 export * from './expense-claim.service';
 export * from './holiday-list.service';

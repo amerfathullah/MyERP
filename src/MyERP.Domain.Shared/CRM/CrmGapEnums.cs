@@ -88,3 +88,9 @@ public static class ContractTemplateConsts
     public const int MaxTitleLength = 200;
     public const int MaxFulfilmentTermLength = 1000;
 }
+
+public static class ContractFulfilmentChecklistConsts
+{
+    public const int MaxRequirementLength = 140;
+    public const int MaxNotesLength = 2000;
+}

@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed';
+export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed';
 
 interface StatusConfig {
   icon: string;
@@ -25,6 +25,11 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   ToBill: { icon: 'fa fa-file-invoice', badgeClass: 'bg-warning text-dark' },
   Completed: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
   Closed: { icon: 'fa fa-lock', badgeClass: 'bg-dark' },
+  NotApplicable: { icon: 'fa fa-minus', badgeClass: 'bg-secondary' },
+  Unfulfilled: { icon: 'fa fa-hourglass-start', badgeClass: 'bg-warning text-dark' },
+  PartiallyFulfilled: { icon: 'fa fa-hourglass-half', badgeClass: 'bg-info' },
+  Fulfilled: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
+  Lapsed: { icon: 'fa fa-exclamation-triangle', badgeClass: 'bg-danger' },
 };
 
 @Component({

@@ -54,6 +54,16 @@ public class ContractDto : EntityDto<Guid>
     public string? Notes { get; set; }
     public Guid? ContractTemplateId { get; set; }
     public string? ContractTerms { get; set; }
+    public DateTime? FulfilmentDeadline { get; set; }
+    public ContractFulfilmentStatus FulfilmentStatus { get; set; }
+    public List<ContractFulfilmentChecklistItemDto> FulfilmentChecklist { get; set; } = new();
+}
+
+public class ContractFulfilmentChecklistItemDto : EntityDto<Guid>
+{
+    public string Requirement { get; set; } = null!;
+    public bool Fulfilled { get; set; }
+    public string? Notes { get; set; }
 }
 
 public class CreateContractDto
@@ -71,6 +81,7 @@ public class CreateContractDto
     public bool RequiresFulfilment { get; set; }
     public bool IsAutoRenewal { get; set; }
     public int? RenewalReminderDays { get; set; }
+    public DateTime? FulfilmentDeadline { get; set; }
     public string? Notes { get; set; }
 }
 

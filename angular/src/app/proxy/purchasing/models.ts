@@ -237,6 +237,22 @@ export interface CreateSupplierQuotationDto {
   items?: CreateSQItemDto[];
 }
 
+export interface CreateUpdateIncotermDto {
+  code: string;
+  title: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateSubcontractingBomDto {
+  isActive?: boolean;
+  finishedGoodId?: string;
+  finishedGoodQty?: number;
+  finishedGoodBomId?: string;
+  serviceItemId?: string;
+  serviceItemQty?: number;
+}
+
 export interface CreateUpdateSupplierDto {
   companyId: string;
   name: string;
@@ -297,6 +313,13 @@ export interface GetScoListDto extends PagedAndSortedResultRequestDto {
 
 export interface GetSupplierListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+}
+
+export interface IncotermDto extends FullAuditedEntityDto<string> {
+  code?: string;
+  title?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface InvoicePaymentDto {
@@ -586,6 +609,20 @@ export interface ScorecardStandingDto extends EntityDto<string> {
   warnRfqs?: boolean;
 }
 
+export interface SubcontractingBomDto extends EntityDto<string> {
+  isActive?: boolean;
+  finishedGoodId?: string;
+  finishedGoodName?: string | null;
+  finishedGoodQty?: number;
+  finishedGoodBomId?: string;
+  finishedGoodUom?: string | null;
+  serviceItemId?: string;
+  serviceItemName?: string | null;
+  serviceItemQty?: number;
+  serviceItemUom?: string | null;
+  conversionFactor?: number;
+}
+
 export interface SubcontractingInwardOrderDto extends EntityDto<string> {
   companyId?: string;
   orderNumber?: string;
@@ -846,41 +883,4 @@ export interface UpdateOrderItemsResultDto {
   newGrandTotal?: number;
   previousGrandTotal?: number;
   warnings?: string[];
-}
-
-export interface SubcontractingBomDto extends EntityDto<string> {
-  isActive?: boolean;
-  finishedGoodId?: string;
-  finishedGoodName?: string | null;
-  finishedGoodQty?: number;
-  finishedGoodBomId?: string;
-  finishedGoodUom?: string | null;
-  serviceItemId?: string;
-  serviceItemName?: string | null;
-  serviceItemQty?: number;
-  serviceItemUom?: string | null;
-  conversionFactor?: number;
-}
-
-export interface CreateUpdateSubcontractingBomDto {
-  isActive?: boolean;
-  finishedGoodId: string;
-  finishedGoodQty: number;
-  finishedGoodBomId: string;
-  serviceItemId: string;
-  serviceItemQty: number;
-}
-
-export interface IncotermDto extends FullAuditedEntityDto<string> {
-  code?: string;
-  title?: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface CreateUpdateIncotermDto {
-  code: string;
-  title: string;
-  description?: string | null;
-  isActive?: boolean;
 }

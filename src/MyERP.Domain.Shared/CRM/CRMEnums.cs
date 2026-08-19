@@ -51,6 +51,16 @@ public enum ContractStatus
     Cancelled = 4,
 }
 
+/// <summary>Per ERPNext Contract.fulfilment_status — derived from checklist completion, never set directly.</summary>
+public enum ContractFulfilmentStatus
+{
+    NotApplicable = 0,
+    Unfulfilled = 1,
+    PartiallyFulfilled = 2,
+    Fulfilled = 3,
+    Lapsed = 4,
+}
+
 public enum ShipmentStatus
 {
     Draft = 0,

@@ -12,6 +12,15 @@ export class ContractService {
   apiName = 'Default';
   
 
+  addFulfilmentItem = (id: string, requirement: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ContractDto>({
+      method: 'POST',
+      url: `/api/app/contract/${id}/fulfilment-item`,
+      params: { requirement },
+    },
+    { apiName: this.apiName,...config });
+  
+
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ContractDto>({
       method: 'POST',
@@ -46,11 +55,28 @@ export class ContractService {
     { apiName: this.apiName,...config });
   
 
+  removeFulfilmentItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ContractDto>({
+      method: 'DELETE',
+      url: `/api/app/contract/${id}/fulfilment-item/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   renew = (id: string, newEndDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ContractDto>({
       method: 'POST',
       url: `/api/app/contract/${id}/renew`,
       params: { newEndDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  setFulfilmentItemStatus = (id: string, itemId: string, fulfilled: boolean, notes?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ContractDto>({
+      method: 'POST',
+      url: `/api/app/contract/${id}/set-fulfilment-item-status/${itemId}`,
+      params: { fulfilled, notes },
     },
     { apiName: this.apiName,...config });
   

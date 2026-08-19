@@ -39,27 +39,6 @@ export interface CreateProjectDto {
   projectTemplateId?: string | null;
 }
 
-export interface ProjectTemplateTaskDto {
-  key: string;
-  subject: string;
-  taskWeight?: number;
-  expectedHours?: number;
-  isMilestone?: boolean;
-  dependsOnKeys?: string[];
-}
-
-export interface ProjectTemplateDto extends EntityDto<string> {
-  templateName?: string;
-  disabled?: boolean;
-  tasks?: ProjectTemplateTaskDto[];
-}
-
-export interface CreateUpdateProjectTemplateDto {
-  templateName: string;
-  disabled?: boolean;
-  tasks: ProjectTemplateTaskDto[];
-}
-
 export interface CreateProjectTaskDto {
   projectId: string;
   subject: string;
@@ -102,6 +81,17 @@ export interface CreateTimesheetInvoiceDto {
   companyId: string;
   customerId: string;
   projectId?: string | null;
+}
+
+export interface CreateUpdateProjectTemplateDto {
+  templateName?: string;
+  disabled?: boolean;
+  tasks?: ProjectTemplateTaskDto[];
+}
+
+export interface CreateUpdateProjectTypeDto {
+  name: string;
+  isActive?: boolean;
 }
 
 export interface GetProjectListDto extends PagedAndSortedResultRequestDto {
@@ -160,6 +150,26 @@ export interface ProjectTaskDto {
   actualHours?: number;
   assignedUserId?: string | null;
   description?: string | null;
+}
+
+export interface ProjectTemplateDto extends EntityDto<string> {
+  templateName?: string;
+  disabled?: boolean;
+  tasks?: ProjectTemplateTaskDto[];
+}
+
+export interface ProjectTemplateTaskDto {
+  key?: string;
+  subject?: string;
+  taskWeight?: number;
+  expectedHours?: number;
+  isMilestone?: boolean;
+  dependsOnKeys?: string[];
+}
+
+export interface ProjectTypeDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  isActive?: boolean;
 }
 
 export interface SetActivityCostDto {
@@ -246,14 +256,4 @@ export interface UpdateProjectTaskDto {
   expectedHours?: number;
   assignedUserId?: string | null;
   description?: string | null;
-}
-
-export interface ProjectTypeDto extends FullAuditedEntityDto<string> {
-  name?: string;
-  isActive?: boolean;
-}
-
-export interface CreateUpdateProjectTypeDto {
-  name: string;
-  isActive?: boolean;
 }

@@ -5,11 +5,11 @@ import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ProformaInvoiceBasis } from './proforma-invoice-basis.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
 import type { ShippingRuleType } from './shipping-rule-type.enum';
+import type { PromotionalSchemeApplicableFor } from './promotional-scheme-applicable-for.enum';
 import type { ProformaInvoiceStatus } from './proforma-invoice-status.enum';
 import type { AnalyticsGroupBy } from './analytics-group-by.enum';
 import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 import type { TrackingBoardStage } from './tracking-board-stage.enum';
-import type { PromotionalSchemeApplicableFor } from './promotional-scheme-applicable-for.enum';
 
 export interface ApplyPricingRuleDto {
   itemId?: string | null;
@@ -162,11 +162,29 @@ export interface CreateDunningDto {
   overduePayments?: CreateDunningOverdueDto[];
 }
 
+export interface CreateDunningLetterTextDto {
+  language?: string | null;
+  isDefaultLanguage?: boolean;
+  bodyText?: string | null;
+  closingText?: string | null;
+}
+
 export interface CreateDunningOverdueDto {
   salesInvoiceId?: string;
   outstandingAmount?: number;
   dueDate?: string;
   overdueDays?: number;
+}
+
+export interface CreateDunningTypeDto {
+  companyId?: string;
+  dunningTypeName?: string;
+  isDefault?: boolean;
+  dunningFee?: number;
+  rateOfInterest?: number;
+  incomeAccountId?: string | null;
+  costCenterId?: string | null;
+  letterText?: CreateDunningLetterTextDto[];
 }
 
 export interface CreateInstallationNoteDto {
@@ -345,22 +363,7 @@ export interface CreateSalesInvoiceDto {
   discountAmount?: number;
   applyDiscountOn?: string | null;
   items: CreateSalesInvoiceItemDto[];
-  salesTeam?: SalesTeamAllocationInputDto[];
-}
-
-export interface SalesTeamAllocationInputDto {
-  salesPersonId: string;
-  allocatedPercentage: number;
-  commissionRate?: number | null;
-}
-
-export interface SalesTeamEntryDto {
-  salesPersonId?: string;
-  salesPersonName?: string | null;
-  allocatedPercentage?: number;
-  allocatedAmount?: number;
-  commissionRate?: number;
-  incentives?: number;
+  salesTeam?: SalesTeamAllocationInputDto[] | null;
 }
 
 export interface CreateSalesInvoiceItemDto {
@@ -506,6 +509,28 @@ export interface CreateUpdatePosProfilePaymentMethodDto {
   isDefault?: boolean;
 }
 
+export interface CreateUpdatePromotionalSchemeDto {
+  companyId?: string;
+  title?: string;
+  isDisabled?: boolean;
+  applyOn?: PricingRuleApplyOn;
+  mixedConditions?: boolean;
+  isCumulative?: boolean;
+  applyRuleOnOtherItem?: boolean;
+  otherApplyOn?: PricingRuleApplyOn | null;
+  otherTargetId?: string | null;
+  selling?: boolean;
+  buying?: boolean;
+  applicableFor?: PromotionalSchemeApplicableFor;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  currencyId?: string | null;
+  targets?: PromotionalSchemeTargetDto[];
+  parties?: PromotionalSchemePartyDto[];
+  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
+  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
+}
+
 export interface CustomerDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   name?: string;
@@ -617,11 +642,12 @@ export interface DunningLetterTextDto {
   closingText?: string | null;
 }
 
-export interface CreateDunningLetterTextDto {
-  language?: string | null;
-  isDefaultLanguage?: boolean;
-  bodyText?: string | null;
-  closingText?: string | null;
+export interface DunningOverduePaymentDto {
+  salesInvoiceId?: string;
+  invoiceNumber?: string | null;
+  outstandingAmount?: number;
+  dueDate?: string;
+  overdueDays?: number;
 }
 
 export interface DunningTypeDto extends FullAuditedEntityDto<string> {
@@ -633,28 +659,6 @@ export interface DunningTypeDto extends FullAuditedEntityDto<string> {
   incomeAccountId?: string | null;
   costCenterId?: string | null;
   letterText?: DunningLetterTextDto[];
-}
-
-export interface CreateDunningTypeDto {
-  companyId?: string;
-  dunningTypeName?: string;
-  isDefault?: boolean;
-  dunningFee?: number;
-  rateOfInterest?: number;
-  incomeAccountId?: string | null;
-  costCenterId?: string | null;
-  letterText?: CreateDunningLetterTextDto[];
-}
-
-export interface UpdateDunningTypeDto extends CreateDunningTypeDto {
-}
-
-export interface DunningOverduePaymentDto {
-  salesInvoiceId?: string;
-  invoiceNumber?: string | null;
-  outstandingAmount?: number;
-  dueDate?: string;
-  overdueDays?: number;
 }
 
 export interface EmailPreviewDto {
@@ -1041,93 +1045,6 @@ export interface PricingRuleResultDto {
   freeItemQty?: number;
 }
 
-export interface PromotionalSchemeTargetDto {
-  targetId?: string;
-  targetName?: string | null;
-}
-
-export interface PromotionalSchemePartyDto {
-  partyId?: string;
-  partyName?: string | null;
-}
-
-export interface PromotionalSchemePriceDiscountSlabDto {
-  rateOrDiscount?: PricingRuleType;
-  discountPercentage?: number;
-  discountAmount?: number;
-  rate?: number;
-  minQty?: number;
-  maxQty?: number;
-  minAmount?: number;
-  maxAmount?: number;
-  priority?: number;
-  warehouseId?: string | null;
-  description?: string | null;
-  isDisabled?: boolean;
-}
-
-export interface PromotionalSchemeProductDiscountSlabDto {
-  freeItemId?: string;
-  freeQty?: number;
-  freeItemRate?: number;
-  sameItem?: boolean;
-  minQty?: number;
-  maxQty?: number;
-  minAmount?: number;
-  maxAmount?: number;
-  priority?: number;
-  warehouseId?: string | null;
-  description?: string | null;
-  isRecursive?: boolean;
-  recurseFor?: number;
-  roundFreeQty?: boolean;
-}
-
-export interface PromotionalSchemeDto extends EntityDto<string> {
-  companyId?: string;
-  title?: string;
-  isDisabled?: boolean;
-  applyOn?: PricingRuleApplyOn;
-  mixedConditions?: boolean;
-  isCumulative?: boolean;
-  applyRuleOnOtherItem?: boolean;
-  otherApplyOn?: PricingRuleApplyOn | null;
-  otherTargetId?: string | null;
-  selling?: boolean;
-  buying?: boolean;
-  applicableFor?: PromotionalSchemeApplicableFor;
-  validFrom?: string | null;
-  validUpto?: string | null;
-  currencyId?: string | null;
-  targets?: PromotionalSchemeTargetDto[];
-  parties?: PromotionalSchemePartyDto[];
-  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
-  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
-  generatedRuleCount?: number;
-}
-
-export interface CreateUpdatePromotionalSchemeDto {
-  companyId?: string;
-  title?: string;
-  isDisabled?: boolean;
-  applyOn?: PricingRuleApplyOn;
-  mixedConditions?: boolean;
-  isCumulative?: boolean;
-  applyRuleOnOtherItem?: boolean;
-  otherApplyOn?: PricingRuleApplyOn | null;
-  otherTargetId?: string | null;
-  selling?: boolean;
-  buying?: boolean;
-  applicableFor?: PromotionalSchemeApplicableFor;
-  validFrom?: string | null;
-  validUpto?: string | null;
-  currencyId?: string | null;
-  targets?: PromotionalSchemeTargetDto[];
-  parties?: PromotionalSchemePartyDto[];
-  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
-  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
-}
-
 export interface ProductBundleDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string | null;
@@ -1185,6 +1102,71 @@ export interface ProformedTotalsDto {
   proformedAmount?: number;
   remainingQty?: number;
   remainingAmount?: number;
+}
+
+export interface PromotionalSchemeDto extends EntityDto<string> {
+  companyId?: string;
+  title?: string;
+  isDisabled?: boolean;
+  applyOn?: number;
+  mixedConditions?: boolean;
+  isCumulative?: boolean;
+  applyRuleOnOtherItem?: boolean;
+  otherApplyOn?: number | null;
+  otherTargetId?: string | null;
+  selling?: boolean;
+  buying?: boolean;
+  applicableFor?: number;
+  validFrom?: string | null;
+  validUpto?: string | null;
+  currencyId?: string | null;
+  targets?: PromotionalSchemeTargetDto[];
+  parties?: PromotionalSchemePartyDto[];
+  priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
+  productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
+  generatedRuleCount?: number;
+}
+
+export interface PromotionalSchemePartyDto {
+  partyId?: string;
+  partyName?: string | null;
+}
+
+export interface PromotionalSchemePriceDiscountSlabDto {
+  rateOrDiscount?: number;
+  discountPercentage?: number;
+  discountAmount?: number;
+  rate?: number;
+  minQty?: number;
+  maxQty?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  priority?: number;
+  warehouseId?: string | null;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface PromotionalSchemeProductDiscountSlabDto {
+  freeItemId?: string;
+  freeQty?: number;
+  freeItemRate?: number;
+  sameItem?: boolean;
+  minQty?: number;
+  maxQty?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  priority?: number;
+  warehouseId?: string | null;
+  description?: string | null;
+  isRecursive?: boolean;
+  recurseFor?: number;
+  roundFreeQty?: boolean;
+}
+
+export interface PromotionalSchemeTargetDto {
+  targetId?: string;
+  targetName?: string | null;
 }
 
 export interface QuotationDto extends FullAuditedEntityDto<string> {
@@ -1441,6 +1423,21 @@ export interface SalesTargetDto {
   targetAmount?: number;
 }
 
+export interface SalesTeamAllocationInputDto {
+  salesPersonId: string;
+  allocatedPercentage?: number;
+  commissionRate?: number | null;
+}
+
+export interface SalesTeamEntryDto {
+  salesPersonId?: string;
+  salesPersonName?: string | null;
+  allocatedPercentage?: number;
+  allocatedAmount?: number;
+  commissionRate?: number;
+  incentives?: number;
+}
+
 export interface ScanBarcodeInput {
   barcode: string;
   companyId?: string | null;
@@ -1564,6 +1561,9 @@ export interface UnbilledOrderItemDto {
   rate?: number;
   uom?: string | null;
   salesOrderItemId?: string;
+}
+
+export interface UpdateDunningTypeDto extends CreateDunningTypeDto {
 }
 
 export interface UpdateLoyaltyProgramDto {

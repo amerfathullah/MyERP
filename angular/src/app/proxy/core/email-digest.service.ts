@@ -8,7 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class EmailDigestService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   getSettings = (input: GetEmailDigestSettingsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EmailDigestSettingsDto>({
@@ -17,21 +17,21 @@ export class EmailDigestService {
       params: { companyId: input.companyId },
     },
     { apiName: this.apiName,...config });
-
-
-  updateSettings = (input: UpdateEmailDigestSettingsDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, EmailDigestSettingsDto>({
-      method: 'PUT',
-      url: '/api/app/email-digest/settings',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   sendNow = (input: SendEmailDigestNowInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EmailDigestSendResultDto>({
       method: 'POST',
       url: '/api/app/email-digest/send-now',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateSettings = (input: UpdateEmailDigestSettingsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, EmailDigestSettingsDto>({
+      method: 'PUT',
+      url: '/api/app/email-digest/settings',
       body: input,
     },
     { apiName: this.apiName,...config });

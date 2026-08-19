@@ -1,32 +1,31 @@
 import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { SalesForecastFrequency } from './sales-forecast-frequency.enum';
 import type { JobCardStatus } from './job-card-status.enum';
 import type { ProductionPlanStatus } from './production-plan-status.enum';
 import type { SubAssemblyType } from './sub-assembly-type.enum';
 import type { SecondaryItemType } from './secondary-item-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
-import type { BomCreatorStatus } from './bom-creator-status.enum';
-import type { DocumentStatus } from '../core/document-status.enum';
-import type { SalesForecastFrequency } from './sales-forecast-frequency.enum';
 
-export interface DowntimeEntryDto extends EntityDto<string> {
-  companyId?: string;
-  workstationId?: string;
-  operatorId?: string;
+export interface AddTimeLogDto {
   fromTime?: string;
   toTime?: string;
-  downtimeMinutes?: number;
-  stopReason?: string;
-  remarks?: string | null;
+  completedQty?: number;
 }
 
-export interface CreateUpdateDowntimeEntryDto {
+export interface BomCreatorDto extends EntityDto<string> {
   companyId?: string;
-  workstationId?: string;
-  operatorId?: string;
-  fromTime?: string;
-  toTime?: string;
-  stopReason?: string;
+  finishedGoodItemId?: string;
+  qty?: number;
+  uom?: string | null;
+  isPhantom?: boolean;
+  routingId?: string | null;
+  defaultWarehouseId?: string | null;
+  rmCostAsPer?: string;
+  rawMaterialCost?: number;
   remarks?: string | null;
+  status?: number;
+  errorLog?: string | null;
+  items?: BomCreatorItemDto[];
 }
 
 export interface BomCreatorItemDto {
@@ -46,41 +45,6 @@ export interface BomCreatorItemDto {
   sourcedBySupplier?: boolean;
   instruction?: string | null;
   bomCreated?: boolean;
-}
-
-export interface BomCreatorDto extends EntityDto<string> {
-  companyId?: string;
-  finishedGoodItemId?: string;
-  qty?: number;
-  uom?: string | null;
-  isPhantom?: boolean;
-  routingId?: string | null;
-  defaultWarehouseId?: string | null;
-  rmCostAsPer?: string;
-  rawMaterialCost?: number;
-  remarks?: string | null;
-  status?: BomCreatorStatus;
-  errorLog?: string | null;
-  items?: BomCreatorItemDto[];
-}
-
-export interface CreateUpdateBomCreatorDto {
-  companyId?: string;
-  finishedGoodItemId?: string;
-  qty?: number;
-  uom?: string | null;
-  isPhantom?: boolean;
-  routingId?: string | null;
-  defaultWarehouseId?: string | null;
-  rmCostAsPer?: string;
-  remarks?: string | null;
-  items?: BomCreatorItemDto[];
-}
-
-export interface AddTimeLogDto {
-  fromTime?: string;
-  toTime?: string;
-  completedQty?: number;
 }
 
 export interface BomMaterialAvailabilityDto {
@@ -112,6 +76,13 @@ export interface CreateJobCardDto {
   forQuantity?: number;
   sequenceId?: number;
   plannedTimeInMins?: number;
+}
+
+export interface CreateMasterProductionScheduleDto {
+  companyId?: string;
+  postingDate?: string;
+  fromDate?: string;
+  parentWarehouseId?: string | null;
 }
 
 export interface CreateOperationDto {
@@ -160,9 +131,63 @@ export interface CreateRoutingOperationDto {
   workstationId?: string | null;
 }
 
+export interface CreateSalesForecastDto {
+  companyId?: string;
+  fromDate?: string;
+  parentWarehouseId?: string;
+  frequency?: SalesForecastFrequency;
+  demandNumber?: number;
+  selectedItemIds?: string[];
+}
+
+export interface CreateUpdateBomCreatorDto {
+  companyId?: string;
+  finishedGoodItemId?: string;
+  qty?: number;
+  uom?: string | null;
+  isPhantom?: boolean;
+  routingId?: string | null;
+  defaultWarehouseId?: string | null;
+  rmCostAsPer?: string;
+  remarks?: string | null;
+  items?: BomCreatorItemDto[];
+}
+
+export interface CreateUpdateDowntimeEntryDto {
+  companyId?: string;
+  workstationId?: string;
+  operatorId?: string;
+  fromTime?: string;
+  toTime?: string;
+  stopReason?: string;
+  remarks?: string | null;
+}
+
 export interface DailyProductionPointDto {
   date?: string;
   producedQty?: number;
+}
+
+export interface DowntimeEntryDto extends EntityDto<string> {
+  companyId?: string;
+  workstationId?: string;
+  operatorId?: string;
+  fromTime?: string;
+  toTime?: string;
+  downtimeMinutes?: number;
+  stopReason?: string;
+  remarks?: string | null;
+}
+
+export interface FetchMaterialRequestsDto {
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface FetchSalesOrdersDto {
+  customerId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 export interface GetJobCardListDto extends PagedAndSortedResultRequestDto {
@@ -224,6 +249,46 @@ export interface ManufacturingSettingsDto extends EntityDto<string> {
   enforceTimeLogs?: boolean;
   addCorrectiveOpCostInFGValuation?: boolean;
   validateComponentsQuantitiesPerBom?: boolean;
+}
+
+export interface MasterProductionScheduleDto extends EntityDto<string> {
+  companyId?: string;
+  scheduleNumber?: string;
+  status?: number;
+  postingDate?: string;
+  fromDate?: string;
+  toDate?: string | null;
+  parentWarehouseId?: string | null;
+  salesForecastId?: string | null;
+  salesOrders?: MpsSalesOrderRefDto[];
+  materialRequests?: MpsMaterialRequestRefDto[];
+  items?: MasterProductionScheduleItemDto[];
+}
+
+export interface MasterProductionScheduleItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  bomId?: string | null;
+  uom?: string;
+  warehouseId?: string | null;
+  deliveryDate?: string;
+  plannedQty?: number;
+  cumulativeLeadTimeDays?: number;
+  orderReleaseDate?: string;
+}
+
+export interface MpsMaterialRequestRefDto {
+  materialRequestId?: string;
+  materialRequestDate?: string;
+}
+
+export interface MpsSalesOrderRefDto {
+  salesOrderId?: string;
+  salesOrderDate?: string;
+  customerId?: string;
+  grandTotal?: number;
+  status?: string | null;
 }
 
 export interface OperationDto extends EntityDto<string> {
@@ -319,6 +384,30 @@ export interface RoutingOperationDto {
   operatingCost?: number;
 }
 
+export interface SalesForecastDto extends EntityDto<string> {
+  companyId?: string;
+  forecastNumber?: string;
+  status?: number;
+  forecastStatus?: string;
+  postingDate?: string;
+  fromDate?: string;
+  frequency?: string;
+  demandNumber?: number;
+  parentWarehouseId?: string;
+  selectedItemIds?: string[];
+  items?: SalesForecastItemDto[];
+}
+
+export interface SalesForecastItemDto {
+  id?: string;
+  itemId?: string;
+  itemName?: string;
+  uom?: string;
+  warehouseId?: string | null;
+  deliveryDate?: string;
+  demandQty?: number;
+}
+
 export interface SaveManufacturingSettingsDto {
   companyId?: string;
   overproductionPercentage?: number;
@@ -343,6 +432,21 @@ export interface TopProducedItemDto {
   itemName?: string;
   totalProduced?: number;
   workOrderCount?: number;
+}
+
+export interface UpdateMasterProductionScheduleDto {
+  postingDate?: string;
+  fromDate?: string;
+  parentWarehouseId?: string | null;
+  items?: MasterProductionScheduleItemDto[];
+}
+
+export interface UpdateSalesForecastDto {
+  fromDate?: string;
+  parentWarehouseId?: string;
+  frequency?: SalesForecastFrequency;
+  demandNumber?: number;
+  selectedItemIds?: string[];
 }
 
 export interface ActiveJobOnWorkstationDto {
@@ -740,110 +844,4 @@ export interface WorkstationWorkingHourDto {
   dayOfWeek?: string;
   startTime?: string;
   endTime?: string;
-}
-
-export interface MpsSalesOrderRefDto {
-  salesOrderId?: string;
-  salesOrderDate?: string;
-  customerId?: string;
-  grandTotal?: number;
-  status?: string | null;
-}
-
-export interface MpsMaterialRequestRefDto {
-  materialRequestId?: string;
-  materialRequestDate?: string;
-}
-
-export interface MasterProductionScheduleItemDto {
-  id?: string;
-  itemId?: string;
-  itemName?: string;
-  bomId?: string | null;
-  uom?: string;
-  warehouseId?: string | null;
-  deliveryDate?: string;
-  plannedQty?: number;
-  cumulativeLeadTimeDays?: number;
-  orderReleaseDate?: string;
-}
-
-export interface MasterProductionScheduleDto extends EntityDto<string> {
-  companyId?: string;
-  scheduleNumber?: string;
-  status?: DocumentStatus;
-  postingDate?: string;
-  fromDate?: string;
-  toDate?: string | null;
-  parentWarehouseId?: string | null;
-  salesForecastId?: string | null;
-  salesOrders?: MpsSalesOrderRefDto[];
-  materialRequests?: MpsMaterialRequestRefDto[];
-  items?: MasterProductionScheduleItemDto[];
-}
-
-export interface CreateMasterProductionScheduleDto {
-  companyId?: string;
-  postingDate?: string;
-  fromDate?: string;
-  parentWarehouseId?: string | null;
-}
-
-export interface UpdateMasterProductionScheduleDto {
-  postingDate?: string;
-  fromDate?: string;
-  parentWarehouseId?: string | null;
-  items?: MasterProductionScheduleItemDto[];
-}
-
-export interface SalesForecastItemDto {
-  id?: string;
-  itemId?: string;
-  itemName?: string;
-  uom?: string;
-  warehouseId?: string | null;
-  deliveryDate?: string;
-  demandQty?: number;
-}
-
-export interface SalesForecastDto extends EntityDto<string> {
-  companyId?: string;
-  forecastNumber?: string;
-  status?: DocumentStatus;
-  forecastStatus?: string;
-  postingDate?: string;
-  fromDate?: string;
-  frequency?: string;
-  demandNumber?: number;
-  parentWarehouseId?: string;
-  selectedItemIds?: string[];
-  items?: SalesForecastItemDto[];
-}
-
-export interface CreateSalesForecastDto {
-  companyId?: string;
-  fromDate?: string;
-  parentWarehouseId?: string;
-  frequency?: SalesForecastFrequency;
-  demandNumber?: number;
-  selectedItemIds?: string[];
-}
-
-export interface UpdateSalesForecastDto {
-  fromDate?: string;
-  parentWarehouseId?: string;
-  frequency?: SalesForecastFrequency;
-  demandNumber?: number;
-  selectedItemIds?: string[];
-}
-
-export interface FetchSalesOrdersDto {
-  customerId?: string | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-}
-
-export interface FetchMaterialRequestsDto {
-  fromDate?: string | null;
-  toDate?: string | null;
 }

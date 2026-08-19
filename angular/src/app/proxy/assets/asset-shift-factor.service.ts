@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class AssetShiftFactorService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateAssetShiftFactorDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftFactorDto>({
@@ -18,7 +18,7 @@ export class AssetShiftFactorService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class AssetShiftFactorService {
       url: `/api/app/asset-shift-factor/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftFactorDto>({
@@ -34,7 +34,7 @@ export class AssetShiftFactorService {
       url: `/api/app/asset-shift-factor/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetShiftFactorDto>>({
@@ -43,7 +43,7 @@ export class AssetShiftFactorService {
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateAssetShiftFactorDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftFactorDto>({

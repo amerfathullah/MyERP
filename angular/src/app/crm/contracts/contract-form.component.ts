@@ -71,6 +71,21 @@ import { CustomerService } from '../../proxy/sales/customer.service';
             </div>
           </div>
 
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <div class="form-check mt-4">
+                <input type="checkbox" class="form-check-input" formControlName="requiresFulfilment" id="requiresFulfilment" />
+                <label class="form-check-label" for="requiresFulfilment">{{ 'MyERP::RequiresFulfilment' | abpLocalization }}</label>
+              </div>
+            </div>
+            @if (form.get('requiresFulfilment')!.value) {
+              <div class="col-md-4">
+                <label class="form-label">{{ 'MyERP::FulfilmentDeadline' | abpLocalization }}</label>
+                <input type="date" class="form-control" formControlName="fulfilmentDeadline" />
+              </div>
+            }
+          </div>
+
           <div class="d-flex justify-content-end gap-2">
             <a routerLink=".." class="btn btn-secondary">{{ 'MyERP::Cancel' | abpLocalization }}</a>
             <button type="submit" class="btn btn-primary" [disabled]="!form.valid || saving">
@@ -109,6 +124,8 @@ export class ContractFormComponent implements OnInit {
       contractValue: [null],
       notes: [''],
       isAutoRenewal: [false],
+      requiresFulfilment: [false],
+      fulfilmentDeadline: [null],
     });
 
     this.loadParties(this.form.get('partyType')!.value);
@@ -131,6 +148,8 @@ export class ContractFormComponent implements OnInit {
             contractValue: c.contractValue,
             notes: c.notes,
             isAutoRenewal: c.isAutoRenewal,
+            requiresFulfilment: c.requiresFulfilment,
+            fulfilmentDeadline: c.fulfilmentDeadline?.substring(0, 10),
           });
         },
       });

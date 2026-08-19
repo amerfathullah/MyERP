@@ -1,8 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ContractService } from '../../proxy/crm/contract.service';
+import type { ContractFulfilmentChecklistItemDto } from '../../proxy/crm/models';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -11,7 +13,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   standalone: true,
   selector: 'app-contract-detail',
-  imports: [CommonModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     @if (loading()) {
@@ -68,6 +70,61 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         </div>
       }
 
+      @if (contract().requiresFulfilment) {
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">{{ '::FulfilmentChecklist' | abpLocalization }}</h6>
+            <div class="d-flex align-items-center gap-3">
+              @if (contract().fulfilmentDeadline) {
+                <span class="text-muted small">
+                  {{ '::FulfilmentDeadline' | abpLocalization }}: {{ contract().fulfilmentDeadline | date:'dd/MM/yyyy' }}
+                </span>
+              }
+              <app-status-badge [status]="contract().fulfilmentStatus || 'NotApplicable'" />
+            </div>
+          </div>
+          <div class="card-body">
+            <table class="table table-sm align-middle mb-3">
+              <thead>
+                <tr>
+                  <th style="width: 2rem"></th>
+                  <th>{{ '::Requirement' | abpLocalization }}</th>
+                  <th>{{ '::Notes' | abpLocalization }}</th>
+                  <th style="width: 2rem"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of contract().fulfilmentChecklist ?? []; track item.id) {
+                  <tr>
+                    <td>
+                      <input type="checkbox" class="form-check-input" [checked]="item.fulfilled"
+                        (change)="toggleFulfilled(item, $any($event.target).checked)" />
+                    </td>
+                    <td [class.text-decoration-line-through]="item.fulfilled">{{ item.requirement }}</td>
+                    <td>
+                      <input type="text" class="form-control form-control-sm" [value]="item.notes || ''"
+                        (change)="updateNotes(item, $any($event.target).value)" />
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-danger" (click)="removeItem(item)" [attr.aria-label]="'::RemoveRequirement' | abpLocalization">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control" [(ngModel)]="newRequirement"
+                [placeholder]="'::NewRequirementPlaceholder' | abpLocalization" />
+              <button class="btn btn-outline-primary" (click)="addItem()" [disabled]="!newRequirement.trim()">
+                <i class="fas fa-plus me-1"></i>{{ '::AddRequirement' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
       <app-activity-log documentType="Contract" [documentId]="contract().id" />
     }
   `,
@@ -81,6 +138,7 @@ export class ContractDetailComponent implements OnInit {
 
   contract = signal<any>(null);
   loading = signal(true);
+  newRequirement = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -101,6 +159,36 @@ export class ContractDetailComponent implements OnInit {
   cancel() {
     this.contractService.cancel(this.contract().id).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.reload(); },
+      error: () => {},
+    });
+  }
+
+  toggleFulfilled(item: ContractFulfilmentChecklistItemDto, fulfilled: boolean) {
+    this.contractService.setFulfilmentItemStatus(this.contract().id, item.id!, fulfilled, item.notes ?? undefined).subscribe({
+      next: () => this.reload(),
+      error: () => {},
+    });
+  }
+
+  updateNotes(item: ContractFulfilmentChecklistItemDto, notes: string) {
+    this.contractService.setFulfilmentItemStatus(this.contract().id, item.id!, !!item.fulfilled, notes).subscribe({
+      next: () => this.reload(),
+      error: () => {},
+    });
+  }
+
+  addItem() {
+    const requirement = this.newRequirement.trim();
+    if (!requirement) return;
+    this.contractService.addFulfilmentItem(this.contract().id, requirement).subscribe({
+      next: () => { this.newRequirement = ''; this.reload(); },
+      error: () => {},
+    });
+  }
+
+  removeItem(item: ContractFulfilmentChecklistItemDto) {
+    this.contractService.removeFulfilmentItem(this.contract().id, item.id!).subscribe({
+      next: () => this.reload(),
       error: () => {},
     });
   }

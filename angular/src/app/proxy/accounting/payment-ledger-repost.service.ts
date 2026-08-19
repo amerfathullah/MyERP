@@ -8,7 +8,7 @@ import { Injectable, inject } from '@angular/core';
 export class PaymentLedgerRepostService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   repost = (input: RepostPaymentLedgerDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentLedgerRepostResultDto>({
@@ -17,7 +17,7 @@ export class PaymentLedgerRepostService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   repostForCompany = (input: RepostPaymentLedgerForCompanyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentLedgerRepostResultDto>({

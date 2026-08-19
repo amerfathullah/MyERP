@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class IndustryTypeService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateIndustryTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IndustryTypeDto>({
@@ -18,7 +18,7 @@ export class IndustryTypeService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class IndustryTypeService {
       url: `/api/app/industry-type/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IndustryTypeDto>({
@@ -34,7 +34,7 @@ export class IndustryTypeService {
       url: `/api/app/industry-type/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: GetIndustryTypeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<IndustryTypeDto>>({
@@ -43,7 +43,7 @@ export class IndustryTypeService {
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateIndustryTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IndustryTypeDto>({

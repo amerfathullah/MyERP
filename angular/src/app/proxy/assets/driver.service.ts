@@ -10,7 +10,7 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 export class DriverService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateDriverDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
@@ -19,7 +19,7 @@ export class DriverService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -27,7 +27,7 @@ export class DriverService {
       url: `/api/app/driver/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
@@ -35,33 +35,24 @@ export class DriverService {
       url: `/api/app/driver/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DriverDto>>({
       method: 'GET',
       url: '/api/app/driver',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
+  
 
-
-  update = (id: string, input: CreateUpdateDriverDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, DriverDto>({
-      method: 'PUT',
-      url: `/api/app/driver/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
-  suspend = (id: string, config?: Partial<Rest.Config>) =>
+  markLeft = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
-      url: `/api/app/driver/${id}/suspend`,
+      url: `/api/app/driver/${id}/mark-left`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   reinstate = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
@@ -69,12 +60,21 @@ export class DriverService {
       url: `/api/app/driver/${id}/reinstate`,
     },
     { apiName: this.apiName,...config });
+  
 
-
-  markLeft = (id: string, config?: Partial<Rest.Config>) =>
+  suspend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
-      url: `/api/app/driver/${id}/mark-left`,
+      url: `/api/app/driver/${id}/suspend`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  update = (id: string, input: CreateUpdateDriverDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DriverDto>({
+      method: 'PUT',
+      url: `/api/app/driver/${id}`,
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

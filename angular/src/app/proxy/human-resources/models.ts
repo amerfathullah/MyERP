@@ -1,32 +1,6 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { LeaveApplicationStatus } from './leave-application-status.enum';
 
-export interface DesignationDto extends FullAuditedEntityDto<string> {
-  name: string;
-  description?: string | null;
-}
-
-export interface CreateUpdateDesignationDto {
-  name: string;
-  description?: string | null;
-}
-
-export interface DepartmentDto extends FullAuditedEntityDto<string> {
-  name: string;
-  companyId: string;
-  parentId?: string | null;
-  isGroup?: boolean;
-  isActive?: boolean;
-}
-
-export interface CreateUpdateDepartmentDto {
-  name: string;
-  companyId: string;
-  parentId?: string | null;
-  isGroup?: boolean;
-  isActive?: boolean;
-}
-
 export interface BulkLeaveAllocationDto {
   companyId: string;
   leaveTypeId: string;
@@ -138,6 +112,19 @@ export interface CreateSalaryStructureDto {
   details?: CreateSalaryStructureDetailDto[];
 }
 
+export interface CreateUpdateDepartmentDto {
+  name?: string;
+  companyId?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateDesignationDto {
+  name?: string;
+  description?: string | null;
+}
+
 export interface CreateUpdateEmployeeDto {
   companyId: string;
   firstName: string;
@@ -174,6 +161,19 @@ export interface CreateUpdateSalaryComponentDto {
   isTaxApplicable?: boolean;
   dependsOnPaymentDays?: boolean;
   defaultAccountId?: string | null;
+  description?: string | null;
+}
+
+export interface DepartmentDto extends EntityDto<string> {
+  name?: string;
+  companyId?: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  isActive?: boolean;
+}
+
+export interface DesignationDto extends EntityDto<string> {
+  name?: string;
   description?: string | null;
 }
 

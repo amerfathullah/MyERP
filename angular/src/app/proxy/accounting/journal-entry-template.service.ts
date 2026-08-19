@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class JournalEntryTemplateService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateJournalEntryTemplateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryTemplateDto>({
@@ -18,7 +18,7 @@ export class JournalEntryTemplateService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class JournalEntryTemplateService {
       url: `/api/app/journal-entry-template/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryTemplateDto>({
@@ -34,7 +34,7 @@ export class JournalEntryTemplateService {
       url: `/api/app/journal-entry-template/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: GetJournalEntryTemplateListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<JournalEntryTemplateDto>>({
@@ -43,7 +43,7 @@ export class JournalEntryTemplateService {
       params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateJournalEntryTemplateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryTemplateDto>({

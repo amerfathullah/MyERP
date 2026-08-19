@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class ProjectTemplateService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateProjectTemplateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectTemplateDto>({
@@ -18,7 +18,7 @@ export class ProjectTemplateService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class ProjectTemplateService {
       url: `/api/app/project-template/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectTemplateDto>({
@@ -34,7 +34,7 @@ export class ProjectTemplateService {
       url: `/api/app/project-template/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<ProjectTemplateDto>>({
@@ -42,7 +42,7 @@ export class ProjectTemplateService {
       url: '/api/app/project-template',
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateProjectTemplateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectTemplateDto>({

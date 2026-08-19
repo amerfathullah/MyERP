@@ -57,6 +57,9 @@ public interface IContractAppService : IApplicationService
     Task<ContractDto> SignAsync(Guid id);
     Task<ContractDto> RenewAsync(Guid id, DateTime newEndDate);
     Task<ContractDto> CancelAsync(Guid id);
+    Task<ContractDto> AddFulfilmentItemAsync(Guid id, string requirement);
+    Task<ContractDto> SetFulfilmentItemStatusAsync(Guid id, Guid itemId, bool fulfilled, string? notes = null);
+    Task<ContractDto> RemoveFulfilmentItemAsync(Guid id, Guid itemId);
 }
 
 public interface IShipmentAppService : IApplicationService

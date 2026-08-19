@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class ShareTypeService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateShareTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareTypeDto>({
@@ -18,7 +18,7 @@ export class ShareTypeService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class ShareTypeService {
       url: `/api/app/share-type/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<ShareTypeDto>>({
@@ -34,7 +34,7 @@ export class ShareTypeService {
       url: '/api/app/share-type',
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateShareTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareTypeDto>({

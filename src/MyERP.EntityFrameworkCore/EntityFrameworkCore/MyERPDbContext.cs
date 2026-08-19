@@ -429,6 +429,7 @@ public class MyERPDbContext :
     public DbSet<Appointment> Appointments { get; set; }
     public DbSet<ContractTemplate> ContractTemplates { get; set; }
     public DbSet<ContractTemplateFulfilmentTerm> ContractTemplateFulfilmentTerms { get; set; }
+    public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
     public DbSet<QualityInspectionTemplate> QualityInspectionTemplates { get; set; }
@@ -4223,7 +4224,17 @@ public class MyERPDbContext :
             b.Property(x => x.CurrencyCode).HasMaxLength(10);
             b.Property(x => x.Notes).HasMaxLength(2000);
             b.Property(x => x.ContractTemplateId);
+            b.HasMany(x => x.FulfilmentChecklist).WithOne().HasForeignKey(x => x.ContractId).IsRequired();
+            b.Navigation(x => x.FulfilmentChecklist).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PartyType, x.PartyId, x.Status });
+        });
+
+        builder.Entity<ContractFulfilmentChecklistItem>(b =>
+        {
+            b.ToTable("CRM_ContractFulfilmentChecklistItems", MyERPConsts.DbSchema);
+            b.Property(x => x.Requirement).IsRequired().HasMaxLength(ContractFulfilmentChecklistConsts.MaxRequirementLength);
+            b.Property(x => x.Notes).HasMaxLength(ContractFulfilmentChecklistConsts.MaxNotesLength);
+            b.HasIndex(x => x.ContractId);
         });
 
         builder.Entity<Competitor>(b =>

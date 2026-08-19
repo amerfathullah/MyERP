@@ -1,34 +1,16 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { BarcodeType } from './barcode-type.enum';
 import type { QualityFeedbackDocumentType } from './quality-feedback-document-type.enum';
 import type { QualityReviewStatus } from './quality-review-status.enum';
 import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
-import type { BarcodeType } from './barcode-type.enum';
 import type { QualityActionType } from './quality-action-type.enum';
 import type { DeliveryTripStatus } from './delivery-trip-status.enum';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
-
-export interface BrandDto extends FullAuditedEntityDto<string> {
-  name: string;
-  description?: string | null;
-  defaultWarehouseId?: string | null;
-  defaultIncomeAccountId?: string | null;
-  defaultExpenseAccountId?: string | null;
-  isActive?: boolean;
-}
-
-export interface CreateUpdateBrandDto {
-  name: string;
-  description?: string | null;
-  defaultWarehouseId?: string | null;
-  defaultIncomeAccountId?: string | null;
-  defaultExpenseAccountId?: string | null;
-  isActive?: boolean;
-}
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -154,6 +136,15 @@ export interface BatchWiseBalanceRowDto {
   isDisabled?: boolean;
 }
 
+export interface BrandDto extends EntityDto<string> {
+  name?: string;
+  description?: string | null;
+  defaultWarehouseId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  isActive?: boolean;
+}
+
 export interface BulkPriceUpdateDto {
   priceListId?: string;
   percentageChange?: number;
@@ -189,6 +180,12 @@ export interface CreateItemAttributeDto {
   toRange?: number;
   increment?: number;
   values?: ItemAttributeValueDto[];
+}
+
+export interface CreateItemBarcodeDto {
+  barcode: string;
+  barcodeType?: BarcodeType;
+  isDefault?: boolean;
 }
 
 export interface CreateItemGroupDto {
@@ -351,6 +348,15 @@ export interface CreateUomDto {
   category?: string | null;
 }
 
+export interface CreateUpdateBrandDto {
+  name?: string;
+  description?: string | null;
+  defaultWarehouseId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  isActive?: boolean;
+}
+
 export interface CreateUpdateCustomsTariffNumberDto {
   companyId: string;
   tariffNumber: string;
@@ -399,12 +405,6 @@ export interface CreateUpdateItemAlternativeDto {
   itemId: string;
   alternativeItemId: string;
   twoWay?: boolean;
-}
-
-export interface CreateItemBarcodeDto {
-  barcode: string;
-  barcodeType?: BarcodeType;
-  isDefault?: boolean;
 }
 
 export interface CreateUpdateItemDto {
@@ -561,6 +561,10 @@ export interface CreateUpdateQualityProcedureStepDto {
   description?: string;
   sequence?: number;
   childProcedureId?: string | null;
+}
+
+export interface CreateUpdateUomCategoryDto {
+  name: string;
 }
 
 export interface CreateUpdateWarehouseDto {
@@ -821,6 +825,12 @@ export interface ItemAvailabilityDto {
   availableQty?: number;
 }
 
+export interface ItemBarcodeDto extends EntityDto<string> {
+  barcode?: string;
+  barcodeType?: BarcodeType;
+  isDefault?: boolean;
+}
+
 export interface ItemDetailsDto {
   itemId?: string;
   itemCode?: string;
@@ -851,12 +861,6 @@ export interface ItemDetailsDto {
   blanketOrderNumber?: string | null;
   blanketOrderRate?: number | null;
   blanketOrderRemainingQty?: number | null;
-}
-
-export interface ItemBarcodeDto extends EntityDto<string> {
-  barcode?: string;
-  barcodeType?: BarcodeType;
-  isDefault?: boolean;
 }
 
 export interface ItemDto extends FullAuditedEntityDto<string> {
@@ -1576,6 +1580,10 @@ export interface TransitTransferItemDto {
   valuationRate?: number | null;
 }
 
+export interface UomCategoryDto extends FullAuditedEntityDto<string> {
+  name?: string;
+}
+
 export interface UomDto extends EntityDto<string> {
   uomName?: string;
   mustBeWholeNumber?: boolean;
@@ -1640,12 +1648,4 @@ export interface UomConversionDto extends EntityDto<string> {
   toUom?: string;
   conversionFactor?: number;
   itemId?: string | null;
-}
-
-export interface UomCategoryDto extends FullAuditedEntityDto<string> {
-  name?: string;
-}
-
-export interface CreateUpdateUomCategoryDto {
-  name: string;
 }

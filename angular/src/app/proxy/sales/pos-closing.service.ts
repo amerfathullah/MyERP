@@ -45,19 +45,19 @@ export class PosClosingService {
     { apiName: this.apiName,...config });
   
 
-  getUnconsolidatedInvoices = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PosClosingInvoiceDto[]>({
-      method: 'GET',
-      url: `/api/app/pos-closing/unconsolidated-invoices/${posOpeningEntryId}`,
-    },
-    { apiName: this.apiName,...config });
-
-
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosClosingDto>>({
       method: 'GET',
       url: '/api/app/pos-closing',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getUnconsolidatedInvoices = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosClosingInvoiceDto[]>({
+      method: 'GET',
+      url: `/api/app/pos-closing/unconsolidated-invoices/${posOpeningEntryId}`,
     },
     { apiName: this.apiName,...config });
   

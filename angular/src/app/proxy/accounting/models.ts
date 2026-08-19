@@ -11,93 +11,6 @@ import type { PaymentOrderType } from './payment-order-type.enum';
 import type { UnreconcileVoucherType } from './unreconcile-voucher-type.enum';
 import type { ShareTransferType } from './share-transfer-type.enum';
 
-export interface ShareTypeDto extends EntityDto<string> {
-  title?: string;
-  description?: string | null;
-}
-
-export interface CreateUpdateShareTypeDto {
-  title?: string;
-  description?: string | null;
-}
-
-export interface ShareBalanceEntryDto {
-  shareTypeId?: string;
-  fromNo?: number;
-  toNo?: number;
-  noOfShares?: number;
-  rate?: number;
-  amount?: number;
-  isCompany?: boolean;
-  currentState?: string | null;
-}
-
-export interface ShareholderDto extends EntityDto<string> {
-  companyId?: string;
-  title?: string;
-  folioNo?: string | null;
-  isCompany?: boolean;
-  shareBalances?: ShareBalanceEntryDto[];
-}
-
-export interface CreateUpdateShareholderDto {
-  companyId?: string;
-  title?: string;
-  folioNo?: string | null;
-}
-
-export interface ShareTransferDto extends EntityDto<string> {
-  companyId?: string;
-  transferType?: ShareTransferType;
-  date?: string;
-  fromShareholderId?: string | null;
-  fromFolioNo?: string | null;
-  toShareholderId?: string | null;
-  toFolioNo?: string | null;
-  shareTypeId?: string;
-  fromNo?: number;
-  toNo?: number;
-  noOfShares?: number;
-  rate?: number;
-  amount?: number;
-  equityOrLiabilityAccountId?: string;
-  assetAccountId?: string | null;
-  remarks?: string | null;
-  status?: DocumentStatus;
-}
-
-export interface CreateUpdateShareTransferDto {
-  companyId?: string;
-  transferType?: ShareTransferType;
-  date?: string;
-  fromShareholderId?: string | null;
-  toShareholderId?: string | null;
-  shareTypeId?: string;
-  fromNo?: number;
-  toNo?: number;
-  rate?: number;
-  equityOrLiabilityAccountId?: string;
-  assetAccountId?: string | null;
-  remarks?: string | null;
-}
-
-export interface MonthlyDistributionPercentageDto {
-  month?: number;
-  percentageAllocation?: number;
-}
-
-export interface MonthlyDistributionDto extends EntityDto<string> {
-  distributionName?: string;
-  fiscalYearId?: string | null;
-  percentages?: MonthlyDistributionPercentageDto[];
-}
-
-export interface CreateUpdateMonthlyDistributionDto {
-  distributionName?: string;
-  fiscalYearId?: string | null;
-  percentages?: MonthlyDistributionPercentageDto[];
-}
-
 export interface AccountCategoryDto {
   id?: string;
   name?: string;
@@ -734,6 +647,14 @@ export interface CreateJournalEntryLineDto {
   description?: string | null;
 }
 
+export interface CreateJournalEntryTemplateLineDto {
+  accountId: string;
+  isDebit?: boolean;
+  defaultAmount?: number;
+  partyType?: string | null;
+  description?: string | null;
+}
+
 export interface CreateOpeningInvoicesDto {
   companyId: string;
   postingDate: string;
@@ -911,9 +832,49 @@ export interface CreateUpdateBankGuaranteeDto {
   clausesAndConditions?: string | null;
 }
 
+export interface CreateUpdateJournalEntryTemplateDto {
+  companyId: string;
+  templateName: string;
+  voucherType?: JournalEntryVoucherType;
+  isActive?: boolean;
+  lines?: CreateJournalEntryTemplateLineDto[];
+}
+
+export interface CreateUpdateMonthlyDistributionDto {
+  distributionName?: string;
+  fiscalYearId?: string | null;
+  percentages?: MonthlyDistributionPercentageDto[];
+}
+
 export interface CreateUpdatePaymentTermsTemplateDto {
   name?: string;
   terms?: CreatePaymentTermDto[];
+}
+
+export interface CreateUpdateShareTransferDto {
+  companyId?: string;
+  transferType?: ShareTransferType;
+  date?: string;
+  fromShareholderId?: string | null;
+  toShareholderId?: string | null;
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  rate?: number;
+  equityOrLiabilityAccountId?: string;
+  assetAccountId?: string | null;
+  remarks?: string | null;
+}
+
+export interface CreateUpdateShareTypeDto {
+  title?: string;
+  description?: string | null;
+}
+
+export interface CreateUpdateShareholderDto {
+  companyId?: string;
+  title?: string;
+  folioNo?: string | null;
 }
 
 export interface CurrencyExchangeDto extends EntityDto<string> {
@@ -1097,6 +1058,18 @@ export interface GetCostCenterListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
+export interface GetJournalEntryTemplateListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+}
+
+export interface GetLedgerHealthMonitorSettingsInput {
+  companyId?: string;
+}
+
+export interface GetLedgerHealthRecordsInput extends PagedAndSortedResultRequestDto {
+  companyId?: string;
+}
+
 export interface GetOutstandingForBatchDto {
   companyId?: string;
   partyType?: string;
@@ -1195,6 +1168,14 @@ export interface JournalEntryLineDto {
   description?: string | null;
 }
 
+export interface JournalEntryTemplateDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  templateName?: string;
+  voucherType?: JournalEntryVoucherType;
+  isActive?: boolean;
+  lines?: JournalEntryTemplateLineDto[];
+}
+
 export interface JournalEntryTemplateLineDto {
   id?: string;
   accountId?: string;
@@ -1206,56 +1187,16 @@ export interface JournalEntryTemplateLineDto {
   description?: string | null;
 }
 
-export interface JournalEntryTemplateDto extends FullAuditedEntityDto<string> {
-  companyId?: string;
-  templateName?: string;
-  voucherType?: JournalEntryVoucherType;
-  isActive?: boolean;
-  lines?: JournalEntryTemplateLineDto[];
-}
-
-export interface CreateJournalEntryTemplateLineDto {
-  accountId: string;
-  isDebit?: boolean;
-  defaultAmount?: number;
-  partyType?: string | null;
-  description?: string | null;
-}
-
-export interface CreateUpdateJournalEntryTemplateDto {
-  companyId: string;
-  templateName: string;
-  voucherType?: JournalEntryVoucherType;
-  isActive?: boolean;
-  lines: CreateJournalEntryTemplateLineDto[];
-}
-
-export interface GetJournalEntryTemplateListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
+export interface LedgerHealthCheckRunResultDto {
+  isHealthy?: boolean;
+  totalChecked?: number;
+  issues?: LedgerHealthRecordDto[];
 }
 
 export interface LedgerHealthMonitorSettingsDto {
   companyId?: string;
   isEnabled?: boolean;
   lookbackPeriodDays?: number;
-}
-
-export interface GetLedgerHealthMonitorSettingsInput {
-  companyId: string;
-}
-
-export interface UpdateLedgerHealthMonitorSettingsDto {
-  companyId: string;
-  isEnabled: boolean;
-  lookbackPeriodDays: number;
-}
-
-export interface RunLedgerHealthCheckDto {
-  companyId: string;
-}
-
-export interface GetLedgerHealthRecordsInput extends PagedAndSortedResultRequestDto {
-  companyId: string;
 }
 
 export interface LedgerHealthRecordDto extends EntityDto<string> {
@@ -1266,12 +1207,6 @@ export interface LedgerHealthRecordDto extends EntityDto<string> {
   voucherId?: string | null;
   difference?: number | null;
   checkedAt?: string;
-}
-
-export interface LedgerHealthCheckRunResultDto {
-  isHealthy?: boolean;
-  totalChecked?: number;
-  issues?: LedgerHealthRecordDto[];
 }
 
 export interface MakePaymentRecordsDto {
@@ -1339,6 +1274,17 @@ export interface MonthEndReadinessDto {
   passedCount?: number;
   totalChecks?: number;
   checks?: MonthEndCheckDto[];
+}
+
+export interface MonthlyDistributionDto extends EntityDto<string> {
+  distributionName?: string;
+  fiscalYearId?: string | null;
+  percentages?: MonthlyDistributionPercentageDto[];
+}
+
+export interface MonthlyDistributionPercentageDto {
+  month?: number;
+  percentageAllocation?: number;
 }
 
 export interface MonthlyProfitLossReportDto {
@@ -1693,6 +1639,10 @@ export interface RepostVoucherRefDto {
   voucherId?: string;
 }
 
+export interface RunLedgerHealthCheckDto {
+  companyId?: string;
+}
+
 export interface SendPaymentReminderInput {
   partyId?: string;
   partyName?: string;
@@ -1704,6 +1654,50 @@ export interface SendPaymentReminderInput {
 export interface SetClearanceDateDto {
   entries: BankClearanceDocRefDto[];
   clearanceDate?: string | null;
+}
+
+export interface ShareBalanceEntryDto {
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  noOfShares?: number;
+  rate?: number;
+  amount?: number;
+  isCompany?: boolean;
+  currentState?: string | null;
+}
+
+export interface ShareTransferDto extends EntityDto<string> {
+  companyId?: string;
+  transferType?: number;
+  date?: string;
+  fromShareholderId?: string | null;
+  fromFolioNo?: string | null;
+  toShareholderId?: string | null;
+  toFolioNo?: string | null;
+  shareTypeId?: string;
+  fromNo?: number;
+  toNo?: number;
+  noOfShares?: number;
+  rate?: number;
+  amount?: number;
+  equityOrLiabilityAccountId?: string;
+  assetAccountId?: string | null;
+  remarks?: string | null;
+  status?: number;
+}
+
+export interface ShareTypeDto extends EntityDto<string> {
+  title?: string;
+  description?: string | null;
+}
+
+export interface ShareholderDto extends EntityDto<string> {
+  companyId?: string;
+  title?: string;
+  folioNo?: string | null;
+  isCompany?: boolean;
+  shareBalances?: ShareBalanceEntryDto[];
 }
 
 export interface StatementEntryDto {
@@ -1823,6 +1817,12 @@ export interface UpdateAccountingDimensionDto {
   isMandatory?: boolean;
   hideDisabledValues?: boolean;
   companyId?: string | null;
+}
+
+export interface UpdateLedgerHealthMonitorSettingsDto {
+  companyId?: string;
+  isEnabled?: boolean;
+  lookbackPeriodDays?: number;
 }
 
 export interface ValidatePayableInvoicesDto {

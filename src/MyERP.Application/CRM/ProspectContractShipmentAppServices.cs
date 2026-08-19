@@ -181,15 +181,49 @@ public class ContractAppService : ApplicationService, IContractAppService
                 entity.ContractTerms = template.ContractTerms;
             if (!input.RequiresFulfilment)
                 entity.RequiresFulfilment = template.RequiresFulfilment;
+
+            foreach (var term in template.FulfilmentTerms)
+                entity.AddFulfilmentChecklistItem(
+                    new ContractFulfilmentChecklistItem(GuidGenerator.Create(), entity.Id, term.TermText));
         }
 
         entity.ContractValue = input.ContractValue;
         entity.CurrencyCode = input.CurrencyCode;
         entity.IsAutoRenewal = input.IsAutoRenewal;
         entity.RenewalReminderDays = input.RenewalReminderDays;
+        entity.FulfilmentDeadline = input.FulfilmentDeadline;
         entity.Notes = input.Notes;
+        entity.RecalculateFulfilmentStatus(DateTime.UtcNow);
 
         await _repository.InsertAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<ContractDto> AddFulfilmentItemAsync(Guid id, string requirement)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.AddFulfilmentChecklistItem(
+            new ContractFulfilmentChecklistItem(GuidGenerator.Create(), entity.Id, requirement));
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<ContractDto> SetFulfilmentItemStatusAsync(Guid id, Guid itemId, bool fulfilled, string? notes = null)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.SetFulfilmentItemStatus(itemId, fulfilled, notes);
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<ContractDto> RemoveFulfilmentItemAsync(Guid id, Guid itemId)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.RemoveFulfilmentChecklistItem(itemId);
+        await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }
 
@@ -228,7 +262,9 @@ public class ContractAppService : ApplicationService, IContractAppService
         entity.CurrencyCode = input.CurrencyCode;
         entity.RequiresFulfilment = input.RequiresFulfilment;
         entity.IsAutoRenewal = input.IsAutoRenewal;
+        entity.FulfilmentDeadline = input.FulfilmentDeadline;
         entity.Notes = input.Notes;
+        entity.RecalculateFulfilmentStatus(DateTime.UtcNow);
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }
@@ -253,6 +289,15 @@ public class ContractAppService : ApplicationService, IContractAppService
         Notes = e.Notes,
         ContractTemplateId = e.ContractTemplateId,
         ContractTerms = e.ContractTerms,
+        FulfilmentDeadline = e.FulfilmentDeadline,
+        FulfilmentStatus = e.FulfilmentStatus,
+        FulfilmentChecklist = e.FulfilmentChecklist.Select(i => new ContractFulfilmentChecklistItemDto
+        {
+            Id = i.Id,
+            Requirement = i.Requirement,
+            Fulfilled = i.Fulfilled,
+            Notes = i.Notes,
+        }).ToList(),
     };
 }
 

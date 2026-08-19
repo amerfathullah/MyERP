@@ -2,6 +2,7 @@ import type { ExpiredAppointmentAction } from './expired-appointment-action.enum
 import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AppointmentStatus } from './appointment-status.enum';
 import type { ContractStatus } from './contract-status.enum';
+import type { ContractFulfilmentStatus } from './contract-fulfilment-status.enum';
 import type { OpportunityType } from './opportunity-type.enum';
 import type { EmailCampaignFor } from './email-campaign-for.enum';
 import type { LeadSource } from './lead-source.enum';
@@ -87,6 +88,15 @@ export interface ContractDto extends EntityDto<string> {
   notes?: string | null;
   contractTemplateId?: string | null;
   contractTerms?: string | null;
+  fulfilmentDeadline?: string | null;
+  fulfilmentStatus?: ContractFulfilmentStatus;
+  fulfilmentChecklist?: ContractFulfilmentChecklistItemDto[];
+}
+
+export interface ContractFulfilmentChecklistItemDto extends EntityDto<string> {
+  requirement?: string;
+  fulfilled?: boolean;
+  notes?: string | null;
 }
 
 export interface ContractTemplateDto extends AuditedEntityDto<string> {
@@ -149,6 +159,7 @@ export interface CreateContractDto {
   requiresFulfilment?: boolean;
   isAutoRenewal?: boolean;
   renewalReminderDays?: number | null;
+  fulfilmentDeadline?: string | null;
   notes?: string | null;
 }
 
@@ -263,12 +274,17 @@ export interface CreateUpdateContractTemplateDto {
   fulfilmentTerms?: CreateFulfilmentTermDto[];
 }
 
+export interface CreateUpdateIndustryTypeDto {
+  name: string;
+}
+
 export interface CreateUpdateMarketSegmentDto {
   name: string;
 }
 
-export interface CreateUpdateIndustryTypeDto {
-  name: string;
+export interface CreateUpdateSalesStageDto {
+  stageName: string;
+  sortOrder?: number;
 }
 
 export interface CrmNoteDto extends EntityDto<string> {
@@ -313,6 +329,10 @@ export interface GetEmailCampaignListDto extends PagedAndSortedResultRequestDto 
   status?: EmailCampaignStatus | null;
 }
 
+export interface GetIndustryTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetLeadListDto extends PagedAndSortedResultRequestDto {
   status?: LeadStatus | null;
   source?: LeadSource | null;
@@ -324,20 +344,20 @@ export interface GetMarketSegmentListDto extends PagedAndSortedResultRequestDto 
   filter?: string | null;
 }
 
-export interface GetIndustryTypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface GetSalesStageListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
 export interface GetOpportunityListDto extends PagedAndSortedResultRequestDto {
   status?: OpportunityStatus | null;
   opportunityType?: OpportunityType | null;
   filter?: string | null;
   companyId?: string | null;
   leadId?: string | null;
+}
+
+export interface GetSalesStageListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
+export interface IndustryTypeDto extends AuditedEntityDto<string> {
+  name?: string;
 }
 
 export interface LeadDto extends AuditedEntityDto<string> {
@@ -367,20 +387,6 @@ export interface LeadDto extends AuditedEntityDto<string> {
 
 export interface MarketSegmentDto extends AuditedEntityDto<string> {
   name?: string;
-}
-
-export interface IndustryTypeDto extends AuditedEntityDto<string> {
-  name?: string;
-}
-
-export interface SalesStageDto extends AuditedEntityDto<string> {
-  stageName?: string;
-  sortOrder?: number;
-}
-
-export interface CreateUpdateSalesStageDto {
-  stageName: string;
-  sortOrder?: number;
 }
 
 export interface OpportunityDto extends AuditedEntityDto<string> {
@@ -474,6 +480,11 @@ export interface SalesPipelineDashboardDto {
   leadToOpportunityRate?: number;
   opportunityToQuotationRate?: number;
   quotationToOrderRate?: number;
+}
+
+export interface SalesStageDto extends AuditedEntityDto<string> {
+  stageName?: string;
+  sortOrder?: number;
 }
 
 export interface SaveAppointmentAvailabilityDto {

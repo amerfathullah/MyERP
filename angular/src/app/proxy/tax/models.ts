@@ -1,5 +1,5 @@
-import type { TaxDeductionBasis } from './tax-deduction-basis.enum';
 import type { TaxTemplateType } from './tax-template-type.enum';
+import type { TaxDeductionBasis } from './tax-deduction-basis.enum';
 import type { TaxType } from './tax-type.enum';
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
@@ -36,14 +36,6 @@ export interface CreateTaxChargesTemplateRowDto {
   costCenterId?: string | null;
 }
 
-export interface CreateUpdateTaxCategoryDto {
-  code: string;
-  name: string;
-  description?: string | null;
-  taxType: TaxType;
-  isActive?: boolean;
-}
-
 export interface CreateTaxWithholdingAccountDto {
   companyId: string;
   accountId: string;
@@ -67,6 +59,14 @@ export interface CreateTaxWithholdingRateDto {
   singleThreshold?: number | null;
   cumulativeThreshold?: number | null;
   group?: string | null;
+}
+
+export interface CreateUpdateTaxCategoryDto {
+  code: string;
+  name: string;
+  description?: string | null;
+  taxType: TaxType;
+  isActive?: boolean;
 }
 
 export interface CreateUpdateTaxRuleDto {
@@ -191,6 +191,28 @@ export interface TaxRuleDto extends EntityDto<string> {
   isActive?: boolean;
 }
 
+export interface TaxSummaryDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  totalSalesAmount?: number;
+  outputTax?: number;
+  creditNoteTaxAdjustment?: number;
+  netOutputTax?: number;
+  salesInvoiceCount?: number;
+  creditNoteCount?: number;
+  totalPurchaseAmount?: number;
+  inputTax?: number;
+  debitNoteTaxAdjustment?: number;
+  netInputTax?: number;
+  purchaseInvoiceCount?: number;
+  debitNoteCount?: number;
+  netTaxPayable?: number;
+  isRefundable?: boolean;
+  outputTaxBreakdown?: TaxRateBreakdownDto[];
+  inputTaxBreakdown?: TaxRateBreakdownDto[];
+}
+
 export interface TaxWithholdingAccountDto {
   id?: string;
   companyId?: string;
@@ -216,28 +238,6 @@ export interface TaxWithholdingRateDto {
   singleThreshold?: number | null;
   cumulativeThreshold?: number | null;
   group?: string | null;
-}
-
-export interface TaxSummaryDto {
-  companyId?: string;
-  fromDate?: string;
-  toDate?: string;
-  totalSalesAmount?: number;
-  outputTax?: number;
-  creditNoteTaxAdjustment?: number;
-  netOutputTax?: number;
-  salesInvoiceCount?: number;
-  creditNoteCount?: number;
-  totalPurchaseAmount?: number;
-  inputTax?: number;
-  debitNoteTaxAdjustment?: number;
-  netInputTax?: number;
-  purchaseInvoiceCount?: number;
-  debitNoteCount?: number;
-  netTaxPayable?: number;
-  isRefundable?: boolean;
-  outputTaxBreakdown?: TaxRateBreakdownDto[];
-  inputTaxBreakdown?: TaxRateBreakdownDto[];
 }
 
 export interface UpdateItemTaxTemplateDto {
