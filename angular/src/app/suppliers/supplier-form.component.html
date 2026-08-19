@@ -43,6 +43,24 @@
             <label class="form-label">{{ '::SSTRegistration' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="sstRegistrationNumber" />
           </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="idType">{{ '::IDType' | abpLocalization }}</label>
+            <input id="idType" type="text" class="form-control" formControlName="idType" />
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="idValue">{{ '::IDValue' | abpLocalization }}</label>
+            <div class="input-group">
+              <input id="idValue" type="text" class="form-control" formControlName="idValue" />
+              <button type="button" class="btn btn-outline-info" (click)="verifyTaxpayer()" [disabled]="searchingTaxpayer() || !form.get('idValue')?.value">
+                @if (searchingTaxpayer()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                } @else {
+                  <i class="fa fa-search me-1"></i>
+                }
+                {{ '::VerifyTaxpayer' | abpLocalization }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

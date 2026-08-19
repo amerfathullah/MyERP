@@ -10,6 +10,7 @@ import { PaymentReconciliationService } from '../proxy/accounting/payment-reconc
 import { HierarchyMasterDataService } from '../proxy/core/hierarchy-master-data.service';
 import { MasterDataService } from '../proxy/core/master-data.service';
 import { AccountService } from '../proxy/accounting/account.service';
+import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { HierarchyNodeDto, PaymentTermsLookupDto } from '../proxy/core/models';
 import type { AccountDto } from '../proxy/accounting/models';
@@ -35,6 +36,7 @@ export class CustomerFormComponent implements OnInit {
   private hierarchyService = inject(HierarchyMasterDataService);
   private masterDataService = inject(MasterDataService);
   private accountService = inject(AccountService);
+  private einvoiceService = inject(EInvoiceService);
   private service = inject(CustomerService);
   private toaster = inject(ToasterService);
 
@@ -45,6 +47,7 @@ export class CustomerFormComponent implements OnInit {
   territories = signal<HierarchyNodeDto[]>([]);
   paymentTerms = signal<PaymentTermsLookupDto[]>([]);
   accounts = signal<AccountDto[]>([]);
+  searchingTaxpayer = signal(false);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -126,6 +129,34 @@ export class CustomerFormComponent implements OnInit {
         this.router.navigate(['/customers']);
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Save failed'),
+    });
+  }
+
+  verifyTaxpayer(): void {
+    const idType = this.form.get('idType')?.value;
+    const idValue = this.form.get('idValue')?.value;
+    if (!idType || !idValue) {
+      this.toaster.warn('Please enter ID Type and ID Value first.');
+      return;
+    }
+    this.searchingTaxpayer.set(true);
+    this.einvoiceService.searchTaxpayer({ idType, idValue }).subscribe({
+      next: (res) => {
+        this.searchingTaxpayer.set(false);
+        if (res.isSuccess && res.tin) {
+          this.form.patchValue({ tin: res.tin });
+          if (res.name && !this.form.get('name')?.value) {
+            this.form.patchValue({ name: res.name });
+          }
+          this.toaster.success(`TIN verified: ${res.tin}${res.name ? ' (' + res.name + ')' : ''}`);
+        } else {
+          this.toaster.error(res.errorMessage || 'Taxpayer not found with given ID');
+        }
+      },
+      error: (err: any) => {
+        this.searchingTaxpayer.set(false);
+        this.toaster.error(err?.error?.error?.message ?? 'Taxpayer verification failed');
+      }
     });
   }
 

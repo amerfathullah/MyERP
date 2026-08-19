@@ -3907,6 +3907,7 @@
     "PaymentsOnly": "Payments Only",
     "PreventPurchaseOrders": "Prevent Purchase Orders",
     "PreventRfqs": "Prevent RFQs",
-    "NoLimit": "No Limit"
+    "NoLimit": "No Limit",
+    "VerifyTaxpayer": "Verify Taxpayer"
   }
 }

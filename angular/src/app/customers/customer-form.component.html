@@ -60,7 +60,17 @@
 
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label" for="idValue">{{ '::IDValue' | abpLocalization }}</label>
-            <input id="idValue" type="text" class="form-control" formControlName="idValue" />
+            <div class="input-group">
+              <input id="idValue" type="text" class="form-control" formControlName="idValue" />
+              <button type="button" class="btn btn-outline-info" (click)="verifyTaxpayer()" [disabled]="searchingTaxpayer() || !form.get('idValue')?.value">
+                @if (searchingTaxpayer()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                } @else {
+                  <i class="fa fa-search me-1"></i>
+                }
+                {{ '::VerifyTaxpayer' | abpLocalization }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
