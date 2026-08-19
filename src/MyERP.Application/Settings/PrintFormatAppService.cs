@@ -44,6 +44,14 @@ public class PrintFormatAppService : MyERPAppService, IPrintFormatAppService
     {
         var entity = new PrintFormat(GuidGenerator.Create(), Guid.Empty, input.Name, input.DocumentType, input.IsDefault, input.HtmlTemplate, input.FormatType, input.FormatData, CurrentTenant.Id);
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PrintFormat", entity.Id,
+            "Created", Guid.Empty,
+            entity.Name, "Draft", "Active", CurrentUser.Id,
+            $"Print format '{entity.Name}' created for {entity.DocumentType}", CurrentTenant.Id));
+
         return new PrintFormatMapper().Map(entity);
     }
 
@@ -58,6 +66,14 @@ public class PrintFormatAppService : MyERPAppService, IPrintFormatAppService
         entity.FormatData = input.FormatData;
         
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PrintFormat", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Name, "Active", "Active", CurrentUser.Id,
+            $"Print format '{entity.Name}' updated", CurrentTenant.Id));
+
         return new PrintFormatMapper().Map(entity);
     }
 
