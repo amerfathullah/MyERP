@@ -92,6 +92,11 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     [Authorize(MyERPPermissions.TaxTemplates.Create)]
     public async Task<TaxChargesTemplateDto> CreateAsync(CreateTaxChargesTemplateDto input)
     {
+        if (input.Rows == null || input.Rows.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var template = new TaxChargesTemplate(
             GuidGenerator.Create(), input.CompanyId, input.Name, input.TemplateType, CurrentTenant.Id)
         {
@@ -120,6 +125,14 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
             await ClearOtherDefaultsAsync(template);
 
         await _repository.InsertAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "TaxChargesTemplate", template.Id,
+            "Created", template.CompanyId,
+            template.Name, "Draft", "Active", CurrentUser.Id,
+            $"Tax charges template '{template.Name}' created", CurrentTenant.Id));
+
         return MapToDto(template);
     }
 
@@ -127,6 +140,11 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     [Authorize(MyERPPermissions.TaxTemplates.Edit)]
     public async Task<TaxChargesTemplateDto> UpdateAsync(Guid id, CreateTaxChargesTemplateDto input)
     {
+        if (input.Rows == null || input.Rows.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
         var template = await _repository.GetAsync(id, includeDetails: true);
 
         template.Name = input.Name;
@@ -153,6 +171,14 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
             await ClearOtherDefaultsAsync(template);
 
         await _repository.UpdateAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "TaxChargesTemplate", template.Id,
+            "Updated", template.CompanyId,
+            template.Name, "Active", "Active", CurrentUser.Id,
+            $"Tax charges template '{template.Name}' updated", CurrentTenant.Id));
+
         return MapToDto(template);
     }
 
@@ -171,6 +197,14 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
         template.IsEnabled = !template.IsEnabled;
         if (!template.IsEnabled) template.IsDefault = false; // Disabled cannot be default
         await _repository.UpdateAsync(template);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "TaxChargesTemplate", template.Id,
+            template.IsEnabled ? "Enabled" : "Disabled", template.CompanyId,
+            template.Name, template.IsEnabled ? "Disabled" : "Enabled", template.IsEnabled ? "Enabled" : "Disabled", CurrentUser.Id,
+            $"Tax charges template '{template.Name}' {(template.IsEnabled ? "enabled" : "disabled")}", CurrentTenant.Id));
+
         return MapToDto(template);
     }
 

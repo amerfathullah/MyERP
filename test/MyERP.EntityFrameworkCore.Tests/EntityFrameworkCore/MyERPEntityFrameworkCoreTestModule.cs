@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -60,7 +60,14 @@ public class MyERPEntityFrameworkCoreTestModule : AbpModule
 
     public override void OnApplicationShutdown(ApplicationShutdownContext context)
     {
-        _sqliteConnection?.Dispose();
+        try
+        {
+            _sqliteConnection?.Dispose();
+        }
+        catch
+        {
+            // Ignore disposal exceptions during test shutdown
+        }
     }
 
     private static SqliteConnection CreateDatabaseAndGetConnection()

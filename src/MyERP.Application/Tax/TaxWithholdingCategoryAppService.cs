@@ -37,6 +37,8 @@ public class TaxWithholdingCategoryAppService : ApplicationService, ITaxWithhold
     [Authorize(MyERPPermissions.TaxCategories.Create)]
     public async Task<TaxWithholdingCategoryDto> CreateAsync(CreateTaxWithholdingCategoryDto input)
     {
+        ValidateInput(input);
+
         var t = new TaxWithholdingCategory(GuidGenerator.Create(), input.CategoryName, CurrentTenant.Id)
         {
             TaxDeductionBasis = input.TaxDeductionBasis,
@@ -47,12 +49,22 @@ public class TaxWithholdingCategoryAppService : ApplicationService, ITaxWithhold
         };
         ApplyRatesAndAccounts(t, input);
         await _repository.InsertAsync(t);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "TaxWithholdingCategory", t.Id,
+            "Created", Guid.Empty,
+            t.CategoryName, "Draft", "Active", CurrentUser.Id,
+            $"Tax withholding category '{t.CategoryName}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<TaxWithholdingCategory, TaxWithholdingCategoryDto>(t);
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Edit)]
     public async Task<TaxWithholdingCategoryDto> UpdateAsync(Guid id, UpdateTaxWithholdingCategoryDto input)
     {
+        ValidateInput(input);
+
         var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
         t.Rename(input.CategoryName);
         t.TaxDeductionBasis = input.TaxDeductionBasis;
@@ -64,7 +76,32 @@ public class TaxWithholdingCategoryAppService : ApplicationService, ITaxWithhold
         t.ClearAccounts();
         ApplyRatesAndAccounts(t, input);
         await _repository.UpdateAsync(t);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "TaxWithholdingCategory", t.Id,
+            "Updated", Guid.Empty,
+            t.CategoryName, "Active", "Active", CurrentUser.Id,
+            $"Tax withholding category '{t.CategoryName}' updated", CurrentTenant.Id));
+
         return ObjectMapper.Map<TaxWithholdingCategory, TaxWithholdingCategoryDto>(t);
+    }
+
+    private static void ValidateInput(CreateTaxWithholdingCategoryDto input)
+    {
+        foreach (var r in input.Rates)
+        {
+            if (r.ToDate < r.FromDate)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+            }
+
+            if (r.Rate < 0 || r.SingleThreshold < 0 || r.CumulativeThreshold < 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "Rates");
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.TaxCategories.Delete)]
