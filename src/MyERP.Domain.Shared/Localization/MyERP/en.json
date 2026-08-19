@@ -3914,6 +3914,9 @@
     "MyERP:03005": "A party cannot represent the company it belongs to.",
     "SalesOrderRequired": "Sales Order Required",
     "DeliveryNoteRequired": "Delivery Note Required",
-    "MyERP:01011": "Valid Till date cannot be before Transaction Date."
+    "MyERP:01011": "Valid Till date cannot be before Transaction Date.",
+    "MyERP:05049": "Cannot set alternative item for {itemCode} because Allow Alternative Item is disabled.",
+    "MyERP:05050": "Is Stock Item property differs between item {itemCode} and alternative item {alternativeItemCode}.",
+    "MyERP:05051": "An alternative entry for this item already exists."
   }
 }

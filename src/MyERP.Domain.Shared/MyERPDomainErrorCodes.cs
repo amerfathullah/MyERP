@@ -434,4 +434,9 @@ public static class MyERPDomainErrorCodes
 
     // Maintain Same Rate (Buying/Selling Settings)
     public const string RateMismatchWithReferenceDoc = "MyERP:03035";
+
+    // Item Alternative
+    public const string ItemDoesNotAllowAlternatives = "MyERP:05049";
+    public const string AlternativeItemStockMismatch = "MyERP:05050";
+    public const string DuplicateItemAlternative = "MyERP:05051";
 }

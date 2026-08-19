@@ -38,9 +38,32 @@ public class ItemAlternativeAppService :
         DeletePolicyName = MyERPPermissions.ItemAlternatives.Delete;
     }
 
+    private async Task ValidateAlternativeItemAsync(Guid baseItemId, Guid altItemId)
+    {
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(new[] { baseItemId, altItemId });
+
+        var baseItem = await _itemRepository.GetAsync(baseItemId);
+        if (!baseItem.AllowAlternativeItem)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ItemDoesNotAllowAlternatives)
+                .WithData("itemCode", baseItem.ItemCode);
+        }
+
+        var altItem = await _itemRepository.GetAsync(altItemId);
+        if (baseItem.MaintainStock != altItem.MaintainStock)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AlternativeItemStockMismatch)
+                .WithData("itemCode", baseItem.ItemCode)
+                .WithData("alternativeItemCode", altItem.ItemCode);
+        }
+    }
+
     [Authorize(MyERPPermissions.ItemAlternatives.Create)]
     public override async Task<ItemAlternativeDto> CreateAsync(CreateUpdateItemAlternativeDto input)
     {
+        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId);
+
         var existing = await Repository.FindAsync(ia =>
             ia.CompanyId == input.CompanyId &&
             ia.ItemId == input.ItemId &&
@@ -48,8 +71,7 @@ public class ItemAlternativeAppService :
 
         if (existing != null)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("reason", "An alternative entry for this item already exists.");
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateItemAlternative);
         }
 
         var entity = new ItemAlternative(
@@ -66,6 +88,8 @@ public class ItemAlternativeAppService :
     [Authorize(MyERPPermissions.ItemAlternatives.Edit)]
     public override async Task<ItemAlternativeDto> UpdateAsync(Guid id, CreateUpdateItemAlternativeDto input)
     {
+        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId);
+
         var entity = await Repository.GetAsync(id);
 
         var existing = await Repository.FindAsync(ia =>
@@ -76,8 +100,7 @@ public class ItemAlternativeAppService :
 
         if (existing != null)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("reason", "An alternative entry for this item already exists.");
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateItemAlternative);
         }
 
         entity.SetItems(input.ItemId, input.AlternativeItemId);
