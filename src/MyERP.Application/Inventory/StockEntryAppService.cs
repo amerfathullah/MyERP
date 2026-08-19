@@ -9,11 +9,13 @@ using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
+using MyERP.Settings;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -25,19 +27,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly StockPostingService _stockPostingService;
     private readonly AccountingRuleEngine _ruleEngine;
+    private readonly ISettingProvider _settingProvider;
 
     public StockEntryAppService(
         IRepository<StockEntry, Guid> repository,
         IRepository<DocumentActivityLog, Guid> activityLogRepository,
         IDocumentNumberGenerator numberGenerator,
         StockPostingService stockPostingService,
-        AccountingRuleEngine ruleEngine)
+        AccountingRuleEngine ruleEngine,
+        ISettingProvider settingProvider)
     {
         _repository = repository;
         _activityLogRepository = activityLogRepository;
         _numberGenerator = numberGenerator;
         _stockPostingService = stockPostingService;
         _ruleEngine = ruleEngine;
+        _settingProvider = settingProvider;
     }
 
     public async Task<StockEntryDto> GetAsync(Guid id)
@@ -160,6 +165,23 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     public async Task<StockEntryDto> SubmitAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // Per DO-NOT: "Allow excess material transfer for manufacture beyond required_qty -
+        // already_transferred_qty" — applies to manually-authored SendToSubcontractor entries too,
+        // not just the auto-generated ones from CreateRmTransferStockEntryAsync (which self-caps).
+        if (entry.EntryType == StockEntryType.SendToSubcontractor && entry.SubcontractingOrderId.HasValue)
+        {
+            var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
+            var allowancePctString = await _settingProvider.GetOrNullAsync(MyERPSettings.Buying.OverTransferAllowance);
+            var allowancePct = decimal.TryParse(allowancePctString, out var pct) ? pct : 0m;
+
+            foreach (var line in entry.Items.GroupBy(i => i.ItemId))
+            {
+                await rmService.ValidateTransferQuantityAsync(
+                    entry.SubcontractingOrderId.Value, line.Key, line.Sum(i => i.Quantity), allowancePct);
+            }
+        }
+
         entry.Submit();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
@@ -205,6 +227,19 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
             wo.RecordMaterialTransfer(totalTransferredQty);
             await woRepo.UpdateAsync(wo, autoSave: true);
+        }
+
+        // Update Subcontracting Order's supplied-item TransferredQty for RM transfers.
+        // Without this, SubcontractingRmTransferService.CalculateRmRequirementsAsync would keep
+        // reporting the full required qty as pending forever, and ValidateTransferQuantityAsync's
+        // "already transferred" figure would never move.
+        if (entry.EntryType == StockEntryType.SendToSubcontractor && entry.SubcontractingOrderId.HasValue)
+        {
+            var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
+            var transferLines = entry.Items
+                .GroupBy(i => i.ItemId)
+                .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
+            await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines);
         }
 
         // Update Work Order produced qty for manufacture entries
@@ -258,6 +293,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         await postingOrchestrator.ValidatePostingPeriodAsync(entry.CompanyId, entry.PostingDate, "StockEntry");
 
         entry.Cancel();
+
+        // Reverse the Subcontracting Order's supplied-item TransferredQty (mirrors PostAsync).
+        if (entry.EntryType == StockEntryType.SendToSubcontractor && entry.SubcontractingOrderId.HasValue)
+        {
+            var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
+            var transferLines = entry.Items
+                .GroupBy(i => i.ItemId)
+                .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
+            await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines, reverse: true);
+        }
 
         // Reverse SLE entries + Bin balances
         await _stockPostingService.ReverseStockEntryAsync(entry);

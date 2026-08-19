@@ -29,6 +29,9 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// <summary>Linked Work Order ID (for material transfer/manufacture stock entries).</summary>
     public Guid? WorkOrderId { get; set; }
 
+    /// <summary>Linked Subcontracting Order ID (for SendToSubcontractor stock entries).</summary>
+    public Guid? SubcontractingOrderId { get; set; }
+
     /// <summary>Source Manufacture Stock Entry ID (for Disassemble purpose — links to the original production).</summary>
     public Guid? SourceStockEntryId { get; set; }
 

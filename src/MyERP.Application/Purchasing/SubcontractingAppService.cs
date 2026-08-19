@@ -146,7 +146,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var number = await _numberGenerator.GenerateAsync("SE", sco.CompanyId);
         var se = new StockEntry(GuidGenerator.Create(), sco.CompanyId,
             Inventory.StockEntryType.SendToSubcontractor, DateTime.UtcNow.Date, CurrentTenant.Id)
-        { EntryNumber = number };
+        { EntryNumber = number, SubcontractingOrderId = sco.Id };
 
         foreach (var rm in pendingItems)
         {
