@@ -473,6 +473,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue delivery trip status advancement and driver dispatch alerts
+                // Per ERPNext: delivery_trip.notify_customers
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.DeliveryTripNotificationJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -481,6 +490,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (48 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (49 jobs).", companies.Count);
     }
 }
