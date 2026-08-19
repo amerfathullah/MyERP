@@ -40,6 +40,12 @@ public class ShippingRuleAppService : ApplicationService, IShippingRuleAppServic
     [Authorize(MyERPPermissions.ShippingRules.Create)]
     public async Task<ShippingRuleDto> CreateAsync(CreateShippingRuleDto input)
     {
+        if (input.FixedAmount < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "FixedAmount");
+        }
+
         var rule = new ShippingRule(
             GuidGenerator.Create(),
             input.Label,
@@ -66,6 +72,14 @@ public class ShippingRuleAppService : ApplicationService, IShippingRuleAppServic
 
         rule.Validate();
         await _repository.InsertAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ShippingRule", rule.Id,
+            "Created", rule.CompanyId ?? Guid.Empty,
+            rule.Label, "Draft", "Active", CurrentUser.Id,
+            $"Shipping rule '{rule.Label}' created", CurrentTenant.Id));
+
         return ObjectMapper.Map<ShippingRule, ShippingRuleDto>(rule);
     }
 
@@ -75,6 +89,14 @@ public class ShippingRuleAppService : ApplicationService, IShippingRuleAppServic
         var rule = await _repository.GetAsync(id);
         rule.IsEnabled = isEnabled;
         await _repository.UpdateAsync(rule);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ShippingRule", rule.Id,
+            isEnabled ? "Enabled" : "Disabled", rule.CompanyId ?? Guid.Empty,
+            rule.Label, isEnabled ? "Disabled" : "Enabled", isEnabled ? "Enabled" : "Disabled", CurrentUser.Id,
+            $"Shipping rule '{rule.Label}' {(isEnabled ? "enabled" : "disabled")}", CurrentTenant.Id));
+
         return ObjectMapper.Map<ShippingRule, ShippingRuleDto>(rule);
     }
 

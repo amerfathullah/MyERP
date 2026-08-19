@@ -28,6 +28,24 @@ public class ProductBundleAppService : ApplicationService, IProductBundleAppServ
     [Authorize(MyERPPermissions.Items.Create)]
     public async Task<ProductBundleDto> CreateAsync(CreateProductBundleDto input)
     {
+        if (input.Items == null || input.Items.Length == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var allItemIds = input.Items.Select(i => i.ComponentItemId).Append(input.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(allItemIds);
+
+        foreach (var item in input.Items)
+        {
+            if (item.Qty <= 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "Qty");
+            }
+        }
+
         var bundle = new ProductBundle(GuidGenerator.Create(), input.ItemId, CurrentTenant.Id)
         { ItemName = input.ItemName, Description = input.Description };
         foreach (var item in input.Items)
@@ -42,6 +60,14 @@ public class ProductBundleAppService : ApplicationService, IProductBundleAppServ
         var bundle = await _repository.GetAsync(id);
         bundle.Deactivate();
         await _repository.UpdateAsync(bundle);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProductBundle", bundle.Id,
+            "Deactivated", Guid.Empty,
+            bundle.ItemName ?? bundle.Id.ToString()[..8], "Active", "Disabled", CurrentUser.Id,
+            $"Product bundle '{bundle.ItemName}' deactivated", CurrentTenant.Id));
+
         return ObjectMapper.Map<ProductBundle, ProductBundleDto>(bundle);
     }
 }

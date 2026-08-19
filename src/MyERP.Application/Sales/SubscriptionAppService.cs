@@ -61,6 +61,20 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<SubscriptionDto> CreateAsync(CreateSubscriptionDto input)
     {
+        if (input.EndDate.HasValue && input.EndDate.Value < input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Plans == null || input.Plans.Length == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var itemIds = input.Plans.Select(p => p.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
         var sub = new Subscription(GuidGenerator.Create(), input.CompanyId, input.PartyId,
             input.PartyType, input.StartDate, input.BillingInterval, CurrentTenant.Id)
         {
@@ -93,6 +107,14 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
         var sub = await _repository.GetAsync(id);
         sub.Cancel();
         await _repository.UpdateAsync(sub);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Subscription", sub.Id,
+            "Cancelled", sub.CompanyId,
+            sub.SubscriptionNumber ?? sub.Id.ToString()[..8], "Active", "Cancelled", CurrentUser.Id,
+            $"Subscription {sub.SubscriptionNumber} cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
