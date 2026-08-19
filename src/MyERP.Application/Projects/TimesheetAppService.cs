@@ -63,6 +63,27 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
     [Authorize(MyERPPermissions.Projects.Create)]
     public async Task<TimesheetDto> CreateAsync(CreateTimesheetDto input)
     {
+        if (input.EndDate < input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Details == null || input.Details.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        if (input.Details.Any(d => d.ToTime < d.FromTime))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Details.Any(d => d.Hours <= 0))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Hours");
+        }
+
         var ts = new Timesheet(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.StartDate, input.EndDate, CurrentTenant.Id)
         { EmployeeName = input.EmployeeName, Note = input.Note };
@@ -119,6 +140,14 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         var ts = await _repository.GetAsync(id, includeDetails: true);
         ts.Submit();
         await _repository.UpdateAsync(ts);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Timesheet", ts.Id,
+            "Submitted", ts.CompanyId,
+            ts.EmployeeName ?? ts.Id.ToString(), "Draft", "Submitted", CurrentUser.Id,
+            $"Timesheet for {ts.EmployeeName} ({ts.StartDate:yyyy-MM-dd} to {ts.EndDate:yyyy-MM-dd}) submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 
@@ -128,6 +157,14 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         var ts = await _repository.GetAsync(id, includeDetails: true);
         ts.Cancel();
         await _repository.UpdateAsync(ts);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Timesheet", ts.Id,
+            "Cancelled", ts.CompanyId,
+            ts.EmployeeName ?? ts.Id.ToString(), "Submitted", "Cancelled", CurrentUser.Id,
+            $"Timesheet for {ts.EmployeeName} ({ts.StartDate:yyyy-MM-dd} to {ts.EndDate:yyyy-MM-dd}) cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
     }
 

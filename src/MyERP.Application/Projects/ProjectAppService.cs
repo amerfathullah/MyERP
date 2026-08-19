@@ -63,6 +63,17 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Create)]
     public async Task<ProjectDto> CreateAsync(CreateProjectDto input)
     {
+        if (input.ExpectedStartDate.HasValue && input.ExpectedEndDate.HasValue && input.ExpectedEndDate.Value < input.ExpectedStartDate.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.EstimatedCost < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "EstimatedCost");
+        }
+
         var number = await _numberGenerator.GenerateAsync("Project", input.CompanyId);
         var project = new Project(GuidGenerator.Create(), input.CompanyId, number, input.ProjectName, CurrentTenant.Id)
         {
@@ -151,6 +162,14 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var project = await _projectRepository.GetAsync(id, includeDetails: true);
         project.Complete();
         await _projectRepository.UpdateAsync(project);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Project", project.Id,
+            "Completed", project.CompanyId,
+            project.ProjectNumber, "Open", "Completed", CurrentUser.Id,
+            $"Project {project.ProjectNumber} ({project.ProjectName}) completed", CurrentTenant.Id));
+
         return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
@@ -160,6 +179,14 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var project = await _projectRepository.GetAsync(id);
         project.Cancel();
         await _projectRepository.UpdateAsync(project);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Project", project.Id,
+            "Cancelled", project.CompanyId,
+            project.ProjectNumber, project.Status.ToString(), "Cancelled", CurrentUser.Id,
+            $"Project {project.ProjectNumber} ({project.ProjectName}) cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<Project, ProjectDto>(project);
     }
 
