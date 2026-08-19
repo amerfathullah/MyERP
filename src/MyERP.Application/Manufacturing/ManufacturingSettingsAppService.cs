@@ -70,6 +70,14 @@ public class ManufacturingSettingsAppService : ApplicationService, IManufacturin
         existing.EnforceMutualExclusions();
 
         await _repository.UpdateAsync(existing);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ManufacturingSettings", existing.Id,
+            "Saved", existing.CompanyId,
+            "ManufacturingSettings", "", "Saved", CurrentUser.Id,
+            $"Manufacturing settings updated for company {existing.CompanyId}", CurrentTenant.Id));
+
         return ObjectMapper.Map<ManufacturingSettings, ManufacturingSettingsDto>(existing);
     }
 }

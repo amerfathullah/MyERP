@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Permissions;
 using MyERP.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Repositories;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.Settings;
 
@@ -43,9 +45,16 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
     [Authorize(MyERPPermissions.Settings.Edit)]
     public async Task UpdateAsync(Dictionary<string, string> settings)
     {
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         foreach (var (key, value) in settings)
         {
+            var prevValue = await _settingProvider.GetOrNullAsync(key);
             await _settingManager.SetGlobalAsync(key, value);
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "Setting", Guid.Empty,
+                "Updated", Guid.Empty,
+                key, prevValue ?? "", value, CurrentUser.Id,
+                $"Setting {key} updated to '{value}'", CurrentTenant.Id));
         }
     }
 
@@ -59,7 +68,14 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
     [Authorize(MyERPPermissions.Settings.Edit)]
     public async Task SetAsync(string name, string value)
     {
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        var prevValue = await _settingProvider.GetOrNullAsync(name);
         await _settingManager.SetGlobalAsync(name, value);
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Setting", Guid.Empty,
+            "Updated", Guid.Empty,
+            name, prevValue ?? "", value, CurrentUser.Id,
+            $"Setting {name} updated to '{value}'", CurrentTenant.Id));
     }
 
     private static string[] GetKeysForGroup(string group) => group switch

@@ -50,11 +50,24 @@ public class AppointmentBookingSettingsAppService : ApplicationService, IAppoint
         existing.ClearAvailability();
         foreach (var window in input.AvailabilityOfSlots)
         {
+            if (window.ToTime < window.FromTime)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+            }
+
             existing.AddAvailability(new AppointmentAvailability(GuidGenerator.Create(), existing.Id,
                 window.DayOfWeek, window.FromTime, window.ToTime));
         }
 
         await _repository.UpdateAsync(existing);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "AppointmentBookingSettings", existing.Id,
+            "Saved", existing.CompanyId,
+            "AppointmentBookingSettings", "", "Saved", CurrentUser.Id,
+            $"Appointment booking settings updated for company {existing.CompanyId}", CurrentTenant.Id));
+
         return MapToDto(existing);
     }
 

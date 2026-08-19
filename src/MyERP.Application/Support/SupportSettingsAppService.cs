@@ -43,6 +43,14 @@ public class SupportSettingsAppService : ApplicationService, ISupportSettingsApp
         existing.CloseIssueAfterDays = input.CloseIssueAfterDays;
 
         await _repository.UpdateAsync(existing);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SupportSettings", existing.Id,
+            "Saved", existing.CompanyId,
+            "SupportSettings", "", "Saved", CurrentUser.Id,
+            $"Support settings updated for company {existing.CompanyId}", CurrentTenant.Id));
+
         return ObjectMapper.Map<SupportSettings, SupportSettingsDto>(existing);
     }
 }
