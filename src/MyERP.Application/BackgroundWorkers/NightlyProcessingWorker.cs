@@ -378,6 +378,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                     InactivityThresholdDays = 7,
                 });
+
+                // Enqueue expense claim reimbursed amount syncing
+                // Per ERPNext: expense_claim.update_status_for_expense_claim
+                await jobManager.EnqueueAsync(new HumanResources.BackgroundJobs.ExpenseClaimPaymentStatusJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -386,6 +395,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (37 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (38 jobs).", companies.Count);
     }
 }
