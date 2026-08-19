@@ -1112,6 +1112,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Leads',
       },
       {
+        path: '/crm/industry-types',
+        name: '::Menu:IndustryTypes',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-industry',
+        order: 11,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Leads',
+      },
+      {
         path: '/crm/sales-stages',
         name: '::Menu:SalesStages',
         parentName: '::Menu:CRM',

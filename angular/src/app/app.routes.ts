@@ -1348,6 +1348,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Leads.Edit' },
   },
   {
+    path: 'crm/industry-types',
+    loadComponent: () => import('./crm/industry-types/industry-type-list.component').then(c => c.IndustryTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/industry-types/new',
+    loadComponent: () => import('./crm/industry-types/industry-type-form.component').then(c => c.IndustryTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Create' },
+  },
+  {
+    path: 'crm/industry-types/:id',
+    loadComponent: () => import('./crm/industry-types/industry-type-form.component').then(c => c.IndustryTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads.Edit' },
+  },
+  {
     path: 'crm/sales-stages',
     loadComponent: () => import('./crm/sales-stages/sales-stage-list.component').then(c => c.SalesStageListComponent),
     canActivate: [authGuard, permissionGuard],

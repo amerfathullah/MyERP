@@ -144,6 +144,70 @@ public class MarketSegmentAppService : ApplicationService, IMarketSegmentAppServ
 }
 
 [Authorize(MyERPPermissions.Leads.Default)]
+public class IndustryTypeAppService : ApplicationService, IIndustryTypeAppService
+{
+    private readonly IRepository<IndustryType, Guid> _repository;
+
+    public IndustryTypeAppService(IRepository<IndustryType, Guid> repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<IndustryTypeDto> GetAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        return MapToDto(entity);
+    }
+
+    public async Task<PagedResultDto<IndustryTypeDto>> GetListAsync(GetIndustryTypeListDto input)
+    {
+        var query = await _repository.GetQueryableAsync();
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var f = input.Filter;
+            query = query.Where(i => i.Name.Contains(f));
+        }
+
+        var totalCount = query.Count();
+        var items = query.OrderBy(i => i.Name)
+            .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+
+        return new PagedResultDto<IndustryTypeDto>(totalCount, items.Select(MapToDto).ToList());
+    }
+
+    [Authorize(MyERPPermissions.Leads.Create)]
+    public async Task<IndustryTypeDto> CreateAsync(CreateUpdateIndustryTypeDto input)
+    {
+        var entity = new IndustryType(GuidGenerator.Create(), input.Name, CurrentTenant.Id);
+        await _repository.InsertAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<IndustryTypeDto> UpdateAsync(Guid id, CreateUpdateIndustryTypeDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Name = input.Name;
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        await _repository.DeleteAsync(id);
+    }
+
+    private static IndustryTypeDto MapToDto(IndustryType e) => new()
+    {
+        Id = e.Id,
+        Name = e.Name,
+        CreationTime = e.CreationTime,
+        LastModificationTime = e.LastModificationTime,
+    };
+}
+
+[Authorize(MyERPPermissions.Leads.Default)]
 public class SalesStageAppService : ApplicationService, ISalesStageAppService
 {
     private readonly IRepository<SalesStage, Guid> _repository;

@@ -267,6 +267,10 @@ export interface CreateUpdateMarketSegmentDto {
   name: string;
 }
 
+export interface CreateUpdateIndustryTypeDto {
+  name: string;
+}
+
 export interface CrmNoteDto extends EntityDto<string> {
   parentType?: string;
   parentId?: string;
@@ -320,6 +324,10 @@ export interface GetMarketSegmentListDto extends PagedAndSortedResultRequestDto 
   filter?: string | null;
 }
 
+export interface GetIndustryTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetSalesStageListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
@@ -358,6 +366,10 @@ export interface LeadDto extends AuditedEntityDto<string> {
 }
 
 export interface MarketSegmentDto extends AuditedEntityDto<string> {
+  name?: string;
+}
+
+export interface IndustryTypeDto extends AuditedEntityDto<string> {
   name?: string;
 }
 

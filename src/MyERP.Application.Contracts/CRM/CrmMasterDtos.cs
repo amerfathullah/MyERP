@@ -56,6 +56,30 @@ public interface IMarketSegmentAppService : IApplicationService
     Task DeleteAsync(Guid id);
 }
 
+public class IndustryTypeDto : AuditedEntityDto<Guid>
+{
+    public string Name { get; set; } = null!;
+}
+
+public class CreateUpdateIndustryTypeDto
+{
+    [Required][StringLength(IndustryTypeConsts.MaxNameLength)] public string Name { get; set; } = null!;
+}
+
+public class GetIndustryTypeListDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+}
+
+public interface IIndustryTypeAppService : IApplicationService
+{
+    Task<IndustryTypeDto> GetAsync(Guid id);
+    Task<PagedResultDto<IndustryTypeDto>> GetListAsync(GetIndustryTypeListDto input);
+    Task<IndustryTypeDto> CreateAsync(CreateUpdateIndustryTypeDto input);
+    Task<IndustryTypeDto> UpdateAsync(Guid id, CreateUpdateIndustryTypeDto input);
+    Task DeleteAsync(Guid id);
+}
+
 public class SalesStageDto : AuditedEntityDto<Guid>
 {
     public string StageName { get; set; } = null!;

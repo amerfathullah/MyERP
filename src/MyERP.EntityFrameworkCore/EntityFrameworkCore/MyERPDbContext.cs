@@ -418,6 +418,7 @@ public class MyERPDbContext :
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<Competitor> Competitors { get; set; }
     public DbSet<MarketSegment> MarketSegments { get; set; }
+    public DbSet<IndustryType> IndustryTypes { get; set; }
     public DbSet<SalesStage> SalesStages { get; set; }
     public DbSet<CrmNote> CrmNotes { get; set; }
     public DbSet<Campaign> Campaigns { get; set; }
@@ -4239,6 +4240,14 @@ public class MyERPDbContext :
             b.ToTable("CRM_MarketSegments", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.Name).IsRequired().HasMaxLength(MarketSegmentConsts.MaxNameLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<IndustryType>(b =>
+        {
+            b.ToTable("CRM_IndustryTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(IndustryTypeConsts.MaxNameLength);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
