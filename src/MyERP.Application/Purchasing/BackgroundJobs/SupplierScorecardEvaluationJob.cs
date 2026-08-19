@@ -7,96 +7,155 @@ using MyERP.Purchasing.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Emailing;
+using Volo.Abp.Identity;
 
 namespace MyERP.Purchasing.BackgroundJobs;
 
 /// <summary>
-/// Background job that periodically re-evaluates supplier delivery performance and recalculates supplier scorecard standings.
-/// Per ERPNext: supplier_scorecard.generate_scorecards (daily/weekly scheduler).
+/// Background job that recalculates periodic Supplier Scorecards based on delivery and quality metrics
+/// and updates standing enforcement rules.
+/// Per ERPNext: supplier_scorecard.evaluate_scorecards (daily/monthly scheduler).
 /// </summary>
 public class SupplierScorecardEvaluationJob : AsyncBackgroundJob<SupplierScorecardEvaluationJobArgs>, ITransientDependency
 {
     private readonly IRepository<SupplierScorecard, Guid> _scorecardRepository;
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
+    private readonly IRepository<PurchaseReceipt, Guid> _receiptRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<IdentityUser, Guid> _userRepository;
+    private readonly IEmailSender _emailSender;
     private readonly ILogger<SupplierScorecardEvaluationJob> _logger;
 
     public SupplierScorecardEvaluationJob(
         IRepository<SupplierScorecard, Guid> scorecardRepository,
         IRepository<PurchaseOrder, Guid> poRepository,
+        IRepository<PurchaseReceipt, Guid> receiptRepository,
         IRepository<Supplier, Guid> supplierRepository,
+        IRepository<IdentityUser, Guid> userRepository,
+        IEmailSender emailSender,
         ILogger<SupplierScorecardEvaluationJob> logger)
     {
         _scorecardRepository = scorecardRepository;
         _poRepository = poRepository;
+        _receiptRepository = receiptRepository;
         _supplierRepository = supplierRepository;
+        _userRepository = userRepository;
+        _emailSender = emailSender;
         _logger = logger;
     }
 
     public override async Task ExecuteAsync(SupplierScorecardEvaluationJobArgs args)
     {
         var asOfDate = args.AsOfDate ?? DateTime.UtcNow.Date;
-        var lookbackDate = asOfDate.AddMonths(-6);
+        var lookbackDate = asOfDate.AddDays(-90);
 
-        _logger.LogInformation("SupplierScorecardEvaluationJob: Evaluating supplier scorecards for company {CompanyId} as of {Date}",
-            args.CompanyId, asOfDate);
+        _logger.LogInformation("SupplierScorecardEvaluationJob: Evaluating scorecards for company {CompanyId} lookback from {Date}",
+            args.CompanyId, lookbackDate.ToString("yyyy-MM-dd"));
 
-        var scorecardsQuery = await _scorecardRepository.WithDetailsAsync(s => s.Standings, s => s.Criteria);
-        var activeScorecards = scorecardsQuery
+        var scorecardQuery = await _scorecardRepository.WithDetailsAsync(s => s.Standings, s => s.Criteria);
+        var scorecards = scorecardQuery
             .Where(s => s.CompanyId == args.CompanyId)
             .ToList();
 
-        if (!activeScorecards.Any())
+        if (!scorecards.Any())
             return;
 
         var poQuery = await _poRepository.GetQueryableAsync();
-        var recentOrders = poQuery
-            .Where(po => po.CompanyId == args.CompanyId &&
-                         po.OrderDate >= lookbackDate &&
-                         po.OrderDate <= asOfDate &&
-                         po.Status != DocumentStatus.Draft &&
-                         po.Status != DocumentStatus.Cancelled)
+        var pos = poQuery
+            .Where(p => p.CompanyId == args.CompanyId &&
+                        p.Status == DocumentStatus.Submitted &&
+                        p.OrderDate >= lookbackDate)
             .ToList();
 
-        var evaluatedCount = 0;
-        foreach (var scorecard in activeScorecards)
+        var receiptQuery = await _receiptRepository.GetQueryableAsync();
+        var receipts = receiptQuery
+            .Where(r => r.CompanyId == args.CompanyId &&
+                        r.Status == DocumentStatus.Submitted &&
+                        r.PostingDate >= lookbackDate)
+            .ToList();
+
+        var suppliersQuery = await _supplierRepository.GetQueryableAsync();
+        var suppliers = suppliersQuery
+            .Where(s => s.CompanyId == args.CompanyId)
+            .ToList();
+
+        var degradedScorecards = 0;
+        var alertItems = "";
+
+        foreach (var scorecard in scorecards)
         {
-            var supplierOrders = recentOrders.Where(po => po.SupplierId == scorecard.SupplierId).ToList();
-            if (!supplierOrders.Any())
-                continue;
+            var supplierPos = pos.Where(p => p.SupplierId == scorecard.SupplierId).ToList();
+            var supplierReceipts = receipts.Where(r => r.SupplierId == scorecard.SupplierId).ToList();
 
-            var withExpectedDate = supplierOrders.Where(po => po.ExpectedDeliveryDate.HasValue).ToList();
-            var onTimeCount = withExpectedDate.Count(po =>
-                po.PerReceived >= 100 &&
-                po.OrderDate <= po.ExpectedDeliveryDate!.Value);
-
-            // Base score calculated as on-time delivery percentage (or 100 if no historical data)
-            var newScore = withExpectedDate.Any()
-                ? Math.Round((decimal)onTimeCount / withExpectedDate.Count * 100m, 2)
-                : 100m;
-
-            var prevScore = scorecard.Score;
-            scorecard.UpdateScore(newScore);
-            await _scorecardRepository.UpdateAsync(scorecard);
-
-            // Sync supplier enforcement flags
-            var (preventPos, preventRfqs, _, _) = scorecard.GetEnforcementFlags();
-            var supplier = await _supplierRepository.FindAsync(scorecard.SupplierId);
-            if (supplier != null)
+            if (!supplierPos.Any() && !supplierReceipts.Any())
             {
-                supplier.PreventPurchaseOrders = preventPos;
-                supplier.PreventRfqs = preventRfqs;
-                await _supplierRepository.UpdateAsync(supplier);
+                scorecard.UpdateScore(100m); // Benefit of doubt
+                await _scorecardRepository.UpdateAsync(scorecard);
+                continue;
             }
 
-            if (scorecard.Score != prevScore)
+            // Metric 1: On-time delivery rate (0-100)
+            decimal deliveryScore = 100m;
+            if (supplierReceipts.Any())
             {
-                evaluatedCount++;
+                var onTimeReceipts = supplierReceipts.Count(r => r.PostingDate <= r.PostingDate.AddDays(2));
+                deliveryScore = Math.Round((decimal)onTimeReceipts / supplierReceipts.Count * 100m, 1);
+            }
+
+            // Metric 2: Order fulfillment rate (0-100)
+            decimal fulfillmentScore = 100m;
+            if (supplierPos.Any())
+            {
+                var completedPos = supplierPos.Count(p => p.Status == DocumentStatus.Submitted);
+                fulfillmentScore = Math.Round((decimal)completedPos / supplierPos.Count * 100m, 1);
+            }
+
+            // Combined overall score (weighted 50% delivery, 50% fulfillment)
+            var finalScore = Math.Round((deliveryScore * 0.5m) + (fulfillmentScore * 0.5m), 1);
+            var standing = scorecard.UpdateScore(finalScore);
+
+            if (standing != null && (standing.PreventPos || standing.WarnPos))
+            {
+                degradedScorecards++;
+                var supplierName = suppliers.FirstOrDefault(s => s.Id == scorecard.SupplierId)?.Name ?? scorecard.SupplierId.ToString();
+                alertItems += $"<li><strong>{supplierName}</strong> - Score: {finalScore}/100 ({standing.Name}) | Delivery: {deliveryScore}% | Action: {(standing.PreventPos ? "PO Blocked" : "PO Warning")}</li>";
+            }
+
+            await _scorecardRepository.UpdateAsync(scorecard);
+        }
+
+        if (degradedScorecards > 0)
+        {
+            var usersQuery = await _userRepository.GetQueryableAsync();
+            var procurementOfficers = usersQuery
+                .Where(u => u.Email != null && u.Email.Length > 0 && u.IsActive)
+                .Take(5)
+                .ToList();
+
+            var subject = $"[SUPPLIER ALERT] {degradedScorecards} Supplier Scorecards in Warning/Blocked Standing";
+            var body = $@"<h3>Supplier Performance Scorecard Degradation Alert</h3>
+<p>The following supplier(s) have received low performance scores during nightly evaluation:</p>
+<ul>
+{alertItems}
+</ul>
+<p><em>Review vendor performance records or update scorecard rules in MyERP.</em></p>";
+
+            foreach (var user in procurementOfficers)
+            {
+                try
+                {
+                    await _emailSender.SendAsync(user.Email, subject, body, isBodyHtml: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "SupplierScorecardEvaluationJob: Failed to send scorecard alert to {Email}", user.Email);
+                }
             }
         }
 
-        _logger.LogInformation("SupplierScorecardEvaluationJob: Evaluated {Count} supplier scorecards for company {CompanyId}",
-            evaluatedCount, args.CompanyId);
+        _logger.LogInformation("SupplierScorecardEvaluationJob: Evaluated {Total} supplier scorecards ({Degraded} warning/blocked) for company {CompanyId}",
+            scorecards.Count, degradedScorecards, args.CompanyId);
     }
 }
 
