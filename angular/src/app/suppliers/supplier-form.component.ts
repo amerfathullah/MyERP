@@ -7,7 +7,12 @@ import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
 import { CompanyService } from '../proxy/core/company.service';
 import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
+import { HierarchyMasterDataService } from '../proxy/core/hierarchy-master-data.service';
+import { MasterDataService } from '../proxy/core/master-data.service';
+import { AccountService } from '../proxy/accounting/account.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import type { HierarchyNodeDto, PaymentTermsLookupDto } from '../proxy/core/models';
+import type { AccountDto } from '../proxy/accounting/models';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../shared/directives/save-shortcut.directive';
@@ -28,16 +33,30 @@ export class SupplierFormComponent implements OnInit {
   private service = inject(SupplierService);
   private companyService = inject(CompanyService);
   private paymentReconciliationService = inject(PaymentReconciliationService);
+  private hierarchyService = inject(HierarchyMasterDataService);
+  private masterDataService = inject(MasterDataService);
+  private accountService = inject(AccountService);
   private toaster = inject(ToasterService);
 
   outstandingInvoices = signal<any[]>([]);
   totalOutstanding = signal(0);
   companies = signal<any[]>([]);
+  supplierGroups = signal<HierarchyNodeDto[]>([]);
+  paymentTerms = signal<PaymentTermsLookupDto[]>([]);
+  accounts = signal<AccountDto[]>([]);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
     name: ['', [Validators.required, Validators.maxLength(200)]],
     supplierCode: [''],
+    supplierGroupId: [null as string | null],
+    representsCompanyId: [null as string | null],
+    defaultPaymentTermsTemplateId: [null as string | null],
+    defaultPayableAccountId: [null as string | null],
+    holdType: [0],
+    preventPurchaseOrders: [false],
+    preventRfqs: [false],
+    taxWithholdingCategory: [''],
     tin: [''],
     registrationNumber: [''],
     sstRegistrationNumber: [''],
@@ -52,6 +71,7 @@ export class SupplierFormComponent implements OnInit {
     postalCode: [''],
     country: ['MYS'],
     isActive: [true],
+    restrictToCompanies: [false],
   });
 
   isEditMode = false;
@@ -63,6 +83,15 @@ export class SupplierFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe({ next: res => this.companies.set(res.items ?? []), error: () => {} });
+
+    this.hierarchyService.getSupplierGroups()
+      .subscribe({ next: groups => this.supplierGroups.set(groups ?? []), error: () => {} });
+
+    this.masterDataService.getPaymentTerms()
+      .subscribe({ next: terms => this.paymentTerms.set(terms ?? []), error: () => {} });
+
+    this.accountService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' })
+      .subscribe({ next: res => this.accounts.set(res.items ?? []), error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((supplier) => {

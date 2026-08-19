@@ -68,7 +68,82 @@
 
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>Contact & Address</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-sitemap me-2"></i>{{ '::Classification' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="customerGroupId">{{ '::CustomerGroup' | abpLocalization }}</label>
+            <select id="customerGroupId" class="form-select" formControlName="customerGroupId">
+              <option [ngValue]="null">— {{ '::SelectCustomerGroup' | abpLocalization }} —</option>
+              @for (g of customerGroups(); track g.id) {
+                <option [value]="g.id">{{ g.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="territoryId">{{ '::Territory' | abpLocalization }}</label>
+            <select id="territoryId" class="form-select" formControlName="territoryId">
+              <option [ngValue]="null">— {{ '::SelectTerritory' | abpLocalization }} —</option>
+              @for (t of territories(); track t.id) {
+                <option [value]="t.id">{{ t.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="representsCompanyId">{{ '::RepresentsCompany' | abpLocalization }}</label>
+            <select id="representsCompanyId" class="form-select" formControlName="representsCompanyId">
+              <option [ngValue]="null">— {{ '::None' | abpLocalization }} —</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+            <small class="text-muted">{{ '::InternalCustomerForInterCompanyInvoicing' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-credit-card me-2"></i>{{ '::AccountingAndCreditLimit' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="creditLimit">{{ '::CreditLimit' | abpLocalization }}</label>
+            <input id="creditLimit" type="number" min="0" step="0.01" class="form-control font-monospace" formControlName="creditLimit" />
+            <small class="text-muted">{{ '::ZeroMeansNoLimit' | abpLocalization }}</small>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="defaultPaymentTermsTemplateId">{{ '::DefaultPaymentTermsTemplate' | abpLocalization }}</label>
+            <select id="defaultPaymentTermsTemplateId" class="form-select" formControlName="defaultPaymentTermsTemplateId">
+              <option [ngValue]="null">— {{ '::SelectPaymentTerms' | abpLocalization }} —</option>
+              @for (pt of paymentTerms(); track pt.id) {
+                <option [value]="pt.id">{{ pt.templateName }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="defaultReceivableAccountId">{{ '::DefaultReceivableAccount' | abpLocalization }}</label>
+            <select id="defaultReceivableAccountId" class="form-select" formControlName="defaultReceivableAccountId">
+              <option [ngValue]="null">— {{ '::DefaultCompanyAccount' | abpLocalization }} —</option>
+              @for (acc of accounts(); track acc.id) {
+                <option [value]="acc.id">{{ acc.accountNumber }} - {{ acc.accountName }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>{{ '::ContactAndAddress' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">

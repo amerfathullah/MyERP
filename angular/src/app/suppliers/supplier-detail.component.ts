@@ -80,6 +80,12 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <th class="text-muted">{{ '::BRN' | abpLocalization }}</th>
                     <td class="font-monospace">{{ supplier.registrationNumber || '—' }}</td>
                   </tr>
+                  @if (supplier.holdType) {
+                    <tr>
+                      <th class="text-muted">{{ '::HoldStatus' | abpLocalization }}</th>
+                      <td><span class="badge bg-danger">{{ (supplier.holdType === 1 ? '::All' : (supplier.holdType === 2 ? '::InvoicesOnly' : '::PaymentsOnly')) | abpLocalization }}</span></td>
+                    </tr>
+                  }
                 </tbody>
               </table>
             </div>

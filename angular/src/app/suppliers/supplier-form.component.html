@@ -49,7 +49,104 @@
 
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>Contact & Address</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-sitemap me-2"></i>{{ '::Classification' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="supplierGroupId">{{ '::SupplierGroup' | abpLocalization }}</label>
+            <select id="supplierGroupId" class="form-select" formControlName="supplierGroupId">
+              <option [ngValue]="null">— {{ '::SelectSupplierGroup' | abpLocalization }} —</option>
+              @for (g of supplierGroups(); track g.id) {
+                <option [value]="g.id">{{ g.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="representsCompanyId">{{ '::RepresentsCompany' | abpLocalization }}</label>
+            <select id="representsCompanyId" class="form-select" formControlName="representsCompanyId">
+              <option [ngValue]="null">— {{ '::None' | abpLocalization }} —</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+            <small class="text-muted">{{ '::InternalSupplierForInterCompanyPurchasing' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-credit-card me-2"></i>{{ '::AccountingAndPaymentTerms' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="defaultPaymentTermsTemplateId">{{ '::DefaultPaymentTermsTemplate' | abpLocalization }}</label>
+            <select id="defaultPaymentTermsTemplateId" class="form-select" formControlName="defaultPaymentTermsTemplateId">
+              <option [ngValue]="null">— {{ '::SelectPaymentTerms' | abpLocalization }} —</option>
+              @for (pt of paymentTerms(); track pt.id) {
+                <option [value]="pt.id">{{ pt.templateName }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="defaultPayableAccountId">{{ '::DefaultPayableAccount' | abpLocalization }}</label>
+            <select id="defaultPayableAccountId" class="form-select" formControlName="defaultPayableAccountId">
+              <option [ngValue]="null">— {{ '::DefaultCompanyAccount' | abpLocalization }} —</option>
+              @for (acc of accounts(); track acc.id) {
+                <option [value]="acc.id">{{ acc.accountNumber }} - {{ acc.accountName }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="taxWithholdingCategory">{{ '::TaxWithholdingCategory' | abpLocalization }}</label>
+            <input id="taxWithholdingCategory" type="text" class="form-control" formControlName="taxWithholdingCategory" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-ban text-danger me-2"></i>{{ '::HoldAndBlockSettings' | abpLocalization }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label" for="holdType">{{ '::HoldType' | abpLocalization }}</label>
+            <select id="holdType" class="form-select" formControlName="holdType">
+              <option [ngValue]="0">{{ '::None' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::All' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::InvoicesOnly' | abpLocalization }}</option>
+              <option [ngValue]="3">{{ '::PaymentsOnly' | abpLocalization }}</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="preventPurchaseOrders" formControlName="preventPurchaseOrders" />
+              <label class="form-check-label" for="preventPurchaseOrders">{{ '::PreventPurchaseOrders' | abpLocalization }}</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="preventRfqs" formControlName="preventRfqs" />
+              <label class="form-check-label" for="preventRfqs">{{ '::PreventRfqs' | abpLocalization }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fa fa-address-book me-2"></i>{{ '::ContactAndAddress' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row">

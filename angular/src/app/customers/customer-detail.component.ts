@@ -74,6 +74,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <th class="text-muted">{{ '::BRN' | abpLocalization }}</th>
                     <td class="font-monospace">{{ customer.registrationNumber || '—' }}</td>
                   </tr>
+                  <tr>
+                    <th class="text-muted">{{ '::CreditLimit' | abpLocalization }}</th>
+                    <td class="font-monospace fw-semibold">{{ (customer.creditLimit ? (customer.creditLimit | number:'1.2-2') : ('::NoLimit' | abpLocalization)) }}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
