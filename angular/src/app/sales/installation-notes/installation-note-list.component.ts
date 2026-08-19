@@ -35,7 +35,11 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (n of notes; track n.id) {
                 <tr>
-                  <td>{{ n.installationNumber }}</td>
+                  <td>
+                    <a [routerLink]="['/sales/installation-notes', n.id]" class="fw-semibold text-decoration-none">
+                      {{ n.installationNumber }}
+                    </a>
+                  </td>
                   <td>{{ n.installationDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ customerNames()[n.customerId ?? ''] || n.customerId }}</td>
                   <td>{{ n.items?.length ?? 0 }}</td>
