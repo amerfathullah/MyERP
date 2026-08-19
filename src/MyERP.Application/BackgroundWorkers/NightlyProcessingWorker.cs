@@ -251,6 +251,24 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
                 });
+
+                // Enqueue serial maintenance status refresh
+                // Per ERPNext: serial_no.update_maintenance_status
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.SerialMaintenanceStatusJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue quality review status evaluation
+                // Per ERPNext: quality_review.review
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.QualityReviewJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
             }
             catch (Exception ex)
             {
@@ -259,6 +277,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
             }
         }
 
-        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (23 jobs).", companies.Count);
+        logger.LogInformation("NightlyProcessingWorker: Enqueued {Count} companies for nightly processing (25 jobs).", companies.Count);
     }
 }
