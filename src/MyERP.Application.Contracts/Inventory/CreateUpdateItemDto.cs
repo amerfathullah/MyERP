@@ -33,6 +33,22 @@ public class CreateItemCustomerDetailDto
     public string RefCode { get; set; } = null!;
 }
 
+public class CreateItemReorderDto
+{
+    [Required]
+    public Guid WarehouseId { get; set; }
+
+    public Guid? WarehouseGroupId { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal WarehouseReorderLevel { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal WarehouseReorderQty { get; set; }
+
+    public MyERP.Purchasing.MaterialRequestType MaterialRequestType { get; set; } = MyERP.Purchasing.MaterialRequestType.Purchase;
+}
+
 public class CreateUpdateItemDto
 {
     [Required]
@@ -126,4 +142,7 @@ public class CreateUpdateItemDto
 
     /// <summary>Customer-specific item codes for this item.</summary>
     public List<CreateItemCustomerDetailDto> CustomerDetails { get; set; } = new();
+
+    /// <summary>Per-warehouse reorder level/qty overrides.</summary>
+    public List<CreateItemReorderDto> Reorders { get; set; } = new();
 }

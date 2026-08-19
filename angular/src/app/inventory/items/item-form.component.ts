@@ -4,10 +4,12 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { barcodeTypeOptions } from '../../proxy/inventory/barcode-type.enum';
+import { materialRequestTypeOptions } from '../../proxy/purchasing/material-request-type.enum';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { ItemStore } from '../store/item.store';
@@ -32,6 +34,7 @@ export class ItemFormComponent implements OnInit {
   private stockBalanceService = inject(StockBalanceService);
   private supplierService = inject(SupplierService);
   private customerService = inject(CustomerService);
+  private warehouseService = inject(WarehouseService);
   private store = inject(ItemStore);
   private service = inject(ItemService);
 
@@ -39,6 +42,9 @@ export class ItemFormComponent implements OnInit {
   companies = signal<any[]>([]);
   suppliers = signal<any[]>([]);
   customers = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
+
+  materialRequestTypeOptions = materialRequestTypeOptions;
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -61,6 +67,7 @@ export class ItemFormComponent implements OnInit {
     barcodes: this.fb.array([]),
     suppliers: this.fb.array([]),
     customerDetails: this.fb.array([]),
+    reorders: this.fb.array([]),
   });
 
   isEditMode = false;
@@ -119,6 +126,27 @@ export class ItemFormComponent implements OnInit {
     this.customerDetailsArray.removeAt(index);
   }
 
+  get reordersArray(): FormArray {
+    return this.form.get('reorders') as FormArray;
+  }
+
+  addReorder(
+    warehouseId = '', warehouseGroupId = '',
+    warehouseReorderLevel = 0, warehouseReorderQty = 0, materialRequestType = 0,
+  ): void {
+    this.reordersArray.push(this.fb.group({
+      warehouseId: [warehouseId, Validators.required],
+      warehouseGroupId: [warehouseGroupId],
+      warehouseReorderLevel: [warehouseReorderLevel],
+      warehouseReorderQty: [warehouseReorderQty],
+      materialRequestType: [materialRequestType],
+    }));
+  }
+
+  removeReorder(index: number): void {
+    this.reordersArray.removeAt(index);
+  }
+
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
@@ -129,6 +157,8 @@ export class ItemFormComponent implements OnInit {
       res => this.suppliers.set(res.items ?? []));
     this.customerService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
       res => this.customers.set(res.items ?? []));
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
+      res => this.warehouses.set(res.items ?? []));
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((item) => {
@@ -141,6 +171,9 @@ export class ItemFormComponent implements OnInit {
         }
         for (const c of item.customerDetails ?? []) {
           this.addCustomerDetail(c.customerId, c.refCode);
+        }
+        for (const r of item.reorders ?? []) {
+          this.addReorder(r.warehouseId, r.warehouseGroupId ?? '', r.warehouseReorderLevel, r.warehouseReorderQty, r.materialRequestType);
         }
         // Load stock levels for this item
         this.stockBalanceService.getItemStock(this.entityId!)
@@ -155,6 +188,9 @@ export class ItemFormComponent implements OnInit {
       return;
     }
     const value = this.form.getRawValue() as any;
+    for (const r of value.reorders ?? []) {
+      r.warehouseGroupId = r.warehouseGroupId || null;
+    }
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({

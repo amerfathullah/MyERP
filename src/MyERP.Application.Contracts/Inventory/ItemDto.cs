@@ -23,6 +23,15 @@ public class ItemCustomerDetailDto : EntityDto<Guid>
     public string RefCode { get; set; } = null!;
 }
 
+public class ItemReorderDto : EntityDto<Guid>
+{
+    public Guid WarehouseId { get; set; }
+    public Guid? WarehouseGroupId { get; set; }
+    public decimal WarehouseReorderLevel { get; set; }
+    public decimal WarehouseReorderQty { get; set; }
+    public MyERP.Purchasing.MaterialRequestType MaterialRequestType { get; set; }
+}
+
 public class ItemDto : FullAuditedEntityDto<Guid>
 {
     public Guid CompanyId { get; set; }
@@ -58,4 +67,5 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public List<ItemBarcodeDto> Barcodes { get; set; } = new();
     public List<ItemSupplierDto> Suppliers { get; set; } = new();
     public List<ItemCustomerDetailDto> CustomerDetails { get; set; } = new();
+    public List<ItemReorderDto> Reorders { get; set; } = new();
 }

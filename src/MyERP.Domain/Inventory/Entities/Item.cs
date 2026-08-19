@@ -158,6 +158,14 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public ICollection<ItemCustomerDetail> CustomerDetails { get; private set; }
         = new List<ItemCustomerDetail>();
 
+    /// <summary>
+    /// Per-warehouse reorder level/qty overrides. When a warehouse has a row here, it replaces
+    /// the global ReorderLevel/ReorderQty/DefaultMaterialRequestType above for that warehouse.
+    /// Per ERPNext stock/doctype/item_reorder (child table).
+    /// </summary>
+    public ICollection<ItemReorder> Reorders { get; private set; }
+        = new List<ItemReorder>();
+
     protected Item() { }
 
     public Item(Guid id, Guid companyId, string itemCode, string itemName, ItemType itemType, Guid? tenantId = null)

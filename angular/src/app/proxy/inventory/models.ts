@@ -11,6 +11,7 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
+import type { MaterialRequestType } from '../purchasing/material-request-type.enum';
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -417,6 +418,14 @@ export interface CreateItemCustomerDetailDto {
   refCode: string;
 }
 
+export interface CreateItemReorderDto {
+  warehouseId: string;
+  warehouseGroupId?: string | null;
+  warehouseReorderLevel?: number;
+  warehouseReorderQty?: number;
+  materialRequestType?: MaterialRequestType;
+}
+
 export interface CreateUpdateItemDto {
   companyId: string;
   itemCode: string;
@@ -449,6 +458,7 @@ export interface CreateUpdateItemDto {
   barcodes?: CreateItemBarcodeDto[];
   suppliers?: CreateItemSupplierDto[];
   customerDetails?: CreateItemCustomerDetailDto[];
+  reorders?: CreateItemReorderDto[];
 }
 
 export interface CreateUpdateItemManufacturerDto {
@@ -853,6 +863,14 @@ export interface ItemCustomerDetailDto extends EntityDto<string> {
   refCode?: string;
 }
 
+export interface ItemReorderDto extends EntityDto<string> {
+  warehouseId?: string;
+  warehouseGroupId?: string | null;
+  warehouseReorderLevel?: number;
+  warehouseReorderQty?: number;
+  materialRequestType?: MaterialRequestType;
+}
+
 export interface ItemDetailsDto {
   itemId?: string;
   itemCode?: string;
@@ -919,6 +937,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   barcodes?: ItemBarcodeDto[];
   suppliers?: ItemSupplierDto[];
   customerDetails?: ItemCustomerDetailDto[];
+  reorders?: ItemReorderDto[];
 }
 
 export interface ItemGroupDto extends EntityDto<string> {

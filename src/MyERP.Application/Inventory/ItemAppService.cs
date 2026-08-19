@@ -262,6 +262,14 @@ public class ItemAppService :
         {
             entity.CustomerDetails.Add(new ItemCustomerDetail(GuidGenerator.Create(), entity.Id, c.CustomerId, c.RefCode));
         }
+
+        entity.Reorders.Clear();
+        foreach (var r in input.Reorders)
+        {
+            entity.Reorders.Add(new ItemReorder(
+                GuidGenerator.Create(), entity.Id, r.WarehouseId,
+                r.WarehouseReorderLevel, r.WarehouseReorderQty, r.MaterialRequestType, r.WarehouseGroupId));
+        }
     }
 
     /// <summary>
@@ -280,6 +288,17 @@ public class ItemAppService :
             .ToList();
         dto.CustomerDetails = item.CustomerDetails
             .Select(c => new ItemCustomerDetailDto { Id = c.Id, CustomerId = c.CustomerId, RefCode = c.RefCode })
+            .ToList();
+        dto.Reorders = item.Reorders
+            .Select(r => new ItemReorderDto
+            {
+                Id = r.Id,
+                WarehouseId = r.WarehouseId,
+                WarehouseGroupId = r.WarehouseGroupId,
+                WarehouseReorderLevel = r.WarehouseReorderLevel,
+                WarehouseReorderQty = r.WarehouseReorderQty,
+                MaterialRequestType = r.MaterialRequestType,
+            })
             .ToList();
         return dto;
     }

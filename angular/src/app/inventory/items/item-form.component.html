@@ -215,6 +215,53 @@
           </div>
         </div>
 
+        <!-- Per-Warehouse Reorder Overrides -->
+        <div class="card border mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0"><i class="fa fa-warehouse me-2"></i>{{ '::WarehouseReorders' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addReorder()">
+              <i class="fa fa-plus me-1"></i>{{ '::AddWarehouseReorder' | abpLocalization }}
+            </button>
+          </div>
+          <div class="card-body" formArrayName="reorders">
+            @if (reordersArray.length === 0) {
+              <p class="text-muted small mb-0">{{ '::NoWarehouseReordersYet' | abpLocalization }}</p>
+            }
+            @for (row of reordersArray.controls; track $index) {
+              <div class="row align-items-center mb-2" [formGroupName]="$index">
+                <div class="col-3">
+                  <select class="form-select form-select-sm" formControlName="warehouseId">
+                    <option value="" disabled>{{ '::SelectWarehouse' | abpLocalization }}</option>
+                    @for (w of warehouses(); track w.id) { <option [ngValue]="w.id">{{ w.name }}</option> }
+                  </select>
+                </div>
+                <div class="col-3">
+                  <select class="form-select form-select-sm" formControlName="warehouseGroupId">
+                    <option value="">{{ '::CheckAvailabilityInWarehouse' | abpLocalization }}</option>
+                    @for (w of warehouses(); track w.id) { <option [ngValue]="w.id">{{ w.name }}</option> }
+                  </select>
+                </div>
+                <div class="col-2">
+                  <input type="number" class="form-control form-control-sm" formControlName="warehouseReorderLevel" [placeholder]="'::ReorderLevel' | abpLocalization" />
+                </div>
+                <div class="col-2">
+                  <input type="number" class="form-control form-control-sm" formControlName="warehouseReorderQty" [placeholder]="'::ReorderQty' | abpLocalization" />
+                </div>
+                <div class="col-1">
+                  <select class="form-select form-select-sm" formControlName="materialRequestType">
+                    @for (o of materialRequestTypeOptions; track o.value) { <option [ngValue]="o.value">{{ o.key }}</option> }
+                  </select>
+                </div>
+                <div class="col-1">
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeReorder($index)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
         <!-- Quality Inspection Settings -->
         <div class="card border mb-3">
           <div class="card-header py-2">

@@ -220,6 +220,7 @@ public class MyERPDbContext :
     public DbSet<ItemBarcode> ItemBarcodes { get; set; }
     public DbSet<ItemSupplier> ItemSuppliers { get; set; }
     public DbSet<ItemCustomerDetail> ItemCustomerDetails { get; set; }
+    public DbSet<ItemReorder> ItemReorders { get; set; }
     public DbSet<SerialNo> SerialNos { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<QualityInspectionReading> QualityInspectionReadings { get; set; }
@@ -781,6 +782,12 @@ public class MyERPDbContext :
             b.Property(x => x.StandardBuyingPrice).HasColumnType("decimal(18,4)");
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ItemCode }).IsUnique();
+            // AutoInclude required — without it, GetAsync/GetListAsync silently return these
+            // child collections empty even when rows exist (see AutoIncludeTests.cs).
+            b.Navigation(x => x.Barcodes).AutoInclude();
+            b.Navigation(x => x.Suppliers).AutoInclude();
+            b.Navigation(x => x.CustomerDetails).AutoInclude();
+            b.Navigation(x => x.Reorders).AutoInclude();
         });
 
         builder.Entity<Warehouse>(b =>
@@ -2047,6 +2054,18 @@ public class MyERPDbContext :
             b.HasOne<Item>().WithMany(x => x.CustomerDetails).HasForeignKey(x => x.ItemId).IsRequired();
             b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
             b.HasIndex(x => new { x.ItemId, x.CustomerId }).IsUnique();
+        });
+
+        builder.Entity<ItemReorder>(b =>
+        {
+            b.ToTable("Inv_ItemReorders", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.WarehouseReorderLevel).HasColumnType("decimal(18,4)");
+            b.Property(x => x.WarehouseReorderQty).HasColumnType("decimal(18,4)");
+            b.HasOne<Item>().WithMany(x => x.Reorders).HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseGroupId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.ItemId, x.WarehouseId }).IsUnique();
         });
 
         builder.Entity<SerialNo>(b =>

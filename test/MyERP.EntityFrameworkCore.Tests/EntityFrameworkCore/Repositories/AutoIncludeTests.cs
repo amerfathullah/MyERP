@@ -5,7 +5,9 @@ using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Shared;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -27,6 +29,8 @@ public class AutoIncludeTests : MyERPEntityFrameworkCoreTestBase
     private readonly IRepository<Customer, Guid> _customerRepo;
     private readonly IRepository<Supplier, Guid> _supplierRepo;
     private readonly IRepository<Account, Guid> _accountRepo;
+    private readonly IRepository<Item, Guid> _itemRepo;
+    private readonly IRepository<Warehouse, Guid> _warehouseRepo;
 
     public AutoIncludeTests()
     {
@@ -37,6 +41,8 @@ public class AutoIncludeTests : MyERPEntityFrameworkCoreTestBase
         _customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
         _supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
         _accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+        _itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+        _warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
     }
 
     [Fact]
@@ -134,6 +140,38 @@ public class AutoIncludeTests : MyERPEntityFrameworkCoreTestBase
             list.ShouldNotBeNull();
             // AutoInclude ensures Items are loaded even in GetListAsync
             list.All(s => s.Items != null && s.Items.Count > 0).ShouldBeTrue();
+        });
+    }
+
+    [Fact]
+    public async Task Item_GetAsync_Should_Include_Suppliers_CustomerDetails_And_Reorders()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = new Company(Guid.NewGuid(), "Test");
+            await _companyRepo.InsertAsync(company, autoSave: true);
+            var supplier = new Supplier(Guid.NewGuid(), company.Id, "Vendor");
+            await _supplierRepo.InsertAsync(supplier, autoSave: true);
+            var customer = new Customer(Guid.NewGuid(), company.Id, "Cust");
+            await _customerRepo.InsertAsync(customer, autoSave: true);
+            var warehouse = new Warehouse(Guid.NewGuid(), company.Id, "Main Store");
+            await _warehouseRepo.InsertAsync(warehouse, autoSave: true);
+
+            var item = new Item(Guid.NewGuid(), company.Id, "ITEM-AI-01", "AutoInclude Item", Inventory.ItemType.Goods);
+            item.Suppliers.Add(new ItemSupplier(Guid.NewGuid(), item.Id, supplier.Id, "SUP-PN-1"));
+            item.CustomerDetails.Add(new ItemCustomerDetail(Guid.NewGuid(), item.Id, customer.Id, "CUST-REF-1"));
+            item.Reorders.Add(new ItemReorder(
+                Guid.NewGuid(), item.Id, warehouse.Id, 10, 50, MaterialRequestType.Purchase));
+            await _itemRepo.InsertAsync(item, autoSave: true);
+
+            var loaded = await _itemRepo.GetAsync(item.Id);
+            loaded.Suppliers.ShouldNotBeNull();
+            loaded.Suppliers.Count.ShouldBe(1);
+            loaded.CustomerDetails.ShouldNotBeNull();
+            loaded.CustomerDetails.Count.ShouldBe(1);
+            loaded.Reorders.ShouldNotBeNull();
+            loaded.Reorders.Count.ShouldBe(1);
+            loaded.Reorders.First().WarehouseReorderLevel.ShouldBe(10);
         });
     }
 }
