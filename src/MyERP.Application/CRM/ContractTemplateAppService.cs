@@ -57,6 +57,15 @@ public class ContractTemplateAppService : ApplicationService, IContractTemplateA
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ContractTemplate", entity.Id,
+            "Created", Guid.Empty,
+            entity.Title, "Draft", "Active",
+            CurrentUser.Id,
+            $"Contract template '{entity.Title}' created with {entity.FulfilmentTerms.Count} fulfilment terms", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -68,6 +77,15 @@ public class ContractTemplateAppService : ApplicationService, IContractTemplateA
         entity.ContractTerms = input.ContractTerms;
         entity.RequiresFulfilment = input.RequiresFulfilment;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ContractTemplate", entity.Id,
+            "Updated", Guid.Empty,
+            entity.Title, "Active", "Active",
+            CurrentUser.Id,
+            $"Contract template '{entity.Title}' updated", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

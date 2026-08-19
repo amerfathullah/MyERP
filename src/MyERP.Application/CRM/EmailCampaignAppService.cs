@@ -62,6 +62,15 @@ public class EmailCampaignAppService : ApplicationService, IEmailCampaignAppServ
         };
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "EmailCampaign", entity.Id,
+            "Created", Guid.Empty,
+            entity.EmailCampaignFor.ToString(), "Draft", "Active",
+            CurrentUser.Id,
+            $"Email campaign created for {entity.EmailCampaignFor} (Recipient: {entity.RecipientId})", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -71,6 +80,15 @@ public class EmailCampaignAppService : ApplicationService, IEmailCampaignAppServ
         var entity = await _repository.GetAsync(id);
         entity.Unsubscribe();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "EmailCampaign", entity.Id,
+            "Unsubscribed", Guid.Empty,
+            entity.EmailCampaignFor.ToString(), "Active", "Unsubscribed",
+            CurrentUser.Id,
+            $"Recipient {entity.RecipientId} unsubscribed from email campaign", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

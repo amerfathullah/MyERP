@@ -128,6 +128,15 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Appointment", entity.Id,
+            "Created", entity.CompanyId,
+            entity.CustomerName, "Draft", entity.Status.ToString(),
+            CurrentUser.Id,
+            $"Appointment scheduled for '{entity.CustomerName}' at {entity.ScheduledTime:g}", CurrentTenant.Id));
+
         var dto = MapToDto(entity);
         dto.VerificationToken = rawToken;
         return dto;
@@ -139,6 +148,15 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
         var entity = await _repository.GetAsync(id);
         entity.Verify(Hash(input.Token), DateTime.UtcNow);
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Appointment", entity.Id,
+            "Verified", entity.CompanyId,
+            entity.CustomerName, "Unverified", entity.Status.ToString(),
+            CurrentUser.Id,
+            $"Appointment for '{entity.CustomerName}' verified", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -148,6 +166,15 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
         var entity = await _repository.GetAsync(id);
         entity.Close();
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Appointment", entity.Id,
+            "Closed", entity.CompanyId,
+            entity.CustomerName, "Active", "Closed",
+            CurrentUser.Id,
+            $"Appointment for '{entity.CustomerName}' closed", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 

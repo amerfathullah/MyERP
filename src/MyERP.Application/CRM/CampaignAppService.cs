@@ -56,6 +56,15 @@ public class CampaignAppService : ApplicationService, ICampaignAppService
         }
 
         await _repository.InsertAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Campaign", entity.Id,
+            "Created", Guid.Empty,
+            entity.CampaignName, "Draft", "Active",
+            CurrentUser.Id,
+            $"Campaign '{entity.CampaignName}' created with {entity.EmailSchedules.Count} email schedules", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
@@ -66,6 +75,15 @@ public class CampaignAppService : ApplicationService, ICampaignAppService
         entity.CampaignName = input.CampaignName;
         entity.Description = input.Description;
         await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Campaign", entity.Id,
+            "Updated", Guid.Empty,
+            entity.CampaignName, "Active", "Active",
+            CurrentUser.Id,
+            $"Campaign '{entity.CampaignName}' updated", CurrentTenant.Id));
+
         return MapToDto(entity);
     }
 
