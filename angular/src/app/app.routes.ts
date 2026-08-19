@@ -1198,6 +1198,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
+  {
+    path: 'tax/rules',
+    loadComponent: () => import('./tax/tax-rules/tax-rule-list.component').then(c => c.TaxRuleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
   // CRM
   {
     path: 'crm/leads',
@@ -2105,6 +2111,12 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./sales/coupon-codes/coupon-code-list.component').then(c => c.CouponCodeListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/party-specific-items',
+    loadComponent: () => import('./sales/party-specific-items/party-specific-item-list.component').then(c => c.PartySpecificItemListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PartySpecificItems' },
   },
   {
     path: 'sales/packing-slips',

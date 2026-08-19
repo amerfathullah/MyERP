@@ -556,6 +556,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class PartySpecificItems
+    {
+        public const string Default = GroupName + ".PartySpecificItems";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class DeliveryTrips
     {
         public const string Default = GroupName + ".DeliveryTrips";

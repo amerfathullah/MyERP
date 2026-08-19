@@ -10,6 +10,8 @@ import type { ProformaInvoiceStatus } from './proforma-invoice-status.enum';
 import type { AnalyticsGroupBy } from './analytics-group-by.enum';
 import type { AnalyticsPeriodType } from './analytics-period-type.enum';
 import type { TrackingBoardStage } from './tracking-board-stage.enum';
+import type { PartySpecificItemPartyType } from './party-specific-item-party-type.enum';
+import type { PartySpecificItemRestrictBasedOn } from './party-specific-item-restrict-based-on.enum';
 
 export interface ApplyPricingRuleDto {
   itemId?: string | null;
@@ -1588,4 +1590,25 @@ export interface OrderReceiptDto {
   postingDate?: string;
   status?: string;
   itemCount?: number;
+}
+
+export interface PartySpecificItemDto extends EntityDto<string> {
+  partyType?: PartySpecificItemPartyType;
+  partyId?: string;
+  partyName?: string | null;
+  restrictBasedOn?: PartySpecificItemRestrictBasedOn;
+  basedOnValueId?: string;
+  basedOnValueName?: string | null;
+}
+
+export interface CreateUpdatePartySpecificItemDto {
+  partyType: PartySpecificItemPartyType;
+  partyId: string;
+  restrictBasedOn: PartySpecificItemRestrictBasedOn;
+  basedOnValueId: string;
+}
+
+export interface GetPartySpecificItemListDto extends PagedAndSortedResultRequestDto {
+  partyType?: PartySpecificItemPartyType;
+  partyId?: string;
 }

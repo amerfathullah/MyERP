@@ -375,6 +375,12 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         iaPermission.AddChild(MyERPPermissions.ItemAlternatives.Edit, L("Permission:ItemAlternatives.Edit"));
         iaPermission.AddChild(MyERPPermissions.ItemAlternatives.Delete, L("Permission:ItemAlternatives.Delete"));
 
+        // Party Specific Items
+        var psiPermission = myGroup.AddPermission(MyERPPermissions.PartySpecificItems.Default, L("Permission:PartySpecificItems"));
+        psiPermission.AddChild(MyERPPermissions.PartySpecificItems.Create, L("Permission:PartySpecificItems.Create"));
+        psiPermission.AddChild(MyERPPermissions.PartySpecificItems.Edit, L("Permission:PartySpecificItems.Edit"));
+        psiPermission.AddChild(MyERPPermissions.PartySpecificItems.Delete, L("Permission:PartySpecificItems.Delete"));
+
         // Delivery Trips
         var dtPermission = myGroup.AddPermission(MyERPPermissions.DeliveryTrips.Default, L("Permission:DeliveryTrips"));
         dtPermission.AddChild(MyERPPermissions.DeliveryTrips.Create, L("Permission:DeliveryTrips.Create"));

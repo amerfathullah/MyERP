@@ -149,6 +149,18 @@ public class ItemAppService :
             queryable = queryable.Where(i => i.ItemType == itemType);
         }
 
+        if (input.CustomerId.HasValue || input.SupplierId.HasValue)
+        {
+            var partyFilter = await GetPartySpecificItemFilterAsync(input.CustomerId, input.SupplierId);
+            if (!partyFilter.IsEmpty)
+            {
+                queryable = queryable.Where(i =>
+                    !partyFilter.ExcludedItemIds.Contains(i.Id)
+                    && (!i.ItemGroupId.HasValue || !partyFilter.ExcludedItemGroupIds.Contains(i.ItemGroupId.Value))
+                    && (i.Brand == null || !partyFilter.ExcludedBrandNames.Contains(i.Brand)));
+            }
+        }
+
         var totalCount = queryable.Count();
         var items = queryable
             .OrderBy(i => i.ItemName)
@@ -176,6 +188,26 @@ public class ItemAppService :
         }
 
         return new PagedResultDto<ItemDto>(totalCount, dtos);
+    }
+
+    private async Task<Sales.DomainServices.PartySpecificItemFilter> GetPartySpecificItemFilterAsync(Guid? customerId, Guid? supplierId)
+    {
+        var filterService = LazyServiceProvider.LazyGetRequiredService<Sales.DomainServices.PartySpecificItemFilterService>();
+
+        if (customerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(customerId.Value);
+            return await filterService.GetItemFilterAsync(
+                Sales.PartySpecificItemPartyType.Customer, customerId.Value,
+                Sales.PartySpecificItemPartyType.CustomerGroup, customer?.CustomerGroupId);
+        }
+
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var supplier = await supplierRepo.FindAsync(supplierId!.Value);
+        return await filterService.GetItemFilterAsync(
+            Sales.PartySpecificItemPartyType.Supplier, supplierId.Value,
+            Sales.PartySpecificItemPartyType.SupplierGroup, supplier?.SupplierGroupId);
     }
 
     protected override Item MapToEntity(CreateUpdateItemDto input)

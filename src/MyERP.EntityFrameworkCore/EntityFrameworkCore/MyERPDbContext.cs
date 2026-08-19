@@ -170,6 +170,7 @@ public class MyERPDbContext :
     public DbSet<PackingSlipItem> PackingSlipItems { get; set; }
     public DbSet<ProformaInvoice> ProformaInvoices { get; set; }
     public DbSet<ProformaInvoiceItem> ProformaInvoiceItems { get; set; }
+    public DbSet<PartySpecificItem> PartySpecificItems { get; set; }
 
     // Purchasing
     public DbSet<Supplier> Suppliers { get; set; }
@@ -3977,6 +3978,15 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,6)");
             b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
+        });
+
+        // PartySpecificItem — item search restriction per Customer/CustomerGroup/Supplier/SupplierGroup
+        builder.Entity<PartySpecificItem>(b =>
+        {
+            b.ToTable("Sal_PartySpecificItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TenantId, x.PartyType, x.PartyId });
+            b.HasIndex(x => new { x.TenantId, x.PartyType, x.PartyId, x.RestrictBasedOn, x.BasedOnValueId }).IsUnique();
         });
 
         // ═══════════════════════════════════════════════════

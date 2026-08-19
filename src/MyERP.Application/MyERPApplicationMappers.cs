@@ -1445,6 +1445,13 @@ public partial class ItemAlternativeMapper : MapperBase<Inventory.Entities.ItemA
     public override partial void Map(Inventory.Entities.ItemAlternative source, Inventory.ItemAlternativeDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class PartySpecificItemMapper : MapperBase<Sales.Entities.PartySpecificItem, Sales.PartySpecificItemDto>
+{
+    public override partial Sales.PartySpecificItemDto Map(Sales.Entities.PartySpecificItem source);
+    public override partial void Map(Sales.Entities.PartySpecificItem source, Sales.PartySpecificItemDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class DeliveryStopMapper : MapperBase<Inventory.Entities.DeliveryStop, Inventory.DeliveryStopDto>
 {

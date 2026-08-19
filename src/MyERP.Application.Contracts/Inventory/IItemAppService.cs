@@ -11,6 +11,12 @@ public class GetItemListDto : PagedAndSortedResultRequestDto
     public string? Filter { get; set; }
     public Guid? CompanyId { get; set; }
     public string? ItemType { get; set; }
+
+    /// <summary>When set, excludes items restricted from this Customer via PartySpecificItem rules.</summary>
+    public Guid? CustomerId { get; set; }
+
+    /// <summary>When set, excludes items restricted from this Supplier via PartySpecificItem rules.</summary>
+    public Guid? SupplierId { get; set; }
 }
 
 /// <summary>
