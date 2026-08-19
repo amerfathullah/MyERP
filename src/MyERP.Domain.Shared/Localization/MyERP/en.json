@@ -309,7 +309,7 @@
     "Company": "Company",
     "Warehouse": "Warehouse",
     "AddRow": "Add Row",
-    "MyERP:07001": "Document must be in Submitted status to convert.",
+    "MyERP:07001": "A payroll entry already exists for this company, year, and month.",
     "MyERP:07002": "This document has already been converted.",
     "MyERP:07003": "Quotation '{quotationNumber}' has expired (valid until {validUntil}). Cannot convert to Sales Order.",
     "MyERP:07004": "Delivery Note '{deliveryNote}' cannot be included: {reason}.",

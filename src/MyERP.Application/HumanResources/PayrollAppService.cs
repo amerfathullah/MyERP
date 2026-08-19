@@ -65,6 +65,20 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
     [Authorize(MyERPPermissions.Payroll.Create)]
     public async Task<PayrollEntryDto> CreateAsync(CreatePayrollEntryDto input)
     {
+        if (input.Month < 1 || input.Month > 12)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var existingQ = await _repository.GetQueryableAsync();
+        var alreadyExists = existingQ.Any(p => p.CompanyId == input.CompanyId && p.Year == input.Year && p.Month == input.Month && p.Status != Core.DocumentStatus.Cancelled);
+        if (alreadyExists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicatePayrollEntry)
+                .WithData("year", input.Year)
+                .WithData("month", input.Month);
+        }
+
         var payrollNumber = await _numberGenerator.GenerateAsync("Payroll", input.CompanyId);
         var postingDate = new DateTime(input.Year, input.Month, DateTime.DaysInMonth(input.Year, input.Month));
 
@@ -212,6 +226,14 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PayrollEntry", entry.Id,
+            "Submitted", entry.CompanyId,
+            entry.PayrollNumber, "Draft", "Submitted", CurrentUser.Id,
+            $"Payroll Entry {entry.PayrollNumber} ({entry.Month}/{entry.Year}) submitted", CurrentTenant.Id));
+
         return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 
@@ -248,6 +270,14 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
 
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "PayrollEntry", entry.Id,
+            "Cancelled", entry.CompanyId,
+            entry.PayrollNumber, "Submitted", "Cancelled", CurrentUser.Id,
+            $"Payroll Entry {entry.PayrollNumber} ({entry.Month}/{entry.Year}) cancelled", CurrentTenant.Id));
+
         return ObjectMapper.Map<PayrollEntry, PayrollEntryDto>(entry);
     }
 

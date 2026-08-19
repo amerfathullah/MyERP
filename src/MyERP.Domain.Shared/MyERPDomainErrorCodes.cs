@@ -452,4 +452,7 @@ public static class MyERPDomainErrorCodes
 
     // Pricing Rules
     public const string AmbiguousPricingRule = "MyERP:11001";
+
+    // Payroll
+    public const string DuplicatePayrollEntry = "MyERP:07001";
 }
