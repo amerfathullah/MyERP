@@ -78,12 +78,14 @@ public class StockEntryTypeAndSupplierHoldTests
     }
 
     [Fact]
-    public void SupplierHoldType_Invoices_DoesNotBlockPO()
+    public void SupplierHoldType_Invoices_BlocksPOAndPI()
     {
         var supplier = new Supplier(Guid.NewGuid(), Guid.NewGuid(), "Invoice Hold");
         supplier.HoldType = SupplierHoldType.Invoices;
-        // Invoice hold does NOT block PO or PE
-        (supplier.HoldType == SupplierHoldType.All).ShouldBeFalse();
+        // Per ERPNext hold_type matrix: "Invoices" blocks PI AND PO creation (not PE).
+        // PurchaseOrderManager.ValidateSupplierEligibilityAsync checks (All || Invoices).
+        var blocked = supplier.HoldType == SupplierHoldType.All || supplier.HoldType == SupplierHoldType.Invoices;
+        blocked.ShouldBeTrue();
     }
 
     [Fact]

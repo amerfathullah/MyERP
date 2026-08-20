@@ -33,14 +33,15 @@ public class PurchaseOrderManager : DomainService
 
     /// <summary>
     /// Validates supplier is eligible for purchase orders.
-    /// Checks hold type (All blocks PO) and scorecard enforcement (PreventPurchaseOrders).
+    /// Checks hold type (All or Invoices blocks PO — "Invoices" blocks PI/PO creation,
+    /// "Payments" blocks Payment Entry only) and scorecard enforcement (PreventPurchaseOrders).
     /// Must be called before PO submission.
     /// </summary>
     public async Task ValidateSupplierEligibilityAsync(Guid supplierId)
     {
         var supplier = await _supplierRepository.GetAsync(supplierId);
 
-        if (supplier.HoldType == SupplierHoldType.All)
+        if (supplier.HoldType == SupplierHoldType.All || supplier.HoldType == SupplierHoldType.Invoices)
         {
             throw new BusinessException(MyERPDomainErrorCodes.SupplierOnHold)
                 .WithData("supplierName", supplier.Name)
