@@ -22,6 +22,7 @@ public class UpdateCompanySettingsDto
     public string? StockFrozenUpto { get; set; }
     public string? AccountsFrozenTillDate { get; set; }
     public string? DefaultValuationMethod { get; set; }
+    public bool EnablePerpetualInventory { get; set; }
     public decimal OverDeliveryAllowance { get; set; }
     public decimal OverBillingAllowance { get; set; }
     public Guid? DefaultReceivableAccountId { get; set; }
@@ -140,6 +141,10 @@ public class CompanyAppService :
             ? null : DateTime.Parse(input.StockFrozenUpto);
         company.AccountsFrozenTillDate = string.IsNullOrWhiteSpace(input.AccountsFrozenTillDate)
             ? null : DateTime.Parse(input.AccountsFrozenTillDate);
+
+        company.OverDeliveryReceiptAllowance = input.OverDeliveryAllowance;
+        company.OverBillingAllowance = input.OverBillingAllowance;
+        company.EnablePerpetualInventory = input.EnablePerpetualInventory;
 
         company.DefaultReceivableAccountId = input.DefaultReceivableAccountId;
         company.DefaultPayableAccountId = input.DefaultPayableAccountId;

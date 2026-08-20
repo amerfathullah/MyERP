@@ -56,20 +56,22 @@ export class CompanySettingsComponent implements OnInit {
     const company = this.companies().find(c => c.id === companyId);
     if (!company) return;
     this.selectedCompany.set(company);
-    const c = company as any;
     this.form.patchValue({
-      defaultCurrency: c.defaultCurrency ?? 'MYR',
-      stockFrozenUpto: c.stockFrozenUpto ?? '',
-      accountsFrozenTillDate: c.accountsFrozenTillDate ?? '',
-      defaultReceivableAccountId: c.defaultReceivableAccountId ?? '',
-      defaultPayableAccountId: c.defaultPayableAccountId ?? '',
-      defaultIncomeAccountId: c.defaultIncomeAccountId ?? '',
-      defaultExpenseAccountId: c.defaultExpenseAccountId ?? '',
-      defaultBankAccountId: c.defaultBankAccountId ?? '',
-      defaultInventoryAccountId: c.defaultInventoryAccountId ?? '',
-      depreciationExpenseAccountId: c.depreciationExpenseAccountId ?? '',
-      accumulatedDepreciationAccountId: c.accumulatedDepreciationAccountId ?? '',
-      exchangeGainLossAccountId: c.exchangeGainLossAccountId ?? '',
+      defaultCurrency: company.currencyCode ?? 'MYR',
+      stockFrozenUpto: company.stockFrozenUpto?.substring(0, 10) ?? '',
+      accountsFrozenTillDate: company.accountsFrozenTillDate?.substring(0, 10) ?? '',
+      enablePerpetualInventory: company.enablePerpetualInventory ?? true,
+      overDeliveryAllowance: company.overDeliveryReceiptAllowance ?? 0,
+      overBillingAllowance: company.overBillingAllowance ?? 0,
+      defaultReceivableAccountId: company.defaultReceivableAccountId ?? '',
+      defaultPayableAccountId: company.defaultPayableAccountId ?? '',
+      defaultIncomeAccountId: company.defaultIncomeAccountId ?? '',
+      defaultExpenseAccountId: company.defaultExpenseAccountId ?? '',
+      defaultBankAccountId: company.defaultBankAccountId ?? '',
+      defaultInventoryAccountId: company.defaultInventoryAccountId ?? '',
+      depreciationExpenseAccountId: company.depreciationExpenseAccountId ?? '',
+      accumulatedDepreciationAccountId: company.accumulatedDepreciationAccountId ?? '',
+      exchangeGainLossAccountId: company.exchangeGainLossAccountId ?? '',
     });
     // Load accounts for this company
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })

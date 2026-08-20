@@ -119,6 +119,11 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   currencyCode?: string;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  stockFrozenUpto?: string | null;
+  accountsFrozenTillDate?: string | null;
+  enablePerpetualInventory?: boolean;
+  overDeliveryReceiptAllowance?: number;
+  overBillingAllowance?: number;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
   defaultWipWarehouseId?: string | null;
@@ -132,6 +137,9 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
+  depreciationExpenseAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
+  exchangeGainLossAccountId?: string | null;
 }
 
 export interface CompanyRestrictionDto {
