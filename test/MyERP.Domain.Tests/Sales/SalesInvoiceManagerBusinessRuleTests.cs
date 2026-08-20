@@ -167,7 +167,7 @@ public class SalesInvoiceManagerBusinessRuleTests
         si.AmountPaid = 0m;
 
         // Should not throw
-        var mgr = new SalesInvoiceManager(null!, null!);
+        var mgr = new SalesInvoiceManager(null!, null!, null!);
         mgr.ValidateCanCancel(si);
     }
 
@@ -179,7 +179,7 @@ public class SalesInvoiceManagerBusinessRuleTests
         si.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
         si.AmountPaid = 50m;
 
-        var mgr = new SalesInvoiceManager(null!, null!);
+        var mgr = new SalesInvoiceManager(null!, null!, null!);
         var ex = Should.Throw<BusinessException>(() => mgr.ValidateCanCancel(si));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelWithPayments);
     }

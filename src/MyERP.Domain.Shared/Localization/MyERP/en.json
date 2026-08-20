@@ -1936,6 +1936,8 @@
     "MyERP:08007": "Over-billing: item {itemName} has ordered qty {orderedQty}, already billed {billedQty}, attempting {attemptedQty}.",
     "MyERP:08008": "Return invoice party account must match original. Expected account {expectedAccount} — set the same account used in the original invoice.",
     "MyERP:08009": "Return invoices with stock effect cannot have zero-quantity items. Affected rows: {affectedRows}. All items must have non-zero qty for stock movement.",
+    "MyERP:08010": "Transfer quantity ({attempted}) for item exceeds the maximum allowed ({maxAllowed}), already transferred {alreadyTransferred}.",
+    "MyERP:08011": "Return rate ({returnRate}) for item '{item}' cannot exceed the original sale rate ({originalRate}).",
     "MyERP:05014": "Group warehouse {warehouseName} cannot receive stock. Use a leaf warehouse.",
     "MyERP:05011": "Batch {batchNo} has expired. Expired batches cannot be used in outward transactions.",
     "MyERP:02001": "Journal entry is unbalanced: total debits must equal total credits.",

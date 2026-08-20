@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
+using MyERP.Inventory;
+using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -19,15 +21,18 @@ public class DeliveryNoteManager : DomainService
     private readonly IRepository<DeliveryNote, Guid> _dnRepository;
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Item, Guid> _itemRepository;
 
     public DeliveryNoteManager(
         IRepository<DeliveryNote, Guid> dnRepository,
         IRepository<SalesOrder, Guid> orderRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Item, Guid> itemRepository)
     {
         _dnRepository = dnRepository;
         _orderRepository = orderRepository;
         _companyRepository = companyRepository;
+        _itemRepository = itemRepository;
     }
 
     /// <summary>
@@ -86,12 +91,28 @@ public class DeliveryNoteManager : DomainService
         foreach (var returnItem in returnDN.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem != null && Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            if (originalItem == null) continue;
+
+            if (Math.Abs(returnItem.Quantity) > originalItem.Quantity)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
+            }
+
+            // Return rate cannot exceed original sale rate — Moving Average items are exempt
+            // (their rate legitimately fluctuates). Per returns-inter-company skill.
+            if (returnItem.UnitPrice > originalItem.UnitPrice)
+            {
+                var item = await _itemRepository.FindAsync(returnItem.ItemId);
+                if (item?.ValuationMethod != ValuationMethod.WeightedAverage)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnRateExceedsOriginal)
+                        .WithData("item", returnItem.Description)
+                        .WithData("returnRate", returnItem.UnitPrice)
+                        .WithData("originalRate", originalItem.UnitPrice);
+                }
             }
         }
     }

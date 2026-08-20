@@ -111,7 +111,7 @@ public static class MyERPDomainErrorCodes
     public const string OverDelivery = "MyERP:08005";
     public const string OverReceipt = "MyERP:08006";
     public const string OverBilling = "MyERP:08007";
-    public const string OverTransfer = "MyERP:08008";
+    public const string OverTransfer = "MyERP:08010";
 
     // Document Guards
     public const string CannotCancelWithPayments = "MyERP:01002";
@@ -251,6 +251,7 @@ public static class MyERPDomainErrorCodes
     // Returns — Extended
     public const string ReturnAccountMismatch = "MyERP:08008";
     public const string ReturnWithStockZeroQty = "MyERP:08009";
+    public const string ReturnRateExceedsOriginal = "MyERP:08011";
 
     // Payment Entry — Term Allocation
     public const string PaymentTermRequired = "MyERP:02026";

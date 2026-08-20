@@ -20,7 +20,7 @@ public class SalesInvoiceManagerTests
         si.Post();
         si.AmountPaid = 500m;
 
-        var manager = new SalesInvoiceManager(null!, null!);
+        var manager = new SalesInvoiceManager(null!, null!, null!);
         var ex = Should.Throw<BusinessException>(() => manager.ValidateCanCancel(si));
         ex.Code.ShouldBe("MyERP:01002");
     }
@@ -33,7 +33,7 @@ public class SalesInvoiceManagerTests
         si.Submit();
         si.Post();
 
-        var manager = new SalesInvoiceManager(null!, null!);
+        var manager = new SalesInvoiceManager(null!, null!, null!);
         manager.ValidateCanCancel(si);
     }
 

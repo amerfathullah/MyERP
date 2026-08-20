@@ -374,7 +374,7 @@ public class CriticalManagerTests
         si.AddItem(Guid.NewGuid(), "Widget", 1, 100m, 0m);
         si.AmountPaid = 50;
 
-        var mgr = new SalesInvoiceManager(null!, null!);
+        var mgr = new SalesInvoiceManager(null!, null!, null!);
         Assert.Throws<Volo.Abp.BusinessException>(() => mgr.ValidateCanCancel(si));
     }
 
@@ -384,7 +384,7 @@ public class CriticalManagerTests
         var si = new SalesInvoice(Guid.NewGuid(), _companyId, Guid.NewGuid(), "SI-001", DateTime.UtcNow, _tenantId);
         si.AddItem(Guid.NewGuid(), "Widget", 1, 100m, 0m);
 
-        var mgr = new SalesInvoiceManager(null!, null!);
+        var mgr = new SalesInvoiceManager(null!, null!, null!);
         mgr.ValidateCanCancel(si); // Should not throw
     }
 

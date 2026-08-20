@@ -1,13 +1,18 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Inventory;
+using MyERP.Inventory.Entities;
 using MyERP.Purchasing.DomainServices;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Domain.Tests.Integration;
@@ -79,6 +84,89 @@ public class ReturnFlowIntegrationTests
         creditNote.DebitToAccountId = ReceivableAccountId; // SAME
 
         creditNote.DebitToAccountId.ShouldBe(original.DebitToAccountId);
+    }
+
+    // === SI Credit Note — Return Rate Ceiling ===
+
+    [Fact]
+    public async Task SI_CreditNote_RateExceedsOriginal_Throws()
+    {
+        var original = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "INV-001", TestDate);
+        original.AddItem(ItemId, "Widget", 2m, 50m, 0m);
+        original.DebitToAccountId = ReceivableAccountId;
+        original.ExchangeRate = 1m;
+
+        var creditNote = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "CN-001", TestDate);
+        creditNote.IsReturn = true;
+        creditNote.ReturnAgainstId = original.Id;
+        creditNote.DebitToAccountId = ReceivableAccountId;
+        creditNote.ExchangeRate = 1m;
+        creditNote.AddItem(ItemId, "Widget", -1m, 75m, 0m); // rate above original (50)
+
+        var item = new Item(ItemId, CompanyId, "WIDGET", "Widget", ItemType.Goods)
+        {
+            ValuationMethod = ValuationMethod.FIFO
+        };
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        invoiceRepo.GetAsync(original.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>()).Returns(original);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.FindAsync(ItemId, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>()).Returns(item);
+
+        var manager = new SalesInvoiceManager(invoiceRepo, null!, itemRepo);
+        var ex = await Should.ThrowAsync<BusinessException>(() => manager.ValidateReturnAsync(creditNote));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnRateExceedsOriginal);
+    }
+
+    [Fact]
+    public async Task SI_CreditNote_RateExceedsOriginal_MovingAverageExempt_Passes()
+    {
+        var original = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "INV-001", TestDate);
+        original.AddItem(ItemId, "Widget", 2m, 50m, 0m);
+        original.DebitToAccountId = ReceivableAccountId;
+        original.ExchangeRate = 1m;
+
+        var creditNote = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "CN-001", TestDate);
+        creditNote.IsReturn = true;
+        creditNote.ReturnAgainstId = original.Id;
+        creditNote.DebitToAccountId = ReceivableAccountId;
+        creditNote.ExchangeRate = 1m;
+        creditNote.AddItem(ItemId, "Widget", -1m, 75m, 0m); // rate above original, but exempt
+
+        var item = new Item(ItemId, CompanyId, "WIDGET", "Widget", ItemType.Goods)
+        {
+            ValuationMethod = ValuationMethod.WeightedAverage
+        };
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        invoiceRepo.GetAsync(original.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>()).Returns(original);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.FindAsync(ItemId, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>()).Returns(item);
+
+        var manager = new SalesInvoiceManager(invoiceRepo, null!, itemRepo);
+        await Should.NotThrowAsync(() => manager.ValidateReturnAsync(creditNote));
+    }
+
+    [Fact]
+    public async Task SI_CreditNote_RateAtOrBelowOriginal_Passes()
+    {
+        var original = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "INV-001", TestDate);
+        original.AddItem(ItemId, "Widget", 2m, 50m, 0m);
+        original.DebitToAccountId = ReceivableAccountId;
+        original.ExchangeRate = 1m;
+
+        var creditNote = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "CN-001", TestDate);
+        creditNote.IsReturn = true;
+        creditNote.ReturnAgainstId = original.Id;
+        creditNote.DebitToAccountId = ReceivableAccountId;
+        creditNote.ExchangeRate = 1m;
+        creditNote.AddItem(ItemId, "Widget", -1m, 50m, 0m); // same rate
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        invoiceRepo.GetAsync(original.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>()).Returns(original);
+        // Item repo never consulted when rate doesn't exceed original — pass null! to prove that.
+        var manager = new SalesInvoiceManager(invoiceRepo, null!, null!);
+        await Should.NotThrowAsync(() => manager.ValidateReturnAsync(creditNote));
     }
 
     // === PI Debit Note — Account Matching ===

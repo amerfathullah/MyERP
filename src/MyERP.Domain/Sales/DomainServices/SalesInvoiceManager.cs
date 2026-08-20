@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory;
+using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -19,13 +21,16 @@ public class SalesInvoiceManager : DomainService
 {
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
+    private readonly IRepository<Item, Guid> _itemRepository;
 
     public SalesInvoiceManager(
         IRepository<SalesInvoice, Guid> invoiceRepository,
-        IRepository<SalesOrder, Guid> orderRepository)
+        IRepository<SalesOrder, Guid> orderRepository,
+        IRepository<Item, Guid> itemRepository)
     {
         _invoiceRepository = invoiceRepository;
         _orderRepository = orderRepository;
+        _itemRepository = itemRepository;
     }
 
     /// <summary>
@@ -105,16 +110,31 @@ public class SalesInvoiceManager : DomainService
                 .WithData("actual", returnInvoice.ExchangeRate);
         }
 
-        // Return qty per item cannot exceed original qty
+        // Return qty per item cannot exceed original qty; return rate cannot exceed original
+        // rate (Moving Average valuation items are exempt — their rate legitimately fluctuates).
         foreach (var returnItem in returnInvoice.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem != null && Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            if (originalItem == null) continue;
+
+            if (Math.Abs(returnItem.Quantity) > originalItem.Quantity)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
+            }
+
+            if (returnItem.UnitPrice > originalItem.UnitPrice)
+            {
+                var item = await _itemRepository.FindAsync(returnItem.ItemId);
+                if (item?.ValuationMethod != ValuationMethod.WeightedAverage)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnRateExceedsOriginal)
+                        .WithData("item", returnItem.Description)
+                        .WithData("returnRate", returnItem.UnitPrice)
+                        .WithData("originalRate", originalItem.UnitPrice);
+                }
             }
         }
     }
