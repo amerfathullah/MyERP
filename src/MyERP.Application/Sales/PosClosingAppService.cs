@@ -164,6 +164,21 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
     public async Task<PosClosingDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // Profile-level lock: if a new shift has already started on this POS Profile,
+        // cancelling this closing would break the new session's cash-tracking continuity.
+        // This is a different check from PosOpeningAppService's own "unconsolidated invoices"
+        // guard on opening cancel — this one gates the CLOSING side.
+        var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+        var openingQuery = await openingRepo.GetQueryableAsync();
+        var hasActiveSession = openingQuery.Any(o =>
+            o.PosProfileId == entry.PosProfileId && o.Status == PosOpeningStatus.Open);
+        if (hasActiveSession)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PosClosingCancelBlockedByOpenSession)
+                .WithData("posProfileId", entry.PosProfileId);
+        }
+
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);

@@ -328,6 +328,7 @@ public static class MyERPDomainErrorCodes
     public const string PosUserAlreadyHasSession = "MyERP:16002";
     public const string PosProfileHasOpenSession = "MyERP:16004";
     public const string PosOpeningHasUnconsolidatedInvoices = "MyERP:16005";
+    public const string PosClosingCancelBlockedByOpenSession = "MyERP:16006";
 
     // Project
     public const string ProjectPercentOutOfRange = "MyERP:13003";
