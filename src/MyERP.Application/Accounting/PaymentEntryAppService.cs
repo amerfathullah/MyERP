@@ -448,10 +448,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             .WithData("allocated", refRow.AllocatedAmount);
                     }
 
-                    si.AmountPaid += refRow.AllocatedAmount;
-                    await _salesInvoiceRepository.UpdateAsync(si);
-                    // Note: stale check above re-reads si, so concurrency is partially handled.
-                    // For full safety, the UpdateInvoiceAmountPaidAsync retry is used on the legacy path.
+                    await UpdateInvoiceAmountPaidAsync("SalesInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
 
                     multiAllocations.Add(new PaymentAllocation
                     {
@@ -474,9 +471,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             .WithData("allocated", refRow.AllocatedAmount);
                     }
 
-                    pi.AmountPaid += refRow.AllocatedAmount;
-                    await _purchaseInvoiceRepository.UpdateAsync(pi);
-                    // Note: stale check above re-reads pi, so concurrency is partially handled.
+                    await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
 
                     multiAllocations.Add(new PaymentAllocation
                     {
