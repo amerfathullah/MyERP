@@ -117,7 +117,7 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         var dateDiff = (entity.EndDate - entity.StartDate).Days;
         var daysInPeriod = GetDaysInPeriod(entity.Periodicity);
         var noOfVisits = daysInPeriod > 0 ? Math.Max(1, dateDiff / daysInPeriod) : 1;
-        var interval = dateDiff / noOfVisits;
+        var interval = dateDiff > 0 ? Math.Max(1, dateDiff / noOfVisits) : 0;
 
         var holidayListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.HolidayList, Guid>>();
         var holidayLists = await holidayListRepo.GetListAsync(h => h.CompanyId == entity.CompanyId, includeDetails: true);

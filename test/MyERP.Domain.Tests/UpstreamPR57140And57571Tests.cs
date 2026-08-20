@@ -526,4 +526,21 @@ public class UpstreamPR57140And57571Tests
 
         Assert.True(sq.HasUnitPriceItems);
     }
+
+    [Fact]
+    public void Timesheet_Detail_Calculates_Amounts_Correctly()
+    {
+        var start = new DateTime(2026, 8, 20, 9, 0, 0);
+        var end = new DateTime(2026, 8, 20, 12, 0, 0);
+        var detail = new MyERP.Projects.Entities.TimesheetDetail(
+            Guid.NewGuid(), Guid.NewGuid(), "Development", start, end, 3.0m)
+        {
+            IsBillable = true,
+            BillingRate = 100m,
+            CostingRate = 60m
+        };
+
+        Assert.Equal(300m, detail.BillingAmount);
+        Assert.Equal(180m, detail.CostingAmount);
+    }
 }

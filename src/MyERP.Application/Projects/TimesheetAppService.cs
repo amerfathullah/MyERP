@@ -84,6 +84,21 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                 .WithData("field", "Hours");
         }
 
+        // Validate internal time log overlap (gotcha #2801)
+        for (int i = 0; i < input.Details.Count; i++)
+        {
+            for (int j = i + 1; j < input.Details.Count; j++)
+            {
+                var d1 = input.Details[i];
+                var d2 = input.Details[j];
+                if (d1.FromTime < d2.ToTime && d1.ToTime > d2.FromTime)
+                {
+                    throw new Volo.Abp.BusinessException("MyERP:15002")
+                        .WithData("reason", $"Overlapping time logs between {d1.ActivityType} ({d1.FromTime:HH:mm}-{d1.ToTime:HH:mm}) and {d2.ActivityType} ({d2.FromTime:HH:mm}-{d2.ToTime:HH:mm})");
+                }
+            }
+        }
+
         var ts = new Timesheet(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.StartDate, input.EndDate, CurrentTenant.Id)
         { EmployeeName = input.EmployeeName, Note = input.Note };
