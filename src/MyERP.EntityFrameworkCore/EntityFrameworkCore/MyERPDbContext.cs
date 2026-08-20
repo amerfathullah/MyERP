@@ -91,6 +91,8 @@ public class MyERPDbContext :
     public DbSet<PaymentEntryTax> PaymentEntryTaxes { get; set; }
     public DbSet<PaymentOrder> PaymentOrders { get; set; }
     public DbSet<PaymentOrderReference> PaymentOrderReferences { get; set; }
+    public DbSet<InvoiceDiscounting> InvoiceDiscountings { get; set; }
+    public DbSet<InvoiceDiscountingInvoice> InvoiceDiscountingInvoices { get; set; }
     public DbSet<UnreconcilePayment> UnreconcilePayments { get; set; }
     public DbSet<UnreconcilePaymentEntry> UnreconcilePaymentEntries { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
@@ -1557,6 +1559,26 @@ public class MyERPDbContext :
             b.Property(x => x.PaymentReference).HasMaxLength(PaymentOrderConsts.MaxPaymentReferenceLength);
             b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
             b.HasIndex(x => x.PaymentOrderId);
+        });
+
+        builder.Entity<InvoiceDiscounting>(b =>
+        {
+            b.ToTable("Acc_InvoiceDiscountings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TotalAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BankCharges).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Invoices).WithOne().HasForeignKey(x => x.InvoiceDiscountingId).IsRequired();
+            b.Navigation(x => x.Invoices).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<InvoiceDiscountingInvoice>(b =>
+        {
+            b.ToTable("Acc_InvoiceDiscountingInvoices", MyERPConsts.DbSchema);
+            b.Property(x => x.OutstandingAmount).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.InvoiceDiscountingId);
+            b.HasIndex(x => x.SalesInvoiceId);
         });
 
         builder.Entity<UnreconcilePayment>(b =>

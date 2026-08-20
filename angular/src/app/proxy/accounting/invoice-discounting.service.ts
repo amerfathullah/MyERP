@@ -1,4 +1,12 @@
-import type { CreateInvoiceDiscountingDto, InvoiceDiscountingDto } from './models';
+import type {
+  CalculateDiscountingDto,
+  CreateInvoiceDiscountingDto,
+  DisburseInvoiceDiscountingDto,
+  DiscountingCalculationResultDto,
+  InvoiceDiscountingDto,
+  InvoiceForDiscountingDto,
+  SubmitInvoiceDiscountingDto,
+} from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,56 +17,82 @@ import { Injectable, inject } from '@angular/core';
 export class InvoiceDiscountingService {
   private restService = inject(RestService);
   apiName = 'Default';
-  
 
-  calculate = (input: CreateInvoiceDiscountingDto, config?: Partial<Rest.Config>) =>
+
+  getList = (input: PagedAndSortedResultRequestDto, companyId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<InvoiceDiscountingDto>>({
+      method: 'GET',
+      url: '/api/app/invoice-discounting',
+      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount, companyId },
+    },
+    { apiName: this.apiName, ...config });
+
+
+  get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoiceDiscountingDto>({
+      method: 'GET',
+      url: `/api/app/invoice-discounting/${id}`,
+    },
+    { apiName: this.apiName, ...config });
+
+
+  getEligibleInvoices = (companyId: string, customerId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InvoiceForDiscountingDto[]>({
+      method: 'GET',
+      url: '/api/app/invoice-discounting/eligible-invoices',
+      params: { companyId, customerId },
+    },
+    { apiName: this.apiName, ...config });
+
+
+  calculate = (input: CalculateDiscountingDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DiscountingCalculationResultDto>({
       method: 'POST',
       url: '/api/app/invoice-discounting/calculate',
       body: input,
     },
-    { apiName: this.apiName,...config });
-  
+    { apiName: this.apiName, ...config });
 
-  disburse = (input: CreateInvoiceDiscountingDto, config?: Partial<Rest.Config>) =>
+
+  create = (input: CreateInvoiceDiscountingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoiceDiscountingDto>({
       method: 'POST',
-      url: '/api/app/invoice-discounting/disburse',
+      url: '/api/app/invoice-discounting',
       body: input,
     },
-    { apiName: this.apiName,...config });
-  
+    { apiName: this.apiName, ...config });
 
-  disburseById = (id: string, config?: Partial<Rest.Config>) =>
+
+  submit = (id: string, input: SubmitInvoiceDiscountingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoiceDiscountingDto>({
       method: 'POST',
-      url: `/api/app/invoice-discounting/${id}/disburse-by-id`,
+      url: `/api/app/invoice-discounting/${id}/submit`,
+      body: input,
     },
-    { apiName: this.apiName,...config });
-  
+    { apiName: this.apiName, ...config });
 
-  getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<InvoiceDiscountingDto>>({
-      method: 'GET',
-      url: '/api/app/invoice-discounting',
-      params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-  
 
-  settle = (companyId: string, amount: number, shortTermLoanAccountId: string, receivableAccountId: string, config?: Partial<Rest.Config>) =>
+  disburse = (id: string, input: DisburseInvoiceDiscountingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoiceDiscountingDto>({
       method: 'POST',
-      url: '/api/app/invoice-discounting/settle',
-      params: { companyId, amount, shortTermLoanAccountId, receivableAccountId },
+      url: `/api/app/invoice-discounting/${id}/disburse`,
+      body: input,
     },
-    { apiName: this.apiName,...config });
-  
+    { apiName: this.apiName, ...config });
 
-  settleById = (id: string, config?: Partial<Rest.Config>) =>
+
+  settle = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoiceDiscountingDto>({
       method: 'POST',
-      url: `/api/app/invoice-discounting/${id}/settle-by-id`,
+      url: `/api/app/invoice-discounting/${id}/settle`,
     },
-    { apiName: this.apiName,...config });
+    { apiName: this.apiName, ...config });
+
+
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, InvoiceDiscountingDto>({
+      method: 'POST',
+      url: `/api/app/invoice-discounting/${id}/cancel`,
+    },
+    { apiName: this.apiName, ...config });
 }

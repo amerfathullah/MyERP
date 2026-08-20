@@ -618,14 +618,41 @@ export interface CreateInternalTransferDto {
 }
 
 export interface CreateInvoiceDiscountingDto {
-  companyId?: string;
-  annualDiscountRate?: number;
-  daysToMaturity?: number;
-  bankAccountId?: string;
-  discountExpenseAccountId?: string;
-  shortTermLoanAccountId?: string;
-  receivableAccountId?: string;
-  invoices?: InvoiceForDiscountingDto[];
+  companyId: string;
+  postingDate: string;
+  shortTermLoanAccountId: string;
+  bankAccountId: string;
+  bankChargesAccountId: string;
+  accountsReceivableCreditAccountId: string;
+  accountsReceivableDiscountedAccountId: string;
+  accountsReceivableUnpaidAccountId: string;
+  invoices: CreateInvoiceDiscountingInvoiceDto[];
+}
+
+export interface CreateInvoiceDiscountingInvoiceDto {
+  salesInvoiceId: string;
+  outstandingAmount: number;
+}
+
+export interface SubmitInvoiceDiscountingDto {
+  loanStartDate: string;
+  loanPeriodDays: number;
+}
+
+export interface DisburseInvoiceDiscountingDto {
+  bankCharges: number;
+}
+
+export interface CalculateDiscountingDto {
+  totalOutstanding: number;
+  annualDiscountRate: number;
+  daysToMaturity: number;
+}
+
+export interface DiscountingCalculationResultDto {
+  discountCharge: number;
+  disbursementAmount: number;
+  effectiveRate: number;
 }
 
 export interface CreateJournalEntryDto {
@@ -1126,20 +1153,41 @@ export interface InternalTransferResultDto {
 }
 
 export interface InvoiceDiscountingDto extends EntityDto<string> {
-  companyId?: string;
-  totalOutstanding?: number;
-  discountCharge?: number;
-  disbursementAmount?: number;
-  status?: number;
+  companyId: string;
+  postingDate: string;
+  loanStartDate?: string | null;
+  loanPeriodDays: number;
+  loanEndDate?: string | null;
+  status: number;
+  totalAmount: number;
+  bankCharges: number;
+  shortTermLoanAccountId: string;
+  bankAccountId: string;
+  bankChargesAccountId: string;
+  accountsReceivableCreditAccountId: string;
+  accountsReceivableDiscountedAccountId: string;
+  accountsReceivableUnpaidAccountId: string;
+  sanctionJournalEntryId?: string | null;
   disbursementJournalEntryId?: string | null;
   settlementJournalEntryId?: string | null;
+  invoices: InvoiceDiscountingInvoiceDto[];
+}
+
+export interface InvoiceDiscountingInvoiceDto {
+  salesInvoiceId: string;
+  invoiceNumber?: string | null;
+  customerId: string;
+  customerName?: string | null;
+  outstandingAmount: number;
 }
 
 export interface InvoiceForDiscountingDto {
-  invoiceId?: string;
-  invoiceNumber?: string;
-  outstandingAmount?: number;
-  isAlreadyDiscounted?: boolean;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  issueDate: string;
+  outstandingAmount: number;
 }
 
 export interface JournalEntryDto extends EntityDto<string> {

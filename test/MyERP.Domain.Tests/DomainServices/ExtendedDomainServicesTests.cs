@@ -18,7 +18,7 @@ namespace MyERP.DomainServices;
 
 public class InvoiceDiscountingExtendedTests
 {
-    private readonly InvoiceDiscountingService _service = new(null!);
+    private readonly InvoiceDiscountingService _service = new();
 
     [Fact]
     public void CalculateDiscountCharge_365Days_EqualsAnnualRate()
@@ -48,24 +48,12 @@ public class InvoiceDiscountingExtendedTests
         var invoices = new List<InvoiceForDiscounting>
         {
             new() { InvoiceId = Guid.NewGuid(), InvoiceNumber = "SI-001",
-                OutstandingAmount = 5000m, IsAlreadyDiscounted = false },
+                OutstandingAmount = 5000m, ActualOutstandingAmount = 5000m, IsAlreadyDiscounted = false },
             new() { InvoiceId = Guid.NewGuid(), InvoiceNumber = "SI-002",
-                OutstandingAmount = 3000m, IsAlreadyDiscounted = false },
+                OutstandingAmount = 3000m, ActualOutstandingAmount = 3000m, IsAlreadyDiscounted = false },
         };
 
         Should.NotThrow(() => InvoiceDiscountingService.ValidateInvoicesForDiscounting(invoices));
-    }
-
-    [Fact]
-    public void BuildDisbursementGlEntries_BalancesDebitAndCredit()
-    {
-        var bank = Guid.NewGuid();
-        var expense = Guid.NewGuid();
-        var loan = Guid.NewGuid();
-        var entries = InvoiceDiscountingService.BuildDisbursementGlEntries(
-            bank, expense, loan, 50_000m, 1_200m, 48_800m);
-
-        entries.Sum(e => e.Debit).ShouldBe(entries.Sum(e => e.Credit));
     }
 }
 

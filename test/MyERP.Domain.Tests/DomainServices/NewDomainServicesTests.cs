@@ -381,7 +381,7 @@ public class InvoiceDiscountingServiceTests
     [Fact]
     public void CalculateDiscountCharge_StandardCalculation()
     {
-        var service = new InvoiceDiscountingService(null!);
+        var service = new InvoiceDiscountingService();
         // 100,000 × 8% × 90/365
         var charge = service.CalculateDiscountCharge(100_000m, 8m, 90);
         charge.ShouldBeGreaterThan(0);
@@ -391,76 +391,15 @@ public class InvoiceDiscountingServiceTests
     [Fact]
     public void CalculateDiscountCharge_ZeroDays_ReturnsZero()
     {
-        var service = new InvoiceDiscountingService(null!);
+        var service = new InvoiceDiscountingService();
         service.CalculateDiscountCharge(100_000m, 8m, 0).ShouldBe(0);
     }
 
     [Fact]
     public void CalculateDisbursementAmount_CorrectlyDeducts()
     {
-        var service = new InvoiceDiscountingService(null!);
+        var service = new InvoiceDiscountingService();
         service.CalculateDisbursementAmount(100_000m, 2_000m).ShouldBe(98_000m);
-    }
-
-    [Fact]
-    public void DetermineStatus_CreditOnLoan_SanctionedToDisbursed()
-    {
-        var service = new InvoiceDiscountingService(null!);
-        var loanAcct = Guid.NewGuid();
-        var lines = new List<JournalEntryLine>
-        {
-            CreateJeLine(loanAcct, 0, 100_000), // credit on loan
-        };
-
-        var newStatus = service.DetermineStatusFromJournalEntry(
-            InvoiceDiscountingStatus.Sanctioned, loanAcct, lines, true);
-        newStatus.ShouldBe(InvoiceDiscountingStatus.Disbursed);
-    }
-
-    [Fact]
-    public void DetermineStatus_DebitOnLoan_DisbursedToSettled()
-    {
-        var service = new InvoiceDiscountingService(null!);
-        var loanAcct = Guid.NewGuid();
-        var lines = new List<JournalEntryLine>
-        {
-            CreateJeLine(loanAcct, 100_000, 0), // debit on loan
-        };
-
-        var newStatus = service.DetermineStatusFromJournalEntry(
-            InvoiceDiscountingStatus.Disbursed, loanAcct, lines, true);
-        newStatus.ShouldBe(InvoiceDiscountingStatus.Settled);
-    }
-
-    [Fact]
-    public void DetermineStatus_CancelDisbursement_RevertToSanctioned()
-    {
-        var service = new InvoiceDiscountingService(null!);
-        var loanAcct = Guid.NewGuid();
-        var lines = new List<JournalEntryLine>
-        {
-            CreateJeLine(loanAcct, 0, 100_000), // credit on loan
-        };
-
-        var newStatus = service.DetermineStatusFromJournalEntry(
-            InvoiceDiscountingStatus.Disbursed, loanAcct, lines, false);
-        newStatus.ShouldBe(InvoiceDiscountingStatus.Sanctioned);
-    }
-
-    [Fact]
-    public void DetermineStatus_NoLoanRow_NoChange()
-    {
-        var service = new InvoiceDiscountingService(null!);
-        var loanAcct = Guid.NewGuid();
-        var otherAcct = Guid.NewGuid();
-        var lines = new List<JournalEntryLine>
-        {
-            CreateJeLine(otherAcct, 100, 0),
-        };
-
-        var newStatus = service.DetermineStatusFromJournalEntry(
-            InvoiceDiscountingStatus.Sanctioned, loanAcct, lines, true);
-        newStatus.ShouldBe(InvoiceDiscountingStatus.Sanctioned);
     }
 
     [Fact]
@@ -469,7 +408,7 @@ public class InvoiceDiscountingServiceTests
         var invoices = new List<InvoiceForDiscounting>
         {
             new() { InvoiceId = Guid.NewGuid(), InvoiceNumber = "SI-001",
-                OutstandingAmount = 1000m, IsAlreadyDiscounted = true },
+                OutstandingAmount = 1000m, ActualOutstandingAmount = 1000m, IsAlreadyDiscounted = true },
         };
 
         Should.Throw<BusinessException>(() =>
@@ -482,7 +421,7 @@ public class InvoiceDiscountingServiceTests
         var invoices = new List<InvoiceForDiscounting>
         {
             new() { InvoiceId = Guid.NewGuid(), InvoiceNumber = "SI-001",
-                OutstandingAmount = 0, IsAlreadyDiscounted = false },
+                OutstandingAmount = 0, ActualOutstandingAmount = 1000m, IsAlreadyDiscounted = false },
         };
 
         Should.Throw<BusinessException>(() =>
@@ -490,38 +429,109 @@ public class InvoiceDiscountingServiceTests
     }
 
     [Fact]
-    public void BuildDisbursementGlEntries_ThreeLines()
+    public void ValidateInvoices_ExceedsActualOutstanding_Throws()
     {
-        var entries = InvoiceDiscountingService.BuildDisbursementGlEntries(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            100_000m, 2_000m, 98_000m);
+        var invoices = new List<InvoiceForDiscounting>
+        {
+            new() { InvoiceId = Guid.NewGuid(), InvoiceNumber = "SI-001",
+                OutstandingAmount = 2000m, ActualOutstandingAmount = 1000m, IsAlreadyDiscounted = false },
+        };
 
-        entries.Count.ShouldBe(3);
-        entries.Sum(e => e.Debit).ShouldBe(100_000m); // 98000 + 2000
-        entries.Sum(e => e.Credit).ShouldBe(100_000m);
+        Should.Throw<BusinessException>(() =>
+            InvoiceDiscountingService.ValidateInvoicesForDiscounting(invoices));
+    }
+}
+
+public class InvoiceDiscountingEntityTests
+{
+    private static InvoiceDiscounting CreateDraft() => new(
+        Guid.NewGuid(), Guid.NewGuid(), DateTime.Today,
+        Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+        Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+
+    [Fact]
+    public void Submit_WithoutInvoices_Throws()
+    {
+        var doc = CreateDraft();
+        doc.LoanStartDate = DateTime.Today;
+        doc.LoanPeriodDays = 90;
+
+        Should.Throw<BusinessException>(() => doc.Submit());
     }
 
     [Fact]
-    public void BuildSettlementGlEntries_TwoLines()
+    public void Submit_WithoutLoanTerms_Throws()
     {
-        var entries = InvoiceDiscountingService.BuildSettlementGlEntries(
-            Guid.NewGuid(), Guid.NewGuid(), 100_000m);
+        var doc = CreateDraft();
+        doc.SetInvoices(new[] { new InvoiceDiscountingInvoice(Guid.NewGuid(), doc.Id, Guid.NewGuid(), Guid.NewGuid(), 1000m) });
 
-        entries.Count.ShouldBe(2);
-        entries.Sum(e => e.Debit).ShouldBe(100_000m);
-        entries.Sum(e => e.Credit).ShouldBe(100_000m);
+        Should.Throw<BusinessException>(() => doc.Submit());
     }
 
-    private static JournalEntryLine CreateJeLine(Guid accountId, decimal debit, decimal credit)
+    [Fact]
+    public void Submit_Valid_TransitionsToSanctionedAndSetsLoanEndDate()
     {
-        var je = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            DateTime.Today);
-        // JournalEntryLine stores Amount + IsDebit (not separate debit/credit fields)
-        if (debit > 0)
-            je.AddLine(accountId, debit, true);
-        else
-            je.AddLine(accountId, credit, false);
-        return je.Lines.Last();
+        var doc = CreateDraft();
+        doc.SetInvoices(new[] { new InvoiceDiscountingInvoice(Guid.NewGuid(), doc.Id, Guid.NewGuid(), Guid.NewGuid(), 1000m) });
+        doc.LoanStartDate = new DateTime(2026, 1, 1);
+        doc.LoanPeriodDays = 90;
+
+        doc.Submit();
+
+        doc.Status.ShouldBe(InvoiceDiscountingStatus.Sanctioned);
+        doc.LoanEndDate.ShouldBe(new DateTime(2026, 1, 1).AddDays(90));
+        doc.TotalAmount.ShouldBe(1000m);
+    }
+
+    [Fact]
+    public void FullLifecycle_DisburseThenSettle_Succeeds()
+    {
+        var doc = CreateDraft();
+        doc.SetInvoices(new[] { new InvoiceDiscountingInvoice(Guid.NewGuid(), doc.Id, Guid.NewGuid(), Guid.NewGuid(), 1000m) });
+        doc.LoanStartDate = DateTime.Today;
+        doc.LoanPeriodDays = 90;
+        doc.Submit();
+
+        doc.MarkDisbursed(Guid.NewGuid(), bankCharges: 50m);
+        doc.Status.ShouldBe(InvoiceDiscountingStatus.Disbursed);
+        doc.BankCharges.ShouldBe(50m);
+
+        doc.MarkSettled(Guid.NewGuid());
+        doc.Status.ShouldBe(InvoiceDiscountingStatus.Settled);
+    }
+
+    [Fact]
+    public void MarkDisbursed_FromDraft_Throws()
+    {
+        var doc = CreateDraft();
+        Should.Throw<BusinessException>(() => doc.MarkDisbursed(Guid.NewGuid(), 0m));
+    }
+
+    [Fact]
+    public void Cancel_FromSettled_Throws()
+    {
+        var doc = CreateDraft();
+        doc.SetInvoices(new[] { new InvoiceDiscountingInvoice(Guid.NewGuid(), doc.Id, Guid.NewGuid(), Guid.NewGuid(), 1000m) });
+        doc.LoanStartDate = DateTime.Today;
+        doc.LoanPeriodDays = 90;
+        doc.Submit();
+        doc.MarkDisbursed(Guid.NewGuid(), 0m);
+        doc.MarkSettled(Guid.NewGuid());
+
+        Should.Throw<BusinessException>(() => doc.Cancel());
+    }
+
+    [Fact]
+    public void Cancel_FromSanctioned_Succeeds()
+    {
+        var doc = CreateDraft();
+        doc.SetInvoices(new[] { new InvoiceDiscountingInvoice(Guid.NewGuid(), doc.Id, Guid.NewGuid(), Guid.NewGuid(), 1000m) });
+        doc.LoanStartDate = DateTime.Today;
+        doc.LoanPeriodDays = 90;
+        doc.Submit();
+
+        doc.Cancel();
+        doc.Status.ShouldBe(InvoiceDiscountingStatus.Cancelled);
     }
 }
 

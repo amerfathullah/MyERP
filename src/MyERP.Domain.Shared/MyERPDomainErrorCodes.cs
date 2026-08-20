@@ -454,6 +454,12 @@ public static class MyERPDomainErrorCodes
     public const string PeriodClosingAccountTypeInvalid = "MyERP:02066"; // was hardcoded "MyERP:02031" (collided with OpeningBalanceGroupAccountBlocked)
     public const string PeriodClosingAccountCurrencyMismatch = "MyERP:02067"; // was hardcoded "MyERP:02032" (collided with OpeningBalanceNoTempAccount)
 
+    // Invoice Discounting
+    public const string InvoiceAlreadyDiscounted = "MyERP:02068";
+    public const string InvoiceDiscountingOutstandingExceeded = "MyERP:02069";
+    public const string InvoiceDiscountingLoanTermsRequired = "MyERP:02070";
+    public const string InvoiceDiscountingNoInvoices = "MyERP:02071";
+
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";
 
