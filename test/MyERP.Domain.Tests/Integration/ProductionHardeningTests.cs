@@ -259,6 +259,6 @@ public class ProductionHardeningTests
     private static TransactionValidationService CreateTransactionValidationService()
     {
         // TransactionValidationService.ValidatePostingDate is synchronous and doesn't need repo
-        return new TransactionValidationService(null!);
+        return new TransactionValidationService(null!, null!);
     }
 }

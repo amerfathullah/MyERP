@@ -385,6 +385,15 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         order.Submit();
 
+        // Project must belong to the order's customer (prevents billing/costing
+        // against a different customer's project) — same rule as Sales Invoice.
+        if (order.ProjectId.HasValue)
+        {
+            var projectValidation = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+            await projectValidation.ValidateProjectCustomerAsync(order.ProjectId, order.CustomerId);
+        }
+
         // Credit limit check — per DO-NOT: "must also enforce at SO, DN and SI submit"
         var creditLimitService = LazyServiceProvider
             .LazyGetRequiredService<CreditLimitService>();

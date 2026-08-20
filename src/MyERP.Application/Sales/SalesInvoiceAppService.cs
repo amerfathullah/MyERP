@@ -682,6 +682,15 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             SalesInvoiceManager.ValidateSoRequired(invoice, soRequired);
             SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired);
 
+            // Project must belong to the invoice's customer (prevents billing/costing
+            // against a different customer's project) — same rule as Sales Order.
+            if (invoice.ProjectId.HasValue)
+            {
+                var projectValidation = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+                await projectValidation.ValidateProjectCustomerAsync(invoice.ProjectId, invoice.CustomerId);
+            }
+
             // Maintain same rate throughout the sales cycle (Selling Settings)
             if (await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.MaintainSameRate))
             {

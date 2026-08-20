@@ -314,6 +314,7 @@
     "MyERP:07002": "This document has already been converted.",
     "MyERP:07003": "Quotation '{quotationNumber}' has expired (valid until {validUntil}). Cannot convert to Sales Order.",
     "MyERP:07004": "Delivery Note '{deliveryNote}' cannot be included: {reason}.",
+    "MyERP:07006": "Customer does not belong to project '{projectName}'.",
     "MakeSalesOrder": "Make Sales Order",
     "MakeDeliveryNote": "Make Delivery Note",
     "MakeSalesInvoice": "Make Sales Invoice",

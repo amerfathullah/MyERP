@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyERP.Core.Entities;
+using MyERP.Projects.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -17,10 +18,36 @@ namespace MyERP.Core.DomainServices;
 public class TransactionValidationService : DomainService
 {
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Project, Guid> _projectRepository;
 
-    public TransactionValidationService(IRepository<Company, Guid> companyRepository)
+    public TransactionValidationService(
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Project, Guid> projectRepository)
     {
         _companyRepository = companyRepository;
+        _projectRepository = projectRepository;
+    }
+
+    /// <summary>
+    /// Validates a document's customer belongs to its linked project, when both are set.
+    /// Per ERPNext validate_proj_cust: Project.CustomerId must be null or match the
+    /// document's customer — prevents billing/costing a document against the wrong
+    /// customer's project. Same rule applies to Sales Order, Delivery Note, Sales Invoice.
+    /// </summary>
+    public async Task ValidateProjectCustomerAsync(Guid? projectId, Guid customerId)
+    {
+        if (!projectId.HasValue) return;
+
+        var project = await _projectRepository.FindAsync(projectId.Value);
+        if (project == null) return;
+
+        if (project.CustomerId.HasValue && project.CustomerId.Value != customerId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ProjectCustomerMismatch)
+                .WithData("projectName", project.ProjectName)
+                .WithData("customerId", customerId)
+                .WithData("projectCustomerId", project.CustomerId.Value);
+        }
     }
 
     /// <summary>

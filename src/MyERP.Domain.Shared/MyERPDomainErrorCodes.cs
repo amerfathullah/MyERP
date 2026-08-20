@@ -52,6 +52,7 @@ public static class MyERPDomainErrorCodes
     public const string DocumentAlreadyConverted = "MyERP:07002";
     public const string QuotationExpired = "MyERP:07003";
     public const string DeliveryNoteCustomerMismatch = "MyERP:07004";
+    public const string ProjectCustomerMismatch = "MyERP:07006";
 
     // Manufacturing
     public const string PlannedEndDateBeforeStartDate = "MyERP:10001";

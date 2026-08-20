@@ -1,9 +1,13 @@
 using System;
+using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
+using MyERP.Projects.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Tests.Core;
@@ -13,14 +17,14 @@ public class TransactionValidationAndAuditTests
     [Fact]
     public void ValidatePostingDate_Today_Succeeds()
     {
-        var service = new TransactionValidationService(null!);
+        var service = new TransactionValidationService(null!, null!);
         Should.NotThrow(() => service.ValidatePostingDate(DateTime.UtcNow.Date));
     }
 
     [Fact]
     public void ValidatePostingDate_Yesterday_Succeeds()
     {
-        var service = new TransactionValidationService(null!);
+        var service = new TransactionValidationService(null!, null!);
         Should.NotThrow(() => service.ValidatePostingDate(DateTime.UtcNow.Date.AddDays(-1)));
     }
 
@@ -28,14 +32,14 @@ public class TransactionValidationAndAuditTests
     public void ValidatePostingDate_Tomorrow_Succeeds()
     {
         // Allow 1 day into future (timezone tolerance)
-        var service = new TransactionValidationService(null!);
+        var service = new TransactionValidationService(null!, null!);
         Should.NotThrow(() => service.ValidatePostingDate(DateTime.UtcNow.Date.AddDays(1)));
     }
 
     [Fact]
     public void ValidatePostingDate_FarFuture_Throws()
     {
-        var service = new TransactionValidationService(null!);
+        var service = new TransactionValidationService(null!, null!);
         Should.Throw<BusinessException>(() =>
             service.ValidatePostingDate(DateTime.UtcNow.Date.AddDays(30)));
     }
@@ -43,8 +47,59 @@ public class TransactionValidationAndAuditTests
     [Fact]
     public void ValidatePostingDate_PastDate_Succeeds()
     {
-        var service = new TransactionValidationService(null!);
+        var service = new TransactionValidationService(null!, null!);
         Should.NotThrow(() => service.ValidatePostingDate(new DateTime(2025, 1, 1)));
+    }
+
+    [Fact]
+    public async Task ValidateProjectCustomer_NoProject_Succeeds()
+    {
+        var service = new TransactionValidationService(null!, null!);
+        await Should.NotThrowAsync(() => service.ValidateProjectCustomerAsync(null, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task ValidateProjectCustomer_MatchingCustomer_Succeeds()
+    {
+        var customerId = Guid.NewGuid();
+        var project = new Project(Guid.NewGuid(), Guid.NewGuid(), "PRJ-001", "Test Project")
+        {
+            CustomerId = customerId
+        };
+        var projectRepo = Substitute.For<IRepository<Project, Guid>>();
+        projectRepo.FindAsync(project.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(project);
+
+        var service = new TransactionValidationService(null!, projectRepo);
+        await Should.NotThrowAsync(() => service.ValidateProjectCustomerAsync(project.Id, customerId));
+    }
+
+    [Fact]
+    public async Task ValidateProjectCustomer_ProjectHasNoCustomer_Succeeds()
+    {
+        var project = new Project(Guid.NewGuid(), Guid.NewGuid(), "PRJ-002", "Unassigned Project");
+        var projectRepo = Substitute.For<IRepository<Project, Guid>>();
+        projectRepo.FindAsync(project.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(project);
+
+        var service = new TransactionValidationService(null!, projectRepo);
+        await Should.NotThrowAsync(() => service.ValidateProjectCustomerAsync(project.Id, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task ValidateProjectCustomer_MismatchedCustomer_Throws()
+    {
+        var project = new Project(Guid.NewGuid(), Guid.NewGuid(), "PRJ-003", "Acme Project")
+        {
+            CustomerId = Guid.NewGuid()
+        };
+        var projectRepo = Substitute.For<IRepository<Project, Guid>>();
+        projectRepo.FindAsync(project.Id, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(project);
+
+        var service = new TransactionValidationService(null!, projectRepo);
+        await Should.ThrowAsync<BusinessException>(
+            () => service.ValidateProjectCustomerAsync(project.Id, Guid.NewGuid()));
     }
 
     [Fact]
