@@ -42,12 +42,28 @@ public class CreditLimitService : DomainService
     /// <summary>
     /// Validates that the customer's credit limit is not exceeded by the new transaction amount.
     /// Resolution chain: per-company CustomerCreditLimit → Customer.CreditLimit (global fallback).
-    /// Per-company bypass flag skips the check entirely.
+    /// Per-company bypass flag, and the configured Credit Controller role, both skip the check
+    /// entirely (blanket bypass, enforced nowhere). Customer.BypassCreditLimitCheckAtSalesOrder
+    /// is narrower — pass isAtSalesOrder=true only from the Sales Order submit call site; Delivery
+    /// Note and Sales Invoice submit must keep calling this with isAtSalesOrder=false (the default)
+    /// so they still enforce the limit even for a customer whose SO check is bypassed.
     /// Outstanding = sum of unpaid posted invoices for the company.
     /// </summary>
-    public async Task ValidateCreditLimitAsync(Guid customerId, decimal newTransactionAmount, Guid? companyId = null)
+    public async Task ValidateCreditLimitAsync(
+        Guid customerId, decimal newTransactionAmount, Guid? companyId = null,
+        string[]? currentUserRoles = null, bool isAtSalesOrder = false)
     {
         var customer = await _customerRepository.GetAsync(customerId);
+
+        var controllerRole = await _settingProvider.GetOrNullAsync(MyERPSettings.Selling.CreditControllerRole);
+        if (!string.IsNullOrWhiteSpace(controllerRole) && currentUserRoles != null
+            && currentUserRoles.Contains(controllerRole, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (isAtSalesOrder && customer.BypassCreditLimitCheckAtSalesOrder)
+            return;
 
         // Resolve per-company credit limit if company is specified
         decimal creditLimit = customer.CreditLimit;

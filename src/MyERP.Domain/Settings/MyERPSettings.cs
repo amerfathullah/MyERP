@@ -52,6 +52,7 @@ public static class MyERPSettings
         public const string AllowZeroQtyInQuotation = G + ".AllowZeroQtyInQuotation";
         public const string FallbackToDefaultPriceList = G + ".FallbackToDefaultPriceList";
         public const string CustomerNamingBy = G + ".CustomerNamingBy";
+        public const string CreditControllerRole = G + ".CreditControllerRole";
     }
 
     // ═══════════════════════════════════════════════════

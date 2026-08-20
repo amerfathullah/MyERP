@@ -59,6 +59,21 @@ public class SalesOrderManager : DomainService
                 .WithData("documentType", "Sales Order")
                 .WithData("dependent", "Sales Invoice");
         }
+
+        // Per ERPNext check_nextdoc_docstatus(): a DRAFT Sales Invoice against this SO also
+        // blocks cancel — separate from the submitted-SI check above. Without this, cancelling
+        // the SO would leave a draft SI silently orphaned, still referencing a now-cancelled
+        // order via SalesOrderItemId.
+        var hasDraftSI = siQuery.Any(si =>
+            si.Items.Any(i => i.SalesOrderItemId.HasValue && orderItemIds.Contains(i.SalesOrderItemId.Value))
+            && si.Status == Core.DocumentStatus.Draft);
+
+        if (hasDraftSI)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithDraftDependents)
+                .WithData("documentType", "Sales Order")
+                .WithData("dependent", "Sales Invoice");
+        }
     }
 
     /// <summary>

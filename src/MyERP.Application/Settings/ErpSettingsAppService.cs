@@ -108,6 +108,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.AllowZeroQtyInQuotation,
             MyERPSettings.Selling.FallbackToDefaultPriceList,
             MyERPSettings.Selling.CustomerNamingBy,
+            MyERPSettings.Selling.CreditControllerRole,
         ],
         "Buying" => [
             MyERPSettings.Buying.DefaultPriceList,

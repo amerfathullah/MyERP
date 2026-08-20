@@ -120,9 +120,14 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         Status = DocumentStatus.ToDeliverAndBill;
     }
 
+    /// <summary>
+    /// Per ERPNext on_cancel(): a Closed SO cannot be cancelled directly — it must be
+    /// reopened first. Without this guard, cancelling a Closed order would bypass whatever
+    /// the close/reopen cycle is meant to gate (e.g. re-checking credit limit on reopen).
+    /// </summary>
     public void Cancel()
     {
-        if (Status == DocumentStatus.Cancelled)
+        if (Status == DocumentStatus.Cancelled || Status == DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }

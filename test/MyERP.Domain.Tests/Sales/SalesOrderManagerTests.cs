@@ -1,15 +1,57 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Sales;
 
 public class SalesOrderManagerTests
 {
+    [Fact]
+    public async Task ValidateCanCancelAsync_DraftSalesInvoiceExists_Throws()
+    {
+        var so = CreateSO();
+        so.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+
+        var si = new SalesInvoice(Guid.NewGuid(), so.CompanyId, so.CustomerId, "SI-001", DateTime.UtcNow);
+        si.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+        si.Items[0].SalesOrderItemId = so.Items[0].Id;
+        // Left in Draft — never submitted.
+
+        var manager = new SalesOrderManager(null!);
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        dnRepo.GetQueryableAsync().Returns(Task.FromResult(new List<DeliveryNote>().AsQueryable()));
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { si }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateCanCancelAsync(so, dnRepo, siRepo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelWithDraftDependents);
+    }
+
+    [Fact]
+    public async Task ValidateCanCancelAsync_NoDependents_Passes()
+    {
+        var so = CreateSO();
+        so.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+
+        var manager = new SalesOrderManager(null!);
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        dnRepo.GetQueryableAsync().Returns(Task.FromResult(new List<DeliveryNote>().AsQueryable()));
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice>().AsQueryable()));
+
+        await manager.ValidateCanCancelAsync(so, dnRepo, siRepo);
+    }
+
     [Fact]
     public void ValidateDeliveryQty_WithinLimit_Succeeds()
     {
@@ -128,6 +170,30 @@ public class SalesOrderManagerTests
     {
         var so = CreateSO();
         Should.Throw<BusinessException>(() => so.Close());
+    }
+
+    [Fact]
+    public void SO_Cancel_FromClosed_Throws()
+    {
+        var so = CreateSO();
+        so.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+        so.Submit();
+        so.Close();
+
+        // Per ERPNext on_cancel(): a Closed SO must be reopened before it can be cancelled.
+        Should.Throw<BusinessException>(() => so.Cancel());
+    }
+
+    [Fact]
+    public void SO_Cancel_FromSubmitted_Succeeds()
+    {
+        var so = CreateSO();
+        so.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+        so.Submit();
+
+        so.Cancel();
+
+        so.Status.ShouldBe(DocumentStatus.Cancelled);
     }
 
     [Fact]

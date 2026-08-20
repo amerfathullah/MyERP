@@ -35,7 +35,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Selling.EnableDiscountAccounting, "false"),
             new SettingDefinition(MyERPSettings.Selling.AllowZeroQtyInQuotation, "false"),
             new SettingDefinition(MyERPSettings.Selling.FallbackToDefaultPriceList, "false"),
-            new SettingDefinition(MyERPSettings.Selling.CustomerNamingBy, "Customer Name")
+            new SettingDefinition(MyERPSettings.Selling.CustomerNamingBy, "Customer Name"),
+            new SettingDefinition(MyERPSettings.Selling.CreditControllerRole, "")
         );
 
         // ═══════════ Buying Settings ═══════════

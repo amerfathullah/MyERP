@@ -53,6 +53,13 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Credit limit in company currency. 0 = no limit.</summary>
     public decimal CreditLimit { get; set; }
 
+    /// <summary>
+    /// SO-specific credit limit bypass — unlike CustomerCreditLimit.BypassCreditLimitCheck
+    /// (a blanket bypass checked everywhere), this only skips the check at Sales Order submit.
+    /// Delivery Note and Sales Invoice submit still enforce the credit limit normally.
+    /// </summary>
+    public bool BypassCreditLimitCheckAtSalesOrder { get; set; }
+
     /// <summary>For inter-company: the Company this customer represents (bidirectional link).</summary>
     public Guid? RepresentsCompanyId { get; set; }
 

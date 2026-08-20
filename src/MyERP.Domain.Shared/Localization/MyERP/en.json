@@ -1941,6 +1941,7 @@
     "MyERP:05013": "Item {itemName} is inactive and cannot be used in transactions.",
     "MyERP:09001": "Inter-company party mismatch. Customer/Supplier does not represent the target company.",
     "MyERP:01018": "Cannot send email: {reason}",
+    "MyERP:01019": "Cannot cancel {documentType} — it has draft {dependent} documents. Delete the draft documents first.",
     "MyERP:04003": "E-Invoice status check failed. LHDN service may be unavailable.",
     "MyERP:02003": "Account is a group account and cannot receive direct postings.",
     "MyERP:06002": "Asset {assetName} with status {status} cannot be moved.",

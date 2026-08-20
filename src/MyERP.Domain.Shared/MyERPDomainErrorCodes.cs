@@ -176,6 +176,7 @@ public static class MyERPDomainErrorCodes
     public const string DeliveryWarehouseNotReserved = "MyERP:05058";
     public const string CaseNumberRangeOverlap = "MyERP:05059";
     public const string DeliveryNoteNotFullyPacked = "MyERP:05060";
+    public const string CannotCancelWithDraftDependents = "MyERP:01019";
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
 
     // Timesheet Billing

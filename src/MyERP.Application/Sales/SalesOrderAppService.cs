@@ -395,9 +395,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         // Credit limit check — per DO-NOT: "must also enforce at SO, DN and SI submit"
+        // isAtSalesOrder=true: honors Customer.BypassCreditLimitCheckAtSalesOrder, an SO-only
+        // bypass — DN/SI submit still enforce the limit for such a customer regardless.
         var creditLimitService = LazyServiceProvider
             .LazyGetRequiredService<CreditLimitService>();
-        await creditLimitService.ValidateCreditLimitAsync(order.CustomerId, order.GrandTotal, order.CompanyId);
+        await creditLimitService.ValidateCreditLimitAsync(
+            order.CustomerId, order.GrandTotal, order.CompanyId, userRoles, isAtSalesOrder: true);
 
         // Selling price validation — selling rate must be >= valuation rate
         var valuationService = LazyServiceProvider

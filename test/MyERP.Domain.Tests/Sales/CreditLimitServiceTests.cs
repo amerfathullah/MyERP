@@ -188,6 +188,51 @@ public class CreditLimitServiceTests
         shouldEnforce.ShouldBeTrue();
     }
 
+    // === Credit Limit Bypass (role + SO-specific) ===
+
+    [Fact]
+    public void CreditLimit_ControllerRoleMatchesCurrentUser_SkipsEverywhere()
+    {
+        var shouldEnforce = CreditLimitShouldEnforce(
+            creditLimit: 10000m, exposure: 20000m, isAtSalesOrder: false,
+            controllerRole: "CreditController", currentUserRoles: new[] { "CreditController" });
+        shouldEnforce.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void CreditLimit_SoBypassFlag_SkipsOnlyAtSalesOrder()
+    {
+        var atSo = CreditLimitShouldEnforce(
+            creditLimit: 10000m, exposure: 20000m, isAtSalesOrder: true, customerBypassAtSo: true);
+        var atDn = CreditLimitShouldEnforce(
+            creditLimit: 10000m, exposure: 20000m, isAtSalesOrder: false, customerBypassAtSo: true);
+
+        atSo.ShouldBeFalse();
+        atDn.ShouldBeTrue(); // DN/SI still enforce even though the customer's SO check is bypassed
+    }
+
+    [Fact]
+    public void CreditLimit_NoBypass_ExceedsLimit_Enforces()
+    {
+        var shouldEnforce = CreditLimitShouldEnforce(creditLimit: 10000m, exposure: 20000m, isAtSalesOrder: true);
+        shouldEnforce.ShouldBeTrue();
+    }
+
+    /// <summary>Mirrors CreditLimitService.ValidateCreditLimitAsync's role/SO-bypass decision (pre-amount-check).</summary>
+    private static bool CreditLimitShouldEnforce(
+        decimal creditLimit, decimal exposure, bool isAtSalesOrder,
+        string? controllerRole = null, string[]? currentUserRoles = null, bool customerBypassAtSo = false)
+    {
+        if (!string.IsNullOrWhiteSpace(controllerRole) && currentUserRoles != null
+            && currentUserRoles.Contains(controllerRole, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (isAtSalesOrder && customerBypassAtSo) return false;
+        if (creditLimit <= 0) return false;
+        return exposure > creditLimit;
+    }
+
     // === Helper Methods ===
 
     /// <summary>Mirrors CreditLimitService.ValidateOverdueBillingThresholdAsync's gate/bypass/threshold decision.</summary>
