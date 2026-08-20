@@ -313,10 +313,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             var matchStatus = DetermineMatchingStatus(invoice);
             dto.MatchingStatus = matchStatus;
-            dto.OnHold = false; // PI-level hold not yet implemented; supplier hold checked at submit time
             dto.IsReadyForPayment = dto.Status == "Posted"
                 && dto.OutstandingAmount > 0.01m
                 && !dto.IsReturn
+                && !invoice.IsBlocked
                 && matchStatus is "FullyMatched" or "DirectPurchase";
         }
 
@@ -1149,6 +1149,29 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.AmountPaid = invoice.GrandTotal;
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
+        await _repository.UpdateAsync(invoice, autoSave: true);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+    }
+
+    /// <summary>
+    /// Blocks this invoice from payment, independent of any Supplier-level hold.
+    /// Per purchase-invoice skill: release_date (if set) must be a future date.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Edit)]
+    public async Task<PurchaseInvoiceDto> BlockAsync(Guid id, string? holdComment, DateTime? releaseDate)
+    {
+        var invoice = await _repository.GetAsync(id);
+        invoice.SetHold(true, holdComment, releaseDate);
+        await _repository.UpdateAsync(invoice, autoSave: true);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+    }
+
+    /// <summary>Unblocks this invoice, clearing OnHold/HoldComment/ReleaseDate.</summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Edit)]
+    public async Task<PurchaseInvoiceDto> UnblockAsync(Guid id)
+    {
+        var invoice = await _repository.GetAsync(id);
+        invoice.SetHold(false, null, null);
         await _repository.UpdateAsync(invoice, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }

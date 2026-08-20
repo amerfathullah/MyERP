@@ -44,6 +44,12 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     /// <summary>3-way matching status: FullyMatched, PartiallyMatched, Unmatched, DirectPurchase.</summary>
     public string? MatchingStatus { get; set; }
 
+    public string? HoldComment { get; set; }
+    public DateTime? ReleaseDate { get; set; }
+
+    /// <summary>True when OnHold and no release date has passed yet — blocks Payment Entry.</summary>
+    public bool IsBlocked { get; set; }
+
     /// <summary>True when: Posted + outstanding > 0 + not on hold + fully matched (or no PO link).</summary>
     public bool IsReadyForPayment { get; set; }
 

@@ -93,6 +93,50 @@ public class PurchaseInvoiceTests
         invoice.OutstandingAmount.ShouldBe(1060m); // GrandTotal - 0 paid
     }
 
+    [Fact]
+    public void SetHold_WithFutureReleaseDate_ShouldBlockUntilThen()
+    {
+        var invoice = CreateInvoice();
+
+        invoice.SetHold(true, "Awaiting quality dispute resolution", DateTime.UtcNow.Date.AddDays(3));
+
+        invoice.OnHold.ShouldBeTrue();
+        invoice.IsBlocked.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SetHold_WithPastReleaseDate_ShouldThrow()
+    {
+        var invoice = CreateInvoice();
+
+        Assert.Throws<BusinessException>(() =>
+            invoice.SetHold(true, "reason", DateTime.UtcNow.Date.AddDays(-1)));
+    }
+
+    [Fact]
+    public void SetHold_NoReleaseDate_ShouldBlockIndefinitely()
+    {
+        var invoice = CreateInvoice();
+
+        invoice.SetHold(true, "reason", null);
+
+        invoice.IsBlocked.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SetHold_False_ShouldClearCommentAndReleaseDate()
+    {
+        var invoice = CreateInvoice();
+        invoice.SetHold(true, "reason", DateTime.UtcNow.Date.AddDays(3));
+
+        invoice.SetHold(false, null, null);
+
+        invoice.OnHold.ShouldBeFalse();
+        invoice.HoldComment.ShouldBeNull();
+        invoice.ReleaseDate.ShouldBeNull();
+        invoice.IsBlocked.ShouldBeFalse();
+    }
+
     private static PurchaseInvoice CreateInvoice()
     {
         return new PurchaseInvoice(

@@ -409,6 +409,9 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   matchingStatus?: string | null;
   isReadyForPayment?: boolean;
   onHold?: boolean;
+  holdComment?: string | null;
+  releaseDate?: string | null;
+  isBlocked?: boolean;
   items?: PurchaseInvoiceItemDto[];
 }
 

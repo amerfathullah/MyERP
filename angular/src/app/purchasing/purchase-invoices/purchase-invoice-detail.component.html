@@ -81,6 +81,37 @@
       </div>
     }
 
+    <!-- Block Invoice Dialog (inline — hold this invoice from payment) -->
+    @if (showBlockDialog()) {
+      <div class="card mt-3 mb-3 border-warning">
+        <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0"><i class="fa fa-lock me-2"></i>{{ '::BlockInvoice' | abpLocalization }}</h6>
+          <button type="button" class="btn-close" (click)="cancelBlockDialog()"></button>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label">{{ '::HoldComment' | abpLocalization }}</label>
+              <input type="text" class="form-control"
+                     [ngModel]="blockHoldComment()" (ngModelChange)="blockHoldComment.set($event)" />
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">{{ '::ReleaseDate' | abpLocalization }}</label>
+              <input type="date" class="form-control"
+                     [ngModel]="blockReleaseDate()" (ngModelChange)="blockReleaseDate.set($event)" />
+              <small class="form-text text-muted">{{ '::ReleaseDateMustBeFutureHint' | abpLocalization }}</small>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary" (click)="cancelBlockDialog()">{{ '::Cancel' | abpLocalization }}</button>
+            <button type="button" class="btn btn-warning" (click)="submitBlock()">
+              <i class="fa fa-lock me-1"></i>{{ '::BlockInvoice' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <div class="card mt-4">
       <div class="card-body">
         <div class="row">
@@ -89,6 +120,12 @@
             <span class="fw-semibold">{{ invoice.supplierName || '—' }}</span>
             @if (supplierHoldType()) {
               <span class="badge bg-danger ms-2"><i class="fa fa-ban me-1"></i>{{ supplierHoldType() }}</span>
+            }
+            @if (invoice.onHold) {
+              <span class="badge bg-warning text-dark ms-2" [title]="invoice.holdComment || ''">
+                <i class="fa fa-lock me-1"></i>{{ '::OnHold' | abpLocalization }}
+                @if (invoice.releaseDate) { ({{ invoice.releaseDate | date:'dd/MM/yyyy' }}) }
+              </span>
             }
           </div>
           <div class="col-6 col-md-3 mb-3">

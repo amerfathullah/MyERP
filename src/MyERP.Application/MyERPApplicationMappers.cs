@@ -651,14 +651,12 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.MatchingStatus))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsReadyForPayment))]
-    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.OnHold))]
     public override partial Purchasing.PurchaseInvoiceDto Map(Purchasing.Entities.PurchaseInvoice source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsOverdue))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.MatchingStatus))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsReadyForPayment))]
-    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.OnHold))]
     public override partial void Map(Purchasing.Entities.PurchaseInvoice source, Purchasing.PurchaseInvoiceDto destination);
     private partial Purchasing.PurchaseInvoiceItemDto MapChild(Purchasing.Entities.PurchaseInvoiceItem source);
 }

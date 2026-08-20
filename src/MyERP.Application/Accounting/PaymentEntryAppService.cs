@@ -304,6 +304,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var pi = await _purchaseInvoiceRepository.GetAsync(pe.AgainstInvoiceId.Value);
                 pe.SourceExchangeRate = pi.ExchangeRate;
 
+                // Invoice-level hold: independent of Supplier.HoldType (already checked above)
+                if (pi.IsBlocked)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PurchaseInvoiceOnHold)
+                        .WithData("invoiceNumber", pi.InvoiceNumber);
+                }
+
                 // Stale outstanding validation: hard error only when outstanding > 0
                 if (pi.OutstandingAmount > 0 && pe.PaidAmount > pi.OutstandingAmount)
                 {
@@ -463,6 +470,12 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 else if (refRow.ReferenceType == "PurchaseInvoice")
                 {
                     var pi = await _purchaseInvoiceRepository.GetAsync(refRow.ReferenceId);
+
+                    if (pi.IsBlocked)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PurchaseInvoiceOnHold)
+                            .WithData("invoiceNumber", pi.InvoiceNumber);
+                    }
 
                     if (pi.OutstandingAmount > 0 && refRow.AllocatedAmount > pi.OutstandingAmount)
                     {

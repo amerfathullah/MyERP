@@ -106,6 +106,34 @@ export const PurchaseInvoiceStore = signalStore(
       )
     ),
 
+    blockInvoice: rxMethod<{ id: string; holdComment?: string; releaseDate?: string }>(
+      pipe(
+        switchMap(({ id, holdComment, releaseDate }) => service.block(id, holdComment, releaseDate)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as PurchaseInvoiceEntity }));
+          toaster.success('::SuccessfullySaved');
+        }),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Block failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
+    unblockInvoice: rxMethod<string>(
+      pipe(
+        switchMap((id) => service.unblock(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as PurchaseInvoiceEntity }));
+          toaster.success('::SuccessfullySaved');
+        }),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Unblock failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
     setFilter(filter: PurchaseInvoiceFilter) {
       patchState(store, { filter });
     },

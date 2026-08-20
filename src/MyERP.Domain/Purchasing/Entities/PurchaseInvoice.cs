@@ -113,6 +113,15 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Write-off cost center.</summary>
     public Guid? WriteOffCostCenterId { get; set; }
 
+    /// <summary>Invoice-level hold, independent of Supplier.HoldType. Blocks Payment Entry against this invoice.</summary>
+    public bool OnHold { get; set; }
+
+    /// <summary>Reason for the hold. Cleared automatically when OnHold is lifted.</summary>
+    public string? HoldComment { get; set; }
+
+    /// <summary>Date the hold auto-releases. Must be a future date when set. Null = held indefinitely.</summary>
+    public DateTime? ReleaseDate { get; set; }
+
     /// <summary>Cost center for departmental expense attribution.</summary>
     public Guid? CostCenterId { get; set; }
 
@@ -255,6 +264,28 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (amount < 0) throw new ArgumentException("Advance amount cannot be negative.", nameof(amount));
         TotalAdvance = amount;
     }
+
+    /// <summary>
+    /// Blocks or unblocks this invoice from payment, independent of any Supplier-level hold.
+    /// Per ERPNext purchase_invoice.py: release_date must be a future date when set, and is
+    /// cleared automatically when the hold itself is lifted (before_save cleanup) so a stale
+    /// date can't linger and silently un-block a later re-hold.
+    /// </summary>
+    public void SetHold(bool onHold, string? holdComment, DateTime? releaseDate)
+    {
+        if (onHold && releaseDate.HasValue && releaseDate.Value.Date <= DateTime.UtcNow.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ReleaseDateMustBeFuture);
+
+        OnHold = onHold;
+        HoldComment = onHold ? holdComment : null;
+        ReleaseDate = onHold ? releaseDate : null;
+    }
+
+    /// <summary>
+    /// True when this invoice itself is blocked from payment — on hold with no release date,
+    /// or a release date that hasn't arrived yet. Independent of Supplier.HoldType.
+    /// </summary>
+    public bool IsBlocked => OnHold && (!ReleaseDate.HasValue || ReleaseDate.Value.Date > DateTime.UtcNow.Date);
 
     private void RecalculateTotals()
     {

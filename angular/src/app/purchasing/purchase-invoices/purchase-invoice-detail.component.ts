@@ -68,6 +68,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   isProcessingPayment = signal(false);
   modesOfPayment = signal<any[]>([]);
 
+  // Invoice-level hold dialog state
+  showBlockDialog = signal(false);
+  blockHoldComment = signal('');
+  blockReleaseDate = signal('');
+
   get workflowActions(): WorkflowAction[] {
     if (!this.invoice) return [];
     const actions: WorkflowAction[] = [];
@@ -82,6 +87,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       actions.push({ name: 'return', label: 'Create Debit Note', icon: 'fa fa-rotate-left', color: 'warning' });
       if ((this.invoice as any).outstandingAmount > 0) {
         actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', color: 'secondary' });
+      }
+      if (this.invoice.onHold) {
+        actions.push({ name: 'unblock', label: 'Unblock Invoice', icon: 'fa fa-lock-open', color: 'success' });
+      } else {
+        actions.push({ name: 'block', label: 'Block Invoice', icon: 'fa fa-lock', color: 'warning' });
       }
       if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
         actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
@@ -208,6 +218,17 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
           error: () => {},
         });
         break;
+      case 'block':
+        this.openBlockDialog();
+        break;
+      case 'unblock':
+        this.confirmation.warn('::AreYouSure', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.store.unblockInvoice(id);
+            this.reloadAfterAction();
+          }
+        });
+        break;
       case 'submitLhdn':
         this.submitToLhdn();
         break;
@@ -302,6 +323,29 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
   cancelQuickPayment(): void {
     this.showQuickPayment.set(false);
+  }
+
+  // --- Invoice-Level Hold Dialog ---
+  openBlockDialog(): void {
+    this.blockHoldComment.set('');
+    this.blockReleaseDate.set('');
+    this.showBlockDialog.set(true);
+  }
+
+  cancelBlockDialog(): void {
+    this.showBlockDialog.set(false);
+  }
+
+  submitBlock(): void {
+    const id = this.invoice?.id;
+    if (!id) return;
+    this.store.blockInvoice({
+      id,
+      holdComment: this.blockHoldComment() || undefined,
+      releaseDate: this.blockReleaseDate() || undefined,
+    });
+    this.showBlockDialog.set(false);
+    this.reloadAfterAction();
   }
 
   submitQuickPayment(): void {
