@@ -256,6 +256,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
 
+        // Per gotcha #468: project-customer cross-validation
+        if (input.ProjectId.HasValue)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Project {project.ProjectName} belongs to a different Customer.");
+            }
+        }
+
         // Auto-fill addresses from customer master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
         var billingAddress = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
