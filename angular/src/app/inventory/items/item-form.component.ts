@@ -4,6 +4,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { barcodeTypeOptions } from '../../proxy/inventory/barcode-type.enum';
+import { valuationMethodOptions } from '../../proxy/inventory/valuation-method.enum';
 import { materialRequestTypeOptions } from '../../proxy/purchasing/material-request-type.enum';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -13,6 +14,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { ItemStore } from '../store/item.store';
+import { ToasterService } from '@abp/ng.theme.shared';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -37,6 +39,7 @@ export class ItemFormComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
   private store = inject(ItemStore);
   private service = inject(ItemService);
+  private toaster = inject(ToasterService);
 
   stockLevels = signal<any[]>([]);
   companies = signal<any[]>([]);
@@ -45,6 +48,7 @@ export class ItemFormComponent implements OnInit {
   warehouses = signal<any[]>([]);
 
   materialRequestTypeOptions = materialRequestTypeOptions;
+  valuationMethodOptions = valuationMethodOptions;
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -54,6 +58,7 @@ export class ItemFormComponent implements OnInit {
     itemType: [0, Validators.required],
     itemGroup: [''],
     uom: ['Unit'],
+    valuationMethod: [0],
     standardSellingPrice: [0],
     standardBuyingPrice: [0],
     maintainStock: [true],
@@ -153,6 +158,18 @@ export class ItemFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
       res => this.companies.set(res.items ?? []));
+
+    // New items default to the selected company's configured valuation method (per
+    // stock-ledger-engine's documented fallback chain). Existing items keep whatever
+    // is already patched onto them below — never overwritten by a company change.
+    if (!this.isEditMode) {
+      this.form.get('companyId')?.valueChanges.subscribe((companyId) => {
+        const company = this.companies().find(c => c.id === companyId);
+        if (company?.defaultValuationMethod != null) {
+          this.form.patchValue({ valuationMethod: company.defaultValuationMethod });
+        }
+      });
+    }
     this.supplierService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
       res => this.suppliers.set(res.items ?? []));
     this.customerService.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe(
@@ -195,12 +212,12 @@ export class ItemFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({
         next: () => this.router.navigate(['/inventory/items']),
-        error: () => {},
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
     } else {
       this.service.create(value).subscribe({
         next: () => this.router.navigate(['/inventory/items']),
-        error: () => {},
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
     }
   }

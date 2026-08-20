@@ -103,6 +103,13 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool EnablePerpetualInventory { get; set; } = true;
 
     /// <summary>
+    /// Default valuation method for new Items created under this company, per
+    /// stock-ledger-engine's documented fallback chain (Item override → Company default →
+    /// global StockSettings default → FIFO). Null = fall through to the next tier.
+    /// </summary>
+    public MyERP.Inventory.ValuationMethod? DefaultValuationMethod { get; set; }
+
+    /// <summary>
     /// Round-off account for opening balance entries.
     /// Per ERPNext gotcha #200: opening entries use a DIFFERENT round-off account.
     /// </summary>

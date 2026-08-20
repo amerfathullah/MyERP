@@ -146,6 +146,10 @@ public class CompanyAppService :
         company.OverBillingAllowance = input.OverBillingAllowance;
         company.EnablePerpetualInventory = input.EnablePerpetualInventory;
 
+        company.DefaultValuationMethod = string.IsNullOrWhiteSpace(input.DefaultValuationMethod)
+            ? null
+            : Enum.Parse<MyERP.Inventory.ValuationMethod>(input.DefaultValuationMethod, ignoreCase: true);
+
         company.DefaultReceivableAccountId = input.DefaultReceivableAccountId;
         company.DefaultPayableAccountId = input.DefaultPayableAccountId;
         company.DefaultIncomeAccountId = input.DefaultIncomeAccountId;

@@ -4,6 +4,7 @@ import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 import type { EmailDigestFrequency } from './email-digest-frequency.enum';
 import type { DocumentStatus } from './document-status.enum';
+import type { ValuationMethod } from '../inventory/valuation-method.enum';
 
 export interface AddressDto extends EntityDto<string> {
   title?: string;
@@ -122,6 +123,7 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;
   enablePerpetualInventory?: boolean;
+  defaultValuationMethod?: ValuationMethod | null;
   overDeliveryReceiptAllowance?: number;
   overBillingAllowance?: number;
   defaultWarehouseId?: string | null;

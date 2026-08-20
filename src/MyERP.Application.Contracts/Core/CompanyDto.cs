@@ -25,6 +25,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public DateTime? StockFrozenUpto { get; set; }
     public DateTime? AccountsFrozenTillDate { get; set; }
     public bool EnablePerpetualInventory { get; set; }
+    public MyERP.Inventory.ValuationMethod? DefaultValuationMethod { get; set; }
     public decimal OverDeliveryReceiptAllowance { get; set; }
     public decimal OverBillingAllowance { get; set; }
 

@@ -57,6 +57,12 @@
             </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::ValuationMethod' | abpLocalization }}</label>
+            <select class="form-select" formControlName="valuationMethod">
+              @for (v of valuationMethodOptions; track v.value) { <option [ngValue]="v.value">{{ v.key }}</option> }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::SellingPrice' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="standardSellingPrice" [class.is-invalid]="form.get('standardSellingPrice')?.invalid && form.get('standardSellingPrice')?.touched" />
           </div>

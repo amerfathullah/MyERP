@@ -8,6 +8,7 @@ import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { CompanyDto } from '../../proxy/core/models';
 import type { AccountDto } from '../../proxy/accounting/models';
+import { ValuationMethod } from '../../proxy/inventory/valuation-method.enum';
 
 @Component({
   selector: 'app-company-settings',
@@ -33,7 +34,7 @@ export class CompanySettingsComponent implements OnInit {
     stockFrozenUpto: [''],
     accountsFrozenTillDate: [''],
     enablePerpetualInventory: [true],
-    defaultValuationMethod: ['MovingAverage'],
+    defaultValuationMethod: ['FIFO'],
     overDeliveryAllowance: [0],
     overBillingAllowance: [0],
     defaultReceivableAccountId: [''],
@@ -61,6 +62,9 @@ export class CompanySettingsComponent implements OnInit {
       stockFrozenUpto: company.stockFrozenUpto?.substring(0, 10) ?? '',
       accountsFrozenTillDate: company.accountsFrozenTillDate?.substring(0, 10) ?? '',
       enablePerpetualInventory: company.enablePerpetualInventory ?? true,
+      defaultValuationMethod: company.defaultValuationMethod != null
+        ? ValuationMethod[company.defaultValuationMethod]
+        : 'FIFO',
       overDeliveryAllowance: company.overDeliveryReceiptAllowance ?? 0,
       overBillingAllowance: company.overBillingAllowance ?? 0,
       defaultReceivableAccountId: company.defaultReceivableAccountId ?? '',

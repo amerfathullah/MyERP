@@ -2946,6 +2946,7 @@
     "ValidUpto": "Valid Upto",
     "ValuationMethod": "Valuation Method",
     "MovingAverage": "Moving Average",
+    "WeightedAverage": "Weighted Average",
     "FIFO": "FIFO",
     "LIFO": "LIFO",
     "ViewClosingEntry": "View Closing Entry",
