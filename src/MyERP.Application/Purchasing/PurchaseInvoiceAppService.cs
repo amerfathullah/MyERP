@@ -648,7 +648,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             var supplier = invoice.SupplierId != Guid.Empty
                 ? await _supplierRepository.FindAsync(invoice.SupplierId)
                 : null;
-            if (supplier?.TaxWithholdingCategory != null)
+            if (!string.IsNullOrWhiteSpace(supplier?.TaxWithholdingCategory))
             {
                 // Resolve fiscal year for cumulative threshold
                 var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
@@ -659,6 +659,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
                 if (fy != null)
                 {
+                    // Resolve the real category master by name — supplier.TaxWithholdingCategory
+                    // is a free-text label matched against TaxWithholdingCategory.CategoryName.
+                    var categoryRepo = LazyServiceProvider
+                        .LazyGetRequiredService<IRepository<Tax.Entities.TaxWithholdingCategory, Guid>>();
+                    var categoryQuery = await categoryRepo.GetQueryableAsync();
+                    var category = categoryQuery
+                        .FirstOrDefault(c => c.CategoryName == supplier.TaxWithholdingCategory);
+                    if (category == null)
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.TaxWithholdingCategoryNotFound)
+                            .WithData("category", supplier.TaxWithholdingCategory!);
+
+                    var applicableRate = category.GetApplicableRate(invoice.IssueDate);
+
                     var cumulative = await _taxWithholdingService.GetCumulativeInvoicedAsync(
                         invoice.SupplierId, fy.StartDate, fy.EndDate);
                     var previouslyDeducted = await _taxWithholdingService.GetPreviouslyDeductedAsync(
@@ -666,14 +679,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     var historicalExists = await _taxWithholdingService.HasHistoricalWithholdingAsync(
                         invoice.SupplierId, supplier.TaxWithholdingCategory, fy.StartDate, fy.EndDate);
 
-                    // Use standard 10% rate as default (configurable via TaxWithholdingCategory in future)
+                    var singleThreshold = category.DisableTransactionThreshold ? 0m : (applicableRate.SingleThreshold ?? 0m);
+                    var cumulativeThreshold = category.DisableCumulativeThreshold ? 0m : (applicableRate.CumulativeThreshold ?? 0m);
+
                     var result = _taxWithholdingService.CalculateWithholding(
                         currentInvoiceNetTotal: invoice.NetTotal,
                         cumulativeInvoicedInFY: cumulative,
-                        standardRate: 10m,
-                        singleThreshold: 0m,
-                        cumulativeThreshold: 0m,
-                        taxOnExcessAmount: false,
+                        standardRate: applicableRate.Rate,
+                        singleThreshold: singleThreshold,
+                        cumulativeThreshold: cumulativeThreshold,
+                        taxOnExcessAmount: category.TaxOnExcessAmount,
                         previouslyDeductedTDS: previouslyDeducted);
 
                     // "Once deducted, always deducted" — force threshold crossed if historical exists
@@ -682,21 +697,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         result = _taxWithholdingService.CalculateWithholding(
                             currentInvoiceNetTotal: invoice.NetTotal,
                             cumulativeInvoicedInFY: 0m,
-                            standardRate: 10m,
+                            standardRate: applicableRate.Rate,
                             singleThreshold: 0m,
                             cumulativeThreshold: 0m,
-                            taxOnExcessAmount: false,
+                            taxOnExcessAmount: category.TaxOnExcessAmount,
                             previouslyDeductedTDS: previouslyDeducted);
                     }
 
                     if (result.ThresholdCrossed && result.WithheldAmount > 0)
                     {
-                        // Create withholding entry — uses dedicated tax payable account or expense fallback
-                        var company = await _companyRepository.GetAsync(invoice.CompanyId);
-                        if (!company.DefaultExpenseAccountId.HasValue)
-                            throw new Volo.Abp.BusinessException("MyERP:02001")
-                                .WithData("reason", "No expense account configured for tax withholding. Set Default Expense Account in Company settings.");
-                        var taxAccountId = company.DefaultExpenseAccountId.Value;
+                        if (category.RoundOffTaxAmount)
+                            result.WithheldAmount = Math.Round(result.WithheldAmount, 0);
+
+                        // Real per-company withholding payable account, not a fallback.
+                        var taxAccountId = category.GetCompanyAccount(invoice.CompanyId);
                         await _taxWithholdingService.CreateEntryAsync(
                             invoice.CompanyId, invoice.SupplierId,
                             "PurchaseInvoice", invoice.Id, taxAccountId,

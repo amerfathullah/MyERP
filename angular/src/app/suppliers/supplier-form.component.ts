@@ -11,9 +11,11 @@ import { HierarchyMasterDataService } from '../proxy/core/hierarchy-master-data.
 import { MasterDataService } from '../proxy/core/master-data.service';
 import { AccountService } from '../proxy/accounting/account.service';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
+import { TaxWithholdingCategoryService } from '../proxy/tax/tax-withholding-category.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { HierarchyNodeDto, PaymentTermsLookupDto } from '../proxy/core/models';
 import type { AccountDto } from '../proxy/accounting/models';
+import type { TaxWithholdingCategoryDto } from '../proxy/tax/models';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../shared/directives/save-shortcut.directive';
@@ -38,6 +40,7 @@ export class SupplierFormComponent implements OnInit {
   private masterDataService = inject(MasterDataService);
   private accountService = inject(AccountService);
   private einvoiceService = inject(EInvoiceService);
+  private taxWithholdingCategoryService = inject(TaxWithholdingCategoryService);
   private toaster = inject(ToasterService);
 
   outstandingInvoices = signal<any[]>([]);
@@ -46,6 +49,7 @@ export class SupplierFormComponent implements OnInit {
   supplierGroups = signal<HierarchyNodeDto[]>([]);
   paymentTerms = signal<PaymentTermsLookupDto[]>([]);
   accounts = signal<AccountDto[]>([]);
+  taxWithholdingCategories = signal<TaxWithholdingCategoryDto[]>([]);
   searchingTaxpayer = signal(false);
 
   form = this.fb.group({
@@ -59,7 +63,7 @@ export class SupplierFormComponent implements OnInit {
     holdType: [0],
     preventPurchaseOrders: [false],
     preventRfqs: [false],
-    taxWithholdingCategory: [''],
+    taxWithholdingCategory: [null as string | null],
     tin: [''],
     registrationNumber: [''],
     sstRegistrationNumber: [''],
@@ -89,6 +93,9 @@ export class SupplierFormComponent implements OnInit {
 
     this.hierarchyService.getSupplierGroups()
       .subscribe({ next: groups => this.supplierGroups.set(groups ?? []), error: () => {} });
+
+    this.taxWithholdingCategoryService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
+      .subscribe({ next: res => this.taxWithholdingCategories.set(res.items ?? []), error: () => {} });
 
     this.masterDataService.getPaymentTerms()
       .subscribe({ next: terms => this.paymentTerms.set(terms ?? []), error: () => {} });
