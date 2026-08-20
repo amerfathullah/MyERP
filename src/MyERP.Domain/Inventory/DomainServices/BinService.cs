@@ -25,7 +25,8 @@ public class BinService : DomainService
 
     /// <summary>
     /// Get or create a Bin for the given item+warehouse combination.
-    /// Uses INSERT ON CONFLICT pattern to handle concurrent creates.
+    /// Races the unique (TenantId, ItemId, WarehouseId) index on insert: if a concurrent
+    /// caller wins the race, re-reads the row it created instead of failing.
     /// </summary>
     public async Task<Bin> GetOrCreateAsync(Guid itemId, Guid warehouseId, Guid? tenantId = null)
     {
@@ -36,8 +37,26 @@ public class BinService : DomainService
             return bin;
 
         bin = new Bin(GuidGenerator.Create(), itemId, warehouseId, tenantId);
-        await _binRepository.InsertAsync(bin);
-        return bin;
+        try
+        {
+            // autoSave forces the insert (and its unique-index check) to happen now,
+            // so a concurrent-create race is caught here instead of surfacing later,
+            // mixed with unrelated pending changes, at the ambient unit of work's commit.
+            await _binRepository.InsertAsync(bin, autoSave: true);
+            return bin;
+        }
+        catch
+        {
+            // Domain layer can't reference the EF Core provider to catch the specific
+            // unique-violation type, so instead of guessing an exception type: re-check
+            // whether a Bin now exists (a concurrent caller won the race) and use it.
+            // If no Bin exists, the failure wasn't the race — rethrow the real error.
+            var refreshed = await _binRepository.GetQueryableAsync();
+            var existing = refreshed.FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
+            if (existing != null)
+                return existing;
+            throw;
+        }
     }
 
     /// <summary>
@@ -59,6 +78,30 @@ public class BinService : DomainService
             {
                 // Concurrency conflict: another transaction modified this bin simultaneously.
                 // Retry with fresh data.
+                await Task.Delay(5 * (attempt + 1));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Set the Bin's actual qty/value to an absolute balance (not a delta).
+    /// Used after a full valuation repost, where the caller already knows the
+    /// authoritative post-repost balance and an additive ApplyStockMovement (delta=0)
+    /// would leave the Bin unchanged instead of syncing it.
+    /// </summary>
+    public async Task SetBalanceAsync(Guid itemId, Guid warehouseId, decimal actualQty, decimal stockValue, Guid? tenantId = null)
+    {
+        for (int attempt = 0; attempt < MaxRetries; attempt++)
+        {
+            try
+            {
+                var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
+                bin.UpdateActualQty(actualQty, stockValue);
+                await _binRepository.UpdateAsync(bin);
+                return;
+            }
+            catch (AbpDbConcurrencyException) when (attempt < MaxRetries - 1)
+            {
                 await Task.Delay(5 * (attempt + 1));
             }
         }

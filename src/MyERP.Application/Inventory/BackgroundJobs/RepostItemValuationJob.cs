@@ -123,12 +123,14 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
             // Step 1: Recalculate all SLE valuations from the given date
             await _valuationService.RevaluateFromDateAsync(args.ItemId, args.WarehouseId, args.FromDate);
 
-            // Step 2: Update Bin with the latest balance
+            // Step 2: Sync Bin to the recalculated post-repost balance.
+            // Must SET the absolute balance, not apply a zero delta — the whole point of a
+            // repost is that the Bin's running additive total may have drifted from the
+            // authoritative SLE-derived balance (backdated entry, correction, etc).
             var balance = await _valuationService.GetCurrentBalanceAsync(args.ItemId, args.WarehouseId);
-            await _binService.ApplyStockMovementAsync(
+            await _binService.SetBalanceAsync(
                 args.ItemId, args.WarehouseId,
-                0, // no qty change — just sync the value
-                0,
+                balance.Quantity, balance.Value,
                 args.TenantId);
 
             // Step 3: Rebuild GL entries for affected stock vouchers
