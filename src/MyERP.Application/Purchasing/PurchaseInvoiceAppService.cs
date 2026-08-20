@@ -795,6 +795,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.Submit();
 
+        // Inter-Company: create corresponding SI in source company if supplier represents another company.
+        // Mirrors SalesInvoiceAppService.SubmitAsync's PI auto-creation — that direction was wired,
+        // this one (PI submit -> auto-create SI) was not, even though the domain service method
+        // to do it (CreateSalesInvoiceFromPurchaseInvoiceAsync) already existed and was never called.
+        if (!invoice.IsReturn)
+        {
+            var icSupplier = await _supplierRepository.GetAsync(invoice.SupplierId);
+            if (icSupplier.RepresentsCompanyId.HasValue)
+            {
+                var interCompanyService = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Core.DomainServices.InterCompanyTransactionService>();
+                await interCompanyService.CreateSalesInvoiceFromPurchaseInvoiceAsync(
+                    invoice.Id, icSupplier.RepresentsCompanyId.Value, invoice.TenantId);
+            }
+        }
+
         // Debit Note: reduce original invoice outstanding (with concurrency retry)
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
         {
