@@ -77,6 +77,12 @@ public class BankAutoMatchService : ApplicationService
             {
                 tx.Reconcile(match.Id, match.PaymentNumber);
                 await _transactionRepository.UpdateAsync(tx);
+
+                // Feed the match into ClearanceDate — see BankReconciliationAppService.ReconcileAsync
+                // for why the Bank Reconciliation Statement needs this, not just IsReconciled.
+                match.SetClearanceDate(tx.TransactionDate);
+                await _paymentRepository.UpdateAsync(match);
+
                 unmatchedPayments.Remove(match);
                 matchedCount++;
             }

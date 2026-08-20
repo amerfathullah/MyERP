@@ -62,6 +62,15 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var tx = await _repository.GetAsync(input.TransactionId);
         tx.Reconcile(input.PaymentEntryId, input.MatchedDocumentRef);
         await _repository.UpdateAsync(tx);
+
+        // A statement-line match is the most authoritative "this cleared the bank" signal there
+        // is — feed it into ClearanceDate so the Bank Reconciliation Statement (which reads
+        // ClearanceDate, not BankTransaction.IsReconciled) actually reflects statement matches
+        // instead of only entries separately marked cleared via BankClearanceAppService.
+        var pe = await _paymentEntryRepository.GetAsync(input.PaymentEntryId);
+        pe.SetClearanceDate(tx.TransactionDate);
+        await _paymentEntryRepository.UpdateAsync(pe);
+
         return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
@@ -69,8 +78,20 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     public async Task<BankTransactionDto> UnreconcileAsync(Guid id)
     {
         var tx = await _repository.GetAsync(id);
+        var previousPaymentEntryId = tx.PaymentEntryId;
         tx.Unreconcile();
         await _repository.UpdateAsync(tx);
+
+        if (previousPaymentEntryId.HasValue)
+        {
+            var pe = await _paymentEntryRepository.FindAsync(previousPaymentEntryId.Value);
+            if (pe != null && pe.ClearanceDate == tx.TransactionDate)
+            {
+                pe.SetClearanceDate(null);
+                await _paymentEntryRepository.UpdateAsync(pe);
+            }
+        }
+
         return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
@@ -188,6 +209,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
         pe.Submit();
         pe.Post();
+        pe.SetClearanceDate(spec.PostingDate);
         await _paymentEntryRepository.InsertAsync(pe);
 
         // Reconcile both sides (source + mirror)
@@ -269,6 +291,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         // Submit + Post the PE atomically (bank reconciliation creates posted entries)
         pe.Submit();
         pe.Post();
+        pe.SetClearanceDate(tx.TransactionDate);
         await _paymentEntryRepository.InsertAsync(pe);
 
         // Auto-reconcile: link bank transaction to the newly created PE
