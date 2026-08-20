@@ -50,6 +50,13 @@ public class DepreciationScheduleEntry : FullAuditedEntity<Guid>
         JournalEntryId = journalEntryId;
     }
 
+    /// <summary>Reverses Book() — caller is responsible for reversing the JE itself first.</summary>
+    public void Unbook()
+    {
+        IsBooked = false;
+        JournalEntryId = null;
+    }
+
     /// <summary>Applies a shift factor, recomputing this period's amount from its baseline.</summary>
     public void ApplyShift(Guid? shiftFactorId, decimal factor)
     {

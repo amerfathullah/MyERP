@@ -19,10 +19,11 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset(purchaseAmount: 10000);
         asset.Submit();
         asset.ValueAfterDepreciation = 4000; // Depreciated to 4000
-        asset.Sell(DateTime.UtcNow, 6000); // Sold for 6000
+        var disposalDate = DateTime.UtcNow;
+        asset.Sell(disposalDate, 6000); // Sold for 6000
 
         var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
-        var gainLoss = manager.CalculateDisposalGainLoss(asset);
+        var gainLoss = manager.CalculateDisposalGainLoss(asset, disposalDate, 6000);
 
         gainLoss.ShouldBe(2000m); // 6000 - 4000 = 2000 gain
     }
@@ -33,10 +34,11 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset(purchaseAmount: 10000);
         asset.Submit();
         asset.ValueAfterDepreciation = 7000;
-        asset.Sell(DateTime.UtcNow, 5000);
+        var disposalDate = DateTime.UtcNow;
+        asset.Sell(disposalDate, 5000);
 
         var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
-        var gainLoss = manager.CalculateDisposalGainLoss(asset);
+        var gainLoss = manager.CalculateDisposalGainLoss(asset, disposalDate, 5000);
 
         gainLoss.ShouldBe(-2000m); // 5000 - 7000 = -2000 loss
     }
@@ -47,10 +49,11 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset(purchaseAmount: 10000);
         asset.Submit();
         asset.ValueAfterDepreciation = 5000;
-        asset.Sell(DateTime.UtcNow, 5000);
+        var disposalDate = DateTime.UtcNow;
+        asset.Sell(disposalDate, 5000);
 
         var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
-        manager.CalculateDisposalGainLoss(asset).ShouldBe(0);
+        manager.CalculateDisposalGainLoss(asset, disposalDate, 5000).ShouldBe(0);
     }
 
     [Fact]
@@ -59,10 +62,11 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset(purchaseAmount: 10000);
         asset.Submit();
         asset.ValueAfterDepreciation = 3000;
-        asset.Scrap(DateTime.UtcNow); // DisposalAmount = 0
+        var disposalDate = DateTime.UtcNow;
+        asset.Scrap(disposalDate); // DisposalAmount = 0
 
         var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
-        var gainLoss = manager.CalculateDisposalGainLoss(asset);
+        var gainLoss = manager.CalculateDisposalGainLoss(asset, disposalDate, 0);
 
         gainLoss.ShouldBe(-3000m); // 0 - 3000 = -3000 loss
     }
@@ -352,6 +356,55 @@ public class AssetLifecycleManagerTests
         asset.DepreciationSchedule[0].DepreciationAmount.ShouldBe(bookedAmount);
         var totalDepreciation = asset.DepreciationSchedule.Sum(e => e.DepreciationAmount);
         totalDepreciation.ShouldBe(15000m); // 12000 original + 3000 capitalized
+    }
+
+    [Fact]
+    public void SimulateBookValueAtDate_NoDepreciation_UsesStoredValue()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.ValueAfterDepreciation = 4000; // set directly, not via a schedule
+
+        asset.SimulateBookValueAtDate(DateTime.UtcNow).ShouldBe(4000m);
+    }
+
+    [Fact]
+    public void SimulateBookValueAtDate_MidPeriod_ProratesBeyondLastBookedEntry()
+    {
+        var asset = CreateAsset(purchaseAmount: 12000);
+        asset.CalculateDepreciation = true;
+        asset.DepreciationMethod = DepreciationMethod.StraightLine;
+        asset.UsefulLifeMonths = 60; // 5 annual periods of 2400 each
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid()); // booked through 2027-01-01, book value 9600
+
+        // Disposal happens exactly halfway through the second period (2027-01-01 to 2028-01-01).
+        var disposalDate = new DateTime(2027, 7, 2);
+
+        var simulated = asset.SimulateBookValueAtDate(disposalDate);
+
+        // ~half of the 2400 second-period charge accrued beyond the last booked entry.
+        simulated.ShouldBeLessThan(9600m);
+        simulated.ShouldBeGreaterThan(9600m - 2400m);
+    }
+
+    [Fact]
+    public void SimulateBookValueAtDate_ExactlyOnScheduleDate_MatchesFullPeriodAmount()
+    {
+        var asset = CreateAsset(purchaseAmount: 12000);
+        asset.CalculateDepreciation = true;
+        asset.DepreciationMethod = DepreciationMethod.StraightLine;
+        asset.UsefulLifeMonths = 60;
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+
+        // Disposing exactly on the third period's schedule date should match a fully-booked value.
+        var disposalDate = new DateTime(2029, 1, 1);
+
+        asset.SimulateBookValueAtDate(disposalDate).ShouldBe(12000m - 2400m * 3);
     }
 
     private static Asset CreateAsset(decimal purchaseAmount = 10000m)

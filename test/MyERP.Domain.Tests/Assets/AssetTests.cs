@@ -109,6 +109,65 @@ public class AssetTests
     }
 
     [Fact]
+    public void ReverseAllBookedDepreciation_ClearsBookedEntriesAndRestoresValue()
+    {
+        var asset = CreateAsset();
+        asset.Submit();
+        asset.CalculateDepreciation = true;
+        asset.UsefulLifeMonths = 60;
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+        asset.ValueAfterDepreciation -= asset.DepreciationSchedule[0].DepreciationAmount;
+        asset.MarkPartiallyDepreciated();
+
+        asset.ReverseAllBookedDepreciation();
+
+        asset.DepreciationSchedule.ShouldNotBeEmpty();
+        asset.DepreciationSchedule.ShouldAllBe(e => !e.IsBooked && e.JournalEntryId == null);
+        asset.ValueAfterDepreciation.ShouldBe(asset.TotalAssetCost);
+        asset.IsFullyDepreciated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Cancel_PartiallyDepreciated_AfterReversal_Succeeds()
+    {
+        var asset = CreateAsset();
+        asset.Submit();
+        asset.CalculateDepreciation = true;
+        asset.UsefulLifeMonths = 60;
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+        asset.MarkPartiallyDepreciated();
+
+        // Caller reverses GL first (not modeled here — pure domain test), then resets state.
+        asset.ReverseAllBookedDepreciation();
+        asset.Cancel();
+
+        asset.Status.ShouldBe(AssetStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_PartiallyDepreciated_WithStillBookedDepreciation_Throws()
+    {
+        var asset = CreateAsset();
+        asset.Submit();
+        asset.CalculateDepreciation = true;
+        asset.UsefulLifeMonths = 60;
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+        asset.MarkPartiallyDepreciated();
+
+        // Widening Cancel()'s allowed-status set must NOT bypass the booked-depreciation guard.
+        Assert.Throws<BusinessException>(() => asset.Cancel());
+    }
+
+    [Fact]
     public void Cancel_Scrapped_Throws()
     {
         var asset = CreateAsset();

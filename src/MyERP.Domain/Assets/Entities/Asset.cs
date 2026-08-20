@@ -129,24 +129,50 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
-    /// Cancels the asset. Allowed for Draft, and for Submitted assets that have no
-    /// GL-posted depreciation yet — cancelling those is a pure status change, no reversal
-    /// needed. Blocked once any depreciation has been booked (PartiallyDepreciated/
-    /// FullyDepreciated would need those Journal Entries reversed first, not built here),
-    /// and for InMaintenance/Sold/Scrapped (per ERPNext: complete maintenance, or
-    /// restore/un-sell first). Once Cancelled, DepreciationSchedulerJob's own status
-    /// filter (Status != Cancelled) stops it from ever posting the remaining schedule.
+    /// Cancels the asset. Allowed for Draft, and for Submitted/PartiallyDepreciated/
+    /// FullyDepreciated assets that have no GL-posted depreciation outstanding — cancelling
+    /// those is then a pure status change, no reversal needed here. If depreciation has been
+    /// booked, the caller must reverse it first via ReverseAllBookedDepreciation() (which
+    /// itself requires every booked entry's Journal Entry to already be reversed via
+    /// DocumentPostingOrchestrator — same "caller reverses GL, this only updates state"
+    /// contract Restore() uses). Still blocked for InMaintenance/Sold/Scrapped (per ERPNext:
+    /// complete maintenance, or restore/un-sell first). Once Cancelled,
+    /// DepreciationSchedulerJob's own status filter (Status != Cancelled) stops it from ever
+    /// posting the remaining schedule.
     /// </summary>
     public void Cancel()
     {
         var hasBookedDepreciation = DepreciationSchedule.Any(e => e.IsBooked);
         var cancellable = Status == AssetStatus.Draft
-            || (Status == AssetStatus.Submitted && !hasBookedDepreciation);
+            || (Status is AssetStatus.Submitted or AssetStatus.PartiallyDepreciated or AssetStatus.FullyDepreciated
+                && !hasBookedDepreciation);
 
         if (!cancellable)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         Status = AssetStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Resets depreciation state ahead of a full cancel from PartiallyDepreciated/
+    /// FullyDepreciated — clears the schedule and regenerates it fresh (as if no periods had
+    /// ever been booked), and resets each finance book's tracked value. Caller MUST reverse
+    /// every currently-booked entry's Journal Entry via
+    /// DocumentPostingOrchestrator.ReverseGlForJournalEntryAsync BEFORE calling this — it only
+    /// updates the asset's own schedule/value state, matching Restore()'s GL-then-state
+    /// ordering contract.
+    /// </summary>
+    public void ReverseAllBookedDepreciation()
+    {
+        DepreciationSchedule.Clear();
+        ValueAfterDepreciation = TotalAssetCost - OpeningAccumulatedDepreciation;
+        IsFullyDepreciated = false;
+        GenerateDepreciationSchedule();
+
+        foreach (var detail in DepreciationDetails)
+        {
+            detail.ValueAfterDepreciation = detail.NetPurchaseAmount - detail.OpeningAccumulatedDepreciation;
+        }
     }
 
     /// <summary>
@@ -221,6 +247,64 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             DepreciationSchedule.Add(new DepreciationScheduleEntry(
                 Guid.NewGuid(), Id, scheduleDate, amount, accumulated));
         }
+    }
+
+    /// <summary>
+    /// Simulates book value as of an arbitrary date (typically a disposal date) WITHOUT
+    /// mutating the real schedule — replicates GenerateDepreciationSchedule's period-by-period
+    /// logic up to asOfDate, prorating the final partial period by elapsed-vs-total days within
+    /// it. Per ERPNext get_value_after_depreciation_on_disposal_date: disposal gain/loss should
+    /// use this instead of the last-booked entry's ValueAfterDepreciation, which can be stale
+    /// by however long it's been since the depreciation scheduler last ran (up to a full period).
+    /// </summary>
+    public decimal SimulateBookValueAtDate(DateTime asOfDate)
+    {
+        // Per ERPNext get_value_after_depreciation_on_disposal_date: an asset that doesn't
+        // calculate depreciation has no schedule to simulate — use the stored value as-is.
+        if (!CalculateDepreciation || UsefulLifeMonths <= 0)
+            return ValueAfterDepreciation;
+
+        var startDate = AvailableForUseDate ?? PurchaseDate;
+        if (asOfDate <= startDate)
+            return TotalAssetCost - OpeningAccumulatedDepreciation;
+
+        var bookedEntries = DepreciationSchedule.Where(e => e.IsBooked).OrderBy(e => e.ScheduleDate).ToList();
+        var depreciableAmount = TotalAssetCost - OpeningAccumulatedDepreciation;
+        var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
+        if (totalPeriods <= 0) return ValueAfterDepreciation;
+
+        var bookedCount = bookedEntries.Count;
+        var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
+        var bookValue = TotalAssetCost - accumulated;
+        var periodStart = bookedCount > 0 ? bookedEntries[^1].ScheduleDate : startDate;
+
+        for (int i = bookedCount; i < totalPeriods; i++)
+        {
+            var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
+            var fullPeriodAmount = i == totalPeriods - 1
+                ? Math.Max(bookValue, 0)
+                : Math.Min(CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i), bookValue);
+
+            if (fullPeriodAmount <= 0) break;
+
+            if (scheduleDate > asOfDate)
+            {
+                // asOfDate falls mid-period — prorate by elapsed days within this period only.
+                var periodDays = (scheduleDate - periodStart).TotalDays;
+                var elapsedDays = (asOfDate - periodStart).TotalDays;
+                if (periodDays > 0 && elapsedDays > 0)
+                {
+                    var prorated = Math.Round(fullPeriodAmount * (decimal)(elapsedDays / periodDays), 2);
+                    bookValue -= Math.Min(prorated, bookValue);
+                }
+                break;
+            }
+
+            bookValue -= fullPeriodAmount;
+            periodStart = scheduleDate;
+        }
+
+        return Math.Max(bookValue, 0);
     }
 
     private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int totalPeriods, int periodIndex)

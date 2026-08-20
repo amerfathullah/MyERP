@@ -178,14 +178,32 @@ public class AssetAppService : ApplicationService, IAssetAppService
     }
 
     /// <summary>
-    /// Cancels the asset (Draft, or Submitted with no depreciation posted yet). There was
-    /// previously no way to cancel an asset via the API at all — Asset.Cancel() existed but
-    /// had zero call sites.
+    /// Cancels the asset (Draft, Submitted, or PartiallyDepreciated/FullyDepreciated). There
+    /// was previously no way to cancel an asset via the API at all — Asset.Cancel() existed
+    /// but had zero call sites. PartiallyDepreciated/FullyDepreciated assets have real
+    /// GL-posted depreciation Journal Entries — each booked entry's JE is reversed first
+    /// (DocumentPostingOrchestrator.ReverseGlForJournalEntryAsync), then the asset's own
+    /// schedule/value state is reset (Asset.ReverseAllBookedDepreciation) before Cancel()'s
+    /// guard, which by then sees no booked entries left, passes.
     /// </summary>
     [Authorize(MyERPPermissions.Assets.Edit)]
     public async Task<AssetDto> CancelAsync(Guid id)
     {
         var asset = await _assetRepository.GetAsync(id, includeDetails: true);
+
+        var bookedEntries = asset.DepreciationSchedule.Where(e => e.IsBooked && e.JournalEntryId.HasValue).ToList();
+        if (bookedEntries.Count > 0)
+        {
+            var postingOrchestrator = LazyServiceProvider
+                .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+            foreach (var entry in bookedEntries)
+            {
+                await postingOrchestrator.ReverseGlForJournalEntryAsync(entry.JournalEntryId!.Value);
+            }
+
+            asset.ReverseAllBookedDepreciation();
+        }
+
         asset.Cancel();
         await _assetRepository.UpdateAsync(asset);
 
@@ -211,8 +229,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var asset = await _assetRepository.GetAsync(id);
 
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
-        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
-        var preDisposalValue = asset.ValueAfterDepreciation;
+        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset, disposalDate, amount);
+        var preDisposalValue = asset.SimulateBookValueAtDate(disposalDate);
 
         asset.Sell(disposalDate, amount);
 
@@ -246,8 +264,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
         var asset = await _assetRepository.GetAsync(id);
 
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
-        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
-        var preDisposalValue = asset.ValueAfterDepreciation;
+        var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset, disposalDate, 0);
+        var preDisposalValue = asset.SimulateBookValueAtDate(disposalDate);
 
         asset.Scrap(disposalDate);
 

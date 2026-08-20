@@ -302,6 +302,31 @@ public class DocumentPostingOrchestrator : DomainService
 
         if (original == null) return;
 
+        await ReverseJournalEntryAsync(original);
+    }
+
+    /// <summary>
+    /// Same contra-entry reversal as <see cref="ReverseGlForDocumentAsync"/>, but looked up by
+    /// the Journal Entry's own Id rather than a (ReferenceType, ReferenceId) pair — for callers
+    /// like Asset depreciation JEs that never set those reference fields (each period's JE is
+    /// linked back via DepreciationScheduleEntry.JournalEntryId instead), so there's nothing
+    /// for the ReferenceType-based lookup to find. No-op if the JE isn't Posted (already
+    /// reversed, or never existed).
+    /// </summary>
+    public async Task ReverseGlForJournalEntryAsync(Guid journalEntryId)
+    {
+        var original = await _journalRepository.FindAsync(journalEntryId);
+        if (original == null || original.Status != DocumentStatus.Posted
+            || original.VoucherType == JournalEntryVoucherType.Reversal)
+        {
+            return;
+        }
+
+        await ReverseJournalEntryAsync(original);
+    }
+
+    private async Task ReverseJournalEntryAsync(JournalEntry original)
+    {
         var reversal = new JournalEntry(
             GuidGenerator.Create(), original.CompanyId, original.FiscalYearId, original.PostingDate, original.TenantId)
         {

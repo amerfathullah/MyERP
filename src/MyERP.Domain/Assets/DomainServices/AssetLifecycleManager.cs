@@ -43,13 +43,19 @@ public class AssetLifecycleManager : DomainService
 
     /// <summary>
     /// Calculates gain or loss on asset disposal.
-    /// Per ERPNext: gain/loss = disposal_amount - value_after_depreciation.
+    /// Per ERPNext: gain/loss = disposal_amount - value_after_depreciation_on_disposal_date.
     /// Positive = gain (profit), negative = loss (write-off).
+    /// Takes disposalDate/disposalAmount explicitly rather than reading them off the asset —
+    /// callers invoke this before Asset.Sell()/Scrap() sets those fields, so asset.DisposalAmount
+    /// is still null at call time (a pre-existing bug: it silently evaluated as disposalAmount=0
+    /// every time, found while touching this method for the book-value-simulation fix below).
+    /// Also uses Asset.SimulateBookValueAtDate instead of the last-booked ValueAfterDepreciation,
+    /// which can be stale by up to a full depreciation period if disposal happens between
+    /// scheduler runs.
     /// </summary>
-    public decimal CalculateDisposalGainLoss(Asset asset)
+    public decimal CalculateDisposalGainLoss(Asset asset, DateTime disposalDate, decimal disposalAmount)
     {
-        var disposalAmount = asset.DisposalAmount ?? 0;
-        return disposalAmount - asset.ValueAfterDepreciation;
+        return disposalAmount - asset.SimulateBookValueAtDate(disposalDate);
     }
 
     /// <summary>
