@@ -101,6 +101,33 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     public async Task<SubcontractingOrderDto> SubmitOrderAsync(Guid id)
     {
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+
+        // Populate RM requirements (SuppliedItems) from BOM explosion on first submit.
+        // Without this, SuppliedItems stays empty forever: ValidateTransferQuantityAsync
+        // (called from StockEntryAppService.SubmitAsync for every "Send to Subcontractor"
+        // entry) sums an empty list to a required qty of 0, so ANY transfer qty > 0 exceeds
+        // "remaining" and hard-blocks with OverTransfer — every RM transfer against every
+        // SCO fails unconditionally. Also reserves the required qty in Bin so
+        // CloseOrderAsync's existing release-on-close logic has something real to release.
+        if (!sco.SuppliedItems.Any())
+        {
+            var rmService = LazyServiceProvider.LazyGetRequiredService<DomainServices.SubcontractingRmTransferService>();
+            var requirements = await rmService.CalculateRmRequirementsAsync(id);
+            foreach (var req in requirements)
+            {
+                var reserveWarehouseId = req.SourceWarehouseId ?? req.WarehouseId;
+                sco.AddSuppliedItem(new SubcontractingOrderSuppliedItem(
+                    GuidGenerator.Create(), sco.Id, req.ItemId, req.ItemName ?? string.Empty, req.RequiredQty)
+                { ReserveWarehouseId = reserveWarehouseId });
+
+                if (reserveWarehouseId.HasValue)
+                {
+                    await _binService.UpdateReservedQtyForSubContractAsync(
+                        req.ItemId, reserveWarehouseId.Value, req.RequiredQty);
+                }
+            }
+        }
+
         sco.Submit();
         await _scoRepository.UpdateAsync(sco);
 
