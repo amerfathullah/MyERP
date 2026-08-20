@@ -27,7 +27,8 @@ public static class MyERPDomainErrorCodes
     public const string PaymentTermsPortionMustBe100 = "MyERP:02004";
     public const string InvoiceAlreadySettled = "MyERP:02010";
     public const string PartyNotAllowedOnAccount = "MyERP:02012";
-    public const string DuplicateReversalDraft = "MyERP:02013";
+    public const string DuplicateReversalDraft = "MyERP:02063"; // was MyERP:02013 (collided with AccountCannotBeDeleted)
+    public const string InvalidBankRuleRegexPattern = "MyERP:02064"; // was hardcoded "MyERP:02013" (collided with AccountCannotBeDeleted)
 
     // Tax
     public const string NoApplicableTaxRule = "MyERP:03001";
@@ -44,11 +45,11 @@ public static class MyERPDomainErrorCodes
     public const string UnsupportedEntityType = "MyERP:05001";
 
     // Approval Workflow
-    public const string ApprovalPending = "MyERP:06001";
-    public const string ApprovalAlreadyReviewed = "MyERP:06002";
+    public const string ApprovalPending = "MyERP:06005"; // was MyERP:06001 (collided with AssetCompanyMismatch)
+    public const string ApprovalAlreadyReviewed = "MyERP:06006"; // was MyERP:06002 (collided with AssetCannotBeMoved)
 
     // Document Conversion
-    public const string DocumentMustBeSubmittedForConversion = "MyERP:07001";
+    public const string DocumentMustBeSubmittedForConversion = "MyERP:07007"; // was MyERP:07001 (collided with DuplicatePayrollEntry)
     public const string DocumentAlreadyConverted = "MyERP:07002";
     public const string QuotationExpired = "MyERP:07003";
     public const string DeliveryNoteCustomerMismatch = "MyERP:07004";
@@ -231,7 +232,7 @@ public static class MyERPDomainErrorCodes
 
     // Sales — Extended
     public const string InstallationDateBeforeDelivery = "MyERP:03016";
-    public const string InstallationQtyExceedsDeliveryNote = "MyERP:03032";
+    public const string InstallationQtyExceedsDeliveryNote = "MyERP:03037"; // was MyERP:03032 (collided with TaxWithholdingCategoryNotFound)
 
     // Stock Entry — Extended
     public const string ExcessMaterialTransfer = "MyERP:05030";
@@ -254,8 +255,8 @@ public static class MyERPDomainErrorCodes
     public const string ReturnRateExceedsOriginal = "MyERP:08011";
 
     // Payment Entry — Term Allocation
-    public const string PaymentTermRequired = "MyERP:02026";
-    public const string PaymentTermOutstandingExceeded = "MyERP:02027";
+    public const string PaymentTermRequired = "MyERP:02061"; // was MyERP:02026 (collided with MandatoryDimensionMissing)
+    public const string PaymentTermOutstandingExceeded = "MyERP:02062"; // was MyERP:02027 (collided with DimensionValueRestricted)
 
     // Serial and Batch Bundle
     public const string BundleQtyMismatch = "MyERP:05032";

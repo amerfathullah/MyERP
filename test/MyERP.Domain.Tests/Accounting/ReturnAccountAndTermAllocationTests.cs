@@ -162,12 +162,12 @@ public class ReturnAccountAndTermAllocationTests
     [Fact]
     public void ErrorCode_PaymentTermRequired_Exists()
     {
-        MyERPDomainErrorCodes.PaymentTermRequired.ShouldBe("MyERP:02026");
+        MyERPDomainErrorCodes.PaymentTermRequired.ShouldBe("MyERP:02061");
     }
 
     [Fact]
     public void ErrorCode_PaymentTermOutstandingExceeded_Exists()
     {
-        MyERPDomainErrorCodes.PaymentTermOutstandingExceeded.ShouldBe("MyERP:02027");
+        MyERPDomainErrorCodes.PaymentTermOutstandingExceeded.ShouldBe("MyERP:02062");
     }
 }

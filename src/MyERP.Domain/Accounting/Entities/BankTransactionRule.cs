@@ -88,7 +88,7 @@ public class BankTransactionRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
             try { _ = new Regex(value); }
             catch (ArgumentException ex)
             {
-                throw new BusinessException("MyERP:02013")
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidBankRuleRegexPattern)
                     .WithData("pattern", value)
                     .WithData("error", ex.Message);
             }

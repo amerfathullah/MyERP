@@ -285,7 +285,7 @@ public class BankTransactionRuleTests
 
         var ex = Assert.Throws<BusinessException>(() =>
             rule.AddCondition(BankRuleMatchType.Regex, "[invalid(regex"));
-        Assert.Equal("MyERP:02013", ex.Code);
+        Assert.Equal(MyERPDomainErrorCodes.InvalidBankRuleRegexPattern, ex.Code);
     }
 
     [Fact]

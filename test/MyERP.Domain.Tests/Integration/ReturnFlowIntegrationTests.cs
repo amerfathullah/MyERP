@@ -343,13 +343,13 @@ public class ReturnFlowIntegrationTests
     [Fact]
     public void ErrorCode_PaymentTermRequired_Value()
     {
-        MyERPDomainErrorCodes.PaymentTermRequired.ShouldBe("MyERP:02026");
+        MyERPDomainErrorCodes.PaymentTermRequired.ShouldBe("MyERP:02061");
     }
 
     [Fact]
     public void ErrorCode_PaymentTermOutstandingExceeded_Value()
     {
-        MyERPDomainErrorCodes.PaymentTermOutstandingExceeded.ShouldBe("MyERP:02027");
+        MyERPDomainErrorCodes.PaymentTermOutstandingExceeded.ShouldBe("MyERP:02062");
     }
 
     [Fact]

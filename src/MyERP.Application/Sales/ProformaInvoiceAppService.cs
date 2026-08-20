@@ -127,7 +127,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
 
         // Must be submitted (any active fulfillment status)
         if (so.Status == DocumentStatus.Draft || so.Status == DocumentStatus.Cancelled)
-            throw new BusinessException("MyERP:07001")
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
                 .WithData("documentType", "SalesOrder");
 
         var proformaNumber = await _numberGenerator.GenerateAsync("PRO", so.CompanyId);

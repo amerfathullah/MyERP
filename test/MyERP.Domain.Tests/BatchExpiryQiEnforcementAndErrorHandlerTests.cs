@@ -164,7 +164,7 @@ public class BatchExpiryQiEnforcementAndErrorHandlerTests
     [Fact]
     public void ErrorCode_DocumentMustBeSubmitted_Exists()
     {
-        Assert.Equal("MyERP:07001", MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+        Assert.Equal("MyERP:07007", MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
     }
 
     [Fact]
