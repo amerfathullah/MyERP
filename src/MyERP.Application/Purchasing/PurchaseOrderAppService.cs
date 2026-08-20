@@ -696,12 +696,12 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         {
             var poItem = po.Items.FirstOrDefault(i => i.Id == deliveryItem.PurchaseOrderItemId);
             if (poItem == null)
-                throw new BusinessException("MyERP:04016")
+                throw new BusinessException(MyERPDomainErrorCodes.PurchaseOrderItemNotFoundForDelivery)
                     .WithData("itemId", deliveryItem.PurchaseOrderItemId);
 
             // Validate: negative qty change cannot exceed current received_qty
             if (deliveryItem.QtyChange < 0 && Math.Abs(deliveryItem.QtyChange) > poItem.ReceivedQty)
-                throw new BusinessException("MyERP:04017")
+                throw new BusinessException(MyERPDomainErrorCodes.DropShipQtyReductionExceeded)
                     .WithData("itemCode", poItem.Description)
                     .WithData("maxReduction", poItem.ReceivedQty);
 

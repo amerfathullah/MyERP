@@ -175,7 +175,7 @@ public class WorkOrderManager : DomainService
             // Company scope check (PR #57540)
             if (wh.CompanyId != wo.CompanyId)
             {
-                throw new BusinessException("MyERP:10020")
+                throw new BusinessException(MyERPDomainErrorCodes.WorkOrderWarehouseCompanyMismatch)
                     .WithData("warehouse", wh.Name)
                     .WithData("warehouseCompany", wh.CompanyId)
                     .WithData("workOrderCompany", wo.CompanyId);

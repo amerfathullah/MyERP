@@ -144,7 +144,7 @@ public class SupplierScorecardTests
         sc.AddCriterion("Quality", 30m, 100m); // Total = 90, not 100
 
         var ex = Assert.Throws<BusinessException>(() => sc.Validate());
-        Assert.Equal("MyERP:04009", ex.Code);
+        Assert.Equal("MyERP:04031", ex.Code);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class SupplierScorecardTests
         sc.AddStanding("Good", 50, 100); // Gap: 30-50 missing
 
         var ex = Assert.Throws<BusinessException>(() => sc.Validate());
-        Assert.Equal("MyERP:04010", ex.Code);
+        Assert.Equal("MyERP:04032", ex.Code);
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class SupplierScorecardTests
         sc.AddStanding("Good", 60, 100);
 
         var ex = Assert.Throws<BusinessException>(() => sc.Validate());
-        Assert.Equal("MyERP:04010", ex.Code);
+        Assert.Equal("MyERP:04032", ex.Code);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public class SupplierScorecardTests
         sc.AddStanding("Good", 50, 80); // Doesn't end at 100
 
         var ex = Assert.Throws<BusinessException>(() => sc.Validate());
-        Assert.Equal("MyERP:04010", ex.Code);
+        Assert.Equal("MyERP:04032", ex.Code);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class SupplierScorecardTests
         sc.AddStanding("Good", 30, 100);
 
         var ex = Assert.Throws<BusinessException>(() => sc.Validate());
-        Assert.Equal("MyERP:04010", ex.Code);
+        Assert.Equal("MyERP:04032", ex.Code);
     }
 
     [Fact]

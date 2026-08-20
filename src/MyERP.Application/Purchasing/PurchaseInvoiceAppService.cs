@@ -954,7 +954,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         if (payableAccountId == Guid.Empty)
         {
-            throw new Volo.Abp.BusinessException("MyERP:02001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("reason", "No payable account configured. Set Default Payable Account in Company settings.");
         }
 

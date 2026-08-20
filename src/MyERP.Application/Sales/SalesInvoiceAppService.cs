@@ -996,7 +996,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         if (receivableAccountId == Guid.Empty)
         {
-            throw new Volo.Abp.BusinessException("MyERP:02001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("reason", "No receivable account configured. Set Default Receivable Account in Company settings.");
         }
 

@@ -271,7 +271,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             .Select(g => g.Key)
             .ToList();
         if (duplicateItemIds.Any())
-            throw new BusinessException("MyERP:04019")
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateMaterialRequestItemSelection)
                 .WithData("reason", "Same Material Request item cannot be selected twice");
 
         // Validate each item's qty against pending
@@ -279,12 +279,12 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         {
             var mrItem = mr.Items.FirstOrDefault(i => i.Id == selItem.MaterialRequestItemId);
             if (mrItem == null)
-                throw new BusinessException("MyERP:04016")
+                throw new BusinessException(MyERPDomainErrorCodes.MaterialRequestItemNotFound)
                     .WithData("reason", $"Material Request item not found");
 
             var pendingQty = mrItem.Quantity - mrItem.OrderedQuantity;
             if (selItem.Quantity > pendingQty)
-                throw new BusinessException("MyERP:04020")
+                throw new BusinessException(MyERPDomainErrorCodes.QtyExceedsPendingMaterialRequest)
                     .WithData("reason", $"Requested qty ({selItem.Quantity}) exceeds pending qty ({pendingQty})");
         }
 
@@ -411,7 +411,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         if (!sq.Items.Any())
-            throw new BusinessException("MyERP:04017")
+            throw new BusinessException(MyERPDomainErrorCodes.SupplierQuotationHasNoItems)
                 .WithData("reason", "Supplier Quotation has no items to convert");
 
         // Check for existing PO from this SQ

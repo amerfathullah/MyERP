@@ -119,7 +119,7 @@ public class BomValidationService : DomainService
             // Per ERPNext: sequence_id must be >= previous (not strictly >; same = parallel)
             if (sortedOps[i].SequenceId < sortedOps[i - 1].SequenceId)
             {
-                throw new BusinessException("MyERP:10020")
+                throw new BusinessException(MyERPDomainErrorCodes.BomOperationSequenceOutOfOrder)
                     .WithData("operation", sortedOps[i].OperationId)
                     .WithData("sequenceId", sortedOps[i].SequenceId)
                     .WithData("previousSequenceId", sortedOps[i - 1].SequenceId);

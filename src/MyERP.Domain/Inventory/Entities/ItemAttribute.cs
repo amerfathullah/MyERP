@@ -58,11 +58,11 @@ public class ItemAttribute : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetNumericRange(decimal fromRange, decimal toRange, decimal increment)
     {
         if (fromRange >= toRange)
-            throw new BusinessException("MyERP:05019")
+            throw new BusinessException(MyERPDomainErrorCodes.AttributeRangeInvalid)
                 .WithData("from", fromRange).WithData("to", toRange);
 
         if (increment <= 0)
-            throw new BusinessException("MyERP:05020")
+            throw new BusinessException(MyERPDomainErrorCodes.AttributeIncrementInvalid)
                 .WithData("increment", increment);
 
         IsNumeric = true;
@@ -77,10 +77,10 @@ public class ItemAttribute : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void AddValue(string value, string abbreviation)
     {
         if (IsNumeric)
-            throw new BusinessException("MyERP:05021");
+            throw new BusinessException(MyERPDomainErrorCodes.NumericAttributeCannotHaveTextValues);
 
         if (Values.Any(v => string.Equals(v.AttributeValue, value, StringComparison.OrdinalIgnoreCase)))
-            throw new BusinessException("MyERP:05022")
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateAttributeValue)
                 .WithData("value", value);
 
         Values.Add(new ItemAttributeValue(Guid.NewGuid(), Id, value, abbreviation));

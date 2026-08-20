@@ -89,7 +89,7 @@ public class SupplierScorecard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var totalWeight = Criteria.Sum(c => c.Weight);
         if (Criteria.Any() && totalWeight != 100m)
         {
-            throw new BusinessException("MyERP:04009")
+            throw new BusinessException(MyERPDomainErrorCodes.ScorecardCriteriaWeightMustBe100)
                 .WithData("totalWeight", totalWeight);
         }
 
@@ -100,12 +100,12 @@ public class SupplierScorecard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
             // First must start at 0
             if (ordered[0].MinGrade != 0)
-                throw new BusinessException("MyERP:04010")
+                throw new BusinessException(MyERPDomainErrorCodes.ScorecardStandingRangeInvalid)
                     .WithData("issue", "First standing must start at 0");
 
             // Last must end at 100
             if (ordered[^1].MaxGrade != 100)
-                throw new BusinessException("MyERP:04010")
+                throw new BusinessException(MyERPDomainErrorCodes.ScorecardStandingRangeInvalid)
                     .WithData("issue", "Last standing must end at 100");
 
             // No gaps or overlaps
@@ -113,7 +113,7 @@ public class SupplierScorecard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             {
                 if (ordered[i].MaxGrade != ordered[i + 1].MinGrade)
                 {
-                    throw new BusinessException("MyERP:04010")
+                    throw new BusinessException(MyERPDomainErrorCodes.ScorecardStandingRangeInvalid)
                         .WithData("issue", $"Gap/overlap between '{ordered[i].Name}' and '{ordered[i + 1].Name}'");
                 }
             }
@@ -122,7 +122,7 @@ public class SupplierScorecard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             foreach (var s in ordered)
             {
                 if (s.MinGrade >= s.MaxGrade)
-                    throw new BusinessException("MyERP:04010")
+                    throw new BusinessException(MyERPDomainErrorCodes.ScorecardStandingRangeInvalid)
                         .WithData("issue", $"Standing '{s.Name}' has min >= max");
             }
         }

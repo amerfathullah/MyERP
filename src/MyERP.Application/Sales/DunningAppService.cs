@@ -350,7 +350,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
     {
         var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
         if (d.Status != DocumentStatus.Submitted)
-            throw new BusinessException("MyERP:01002")
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("reason", "Dunning must be submitted before sending email");
 
         var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
@@ -360,7 +360,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         var recipientEmail = input.RecipientEmail ?? customer.Email;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new BusinessException("MyERP:09001")
+            throw new BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "No email address for customer. Provide a recipient email.");
 
         var invoiceDetails = d.OverduePayments

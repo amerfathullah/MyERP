@@ -201,7 +201,7 @@ public class DocumentEmailService : DomainService
         byte[]? attachment = null, string? attachmentName = null, string[]? ccEmails = null)
     {
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new BusinessException("MyERP:09001")
+            throw new BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "Recipient email address is required");
 
         try

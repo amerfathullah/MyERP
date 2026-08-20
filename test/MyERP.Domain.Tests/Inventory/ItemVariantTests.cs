@@ -41,7 +41,7 @@ public class ItemVariantTests
         attr.AddValue("Red", "RED");
 
         var ex = Assert.Throws<BusinessException>(() => attr.AddValue("Red", "R"));
-        Assert.Equal("MyERP:05022", ex.Code);
+        Assert.Equal("MyERP:05057", ex.Code);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class ItemVariantTests
         attr.SetNumericRange(1m, 10m, 0.5m);
 
         var ex = Assert.Throws<BusinessException>(() => attr.AddValue("Heavy", "HVY"));
-        Assert.Equal("MyERP:05021", ex.Code);
+        Assert.Equal("MyERP:05056", ex.Code);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class ItemVariantTests
         var attr = new ItemAttribute(Guid.NewGuid(), "Weight", isNumeric: true);
 
         var ex = Assert.Throws<BusinessException>(() => attr.SetNumericRange(10m, 1m, 0.5m));
-        Assert.Equal("MyERP:05019", ex.Code);
+        Assert.Equal("MyERP:05054", ex.Code);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class ItemVariantTests
         var attr = new ItemAttribute(Guid.NewGuid(), "Weight", isNumeric: true);
 
         var ex = Assert.Throws<BusinessException>(() => attr.SetNumericRange(1m, 10m, 0m));
-        Assert.Equal("MyERP:05020", ex.Code);
+        Assert.Equal("MyERP:05055", ex.Code);
     }
 
     [Fact]

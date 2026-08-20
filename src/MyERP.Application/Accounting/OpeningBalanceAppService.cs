@@ -197,7 +197,7 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
     {
         var company = await _companyRepository.GetAsync(input.CompanyId);
         if (!company.DefaultReceivableAccountId.HasValue)
-            throw new BusinessException("MyERP:02001")
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("reason", "No Default Receivable Account configured on the company.");
 
         var tempOpeningAccount = await ResolveTemporaryOpeningAccountAsync(input.CompanyId);
@@ -283,7 +283,7 @@ public class OpeningBalanceAppService : ApplicationService, IOpeningBalanceAppSe
     {
         var company = await _companyRepository.GetAsync(input.CompanyId);
         if (!company.DefaultPayableAccountId.HasValue)
-            throw new BusinessException("MyERP:02001")
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("reason", "No Default Payable Account configured on the company.");
 
         var tempOpeningAccount = await ResolveTemporaryOpeningAccountAsync(input.CompanyId);

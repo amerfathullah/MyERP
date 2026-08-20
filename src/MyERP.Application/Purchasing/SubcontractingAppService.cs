@@ -192,7 +192,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     {
         var sco = await _scoRepository.GetAsync(scoId, includeDetails: true);
         if (sco.Status == SubcontractingOrderStatus.Draft || sco.Status == SubcontractingOrderStatus.Cancelled)
-            throw new Volo.Abp.BusinessException("MyERP:10020")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("status", sco.Status.ToString());
 
         var rmService = LazyServiceProvider.LazyGetRequiredService<DomainServices.SubcontractingRmTransferService>();

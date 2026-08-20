@@ -63,7 +63,7 @@ public class PeriodClosingPostingService : DomainService
         if (closingAccount.AccountType != AccountType.Liability &&
             closingAccount.AccountType != AccountType.Equity)
         {
-            throw new BusinessException("MyERP:02031")
+            throw new BusinessException(MyERPDomainErrorCodes.PeriodClosingAccountTypeInvalid)
                 .WithData("accountName", closingAccount.AccountName)
                 .WithData("accountType", closingAccount.AccountType.ToString());
         }
@@ -73,7 +73,7 @@ public class PeriodClosingPostingService : DomainService
         if (!string.IsNullOrEmpty(closingAccount.Currency) &&
             closingAccount.Currency != company.CurrencyCode)
         {
-            throw new BusinessException("MyERP:02032")
+            throw new BusinessException(MyERPDomainErrorCodes.PeriodClosingAccountCurrencyMismatch)
                 .WithData("accountCurrency", closingAccount.Currency)
                 .WithData("companyCurrency", company.CurrencyCode);
         }

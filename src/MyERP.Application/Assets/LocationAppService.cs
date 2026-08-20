@@ -120,7 +120,7 @@ public class LocationAppService : ApplicationService, ILocationAppService
         var hasChildren = query.Any(l => l.ParentLocationId == id);
         if (hasChildren)
         {
-            throw new BusinessException("MyERP:15002")
+            throw new BusinessException(MyERPDomainErrorCodes.LocationCannotBeDeleted)
                 .WithData("reason", "This location has child locations linked to it.");
         }
 

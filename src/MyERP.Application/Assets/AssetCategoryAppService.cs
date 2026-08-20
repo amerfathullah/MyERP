@@ -147,7 +147,7 @@ public class AssetCategoryAppService : ApplicationService, IAssetCategoryAppServ
         var hasActive = query.Any(a => a.AssetCategoryId == id && a.Status != AssetStatus.Cancelled);
         if (hasActive)
         {
-            throw new BusinessException("MyERP:15002")
+            throw new BusinessException(MyERPDomainErrorCodes.AssetCategoryCannotBeDeleted)
                 .WithData("reason", "Active assets are linked to this category.");
         }
         await _repository.DeleteAsync(id);

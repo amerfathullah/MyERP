@@ -209,7 +209,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         var receivableAccountId = consolidatedSi.DebitToAccountId != Guid.Empty
             ? consolidatedSi.DebitToAccountId
             : company.DefaultReceivableAccountId
-                ?? throw new BusinessException("MyERP:02001")
+                ?? throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                     .WithData("reason", "No receivable account configured. Set Default Receivable Account in Company settings.");
         consolidatedSi.DebitToAccountId = receivableAccountId;
 
@@ -244,7 +244,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         {
             var mop = await modeOfPaymentRepo.FindAsync(pay.ModeOfPaymentId);
             var accountId = mop?.DefaultAccountId
-                ?? throw new BusinessException("MyERP:02001")
+                ?? throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                     .WithData("reason", $"Mode of Payment '{pay.ModeName}' has no default account configured for this company.");
 
             // Cap at the invoice grand total — any excess is cashier variance, handled at closing reconciliation, not GL.

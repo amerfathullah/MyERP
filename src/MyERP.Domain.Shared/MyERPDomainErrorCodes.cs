@@ -29,6 +29,7 @@ public static class MyERPDomainErrorCodes
     public const string PartyNotAllowedOnAccount = "MyERP:02012";
     public const string DuplicateReversalDraft = "MyERP:02063"; // was MyERP:02013 (collided with AccountCannotBeDeleted)
     public const string InvalidBankRuleRegexPattern = "MyERP:02064"; // was hardcoded "MyERP:02013" (collided with AccountCannotBeDeleted)
+    public const string DefaultAccountNotConfigured = "MyERP:02065"; // was hardcoded "MyERP:02001" (collided with UnbalancedJournalEntry)
 
     // Tax
     public const string NoApplicableTaxRule = "MyERP:03001";
@@ -163,12 +164,21 @@ public static class MyERPDomainErrorCodes
     public const string DuplicateSupplierInvoice = "MyERP:04009";
     public const string DuplicateRfqSupplier = "MyERP:04010";
     public const string SupplierNameCannotMatchSupplierGroup = "MyERP:04030";
+    public const string ScorecardCriteriaWeightMustBe100 = "MyERP:04031"; // was hardcoded "MyERP:04009" (collided with DuplicateSupplierInvoice)
+    public const string ScorecardStandingRangeInvalid = "MyERP:04032"; // was hardcoded "MyERP:04010" (collided with DuplicateRfqSupplier)
+    public const string PurchaseOrderItemNotFoundForDelivery = "MyERP:04033"; // was hardcoded "MyERP:04016" (collided with DropShipItemNotFound)
+    public const string MaterialRequestItemNotFound = "MyERP:04034"; // was hardcoded "MyERP:04016" (collided with DropShipItemNotFound)
+    public const string DuplicateMaterialRequestItemSelection = "MyERP:04035"; // was hardcoded "MyERP:04019" (collided with UpdateItemsQtyBelowReceived)
+    public const string QtyExceedsPendingMaterialRequest = "MyERP:04036"; // was hardcoded "MyERP:04020" (collided with UpdateItemsRateBelowBilled)
+    public const string SupplierQuotationHasNoItems = "MyERP:04037"; // was hardcoded "MyERP:04017" (collided with DropShipQtyReductionExceeded)
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";
     public const string AssetMissingRequiredField = "MyERP:15002";
     public const string AssetDisposalAccountMissing = "MyERP:15003";
+    public const string LocationCannotBeDeleted = "MyERP:15004"; // was hardcoded "MyERP:15002" (collided with AssetMissingRequiredField)
+    public const string AssetCategoryCannotBeDeleted = "MyERP:15005"; // was hardcoded "MyERP:15002" (collided with AssetMissingRequiredField)
 
     // Accounting — Additional
     public const string AccountCannotBeDeleted = "MyERP:02013";
@@ -370,6 +380,7 @@ public static class MyERPDomainErrorCodes
     public const string DiscountExceeds100 = "MyERP:01015";
     public const string CustomerwiseNeedsCustomer = "MyERP:01016";
     public const string AuthorizationBlocked = "MyERP:01017";
+    public const string RecipientEmailRequired = "MyERP:01018";
 
     // Support — Service Level Agreement
     public const string DuplicateDefaultServiceLevelAgreement = "MyERP:18001";
@@ -430,6 +441,11 @@ public static class MyERPDomainErrorCodes
     // Sales Forecast
     public const string SalesForecastHasNoSelectedItems = "MyERP:10026";
     public const string SalesForecastAlreadyUsedForMps = "MyERP:10027";
+    public const string WorkOrderWarehouseCompanyMismatch = "MyERP:10028"; // was hardcoded "MyERP:10020" (collided with PreviousOperationNotManufactured)
+    public const string BomOperationSequenceOutOfOrder = "MyERP:10029"; // was hardcoded "MyERP:10020" (collided with PreviousOperationNotManufactured)
+    public const string BomHasNoRouting = "MyERP:10030"; // was hardcoded "MyERP:10017" (collided with BomFgCannotBeSecondaryItem)
+    public const string PeriodClosingAccountTypeInvalid = "MyERP:02066"; // was hardcoded "MyERP:02031" (collided with OpeningBalanceGroupAccountBlocked)
+    public const string PeriodClosingAccountCurrencyMismatch = "MyERP:02067"; // was hardcoded "MyERP:02032" (collided with OpeningBalanceNoTempAccount)
 
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";
@@ -464,4 +480,9 @@ public static class MyERPDomainErrorCodes
 
     // Warehouse
     public const string InvalidParentWarehouse = "MyERP:05052";
+    public const string StockClosingDateAlreadyCovered = "MyERP:05053"; // was hardcoded "MyERP:05029" (collided with UomMustBeWholeNumber)
+    public const string AttributeRangeInvalid = "MyERP:05054"; // was hardcoded "MyERP:05019" (collided with WarehouseCannotBeDeleted)
+    public const string AttributeIncrementInvalid = "MyERP:05055"; // was hardcoded "MyERP:05020" (never registered)
+    public const string NumericAttributeCannotHaveTextValues = "MyERP:05056"; // was hardcoded "MyERP:05021" (never registered)
+    public const string DuplicateAttributeValue = "MyERP:05057"; // was hardcoded "MyERP:05022" (never registered)
 }

@@ -102,7 +102,7 @@ public class StockClosingAppService : ApplicationService, IStockClosingAppServic
         // Check no existing submitted closing covers this date
         var isCovered = await _closingService.IsDateCoveredByClosingAsync(input.CompanyId, input.ToDate);
         if (isCovered)
-            throw new BusinessException("MyERP:05029")
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingDateAlreadyCovered)
                 .WithData("toDate", input.ToDate.ToString("dd/MM/yyyy"));
 
         var closing = await _closingService.GenerateClosingAsync(

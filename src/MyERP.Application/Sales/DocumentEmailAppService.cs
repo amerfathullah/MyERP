@@ -59,7 +59,7 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
 
         var recipientEmail = input.RecipientEmail ?? customer.Email;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new Volo.Abp.BusinessException("MyERP:09001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "No email address found for customer. Please provide a recipient email.");
 
         var variables = new Dictionary<string, string>
@@ -127,7 +127,7 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
 
         var recipientEmail = input.RecipientEmail;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new Volo.Abp.BusinessException("MyERP:09001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "Recipient email is required for quotation.");
 
         var variables = new Dictionary<string, string>
@@ -231,7 +231,7 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
 
         var recipientEmail = input.RecipientEmail ?? customer.Email;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new Volo.Abp.BusinessException("MyERP:09001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "No email address found for customer. Please provide a recipient email.");
 
         var variables = new Dictionary<string, string>
@@ -266,7 +266,7 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
 
         var recipientEmail = input.RecipientEmail ?? supplier.Email;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new Volo.Abp.BusinessException("MyERP:09001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "No email address found for supplier. Please provide a recipient email.");
 
         var variables = new Dictionary<string, string>
@@ -299,7 +299,7 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
 
         var recipientEmail = input.RecipientEmail ?? customer.Email;
         if (string.IsNullOrWhiteSpace(recipientEmail))
-            throw new Volo.Abp.BusinessException("MyERP:09001")
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
                 .WithData("reason", "No email address found for customer. Please provide a recipient email.");
 
         var variables = new Dictionary<string, string>

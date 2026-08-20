@@ -528,7 +528,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
         if (bom.RoutingId == null)
-            throw new BusinessException("MyERP:10017").WithData("reason", "BOM has no routing configured");
+            throw new BusinessException(MyERPDomainErrorCodes.BomHasNoRouting).WithData("reason", "BOM has no routing configured");
 
         var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
         var routing = await routingRepo.GetAsync(bom.RoutingId.Value, includeDetails: true);
@@ -1129,7 +1129,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             .ToList();
 
         if (!pendingItems.Any())
-            throw new BusinessException("MyERP:10017")
+            throw new BusinessException(MyERPDomainErrorCodes.AllMaterialsAlreadyTransferred)
                 .WithData("reason", "All required materials have already been transferred");
 
         // Create Stock Entry
