@@ -17,7 +17,8 @@
     "useDefineForClassFields": false
   },
   "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictTemplates": true
   },
   "exclude": ["src/**/*.spec.ts", "e2e/**/*.ts"]
 }

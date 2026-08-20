@@ -70,8 +70,8 @@ import type { AssetMaintenanceDto } from '../../proxy/assets/models';
               </tbody>
             </table>
             <app-pagination
-              [total]="totalCount()"
-              [page]="page()"
+              [totalCount]="totalCount()"
+              [currentPage]="page() - 1"
               [pageSize]="pageSize"
               (pageChange)="onPageChange($event)">
             </app-pagination>
@@ -116,7 +116,7 @@ export class AssetMaintenanceListComponent implements OnInit {
   }
 
   onPageChange(event: PageEvent) {
-    this.page.set(event.pageIndex);
+    this.page.set(event.pageIndex + 1);
     this.loadData();
   }
 

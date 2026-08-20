@@ -56,7 +56,8 @@ export class LeadListComponent implements OnInit {
     });
   }
 
-  onPageChange(page: number): void {
-    this.store.load({ skipCount: page * 20, maxResultCount: 20, sorting: '' });
+  onPageChange(event: PageEvent): void {
+    this.currentPage = event.pageIndex;
+    this.store.load({ skipCount: event.pageIndex * 20, maxResultCount: 20, sorting: '' });
   }
 }

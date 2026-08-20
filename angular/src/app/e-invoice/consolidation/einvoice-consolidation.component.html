@@ -81,14 +81,14 @@
               </thead>
               <tbody>
                 @for (inv of candidates(); track inv.invoiceId) {
-                  <tr [class.table-active]="isSelected(inv.invoiceId)">
+                  <tr [class.table-active]="isSelected(inv.invoiceId!)">
                     <td>
-                      <input type="checkbox" [checked]="isSelected(inv.invoiceId)" (change)="toggleSelectOne(inv.invoiceId, $event)" />
+                      <input type="checkbox" [checked]="isSelected(inv.invoiceId!)" (change)="toggleSelectOne(inv.invoiceId!, $event)" />
                     </td>
                     <td class="fw-semibold small">{{ inv.invoiceNumber }}</td>
                     <td class="small">{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
                     <td class="small">{{ inv.customerName }}</td>
-                    <td class="text-center small">{{ inv.ItemCount || inv.itemCount || 1 }}</td>
+                    <td class="text-center small">{{ inv.itemCount || 1 }}</td>
                     <td class="text-end small fw-semibold">{{ inv.grandTotal | number:'1.2-2' }}</td>
                     <td class="text-center">
                       <span class="badge bg-success">Eligible B2C</span>

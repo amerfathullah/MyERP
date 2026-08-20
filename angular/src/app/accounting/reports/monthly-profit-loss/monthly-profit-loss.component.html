@@ -68,7 +68,7 @@
           <tbody>
             <!-- Revenue Section -->
             <tr class="table-success">
-              <td colspan="{{ (r.monthLabels?.length ?? 0) + 2 }}" class="fw-bold">
+              <td [attr.colspan]="(r.monthLabels?.length ?? 0) + 2" class="fw-bold">
                 <i class="fa fa-arrow-up me-1"></i>{{ '::Revenue' | abpLocalization }}
               </td>
             </tr>
@@ -96,7 +96,7 @@
 
             <!-- Expense Section -->
             <tr class="table-danger">
-              <td colspan="{{ (r.monthLabels?.length ?? 0) + 2 }}" class="fw-bold">
+              <td [attr.colspan]="(r.monthLabels?.length ?? 0) + 2" class="fw-bold">
                 <i class="fa fa-arrow-down me-1"></i>{{ '::Expenses' | abpLocalization }}
               </td>
             </tr>
