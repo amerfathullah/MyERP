@@ -245,13 +245,18 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         await _qiEnforcement.ValidateForDeliveryNoteAsync(dn.Id, itemIds, dn.TenantId);
 
         // Validate batch expiry (block expired batches on stock-out)
-        var batchItems = dn.Items
-            .Where(i => i.BatchId.HasValue)
-            .Select(i => new BatchValidationItem(i.ItemId, i.BatchId, i.Description))
-            .ToList();
-        if (batchItems.Any())
+        // Per batch-serial-number rules: Sales Returns (positive qty on DN) are exempt —
+        // a customer returning expired goods must be accepted back into stock.
+        if (!dn.IsReturn)
         {
-            await _batchValidation.ValidateForStockOutAsync(batchItems, dn.PostingDate);
+            var batchItems = dn.Items
+                .Where(i => i.BatchId.HasValue)
+                .Select(i => new BatchValidationItem(i.ItemId, i.BatchId, i.Description))
+                .ToList();
+            if (batchItems.Any())
+            {
+                await _batchValidation.ValidateForStockOutAsync(batchItems, dn.PostingDate);
+            }
         }
 
         // Mandatory SO linkage (Selling Settings or Customer flag)
