@@ -13,7 +13,6 @@ import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
@@ -34,14 +33,12 @@ export class SalesOrderFormComponent implements OnInit {
   private soService = inject(SalesOrderService);
   private customerService = inject(CustomerService);
   private companyContext = inject(CompanyContextService);
-  private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
   private paymentTermsService = inject(PaymentTermsTemplateService);
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
 
   customers = signal<any[]>([]);
-  availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
@@ -77,9 +74,6 @@ export class SalesOrderFormComponent implements OnInit {
 
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.customers.set(res.items ?? []));
-
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
-      .subscribe(res => this.availableItems.set(res.items ?? []));
 
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));

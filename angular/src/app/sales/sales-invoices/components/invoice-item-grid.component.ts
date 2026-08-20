@@ -5,6 +5,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ItemDetailsService } from '../../../proxy/inventory/item-details.service';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 import { PricingRuleService } from '../../../proxy/sales/pricing-rule.service';
+import { ItemPickerComponent } from '../../../shared/components/item-picker/item-picker.component';
+import type { ItemDto } from '../../../proxy/inventory/models';
 
 @Component({
   selector: 'app-invoice-item-grid',
@@ -12,13 +14,13 @@ import { PricingRuleService } from '../../../proxy/sales/pricing-rule.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    LocalizationPipe],
+    LocalizationPipe,
+    ItemPickerComponent],
   templateUrl: './invoice-item-grid.component.html',
   styleUrls: ['./invoice-item-grid.component.scss'],
 })
 export class InvoiceItemGridComponent {
   @Input({ required: true }) items!: FormArray;
-  @Input() availableItems: any[] = [];
   @Input() transactionType: string = 'Selling';
   @Input() warehouseId: string = '';
   @Input() companyId: string = '';
@@ -55,14 +57,11 @@ export class InvoiceItemGridComponent {
     }));
   }
 
-  onItemSelected(index: number): void {
+  onItemSelected(index: number, item: ItemDto | null): void {
     const row = this.items.at(index) as FormGroup;
-    const selectedId = row.get('itemId')?.value;
-    if (selectedId && this.availableItems.length > 0) {
-      const item = this.availableItems.find((i: any) => i.id === selectedId);
-      if (item) {
-        row.patchValue({ itemName: item.itemName ?? item.itemCode ?? '' });
-      }
+    const selectedId = item?.id;
+    if (selectedId) {
+      row.patchValue({ itemName: item!.itemName ?? item!.itemCode ?? '' });
 
       // Resolve full item details from backend (price, UOM, stock availability)
       this.itemDetailsService.getItemDetails({

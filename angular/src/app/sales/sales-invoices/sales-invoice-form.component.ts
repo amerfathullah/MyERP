@@ -22,7 +22,6 @@ import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
-import { ItemService } from '../../proxy/inventory/item.service';
 
 @Component({
   selector: 'app-sales-invoice-form',
@@ -48,7 +47,6 @@ export class SalesInvoiceFormComponent implements OnInit {
   private customerService = inject(CustomerService);
   private salesPersonService = inject(SalesPersonService);
   private companyContext = inject(CompanyContextService);
-  private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
   private paymentTermsService = inject(PaymentTermsTemplateService);
   private currencyExchangeService = inject(CurrencyExchangeService);
@@ -59,7 +57,6 @@ export class SalesInvoiceFormComponent implements OnInit {
 
   isMultiCurrency = signal(false);
   customers = signal<any[]>([]);
-  availableItems = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   taxTemplates = signal<any[]>([]);
   selectedTaxRules = signal<TaxRuleModel[]>([]);
@@ -138,10 +135,6 @@ export class SalesInvoiceFormComponent implements OnInit {
     // Load customer list for dropdown
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe({ next: res => this.customers.set(res.items ?? []), error: () => {} });
-
-    // Load items for grid dropdown
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
-      .subscribe({ next: res => this.availableItems.set(res.items ?? []), error: () => {} });
 
     // Load warehouses for UpdateStock option
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })

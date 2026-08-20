@@ -11,7 +11,6 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { ItemService } from '../../proxy/inventory/item.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 
 @Component({
@@ -30,10 +29,8 @@ export class QuotationFormComponent implements OnInit {
   private quotationService = inject(QuotationService);
   private customerService = inject(CustomerService);
   private companyContext = inject(CompanyContextService);
-  private itemService = inject(ItemService);
 
   customers = signal<any[]>([]);
-  availableItems = signal<any[]>([]);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -58,10 +55,6 @@ export class QuotationFormComponent implements OnInit {
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.customers.set(res.items ?? [])
     );
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
-      res => this.availableItems.set(res.items ?? [])
-    );
-
     // Detect edit mode from route param
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {

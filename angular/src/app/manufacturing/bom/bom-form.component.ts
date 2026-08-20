@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -7,15 +7,16 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { ItemService } from '../../proxy/inventory/item.service';
+import type { ItemDto } from '../../proxy/inventory/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
+import { ItemPickerComponent } from '../../shared/components/item-picker/item-picker.component';
 
 @Component({
   selector: 'app-bom-form',
   standalone: true,
-  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, ItemPickerComponent],
   template: `
     <abp-page [title]="isEditMode ? 'EditBOM' : ('NewBOM' | abpLocalization)">
       <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
@@ -24,12 +25,8 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="row">
               <div class="col-md-4 mb-3">
                 <label class="form-label">{{ 'Item' | abpLocalization }} *</label>
-                <select class="form-select" formControlName="itemId">
-                  <option value="">{{ '::SelectItem' | abpLocalization }}</option>
-                  @for (item of availableItems(); track item.id) {
-                    <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
-                  }
-                </select>
+                <app-item-picker formControlName="itemId" [companyId]="form.get('companyId')?.value || null"
+                  (itemSelected)="onParentItemSelected($event)"></app-item-picker>
               </div>
               <div class="col-md-4 mb-3">
                 <label class="form-label">{{ 'ItemName' | abpLocalization }}</label>
@@ -73,12 +70,8 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
                 @for (mat of materials.controls; track $index; let i = $index) {
                   <tr [formGroupName]="i">
                     <td class="ps-3">
-                      <select class="form-select form-select-sm" formControlName="itemId">
-                        <option value="">{{ '::SelectItem' | abpLocalization }}</option>
-                        @for (item of availableItems(); track item.id) {
-                          <option [value]="item.id">{{ item.itemCode }}</option>
-                        }
-                      </select>
+                      <app-item-picker formControlName="itemId" [companyId]="form.get('companyId')?.value || null"
+                        (itemSelected)="onMaterialItemSelected(i, $event)"></app-item-picker>
                     </td>
                     <td><input class="form-control form-control-sm" formControlName="description" /></td>
                     <td><input type="number" class="form-control form-control-sm text-end" formControlName="qty" min="0.01" step="0.01" /></td>
@@ -152,9 +145,7 @@ export class BomFormComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
-  private itemService = inject(ItemService);
 
-  availableItems = signal<any[]>([]);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -183,10 +174,6 @@ export class BomFormComponent implements OnInit {
   get totalCost(): number { return this.materialCost + this.operatingCost; }
 
   ngOnInit(): void {
-    // Load items for dropdown
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
-      res => this.availableItems.set(res.items ?? []));
-
     // Auto-fill company from context
     const cid = this.companyContext.currentCompanyId();
     if (cid) this.form.patchValue({ companyId: cid });
@@ -199,6 +186,20 @@ export class BomFormComponent implements OnInit {
         (bom.items ?? []).forEach((item: any) => this.addMaterial(item));
         (bom.operations ?? []).forEach((op: any) => this.addOperation(op));
       });
+    }
+  }
+
+  onParentItemSelected(item: ItemDto | null): void {
+    if (item && !this.form.get('itemName')?.value) {
+      this.form.patchValue({ itemName: item.itemName ?? item.itemCode ?? '' });
+    }
+  }
+
+  onMaterialItemSelected(index: number, item: ItemDto | null): void {
+    if (!item) return;
+    const row = this.materials.at(index);
+    if (!row.get('description')?.value) {
+      row.patchValue({ description: item.itemName ?? item.itemCode ?? '' });
     }
   }
 

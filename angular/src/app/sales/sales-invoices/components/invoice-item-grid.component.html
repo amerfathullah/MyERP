@@ -15,16 +15,9 @@
       @for (row of dataSource; track $index) {
         <tr [formGroup]="row">
           <td>
-            @if (availableItems.length > 0) {
-              <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected($index)">
-                <option value="">\u2014 {{ '::SelectItem' | abpLocalization }} \u2014</option>
-                @for (item of availableItems; track item.id) {
-                  <option [value]="item.id">{{ item.itemCode ?? item.itemName }}</option>
-                }
-              </select>
-            } @else {
-              <input class="form-control form-control-sm" formControlName="itemName" [placeholder]="'::Placeholder:ItemName' | abpLocalization" />
-            }            @if (showStockAvailability && row.get('itemId')?.value) {
+            <app-item-picker formControlName="itemId" [companyId]="companyId || null"
+              (itemSelected)="onItemSelected($index, $event)"></app-item-picker>
+            @if (showStockAvailability && row.get('itemId')?.value) {
               @let stock = getStockForItem(row.get('itemId')!.value);
               @if (stock) {
                 <div class="mt-1">

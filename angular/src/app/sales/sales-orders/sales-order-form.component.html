@@ -55,7 +55,7 @@
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Items</h5>
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" [availableItems]="availableItems()" />
+        <app-invoice-item-grid [items]="items" />
 
         @if (items.length > 0) {
           <div class="mt-2 d-flex flex-wrap gap-2">

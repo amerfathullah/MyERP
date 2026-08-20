@@ -17,7 +17,6 @@ import type { CreatePurchaseInvoiceDto } from '../../proxy/purchasing/models';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import { ItemService } from '../../proxy/inventory/item.service';
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
@@ -49,7 +48,6 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private service = inject(PurchaseInvoiceService);
   private supplierService = inject(SupplierService);
   private companyContext = inject(CompanyContextService);
-  private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
   private paymentTermsService = inject(PaymentTermsTemplateService);
   private toaster = inject(ToasterService);
@@ -64,7 +62,6 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   isMultiCurrency = signal(false);
 
   suppliers = signal<any[]>([]);
-  availableItems = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   taxTemplates = signal<any[]>([]);
   selectedTaxRules = signal<TaxRuleModel[]>([]);
@@ -120,9 +117,6 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   ngOnInit(): void {
     this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.suppliers.set(res.items ?? [])
-    );
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' }).subscribe(
-      res => this.availableItems.set(res.items ?? [])
     );
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' }).subscribe(
       res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup))
