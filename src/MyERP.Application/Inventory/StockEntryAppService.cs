@@ -293,6 +293,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(entry.CompanyId, entry.PostingDate, "StockEntry");
 
+        // Guard: cannot cancel a Stock Entry linked to a Completed Work Order. Per ERPNext
+        // validate_work_order_status(): the WO is done (FG received, downstream DN/SI may
+        // already reference the produced items), so reversing material movements now would
+        // corrupt a finished production run. This is the reverse of the "can't cancel a WO
+        // with submitted Stock Entries" guard — this one gates the Stock Entry side.
+        if (entry.WorkOrderId.HasValue)
+        {
+            var workOrderRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var workOrder = await workOrderRepo.FindAsync(entry.WorkOrderId.Value);
+            if (workOrder != null && workOrder.Status == Manufacturing.WorkOrderStatus.Completed)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("detail", "Cannot cancel this transaction — the linked Work Order is Completed.");
+            }
+        }
+
         entry.Cancel();
 
         // Reverse the Subcontracting Order's supplied-item TransferredQty (mirrors PostAsync).
