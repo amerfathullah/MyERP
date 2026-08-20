@@ -77,6 +77,8 @@ public class CreateAssetDto
     public decimal PurchaseAmount { get; set; }
 
     public decimal AdditionalCost { get; set; }
+    public Guid? PurchaseReceiptId { get; set; }
+    public Guid? PurchaseInvoiceId { get; set; }
     public bool CalculateDepreciation { get; set; }
     public DepreciationMethod DepreciationMethod { get; set; }
     public int UsefulLifeMonths { get; set; }

@@ -110,6 +110,10 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.CustomerNamingBy,
             MyERPSettings.Selling.CreditControllerRole,
             MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders,
+            MyERPSettings.Selling.EnableProformaInvoice,
+            MyERPSettings.Selling.DefaultProformaPrintFormat,
+            MyERPSettings.Selling.UseLegacyJsReactivity,
+            MyERPSettings.Selling.AllowDeliveryOfOverproducedQty,
         ],
         "Buying" => [
             MyERPSettings.Buying.DefaultPriceList,

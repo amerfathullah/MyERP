@@ -1,4 +1,4 @@
-﻿namespace MyERP.Settings;
+namespace MyERP.Settings;
 
 /// <summary>
 /// ABP Settings keys for all ERP configuration.
@@ -54,6 +54,10 @@ public static class MyERPSettings
         public const string CustomerNamingBy = G + ".CustomerNamingBy";
         public const string CreditControllerRole = G + ".CreditControllerRole";
         public const string AllowAgainstMultiplePurchaseOrders = G + ".AllowAgainstMultiplePOs";
+        public const string EnableProformaInvoice = G + ".EnableProformaInvoice";
+        public const string DefaultProformaPrintFormat = G + ".DefaultProformaPrintFormat";
+        public const string UseLegacyJsReactivity = G + ".UseLegacyJsReactivity";
+        public const string AllowDeliveryOfOverproducedQty = G + ".AllowDeliveryOfOverproducedQty";
     }
 
     // ═══════════════════════════════════════════════════

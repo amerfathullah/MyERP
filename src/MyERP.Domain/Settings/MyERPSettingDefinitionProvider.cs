@@ -1,4 +1,4 @@
-﻿using Volo.Abp.Settings;
+using Volo.Abp.Settings;
 
 namespace MyERP.Settings;
 
@@ -37,7 +37,11 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Selling.FallbackToDefaultPriceList, "false"),
             new SettingDefinition(MyERPSettings.Selling.CustomerNamingBy, "Customer Name"),
             new SettingDefinition(MyERPSettings.Selling.CreditControllerRole, ""),
-            new SettingDefinition(MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders, "false")
+            new SettingDefinition(MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders, "false"),
+            new SettingDefinition(MyERPSettings.Selling.EnableProformaInvoice, "false"),
+            new SettingDefinition(MyERPSettings.Selling.DefaultProformaPrintFormat, ""),
+            new SettingDefinition(MyERPSettings.Selling.UseLegacyJsReactivity, "false"),
+            new SettingDefinition(MyERPSettings.Selling.AllowDeliveryOfOverproducedQty, "false")
         );
 
         // ═══════════ Buying Settings ═══════════

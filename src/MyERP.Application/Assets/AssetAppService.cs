@@ -103,6 +103,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
             Location = await ResolveLocationNameAsync(input.LocationId, input.Location),
             LocationId = input.LocationId,
             CustodianEmployeeId = input.CustodianEmployeeId,
+            PurchaseReceiptId = input.PurchaseReceiptId,
+            PurchaseInvoiceId = input.PurchaseInvoiceId,
             AdditionalCost = input.AdditionalCost,
             CalculateDepreciation = input.CalculateDepreciation,
             DepreciationMethod = input.DepreciationMethod,
