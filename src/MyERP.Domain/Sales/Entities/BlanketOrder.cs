@@ -110,4 +110,10 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
                 .WithData("detail", $"Exceeds blanket order allowance. Max: {maxAllowed}, Current: {OrderedQty}, Requested: {qty}");
         OrderedQty += qty;
     }
+
+    /// <summary>Reverse a previously recorded order (e.g. on cancel). Never goes below zero.</summary>
+    public void UnrecordOrder(decimal qty)
+    {
+        OrderedQty = Math.Max(0, OrderedQty - qty);
+    }
 }

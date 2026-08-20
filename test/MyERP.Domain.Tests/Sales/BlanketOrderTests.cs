@@ -78,6 +78,29 @@ public class BlanketOrderTests
     }
 
     [Fact]
+    public void UnrecordOrder_RestoresRemaining()
+    {
+        var bo = CreateBO();
+        bo.AddItem(Guid.NewGuid(), 1000, 5m);
+        bo.Submit();
+        bo.Items[0].RecordOrder(300m);
+        bo.Items[0].UnrecordOrder(300m);
+        bo.Items[0].OrderedQty.ShouldBe(0m);
+        bo.Items[0].RemainingQty.ShouldBe(1000m);
+    }
+
+    [Fact]
+    public void UnrecordOrder_NeverGoesBelowZero()
+    {
+        var bo = CreateBO();
+        bo.AddItem(Guid.NewGuid(), 1000, 5m);
+        bo.Submit();
+        bo.Items[0].RecordOrder(300m);
+        bo.Items[0].UnrecordOrder(500m);
+        bo.Items[0].OrderedQty.ShouldBe(0m);
+    }
+
+    [Fact]
     public void Cancel_Succeeds()
     {
         var bo = CreateBO();

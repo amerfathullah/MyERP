@@ -210,6 +210,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
+            if (item.BlanketOrderId.HasValue)
+                order.Items[^1].BlanketOrderId = item.BlanketOrderId;
         }
 
         // Resolve UOM conversion factors for stock qty calculation
@@ -478,6 +480,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Deduct consumed qty from any linked Blanket Order allocations
+        await ConsumeBlanketOrdersAsync(order);
+
         // Auto-create Purchase Orders for drop-ship items
         if (DropShipService.HasDropShipItems(order))
         {
@@ -539,6 +544,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await soManager.ValidateCanCancelAsync(order, dnRepo, siRepo);
 
         order.Cancel();
+
+        // Release consumed Blanket Order allocations (reverse of submit)
+        await ReleaseBlanketOrdersAsync(order);
 
         // Release reserved stock (reverse of submit — bundles release components)
         var cancelBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
@@ -701,12 +709,63 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
+            if (item.BlanketOrderId.HasValue)
+                order.Items[^1].BlanketOrderId = item.BlanketOrderId;
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return dto;
+    }
+
+    /// <summary>
+    /// Deducts SO item qty from its linked Blanket Order's allocation (per line, via
+    /// BlanketOrderItem.RecordOrder — validated against Qty × (1 + allowance%)).
+    /// Allowance comes from MyERP.Selling.BlanketOrderAllowance (company-wide, matches
+    /// the setting already surfaced in Selling Settings but never consumed until now).
+    /// </summary>
+    private async Task ConsumeBlanketOrdersAsync(SalesOrder order)
+    {
+        var linkedItems = order.Items.Where(i => i.BlanketOrderId.HasValue).ToList();
+        if (linkedItems.Count == 0) return;
+
+        var allowancePct = await SettingProvider.GetAsync(
+            MyERP.Settings.MyERPSettings.Selling.BlanketOrderAllowance, 0m);
+        var boRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+
+        foreach (var group in linkedItems.GroupBy(i => i.BlanketOrderId!.Value))
+        {
+            var bo = await boRepository.FindAsync(group.Key);
+            if (bo == null) continue;
+            foreach (var item in group)
+            {
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.RecordOrder(item.StockQty, allowancePct);
+            }
+            await boRepository.UpdateAsync(bo);
+        }
+    }
+
+    /// <summary>Reverses ConsumeBlanketOrdersAsync's deduction (called from CancelAsync).</summary>
+    private async Task ReleaseBlanketOrdersAsync(SalesOrder order)
+    {
+        var linkedItems = order.Items.Where(i => i.BlanketOrderId.HasValue).ToList();
+        if (linkedItems.Count == 0) return;
+
+        var boRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+
+        foreach (var group in linkedItems.GroupBy(i => i.BlanketOrderId!.Value))
+        {
+            var bo = await boRepository.FindAsync(group.Key);
+            if (bo == null) continue;
+            foreach (var item in group)
+            {
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.UnrecordOrder(item.StockQty);
+            }
+            await boRepository.UpdateAsync(bo);
+        }
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Delete)]

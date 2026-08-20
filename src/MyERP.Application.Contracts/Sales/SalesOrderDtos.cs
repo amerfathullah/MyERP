@@ -78,6 +78,9 @@ public class SalesOrderItemDto
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
+    public Guid? BlanketOrderId { get; set; }
+
     /// <summary>Available stock qty for this item (populated on create/get for warehouse visibility).</summary>
     public decimal AvailableQty { get; set; }
 
@@ -157,6 +160,9 @@ public class CreateSalesOrderItemDto
     public string Uom { get; set; } = "Unit";
 
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
+    public Guid? BlanketOrderId { get; set; }
 }
 
 /// <summary>

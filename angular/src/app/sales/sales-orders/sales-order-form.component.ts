@@ -110,6 +110,7 @@ export class SalesOrderFormComponent implements OnInit {
             qty: [item.quantity ?? 1],
             rate: [item.unitPrice ?? 0],
             discountPercent: [0],
+            blanketOrderId: [item.blanketOrderId ?? null],
           }));
         });
         this.recalculate();
@@ -161,6 +162,7 @@ export class SalesOrderFormComponent implements OnInit {
         taxAmount: 0,
         uom: item.uom ?? 'Unit',
         warehouseId,
+        blanketOrderId: item.blanketOrderId || null,
       })),
     };
     if (this.isEditMode) {

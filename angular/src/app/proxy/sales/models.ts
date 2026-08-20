@@ -404,6 +404,7 @@ export interface CreateSalesOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+  blanketOrderId?: string | null;
 }
 
 export interface CreateSalesPartnerDto {
@@ -1385,6 +1386,7 @@ export interface SalesOrderItemDto {
   deliveredQty?: number;
   billedQty?: number;
   warehouseId?: string | null;
+  blanketOrderId?: string | null;
   availableQty?: number;
   isInsufficientStock?: boolean;
 }

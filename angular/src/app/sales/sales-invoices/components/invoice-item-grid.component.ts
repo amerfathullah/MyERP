@@ -40,6 +40,9 @@ export class InvoiceItemGridComponent {
   /** Per-item valuation rate (cost) for margin display */
   valuationRates = signal<Record<string, number>>({});
 
+  /** Per-row Blanket Order hint: { [rowIndex]: { orderNumber, remainingQty } } */
+  blanketOrderInfo = signal<Record<number, { orderNumber: string; remainingQty: number }>>({});
+
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
   get dataSource(): FormGroup[] {
@@ -54,6 +57,7 @@ export class InvoiceItemGridComponent {
       rate: [0, [Validators.required, Validators.min(0)]],
       discountPercent: [0, [Validators.min(0), Validators.max(100)]],
       amount: [{ value: 0, disabled: true }],
+      blanketOrderId: [null as string | null],
     }));
   }
 
@@ -77,8 +81,26 @@ export class InvoiceItemGridComponent {
             const patch: any = {};
             if (details.rate > 0 && !row.get('rate')?.value) patch.rate = details.rate;
             if (details.description) patch.itemName = details.description;
-            if (Object.keys(patch).length > 0) row.patchValue(patch);
+            patch.blanketOrderId = details.blanketOrderId ?? null;
+            row.patchValue(patch);
             this.recalculateRow(index);
+
+            // Capture Blanket Order hint for inline display (rate already applied above)
+            if (details.blanketOrderId) {
+              this.blanketOrderInfo.update(m => ({
+                ...m,
+                [index]: {
+                  orderNumber: details.blanketOrderNumber ?? '',
+                  remainingQty: details.blanketOrderRemainingQty ?? 0,
+                },
+              }));
+            } else {
+              this.blanketOrderInfo.update(m => {
+                const next = { ...m };
+                delete next[index];
+                return next;
+              });
+            }
 
             // Capture stock availability for inline display
             if (this.showStockAvailability && details.actualQty !== undefined) {
@@ -109,6 +131,20 @@ export class InvoiceItemGridComponent {
 
   removeRow(index: number): void {
     this.items.removeAt(index);
+    // Blanket Order hints are keyed by row index — shift everything past the removed row down
+    this.blanketOrderInfo.update(m => {
+      const next: Record<number, { orderNumber: string; remainingQty: number }> = {};
+      for (const [key, value] of Object.entries(m)) {
+        const i = Number(key);
+        if (i < index) next[i] = value;
+        else if (i > index) next[i - 1] = value;
+      }
+      return next;
+    });
+  }
+
+  getBlanketOrderInfo(index: number): { orderNumber: string; remainingQty: number } | null {
+    return this.blanketOrderInfo()[index] ?? null;
   }
 
   recalculateRow(index: number): void {

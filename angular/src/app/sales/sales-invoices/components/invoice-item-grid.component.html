@@ -30,7 +30,16 @@
                   </small>
                 </div>
               }
-            }          </td>
+            }
+            @let bo = getBlanketOrderInfo($index);
+            @if (bo) {
+              <div class="mt-1">
+                <small class="text-primary">
+                  <i class="fa fa-link me-1"></i>{{ bo.orderNumber }} ({{ bo.remainingQty | number:'1.0-2' }} {{ '::Remaining' | abpLocalization }})
+                </small>
+              </div>
+            }
+          </td>
           <td><input type="number" class="form-control form-control-sm" formControlName="qty" (change)="recalculateRow($index)" min="0.01" step="1" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="discountPercent" (change)="recalculateRow($index)" min="0" max="100" step="1" /></td>

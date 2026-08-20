@@ -228,6 +228,9 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Per-item delivery date (overrides parent SO DeliveryDate). Per ERPNext: each SO item can have its own delivery_date.</summary>
     public DateTime? DeliveryDate { get; set; }
 
+    /// <summary>Blanket Order this line draws from (deducts qty from the blanket allocation on submit).</summary>
+    public Guid? BlanketOrderId { get; set; }
+
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)
         : base(id)
