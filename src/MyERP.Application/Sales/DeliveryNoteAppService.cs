@@ -648,6 +648,26 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         dn.Cancel();
 
+        // Cancel/clean up linked Packing Slips (per ERPNext packing.py cancel_packing_slips, gotcha #6238)
+        var packingSlipRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Sales.Entities.PackingSlip, Guid>>();
+        var packingSlipQuery = await packingSlipRepo.GetQueryableAsync();
+        var linkedPackingSlips = packingSlipQuery
+            .Where(ps => ps.DeliveryNoteId == dn.Id && ps.Status != Core.DocumentStatus.Cancelled)
+            .ToList();
+        foreach (var ps in linkedPackingSlips)
+        {
+            if (ps.Status == Core.DocumentStatus.Draft)
+            {
+                await packingSlipRepo.DeleteAsync(ps, autoSave: true);
+            }
+            else if (ps.Status == Core.DocumentStatus.Submitted)
+            {
+                ps.Cancel();
+                await packingSlipRepo.UpdateAsync(ps, autoSave: true);
+            }
+        }
+
         // Reverse the posted GL Journal Entry (DR COGS / CR Stock on submit)
         await _postingOrchestrator.ReverseGlForDocumentAsync("DeliveryNote", dn.Id);
 
@@ -682,21 +702,6 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
-
-        // Cancellation cascade: a Packing Slip can't exist without its parent DN, so cancelling
-        // the DN auto-cancels every submitted Packing Slip against it — no GL/stock reversal
-        // needed, PackingSlip is a pure packaging-tracking document with no financial effect.
-        var packingSlipRepo = LazyServiceProvider
-            .LazyGetRequiredService<IRepository<Sales.Entities.PackingSlip, Guid>>();
-        var packingSlipQuery = await packingSlipRepo.GetQueryableAsync();
-        var submittedPackingSlips = packingSlipQuery
-            .Where(ps => ps.DeliveryNoteId == dn.Id && ps.Status == Core.DocumentStatus.Submitted)
-            .ToList();
-        foreach (var packingSlip in submittedPackingSlips)
-        {
-            packingSlip.Cancel();
-            await packingSlipRepo.UpdateAsync(packingSlip, autoSave: true);
-        }
 
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
