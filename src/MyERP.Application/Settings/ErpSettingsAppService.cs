@@ -127,6 +127,8 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Buying.BillForRejectedQty,
             MyERPSettings.Buying.SupplierNamingBy,
             MyERPSettings.Buying.OverTransferAllowance,
+            MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation,
+            MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation,
         ],
         "Manufacturing" => [
             MyERPSettings.Manufacturing.OverproductionPercentage,

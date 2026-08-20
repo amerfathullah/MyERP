@@ -506,4 +506,24 @@ public class UpstreamPR57140And57571Tests
         Assert.True(hl.IsHoliday(new DateTime(2026, 8, 31)));
         Assert.False(hl.IsHoliday(new DateTime(2026, 9, 1)));
     }
+
+    [Fact]
+    public void Quotation_HasUnitPriceItems_Detected_When_Zero_Qty()
+    {
+        var qtn = new MyERP.Sales.Entities.Quotation(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "QTN-001", DateTime.UtcNow);
+        qtn.AddItem(Guid.NewGuid(), "Service item", 0m, 150m, 0m);
+
+        Assert.True(qtn.HasUnitPriceItems);
+    }
+
+    [Fact]
+    public void SupplierQuotation_HasUnitPriceItems_Detected_When_Zero_Qty()
+    {
+        var sq = new MyERP.Purchasing.Entities.SupplierQuotation(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        sq.AddItem(Guid.NewGuid(), 0m, 200m);
+
+        Assert.True(sq.HasUnitPriceItems);
+    }
 }

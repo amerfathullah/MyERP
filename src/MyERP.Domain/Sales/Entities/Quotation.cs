@@ -28,6 +28,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
+    public bool HasUnitPriceItems { get; set; }
 
     public string? Terms { get; set; }
     public string? Notes { get; set; }
@@ -133,6 +134,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
         NetTotal = _items.Sum(i => i.LineTotal);
         TaxAmount = _items.Sum(i => i.TaxAmount);
         GrandTotal = NetTotal + TaxAmount;
+        HasUnitPriceItems = _items.Any(i => i.Quantity == 0);
     }
 }
 

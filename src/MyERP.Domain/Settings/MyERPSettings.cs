@@ -77,6 +77,8 @@ public static class MyERPSettings
         public const string BillForRejectedQty = G + ".BillForRejectedQty";
         public const string SupplierNamingBy = G + ".SupplierNamingBy";
         public const string OverTransferAllowance = G + ".OverTransferAllowance";
+        public const string AllowZeroQtyInSupplierQuotation = G + ".AllowZeroQtyInSupplierQuotation";
+        public const string AllowZeroQtyInRequestForQuotation = G + ".AllowZeroQtyInRequestForQuotation";
     }
 
     // ═══════════════════════════════════════════════════

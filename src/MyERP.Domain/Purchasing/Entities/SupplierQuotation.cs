@@ -33,6 +33,7 @@ public class SupplierQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal NetTotal { get; private set; }
     public decimal GrandTotal { get; private set; }
+    public bool HasUnitPriceItems { get; set; }
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
     public string? Notes { get; set; }
@@ -91,6 +92,7 @@ public class SupplierQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         NetTotal = _items.Sum(i => i.Amount);
         GrandTotal = NetTotal;
+        HasUnitPriceItems = _items.Any(i => i.Quantity == 0);
     }
 }
 
