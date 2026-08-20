@@ -38,7 +38,7 @@ public class ItemAlternativeAppService :
         DeletePolicyName = MyERPPermissions.ItemAlternatives.Delete;
     }
 
-    private async Task ValidateAlternativeItemAsync(Guid baseItemId, Guid altItemId)
+    private async Task ValidateAlternativeItemAsync(Guid baseItemId, Guid altItemId, bool twoWay = false)
     {
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(new[] { baseItemId, altItemId });
@@ -51,6 +51,12 @@ public class ItemAlternativeAppService :
         }
 
         var altItem = await _itemRepository.GetAsync(altItemId);
+        if (twoWay && !altItem.AllowAlternativeItem)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ItemDoesNotAllowAlternatives)
+                .WithData("itemCode", altItem.ItemCode);
+        }
+
         if (baseItem.MaintainStock != altItem.MaintainStock)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AlternativeItemStockMismatch)
@@ -62,7 +68,7 @@ public class ItemAlternativeAppService :
     [Authorize(MyERPPermissions.ItemAlternatives.Create)]
     public override async Task<ItemAlternativeDto> CreateAsync(CreateUpdateItemAlternativeDto input)
     {
-        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId);
+        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId, input.TwoWay);
 
         var existing = await Repository.FindAsync(ia =>
             ia.CompanyId == input.CompanyId &&
@@ -88,7 +94,7 @@ public class ItemAlternativeAppService :
     [Authorize(MyERPPermissions.ItemAlternatives.Edit)]
     public override async Task<ItemAlternativeDto> UpdateAsync(Guid id, CreateUpdateItemAlternativeDto input)
     {
-        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId);
+        await ValidateAlternativeItemAsync(input.ItemId, input.AlternativeItemId, input.TwoWay);
 
         var entity = await Repository.GetAsync(id);
 
