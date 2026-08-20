@@ -79,7 +79,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Accounts.BookDeferredEntriesBasedOn, "Days"),
             new SettingDefinition(MyERPSettings.Accounts.BookStockExpenseGlEntries, "false"),
             new SettingDefinition(MyERPSettings.Accounts.RepostLimit, "100"),
-            new SettingDefinition(MyERPSettings.Accounts.EnableOverdueBillingThreshold, "false")
+            new SettingDefinition(MyERPSettings.Accounts.EnableOverdueBillingThreshold, "false"),
+            new SettingDefinition(MyERPSettings.Accounts.EnableCommonPartyAccounting, "false")
         );
 
         // ═══════════ Global Defaults ═══════════

@@ -175,6 +175,65 @@ public class JournalEntryTests
         Assert.Throws<BusinessException>(() => reversal.AddReversalLine(source.Lines[0]));
     }
 
+    [Fact]
+    public void AddReconciliationLine_BuildsBalancedLineWithFullFidelity()
+    {
+        var journal = CreateJournalEntry();
+        var receivableAccountId = Guid.NewGuid();
+        var payableAccountId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var costCenterId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+
+        journal.AddReconciliationLine(
+            receivableAccountId, 500m, isDebit: false,
+            customerId, "Customer", costCenterId, projectId: null,
+            "MYR", 500m, 1m,
+            "SalesInvoice", invoiceId, isAdvance: false,
+            description: "Common Party Accounting reconciliation");
+
+        journal.AddReconciliationLine(
+            payableAccountId, 500m, isDebit: true,
+            supplierId, "Supplier", costCenterId, projectId: null,
+            "MYR", 500m, 1m,
+            null, null, isAdvance: true,
+            description: "Common Party Accounting advance");
+
+        journal.Validate();
+        journal.TotalDebit.ShouldBe(500m);
+        journal.TotalCredit.ShouldBe(500m);
+
+        var reconciliationLine = journal.Lines.Single(l => l.AccountId == receivableAccountId);
+        reconciliationLine.PartyId.ShouldBe(customerId);
+        reconciliationLine.PartyType.ShouldBe("Customer");
+        reconciliationLine.AgainstVoucherType.ShouldBe("SalesInvoice");
+        reconciliationLine.AgainstVoucherId.ShouldBe(invoiceId);
+        reconciliationLine.IsAdvance.ShouldBeFalse();
+
+        var advanceLine = journal.Lines.Single(l => l.AccountId == payableAccountId);
+        advanceLine.PartyId.ShouldBe(supplierId);
+        advanceLine.PartyType.ShouldBe("Supplier");
+        advanceLine.AgainstVoucherType.ShouldBeNull();
+        advanceLine.IsAdvance.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddReconciliationLine_AfterPost_ShouldThrow()
+    {
+        var journal = CreateJournalEntry();
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        journal.Post();
+
+        Assert.Throws<BusinessException>(() =>
+            journal.AddReconciliationLine(
+                Guid.NewGuid(), 100m, isDebit: true,
+                Guid.NewGuid(), "Customer", null, null,
+                "MYR", 100m, 1m,
+                null, null, isAdvance: false));
+    }
+
     private static JournalEntry CreateJournalEntry()
     {
         return new JournalEntry(

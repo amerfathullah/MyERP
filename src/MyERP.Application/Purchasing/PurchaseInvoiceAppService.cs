@@ -975,6 +975,32 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             payableAccountId: payableAccountId,
             dueDate: invoice.DueDate);
 
+        // Common Party Accounting: auto-reconcile against a linked Customer if this Supplier
+        // represents the same real-world entity (see accounting/DomainServices/CommonPartyAccountingService).
+        var commonPartyService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CommonPartyAccountingService>();
+        var reconciliation = await commonPartyService.ReconcileAsync(new Accounting.DomainServices.CommonPartyReconciliationContext
+        {
+            CompanyId = invoice.CompanyId,
+            TenantId = invoice.TenantId,
+            PostingDate = invoice.IssueDate,
+            DocumentType = "PurchaseInvoice",
+            DocumentId = invoice.Id,
+            DocumentNumber = invoice.InvoiceNumber,
+            PartyType = "Supplier",
+            PartyId = invoice.SupplierId,
+            PartyAccountId = payableAccountId,
+            OutstandingAmount = invoice.OutstandingAmount,
+            CurrencyCode = invoice.CurrencyCode,
+            ExchangeRate = invoice.ExchangeRate,
+            CostCenterId = invoice.CostCenterId,
+            ProjectId = invoice.ProjectId,
+            IsReturn = invoice.IsReturn,
+        });
+        if (reconciliation != null)
+        {
+            invoice.AmountPaid += reconciliation.ReconciledAmount;
+        }
+
         // Auto-insert item prices (per ERPNext: auto_insert_price_list_rate_if_missing)
         try
         {

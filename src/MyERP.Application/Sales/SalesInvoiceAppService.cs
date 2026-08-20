@@ -1017,6 +1017,32 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             receivableAccountId: receivableAccountId,
             dueDate: invoice.DueDate);
 
+        // Common Party Accounting: auto-reconcile against a linked Supplier if this Customer
+        // represents the same real-world entity (see accounting/DomainServices/CommonPartyAccountingService).
+        var commonPartyService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CommonPartyAccountingService>();
+        var reconciliation = await commonPartyService.ReconcileAsync(new Accounting.DomainServices.CommonPartyReconciliationContext
+        {
+            CompanyId = invoice.CompanyId,
+            TenantId = invoice.TenantId,
+            PostingDate = invoice.IssueDate,
+            DocumentType = "SalesInvoice",
+            DocumentId = invoice.Id,
+            DocumentNumber = invoice.InvoiceNumber,
+            PartyType = "Customer",
+            PartyId = invoice.CustomerId,
+            PartyAccountId = receivableAccountId,
+            OutstandingAmount = invoice.OutstandingAmount,
+            CurrencyCode = invoice.CurrencyCode,
+            ExchangeRate = invoice.ExchangeRate,
+            CostCenterId = invoice.CostCenterId,
+            ProjectId = invoice.ProjectId,
+            IsReturn = invoice.IsReturn,
+        });
+        if (reconciliation != null)
+        {
+            invoice.AmountPaid += reconciliation.ReconciledAmount;
+        }
+
         await _repository.UpdateAsync(invoice, autoSave: true);
 
         // Audit trail

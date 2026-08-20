@@ -186,6 +186,43 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Adds a line carrying party, dimension, multi-currency, and against-voucher context in one call.
+    /// Used by cross-aggregate reconciliation flows (e.g. Common Party Accounting) that need the
+    /// full line shape AddLineWithParty/AddLineWithDimensions each only cover part of.
+    /// </summary>
+    public void AddReconciliationLine(
+        Guid accountId, decimal amount, bool isDebit,
+        Guid partyId, string partyType,
+        Guid? costCenterId, Guid? projectId,
+        string? accountCurrency, decimal amountInAccountCurrency, decimal exchangeRate,
+        string? againstVoucherType, Guid? againstVoucherId, bool isAdvance,
+        string? description = null)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Id, accountId, amount, isDebit, description)
+        {
+            PartyId = partyId,
+            PartyType = partyType,
+            CostCenterId = costCenterId,
+            ProjectId = projectId,
+            AccountCurrency = accountCurrency,
+            AmountInAccountCurrency = amountInAccountCurrency,
+            ExchangeRate = exchangeRate,
+            AgainstVoucherType = againstVoucherType,
+            AgainstVoucherId = againstVoucherId,
+            IsAdvance = isAdvance,
+        };
+        _lines.Add(line);
+
+        RecalculateTotals();
+    }
+
+    /// <summary>
     /// Validates that Total Debit = Total Credit (double-entry requirement).
     /// </summary>
     public void Validate()

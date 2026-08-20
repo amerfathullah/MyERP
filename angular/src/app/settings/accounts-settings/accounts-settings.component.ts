@@ -84,6 +84,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <label class="form-check-label" for="overdueBilling">Enable Overdue Billing Threshold</label>
                 </div>
               </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="commonPartyAccounting"
+                    [ngModel]="settings['MyERP.Accounts.EnableCommonPartyAccounting'] === 'true'"
+                    (ngModelChange)="settings['MyERP.Accounts.EnableCommonPartyAccounting'] = $event ? 'true' : 'false'" name="commonPartyAccounting" />
+                  <label class="form-check-label" for="commonPartyAccounting">Enable Common Party Accounting</label>
+                </div>
+              </div>
             </div>
 
             <div class="d-flex justify-content-end mt-4">
