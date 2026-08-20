@@ -13,6 +13,7 @@ public class PaymentEntryDto : EntityDto<Guid>
     public DateTime PostingDate { get; set; }
     public string? ModeOfPayment { get; set; }
     public decimal PaidAmount { get; set; }
+    public decimal ReceivedAmount { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? ReferenceNumber { get; set; }
@@ -27,6 +28,7 @@ public class CreatePaymentEntryDto
     [Required] public PaymentType PaymentType { get; set; }
     [Required] public DateTime PostingDate { get; set; }
     [Required][Range(0.01, double.MaxValue)] public decimal PaidAmount { get; set; }
+    public decimal? ReceivedAmount { get; set; }
     [Required] public Guid PaidFromAccountId { get; set; }
     [Required] public Guid PaidToAccountId { get; set; }
     [StringLength(PaymentEntryConsts.MaxModeOfPaymentLength)] public string? ModeOfPayment { get; set; }

@@ -447,18 +447,18 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             invoice.CreditToAccountId = companyForAcct.DefaultPayableAccountId.Value;
         }
 
-        // Opening invoices: clear payment terms (accounting-only, no schedule)
-        if (invoice.IsOpening)
+        // Opening invoices & returns: clear payment terms (gotcha #380)
+        if (invoice.IsOpening || invoice.IsReturn)
         {
             invoice.PaymentTermsTemplateId = null;
         }
 
-        // Payment terms resolution: explicit → supplier default → null (skip for opening)
-        if (!invoice.IsOpening && input.PaymentTermsTemplateId.HasValue)
+        // Payment terms resolution: explicit → supplier default → null (skip for opening & returns)
+        if (!invoice.IsOpening && !invoice.IsReturn && input.PaymentTermsTemplateId.HasValue)
         {
             invoice.PaymentTermsTemplateId = input.PaymentTermsTemplateId;
         }
-        else if (!invoice.IsOpening)
+        else if (!invoice.IsOpening && !invoice.IsReturn)
         {
             var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
             var supplier = await supplierRepo.FindAsync(input.SupplierId);

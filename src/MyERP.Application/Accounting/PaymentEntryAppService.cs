@@ -156,6 +156,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             }
         }
 
+        // Per gotcha #458: same-currency received amount cannot exceed paid amount
+        if ((input.ExchangeRate == 1m || input.ExchangeRate == 0) && input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > input.PaidAmount)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Received Amount cannot be greater than Paid Amount for same-currency payments.");
+        }
+
         var paymentNumber = await _numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId);
         var pe = new PaymentEntry(
             GuidGenerator.Create(), input.CompanyId, input.PaymentType, input.PostingDate,
@@ -171,6 +178,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         pe.Notes = input.Notes;
         pe.AgainstOrderId = input.AgainstOrderId;
         pe.AgainstOrderType = input.AgainstOrderType;
+        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0)
+        {
+            pe.ReceivedAmount = input.ReceivedAmount.Value;
+        }
 
         // Multi-currency: auto-resolve exchange rate if not explicitly provided
         // Per ERPNext: when payment currency ≠ company currency, fetch rate from CurrencyExchange
