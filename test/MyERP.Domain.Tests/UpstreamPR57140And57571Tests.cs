@@ -468,4 +468,16 @@ public class UpstreamPR57140And57571Tests
         je.SetClearanceDate(null);
         Assert.Null(je.ClearanceDate);
     }
+
+    [Fact]
+    public void DocumentSeries_Resolves_Naming_Tokens_With_Custom_ReferenceDate_And_Abbr()
+    {
+        var series = new MyERP.Core.Entities.DocumentSeries(
+            Guid.NewGuid(), Guid.NewGuid(), "Test Series", "SalesInvoice", ".ABBR.-INV-.YYYY..MM.-#####");
+
+        var testDate = new DateTime(2025, 4, 15);
+        var number = series.GenerateNextNumber(testDate, "MYCO");
+
+        Assert.Equal("MYCO-INV-202504-00001", number);
+    }
 }

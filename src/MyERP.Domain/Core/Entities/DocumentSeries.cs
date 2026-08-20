@@ -60,20 +60,20 @@ public class DocumentSeries : FullAuditedAggregateRoot<Guid>, IMultiTenant
     ///   .DD. = day, .FY. = fiscal year short (e.g., "2526"),
     ///   .ABBR. = company abbreviation, .#### = number padding (# count = digits).
     /// </summary>
-    public string GenerateNextNumber()
+    public string GenerateNextNumber(DateTime? referenceDate = null, string? companyAbbr = null)
     {
         CurrentNumber++;
-        return ResolveTemplate(Prefix, CurrentNumber, null, null);
+        return ResolveTemplate(Prefix, CurrentNumber, null, companyAbbr, referenceDate);
     }
 
     /// <summary>
     /// Generates next number with fiscal year awareness.
     /// When ResetOnFiscalYear is enabled and the year changes, counter resets to 1.
     /// </summary>
-    public string GenerateNextNumberForFiscalYear(int fiscalYear)
+    public string GenerateNextNumberForFiscalYear(int fiscalYear, DateTime? referenceDate = null, string? companyAbbr = null)
     {
         if (!ResetOnFiscalYear)
-            return GenerateNextNumber();
+            return GenerateNextNumber(referenceDate, companyAbbr);
 
         if (_lastFiscalYear != 0 && _lastFiscalYear != fiscalYear)
         {
@@ -92,7 +92,7 @@ public class DocumentSeries : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return $"{Prefix}{fiscalYear}-{CurrentNumber.ToString().PadLeft(NumberPadding, '0')}";
         }
 
-        return ResolveTemplate(Prefix, CurrentNumber, fiscalYear, null);
+        return ResolveTemplate(Prefix, CurrentNumber, fiscalYear, companyAbbr, referenceDate);
     }
 
     /// <summary>
@@ -101,9 +101,9 @@ public class DocumentSeries : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// 9 tokens: FY, TFY, ABBR, MM, DD, YY, YYYY, JJJ (Julian day), WW (week number).
     /// Token format: .TOKEN. (dot-wrapped) or #### (hash = digit placeholders).
     /// </summary>
-    private string ResolveTemplate(string template, long number, int? fiscalYear, string? companyAbbr)
+    private string ResolveTemplate(string template, long number, int? fiscalYear, string? companyAbbr, DateTime? referenceDate = null)
     {
-        var now = DateTime.UtcNow;
+        var now = referenceDate ?? DateTime.UtcNow;
         var result = template;
 
         // Replace naming tokens (dot-wrapped)

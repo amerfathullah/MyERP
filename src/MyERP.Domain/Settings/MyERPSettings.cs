@@ -131,6 +131,7 @@ public static class MyERPSettings
         public const string DisableRoundedTotal = G + ".DisableRoundedTotal";
         public const string DisableInWords = G + ".DisableInWords";
         public const string HideCurrencySymbol = G + ".HideCurrencySymbol";
+        public const string UsePostingDateTimeForNamingDocuments = G + ".UsePostingDateTimeForNaming";
     }
 
     // ═══════════════════════════════════════════════════

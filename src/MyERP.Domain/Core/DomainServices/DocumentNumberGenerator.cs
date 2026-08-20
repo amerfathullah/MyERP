@@ -6,6 +6,7 @@ using MyERP.Core.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Settings;
 
 namespace MyERP.Core.DomainServices;
 
@@ -13,19 +14,22 @@ public class DocumentNumberGenerator : DomainService, IDocumentNumberGenerator
 {
     private readonly IRepository<DocumentSeries, Guid> _repository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public DocumentNumberGenerator(
         IRepository<DocumentSeries, Guid> repository,
-        IRepository<FiscalYear, Guid> fiscalYearRepository)
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _repository = repository;
         _fiscalYearRepository = fiscalYearRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
     /// Generates the next document number. Retries up to 3 times on concurrency conflicts.
     /// When the series has ResetOnFiscalYear=true, includes the fiscal year and resets counter on year change.
-    /// postingDate: when provided, used for fiscal year resolution (backdated documents).
+    /// postingDate: when provided, used for fiscal year resolution and date-based naming tokens (per gotcha #1675).
     /// </summary>
     public async Task<string> GenerateAsync(string documentType, Guid companyId, DateTime? postingDate = null)
     {
@@ -45,15 +49,23 @@ public class DocumentNumberGenerator : DomainService, IDocumentNumberGenerator
                         .WithData("documentType", documentType);
                 }
 
+                var company = await _companyRepository.FindAsync(companyId);
+                var companyAbbr = company?.ShortName ?? company?.Name;
+
+                var settingProvider = LazyServiceProvider.LazyGetRequiredService<ISettingProvider>();
+                var usePostingDateForNaming = await settingProvider.IsTrueAsync(
+                    MyERP.Settings.MyERPSettings.Global.UsePostingDateTimeForNamingDocuments);
+                var referenceDate = (usePostingDateForNaming && postingDate.HasValue) ? postingDate : postingDate;
+
                 string nextNumber;
                 if (series.ResetOnFiscalYear)
                 {
                     var currentFy = await GetCurrentFiscalYearAsync(companyId, postingDate);
-                    nextNumber = series.GenerateNextNumberForFiscalYear(currentFy);
+                    nextNumber = series.GenerateNextNumberForFiscalYear(currentFy, referenceDate, companyAbbr);
                 }
                 else
                 {
-                    nextNumber = series.GenerateNextNumber();
+                    nextNumber = series.GenerateNextNumber(referenceDate, companyAbbr);
                 }
 
                 await _repository.UpdateAsync(series);

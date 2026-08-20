@@ -163,6 +163,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Global.DisableRoundedTotal,
             MyERPSettings.Global.DisableInWords,
             MyERPSettings.Global.HideCurrencySymbol,
+            MyERPSettings.Global.UsePostingDateTimeForNamingDocuments,
         ],
         "CRM" => [
             MyERPSettings.CRM.CloseOpportunityAfterDays,

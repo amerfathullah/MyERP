@@ -96,7 +96,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Global.Country, "Malaysia"),
             new SettingDefinition(MyERPSettings.Global.DisableRoundedTotal, "false"),
             new SettingDefinition(MyERPSettings.Global.DisableInWords, "false"),
-            new SettingDefinition(MyERPSettings.Global.HideCurrencySymbol, "false")
+            new SettingDefinition(MyERPSettings.Global.HideCurrencySymbol, "false"),
+            new SettingDefinition(MyERPSettings.Global.UsePostingDateTimeForNamingDocuments, "false")
         );
 
         // ═══════════ CRM Settings ═══════════
