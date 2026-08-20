@@ -144,6 +144,18 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     {
         if (Status != DocumentStatus.Draft || !_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
+        foreach (var item in _items)
+        {
+            if (!string.IsNullOrEmpty(item.Uom) && !string.IsNullOrEmpty(item.StockUom)
+                && string.Equals(item.Uom, item.StockUom, StringComparison.OrdinalIgnoreCase)
+                && item.ConversionFactor != 1.0m)
+            {
+                item.ConversionFactor = 1.0m;
+            }
+        }
+
         Status = DocumentStatus.ToDeliverAndBill; // "To Receive and Bill"
     }
 

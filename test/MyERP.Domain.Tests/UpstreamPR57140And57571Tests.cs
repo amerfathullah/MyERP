@@ -260,4 +260,64 @@ public class UpstreamPR57140And57571Tests
         company.AllowUomWithConversionRateDefinedInItem = true;
         Assert.True(company.AllowUomWithConversionRateDefinedInItem);
     }
+
+    [Fact]
+    public void SalesOrder_Submit_AutoCorrects_ConversionFactor_When_Uom_Matches_StockUom()
+    {
+        var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
+        so.AddItem(Guid.NewGuid(), "Laptop", 2, 3000, 0, "Unit");
+        var item = so.Items.First();
+        item.StockUom = "Unit";
+        item.ConversionFactor = 50m; // Bad conversion factor
+
+        so.Submit();
+
+        Assert.Equal(1.0m, item.ConversionFactor);
+        Assert.Equal(2m, item.StockQty);
+    }
+
+    [Fact]
+    public void PurchaseOrder_Submit_AutoCorrects_ConversionFactor_When_Uom_Matches_StockUom()
+    {
+        var po = new MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
+        po.AddItem(Guid.NewGuid(), "Raw Material", 10, 50, 0, "Kg");
+        var item = po.Items.First();
+        item.StockUom = "Kg";
+        item.ConversionFactor = 10m; // Bad conversion factor
+
+        po.Submit();
+
+        Assert.Equal(1.0m, item.ConversionFactor);
+        Assert.Equal(10m, item.StockQty);
+    }
+
+    [Fact]
+    public void Quotation_Submit_AutoCorrects_ConversionFactor_When_Uom_Matches_StockUom()
+    {
+        var q = new MyERP.Sales.Entities.Quotation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "QT-001", DateTime.UtcNow);
+        q.AddItem(Guid.NewGuid(), "Service Pack", 1, 500, 0, "Nos");
+        var item = q.Items.First();
+        item.StockUom = "Nos";
+        item.ConversionFactor = 5m;
+
+        q.Submit();
+
+        Assert.Equal(1.0m, item.ConversionFactor);
+        Assert.Equal(1m, item.StockQty);
+    }
+
+    [Fact]
+    public void SupplierQuotation_Submit_AutoCorrects_ConversionFactor_When_Uom_Matches_StockUom()
+    {
+        var sq = new MyERP.Purchasing.Entities.SupplierQuotation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        sq.AddItem(Guid.NewGuid(), 5, 20, "Bolts", "Nos");
+        var item = sq.Items.First();
+        item.StockUom = "Nos";
+        item.ConversionFactor = 25m;
+
+        sq.Submit();
+
+        Assert.Equal(1.0m, item.ConversionFactor);
+        Assert.Equal(5m, item.StockQty);
+    }
 }

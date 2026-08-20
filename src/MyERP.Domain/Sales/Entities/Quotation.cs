@@ -89,6 +89,18 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     {
         if (Status != DocumentStatus.Draft || !_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
+        foreach (var item in _items)
+        {
+            if (!string.IsNullOrEmpty(item.Uom) && !string.IsNullOrEmpty(item.StockUom)
+                && string.Equals(item.Uom, item.StockUom, StringComparison.OrdinalIgnoreCase)
+                && item.ConversionFactor != 1.0m)
+            {
+                item.ConversionFactor = 1.0m;
+            }
+        }
+
         Status = DocumentStatus.Submitted;
     }
 
@@ -134,6 +146,16 @@ public class QuotationItem : CreationAuditedEntity<Guid>
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+
+    /// <summary>Item's stock UOM. From Item master.</summary>
+    public string StockUom { get; set; } = "Unit";
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
+    public decimal StockQty => Quantity * ConversionFactor;
+
     /// <summary>Qty converted to Sales Order. Tracked by document conversion.</summary>
     public decimal OrderedQty { get; set; }
 
