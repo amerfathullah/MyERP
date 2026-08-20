@@ -98,5 +98,12 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Global.DisableInWords, "false"),
             new SettingDefinition(MyERPSettings.Global.HideCurrencySymbol, "false")
         );
+
+        // ═══════════ CRM Settings ═══════════
+        context.Add(
+            new SettingDefinition(MyERPSettings.CRM.CloseOpportunityAfterDays, "15"),
+            new SettingDefinition(MyERPSettings.CRM.AutoCreationOfContact, "false"),
+            new SettingDefinition(MyERPSettings.CRM.CarryForwardCommunicationAndComments, "false")
+        );
     }
 }

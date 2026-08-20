@@ -13,4 +13,5 @@ public interface IJournalEntryAppService : IApplicationService
     Task<JournalEntryDto> CreateAsync(CreateJournalEntryDto input);
     Task<JournalEntryDto> PostAsync(Guid id);
     Task<JournalEntryDto> CancelAsync(Guid id);
+    Task<JournalEntryDto> AmendAsync(Guid id);
 }

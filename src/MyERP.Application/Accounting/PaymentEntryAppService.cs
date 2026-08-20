@@ -1062,5 +1062,89 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         }
         return result;
     }
+
+    /// <summary>
+    /// Amend a cancelled Payment Entry — creates a new draft copy with amendment link.
+    /// Per gotcha #11 / #265: clearance_date is cleared and NOT carried over into the amendment.
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Create)]
+    public async Task<PaymentEntryDto> AmendAsync(Guid id)
+    {
+        var original = await _repository.GetAsync(id);
+        var amendService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.DocumentAmendmentService>();
+
+        amendService.ValidateCanAmend(original.Status);
+        var newNumber = amendService.GenerateAmendedNumber(original.PaymentNumber ?? original.Id.ToString()[..8], original.AmendmentIndex + 1);
+
+        var amended = new PaymentEntry(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.PaymentType,
+            DateTime.UtcNow.Date,
+            original.PaidAmount,
+            original.PaidFromAccountId,
+            original.PaidToAccountId,
+            original.TenantId)
+        {
+            PaymentNumber = newNumber,
+            AmendedFromId = original.Id,
+            AmendmentIndex = original.AmendmentIndex + 1,
+            PartyType = original.PartyType,
+            PartyId = original.PartyId,
+            ModeOfPayment = original.ModeOfPayment,
+            ModeOfPaymentId = original.ModeOfPaymentId,
+            CostCenterId = original.CostCenterId,
+            ProjectId = original.ProjectId,
+            CurrencyCode = original.CurrencyCode,
+            ExchangeRate = original.ExchangeRate,
+            SourceExchangeRate = original.SourceExchangeRate,
+            TargetExchangeRate = original.TargetExchangeRate,
+            ReceivedAmount = original.ReceivedAmount,
+            ReferenceNumber = original.ReferenceNumber,
+            Notes = original.Notes,
+            AgainstInvoiceId = original.AgainstInvoiceId,
+            AgainstInvoiceType = original.AgainstInvoiceType,
+            AgainstOrderId = original.AgainstOrderId,
+            AgainstOrderType = original.AgainstOrderType
+        };
+
+        // Explicitly ensure ClearanceDate is null (stale clearance date prevention per gotcha #11/#265)
+        amended.SetClearanceDate(null);
+
+        foreach (var refRow in original.References)
+        {
+            var refCopy = new PaymentEntryReference(
+                GuidGenerator.Create(), amended.Id, refRow.ReferenceType, refRow.ReferenceId,
+                refRow.TotalAmount, refRow.OutstandingAmount, refRow.AllocatedAmount,
+                refRow.ReferenceNumber)
+            {
+                ExchangeRate = refRow.ExchangeRate,
+                PaymentTermId = refRow.PaymentTermId
+            };
+            amended.References.Add(refCopy);
+        }
+
+        foreach (var taxRow in original.Taxes)
+        {
+            var taxCopy = new PaymentEntryTax(
+                GuidGenerator.Create(), amended.Id, taxRow.AccountId, amended.TenantId)
+            {
+                ChargeType = taxRow.ChargeType,
+                Rate = taxRow.Rate,
+                TaxAmount = taxRow.TaxAmount,
+                BaseTaxAmount = taxRow.BaseTaxAmount,
+                IncludedInPaidAmount = taxRow.IncludedInPaidAmount,
+                AddDeductTax = taxRow.AddDeductTax,
+                Description = taxRow.Description,
+                CostCenterId = taxRow.CostCenterId,
+                AccountHead = taxRow.AccountHead,
+                IsExchangeGainLoss = taxRow.IsExchangeGainLoss
+            };
+            amended.Taxes.Add(taxCopy);
+        }
+
+        await _repository.InsertAsync(amended, autoSave: true);
+        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(amended);
+    }
 }
 

@@ -132,5 +132,16 @@ public static class MyERPSettings
         public const string DisableInWords = G + ".DisableInWords";
         public const string HideCurrencySymbol = G + ".HideCurrencySymbol";
     }
+
+    // ═══════════════════════════════════════════════════
+    // CRM Settings
+    // ═══════════════════════════════════════════════════
+    public static class CRM
+    {
+        private const string G = Prefix + ".CRM";
+        public const string CloseOpportunityAfterDays = G + ".CloseOpportunityAfterDays";
+        public const string AutoCreationOfContact = G + ".AutoCreationOfContact";
+        public const string CarryForwardCommunicationAndComments = G + ".CarryForwardCommunication";
+    }
 }
 

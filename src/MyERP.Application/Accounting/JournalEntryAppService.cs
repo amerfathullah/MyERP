@@ -271,5 +271,51 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(reversal);
     }
+
+    /// <summary>
+    /// Amend a cancelled Journal Entry — creates a new draft copy with amendment link.
+    /// Per gotcha #11 / #265: clearance_date is cleared and NOT carried over into the amendment.
+    /// </summary>
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<JournalEntryDto> AmendAsync(Guid id)
+    {
+        var original = await _repository.GetAsync(id);
+        var amendService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.DocumentAmendmentService>();
+
+        amendService.ValidateCanAmend(original.Status);
+        var newNumber = amendService.GenerateAmendedNumber(original.EntryNumber ?? original.Id.ToString()[..8], original.AmendmentIndex + 1);
+
+        var amended = new JournalEntry(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.FiscalYearId,
+            DateTime.UtcNow.Date,
+            original.TenantId)
+        {
+            EntryNumber = newNumber,
+            AmendedFromId = original.Id,
+            AmendmentIndex = original.AmendmentIndex + 1,
+            VoucherType = original.VoucherType,
+            ReferenceType = original.ReferenceType,
+            ReferenceId = original.ReferenceId,
+            ReferenceNumber = original.ReferenceNumber,
+            Narration = original.Narration,
+            IsOpening = original.IsOpening,
+            IsMultiCurrency = original.IsMultiCurrency,
+            InterCompanyJournalEntryId = original.InterCompanyJournalEntryId
+        };
+
+        // Explicitly ensure ClearanceDate is null (stale clearance date prevention per gotcha #11/#265)
+        amended.SetClearanceDate(null);
+
+        foreach (var line in original.Lines)
+        {
+            amended.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
+        }
+
+        amended.Validate();
+        await _repository.InsertAsync(amended, autoSave: true);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(amended);
+    }
 }
 

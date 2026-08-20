@@ -20,6 +20,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid FiscalYearId { get; set; }
 
     public string? EntryNumber { get; set; }
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
     public DateTime PostingDate { get; set; }
 
     /// <summary>Source document type (e.g., "SalesInvoice", "PurchaseInvoice", "Manual").</summary>

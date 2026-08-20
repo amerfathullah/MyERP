@@ -19,6 +19,8 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public Guid CompanyId { get; set; }
 
     public string? PaymentNumber { get; set; }
+    public Guid? AmendedFromId { get; set; }
+    public int AmendmentIndex { get; set; }
     public PaymentType PaymentType { get; set; }
     public DateTime PostingDate { get; set; }
 

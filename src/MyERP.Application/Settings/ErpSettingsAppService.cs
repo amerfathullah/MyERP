@@ -164,6 +164,11 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Global.DisableInWords,
             MyERPSettings.Global.HideCurrencySymbol,
         ],
+        "CRM" => [
+            MyERPSettings.CRM.CloseOpportunityAfterDays,
+            MyERPSettings.CRM.AutoCreationOfContact,
+            MyERPSettings.CRM.CarryForwardCommunicationAndComments,
+        ],
         _ => []
     };
 }

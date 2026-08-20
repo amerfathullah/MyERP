@@ -40,6 +40,9 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public string? OverdueWarning { get; set; }
 
     public List<SalesOrderItemDto> Items { get; set; } = new();
+
+    /// <summary>Sales team allocations for commission tracking.</summary>
+    public List<SalesTeamEntryDto> SalesTeam { get; set; } = new();
 }
 
 /// <summary>Payment entries linked to this Sales Order (advance payments).</summary>
@@ -130,6 +133,9 @@ public class CreateSalesOrderDto
 
     /// <summary>Loyalty points to redeem (reduces grand total by redemption value).</summary>
     public int LoyaltyPointsToRedeem { get; set; }
+
+    /// <summary>Sales team allocations (allocated percentage must total exactly 100%).</summary>
+    public List<SalesTeamAllocationInputDto>? SalesTeam { get; set; }
 
     [Required]
     [MinLength(1)]

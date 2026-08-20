@@ -443,4 +443,29 @@ public class UpstreamPR57140And57571Tests
         // Should not throw when 0 received and 0 billed
         service.ValidatePurchaseOrderItemDeletion(poItem);
     }
+
+    [Fact]
+    public void PaymentEntry_ClearanceDate_Is_Cleared_When_Null_Passed()
+    {
+        var pe = new MyERP.Accounting.Entities.PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), MyERP.Accounting.PaymentType.Receive,
+            DateTime.UtcNow.Date, 500, Guid.NewGuid(), Guid.NewGuid());
+        pe.SetClearanceDate(DateTime.UtcNow.Date);
+        Assert.NotNull(pe.ClearanceDate);
+
+        pe.SetClearanceDate(null);
+        Assert.Null(pe.ClearanceDate);
+    }
+
+    [Fact]
+    public void JournalEntry_ClearanceDate_Is_Cleared_When_Null_Passed()
+    {
+        var je = new MyERP.Accounting.Entities.JournalEntry(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow.Date);
+        je.SetClearanceDate(DateTime.UtcNow.Date);
+        Assert.NotNull(je.ClearanceDate);
+
+        je.SetClearanceDate(null);
+        Assert.Null(je.ClearanceDate);
+    }
 }

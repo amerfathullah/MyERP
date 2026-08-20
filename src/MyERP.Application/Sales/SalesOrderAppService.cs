@@ -100,6 +100,68 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
     }
 
+    private async Task SaveSalesTeamAsync(SalesOrder order, List<SalesTeamAllocationInputDto>? salesTeam)
+    {
+        if (salesTeam == null || salesTeam.Count == 0) return;
+
+        var totalPercentage = salesTeam.Sum(s => s.AllocatedPercentage);
+        if (Math.Round(totalPercentage, 2) != 100m)
+            throw new BusinessException(MyERPDomainErrorCodes.SalesTeamPercentageMustTotal100)
+                .WithData("total", Math.Round(totalPercentage, 2));
+
+        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        var itemIds = order.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemEntities = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
+        var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
+
+        var eligibleAmount = order.Items
+            .Where(i => !itemGrantMap.TryGetValue(i.ItemId, out var grant) || grant)
+            .Sum(i => i.LineTotal);
+
+        foreach (var row in salesTeam)
+        {
+            var commissionRate = row.CommissionRate;
+            if (!commissionRate.HasValue)
+            {
+                var salesPerson = await spRepo.FindAsync(row.SalesPersonId);
+                commissionRate = salesPerson?.CommissionRate ?? 0m;
+            }
+
+            var entry = new SalesTeamEntry(
+                GuidGenerator.Create(), row.SalesPersonId, "SalesOrder", order.Id,
+                row.AllocatedPercentage, eligibleAmount, commissionRate.Value);
+            await teamRepo.InsertAsync(entry);
+        }
+    }
+
+    private async Task AttachSalesTeamAsync(SalesOrderDto dto)
+    {
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var teamQuery = await teamRepo.GetQueryableAsync();
+        var entries = teamQuery.Where(e => e.ParentType == "SalesOrder" && e.ParentId == dto.Id).ToList();
+        if (entries.Count == 0) return;
+
+        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
+        var spQuery = await spRepo.GetQueryableAsync();
+        var spIds = entries.Select(e => e.SalesPersonId).Distinct().ToList();
+        var spNames = spQuery.Where(sp => spIds.Contains(sp.Id))
+            .Select(sp => new { sp.Id, sp.Name }).ToList()
+            .ToDictionary(sp => sp.Id, sp => sp.Name);
+
+        dto.SalesTeam = entries.Select(e => new SalesTeamEntryDto
+        {
+            SalesPersonId = e.SalesPersonId,
+            SalesPersonName = spNames.GetValueOrDefault(e.SalesPersonId),
+            AllocatedPercentage = e.AllocatedPercentage,
+            AllocatedAmount = e.AllocatedAmount,
+            CommissionRate = e.CommissionRate,
+            Incentives = e.Incentives,
+        }).ToList();
+    }
+
     public async Task<SalesOrderDto> GetAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
@@ -108,6 +170,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         dto.AdvancePaid = order.AdvancePaid;
         dto.PerAdvancePaid = order.PerAdvancePaid;
         await ResolveFulfillmentDatesAsync(dto, id);
+        await AttachSalesTeamAsync(dto);
         return dto;
     }
 
@@ -352,6 +415,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
         catch (Exception ex) { Logger.LogWarning(ex, "Overdue warning check failed for customer {Id}", input.CustomerId); }
+
+        await SaveSalesTeamAsync(order, input.SalesTeam);
+        await AttachSalesTeamAsync(dto);
 
         return dto;
     }
