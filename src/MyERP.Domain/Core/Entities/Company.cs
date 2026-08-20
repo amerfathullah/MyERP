@@ -154,6 +154,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool EnableProformaInvoice { get; set; }
 
+    /// <summary>
+    /// When true, only UOMs defined in the Item UOM conversion child table are allowed in transactions.
+    /// Per ERPNext: allow_uom_with_conversion_rate_defined_in_item (gotcha #6077).
+    /// </summary>
+    public bool AllowUomWithConversionRateDefinedInItem { get; set; }
+
     // --- Warehouse Defaults (moved from Stock Settings to Company per PR #57571) ---
 
     /// <summary>Default warehouse for transactions. Per PR #57571: now per-company, not global.</summary>

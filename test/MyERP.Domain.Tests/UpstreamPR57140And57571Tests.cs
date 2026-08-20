@@ -250,4 +250,14 @@ public class UpstreamPR57140And57571Tests
         item.GrantCommission = false;
         Assert.False(item.GrantCommission);
     }
+
+    [Fact]
+    public void Company_AllowUomWithConversionRateDefinedInItem_CanBeToggled()
+    {
+        var company = new Company(Guid.NewGuid(), "Acme Global");
+        Assert.False(company.AllowUomWithConversionRateDefinedInItem);
+
+        company.AllowUomWithConversionRateDefinedInItem = true;
+        Assert.True(company.AllowUomWithConversionRateDefinedInItem);
+    }
 }

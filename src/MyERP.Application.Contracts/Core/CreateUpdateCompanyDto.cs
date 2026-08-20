@@ -57,6 +57,8 @@ public class CreateUpdateCompanyDto
 
     public bool IsActive { get; set; } = true;
 
+    public bool AllowUomWithConversionRateDefinedInItem { get; set; }
+
     // Warehouse Defaults (moved from Stock Settings to Company per PR #57571)
     public System.Guid? DefaultWarehouseId { get; set; }
     public System.Guid? SampleRetentionWarehouseId { get; set; }

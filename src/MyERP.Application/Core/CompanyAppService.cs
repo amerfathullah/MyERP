@@ -25,6 +25,7 @@ public class UpdateCompanySettingsDto
     public bool EnablePerpetualInventory { get; set; }
     public decimal OverDeliveryAllowance { get; set; }
     public decimal OverBillingAllowance { get; set; }
+    public bool AllowUomWithConversionRateDefinedInItem { get; set; }
     public Guid? DefaultReceivableAccountId { get; set; }
     public Guid? DefaultPayableAccountId { get; set; }
     public Guid? DefaultIncomeAccountId { get; set; }
@@ -110,6 +111,7 @@ public class CompanyAppService :
         entity.CurrencyCode = input.CurrencyCode;
         entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
         entity.IsActive = input.IsActive;
+        entity.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
         // Warehouse Defaults (per PR #57571)
         entity.DefaultWarehouseId = input.DefaultWarehouseId;
@@ -149,6 +151,7 @@ public class CompanyAppService :
         company.OverDeliveryReceiptAllowance = input.OverDeliveryAllowance;
         company.OverBillingAllowance = input.OverBillingAllowance;
         company.EnablePerpetualInventory = input.EnablePerpetualInventory;
+        company.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
         company.DefaultValuationMethod = string.IsNullOrWhiteSpace(input.DefaultValuationMethod)
             ? null

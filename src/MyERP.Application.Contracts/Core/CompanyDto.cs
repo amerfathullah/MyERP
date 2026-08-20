@@ -28,6 +28,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public MyERP.Inventory.ValuationMethod? DefaultValuationMethod { get; set; }
     public decimal OverDeliveryReceiptAllowance { get; set; }
     public decimal OverBillingAllowance { get; set; }
+    public bool AllowUomWithConversionRateDefinedInItem { get; set; }
 
     // Warehouse Defaults (moved from Stock Settings to Company per PR #57571)
     public Guid? DefaultWarehouseId { get; set; }
