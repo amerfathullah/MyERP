@@ -145,6 +145,24 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        // Per gotcha #538: PR blocks future posting date
+        if (input.PostingDate.Date > DateTime.UtcNow.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Posting Date cannot be in the future for Purchase Receipts.");
+        }
+
+        // Per gotcha #1238 / #1508: PR posting date cannot be before linked PO date
+        if (input.PurchaseOrderId.HasValue)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var po = await poRepo.FindAsync(input.PurchaseOrderId.Value);
+            if (po != null && input.PostingDate.Date < po.OrderDate.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+            }
+        }
 
         var receiptNumber = await _numberGenerator.GenerateAsync("PurchaseReceipt", input.CompanyId);
 
@@ -194,6 +212,25 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         if (receipt.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft purchase receipts can be edited");
+
+        // Per gotcha #538: PR blocks future posting date
+        if (input.PostingDate.Date > DateTime.UtcNow.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Posting Date cannot be in the future for Purchase Receipts.");
+        }
+
+        // Per gotcha #1238 / #1508: PR posting date cannot be before linked PO date
+        if (input.PurchaseOrderId.HasValue)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var po = await poRepo.FindAsync(input.PurchaseOrderId.Value);
+            if (po != null && input.PostingDate.Date < po.OrderDate.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+            }
+        }
 
         receipt.PostingDate = input.PostingDate;
         receipt.SupplierDeliveryNote = input.SupplierDeliveryNote;
