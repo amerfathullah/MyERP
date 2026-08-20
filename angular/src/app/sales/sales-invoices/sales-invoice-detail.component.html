@@ -129,6 +129,14 @@
             <small class="text-muted d-block">{{ '::Customer' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.customerName }}</span>
           </div>
+          @if (invoice.interCompanyPurchaseInvoiceId) {
+            <div class="col-12">
+              <span class="badge bg-info-subtle text-info-emphasis">
+                <i class="fa fa-building me-1"></i>{{ '::InterCompanyLinkedTo' | abpLocalization }}
+                {{ invoice.interCompanyPurchaseInvoiceNumber }} ({{ invoice.interCompanyCompanyName }})
+              </span>
+            </div>
+          }
         </div>
       </div>
     </div>

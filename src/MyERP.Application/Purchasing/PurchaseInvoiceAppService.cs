@@ -84,7 +84,21 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
     public async Task<PurchaseInvoiceDto> GetAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
-        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+        var dto = ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+
+        if (invoice.InterCompanyInvoiceId.HasValue)
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var si = await siRepo.FindAsync(invoice.InterCompanyInvoiceId.Value);
+            if (si != null)
+            {
+                dto.InterCompanyInvoiceNumber = si.InvoiceNumber;
+                var company = await _companyRepository.FindAsync(si.CompanyId);
+                dto.InterCompanyCompanyName = company?.Name;
+            }
+        }
+
+        return dto;
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)

@@ -147,6 +147,14 @@
             <span>{{ invoice.supplierInvoiceNumber }}</span>
           </div>
         }
+        @if (invoice.interCompanyInvoiceId) {
+          <div class="mt-2">
+            <span class="badge bg-info-subtle text-info-emphasis">
+              <i class="fa fa-building me-1"></i>{{ '::InterCompanyLinkedTo' | abpLocalization }}
+              {{ invoice.interCompanyInvoiceNumber }} ({{ invoice.interCompanyCompanyName }})
+            </span>
+          </div>
+        }
       </div>
     </div>
 

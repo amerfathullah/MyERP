@@ -412,6 +412,9 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   holdComment?: string | null;
   releaseDate?: string | null;
   isBlocked?: boolean;
+  interCompanyInvoiceId?: string | null;
+  interCompanyInvoiceNumber?: string | null;
+  interCompanyCompanyName?: string | null;
   items?: PurchaseInvoiceItemDto[];
 }
 

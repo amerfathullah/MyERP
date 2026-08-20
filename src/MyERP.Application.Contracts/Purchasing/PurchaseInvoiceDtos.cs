@@ -56,6 +56,11 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
 
     public bool OnHold { get; set; }
 
+    /// <summary>Set when auto-created from an inter-company Sales Invoice, or when this PI auto-created one.</summary>
+    public Guid? InterCompanyInvoiceId { get; set; }
+    public string? InterCompanyInvoiceNumber { get; set; }
+    public string? InterCompanyCompanyName { get; set; }
+
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 

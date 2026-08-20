@@ -97,6 +97,11 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
 
     /// <summary>Sum of SalesTeam.Incentives — total commission payable on this invoice.</summary>
     public decimal TotalCommission { get; set; }
+
+    /// <summary>Set when auto-created from an inter-company Purchase Invoice, or when this SI auto-created one.</summary>
+    public Guid? InterCompanyPurchaseInvoiceId { get; set; }
+    public string? InterCompanyPurchaseInvoiceNumber { get; set; }
+    public string? InterCompanyCompanyName { get; set; }
 }
 
 public class SalesInvoiceItemDto

@@ -95,6 +95,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var customer = await customerRepo.FindAsync(invoice.CustomerId);
         if (customer != null) dto.CustomerName = customer.Name;
 
+        if (invoice.InterCompanyPurchaseInvoiceId.HasValue)
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(invoice.InterCompanyPurchaseInvoiceId.Value);
+            if (pi != null)
+            {
+                dto.InterCompanyPurchaseInvoiceNumber = pi.InvoiceNumber;
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+                var company = await companyRepo.FindAsync(pi.CompanyId);
+                dto.InterCompanyCompanyName = company?.Name;
+            }
+        }
+
         await AttachSalesTeamAsync(dto);
 
         return dto;

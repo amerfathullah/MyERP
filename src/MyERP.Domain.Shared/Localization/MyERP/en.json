@@ -2173,6 +2173,7 @@
     "RoundOffAccount": "Round Off Account",
     "RoundOffAccountHint": "Absorbs small (up to 0.5) debit/credit imbalances instead of blocking submission.",
     "RoundOffForOpeningAccount": "Round Off Account (Opening Entries)",
+    "InterCompanyLinkedTo": "Inter-company link:",
     "MyERP:05030": "Cannot transfer more than the allowed quantity. Required: {requiredQty}, Already transferred: {transferredQty}, Attempting: {attemptedQty}",
     "MyERP:05032": "Serial and Batch Bundle quantity ({bundleQty}) does not match transaction line quantity ({transactionQty}).",
     "MyERP:05034": "Item Standard Cost effective date ({effectiveDate}) cannot be before the last stock ledger entry date ({lastSleDate}).",

@@ -1322,6 +1322,9 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   items?: SalesInvoiceItemDto[];
   salesTeam?: SalesTeamEntryDto[];
   totalCommission?: number;
+  interCompanyPurchaseInvoiceId?: string | null;
+  interCompanyPurchaseInvoiceNumber?: string | null;
+  interCompanyCompanyName?: string | null;
 }
 
 export interface SalesInvoiceItemDto {
