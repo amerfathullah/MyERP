@@ -53,6 +53,7 @@ public static class MyERPSettings
         public const string FallbackToDefaultPriceList = G + ".FallbackToDefaultPriceList";
         public const string CustomerNamingBy = G + ".CustomerNamingBy";
         public const string CreditControllerRole = G + ".CreditControllerRole";
+        public const string AllowAgainstMultiplePurchaseOrders = G + ".AllowAgainstMultiplePOs";
     }
 
     // ═══════════════════════════════════════════════════

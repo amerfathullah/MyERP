@@ -109,6 +109,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.FallbackToDefaultPriceList,
             MyERPSettings.Selling.CustomerNamingBy,
             MyERPSettings.Selling.CreditControllerRole,
+            MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders,
         ],
         "Buying" => [
             MyERPSettings.Buying.DefaultPriceList,

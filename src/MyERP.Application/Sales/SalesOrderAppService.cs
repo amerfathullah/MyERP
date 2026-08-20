@@ -18,6 +18,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales;
 
@@ -358,6 +359,30 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         var order = await _repository.GetAsync(id);
 
+        // Duplicate customer PO number check — per ERPNext validate_po(): a customer's PO
+        // number should map to exactly one SO unless the multiple-POs setting is enabled.
+        if (!string.IsNullOrWhiteSpace(order.CustomerPoNumber))
+        {
+            var allowMultiplePOs = await SettingProvider.IsTrueAsync(
+                MyERP.Settings.MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders);
+            if (!allowMultiplePOs)
+            {
+                var duplicateQuery = await _repository.GetQueryableAsync();
+                var duplicate = duplicateQuery.FirstOrDefault(so =>
+                    so.Id != order.Id
+                    && so.CustomerId == order.CustomerId
+                    && so.CustomerPoNumber == order.CustomerPoNumber
+                    && so.Status != Core.DocumentStatus.Draft
+                    && so.Status != Core.DocumentStatus.Cancelled);
+                if (duplicate != null)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateCustomerPoNumber)
+                        .WithData("poNumber", order.CustomerPoNumber)
+                        .WithData("existingOrderNumber", duplicate.OrderNumber);
+                }
+            }
+        }
+
         // Authorization control: high-value transaction approval check
         // Per ERPNext: Authorization Rules check based on GrandTotal/Discount
         var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();
@@ -610,6 +635,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         var order = await _repository.GetAsync(id);
         order.Reopen();
+
+        // Credit limit re-check on reopen — per ERPNext SO Status Service: the limit may have
+        // been reduced, or other invoices consumed the available credit, since this order was
+        // closed. Without this, reopening bypasses the same check SubmitAsync enforces.
+        var reopenCreditLimitService = LazyServiceProvider.LazyGetRequiredService<CreditLimitService>();
+        var reopenUserRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+        await reopenCreditLimitService.ValidateCreditLimitAsync(
+            order.CustomerId, order.GrandTotal, order.CompanyId, reopenUserRoles, isAtSalesOrder: true);
 
         // Re-reserve stock for pending delivery items (bundle-aware)
         var reopenBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
