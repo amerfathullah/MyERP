@@ -49,6 +49,18 @@ public class ItemAppService :
             await ValidateCanDeactivateAsync(id);
         }
 
+        // MapToEntity assigns ValuationMethod directly (shared with CreateAsync, which has no
+        // prior stock history to protect) — for an update, route a real change through the
+        // domain guard first so StandardCost lock / WeightedAverage-to-FIFO restrictions still
+        // apply once the item has stock ledger entries, instead of being silently bypassed.
+        if (existing.ValuationMethod != input.ValuationMethod)
+        {
+            var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var sleQuery = await sleRepo.GetQueryableAsync();
+            var hasStockLedgerEntries = sleQuery.Any(s => s.ItemId == id);
+            existing.SetValuationMethod(input.ValuationMethod, hasStockLedgerEntries);
+        }
+
         return await base.UpdateAsync(id, input);
     }
 
