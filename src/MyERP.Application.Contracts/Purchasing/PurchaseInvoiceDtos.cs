@@ -30,6 +30,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
     public bool IsReturn { get; set; }
+    public bool IsSubcontracted { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
@@ -144,6 +145,9 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>Mark as return (debit note). Items must have negative quantities.</summary>
     public bool IsReturn { get; set; }
+
+    /// <summary>Mark as subcontracted purchase invoice.</summary>
+    public bool IsSubcontracted { get; set; }
 
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }

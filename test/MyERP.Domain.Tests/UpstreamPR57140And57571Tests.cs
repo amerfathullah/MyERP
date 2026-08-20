@@ -339,4 +339,19 @@ public class UpstreamPR57140And57571Tests
         je.Post();
         Assert.Equal(MyERP.Core.DocumentStatus.Posted, je.Status);
     }
+
+    [Fact]
+    public void PurchaseInvoice_Submit_Throws_When_FromWarehouse_On_Subcontracted_Invoice()
+    {
+        var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PINV-001", DateTime.UtcNow)
+        {
+            IsSubcontracted = true
+        };
+        pi.AddItem(Guid.NewGuid(), "Subcontracted Part", 10, 50, 0, "Nos");
+        var item = pi.Items.First();
+        item.FromWarehouseId = Guid.NewGuid();
+
+        var ex = Assert.Throws<BusinessException>(() => pi.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.FromWarehouseOnSubcontractedDocument, ex.Code);
+    }
 }

@@ -417,6 +417,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.Notes = input.Notes;
         invoice.IsOpening = input.IsOpening;
         invoice.IsReturn = input.IsReturn;
+        invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
@@ -541,6 +542,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.CurrencyCode = input.CurrencyCode;
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
+        invoice.IsSubcontracted = input.IsSubcontracted;
 
         invoice.ClearItems();
         foreach (var item in input.Items)

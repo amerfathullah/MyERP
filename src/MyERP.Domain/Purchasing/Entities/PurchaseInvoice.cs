@@ -71,6 +71,9 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>If true, this is a return (debit note).</summary>
     public bool IsReturn { get; set; }
 
+    /// <summary>If true, this invoice is for subcontracted service.</summary>
+    public bool IsSubcontracted { get; set; }
+
     /// <summary>If true, stock movements are created on submit (direct purchase without PR).</summary>
     public bool UpdateStock { get; set; }
 
@@ -248,10 +251,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             // From Warehouse validation (gotcha #6179)
             if (item.FromWarehouseId.HasValue)
             {
+                if (IsSubcontracted)
+                    throw new BusinessException(MyERPDomainErrorCodes.FromWarehouseOnSubcontractedDocument);
+
                 var targetWarehouse = item.WarehouseId ?? WarehouseId;
                 if (targetWarehouse.HasValue && item.FromWarehouseId.Value == targetWarehouse.Value)
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", "From Warehouse and Target Warehouse cannot be the same.");
+                    throw new BusinessException(MyERPDomainErrorCodes.FromWarehouseEqualsTargetWarehouse);
             }
         }
 
