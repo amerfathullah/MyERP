@@ -1,4 +1,5 @@
 export * from './item-tax-template.service';
+export * from './lower-deduction-certificate.service';
 export * from './models';
 export * from './tax-category.service';
 export * from './tax-charges-template.service';

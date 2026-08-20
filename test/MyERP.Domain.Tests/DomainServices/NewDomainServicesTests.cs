@@ -226,7 +226,7 @@ public class SubscriptionBillingEngineTests
 
 public class TaxWithholdingServiceTests
 {
-    private readonly TaxWithholdingService _service = new(null!);
+    private readonly TaxWithholdingService _service = new(null!, null!);
 
     [Fact]
     public void CalculateWithholding_BelowThreshold_NoTax()

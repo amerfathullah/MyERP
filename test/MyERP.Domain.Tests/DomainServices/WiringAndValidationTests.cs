@@ -162,7 +162,7 @@ public class TaxWithholdingIntegrationTests
     [Fact]
     public void OnceDeductedAlwaysDeducted_ForcesCrossing()
     {
-        var svc = new TaxWithholdingService(null!);
+        var svc = new TaxWithholdingService(null!, null!);
 
         // First: below single threshold (10K) so no withholding
         var r1 = svc.CalculateWithholding(5000m, 0m, 10m, 10000m, 0m, false, 0);

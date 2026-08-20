@@ -1199,6 +1199,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
   {
+    path: 'tax/lower-deduction-certificates',
+    loadComponent: () => import('./tax/lower-deduction-certificates/lower-deduction-certificate-list.component').then(c => c.LowerDeductionCertificateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
+  {
     path: 'tax/rules',
     loadComponent: () => import('./tax/tax-rules/tax-rule-list.component').then(c => c.TaxRuleListComponent),
     canActivate: [authGuard, permissionGuard],

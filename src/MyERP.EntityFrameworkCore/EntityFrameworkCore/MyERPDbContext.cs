@@ -262,6 +262,7 @@ public class MyERPDbContext :
     public DbSet<TaxWithholdingCategory> TaxWithholdingCategories { get; set; }
     public DbSet<TaxWithholdingRate> TaxWithholdingRates { get; set; }
     public DbSet<TaxWithholdingAccount> TaxWithholdingAccounts { get; set; }
+    public DbSet<LowerDeductionCertificate> LowerDeductionCertificates { get; set; }
     public DbSet<TaxChargesTemplate> TaxChargesTemplates { get; set; }
     public DbSet<TaxChargesTemplateRow> TaxChargesTemplateRows { get; set; }
 
@@ -3482,6 +3483,19 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).IsRequired();
             b.HasIndex(x => new { x.TaxWithholdingCategoryId, x.CompanyId }).IsUnique();
+        });
+
+        builder.Entity<LowerDeductionCertificate>(b =>
+        {
+            b.ToTable("Tax_LowerDeductionCertificates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CertificateNumber).IsRequired().HasMaxLength(LowerDeductionCertificateConsts.MaxCertificateNumberLength);
+            b.Property(x => x.Rate).HasColumnType("decimal(8,4)");
+            b.Property(x => x.CertificateLimit).HasColumnType("decimal(18,4)");
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
+            b.HasOne<TaxWithholdingCategory>().WithMany().HasForeignKey(x => x.TaxWithholdingCategoryId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.SupplierId, x.TaxWithholdingCategoryId, x.ValidFrom, x.ValidUpto });
         });
 
         // Blanket Order

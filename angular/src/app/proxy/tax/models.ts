@@ -248,3 +248,32 @@ export interface UpdateItemTaxTemplateDto {
 
 export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
 }
+
+export interface LowerDeductionCertificateDto extends FullAuditedEntityDto<string> {
+  companyId: string;
+  supplierId: string;
+  supplierName?: string | null;
+  taxWithholdingCategoryId: string;
+  taxWithholdingCategoryName?: string | null;
+  certificateNumber: string;
+  rate: number;
+  certificateLimit: number;
+  validFrom: string;
+  validUpto: string;
+}
+
+export interface CreateUpdateLowerDeductionCertificateDto {
+  companyId: string;
+  supplierId: string;
+  taxWithholdingCategoryId: string;
+  certificateNumber: string;
+  rate: number;
+  certificateLimit: number;
+  validFrom: string;
+  validUpto: string;
+}
+
+export interface GetLowerDeductionCertificateListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string;
+  supplierId?: string;
+}

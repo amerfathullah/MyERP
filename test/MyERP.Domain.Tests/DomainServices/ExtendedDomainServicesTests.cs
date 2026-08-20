@@ -243,7 +243,7 @@ public class PaymentReconciliationExtendedTests
 
 public class TaxWithholdingExtendedTests
 {
-    private readonly TaxWithholdingService _svc = new(null!);
+    private readonly TaxWithholdingService _svc = new(null!, null!);
 
     [Fact]
     public void CalculateWithholding_BothThresholdsExceeded_UsesInvoiceAmount()

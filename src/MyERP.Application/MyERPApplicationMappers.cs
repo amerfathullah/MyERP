@@ -789,6 +789,17 @@ public partial class TaxWithholdingCategoryMapper : MapperBase<Tax.Entities.TaxW
     private partial Tax.TaxWithholdingAccountDto MapChild(Tax.Entities.TaxWithholdingAccount source);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class LowerDeductionCertificateMapper : MapperBase<Tax.Entities.LowerDeductionCertificate, Tax.LowerDeductionCertificateDto>
+{
+    [MapperIgnoreTarget(nameof(Tax.LowerDeductionCertificateDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Tax.LowerDeductionCertificateDto.TaxWithholdingCategoryName))]
+    public override partial Tax.LowerDeductionCertificateDto Map(Tax.Entities.LowerDeductionCertificate source);
+    [MapperIgnoreTarget(nameof(Tax.LowerDeductionCertificateDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Tax.LowerDeductionCertificateDto.TaxWithholdingCategoryName))]
+    public override partial void Map(Tax.Entities.LowerDeductionCertificate source, Tax.LowerDeductionCertificateDto destination);
+}
+
 // ━━━ COMPLEX mappers (AfterMap for computed props, [MapProperty] for renames) ━━━
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

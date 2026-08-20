@@ -195,7 +195,7 @@ public class ComprehensiveBusinessFlowTests
     [Fact]
     public void TaxWithholding_FullCalculationChain()
     {
-        var svc = new TaxWithholdingService(null!);
+        var svc = new TaxWithholdingService(null!, null!);
 
         // Supplier with RM 20K cumulative in FY, submitting RM 35K invoice
         // Cumulative threshold: RM 50K

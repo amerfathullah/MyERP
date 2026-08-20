@@ -25,11 +25,14 @@ namespace MyERP.Tax.DomainServices;
 public class TaxWithholdingService : DomainService
 {
     private readonly IRepository<TaxWithholdingEntry, Guid> _entryRepository;
+    private readonly IRepository<LowerDeductionCertificate, Guid> _ldcRepository;
 
     public TaxWithholdingService(
-        IRepository<TaxWithholdingEntry, Guid> entryRepository)
+        IRepository<TaxWithholdingEntry, Guid> entryRepository,
+        IRepository<LowerDeductionCertificate, Guid> ldcRepository)
     {
         _entryRepository = entryRepository;
+        _ldcRepository = ldcRepository;
     }
 
     /// <summary>
@@ -164,17 +167,39 @@ public class TaxWithholdingService : DomainService
     }
 
     /// <summary>
-    /// Get LDC details for a supplier if a valid certificate exists.
-    /// Returns null if no valid LDC found or if fully utilized.
+    /// Get LDC details for a supplier if a valid certificate exists for the given company,
+    /// tax withholding category, and posting date. Returns null if no valid LDC found or if
+    /// fully utilized. Mirrors ERPNext's get_ldc_details()/get_valid_ldc_records(): matched by
+    /// valid_from &lt;= postingDate &lt;= valid_upto, same company + category + supplier.
+    /// Utilization = SUM(TaxableAmount) of non-cancelled TaxWithholdingEntry rows that already
+    /// applied this same certificate (entries store the certificate number they used).
     /// </summary>
     public async Task<LdcDetails?> GetLdcDetailsAsync(
-        Guid partyId, DateTime postingDate, string? taxCategory)
+        Guid companyId, Guid supplierId, Guid taxWithholdingCategoryId, DateTime postingDate)
     {
-        // LDC lookup is query-based in production — for now return null (no LDC entity yet).
-        // Per instruction: LDC matched by valid_from <= postingDate <= valid_upto,
-        // same company, matching tax_withholding_categories.
-        // Utilization tracked via SUM of settled/over-withheld entries.
-        return await Task.FromResult<LdcDetails?>(null);
+        var ldcQuery = await _ldcRepository.GetQueryableAsync();
+        var ldc = ldcQuery.FirstOrDefault(l =>
+            l.CompanyId == companyId
+            && l.SupplierId == supplierId
+            && l.TaxWithholdingCategoryId == taxWithholdingCategoryId
+            && l.ValidFrom <= postingDate && l.ValidUpto >= postingDate);
+
+        if (ldc == null) return null;
+
+        var entryQuery = await _entryRepository.GetQueryableAsync();
+        var utilized = entryQuery
+            .Where(e => e.CertificateNumber == ldc.CertificateNumber && e.Status != Core.DocumentStatus.Cancelled)
+            .Sum(e => (decimal?)e.TaxableAmount) ?? 0m;
+
+        var unutilizedAmount = ldc.CertificateLimit - utilized;
+        if (unutilizedAmount <= 0) return null;
+
+        return new LdcDetails
+        {
+            CertificateNumber = ldc.CertificateNumber,
+            LdcRate = ldc.Rate,
+            UnutilizedAmount = unutilizedAmount,
+        };
     }
 
     /// <summary>

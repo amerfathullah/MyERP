@@ -707,6 +707,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     var singleThreshold = category.DisableTransactionThreshold ? 0m : (applicableRate.SingleThreshold ?? 0m);
                     var cumulativeThreshold = category.DisableCumulativeThreshold ? 0m : (applicableRate.CumulativeThreshold ?? 0m);
 
+                    var ldc = await _taxWithholdingService.GetLdcDetailsAsync(
+                        invoice.CompanyId, invoice.SupplierId, category.Id, invoice.IssueDate);
+
                     var result = _taxWithholdingService.CalculateWithholding(
                         currentInvoiceNetTotal: invoice.NetTotal,
                         cumulativeInvoicedInFY: cumulative,
@@ -714,7 +717,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         singleThreshold: singleThreshold,
                         cumulativeThreshold: cumulativeThreshold,
                         taxOnExcessAmount: category.TaxOnExcessAmount,
-                        previouslyDeductedTDS: previouslyDeducted);
+                        previouslyDeductedTDS: previouslyDeducted,
+                        ldc: ldc);
 
                     // "Once deducted, always deducted" — force threshold crossed if historical exists
                     if (!result.ThresholdCrossed && historicalExists)
@@ -726,7 +730,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             singleThreshold: 0m,
                             cumulativeThreshold: 0m,
                             taxOnExcessAmount: category.TaxOnExcessAmount,
-                            previouslyDeductedTDS: previouslyDeducted);
+                            previouslyDeductedTDS: previouslyDeducted,
+                            ldc: ldc);
                     }
 
                     if (result.ThresholdCrossed && result.WithheldAmount > 0)
