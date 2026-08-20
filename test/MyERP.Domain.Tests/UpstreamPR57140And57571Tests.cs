@@ -399,4 +399,48 @@ public class UpstreamPR57140And57571Tests
         Assert.Equal(MyERP.Inventory.Entities.RepostStatus.Skipped, repost.Status);
         await repostRepo.Received(1).UpdateAsync(repost, autoSave: true);
     }
+
+    [Fact]
+    public void ChildItemUpdateService_Throws_When_Deleting_Delivered_Or_Billed_SO_Item()
+    {
+        var service = new MyERP.Core.DomainServices.ChildItemUpdateService();
+        var soItem = new MyERP.Sales.Entities.SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Laptop", 1, 1000, 0, "Nos")
+        {
+            DeliveredQty = 1
+        };
+
+        var ex = Assert.Throws<BusinessException>(() => service.ValidateSalesOrderItemDeletion(soItem));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+
+        soItem.DeliveredQty = 0;
+        soItem.BilledQty = 1;
+        ex = Assert.Throws<BusinessException>(() => service.ValidateSalesOrderItemDeletion(soItem));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+
+        soItem.BilledQty = 0;
+        // Should not throw when 0 delivered and 0 billed
+        service.ValidateSalesOrderItemDeletion(soItem);
+    }
+
+    [Fact]
+    public void ChildItemUpdateService_Throws_When_Deleting_Received_Or_Billed_PO_Item()
+    {
+        var service = new MyERP.Core.DomainServices.ChildItemUpdateService();
+        var poItem = new MyERP.Purchasing.Entities.PurchaseOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Server", 1, 5000, 0, "Nos")
+        {
+            ReceivedQty = 1
+        };
+
+        var ex = Assert.Throws<BusinessException>(() => service.ValidatePurchaseOrderItemDeletion(poItem));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+
+        poItem.ReceivedQty = 0;
+        poItem.BilledQty = 1;
+        ex = Assert.Throws<BusinessException>(() => service.ValidatePurchaseOrderItemDeletion(poItem));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+
+        poItem.BilledQty = 0;
+        // Should not throw when 0 received and 0 billed
+        service.ValidatePurchaseOrderItemDeletion(poItem);
+    }
 }
