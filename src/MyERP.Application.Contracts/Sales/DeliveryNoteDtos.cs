@@ -40,6 +40,7 @@ public class DeliveryNoteItemDto
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
+    public decimal PackedQty { get; set; }
     public Guid? SalesOrderItemId { get; set; }
 }
 

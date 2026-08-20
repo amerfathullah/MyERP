@@ -56,6 +56,13 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
     public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
 
+    /// <summary>
+    /// Quantity packed into a submitted Packing Slip so far, updated by
+    /// PackingSlipAppService.Submit/CancelAsync. Per ERPNext: once ANY Packing Slip exists
+    /// for the DN, every item must be fully packed (PackedQty == Quantity) before DN submit.
+    /// </summary>
+    public decimal PackedQty { get; set; }
+
     protected DeliveryNoteItem() { }
 
     public DeliveryNoteItem(

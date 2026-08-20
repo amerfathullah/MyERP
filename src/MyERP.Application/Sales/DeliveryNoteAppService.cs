@@ -433,6 +433,29 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             var allItemIds = dn.Items.Select(i => i.ItemId).Distinct();
             var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds);
 
+            // Packing Slip completeness gate: once ANY submitted Packing Slip exists for this
+            // DN, every non-bundle item must be fully packed before the DN can submit. Per
+            // ERPNext: "once you start packing, you must pack EVERYTHING." Product Bundle items
+            // are exempt — they're treated as already-packed since they expand into packed
+            // items, not tracked the same way a standalone DN item's PackedQty is.
+            var packingSlipRepoForGate = LazyServiceProvider
+                .LazyGetRequiredService<IRepository<Sales.Entities.PackingSlip, Guid>>();
+            var packingSlipGateQuery = await packingSlipRepoForGate.GetQueryableAsync();
+            var hasSubmittedPackingSlip = packingSlipGateQuery.Any(ps =>
+                ps.DeliveryNoteId == dn.Id && ps.Status == Core.DocumentStatus.Submitted);
+            if (hasSubmittedPackingSlip)
+            {
+                var underPackedItem = dn.Items.FirstOrDefault(i =>
+                    !bundleItemIds.Contains(i.ItemId) && i.PackedQty < Math.Abs(i.Quantity));
+                if (underPackedItem != null)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DeliveryNoteNotFullyPacked)
+                        .WithData("itemDescription", underPackedItem.Description)
+                        .WithData("packedQty", underPackedItem.PackedQty)
+                        .WithData("qty", underPackedItem.Quantity);
+                }
+            }
+
             foreach (var item in dn.Items)
             {
                 if (bundleItemIds.Contains(item.ItemId))

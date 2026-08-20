@@ -83,6 +83,23 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
             throw new BusinessException("MyERP:01004")
                 .WithData("entity", "DeliveryNote");
 
+        // Case number overlap validation — PackingSlip.HasOverlap() already implements the
+        // 3-condition check, it just had no call site. Only Submitted slips count: a Draft
+        // slip isn't a final case-range commitment yet (matches ERPNext's own check scope).
+        var existingSlipsQuery = await _repository.GetQueryableAsync();
+        var existingSlips = existingSlipsQuery
+            .Where(ps => ps.DeliveryNoteId == input.DeliveryNoteId && ps.Status == Core.DocumentStatus.Submitted)
+            .ToList();
+        var overlapping = existingSlips.FirstOrDefault(ps =>
+            PackingSlip.HasOverlap(input.FromCaseNo, input.ToCaseNo, ps.FromCaseNo, ps.ToCaseNo));
+        if (overlapping != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CaseNumberRangeOverlap)
+                .WithData("fromCaseNo", input.FromCaseNo)
+                .WithData("toCaseNo", input.ToCaseNo)
+                .WithData("existingSlipId", overlapping.Id);
+        }
+
         var entity = new PackingSlip(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -110,6 +127,10 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         entity.Submit();
         await _repository.UpdateAsync(entity);
 
+        // Increment DN item PackedQty for each row this slip covers — the DN's own submit gate
+        // (Delivery Note item not fully packed) reads this field once any slip is submitted.
+        await AdjustParentDeliveryNotePackedQtyAsync(entity, sign: 1);
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "PackingSlip", entity.Id,
@@ -127,6 +148,8 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         entity.Cancel();
         await _repository.UpdateAsync(entity);
 
+        await AdjustParentDeliveryNotePackedQtyAsync(entity, sign: -1);
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "PackingSlip", entity.Id,
@@ -135,6 +158,27 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
             $"Packing Slip ({entity.Id.ToString()[..8]}) cancelled", CurrentTenant.Id));
 
         return await MapToDtoAsync(entity);
+    }
+
+    /// <summary>
+    /// Applies (sign=1, on submit) or reverses (sign=-1, on cancel) this slip's item quantities
+    /// onto the parent DN's item PackedQty. Only rows with a direct DeliveryNoteItemId reference
+    /// are counted — Packed Item (bundle-component) rows have no DN item to attribute to.
+    /// </summary>
+    private async Task AdjustParentDeliveryNotePackedQtyAsync(PackingSlip entity, int sign)
+    {
+        var dnItemRows = entity.Items.Where(i => i.DeliveryNoteItemId.HasValue).ToList();
+        if (dnItemRows.Count == 0) return;
+
+        var dn = await _deliveryNoteRepository.GetAsync(entity.DeliveryNoteId);
+        foreach (var row in dnItemRows)
+        {
+            var dnItem = dn.Items.FirstOrDefault(i => i.Id == row.DeliveryNoteItemId!.Value);
+            if (dnItem == null) continue;
+            dnItem.PackedQty = Math.Max(0, dnItem.PackedQty + sign * row.Qty);
+        }
+
+        await _deliveryNoteRepository.UpdateAsync(dn, autoSave: true);
     }
 
     [Authorize(MyERPPermissions.PackingSlips.Delete)]

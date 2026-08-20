@@ -2139,6 +2139,8 @@
     "MyERP:05056": "A numeric attribute cannot have discrete text values.",
     "MyERP:05057": "Attribute value '{value}' already exists.",
     "MyERP:05058": "Stock is reserved for item in warehouse '{warehouseName}' — Delivery Note item warehouse must match.",
+    "MyERP:05059": "Case numbers {fromCaseNo}-{toCaseNo} overlap with an existing Packing Slip.",
+    "MyERP:05060": "Item '{itemDescription}' is not fully packed ({packedQty} of {qty}). Once packing starts, all items must be fully packed before the Delivery Note can be submitted.",
     "MyERP:10013": "All required materials have already been transferred for this Work Order.",
     "MyERP:10030": "BOM has no routing configured — cannot create job cards.",
     "MyERP:02066": "Period Closing account '{accountName}' must be a Liability or Equity account (found: {accountType}).",

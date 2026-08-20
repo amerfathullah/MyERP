@@ -174,6 +174,8 @@ public static class MyERPDomainErrorCodes
     public const string PurchaseInvoiceOnHold = "MyERP:04038";
     public const string ReleaseDateMustBeFuture = "MyERP:04039";
     public const string DeliveryWarehouseNotReserved = "MyERP:05058";
+    public const string CaseNumberRangeOverlap = "MyERP:05059";
+    public const string DeliveryNoteNotFullyPacked = "MyERP:05060";
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
 
     // Timesheet Billing
