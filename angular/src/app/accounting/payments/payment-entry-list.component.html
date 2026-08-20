@@ -120,6 +120,12 @@
                           <i class="fa fa-paper-plane"></i>
                         </button>
                       }
+                      @if (row.status === 'Submitted') {
+                        <button class="btn btn-outline-primary" (click)="store.postPayment(row.id)"
+                          title="Post" aria-label="Post">
+                          <i class="fa fa-check-double"></i>
+                        </button>
+                      }
                     </div>
                   </td>
                 </tr>

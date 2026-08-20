@@ -77,6 +77,20 @@ export const PaymentEntryStore = signalStore(
       )
     ),
 
+    postPayment: rxMethod<string>(
+      pipe(
+        switchMap((id) => service.post(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as PaymentEntryEntity }));
+          toaster.success('::SuccessfullyPosted');
+        }),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Post failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
     setFilter(filter: PaymentEntryFilter) {
       patchState(store, { filter });
     },
