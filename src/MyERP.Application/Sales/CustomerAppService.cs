@@ -102,6 +102,21 @@ public class CustomerAppService :
     public override async Task<CustomerDto> UpdateAsync(Guid id, CreateUpdateCustomerDto input)
     {
         await ValidateCustomerAsync(input);
+
+        // Per gotcha #1286: validate credit limit reduction against existing outstanding
+        if (input.CreditLimit > 0)
+        {
+            var creditLimitService = LazyServiceProvider.LazyGetRequiredService<DomainServices.CreditLimitService>();
+            var outstanding = await creditLimitService.GetCustomerOutstandingAsync(id, input.CompanyId);
+            if (input.CreditLimit < outstanding)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CreditLimitExceeded)
+                    .WithData("outstanding", outstanding)
+                    .WithData("creditLimit", input.CreditLimit)
+                    .WithData("detail", $"Cannot reduce credit limit to {input.CreditLimit} because customer currently has {outstanding} in outstanding invoices.");
+            }
+        }
+
         return await base.UpdateAsync(id, input);
     }
 

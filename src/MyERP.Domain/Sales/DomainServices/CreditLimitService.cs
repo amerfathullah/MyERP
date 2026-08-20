@@ -167,7 +167,7 @@ public class CreditLimitService : DomainService
     /// Gets total outstanding amount for a customer (posted invoices with outstanding > 0).
     /// Optionally scoped to a specific company.
     /// </summary>
-    private async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId = null)
+    public async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId = null)
     {
         var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
         var query = invoiceQuery
