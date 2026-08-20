@@ -557,12 +557,19 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Validate posting period is not frozen/closed
         await _postingOrchestrator.ValidatePostingPeriodAsync(dn.CompanyId, dn.PostingDate, "DeliveryNote");
 
-        // Guard: cannot cancel if submitted Sales Invoices are linked to this DN's items
+        // Guard: cannot cancel if submitted Sales Invoices are linked to this DN's items.
+        // Matched via SalesInvoiceItem.DeliveryNoteItemId — the real, direct DN→SI link (per
+        // ERPNext check_next_docstatus: "SI Item WHERE delivery_note = self.name"). Matching via
+        // a shared SalesOrderItemId instead (the previous check) was wrong two ways: a false
+        // positive when two different DNs partially deliver the same SO item and only one is
+        // billed, and a false negative for any SI billed directly from a DN with no SO in the
+        // chain at all (SalesOrderItemId null on both sides, so the shared-SO-item match never
+        // fires even though a real SI→DN link exists).
+        var dnItemIds = dn.Items.Select(di => di.Id).ToHashSet();
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
         var siQuery = await siRepo.GetQueryableAsync();
         var hasSubmittedSI = siQuery.Any(si =>
-            si.Items.Any(i => i.SalesOrderItemId.HasValue
-                && dn.Items.Select(di => di.SalesOrderItemId).Contains(i.SalesOrderItemId))
+            si.Items.Any(i => i.DeliveryNoteItemId.HasValue && dnItemIds.Contains(i.DeliveryNoteItemId.Value))
             && si.Status != Core.DocumentStatus.Draft
             && si.Status != Core.DocumentStatus.Cancelled);
         if (hasSubmittedSI)
@@ -570,6 +577,24 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             throw new Volo.Abp.BusinessException("MyERP:01010")
                 .WithData("documentType", "Delivery Note")
                 .WithData("dependent", "Sales Invoice");
+        }
+
+        // Guard: cannot cancel if a submitted Installation Note references this DN.
+        // Per ERPNext check_next_docstatus: "Installation Note Item WHERE prevdoc_docname =
+        // self.name AND docstatus = 1" — a parent-level link (Installation Note doesn't row-link
+        // like SI does), so this checks InstallationNote.DeliveryNoteId directly.
+        var installationNoteRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Sales.Entities.InstallationNote, Guid>>();
+        var installationNoteQuery = await installationNoteRepo.GetQueryableAsync();
+        var hasSubmittedInstallationNote = installationNoteQuery.Any(iNote =>
+            iNote.DeliveryNoteId == dn.Id
+            && iNote.Status != Core.DocumentStatus.Draft
+            && iNote.Status != Core.DocumentStatus.Cancelled);
+        if (hasSubmittedInstallationNote)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:01010")
+                .WithData("documentType", "Delivery Note")
+                .WithData("dependent", "Installation Note");
         }
 
         dn.Cancel();
@@ -608,6 +633,21 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
+
+        // Cancellation cascade: a Packing Slip can't exist without its parent DN, so cancelling
+        // the DN auto-cancels every submitted Packing Slip against it — no GL/stock reversal
+        // needed, PackingSlip is a pure packaging-tracking document with no financial effect.
+        var packingSlipRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Sales.Entities.PackingSlip, Guid>>();
+        var packingSlipQuery = await packingSlipRepo.GetQueryableAsync();
+        var submittedPackingSlips = packingSlipQuery
+            .Where(ps => ps.DeliveryNoteId == dn.Id && ps.Status == Core.DocumentStatus.Submitted)
+            .ToList();
+        foreach (var packingSlip in submittedPackingSlips)
+        {
+            packingSlip.Cancel();
+            await packingSlipRepo.UpdateAsync(packingSlip, autoSave: true);
+        }
 
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
