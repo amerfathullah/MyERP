@@ -320,4 +320,23 @@ public class UpstreamPR57140And57571Tests
         Assert.Equal(1.0m, item.ConversionFactor);
         Assert.Equal(5m, item.StockQty);
     }
+
+    [Fact]
+    public void JournalEntry_Post_Throws_When_CreditNote_Has_No_Reference()
+    {
+        var je = new MyERP.Accounting.Entities.JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow)
+        {
+            VoucherType = MyERP.Accounting.JournalEntryVoucherType.CreditNote
+        };
+        je.AddLine(Guid.NewGuid(), 100, true);
+        je.AddLine(Guid.NewGuid(), 100, false);
+
+        var ex = Assert.Throws<BusinessException>(() => je.Post());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+
+        // With reference, posting succeeds
+        je.ReferenceNumber = "SI-2026-0001";
+        je.Post();
+        Assert.Equal(MyERP.Core.DocumentStatus.Posted, je.Status);
+    }
 }

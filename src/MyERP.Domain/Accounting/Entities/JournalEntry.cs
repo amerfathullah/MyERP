@@ -269,6 +269,14 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
                         .WithData("detail", "Reversal JE must reference the original journal entry.");
                 break;
 
+            case JournalEntryVoucherType.CreditNote:
+            case JournalEntryVoucherType.DebitNote:
+                // Per ERPNext: Credit/Debit Note JE must reference an invoice or document
+                if (!ReferenceId.HasValue && string.IsNullOrWhiteSpace(ReferenceNumber))
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"{VoucherType} must reference an invoice or document.");
+                break;
+
             case JournalEntryVoucherType.DepreciationEntry:
                 // Per ERPNext: depreciation entries skip certain validations
                 // (party mandatory check, reference duplication check)
