@@ -228,6 +228,32 @@ export class SalesInvoiceListComponent implements OnInit {
     });
   }
 
+  bulkPost(): void {
+    const submittedIds = this.store.entities()
+      .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Submitted')
+      .map(inv => inv.id!);
+
+    if (submittedIds.length === 0) return;
+
+    this.isBulkProcessing = true;
+    this.invoiceService.bulkPost(submittedIds).subscribe({
+      next: (result: any) => {
+        this.isBulkProcessing = false;
+        this.selectedIds.clear();
+        if (result?.failed > 0) {
+          this.toaster.warn(`${result.succeeded} posted, ${result.failed} failed`, 'Bulk Post');
+        } else {
+          this.toaster.success(`${result?.succeeded ?? submittedIds.length} invoices posted`, 'Bulk Post');
+        }
+        this.loadData();
+      },
+      error: () => {
+        this.isBulkProcessing = false;
+        this.toaster.error('::BulkOperationFailed');
+      },
+    });
+  }
+
   bulkCreatePayment(): void {
     const postedWithOutstanding = this.store.entities()
       .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && this.getOutstanding(inv) > 0);

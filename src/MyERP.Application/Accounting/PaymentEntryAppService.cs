@@ -1034,5 +1034,25 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         }
         return result;
     }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Submit)]
+    public async Task<BulkOperationResultDto> BulkPostAsync(List<Guid> ids)
+    {
+        var result = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await PostAsync(id);
+                result.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return result;
+    }
 }
 

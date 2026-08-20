@@ -954,6 +954,26 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
+    public async Task<BulkOperationResultDto> BulkPostAsync(List<Guid> ids)
+    {
+        var results = new BulkOperationResultDto();
+        foreach (var id in ids)
+        {
+            try
+            {
+                await PostAsync(id);
+                results.Succeeded++;
+            }
+            catch (Exception ex)
+            {
+                results.Failed++;
+                results.Errors.Add(new BulkOperationError { Id = id, Message = ex.Message });
+            }
+        }
+        return results;
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Submit)]
     public async Task<SalesInvoiceDto> PostAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);

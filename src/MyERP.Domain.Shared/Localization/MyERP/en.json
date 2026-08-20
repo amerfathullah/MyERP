@@ -2,6 +2,7 @@
   "culture": "en",
   "texts": {
     "BulkSubmit": "Bulk Submit",
+    "BulkPost": "Bulk Post",
     "BatchCreateSI": "Batch Create Invoice",
     "NoOrdersReadyForBilling": "No orders are ready for billing (need 'To Bill' or 'To Deliver & Bill' status)",
     "InvoicesCreated": "invoice(s) created",

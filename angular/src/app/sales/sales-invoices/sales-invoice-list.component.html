@@ -112,6 +112,9 @@
             <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
               <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
             </button>
+            <button class="btn btn-sm btn-outline-primary" (click)="bulkPost()" [disabled]="isBulkProcessing">
+              <i class="fa fa-check-double me-1"></i> {{ '::BulkPost' | abpLocalization }}
+            </button>
             <button class="btn btn-sm btn-outline-success" (click)="batchSubmitToLhdn()" [disabled]="isBulkProcessing">
               <i class="fa fa-cloud-arrow-up me-1"></i> {{ '::SubmitToLHDN' | abpLocalization }}
             </button>

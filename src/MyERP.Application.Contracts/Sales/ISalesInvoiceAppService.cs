@@ -15,6 +15,7 @@ public interface ISalesInvoiceAppService : IApplicationService
     Task<SalesInvoiceDto> SubmitAsync(Guid id);
     Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
     Task<SalesInvoiceDto> PostAsync(Guid id);
+    Task<BulkOperationResultDto> BulkPostAsync(List<Guid> ids);
     Task<SalesInvoiceDto> CancelAsync(Guid id);
     Task<SalesInvoiceDto> WriteOffAsync(Guid id);
     Task<SalesInvoiceDto> AmendAsync(Guid id);

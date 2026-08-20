@@ -21,4 +21,5 @@ public interface IPaymentEntryAppService : IApplicationService
     Task<PaymentEntryDto> UpdateAsync(Guid id, CreatePaymentEntryDto input);
     Task DeleteAsync(Guid id);
     Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
+    Task<BulkOperationResultDto> BulkPostAsync(List<Guid> ids);
 }
