@@ -119,8 +119,21 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         };
 
         foreach (var item in input.Items)
+        {
+            // Per gotcha #280: LCV requires Purchase Invoice to have UpdateStock=true
+            if (string.Equals(item.ReceiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+            {
+                var pi = await _purchaseInvoiceRepository.FindAsync(item.ReceiptId);
+                if (pi != null && !pi.UpdateStock)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} does not have Update Stock enabled. Landed Cost Voucher can only apply to Purchase Invoices with Update Stock.");
+                }
+            }
+
             lcv.AddItem(item.ReceiptId, item.ReceiptType, item.ItemId,
                 item.Quantity, item.Amount, item.Description);
+        }
 
         foreach (var charge in input.Charges)
             lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount);
