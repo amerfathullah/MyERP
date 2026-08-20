@@ -400,10 +400,13 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     {
         var po = await _repository.GetAsync(id);
 
-        // Guard: cannot cancel with submitted dependents (domain service)
+        // Guard: cannot cancel with submitted dependents (domain service). scoRepository is an
+        // optional param on ValidateCanCancelAsync — it defaulted to null here, silently skipping
+        // the "submitted Subcontracting Order blocks cancel" check the method already implements.
         var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
         var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
-        await _purchaseOrderManager.ValidateCanCancelAsync(po, prRepo, piRepo);
+        var scoRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.SubcontractingOrder, Guid>>();
+        await _purchaseOrderManager.ValidateCanCancelAsync(po, prRepo, piRepo, scoRepo);
 
         po.Cancel();
 
@@ -542,6 +545,17 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+
+        // Guard: cannot update items once a Subcontracting Order exists for this PO — per
+        // ERPNext can_update_items(), even a DRAFT SCO blocks this (stricter than the cancel
+        // guard above, which only blocks on submitted SCOs). Only a Cancelled SCO clears the way.
+        var scoRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.SubcontractingOrder, Guid>>();
+        var scoUpdateQuery = await scoRepoForUpdate.GetQueryableAsync();
+        var hasActiveSco = scoUpdateQuery.Any(sco =>
+            sco.PurchaseOrderId == po.Id && sco.Status != SubcontractingOrderStatus.Cancelled);
+        if (hasActiveSco)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot update items — a Subcontracting Order already exists for this Purchase Order. Cancel it first.");
 
         var previousGrandTotal = po.GrandTotal;
         var warnings = new List<string>();

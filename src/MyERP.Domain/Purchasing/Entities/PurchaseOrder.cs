@@ -147,9 +147,13 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         Status = DocumentStatus.ToDeliverAndBill; // "To Receive and Bill"
     }
 
+    /// <summary>
+    /// Per ERPNext (mirrors SalesOrder.Cancel()'s equivalent fix): a Closed PO cannot be
+    /// cancelled directly — it must be reopened first.
+    /// </summary>
     public void Cancel()
     {
-        if (Status == DocumentStatus.Cancelled)
+        if (Status == DocumentStatus.Cancelled || Status == DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }

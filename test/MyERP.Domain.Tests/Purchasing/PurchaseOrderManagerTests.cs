@@ -1,15 +1,66 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Purchasing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Purchasing;
 
 public class PurchaseOrderManagerTests
 {
+    [Fact]
+    public void PO_Cancel_FromClosed_Throws()
+    {
+        var po = CreatePO();
+        po.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+        po.Submit();
+        po.Close();
+
+        // Per ERPNext (mirrors SalesOrder): a Closed PO must be reopened before cancelling.
+        Should.Throw<BusinessException>(() => po.Cancel());
+    }
+
+    [Fact]
+    public void PO_Cancel_FromSubmitted_Succeeds()
+    {
+        var po = CreatePO();
+        po.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+        po.Submit();
+
+        po.Cancel();
+
+        po.Status.ShouldBe(DocumentStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task ValidateCanCancelAsync_ActiveSubcontractingOrder_Throws()
+    {
+        var po = CreatePO();
+        po.AddItem(Guid.NewGuid(), "Widget", 10, 100, 0);
+
+        var sco = new SubcontractingOrder(Guid.NewGuid(), po.CompanyId, "SCO-001", DateTime.UtcNow, Guid.NewGuid());
+        sco.PurchaseOrderId = po.Id;
+        sco.AddItem(new SubcontractingOrderItem(Guid.NewGuid(), sco.Id, Guid.NewGuid(), "Widget", 1, 1));
+        sco.Submit(); // Status = Open — the "submitted" tier the cancel guard checks
+
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var prRepo = Substitute.For<IRepository<PurchaseReceipt, Guid>>();
+        prRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseReceipt>().AsQueryable()));
+        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice>().AsQueryable()));
+        var scoRepo = Substitute.For<IRepository<SubcontractingOrder, Guid>>();
+        scoRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SubcontractingOrder> { sco }.AsQueryable()));
+
+        await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateCanCancelAsync(po, prRepo, piRepo, scoRepo));
+    }
+
     [Fact]
     public void PO_ReceiptQtyValidation_WithinLimit_Succeeds()
     {
