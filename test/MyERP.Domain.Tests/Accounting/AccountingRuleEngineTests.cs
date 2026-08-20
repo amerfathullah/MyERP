@@ -270,6 +270,96 @@ public class AccountingRuleEngineTests
         doc.TaxAmount.ShouldBe(0);
     }
 
+    // === Round-Off Tests ===
+
+    [Fact]
+    public void ApplyRoundOff_ExactlyBalanced_NoLineAdded()
+    {
+        var journal = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        var company = new MyERP.Core.Entities.Company(Guid.NewGuid(), "Test Co")
+        {
+            RoundOffAccountId = Guid.NewGuid(),
+        };
+
+        AccountingRuleEngine.ApplyRoundOff(journal, company);
+
+        journal.Lines.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void ApplyRoundOff_SmallImbalanceWithRoundOffAccount_AddsBalancingLine()
+    {
+        var journal = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        journal.AddLine(Guid.NewGuid(), 100.03m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        var roundOffAccountId = Guid.NewGuid();
+        var company = new MyERP.Core.Entities.Company(Guid.NewGuid(), "Test Co")
+        {
+            RoundOffAccountId = roundOffAccountId,
+        };
+
+        AccountingRuleEngine.ApplyRoundOff(journal, company);
+
+        journal.Lines.Count.ShouldBe(3);
+        var roundOffLine = journal.Lines.Last();
+        roundOffLine.AccountId.ShouldBe(roundOffAccountId);
+        roundOffLine.Amount.ShouldBe(0.03m);
+        roundOffLine.IsDebit.ShouldBeFalse(); // debit-heavy → credit the round-off account
+
+        journal.Validate(); // should not throw — now balanced
+    }
+
+    [Fact]
+    public void ApplyRoundOff_SmallImbalanceNoRoundOffAccount_Throws()
+    {
+        var journal = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        journal.AddLine(Guid.NewGuid(), 100.03m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        var company = new MyERP.Core.Entities.Company(Guid.NewGuid(), "Test Co");
+
+        Should.Throw<Volo.Abp.BusinessException>(() => AccountingRuleEngine.ApplyRoundOff(journal, company));
+    }
+
+    [Fact]
+    public void ApplyRoundOff_LargeImbalance_LeavesUnchangedForValidateToThrow()
+    {
+        // A difference beyond the 0.5 allowance is a real bug, not rounding noise —
+        // ApplyRoundOff must not paper over it; Validate() downstream should still throw.
+        var journal = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        journal.AddLine(Guid.NewGuid(), 150m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        var company = new MyERP.Core.Entities.Company(Guid.NewGuid(), "Test Co")
+        {
+            RoundOffAccountId = Guid.NewGuid(),
+        };
+
+        AccountingRuleEngine.ApplyRoundOff(journal, company);
+
+        journal.Lines.Count.ShouldBe(2); // untouched
+        Should.Throw<Volo.Abp.BusinessException>(() => journal.Validate());
+    }
+
+    [Fact]
+    public void ApplyRoundOff_CreditHeavy_DebitsRoundOffAccount()
+    {
+        var journal = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        journal.AddLine(Guid.NewGuid(), 100m, isDebit: true);
+        journal.AddLine(Guid.NewGuid(), 100.02m, isDebit: false);
+        var roundOffAccountId = Guid.NewGuid();
+        var company = new MyERP.Core.Entities.Company(Guid.NewGuid(), "Test Co")
+        {
+            RoundOffAccountId = roundOffAccountId,
+        };
+
+        AccountingRuleEngine.ApplyRoundOff(journal, company);
+
+        var roundOffLine = journal.Lines.Last();
+        roundOffLine.IsDebit.ShouldBeTrue(); // credit-heavy → debit the round-off account
+        roundOffLine.Amount.ShouldBe(0.02m);
+    }
+
     // === Helper Methods ===
 
     private static decimal ResolveAmount(AmountSource source, IAccountableDocument document)

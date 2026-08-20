@@ -462,6 +462,7 @@ public static class MyERPDomainErrorCodes
 
     // General Ledger — P&L cost center enforcement
     public const string CostCenterRequiredForPlAccount = "MyERP:02072";
+    public const string RoundOffAccountNotConfigured = "MyERP:02073";
 
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";

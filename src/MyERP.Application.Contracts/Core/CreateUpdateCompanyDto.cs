@@ -78,4 +78,6 @@ public class CreateUpdateCompanyDto
     public System.Guid? StockReceivedButNotBilledAccountId { get; set; }
     public System.Guid? StockDeliveredButNotBilledAccountId { get; set; }
     public System.Guid? DefaultCostCenterId { get; set; }
+    public System.Guid? RoundOffAccountId { get; set; }
+    public System.Guid? RoundOffForOpeningAccountId { get; set; }
 }

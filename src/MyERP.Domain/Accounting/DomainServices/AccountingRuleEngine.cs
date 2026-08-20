@@ -163,11 +163,49 @@ public class AccountingRuleEngine : DomainService
             await ApplyCostCenterAllocationAsync(journal, document.CostCenterId.Value, document.PostingDate);
         }
 
+        // Auto round-off small imbalances from independently-rounded tax/item lines, rather than
+        // hard-erroring on a sub-cent difference. Added AFTER cost center allocation so the
+        // round-off line is never split across dimensions — per ERPNext's own round-off exception.
+        ApplyRoundOff(journal, company);
+
         // Double-entry validation — will throw if unbalanced
         journal.Validate();
         journal.Post();
 
         return journal;
+    }
+
+    /// <summary>
+    /// Per ERPNext general_ledger.py get_debit_credit_allowance()/make_round_off_gle(): system-
+    /// generated vouchers (everything AccountingRuleEngine builds — SI/PI/DN/PR/SE, i.e. "all
+    /// other voucher types" in ERPNext's own two-tier tolerance table) get a looser 0.5 imbalance
+    /// allowance than manually-posted Journal Entries/Payment Entries (which stay at the JE
+    /// entity's own zero-tolerance Validate() — this method is never on their posting path).
+    /// A nonzero difference within that allowance gets a balancing line on
+    /// Company.RoundOffAccountId (or RoundOffForOpeningAccountId for opening entries) instead of
+    /// leaving the caller to hit UnbalancedJournalEntry for what's really rounding noise.
+    /// </summary>
+    internal static void ApplyRoundOff(JournalEntry journal, Company company)
+    {
+        var difference = journal.TotalDebit - journal.TotalCredit;
+        if (difference == 0m) return;
+
+        const decimal allowance = 0.5m;
+        if (Math.Abs(difference) > allowance) return; // let Validate() throw — a real imbalance, not rounding noise
+
+        var roundOffAccountId = journal.IsOpening
+            ? company.RoundOffForOpeningAccountId ?? company.RoundOffAccountId
+            : company.RoundOffAccountId;
+
+        if (!roundOffAccountId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.RoundOffAccountNotConfigured)
+                .WithData("companyId", company.Id)
+                .WithData("difference", difference);
+        }
+
+        // difference > 0 means debit-heavy → credit the round-off account to balance, and vice versa.
+        journal.AddLine(roundOffAccountId.Value, Math.Abs(difference), isDebit: difference < 0);
     }
 
     /// <summary>

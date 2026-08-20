@@ -165,6 +165,21 @@
               </select>
               <small class="form-text text-muted">{{ 'DefaultCostCenterHint' | abpLocalization }}</small>
             </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ 'RoundOffAccount' | abpLocalization }}</label>
+              <select class="form-select" formControlName="roundOffAccountId">
+                <option value="">—</option>
+                @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+              </select>
+              <small class="form-text text-muted">{{ 'RoundOffAccountHint' | abpLocalization }}</small>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ 'RoundOffForOpeningAccount' | abpLocalization }}</label>
+              <select class="form-select" formControlName="roundOffForOpeningAccountId">
+                <option value="">—</option>
+                @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+              </select>
+            </div>
           </div>
         </div>
       </div>

@@ -52,4 +52,6 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
     public Guid? DefaultCostCenterId { get; set; }
+    public Guid? RoundOffAccountId { get; set; }
+    public Guid? RoundOffForOpeningAccountId { get; set; }
 }

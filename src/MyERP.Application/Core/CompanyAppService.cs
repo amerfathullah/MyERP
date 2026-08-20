@@ -36,6 +36,8 @@ public class UpdateCompanySettingsDto
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
     public Guid? DefaultCostCenterId { get; set; }
+    public Guid? RoundOffAccountId { get; set; }
+    public Guid? RoundOffForOpeningAccountId { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? SampleRetentionWarehouseId { get; set; }
     public Guid? DefaultInTransitWarehouseId { get; set; }
@@ -133,6 +135,8 @@ public class CompanyAppService :
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
         entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
         entity.DefaultCostCenterId = input.DefaultCostCenterId;
+        entity.RoundOffAccountId = input.RoundOffAccountId;
+        entity.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]
@@ -169,6 +173,8 @@ public class CompanyAppService :
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
         company.DefaultCostCenterId = input.DefaultCostCenterId;
+        company.RoundOffAccountId = input.RoundOffAccountId;
+        company.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;

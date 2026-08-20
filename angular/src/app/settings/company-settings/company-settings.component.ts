@@ -50,6 +50,8 @@ export class CompanySettingsComponent implements OnInit {
     accumulatedDepreciationAccountId: [''],
     exchangeGainLossAccountId: [''],
     defaultCostCenterId: [''],
+    roundOffAccountId: [''],
+    roundOffForOpeningAccountId: [''],
   });
 
   ngOnInit(): void {
@@ -81,6 +83,8 @@ export class CompanySettingsComponent implements OnInit {
       accumulatedDepreciationAccountId: company.accumulatedDepreciationAccountId ?? '',
       exchangeGainLossAccountId: company.exchangeGainLossAccountId ?? '',
       defaultCostCenterId: company.defaultCostCenterId ?? '',
+      roundOffAccountId: company.roundOffAccountId ?? '',
+      roundOffForOpeningAccountId: company.roundOffForOpeningAccountId ?? '',
     });
     // Load accounts and cost centers for this company
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
