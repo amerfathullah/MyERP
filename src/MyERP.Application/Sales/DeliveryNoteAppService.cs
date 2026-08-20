@@ -602,6 +602,10 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Validate posting period is not frozen/closed
         await _postingOrchestrator.ValidatePostingPeriodAsync(dn.CompanyId, dn.PostingDate, "DeliveryNote");
 
+        // Repost Guard: cannot cancel while an active valuation repost is in progress (gotcha #6183)
+        var repostGuard = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockRepostGuardService>();
+        await repostGuard.ValidateCanCancelVoucherAsync("DeliveryNote", dn.Id);
+
         // Guard: cannot cancel if submitted Sales Invoices are linked to this DN's items.
         // Matched via SalesInvoiceItem.DeliveryNoteItemId — the real, direct DN→SI link (per
         // ERPNext check_next_docstatus: "SI Item WHERE delivery_note = self.name"). Matching via

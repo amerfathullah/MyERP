@@ -293,6 +293,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(entry.CompanyId, entry.PostingDate, "StockEntry");
 
+        // Repost Guard: cannot cancel while an active valuation repost is in progress (gotcha #6183)
+        var repostGuard = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockRepostGuardService>();
+        await repostGuard.ValidateCanCancelVoucherAsync("StockEntry", entry.Id);
+
         // Guard: cannot cancel a Stock Entry linked to a Completed Work Order. Per ERPNext
         // validate_work_order_status(): the WO is done (FG received, downstream DN/SI may
         // already reference the produced items), so reversing material movements now would

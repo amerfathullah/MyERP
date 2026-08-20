@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
@@ -353,5 +355,48 @@ public class UpstreamPR57140And57571Tests
 
         var ex = Assert.Throws<BusinessException>(() => pi.Submit());
         Assert.Equal(MyERPDomainErrorCodes.FromWarehouseOnSubcontractedDocument, ex.Code);
+    }
+
+    [Fact]
+    public async Task StockRepostGuard_Throws_When_Repost_Is_InProgress()
+    {
+        var repostRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.RepostItemValuation, Guid>>();
+        var voucherId = Guid.NewGuid();
+        var repost = new MyERP.Inventory.Entities.RepostItemValuation(
+            Guid.NewGuid(), Guid.NewGuid(), MyERP.Inventory.Entities.RepostMethod.ItemAndWarehouse, DateTime.UtcNow)
+        {
+            VoucherType = "DeliveryNote",
+            VoucherId = voucherId
+        };
+        repost.StartProcessing();
+
+        var queryable = new List<MyERP.Inventory.Entities.RepostItemValuation> { repost }.AsQueryable();
+        repostRepo.GetQueryableAsync().Returns(Task.FromResult(queryable));
+
+        var guard = new MyERP.Inventory.DomainServices.StockRepostGuardService(repostRepo);
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => guard.ValidateCanCancelVoucherAsync("DeliveryNote", voucherId));
+        Assert.Equal(MyERPDomainErrorCodes.RepostAlreadyInProgress, ex.Code);
+    }
+
+    [Fact]
+    public async Task StockRepostGuard_AutoSkips_When_Repost_Is_Queued()
+    {
+        var repostRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.RepostItemValuation, Guid>>();
+        var voucherId = Guid.NewGuid();
+        var repost = new MyERP.Inventory.Entities.RepostItemValuation(
+            Guid.NewGuid(), Guid.NewGuid(), MyERP.Inventory.Entities.RepostMethod.ItemAndWarehouse, DateTime.UtcNow)
+        {
+            VoucherType = "PurchaseReceipt",
+            VoucherId = voucherId
+        };
+
+        var queryable = new List<MyERP.Inventory.Entities.RepostItemValuation> { repost }.AsQueryable();
+        repostRepo.GetQueryableAsync().Returns(Task.FromResult(queryable));
+
+        var guard = new MyERP.Inventory.DomainServices.StockRepostGuardService(repostRepo);
+        await guard.ValidateCanCancelVoucherAsync("PurchaseReceipt", voucherId);
+
+        Assert.Equal(MyERP.Inventory.Entities.RepostStatus.Skipped, repost.Status);
+        await repostRepo.Received(1).UpdateAsync(repost, autoSave: true);
     }
 }

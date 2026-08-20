@@ -508,6 +508,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Validate posting period is not frozen/closed
         await _postingOrchestrator.ValidatePostingPeriodAsync(receipt.CompanyId, receipt.PostingDate, "PurchaseReceipt");
 
+        // Repost Guard: cannot cancel while an active valuation repost is in progress (gotcha #6183)
+        var repostGuard = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockRepostGuardService>();
+        await repostGuard.ValidateCanCancelVoucherAsync("PurchaseReceipt", receipt.Id);
+
         // Guard: cannot cancel if submitted Purchase Invoices reference this receipt's items
         var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
         var piQuery = await piRepo.GetQueryableAsync();
