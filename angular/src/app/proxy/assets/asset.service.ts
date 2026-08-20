@@ -62,6 +62,22 @@ export class AssetService {
     { apiName: this.apiName,...config });
   
 
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetDto>({
+      method: 'POST',
+      url: `/api/app/asset/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+
+
+  restore = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetDto>({
+      method: 'POST',
+      url: `/api/app/asset/${id}/restore`,
+    },
+    { apiName: this.apiName,...config });
+
+
   scrap = (id: string, disposalDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetDto>({
       method: 'POST',
@@ -69,16 +85,16 @@ export class AssetService {
       params: { disposalDate },
     },
     { apiName: this.apiName,...config });
-  
 
-  sell = (id: string, disposalDate: string, amount: number, config?: Partial<Rest.Config>) =>
+
+  sell = (id: string, disposalDate: string, amount: number, settlementAccountId: string | null, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetDto>({
       method: 'POST',
       url: `/api/app/asset/${id}/sell`,
-      params: { disposalDate, amount },
+      params: { disposalDate, amount, settlementAccountId },
     },
     { apiName: this.apiName,...config });
-  
+
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetDto>({
@@ -86,7 +102,7 @@ export class AssetService {
       url: `/api/app/asset/${id}/submit`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   update = (id: string, input: UpdateAssetDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetDto>({

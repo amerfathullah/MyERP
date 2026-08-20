@@ -226,7 +226,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
     }
 
     [Authorize(MyERPPermissions.Assets.Edit)]
-    public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount, Guid settlementAccountId)
+    public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount, Guid? settlementAccountId)
     {
         var asset = await _assetRepository.GetAsync(id);
 

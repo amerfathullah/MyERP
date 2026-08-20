@@ -7,14 +7,17 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { FormsModule } from '@angular/forms';
 import { AssetService } from '../../proxy/assets/asset.service';
 import type { AssetDto } from '../../proxy/assets/models';
+import { AccountService } from '../../proxy/accounting/account.service';
+import type { AccountDto } from '../../proxy/accounting/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
   selector: 'app-asset-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, DocumentWorkflowComponent, BreadcrumbComponent, ActivityLogComponent, StatusBadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe, DocumentWorkflowComponent, BreadcrumbComponent, ActivityLogComponent, StatusBadgeComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="asset()?.assetName ?? ('::Asset' | abpLocalization)">
@@ -68,6 +71,33 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 </a>
               </div>
             }
+
+            @if (showSellForm) {
+              <div class="card mt-2">
+                <div class="card-body">
+                  <h6 class="card-title">{{ '::Sell' | abpLocalization }}</h6>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::DisposalDate' | abpLocalization }}</label>
+                    <input type="date" class="form-control form-control-sm" [(ngModel)]="sellForm.disposalDate" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::DisposalAmount' | abpLocalization }}</label>
+                    <input type="number" class="form-control form-control-sm" [(ngModel)]="sellForm.amount" min="0" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::SettlementAccount' | abpLocalization }}</label>
+                    <select class="form-select form-select-sm" [(ngModel)]="sellForm.settlementAccountId">
+                      <option value="">-</option>
+                      @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
+                    </select>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-success" [disabled]="sellForm.amount > 0 && !sellForm.settlementAccountId" (click)="confirmSell()">{{ '::Confirm' | abpLocalization }}</button>
+                    <button class="btn btn-sm btn-secondary" (click)="showSellForm = false">{{ '::Cancel' | abpLocalization }}</button>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
 
@@ -114,21 +144,31 @@ export class AssetDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private service = inject(AssetService);
+  private accountService = inject(AccountService);
   private confirmation = inject(ConfirmationService);
 
   asset = signal<AssetDto | null>(null);
+  accounts: AccountDto[] = [];
+  showSellForm = false;
+  sellForm = { disposalDate: new Date().toISOString().substring(0, 10), amount: 0, settlementAccountId: '' };
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) this.service.get(id).subscribe(a => this.asset.set(a));
+    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' } as any).subscribe({
+      next: res => { this.accounts = res.items ?? []; },
+      error: () => {},
+    });
   }
 
   getActions(): WorkflowAction[] {
     const s = this.asset()?.status;
     const actions: WorkflowAction[] = [];
     if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
-    if (s === 1 || s === 2) actions.push({ name: 'sell', label: 'Sell', icon: 'fa-hand-holding-dollar', color: 'btn-outline-success' });
-    if (s === 1 || s === 2) actions.push({ name: 'scrap', label: 'Scrap', icon: 'fa-trash-can', color: 'btn-outline-warning' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'sell', label: 'Sell', icon: 'fa-hand-holding-dollar', color: 'btn-outline-success' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'scrap', label: 'Scrap', icon: 'fa-trash-can', color: 'btn-outline-warning' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
+    if (s === 5) actions.push({ name: 'restore', label: 'Restore', icon: 'fa-rotate-left', color: 'btn-outline-primary' });
     return actions;
   }
 
@@ -137,9 +177,34 @@ export class AssetDetailComponent implements OnInit {
     const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
     const today = new Date().toISOString().substring(0, 10);
     switch (name) {
-      case 'submit': this.service.submit(id).subscribe(reload); break;
-      case 'sell': this.service.sell(id, today, 0).subscribe(reload); break;
-      case 'scrap': this.service.scrap(id, today).subscribe(reload); break;
+      case 'submit':
+        this.service.submit(id).subscribe(reload);
+        break;
+      case 'sell':
+        this.sellForm = { disposalDate: today, amount: 0, settlementAccountId: '' };
+        this.showSellForm = true;
+        break;
+      case 'scrap':
+        this.service.scrap(id, today).subscribe(reload);
+        break;
+      case 'restore':
+        this.service.restore(id).subscribe(reload);
+        break;
+      case 'cancel':
+        this.confirmation.warn('::AssetCancelConfirmation', '::AreYouSure').subscribe(status => {
+          if (status !== Confirmation.Status.confirm) return;
+          this.service.cancel(id).subscribe(reload);
+        });
+        break;
     }
+  }
+
+  confirmSell(): void {
+    const id = this.asset()!.id!;
+    const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
+    this.service.sell(id, this.sellForm.disposalDate, this.sellForm.amount, this.sellForm.settlementAccountId || null).subscribe(() => {
+      this.showSellForm = false;
+      reload();
+    });
   }
 }
