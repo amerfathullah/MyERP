@@ -38,6 +38,9 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Total advance payment made against this order.</summary>
     public decimal AdvancePaid { get; set; }
 
+    /// <summary>Advance payment status (per gotcha #706: defaults to "Not Initiated").</summary>
+    public string AdvancePaymentStatus { get; set; } = "Not Initiated";
+
     /// <summary>Percentage of advance paid vs grand total (0-100).</summary>
     public decimal PerAdvancePaid => GrandTotal > 0
         ? Math.Round(AdvancePaid / GrandTotal * 100, 2)

@@ -21,6 +21,7 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public decimal PerBilled { get; set; }
     public decimal AdvancePaid { get; set; }
     public decimal PerAdvancePaid { get; set; }
+    public string AdvancePaymentStatus { get; set; } = "Not Initiated";
     public string? Notes { get; set; }
 
     // Supplier Confirmation Tracking

@@ -1207,6 +1207,7 @@ public class MyERPDbContext :
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.Terms).HasMaxLength(PurchaseOrderConsts.MaxTermsLength);
             b.Property(x => x.Notes).HasMaxLength(PurchaseOrderConsts.MaxNoteLength);
+            b.Property(x => x.AdvancePaymentStatus).HasMaxLength(50);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseOrderId).IsRequired();
