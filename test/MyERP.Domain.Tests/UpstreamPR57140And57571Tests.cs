@@ -557,4 +557,34 @@ public class UpstreamPR57140And57571Tests
         visit.Cancel();
         Assert.Equal(MyERP.Maintenance.MaintenanceVisitStatus.Cancelled, visit.CompletionStatus);
     }
+
+    [Fact]
+    public void SalesInvoice_UpdateStock_Blocked_When_DN_Referenced()
+    {
+        var si = new MyERP.Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-001", DateTime.UtcNow)
+        {
+            UpdateStock = true
+        };
+        si.AddItem(Guid.NewGuid(), "Item 1", 1m, 100m, 0m);
+        si.Items[0].DeliveryNoteItemId = Guid.NewGuid();
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => si.Submit());
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public void PurchaseInvoice_UpdateStock_Blocked_When_PR_Referenced()
+    {
+        var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-001", DateTime.UtcNow)
+        {
+            UpdateStock = true
+        };
+        pi.AddItem(Guid.NewGuid(), "Item 1", 1m, 100m, 0m);
+        pi.Items[0].PurchaseReceiptItemId = Guid.NewGuid();
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => pi.Submit());
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
 }

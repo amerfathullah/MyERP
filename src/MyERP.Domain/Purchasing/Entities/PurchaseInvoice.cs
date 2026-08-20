@@ -214,6 +214,13 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new BusinessException(MyERPDomainErrorCodes.OpeningInvoiceCannotUpdateStock)
                 .WithData("documentType", "Purchase Invoice");
 
+        // Per DO-NOT / gotcha #3846: update_stock cannot be enabled when items reference Purchase Receipts (prevents double SLE)
+        if (UpdateStock && _items.Any(i => i.PurchaseReceiptItemId.HasValue))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Purchase Receipts.");
+        }
+
         // Validate deferred expense service dates (per ERPNext accounts/deferred_revenue.py)
         foreach (var item in _items.Where(i => i.EnableDeferredExpense))
         {

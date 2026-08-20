@@ -240,6 +240,13 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.OpeningInvoiceCannotUpdateStock)
                 .WithData("documentType", "Sales Invoice");
 
+        // Per DO-NOT / gotcha #3826: update_stock cannot be enabled when items reference Delivery Notes (prevents double SLE)
+        if (UpdateStock && _items.Any(i => i.DeliveryNoteItemId.HasValue))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Delivery Notes.");
+        }
+
         // Validate deferred revenue service dates (per ERPNext accounts/deferred_revenue.py)
         foreach (var item in _items.Where(i => i.EnableDeferredRevenue))
         {
