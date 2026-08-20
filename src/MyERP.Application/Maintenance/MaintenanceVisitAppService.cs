@@ -134,6 +134,25 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
     public async Task<MaintenanceVisitDto> CancelAsync(Guid id)
     {
         var entity = await _visitRepository.GetAsync(id);
+
+        // Guard: must cancel newer visits first (gotcha #2199 / #2998)
+        if (entity.MaintenanceScheduleId.HasValue)
+        {
+            var query = await _visitRepository.GetQueryableAsync();
+            var laterVisits = query
+                .Where(v => v.MaintenanceScheduleId == entity.MaintenanceScheduleId.Value
+                    && v.Id != entity.Id
+                    && v.CompletionStatus != MaintenanceVisitStatus.Cancelled
+                    && (v.VisitDate > entity.VisitDate || (v.VisitDate == entity.VisitDate && v.CreationTime > entity.CreationTime)))
+                .ToList();
+
+            if (laterVisits.Any())
+            {
+                throw new Volo.Abp.BusinessException("MyERP:14002")
+                    .WithData("reason", $"Cannot cancel Maintenance Visit {entity.Id.ToString()[..8]} because later active visit(s) exist for the same schedule. Cancel later visits first.");
+            }
+        }
+
         entity.Cancel();
         await _visitRepository.UpdateAsync(entity, autoSave: true);
 

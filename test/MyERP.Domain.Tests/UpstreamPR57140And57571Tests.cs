@@ -543,4 +543,18 @@ public class UpstreamPR57140And57571Tests
         Assert.Equal(300m, detail.BillingAmount);
         Assert.Equal(180m, detail.CostingAmount);
     }
+
+    [Fact]
+    public void MaintenanceVisit_State_Transitions_Work()
+    {
+        var visit = new MyERP.Maintenance.Entities.MaintenanceVisit(
+            Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, "Scheduled");
+        Assert.Equal(MyERP.Maintenance.MaintenanceVisitStatus.Open, visit.CompletionStatus);
+
+        visit.Complete();
+        Assert.Equal(MyERP.Maintenance.MaintenanceVisitStatus.Completed, visit.CompletionStatus);
+
+        visit.Cancel();
+        Assert.Equal(MyERP.Maintenance.MaintenanceVisitStatus.Cancelled, visit.CompletionStatus);
+    }
 }
