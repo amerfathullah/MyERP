@@ -127,11 +127,81 @@ public class BankStatementImportAppService : ApplicationService, IBankStatementI
         return DateTime.Parse(value.Trim('"'), CultureInfo.InvariantCulture);
     }
 
-    private static decimal ParseDecimal(string value)
+    public static decimal ParseDecimal(string value)
     {
-        var cleaned = value.Trim().Trim('"').Replace(",", "");
-        if (string.IsNullOrWhiteSpace(cleaned)) return 0;
-        return decimal.Parse(cleaned, CultureInfo.InvariantCulture);
+        if (string.IsNullOrWhiteSpace(value)) return 0;
+        var s = value.Trim().Trim('"').Trim();
+        if (string.IsNullOrWhiteSpace(s)) return 0;
+
+        bool isNegative = false;
+
+        // Parenthetical negative: (1,234.56)
+        if (s.StartsWith("(") && s.EndsWith(")"))
+        {
+            isNegative = true;
+            s = s[1..^1].Trim();
+        }
+
+        // Trailing or leading sign
+        if (s.EndsWith("-") || s.EndsWith("DR", StringComparison.OrdinalIgnoreCase))
+        {
+            isNegative = true;
+            s = s.EndsWith("-") ? s[..^1].Trim() : s[..^2].Trim();
+        }
+        else if (s.EndsWith("CR", StringComparison.OrdinalIgnoreCase))
+        {
+            s = s[..^2].Trim();
+        }
+        else if (s.StartsWith("-"))
+        {
+            isNegative = true;
+            s = s[1..].Trim();
+        }
+        else if (s.StartsWith("+"))
+        {
+            s = s[1..].Trim();
+        }
+
+        // Remove space-separated thousands or non-breaking spaces
+        s = s.Replace(" ", "").Replace("\u00A0", "");
+
+        // Remove currency symbols (e.g. $, RM, EUR, etc.)
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"[^\d.,]", "");
+        if (string.IsNullOrWhiteSpace(s)) return 0;
+
+        // Detect European format: 1.234,56 vs 1,234.56
+        if (s.Contains('.') && s.Contains(','))
+        {
+            if (s.LastIndexOf(',') > s.LastIndexOf('.'))
+            {
+                // European format: 1.234,56 -> 1234.56
+                s = s.Replace(".", "").Replace(',', '.');
+            }
+            else
+            {
+                // Standard format: 1,234.56 -> 1234.56
+                s = s.Replace(",", "");
+            }
+        }
+        else if (s.Contains(','))
+        {
+            var parts = s.Split(',');
+            if (parts.Length == 2 && parts[1].Length <= 2)
+            {
+                // European decimal with no thousand separator: 1234,56
+                s = parts[0] + "." + parts[1];
+            }
+            else
+            {
+                // Thousands separator: 1,234
+                s = s.Replace(",", "");
+            }
+        }
+
+        if (!decimal.TryParse(s, System.Globalization.NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+            return 0;
+
+        return isNegative ? -result : result;
     }
 
     private static string[] ParseCsvLine(string line)

@@ -226,4 +226,25 @@ public class Mt940AndWarehouseGlTests
         wh.IsGroup = true;
         Assert.True(wh.IsGroup);
     }
+
+    // --- Bank Statement Amount Format Detection (Gotcha #6034 / #6041) ---
+
+    [Theory]
+    [InlineData("1,234.56", 1234.56)]
+    [InlineData("1234.56", 1234.56)]
+    [InlineData("1.234,56", 1234.56)]
+    [InlineData("1234,56", 1234.56)]
+    [InlineData("1 234.56", 1234.56)]
+    [InlineData("(1,234.56)", -1234.56)]
+    [InlineData("1,234.56-", -1234.56)]
+    [InlineData("1234.56DR", -1234.56)]
+    [InlineData("1234.56CR", 1234.56)]
+    [InlineData("$1,234.56", 1234.56)]
+    [InlineData("RM 1,234.56", 1234.56)]
+    [InlineData("", 0.0)]
+    public void BankStatement_ParseDecimal_Handles_All_6_Amount_Formats(string input, decimal expected)
+    {
+        var result = BankStatementImportAppService.ParseDecimal(input);
+        Assert.Equal(expected, result);
+    }
 }
