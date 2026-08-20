@@ -147,6 +147,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Accounts.BookStockExpenseGlEntries,
             MyERPSettings.Accounts.RepostLimit,
             MyERPSettings.Accounts.EnableOverdueBillingThreshold,
+            MyERPSettings.Accounts.OverdueBillingBypassRole,
             MyERPSettings.Accounts.EnableCommonPartyAccounting,
         ],
         "Global" => [

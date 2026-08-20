@@ -94,6 +94,17 @@ import { ToasterService } from '@abp/ng.theme.shared';
               </div>
             </div>
 
+            @if (settings['MyERP.Accounts.EnableOverdueBilling'] === 'true') {
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <label class="form-label">Overdue Billing Bypass Role</label>
+                  <input type="text" class="form-control"
+                    [(ngModel)]="settings['MyERP.Accounts.OverdueBillingBypassRole']" name="overdueBillingBypassRole"
+                    placeholder="e.g. CreditController" />
+                </div>
+              </div>
+            }
+
             <div class="d-flex justify-content-end mt-4">
               <button type="submit" class="btn btn-primary" [disabled]="saving()">
                 <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Save' | abpLocalization }}

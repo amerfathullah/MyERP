@@ -634,7 +634,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
             // Overdue billing threshold check (Malaysia compliance)
             // Per ERPNext check_overdue_billing_threshold: blocks new SI when overdue exceeds threshold
-            await _creditLimitService.ValidateOverdueBillingThresholdAsync(invoice.CustomerId, invoice.CompanyId);
+            await _creditLimitService.ValidateOverdueBillingThresholdAsync(invoice.CustomerId, invoice.CompanyId, userRoles);
 
             // Credit utilization warning: notify when approaching limit (80%+)
             try
@@ -891,10 +891,23 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (customer.LoyaltyProgramId.HasValue)
             {
                 var loyaltyService = LazyServiceProvider.LazyGetRequiredService<LoyaltyPointService>();
-                // Eligible amount = grand total (per ERPNext: grand_total - loyalty_amount - returned_amount)
+
+                // Eligible amount = grand_total - returned_amount (per ERPNext make_loyalty_point_entry):
+                // sum of grand_total across all submitted return invoices referencing this one, so a
+                // partially-credited sale earns points only on what actually stuck. Return invoices
+                // store a negative GrandTotal in this codebase (negative qty × positive rate) — negate
+                // the sum to get a positive magnitude to subtract.
+                var invoiceQuery = await _repository.GetQueryableAsync();
+                var returnedAmount = -invoiceQuery
+                    .Where(i => i.ReturnAgainstId == invoice.Id
+                        && i.IsReturn
+                        && i.Status == Core.DocumentStatus.Posted)
+                    .Sum(i => i.GrandTotal);
+                var eligibleAmount = Math.Max(0, invoice.GrandTotal - returnedAmount);
+
                 await loyaltyService.EarnPointsAsync(
                     customer.LoyaltyProgramId.Value, customer.Id, invoice.CompanyId,
-                    invoice.GrandTotal, 0m, invoice.IssueDate,
+                    eligibleAmount, 0m, invoice.IssueDate,
                     invoiceType: "SalesInvoice", invoiceId: invoice.Id, tenantId: invoice.TenantId);
             }
 

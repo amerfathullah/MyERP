@@ -109,6 +109,7 @@ public static class MyERPSettings
         public const string BookStockExpenseGlEntries = G + ".BookStockExpenseGL";
         public const string RepostLimit = G + ".RepostLimit";
         public const string EnableOverdueBillingThreshold = G + ".EnableOverdueBilling";
+        public const string OverdueBillingBypassRole = G + ".OverdueBillingBypassRole";
         public const string EnableCommonPartyAccounting = G + ".EnableCommonPartyAccounting";
     }
 

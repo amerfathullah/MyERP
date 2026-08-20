@@ -3,9 +3,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales.DomainServices;
 
@@ -21,17 +23,20 @@ public class CreditLimitService : DomainService
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
     private readonly IRepository<CustomerCreditLimit, Guid> _creditLimitRepository;
+    private readonly ISettingProvider _settingProvider;
 
     public CreditLimitService(
         IRepository<Customer, Guid> customerRepository,
         IRepository<SalesInvoice, Guid> invoiceRepository,
         IRepository<SalesOrder, Guid> orderRepository,
-        IRepository<CustomerCreditLimit, Guid> creditLimitRepository)
+        IRepository<CustomerCreditLimit, Guid> creditLimitRepository,
+        ISettingProvider settingProvider)
     {
         _customerRepository = customerRepository;
         _invoiceRepository = invoiceRepository;
         _orderRepository = orderRepository;
         _creditLimitRepository = creditLimitRepository;
+        _settingProvider = settingProvider;
     }
 
     /// <summary>
@@ -91,11 +96,25 @@ public class CreditLimitService : DomainService
     /// <summary>
     /// Validates that the customer does not have overdue invoices exceeding the configured threshold.
     /// Per ERPNext check_overdue_billing_threshold(): blocks new SI when overdue amount exceeds threshold.
-    /// Per Accounts Settings.enable_overdue_billing_threshold: feature gate.
+    /// Gated by Accounts Settings.EnableOverdueBillingThreshold — off by default, matching the
+    /// pre-existing Angular toggle that (until this fix) had nothing behind it to actually gate.
+    /// Role bypass via Accounts Settings.OverdueBillingBypassRole, mirroring the
+    /// MaintainSameRate/RoleToOverrideStopAction bypass-role pattern used elsewhere in this codebase.
     /// Resolution: per-company CustomerCreditLimit.OverdueBillingThreshold → 0 = disabled.
     /// </summary>
-    public async Task ValidateOverdueBillingThresholdAsync(Guid customerId, Guid companyId)
+    public async Task ValidateOverdueBillingThresholdAsync(
+        Guid customerId, Guid companyId, string[]? currentUserRoles = null)
     {
+        var enabled = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.EnableOverdueBillingThreshold);
+        if (enabled != "true") return;
+
+        var bypassRole = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.OverdueBillingBypassRole);
+        if (!string.IsNullOrWhiteSpace(bypassRole) && currentUserRoles != null
+            && currentUserRoles.Contains(bypassRole, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         // Resolve per-company overdue threshold
         var perCompanyLimits = await _creditLimitRepository.GetQueryableAsync();
         var companyLimit = perCompanyLimits.FirstOrDefault(

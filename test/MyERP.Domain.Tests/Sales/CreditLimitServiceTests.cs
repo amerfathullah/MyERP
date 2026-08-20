@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Xunit;
@@ -151,7 +152,58 @@ public class CreditLimitServiceTests
         shouldValidate.ShouldBeFalse();
     }
 
+    // === Overdue Billing Threshold Gate + Role Bypass ===
+
+    [Fact]
+    public void OverdueBilling_GateDisabled_SkipsCheckEvenWithThresholdSet()
+    {
+        // Per Accounts Settings.EnableOverdueBillingThreshold: off by default.
+        // A per-company OverdueBillingThreshold > 0 alone must NOT enforce when the gate is off.
+        var shouldEnforce = OverdueBillingShouldEnforce(gateEnabled: false, threshold: 500m, overdueAmount: 1000m);
+        shouldEnforce.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void OverdueBilling_GateEnabled_ThresholdExceeded_Enforces()
+    {
+        var shouldEnforce = OverdueBillingShouldEnforce(gateEnabled: true, threshold: 500m, overdueAmount: 1000m);
+        shouldEnforce.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void OverdueBilling_BypassRoleMatchesCurrentUser_Skips()
+    {
+        var shouldEnforce = OverdueBillingShouldEnforce(
+            gateEnabled: true, threshold: 500m, overdueAmount: 1000m,
+            bypassRole: "CreditController", currentUserRoles: new[] { "Sales", "CreditController" });
+        shouldEnforce.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void OverdueBilling_BypassRoleConfigured_UserDoesNotHaveIt_StillEnforces()
+    {
+        var shouldEnforce = OverdueBillingShouldEnforce(
+            gateEnabled: true, threshold: 500m, overdueAmount: 1000m,
+            bypassRole: "CreditController", currentUserRoles: new[] { "Sales" });
+        shouldEnforce.ShouldBeTrue();
+    }
+
     // === Helper Methods ===
+
+    /// <summary>Mirrors CreditLimitService.ValidateOverdueBillingThresholdAsync's gate/bypass/threshold decision.</summary>
+    private static bool OverdueBillingShouldEnforce(
+        bool gateEnabled, decimal threshold, decimal overdueAmount,
+        string? bypassRole = null, string[]? currentUserRoles = null)
+    {
+        if (!gateEnabled) return false;
+        if (!string.IsNullOrWhiteSpace(bypassRole) && currentUserRoles != null
+            && currentUserRoles.Contains(bypassRole, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (threshold <= 0) return false;
+        return overdueAmount > threshold;
+    }
 
     private static Customer CreateCustomer(decimal creditLimit)
     {
