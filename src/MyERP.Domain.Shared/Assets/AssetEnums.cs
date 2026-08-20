@@ -59,5 +59,6 @@ public enum AssetActivityType
     Scrapped = 6,
     Sold = 7,
     Restored = 8,
+    Cancelled = 9,
 }
 

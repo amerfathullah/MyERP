@@ -128,10 +128,24 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DisposalAmount = 0;
     }
 
+    /// <summary>
+    /// Cancels the asset. Allowed for Draft, and for Submitted assets that have no
+    /// GL-posted depreciation yet — cancelling those is a pure status change, no reversal
+    /// needed. Blocked once any depreciation has been booked (PartiallyDepreciated/
+    /// FullyDepreciated would need those Journal Entries reversed first, not built here),
+    /// and for InMaintenance/Sold/Scrapped (per ERPNext: complete maintenance, or
+    /// restore/un-sell first). Once Cancelled, DepreciationSchedulerJob's own status
+    /// filter (Status != Cancelled) stops it from ever posting the remaining schedule.
+    /// </summary>
     public void Cancel()
     {
-        if (Status != AssetStatus.Draft)
+        var hasBookedDepreciation = DepreciationSchedule.Any(e => e.IsBooked);
+        var cancellable = Status == AssetStatus.Draft
+            || (Status == AssetStatus.Submitted && !hasBookedDepreciation);
+
+        if (!cancellable)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
         Status = AssetStatus.Cancelled;
     }
 

@@ -177,6 +177,34 @@ public class AssetAppService : ApplicationService, IAssetAppService
         return _assetMapper.Map(asset);
     }
 
+    /// <summary>
+    /// Cancels the asset (Draft, or Submitted with no depreciation posted yet). There was
+    /// previously no way to cancel an asset via the API at all — Asset.Cancel() existed but
+    /// had zero call sites.
+    /// </summary>
+    [Authorize(MyERPPermissions.Assets.Edit)]
+    public async Task<AssetDto> CancelAsync(Guid id)
+    {
+        var asset = await _assetRepository.GetAsync(id, includeDetails: true);
+        asset.Cancel();
+        await _assetRepository.UpdateAsync(asset);
+
+        var activity = new AssetActivity(
+            GuidGenerator.Create(),
+            asset.Id,
+            AssetActivityType.Cancelled,
+            $"Asset cancelled: {asset.AssetNumber}",
+            DateTime.UtcNow,
+            null,
+            "Asset",
+            asset.Id.ToString(),
+            CurrentTenant.Id);
+
+        await _activityRepository.InsertAsync(activity);
+
+        return _assetMapper.Map(asset);
+    }
+
     [Authorize(MyERPPermissions.Assets.Edit)]
     public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount, Guid settlementAccountId)
     {

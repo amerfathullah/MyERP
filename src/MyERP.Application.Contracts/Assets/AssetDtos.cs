@@ -587,6 +587,7 @@ public interface IAssetAppService : IApplicationService
     System.Threading.Tasks.Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount, Guid settlementAccountId);
     System.Threading.Tasks.Task<AssetDto> ScrapAsync(Guid id, DateTime disposalDate);
     System.Threading.Tasks.Task<AssetDto> RestoreAsync(Guid id);
+    System.Threading.Tasks.Task<AssetDto> CancelAsync(Guid id);
     System.Threading.Tasks.Task<AssetCategoryDto[]> GetCategoriesAsync();
     System.Threading.Tasks.Task<AssetCategoryDto> CreateCategoryAsync(CreateUpdateAssetCategoryDto input);
 }

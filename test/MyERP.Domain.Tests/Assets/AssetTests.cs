@@ -71,11 +71,51 @@ public class AssetTests
     }
 
     [Fact]
-    public void Cancel_OnlyFromDraft()
+    public void Cancel_FromDraft_Succeeds()
+    {
+        var asset = CreateAsset();
+
+        asset.Cancel();
+
+        asset.Status.ShouldBe(AssetStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_Submitted_NoDepreciationPostedYet_Succeeds()
     {
         var asset = CreateAsset();
         asset.Submit();
 
+        // No GL impact yet — cancelling is a pure status change, no reversal needed.
+        asset.Cancel();
+
+        asset.Status.ShouldBe(AssetStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_Submitted_WithBookedDepreciation_Throws()
+    {
+        var asset = CreateAsset();
+        asset.Submit();
+        asset.CalculateDepreciation = true;
+        asset.UsefulLifeMonths = 60;
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+
+        // Real GL history exists — would need those Journal Entries reversed first.
+        Assert.Throws<BusinessException>(() => asset.Cancel());
+    }
+
+    [Fact]
+    public void Cancel_Scrapped_Throws()
+    {
+        var asset = CreateAsset();
+        asset.Submit();
+        asset.Scrap(new DateTime(2026, 7, 1));
+
+        // Must be restored first, per Asset.Restore().
         Assert.Throws<BusinessException>(() => asset.Cancel());
     }
 
