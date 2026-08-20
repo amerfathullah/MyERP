@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using Shouldly;
@@ -128,6 +129,50 @@ public class JournalEntryTests
         journal.ReversalOfId = Guid.NewGuid();
         journal.VoucherType.ShouldBe(JournalEntryVoucherType.Reversal);
         journal.ReversalOfId.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AddReversalLine_FlipsDirectionAndPreservesFieldFidelity()
+    {
+        var source = CreateJournalEntry();
+        var receivableAccountId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        source.AddLineWithParty(receivableAccountId, 1060m, isDebit: true, partyId, "Customer", AccountSubType.AccountsReceivable);
+        var costCenterId = Guid.NewGuid();
+        source.AddLineWithDimensions(Guid.NewGuid(), 1060m, isDebit: false, costCenterId: costCenterId);
+        source.Post();
+
+        var reversal = CreateJournalEntry();
+        foreach (var line in source.Lines)
+            reversal.AddReversalLine(line);
+        reversal.Post();
+
+        reversal.TotalDebit.ShouldBe(source.TotalCredit);
+        reversal.TotalCredit.ShouldBe(source.TotalDebit);
+
+        var reversedReceivableLine = reversal.Lines.Single(l => l.AccountId == receivableAccountId);
+        reversedReceivableLine.IsDebit.ShouldBeFalse(); // flipped from the source's debit
+        reversedReceivableLine.PartyId.ShouldBe(partyId);
+        reversedReceivableLine.PartyType.ShouldBe("Customer");
+
+        var reversedCostCenterLine = reversal.Lines.Single(l => l.CostCenterId == costCenterId);
+        reversedCostCenterLine.IsDebit.ShouldBeTrue(); // flipped from the source's credit
+    }
+
+    [Fact]
+    public void AddReversalLine_AfterPost_ShouldThrow()
+    {
+        var source = CreateJournalEntry();
+        source.AddLine(Guid.NewGuid(), 100m, isDebit: true);
+        source.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+        source.Post();
+
+        var reversal = CreateJournalEntry();
+        foreach (var line in source.Lines)
+            reversal.AddReversalLine(line);
+        reversal.Post();
+
+        Assert.Throws<BusinessException>(() => reversal.AddReversalLine(source.Lines[0]));
     }
 
     private static JournalEntry CreateJournalEntry()

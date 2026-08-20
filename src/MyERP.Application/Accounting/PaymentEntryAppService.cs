@@ -651,7 +651,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         pe.Cancel();
 
-        // Reverse PLE entries + cancel the posted GL Journal Entry
+        // Reverse PLE entries + reverse the posted GL Journal Entry
         await _postingOrchestrator.ReversePleForDocumentAsync("PaymentEntry", pe.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("PaymentEntry", pe.Id);
 

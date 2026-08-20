@@ -309,7 +309,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         await _stockPostingService.ReverseStockEntryAsync(entry);
 
         // Reverse PLE entries (StockEntry has no party, so this is normally a no-op)
-        // and cancel the posted GL Journal Entry (per ERPNext: stock entries have perpetual inventory GL)
+        // and reverse the posted GL Journal Entry (per ERPNext: stock entries have perpetual inventory GL)
         await postingOrchestrator.ReversePleForDocumentAsync("StockEntry", entry.Id);
         await postingOrchestrator.ReverseGlForDocumentAsync("StockEntry", entry.Id);
 

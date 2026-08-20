@@ -283,22 +283,41 @@ public class DocumentPostingOrchestrator : DomainService
     }
 
     /// <summary>
-    /// Cancels the posted GL Journal Entry linked to a cancelled document, if one exists.
-    /// Sets the original entry's Status to Cancelled so GL reports (which filter on Status == Posted,
-    /// see GeneralLedgerAppService) stop including it — mirrors JournalEntryAppService.CancelAsync's
-    /// manual-cancel behavior rather than posting a new offsetting entry.
-    /// No-op if the document never posted GL, or its GL entry was already reversed.
+    /// Reverses the posted GL Journal Entry linked to a cancelled document, if one exists, by
+    /// posting a new contra entry — same posting date, every line's debit/credit flipped, full
+    /// party/dimension fidelity preserved (see JournalEntry.AddReversalLine). Per the
+    /// accounts-controller cancel protocol: the original entry is never touched — both it and the
+    /// reversal stay Status=Posted, netting to zero within the period while remaining individually
+    /// visible for audit. No-op if the document never posted GL (no matching entry found). Relies on
+    /// the caller's own document-status guard (e.g. entity.Cancel() throwing on an already-cancelled
+    /// document) to prevent this being invoked twice for the same voucher — it does not itself
+    /// detect an existing reversal, matching ReversePleForDocumentAsync's existing behavior below.
     /// </summary>
     public async Task ReverseGlForDocumentAsync(string voucherType, Guid voucherId)
     {
         var query = await _journalRepository.GetQueryableAsync();
-        var journal = query.FirstOrDefault(j =>
-            j.ReferenceType == voucherType && j.ReferenceId == voucherId && j.Status == DocumentStatus.Posted);
+        var original = query.FirstOrDefault(j =>
+            j.ReferenceType == voucherType && j.ReferenceId == voucherId
+            && j.Status == DocumentStatus.Posted && j.VoucherType != JournalEntryVoucherType.Reversal);
 
-        if (journal == null) return;
+        if (original == null) return;
 
-        journal.Cancel();
-        await _journalRepository.UpdateAsync(journal, autoSave: true);
+        var reversal = new JournalEntry(
+            GuidGenerator.Create(), original.CompanyId, original.FiscalYearId, original.PostingDate, original.TenantId)
+        {
+            ReferenceType = original.ReferenceType,
+            ReferenceId = original.ReferenceId,
+            ReferenceNumber = original.ReferenceNumber,
+            VoucherType = JournalEntryVoucherType.Reversal,
+            ReversalOfId = original.Id,
+            IsMultiCurrency = original.IsMultiCurrency,
+        };
+
+        foreach (var line in original.Lines)
+            reversal.AddReversalLine(line);
+
+        reversal.Post();
+        await _journalRepository.InsertAsync(reversal);
     }
 
     /// <summary>

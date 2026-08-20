@@ -155,6 +155,37 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Adds a contra line reversing a source line from another (typically cancelled) JournalEntry —
+    /// same account/amount/currency/party/dimensions, direction flipped. Used to build a reversal
+    /// JE that nets a cancelled document's GL impact to zero while preserving full line fidelity
+    /// (party, cost center, project) for subledger reports that key off JournalEntryLine fields.
+    /// </summary>
+    public void AddReversalLine(JournalEntryLine sourceLine)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        var line = new JournalEntryLine(
+            Guid.NewGuid(), Id, sourceLine.AccountId, sourceLine.Amount, !sourceLine.IsDebit, sourceLine.Description)
+        {
+            AccountCurrency = sourceLine.AccountCurrency,
+            AmountInAccountCurrency = sourceLine.AmountInAccountCurrency,
+            ExchangeRate = sourceLine.ExchangeRate,
+            PartyId = sourceLine.PartyId,
+            PartyType = sourceLine.PartyType,
+            CostCenterId = sourceLine.CostCenterId,
+            ProjectId = sourceLine.ProjectId,
+            AgainstVoucherType = sourceLine.AgainstVoucherType,
+            AgainstVoucherId = sourceLine.AgainstVoucherId,
+            IsAdvance = sourceLine.IsAdvance,
+            FinanceBook = sourceLine.FinanceBook,
+        };
+        _lines.Add(line);
+
+        RecalculateTotals();
+    }
+
+    /// <summary>
     /// Validates that Total Debit = Total Credit (double-entry requirement).
     /// </summary>
     public void Validate()
