@@ -102,9 +102,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
     /// <summary>
     /// Per ERPNext selling_controller.calculate_contribution(): allocated_amount is a percentage
-    /// split of the amount eligible for commission (here: NetTotal — MyERP has no per-item
-    /// grant_commission flag, so all items are eligible), and incentives = allocated_amount ×
-    /// the row's commission rate (falling back to the Sales Person's own rate when not overridden).
+    /// split of the amount eligible for commission (filtered by Item.GrantCommission — gotcha #6156),
+    /// and incentives = allocated_amount × the row's commission rate (falling back to the Sales Person's own rate).
     /// </summary>
     private async Task CreateSalesTeamEntriesAsync(SalesInvoice invoice, List<SalesTeamAllocationInputDto> salesTeam)
     {
@@ -115,6 +114,16 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
         var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        // Filter commission-eligible items (per ERPNext grant_commission flag, gotcha #6156)
+        var itemIds = invoice.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemEntities = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
+        var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
+
+        var eligibleAmount = invoice.Items
+            .Where(i => !itemGrantMap.TryGetValue(i.ItemId, out var grant) || grant)
+            .Sum(i => i.LineTotal);
 
         foreach (var row in salesTeam)
         {
@@ -127,7 +136,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
             var entry = new SalesTeamEntry(
                 GuidGenerator.Create(), row.SalesPersonId, "SalesInvoice", invoice.Id,
-                row.AllocatedPercentage, invoice.NetTotal, commissionRate.Value);
+                row.AllocatedPercentage, eligibleAmount, commissionRate.Value);
             await teamRepo.InsertAsync(entry);
         }
     }

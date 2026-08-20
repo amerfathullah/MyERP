@@ -97,6 +97,8 @@ public class CreateUpdateItemDto
 
     public Guid? DefaultExpenseAccountId { get; set; }
 
+    public bool GrantCommission { get; set; } = true;
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings

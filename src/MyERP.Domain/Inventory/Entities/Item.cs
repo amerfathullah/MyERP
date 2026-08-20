@@ -61,6 +61,12 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default expense account for purchases/COGS.</summary>
     public Guid? DefaultExpenseAccountId { get; set; }
 
+    /// <summary>
+    /// When true, this item is eligible for sales commission calculations.
+    /// Per ERPNext: grant_commission field on Item master (gotcha #6156). Default: true.
+    /// </summary>
+    public bool GrantCommission { get; set; } = true;
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings

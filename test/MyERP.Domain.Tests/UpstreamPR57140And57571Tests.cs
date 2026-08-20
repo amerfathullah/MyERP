@@ -240,4 +240,14 @@ public class UpstreamPR57140And57571Tests
         var ex = Assert.Throws<BusinessException>(() => se.Submit());
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
     }
+
+    [Fact]
+    public void Item_GrantCommission_DefaultTrue_AndCanBeDisabled()
+    {
+        var item = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), Guid.NewGuid(), "ITEM-001", "Commission Item", MyERP.Inventory.ItemType.Goods);
+        Assert.True(item.GrantCommission);
+
+        item.GrantCommission = false;
+        Assert.False(item.GrantCommission);
+    }
 }
