@@ -94,6 +94,11 @@ public class InterCompanyTransactionService : DomainService
         }
 
         await _purchaseInvoiceRepository.InsertAsync(pi, autoSave: true);
+
+        // Reciprocal link — without this, cancelling the SI has no way to find the PI it created.
+        si.InterCompanyPurchaseInvoiceId = pi.Id;
+        await _salesInvoiceRepository.UpdateAsync(si, autoSave: true);
+
         return pi.Id;
     }
 
@@ -140,6 +145,7 @@ public class InterCompanyTransactionService : DomainService
 
         si.DueDate = pi.DueDate;
         si.CurrencyCode = sourceCompany.CurrencyCode;
+        si.InterCompanyPurchaseInvoiceId = pi.Id;
 
         foreach (var item in pi.Items)
         {
@@ -147,6 +153,11 @@ public class InterCompanyTransactionService : DomainService
         }
 
         await _salesInvoiceRepository.InsertAsync(si, autoSave: true);
+
+        // Reciprocal link — without this, cancelling the PI has no way to find the SI it created.
+        pi.InterCompanyInvoiceId = si.Id;
+        await _purchaseInvoiceRepository.UpdateAsync(pi, autoSave: true);
+
         return si.Id;
     }
 

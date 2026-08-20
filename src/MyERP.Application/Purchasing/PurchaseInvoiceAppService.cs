@@ -1130,6 +1130,27 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await _activityLog.LogCancelledAsync("PurchaseInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, "Posted", invoice.TenantId);
 
+        // Inter-company cancellation cascade: cancelling this PI also cancels the Sales
+        // Invoice it was created from (or that was created from it). Status-guarded so
+        // cascading from either side converges. Only the reversal steps that apply to an
+        // inter-company-created SI run here (no SO/DN-linked items, no UpdateStock, no
+        // loyalty program) — matches SalesInvoiceAppService.CancelAsync's own steps for
+        // that shape of document.
+        if (invoice.InterCompanyInvoiceId.HasValue)
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var linkedSi = await siRepo.FindAsync(invoice.InterCompanyInvoiceId.Value);
+            if (linkedSi != null && linkedSi.Status == Core.DocumentStatus.Posted && linkedSi.AmountPaid <= 0)
+            {
+                linkedSi.Cancel();
+                await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", linkedSi.Id);
+                await _postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", linkedSi.Id);
+                await siRepo.UpdateAsync(linkedSi, autoSave: true);
+                await _activityLog.LogCancelledAsync("SalesInvoice", linkedSi.Id, linkedSi.CompanyId,
+                    linkedSi.InvoiceNumber, "Posted", linkedSi.TenantId);
+            }
+        }
+
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
 

@@ -85,6 +85,13 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
+    /// <summary>
+    /// Reciprocal of PurchaseInvoice.InterCompanyInvoiceId — the Purchase Invoice auto-created
+    /// in the target company from this Sales Invoice (or vice versa). Enables the cancellation
+    /// cascade: cancelling either side cancels the other.
+    /// </summary>
+    public Guid? InterCompanyPurchaseInvoiceId { get; set; }
+
     /// <summary>Link to the Delivery Note that triggered this credit note (return flow).</summary>
     public Guid? DeliveryNoteId { get; set; }
 

@@ -1137,6 +1137,27 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _activityLog.LogCancelledAsync("SalesInvoice", invoice.Id, invoice.CompanyId,
             invoice.InvoiceNumber, "Posted", invoice.TenantId);
 
+        // Inter-company cancellation cascade: cancelling this SI also cancels the Purchase
+        // Invoice it created in the target company. Status-guarded so cascading from either
+        // side converges instead of recursing (this SI is already Cancelled by the time the
+        // linked PI's own cascade would look back at it). Only the reversal steps that apply
+        // to an inter-company-created PI run here (no PO/PR-linked items, no UpdateStock) —
+        // matches PurchaseInvoiceAppService.CancelAsync's own steps for that shape of document.
+        if (invoice.InterCompanyPurchaseInvoiceId.HasValue)
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var linkedPi = await piRepo.FindAsync(invoice.InterCompanyPurchaseInvoiceId.Value);
+            if (linkedPi != null && linkedPi.Status == Core.DocumentStatus.Posted && linkedPi.AmountPaid <= 0)
+            {
+                linkedPi.Cancel();
+                await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", linkedPi.Id);
+                await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseInvoice", linkedPi.Id);
+                await piRepo.UpdateAsync(linkedPi, autoSave: true);
+                await _activityLog.LogCancelledAsync("PurchaseInvoice", linkedPi.Id, linkedPi.CompanyId,
+                    linkedPi.InvoiceNumber, "Posted", linkedPi.TenantId);
+            }
+        }
+
         return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
     }
 
