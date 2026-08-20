@@ -12,6 +12,7 @@
       <select class="form-select form-select-sm" style="width: 140px;" [(ngModel)]="statusFilter" (change)="onStatusChange()">
         <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
         <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
+        <option value="Submitted">{{ '::Submitted' | abpLocalization }}</option>
         <option value="Posted">{{ '::Posted' | abpLocalization }}</option>
         <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
       </select>
@@ -45,10 +46,33 @@
           </button>
         </div>
       } @else {
+        <!-- Bulk action bar -->
+        @if (selectedIds.size > 0) {
+          <div class="alert alert-info d-flex align-items-center gap-3 py-2 mb-3">
+            <span class="fw-medium">{{ selectedIds.size }} {{ '::Selected' | abpLocalization }}</span>
+            <button class="btn btn-sm btn-outline-primary" (click)="bulkSubmit()" [disabled]="isBulkProcessing">
+              <i class="fa fa-paper-plane me-1"></i> {{ '::BulkSubmit' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-primary" (click)="bulkPost()" [disabled]="isBulkProcessing">
+              <i class="fa fa-check-double me-1"></i> {{ '::BulkPost' | abpLocalization }}
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
+              <i class="fa fa-times me-1"></i> {{ '::ClearSelection' | abpLocalization }}
+            </button>
+            @if (isBulkProcessing) {
+              <div class="spinner-border spinner-border-sm text-primary ms-2"></div>
+            }
+          </div>
+        }
         <div class="table-responsive">
                     <table class="table table-hover w-100">
             <thead>
               <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="isAllSelected()"
+                    (change)="toggleSelectAll($any($event.target).checked)">
+                </th>
                 <th style="min-width: 150px;">
                   <app-sortable-header field="paymentNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::PaymentNumber' | abpLocalization }}
@@ -76,7 +100,12 @@
             </thead>
             <tbody>
               @for (row of store.entities(); track row.id ?? $index) {
-                <tr>
+                <tr [class.table-active]="selectedIds.has(row.id)">
+                  <td>
+                    <input type="checkbox" class="form-check-input"
+                      [checked]="selectedIds.has(row.id)"
+                      (change)="toggleSelect(row.id, $any($event.target).checked)">
+                  </td>
                   <td class="fw-medium"><a [routerLink]="['/accounting/payments', row.id]" class="text-decoration-none">{{ row.paymentNumber }}</a></td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ row.paymentType }}</td>
