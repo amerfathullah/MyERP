@@ -18,17 +18,20 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 {
     private readonly IRepository<BankTransaction, Guid> _repository;
     private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
+    private readonly IRepository<BankAccount, Guid> _bankAccountRepository;
     private readonly BankAutoMatchService _autoMatchService;
     private readonly BankInternalTransferService _internalTransferService;
 
     public BankReconciliationAppService(
         IRepository<BankTransaction, Guid> repository,
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
+        IRepository<BankAccount, Guid> bankAccountRepository,
         BankAutoMatchService autoMatchService,
         BankInternalTransferService internalTransferService)
     {
         _repository = repository;
         _paymentEntryRepository = paymentEntryRepository;
+        _bankAccountRepository = bankAccountRepository;
         _autoMatchService = autoMatchService;
         _internalTransferService = internalTransferService;
     }
@@ -187,7 +190,14 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     public async Task<InternalTransferResultDto> CreateInternalTransferAsync(CreateInternalTransferDto input)
     {
         var tx = await _repository.GetAsync(input.BankTransactionId);
-        var sourceBankGlId = tx.BankAccountId; // In production, resolve GL account from Bank Account entity
+
+        // tx.BankAccountId is a BankAccount.Id, not a GL Account.Id — BankAccount has its own
+        // separate AccountId linking it 1:1 to the real GL account. Using the BankAccount's own
+        // Id directly here would point the transfer's PaidFromAccountId at a non-existent GL
+        // account (this was previously left as a raw pass-through with a "resolve in production"
+        // comment — every internal transfer created through this path referenced a phantom account).
+        var sourceBankAccount = await _bankAccountRepository.GetAsync(tx.BankAccountId);
+        var sourceBankGlId = sourceBankAccount.AccountId;
 
         var spec = _internalTransferService.BuildInternalTransfer(
             tx, sourceBankGlId, input.TargetBankAccountGlId, input.CompanyId);
