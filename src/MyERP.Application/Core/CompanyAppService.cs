@@ -35,6 +35,7 @@ public class UpdateCompanySettingsDto
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
+    public Guid? DefaultCostCenterId { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? SampleRetentionWarehouseId { get; set; }
     public Guid? DefaultInTransitWarehouseId { get; set; }
@@ -131,6 +132,7 @@ public class CompanyAppService :
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
         entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
+        entity.DefaultCostCenterId = input.DefaultCostCenterId;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]
@@ -166,6 +168,7 @@ public class CompanyAppService :
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
+        company.DefaultCostCenterId = input.DefaultCostCenterId;
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
@@ -216,12 +219,27 @@ public class CompanyAppService :
 
         // Seed Cost Centers
         var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
-        var hasCc = (await ccRepo.GetQueryableAsync()).Any(c => c.CompanyId == companyId);
-        if (!hasCc)
+        var existingCostCenters = (await ccRepo.GetQueryableAsync()).Where(c => c.CompanyId == companyId).ToList();
+        CostCenter? mainCostCenter;
+        if (existingCostCenters.Count == 0)
         {
             var root = new CostCenter(GuidGenerator.Create(), companyId, company.Name, isGroup: true);
             await ccRepo.InsertAsync(root, autoSave: true);
-            await ccRepo.InsertAsync(new CostCenter(GuidGenerator.Create(), companyId, "Main", parentId: root.Id), autoSave: true);
+            mainCostCenter = new CostCenter(GuidGenerator.Create(), companyId, "Main", parentId: root.Id);
+            await ccRepo.InsertAsync(mainCostCenter, autoSave: true);
+        }
+        else
+        {
+            mainCostCenter = existingCostCenters.FirstOrDefault(c => !c.IsGroup) ?? existingCostCenters.First();
+        }
+
+        // Every P&L GL line requires a cost center (AccountingDimensionService.ValidatePlAccountsHaveCostCenterAsync)
+        // and falls back to this when the source document doesn't specify one — matches ERPNext's
+        // Company.cost_center, which every new company points at its own root cost center by default.
+        if (!company.DefaultCostCenterId.HasValue && mainCostCenter != null)
+        {
+            company.DefaultCostCenterId = mainCostCenter.Id;
+            await Repository.UpdateAsync(company, autoSave: true);
         }
 
         // Seed Default Warehouses (hierarchy per ERPNext Company.create_default_warehouses)

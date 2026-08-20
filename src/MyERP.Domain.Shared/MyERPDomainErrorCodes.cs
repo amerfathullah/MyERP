@@ -460,6 +460,9 @@ public static class MyERPDomainErrorCodes
     public const string InvoiceDiscountingLoanTermsRequired = "MyERP:02070";
     public const string InvoiceDiscountingNoInvoices = "MyERP:02071";
 
+    // General Ledger — P&L cost center enforcement
+    public const string CostCenterRequiredForPlAccount = "MyERP:02072";
+
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";
 

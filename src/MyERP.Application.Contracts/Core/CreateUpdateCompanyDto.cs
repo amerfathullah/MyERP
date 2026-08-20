@@ -77,4 +77,5 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultInventoryAccountId { get; set; }
     public System.Guid? StockReceivedButNotBilledAccountId { get; set; }
     public System.Guid? StockDeliveredButNotBilledAccountId { get; set; }
+    public System.Guid? DefaultCostCenterId { get; set; }
 }

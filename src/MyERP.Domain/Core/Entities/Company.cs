@@ -83,6 +83,13 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? ExchangeGainLossAccountId { get; set; }
     /// <summary>Gain/loss on fixed asset disposal (sale or scrap). Per ERPNext: Company.disposal_account.</summary>
     public Guid? DisposalAccountId { get; set; }
+    /// <summary>
+    /// Default Cost Center — fallback applied to a GL line on a Revenue/Expense account that has
+    /// no cost center of its own. Per ERPNext: Company.cost_center (every company auto-creates a
+    /// root cost center and links it here). Required for P&amp;L GL lines; see
+    /// AccountingDimensionService.ValidatePlAccountsHaveCostCenterAsync.
+    /// </summary>
+    public Guid? DefaultCostCenterId { get; set; }
 
     // --- Advance Payment Settings (per ERPNext gotcha #205) ---
 

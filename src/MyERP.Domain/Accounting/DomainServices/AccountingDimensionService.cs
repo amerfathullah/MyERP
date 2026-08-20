@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -23,15 +24,21 @@ public class AccountingDimensionService : DomainService
     private readonly IRepository<AccountingDimension, Guid> _dimensionRepository;
     private readonly IRepository<AccountingDimensionFilter, Guid> _filterRepository;
     private readonly IRepository<GlDimensionValue, Guid> _glDimensionValueRepository;
+    private readonly IRepository<Account, Guid> _accountRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public AccountingDimensionService(
         IRepository<AccountingDimension, Guid> dimensionRepository,
         IRepository<AccountingDimensionFilter, Guid> filterRepository,
-        IRepository<GlDimensionValue, Guid> glDimensionValueRepository)
+        IRepository<GlDimensionValue, Guid> glDimensionValueRepository,
+        IRepository<Account, Guid> accountRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _dimensionRepository = dimensionRepository;
         _filterRepository = filterRepository;
         _glDimensionValueRepository = glDimensionValueRepository;
+        _accountRepository = accountRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -59,6 +66,56 @@ public class AccountingDimensionService : DomainService
     }
 
     /// <summary>
+    /// Ensures every GL line posting to a Revenue or Expense (P&amp;L) account carries a cost
+    /// center. Per ERPNext's pl_must_have_cost_center(): this is a fixed, always-on rule — unlike
+    /// the configurable AccountingDimension "mandatory" flag below, it does not depend on any
+    /// company setting and applies to every posting path (there is no repost/PCV bypass in this
+    /// codebase to exempt). Balance Sheet accounts (Asset/Liability/Equity) are exempt — they
+    /// represent company-wide positions, not department-level activity.
+    ///
+    /// A line missing a cost center is auto-filled from Company.DefaultCostCenterId first — matches
+    /// ERPNext, where every company auto-creates a root cost center and most documents fall back to
+    /// it (Company.cost_center) rather than actually requiring the user to pick one every time. Only
+    /// throws when neither the line nor the company has a cost center to use.
+    /// </summary>
+    public async Task ValidatePlAccountsHaveCostCenterAsync(Guid companyId, IReadOnlyList<JournalEntryLine> lines)
+    {
+        var accountIds = lines.Select(l => l.AccountId).Distinct().ToList();
+        var accountQuery = await _accountRepository.GetQueryableAsync();
+        var accounts = accountQuery.Where(a => accountIds.Contains(a.Id))
+            .Select(a => new { a.Id, a.AccountType, a.AccountName })
+            .ToDictionary(a => a.Id);
+
+        Guid? defaultCostCenterId = null;
+        var needsDefault = lines.Any(l => !l.CostCenterId.HasValue
+            && accounts.TryGetValue(l.AccountId, out var acc)
+            && acc.AccountType is AccountType.Revenue or AccountType.Expense);
+        if (needsDefault)
+        {
+            var company = await _companyRepository.FindAsync(companyId);
+            defaultCostCenterId = company?.DefaultCostCenterId;
+        }
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.CostCenterId.HasValue) continue;
+            if (!accounts.TryGetValue(line.AccountId, out var account)) continue;
+            if (account.AccountType is not (AccountType.Revenue or AccountType.Expense)) continue;
+
+            if (defaultCostCenterId.HasValue)
+            {
+                line.CostCenterId = defaultCostCenterId;
+                continue;
+            }
+
+            throw new BusinessException(MyERPDomainErrorCodes.CostCenterRequiredForPlAccount)
+                .WithData("accountName", account.AccountName)
+                .WithData("lineIndex", i + 1);
+        }
+    }
+
+    /// <summary>
     /// Validates that all mandatory dimensions are set on GL entry lines.
     /// Called before JournalEntry.Post() in the DocumentPostingOrchestrator.
     /// 
@@ -70,6 +127,8 @@ public class AccountingDimensionService : DomainService
         IReadOnlyList<JournalEntryLine> lines,
         IReadOnlyList<GlDimensionValue>? dimensionValues = null)
     {
+        await ValidatePlAccountsHaveCostCenterAsync(companyId, lines);
+
         var mandatoryDimensions = await GetMandatoryDimensionsAsync(companyId);
         if (!mandatoryDimensions.Any()) return;
 

@@ -17,6 +17,8 @@ public class AccountingDimensionServiceTests
     private readonly IRepository<AccountingDimension, Guid> _dimensionRepo;
     private readonly IRepository<AccountingDimensionFilter, Guid> _filterRepo;
     private readonly IRepository<GlDimensionValue, Guid> _glDimValueRepo;
+    private readonly IRepository<Account, Guid> _accountRepo;
+    private readonly IRepository<MyERP.Core.Entities.Company, Guid> _companyRepo;
     private readonly AccountingDimensionService _service;
 
     public AccountingDimensionServiceTests()
@@ -24,8 +26,16 @@ public class AccountingDimensionServiceTests
         _dimensionRepo = Substitute.For<IRepository<AccountingDimension, Guid>>();
         _filterRepo = Substitute.For<IRepository<AccountingDimensionFilter, Guid>>();
         _glDimValueRepo = Substitute.For<IRepository<GlDimensionValue, Guid>>();
-        _service = new AccountingDimensionService(_dimensionRepo, _filterRepo, _glDimValueRepo);
+        _accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        _accountRepo.GetQueryableAsync().Returns(new List<Account>().AsQueryable());
+        _companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        _companyRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns((MyERP.Core.Entities.Company?)null);
+        _service = new AccountingDimensionService(_dimensionRepo, _filterRepo, _glDimValueRepo, _accountRepo, _companyRepo);
     }
+
+    private static Account MakeAccount(Guid id, AccountType type) =>
+        new Account(id, Guid.NewGuid(), "1000", "Test Account", type);
 
     [Fact]
     public async Task GetEnabledDimensions_ReturnsGlobalAndCompanySpecific()
@@ -258,5 +268,94 @@ public class AccountingDimensionServiceTests
             _service.ValidateMandatoryDimensionsAsync(companyId, lines, dimValues));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.MandatoryDimensionMissing);
+    }
+
+    [Fact]
+    public async Task ValidatePlAccountsHaveCostCenter_ExpenseAccountNoCostCenterNoCompanyDefault_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var expenseAccount = MakeAccount(accountId, AccountType.Expense);
+        _accountRepo.GetQueryableAsync().Returns(new List<Account> { expenseAccount }.AsQueryable());
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), accountId, 100m, true);
+        var lines = new List<JournalEntryLine> { line };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            _service.ValidatePlAccountsHaveCostCenterAsync(companyId, lines));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.CostCenterRequiredForPlAccount);
+    }
+
+    [Fact]
+    public async Task ValidatePlAccountsHaveCostCenter_ExpenseAccountNoCostCenterButCompanyDefault_AutoFillsAndPasses()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var defaultCostCenterId = Guid.NewGuid();
+        var expenseAccount = MakeAccount(accountId, AccountType.Expense);
+        _accountRepo.GetQueryableAsync().Returns(new List<Account> { expenseAccount }.AsQueryable());
+
+        var company = new MyERP.Core.Entities.Company(companyId, "Test Co")
+        {
+            DefaultCostCenterId = defaultCostCenterId,
+        };
+        _companyRepo.FindAsync(companyId, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(company);
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), accountId, 100m, true);
+        var lines = new List<JournalEntryLine> { line };
+
+        await _service.ValidatePlAccountsHaveCostCenterAsync(companyId, lines);
+
+        line.CostCenterId.ShouldBe(defaultCostCenterId);
+    }
+
+    [Fact]
+    public async Task ValidatePlAccountsHaveCostCenter_RevenueAccountWithCostCenter_Passes()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var revenueAccount = MakeAccount(accountId, AccountType.Revenue);
+        _accountRepo.GetQueryableAsync().Returns(new List<Account> { revenueAccount }.AsQueryable());
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), accountId, 100m, false);
+        line.CostCenterId = Guid.NewGuid();
+        var lines = new List<JournalEntryLine> { line };
+
+        await _service.ValidatePlAccountsHaveCostCenterAsync(companyId, lines);
+    }
+
+    [Fact]
+    public async Task ValidatePlAccountsHaveCostCenter_BalanceSheetAccountNoCostCenter_Passes()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var assetAccount = MakeAccount(accountId, AccountType.Asset);
+        _accountRepo.GetQueryableAsync().Returns(new List<Account> { assetAccount }.AsQueryable());
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), accountId, 100m, true);
+        var lines = new List<JournalEntryLine> { line };
+
+        await _service.ValidatePlAccountsHaveCostCenterAsync(companyId, lines);
+    }
+
+    [Fact]
+    public async Task ValidateMandatoryDimensions_AlsoEnforcesPlCostCenter()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var expenseAccount = MakeAccount(accountId, AccountType.Expense);
+        _accountRepo.GetQueryableAsync().Returns(new List<Account> { expenseAccount }.AsQueryable());
+        _dimensionRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<AccountingDimension, bool>>>())
+            .Returns(new List<AccountingDimension>());
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), accountId, 100m, true);
+        var lines = new List<JournalEntryLine> { line };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            _service.ValidateMandatoryDimensionsAsync(companyId, lines, null));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.CostCenterRequiredForPlAccount);
     }
 }

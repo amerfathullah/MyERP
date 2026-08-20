@@ -6,8 +6,9 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import type { CompanyDto } from '../../proxy/core/models';
-import type { AccountDto } from '../../proxy/accounting/models';
+import type { AccountDto, CostCenterDto } from '../../proxy/accounting/models';
 import { ValuationMethod } from '../../proxy/inventory/valuation-method.enum';
 
 @Component({
@@ -21,10 +22,12 @@ export class CompanySettingsComponent implements OnInit {
   private fb = inject(FormBuilder);
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
+  private costCenterService = inject(CostCenterService);
   private toaster = inject(ToasterService);
 
   companies = signal<CompanyDto[]>([]);
   accounts = signal<AccountDto[]>([]);
+  costCenters = signal<CostCenterDto[]>([]);
   selectedCompany = signal<CompanyDto | null>(null);
   isLoading = signal(false);
 
@@ -46,6 +49,7 @@ export class CompanySettingsComponent implements OnInit {
     depreciationExpenseAccountId: [''],
     accumulatedDepreciationAccountId: [''],
     exchangeGainLossAccountId: [''],
+    defaultCostCenterId: [''],
   });
 
   ngOnInit(): void {
@@ -76,10 +80,13 @@ export class CompanySettingsComponent implements OnInit {
       depreciationExpenseAccountId: company.depreciationExpenseAccountId ?? '',
       accumulatedDepreciationAccountId: company.accumulatedDepreciationAccountId ?? '',
       exchangeGainLossAccountId: company.exchangeGainLossAccountId ?? '',
+      defaultCostCenterId: company.defaultCostCenterId ?? '',
     });
-    // Load accounts for this company
+    // Load accounts and cost centers for this company
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
       .subscribe(res => this.accounts.set(res.items ?? []));
+    this.costCenterService.getList({ companyId, skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
+      .subscribe(res => this.costCenters.set(res.items ?? []));
   }
 
   save(): void {

@@ -142,6 +142,7 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;
+  defaultCostCenterId?: string | null;
 }
 
 export interface CompanyRestrictionDto {
@@ -326,6 +327,7 @@ export interface CreateUpdateCompanyDto {
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
+  defaultCostCenterId?: string | null;
 }
 
 export interface CustomerPerformanceDto {
@@ -851,6 +853,7 @@ export interface UpdateCompanySettingsDto {
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;
+  defaultCostCenterId?: string | null;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
   defaultWipWarehouseId?: string | null;
