@@ -108,6 +108,18 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Validate source and target warehouses cannot be identical (gotcha #6179)
+        foreach (var item in _items)
+        {
+            if (item.SourceWarehouseId.HasValue && item.TargetWarehouseId.HasValue
+                && item.SourceWarehouseId.Value == item.TargetWarehouseId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Source Warehouse and Target Warehouse cannot be the same.");
+            }
+        }
+
         Status = DocumentStatus.Submitted;
     }
 

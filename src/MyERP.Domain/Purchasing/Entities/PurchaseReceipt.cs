@@ -135,6 +135,31 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        // Validate from_warehouse and UOM conversion factor per ERPNext buying/stock controller
+        foreach (var item in _items)
+        {
+            // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
+            if (!string.IsNullOrEmpty(item.Uom) && !string.IsNullOrEmpty(item.StockUom)
+                && string.Equals(item.Uom, item.StockUom, StringComparison.OrdinalIgnoreCase)
+                && item.ConversionFactor != 1.0m)
+            {
+                item.ConversionFactor = 1.0m;
+            }
+
+            // From Warehouse validation (gotcha #6179)
+            if (item.FromWarehouseId.HasValue)
+            {
+                if (IsSubcontracted)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "From Warehouse cannot be set for subcontracted receipts.");
+
+                var targetWarehouse = item.WarehouseId ?? WarehouseId;
+                if (item.FromWarehouseId.Value == targetWarehouse)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "From Warehouse and Target Warehouse cannot be the same.");
+            }
+        }
+
         Status = DocumentStatus.Submitted;
     }
 

@@ -37,6 +37,12 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Purchase Receipt item (for receipt-to-bill traceability).</summary>
     public Guid? PurchaseReceiptItemId { get; set; }
 
+    /// <summary>Source warehouse for internal transfer (when UpdateStock=true).</summary>
+    public Guid? FromWarehouseId { get; set; }
+
+    /// <summary>Target warehouse (when UpdateStock=true).</summary>
+    public Guid? WarehouseId { get; set; }
+
     // --- Deferred Expense fields (mirrors SI deferred revenue) ---
     private bool _enableDeferredExpense;
     /// <summary>When true, expense is recognized over the service period (not at invoice post).</summary>

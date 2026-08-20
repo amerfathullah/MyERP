@@ -186,4 +186,58 @@ public class UpstreamPR57140And57571Tests
         Assert.NotNull(company.DefaultFgWarehouseId);
         Assert.NotNull(company.DefaultScrapWarehouseId);
     }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_AutoCorrects_ConversionFactor_When_Uom_Matches_StockUom()
+    {
+        var whId = Guid.NewGuid();
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), whId, "PR-001", DateTime.UtcNow);
+        pr.AddItem(Guid.NewGuid(), "Item A", 10, 50, 0, "Nos");
+        var item = pr.Items.First();
+        item.StockUom = "Nos";
+        item.ConversionFactor = 100m; // Accidental bad value
+
+        pr.Submit();
+
+        Assert.Equal(1.0m, item.ConversionFactor);
+        Assert.Equal(10m, item.StockQty);
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_Throws_When_FromWarehouse_Equals_TargetWarehouse()
+    {
+        var whId = Guid.NewGuid();
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), whId, "PR-002", DateTime.UtcNow);
+        pr.AddItem(Guid.NewGuid(), "Item B", 10, 50, 0);
+        var item = pr.Items.First();
+        item.FromWarehouseId = whId; // Same as header TargetWarehouse!
+
+        var ex = Assert.Throws<BusinessException>(() => pr.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_Throws_When_FromWarehouse_Set_On_Subcontracted()
+    {
+        var whId = Guid.NewGuid();
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), whId, "PR-003", DateTime.UtcNow);
+        pr.IsSubcontracted = true;
+        pr.AddItem(Guid.NewGuid(), "Subcontracted Item", 10, 50, 0);
+        var item = pr.Items.First();
+        item.FromWarehouseId = Guid.NewGuid(); // Forbidden on subcontracted
+
+        var ex = Assert.Throws<BusinessException>(() => pr.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public void StockEntry_Submit_Throws_When_SourceWarehouse_Equals_TargetWarehouse()
+    {
+        var se = new MyERP.Inventory.Entities.StockEntry(Guid.NewGuid(), Guid.NewGuid(), MyERP.Inventory.StockEntryType.MaterialTransfer, DateTime.UtcNow);
+        var whId = Guid.NewGuid();
+        se.AddItem(Guid.NewGuid(), 5, whId, whId); // Same source and target
+
+        var ex = Assert.Throws<BusinessException>(() => se.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
 }
