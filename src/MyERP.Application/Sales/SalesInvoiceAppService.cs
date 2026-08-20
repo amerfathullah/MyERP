@@ -1110,6 +1110,22 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.Cancel();
 
+        // Auto-cancel linked system-generated Credit Note Journal Entries (gotcha #3909)
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
+        var linkedJes = await jeRepo.GetListAsync(j =>
+            j.ReferenceType == "SalesInvoice"
+            && j.ReferenceId == invoice.Id
+            && j.VoucherType == Accounting.JournalEntryVoucherType.CreditNote
+            && j.Status == Core.DocumentStatus.Posted);
+
+        foreach (var je in linkedJes)
+        {
+            je.Cancel();
+            await _postingOrchestrator.ReversePleForDocumentAsync("JournalEntry", je.Id);
+            await _postingOrchestrator.ReverseGlForDocumentAsync("JournalEntry", je.Id);
+            await jeRepo.UpdateAsync(je, autoSave: true);
+        }
+
         // Reverse PLE entries + reverse the posted GL Journal Entry
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", invoice.Id);

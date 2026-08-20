@@ -1071,6 +1071,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.Cancel();
 
+        // Auto-cancel linked system-generated Debit Note Journal Entries (gotcha #3909)
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
+        var linkedJes = await jeRepo.GetListAsync(j =>
+            j.ReferenceType == "PurchaseInvoice"
+            && j.ReferenceId == invoice.Id
+            && j.VoucherType == Accounting.JournalEntryVoucherType.DebitNote
+            && j.Status == Core.DocumentStatus.Posted);
+
+        foreach (var je in linkedJes)
+        {
+            je.Cancel();
+            await _postingOrchestrator.ReversePleForDocumentAsync("JournalEntry", je.Id);
+            await _postingOrchestrator.ReverseGlForDocumentAsync("JournalEntry", je.Id);
+            await jeRepo.UpdateAsync(je, autoSave: true);
+        }
+
         // Reverse PLE entries
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseInvoice", invoice.Id);
