@@ -1165,6 +1165,23 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Reverse DN BilledQty (domain service)
         await _invoiceManager.UpdateLinkedDeliveryNoteBillingAsync(invoice, reverse: true);
 
+        // Unlink billed timesheet entries (gotcha #2247)
+        var tsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Timesheet, Guid>>();
+        var tsList = await tsRepo.GetListAsync(t => t.Details.Any(d => d.SalesInvoiceId == invoice.Id), includeDetails: true);
+        foreach (var ts in tsList)
+        {
+            var modified = false;
+            foreach (var detail in ts.Details.Where(d => d.SalesInvoiceId == invoice.Id))
+            {
+                detail.SalesInvoiceId = null;
+                modified = true;
+            }
+            if (modified)
+            {
+                await tsRepo.UpdateAsync(ts);
+            }
+        }
+
         await _repository.UpdateAsync(invoice, autoSave: true);
 
         // Audit trail

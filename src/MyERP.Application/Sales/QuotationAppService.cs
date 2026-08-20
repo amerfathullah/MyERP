@@ -139,6 +139,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     [Authorize(MyERPPermissions.Quotations.Create)]
     public async Task<QuotationDto> CreateAsync(CreateQuotationDto input)
     {
+        // Per gotcha #2145: ValidUntil cannot precede IssueDate
+        if (input.ValidUntil.HasValue && input.ValidUntil.Value.Date < input.IssueDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Valid Until date cannot be earlier than Issue Date.");
+        }
+
         var quotationNumber = await _numberGenerator.GenerateAsync("Quotation", input.CompanyId);
 
         var quotation = new Quotation(
@@ -174,6 +181,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         if (quotation.Status != Core.DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per gotcha #2145: ValidUntil cannot precede IssueDate
+        if (input.ValidUntil.HasValue && input.ValidUntil.Value.Date < quotation.IssueDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Valid Until date cannot be earlier than Issue Date.");
+        }
 
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;
