@@ -145,6 +145,17 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (input.PostingDate == default)
             input.PostingDate = DateTime.UtcNow.Date;
 
+        // Per gotcha #197: Receive type cannot have net negative allocation for Customer
+        if (input.PaymentType == PaymentType.Receive && string.Equals(input.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+        {
+            var totalAllocated = input.References?.Sum(r => r.AllocatedAmount) ?? 0;
+            if (input.References != null && input.References.Count > 0 && totalAllocated < 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot create Receive Payment Entry with net negative allocated amount for Customer. Use Pay payment type for customer refunds.");
+            }
+        }
+
         var paymentNumber = await _numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId);
         var pe = new PaymentEntry(
             GuidGenerator.Create(), input.CompanyId, input.PaymentType, input.PostingDate,
