@@ -240,6 +240,59 @@ public class AssetLifecycleManagerTests
         total.ShouldBe(10000m);
     }
 
+    [Fact]
+    public void DepreciationSchedule_Regenerate_PreservesBookedRows()
+    {
+        var asset = CreateAsset(purchaseAmount: 12000);
+        asset.CalculateDepreciation = true;
+        asset.DepreciationMethod = DepreciationMethod.StraightLine;
+        asset.UsefulLifeMonths = 60; // 5 years
+        asset.FrequencyMonths = 12;  // Annual = 5 periods
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+
+        asset.GenerateDepreciationSchedule();
+        var firstPeriod = asset.DepreciationSchedule[0];
+        var bookedJournalEntryId = Guid.NewGuid();
+        firstPeriod.Book(bookedJournalEntryId);
+
+        // Simulate a repair capitalization / value adjustment triggering regeneration
+        // on an asset that already has a posted period.
+        asset.GenerateDepreciationSchedule();
+
+        // The booked row must survive unchanged — same id, same amount, still linked to its JE.
+        asset.DepreciationSchedule.ShouldContain(e => e.Id == firstPeriod.Id && e.IsBooked
+            && e.JournalEntryId == bookedJournalEntryId && e.DepreciationAmount == firstPeriod.DepreciationAmount);
+
+        // Exactly one row per period still — no duplicate unbooked row for the already-booked period.
+        asset.DepreciationSchedule.Count(e => e.ScheduleDate == firstPeriod.ScheduleDate).ShouldBe(1);
+        asset.DepreciationSchedule.Count.ShouldBe(5);
+    }
+
+    [Fact]
+    public void DepreciationSchedule_Regenerate_AfterCapitalization_ExtendsRemainingPeriods()
+    {
+        var asset = CreateAsset(purchaseAmount: 12000);
+        asset.CalculateDepreciation = true;
+        asset.DepreciationMethod = DepreciationMethod.StraightLine;
+        asset.UsefulLifeMonths = 60; // 5 years
+        asset.FrequencyMonths = 12;
+        asset.AvailableForUseDate = new DateTime(2026, 1, 1);
+
+        asset.GenerateDepreciationSchedule();
+        asset.DepreciationSchedule[0].Book(Guid.NewGuid());
+        var bookedAmount = asset.DepreciationSchedule[0].DepreciationAmount;
+
+        // Repair capitalization adds cost and regenerates — booked period 1 must be untouched,
+        // remaining 4 periods rebuilt against the new total cost basis.
+        asset.ApplyRepairCapitalization(additionalCost: 3000, increaseInUsefulLifeMonths: 0);
+
+        asset.DepreciationSchedule.Count.ShouldBe(5);
+        asset.DepreciationSchedule[0].IsBooked.ShouldBeTrue();
+        asset.DepreciationSchedule[0].DepreciationAmount.ShouldBe(bookedAmount);
+        var totalDepreciation = asset.DepreciationSchedule.Sum(e => e.DepreciationAmount);
+        totalDepreciation.ShouldBe(15000m); // 12000 original + 3000 capitalized
+    }
+
     private static Asset CreateAsset(decimal purchaseAmount = 10000m)
     {
         return new Asset(Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Test Asset",

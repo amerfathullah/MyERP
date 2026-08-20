@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -134,32 +135,44 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = AssetStatus.Cancelled;
     }
 
+    /// <summary>
+    /// (Re)generates the depreciation schedule. Preserves already-booked (GL-posted) rows —
+    /// only unbooked rows are cleared and rebuilt. Regenerating the whole schedule from
+    /// scratch would silently recreate fresh, unbooked duplicates of periods whose Journal
+    /// Entry already exists, causing the depreciation scheduler to double-post them.
+    /// Called both on first schedule creation (no booked rows yet) and incrementally by
+    /// <see cref="ApplyRepairCapitalization"/>/<see cref="ApplyValueAdjustment"/> on assets
+    /// that may already be Submitted/PartiallyDepreciated with real posted history.
+    /// </summary>
     public void GenerateDepreciationSchedule()
     {
         if (!CalculateDepreciation || UsefulLifeMonths <= 0) return;
 
-        DepreciationSchedule.Clear();
+        var bookedEntries = DepreciationSchedule.Where(e => e.IsBooked).OrderBy(e => e.ScheduleDate).ToList();
+        DepreciationSchedule.RemoveAll(e => !e.IsBooked);
+
         var startDate = AvailableForUseDate ?? PurchaseDate;
         var depreciableAmount = TotalAssetCost - OpeningAccumulatedDepreciation;
-        var periods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
-        if (periods <= 0) return;
+        var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
+        if (totalPeriods <= 0) return;
 
-        var accumulated = OpeningAccumulatedDepreciation;
-        var bookValue = depreciableAmount;
+        var bookedCount = bookedEntries.Count;
+        var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
+        var bookValue = TotalAssetCost - accumulated;
 
-        for (int i = 0; i < periods; i++)
+        for (int i = bookedCount; i < totalPeriods; i++)
         {
             var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
             decimal amount;
 
-            if (i == periods - 1)
+            if (i == totalPeriods - 1)
             {
                 // Final period absorbs rounding difference so book value reaches zero exactly
                 amount = Math.Max(bookValue, 0);
             }
             else
             {
-                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, periods, i);
+                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i);
                 amount = Math.Min(amount, bookValue); // never exceed remaining book value
             }
 
