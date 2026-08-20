@@ -407,6 +407,28 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
             var bundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
 
+            // Stock Reservation Entry warehouse validation — must run BEFORE the stock-out loop
+            // below, since it resolves/corrects item.WarehouseId and everything after this point
+            // (SLE, Bin, and the SRE consumption further down) reads that field. Per ERPNext
+            // validate_against_stock_reservation_entries: auto-set from the reserved warehouse
+            // when the DN item's own warehouse is unset; hard error when it's set but doesn't
+            // match any reservation for that item — delivering from the wrong warehouse would
+            // otherwise silently strand the reservation (ConsumeOnDeliveryAsync filters by
+            // warehouse, so a mismatched delivery consumes nothing).
+            if (dn.SalesOrderId.HasValue)
+            {
+                var sreManagerForWarehouse = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                foreach (var item in dn.Items)
+                {
+                    var resolvedWarehouseId = await sreManagerForWarehouse.ValidateOrResolveWarehouseAsync(
+                        item.ItemId, dn.SalesOrderId.Value, item.WarehouseId ?? dn.WarehouseId);
+                    if (resolvedWarehouseId.HasValue)
+                    {
+                        item.WarehouseId = resolvedWarehouseId;
+                    }
+                }
+            }
+
             // Identify which DN items are bundles
             var allItemIds = dn.Items.Select(i => i.ItemId).Distinct();
             var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds);

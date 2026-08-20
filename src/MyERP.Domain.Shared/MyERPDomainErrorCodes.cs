@@ -173,6 +173,7 @@ public static class MyERPDomainErrorCodes
     public const string SupplierQuotationHasNoItems = "MyERP:04037"; // was hardcoded "MyERP:04017" (collided with DropShipQtyReductionExceeded)
     public const string PurchaseInvoiceOnHold = "MyERP:04038";
     public const string ReleaseDateMustBeFuture = "MyERP:04039";
+    public const string DeliveryWarehouseNotReserved = "MyERP:05058";
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
 
     // Timesheet Billing

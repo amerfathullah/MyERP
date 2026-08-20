@@ -126,6 +126,45 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Validates a Delivery Note item's warehouse against active reservations for its SO item,
+    /// auto-resolving it when unset. Per ERPNext validate_against_stock_reservation_entries:
+    /// no-op when the item has no active reservations at all (nothing to fulfil against);
+    /// auto-set from the first reserved warehouse when the DN item's own warehouse is unset;
+    /// hard error when the DN item's warehouse is set but doesn't match ANY reserved warehouse
+    /// for that item — delivering from the wrong warehouse would silently strand the
+    /// reservation (ConsumeOnDeliveryAsync filters by warehouse, so a mismatched delivery
+    /// consumes nothing, leaving the reservation dangling until the auto-cancel job clears it).
+    /// Returns the resolved warehouse id: the reserved one when the DN item had none set, the
+    /// validated existing one when it matches a reservation, or null unchanged when the item has
+    /// no active reservations at all (nothing for this method to validate or resolve — a
+    /// separately-enforced "warehouse required for stock items" rule owns that case).
+    /// </summary>
+    public async Task<Guid?> ValidateOrResolveWarehouseAsync(Guid itemId, Guid salesOrderId, Guid? currentWarehouseId)
+    {
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var reservedWarehouseIds = queryable
+            .Where(s => s.ItemId == itemId
+                && s.VoucherId == salesOrderId
+                && s.Status == DocumentStatus.Submitted)
+            .Select(s => s.WarehouseId)
+            .Distinct()
+            .ToList();
+
+        if (reservedWarehouseIds.Count == 0)
+            return currentWarehouseId;
+
+        if (!currentWarehouseId.HasValue)
+            return reservedWarehouseIds[0];
+
+        if (!reservedWarehouseIds.Contains(currentWarehouseId.Value))
+            throw new BusinessException(MyERPDomainErrorCodes.DeliveryWarehouseNotReserved)
+                .WithData("itemId", itemId)
+                .WithData("warehouseId", currentWarehouseId.Value);
+
+        return currentWarehouseId.Value;
+    }
+
+    /// <summary>
     /// Gets total reserved qty for an item+warehouse across all active SREs.
     /// </summary>
     public async Task<decimal> GetReservedQtyAsync(Guid itemId, Guid warehouseId)
