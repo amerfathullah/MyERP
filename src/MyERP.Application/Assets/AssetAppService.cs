@@ -178,14 +178,22 @@ public class AssetAppService : ApplicationService, IAssetAppService
     }
 
     [Authorize(MyERPPermissions.Assets.Edit)]
-    public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount)
+    public async Task<AssetDto> SellAsync(Guid id, DateTime disposalDate, decimal amount, Guid settlementAccountId)
     {
         var asset = await _assetRepository.GetAsync(id);
 
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
         var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
+        var preDisposalValue = asset.ValueAfterDepreciation;
 
         asset.Sell(disposalDate, amount);
+
+        // Remove the asset from the books: CR Fixed Asset, DR Accumulated Depreciation,
+        // DR settlement account for proceeds, DR/CR Disposal Account for gain/loss.
+        // Without this, a sold asset's cost/accumulated-depreciation stayed on the balance
+        // sheet forever and the gain/loss on sale never hit the P&L.
+        await lifecycleManager.PostDisposalJournalEntryAsync(asset, amount, preDisposalValue, settlementAccountId);
+
         await _assetRepository.UpdateAsync(asset);
 
         var activity = new AssetActivity(
@@ -211,8 +219,14 @@ public class AssetAppService : ApplicationService, IAssetAppService
 
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Assets.DomainServices.AssetLifecycleManager>();
         var gainLoss = lifecycleManager.CalculateDisposalGainLoss(asset);
+        var preDisposalValue = asset.ValueAfterDepreciation;
 
         asset.Scrap(disposalDate);
+
+        // Remove the asset from the books: CR Fixed Asset, DR Accumulated Depreciation,
+        // DR Disposal Account for the full remaining book value (scrap proceeds are always 0).
+        await lifecycleManager.PostDisposalJournalEntryAsync(asset, 0, preDisposalValue, settlementAccountId: null);
+
         await _assetRepository.UpdateAsync(asset);
 
         var activity = new AssetActivity(

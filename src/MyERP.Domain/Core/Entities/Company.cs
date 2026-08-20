@@ -81,6 +81,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     /// <summary>Exchange gain/loss account (multi-currency).</summary>
     public Guid? ExchangeGainLossAccountId { get; set; }
+    /// <summary>Gain/loss on fixed asset disposal (sale or scrap). Per ERPNext: Company.disposal_account.</summary>
+    public Guid? DisposalAccountId { get; set; }
 
     // --- Advance Payment Settings (per ERPNext gotcha #205) ---
 

@@ -167,6 +167,7 @@ public static class MyERPDomainErrorCodes
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";
     public const string AssetMissingRequiredField = "MyERP:15002";
+    public const string AssetDisposalAccountMissing = "MyERP:15003";
 
     // Accounting — Additional
     public const string AccountCannotBeDeleted = "MyERP:02013";

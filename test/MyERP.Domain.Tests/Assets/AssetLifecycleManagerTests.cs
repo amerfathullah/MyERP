@@ -1,7 +1,12 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Assets.Entities;
+using MyERP.Core.Entities;
+using NSubstitute;
 using Shouldly;
+using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Assets;
@@ -16,7 +21,7 @@ public class AssetLifecycleManagerTests
         asset.ValueAfterDepreciation = 4000; // Depreciated to 4000
         asset.Sell(DateTime.UtcNow, 6000); // Sold for 6000
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var gainLoss = manager.CalculateDisposalGainLoss(asset);
 
         gainLoss.ShouldBe(2000m); // 6000 - 4000 = 2000 gain
@@ -30,7 +35,7 @@ public class AssetLifecycleManagerTests
         asset.ValueAfterDepreciation = 7000;
         asset.Sell(DateTime.UtcNow, 5000);
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var gainLoss = manager.CalculateDisposalGainLoss(asset);
 
         gainLoss.ShouldBe(-2000m); // 5000 - 7000 = -2000 loss
@@ -44,7 +49,7 @@ public class AssetLifecycleManagerTests
         asset.ValueAfterDepreciation = 5000;
         asset.Sell(DateTime.UtcNow, 5000);
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         manager.CalculateDisposalGainLoss(asset).ShouldBe(0);
     }
 
@@ -56,10 +61,59 @@ public class AssetLifecycleManagerTests
         asset.ValueAfterDepreciation = 3000;
         asset.Scrap(DateTime.UtcNow); // DisposalAmount = 0
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var gainLoss = manager.CalculateDisposalGainLoss(asset);
 
         gainLoss.ShouldBe(-3000m); // 0 - 3000 = -3000 loss
+    }
+
+    [Fact]
+    public async Task PostDisposalJournalEntry_SaleWithoutSettlementAccount_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        asset.Sell(DateTime.UtcNow, 6000);
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
+
+        await Should.ThrowAsync<BusinessException>(
+            () => manager.PostDisposalJournalEntryAsync(asset, disposalAmount: 6000, preDisposalValueAfterDepreciation: 4000, settlementAccountId: null));
+    }
+
+    [Fact]
+    public async Task PostDisposalJournalEntry_NoAssetCategory_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        asset.Scrap(DateTime.UtcNow);
+        // AssetCategoryId left unset (null) — nothing to resolve accounts from.
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
+
+        await Should.ThrowAsync<BusinessException>(
+            () => manager.PostDisposalJournalEntryAsync(asset, disposalAmount: 0, preDisposalValueAfterDepreciation: 3000, settlementAccountId: null));
+    }
+
+    [Fact]
+    public async Task PostDisposalJournalEntry_CategoryHasNoAccountsForCompany_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        var categoryId = Guid.NewGuid();
+        asset.AssetCategoryId = categoryId;
+        asset.Submit();
+        asset.Scrap(DateTime.UtcNow);
+
+        var category = new AssetCategory(categoryId, "Test Category");
+        // No AddAccount() call for asset.CompanyId — GetAccountForCompany() returns null.
+
+        var categoryRepo = Substitute.For<IRepository<AssetCategory, Guid>>();
+        categoryRepo.FindAsync(categoryId, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(category);
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, categoryRepo, null!, null!, null!, null!);
+
+        await Should.ThrowAsync<BusinessException>(
+            () => manager.PostDisposalJournalEntryAsync(asset, disposalAmount: 0, preDisposalValueAfterDepreciation: 3000, settlementAccountId: null));
     }
 
     [Fact]
@@ -68,7 +122,7 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset();
         asset.MarkFullyDepreciated();
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var (canCapitalize, canExtendLife) = manager.GetRepairOptions(asset);
 
         canCapitalize.ShouldBeFalse();
@@ -82,7 +136,7 @@ public class AssetLifecycleManagerTests
         asset.Submit();
         asset.MarkPartiallyDepreciated();
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var (canCapitalize, canExtendLife) = manager.GetRepairOptions(asset);
 
         canCapitalize.ShouldBeTrue();
@@ -95,7 +149,7 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset();
         asset.Submit();
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         var (canCapitalize, canExtendLife) = manager.GetRepairOptions(asset);
 
         canCapitalize.ShouldBeTrue();
@@ -110,7 +164,7 @@ public class AssetLifecycleManagerTests
         asset.UsefulLifeMonths = 0;
         asset.AvailableForUseDate = DateTime.UtcNow;
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         Should.Throw<Volo.Abp.BusinessException>(() =>
             manager.ValidateForSubmission(asset));
     }
@@ -123,7 +177,7 @@ public class AssetLifecycleManagerTests
         asset.UsefulLifeMonths = 60;
         asset.AvailableForUseDate = null;
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         Should.Throw<Volo.Abp.BusinessException>(() =>
             manager.ValidateForSubmission(asset));
     }
@@ -134,7 +188,7 @@ public class AssetLifecycleManagerTests
         var asset = CreateAsset();
         asset.CalculateDepreciation = false;
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         // Should not throw regardless of other fields
         manager.ValidateForSubmission(asset);
     }
@@ -147,7 +201,7 @@ public class AssetLifecycleManagerTests
         asset.UsefulLifeMonths = 60;
         asset.AvailableForUseDate = DateTime.UtcNow;
 
-        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!);
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
         manager.ValidateForSubmission(asset);
     }
 
