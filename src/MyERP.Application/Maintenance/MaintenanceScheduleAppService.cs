@@ -111,17 +111,34 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
     public async Task<MaintenanceScheduleDto> GenerateScheduleAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        // Generate evenly-spaced visit dates per ERPNext algorithm
+        entity.ClearDetails();
+
+        // Generate evenly-spaced visit dates per ERPNext algorithm with holiday awareness (gotcha #850)
         var dateDiff = (entity.EndDate - entity.StartDate).Days;
         var daysInPeriod = GetDaysInPeriod(entity.Periodicity);
         var noOfVisits = daysInPeriod > 0 ? Math.Max(1, dateDiff / daysInPeriod) : 1;
         var interval = dateDiff / noOfVisits;
+
+        var holidayListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.HolidayList, Guid>>();
+        var holidayLists = await holidayListRepo.GetListAsync(h => h.CompanyId == entity.CompanyId, includeDetails: true);
 
         for (int i = 0; i < noOfVisits; i++)
         {
             var scheduledDate = entity.StartDate.AddDays(i * interval);
             if (scheduledDate > entity.EndDate)
                 scheduledDate = entity.EndDate;
+
+            var holidayList = holidayLists.FirstOrDefault(h => h.Year == scheduledDate.Year)
+                ?? holidayLists.FirstOrDefault(h => h.IsDefault);
+
+            if (holidayList != null)
+            {
+                while (holidayList.IsHoliday(scheduledDate) && scheduledDate < entity.EndDate)
+                {
+                    scheduledDate = scheduledDate.AddDays(1);
+                }
+            }
+
             entity.AddDetail(new MaintenanceScheduleDetail(
                 GuidGenerator.Create(), entity.Id, scheduledDate));
         }

@@ -480,4 +480,30 @@ public class UpstreamPR57140And57571Tests
 
         Assert.Equal("MYCO-INV-202504-00001", number);
     }
+
+    [Fact]
+    public void MaintenanceSchedule_ClearDetails_Clears_Visits()
+    {
+        var schedule = new MyERP.Maintenance.Entities.MaintenanceSchedule(
+            Guid.NewGuid(), Guid.NewGuid(), new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), "Monthly");
+
+        schedule.AddDetail(new MyERP.Maintenance.Entities.MaintenanceScheduleDetail(
+            Guid.NewGuid(), schedule.Id, new DateTime(2026, 2, 1)));
+        Assert.Single(schedule.Details);
+
+        schedule.ClearDetails();
+        Assert.Empty(schedule.Details);
+    }
+
+    [Fact]
+    public void HolidayList_IsHoliday_Checks_Date()
+    {
+        var hl = new MyERP.HumanResources.Entities.HolidayList(
+            Guid.NewGuid(), Guid.NewGuid(), "MY Holidays", 2026);
+        hl.AddHoliday(new MyERP.HumanResources.Entities.Holiday(
+            Guid.NewGuid(), hl.Id, new DateTime(2026, 8, 31), "National Day"));
+
+        Assert.True(hl.IsHoliday(new DateTime(2026, 8, 31)));
+        Assert.False(hl.IsHoliday(new DateTime(2026, 9, 1)));
+    }
 }

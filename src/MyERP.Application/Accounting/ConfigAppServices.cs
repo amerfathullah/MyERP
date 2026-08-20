@@ -52,6 +52,77 @@ public class ModeOfPaymentAppService : ApplicationService, IModeOfPaymentAppServ
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
         return new PagedResultDto<ModeOfPaymentDto>(totalCount, items.Select(ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>).ToList());
     }
+
+    public async Task<ModeOfPaymentDto> GetAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        return ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>(entity);
+    }
+
+    [Authorize(MyERPPermissions.Accounts.Create)]
+    public async Task<ModeOfPaymentDto> CreateAsync(CreateUpdateModeOfPaymentDto input)
+    {
+        var entity = new ModeOfPayment(GuidGenerator.Create(), input.Name, input.Type, CurrentTenant.Id)
+        {
+            IsActive = input.IsActive,
+            DefaultAccountId = input.DefaultAccountId,
+            CompanyId = input.CompanyId
+        };
+        await _repository.InsertAsync(entity, autoSave: true);
+        return ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>(entity);
+    }
+
+    [Authorize(MyERPPermissions.Accounts.Edit)]
+    public async Task<ModeOfPaymentDto> UpdateAsync(Guid id, CreateUpdateModeOfPaymentDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+
+        // Gotcha #1520: Cannot disable Mode of Payment if configured in active POS Profile
+        if (entity.IsActive && !input.IsActive)
+        {
+            var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.PosProfile, Guid>>();
+            var activeProfilesWithMop = (await posProfileRepo.GetListAsync(p => !p.IsDisabled, includeDetails: true))
+                .Where(p => p.PaymentMethods.Any(pm => pm.ModeOfPaymentId == id))
+                .Select(p => p.ProfileName)
+                .ToList();
+
+            if (activeProfilesWithMop.Count > 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("message", $"Cannot disable Mode of Payment '{entity.Name}' as it is configured in active POS Profile(s): {string.Join(", ", activeProfilesWithMop)}");
+            }
+        }
+
+        entity.Name = Volo.Abp.Check.NotNullOrWhiteSpace(input.Name, nameof(input.Name), 100);
+        entity.Type = input.Type;
+        entity.IsActive = input.IsActive;
+        entity.DefaultAccountId = input.DefaultAccountId;
+        entity.CompanyId = input.CompanyId;
+
+        await _repository.UpdateAsync(entity, autoSave: true);
+        return ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>(entity);
+    }
+
+    [Authorize(MyERPPermissions.Accounts.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+
+        // Gotcha #1520: Cannot delete Mode of Payment if configured in active POS Profile
+        var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.PosProfile, Guid>>();
+        var activeProfilesWithMop = (await posProfileRepo.GetListAsync(p => !p.IsDisabled, includeDetails: true))
+            .Where(p => p.PaymentMethods.Any(pm => pm.ModeOfPaymentId == id))
+            .Select(p => p.ProfileName)
+            .ToList();
+
+        if (activeProfilesWithMop.Count > 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Cannot delete Mode of Payment '{entity.Name}' as it is configured in active POS Profile(s): {string.Join(", ", activeProfilesWithMop)}");
+        }
+
+        await _repository.DeleteAsync(entity, autoSave: true);
+    }
 }
 
 // --- UOM Conversion ---

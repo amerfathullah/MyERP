@@ -59,6 +59,11 @@ public class MaintenanceSchedule : FullAuditedAggregateRoot<Guid>, IMultiTenant
         _details.Add(detail);
     }
 
+    public void ClearDetails()
+    {
+        _details.Clear();
+    }
+
     public void Submit()
     {
         if (Status != MaintenanceScheduleStatus.Draft)
