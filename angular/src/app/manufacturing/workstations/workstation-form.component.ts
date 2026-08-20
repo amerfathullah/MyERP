@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { WorkstationTypeService } from '../../proxy/manufacturing/workstation-type.service';
+import type { WorkstationTypeDto } from '../../proxy/manufacturing/models';
 
 @Component({
   selector: 'app-workstation-form', standalone: true,
@@ -19,7 +21,12 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Type' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationType" [placeholder]="'::Placeholder:WorkstationType' | abpLocalization" />
+            <select class="form-select" (ngModelChange)="onWorkstationTypeChange($event)" [(ngModel)]="form.workstationTypeId">
+              <option [ngValue]="null">{{ '::None' | abpLocalization }}</option>
+              @for (t of workstationTypes; track t.id) {
+                <option [ngValue]="t.id">{{ t.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Capacity' | abpLocalization }}</label>
@@ -55,15 +62,21 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
 })
 export class WorkstationFormComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
+  private workstationTypeService = inject(WorkstationTypeService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   saving = false;
   isDirty = false;
   isEdit = false;
   workstationId: string | null = null;
-  form: any = { name: '', workstationType: '', productionCapacity: 1, costs: [{ component: 'Labor', operatingCost: 0 }] };
+  workstationTypes: WorkstationTypeDto[] = [];
+  form: any = { name: '', workstationType: '', workstationTypeId: null, productionCapacity: 1, costs: [{ component: 'Labor', operatingCost: 0 }] };
 
   ngOnInit(): void {
+    this.workstationTypeService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe((res) => {
+      this.workstationTypes = res.items ?? [];
+    });
+
     this.workstationId = this.route.snapshot.paramMap.get('id');
     if (this.workstationId) {
       this.isEdit = true;
@@ -71,11 +84,25 @@ export class WorkstationFormComponent implements OnInit {
         this.form = {
           name: ws.name,
           workstationType: ws.workstationType ?? '',
+          workstationTypeId: ws.workstationTypeId ?? null,
           productionCapacity: ws.productionCapacity ?? 1,
           description: ws.description ?? '',
           costs: (ws.costs ?? []).map(c => ({ component: c.name, operatingCost: c.amount })),
         };
       });
+    }
+  }
+
+  /** Mirrors ERPNext workstation.py: picking a type copies its cost breakdown down
+   * onto this Workstation. The server re-applies this authoritatively on save regardless;
+   * this is just so the preview grid reflects it immediately. */
+  onWorkstationTypeChange(typeId: string | null): void {
+    this.isDirty = true;
+    this.form.workstationTypeId = typeId;
+    const type = this.workstationTypes.find(t => t.id === typeId);
+    if (type) {
+      this.form.workstationType = type.name;
+      this.form.costs = (type.costs ?? []).map(c => ({ component: c.component, operatingCost: c.operatingCost }));
     }
   }
 

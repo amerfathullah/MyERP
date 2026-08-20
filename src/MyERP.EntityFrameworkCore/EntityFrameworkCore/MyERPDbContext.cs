@@ -395,6 +395,8 @@ public class MyERPDbContext :
     public DbSet<Workstation> Workstations { get; set; }
     public DbSet<WorkstationCost> WorkstationCosts { get; set; }
     public DbSet<WorkstationWorkingHour> WorkstationWorkingHours { get; set; }
+    public DbSet<WorkstationType> WorkstationTypes { get; set; }
+    public DbSet<WorkstationTypeCost> WorkstationTypeCosts { get; set; }
     public DbSet<Operation> Operations { get; set; }
     public DbSet<SubOperation> SubOperations { get; set; }
     public DbSet<Routing> Routings { get; set; }
@@ -3034,6 +3036,7 @@ public class MyERPDbContext :
             b.Property(x => x.Description).HasMaxLength(2000);
             b.Property(x => x.HourRate).HasColumnType("decimal(18,2)");
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<WorkstationType>().WithMany().HasForeignKey(x => x.WorkstationTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(x => x.Costs).WithOne().HasForeignKey(x => x.WorkstationId).IsRequired();
             b.Navigation(x => x.Costs).AutoInclude();
             b.HasMany(x => x.WorkingHours).WithOne().HasForeignKey(x => x.WorkstationId).IsRequired();
@@ -3054,6 +3057,27 @@ public class MyERPDbContext :
             b.ToTable("Mfg_WorkstationWorkingHours", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.Day).IsRequired().HasMaxLength(20);
+        });
+
+        // Workstation Type — cost template shared by multiple Workstations
+        builder.Entity<WorkstationType>(b =>
+        {
+            b.ToTable("Mfg_WorkstationTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(2000);
+            b.Property(x => x.HourRate).HasColumnType("decimal(18,2)");
+            b.HasMany(x => x.Costs).WithOne().HasForeignKey(x => x.WorkstationTypeId).IsRequired();
+            b.Navigation(x => x.Costs).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<WorkstationTypeCost>(b =>
+        {
+            b.ToTable("Mfg_WorkstationTypeCosts", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.OperatingComponent).IsRequired().HasMaxLength(100);
+            b.Property(x => x.OperatingCost).HasColumnType("decimal(18,2)");
         });
 
         // Operation

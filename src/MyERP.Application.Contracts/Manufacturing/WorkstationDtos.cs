@@ -10,6 +10,7 @@ public class WorkstationDto : EntityDto<Guid>
 {
     public string Name { get; set; } = null!;
     public string? WorkstationType { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     public int ProductionCapacity { get; set; }
     public decimal HourRate { get; set; }
     public string? Description { get; set; }
@@ -36,6 +37,7 @@ public class CreateWorkstationDto
     public Guid CompanyId { get; set; }
     public string Name { get; set; } = null!;
     public string? WorkstationType { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     public int ProductionCapacity { get; set; } = 1;
     public string? Description { get; set; }
     public CreateWorkstationCostDto[] Costs { get; set; } = [];

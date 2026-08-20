@@ -18,8 +18,13 @@ public class Workstation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string Name { get; set; } = null!;
 
-    /// <summary>Workstation type for grouping/auto-assignment.</summary>
+    /// <summary>Denormalized display name of the linked WorkstationType, if any.</summary>
     public string? WorkstationType { get; set; }
+
+    /// <summary>Optional link to a WorkstationType cost template. Assigning/changing this
+    /// copies the type's operating cost breakdown onto this Workstation (AppService-side,
+    /// mirroring ERPNext workstation.py _set_data_based_on_workstation_type).</summary>
+    public Guid? WorkstationTypeId { get; set; }
 
     /// <summary>Concurrent jobs allowed (default 1).</summary>
     public int ProductionCapacity { get; set; } = 1;

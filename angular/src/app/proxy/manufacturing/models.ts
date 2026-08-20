@@ -604,9 +604,33 @@ export interface CreateWorkstationDto {
   companyId?: string;
   name?: string;
   workstationType?: string | null;
+  workstationTypeId?: string | null;
   productionCapacity?: number;
   description?: string | null;
   costs?: CreateWorkstationCostDto[];
+}
+
+export interface CreateWorkstationTypeCostDto {
+  component?: string;
+  operatingCost?: number;
+}
+
+export interface CreateWorkstationTypeDto {
+  name?: string;
+  description?: string | null;
+  costs?: CreateWorkstationTypeCostDto[];
+}
+
+export interface WorkstationTypeCostDto {
+  component?: string;
+  operatingCost?: number;
+}
+
+export interface WorkstationTypeDto extends EntityDto<string> {
+  name?: string;
+  description?: string | null;
+  hourRate?: number;
+  costs?: WorkstationTypeCostDto[];
 }
 
 export interface CreatedWorkOrderInfo {
@@ -844,6 +868,7 @@ export interface WorkstationCostDto {
 export interface WorkstationDto extends EntityDto<string> {
   name?: string;
   workstationType?: string | null;
+  workstationTypeId?: string | null;
   productionCapacity?: number;
   hourRate?: number;
   description?: string | null;

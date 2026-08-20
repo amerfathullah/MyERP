@@ -213,6 +213,14 @@ public partial class OperationMapper : MapperBase<Manufacturing.Entities.Operati
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class WorkstationTypeMapper : MapperBase<Manufacturing.Entities.WorkstationType, Manufacturing.WorkstationTypeDto>
+{
+    public override partial Manufacturing.WorkstationTypeDto Map(Manufacturing.Entities.WorkstationType source);
+    public override partial void Map(Manufacturing.Entities.WorkstationType source, Manufacturing.WorkstationTypeDto destination);
+    private partial Manufacturing.WorkstationTypeCostDto MapChild(Manufacturing.Entities.WorkstationTypeCost source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class DowntimeEntryMapper : MapperBase<Manufacturing.Entities.DowntimeEntry, Manufacturing.DowntimeEntryDto>
 {
     public override partial Manufacturing.DowntimeEntryDto Map(Manufacturing.Entities.DowntimeEntry source);

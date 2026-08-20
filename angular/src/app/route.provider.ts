@@ -1556,6 +1556,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/workstation-types',
+        name: '::Menu:WorkstationTypes',
+        iconClass: 'fas fa-industry',
+        order: 13,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/job-cards',
         name: '::Menu:JobCards',
         iconClass: 'fas fa-id-card',

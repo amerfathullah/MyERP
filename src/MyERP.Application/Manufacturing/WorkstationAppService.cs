@@ -19,10 +19,12 @@ namespace MyERP.Manufacturing;
 public class WorkstationAppService : ApplicationService, IWorkstationAppService
 {
     private readonly IRepository<Workstation, Guid> _repository;
+    private readonly IRepository<WorkstationType, Guid> _typeRepository;
 
-    public WorkstationAppService(IRepository<Workstation, Guid> repository)
+    public WorkstationAppService(IRepository<Workstation, Guid> repository, IRepository<WorkstationType, Guid> typeRepository)
     {
         _repository = repository;
+        _typeRepository = typeRepository;
     }
 
     public async Task<WorkstationDto> GetAsync(Guid id)
@@ -63,10 +65,19 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         var ws = new Workstation(GuidGenerator.Create(), input.CompanyId, input.Name, CurrentTenant.Id)
         {
             WorkstationType = input.WorkstationType,
+            WorkstationTypeId = input.WorkstationTypeId,
             ProductionCapacity = input.ProductionCapacity,
             Description = input.Description,
         };
-        ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
+
+        var costs = input.Costs.Select(c => (c.Component, c.OperatingCost));
+        if (input.WorkstationTypeId.HasValue)
+        {
+            var type = await _typeRepository.GetAsync(input.WorkstationTypeId.Value);
+            ws.WorkstationType = type.Name;
+            costs = type.Costs.Select(c => (c.OperatingComponent, c.OperatingCost));
+        }
+        ws.ReplaceCosts(costs);
         await _repository.InsertAsync(ws);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -95,12 +106,27 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
 
         var ws = await _repository.GetAsync(id);
         var previousHourRate = ws.HourRate;
+        var typeChanged = ws.WorkstationTypeId != input.WorkstationTypeId;
 
         ws.Name = input.Name;
         ws.WorkstationType = input.WorkstationType;
+        ws.WorkstationTypeId = input.WorkstationTypeId;
         ws.ProductionCapacity = input.ProductionCapacity;
         ws.Description = input.Description;
-        ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
+
+        // Per ERPNext workstation.py: costs are only re-copied from the WorkstationType
+        // when the link itself changes — once assigned, the copy is a local, independently
+        // editable snapshot, not a live binding.
+        if (typeChanged && input.WorkstationTypeId.HasValue)
+        {
+            var type = await _typeRepository.GetAsync(input.WorkstationTypeId.Value);
+            ws.WorkstationType = type.Name;
+            ws.ReplaceCosts(type.Costs.Select(c => (c.OperatingComponent, c.OperatingCost)));
+        }
+        else
+        {
+            ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
+        }
 
         await _repository.UpdateAsync(ws);
 

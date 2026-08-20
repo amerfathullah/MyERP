@@ -2007,6 +2007,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing.Edit' },
   },
   {
+    path: 'manufacturing/workstation-types',
+    loadComponent: () => import('./manufacturing/workstation-types/workstation-type-list.component').then(c => c.WorkstationTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/workstations',
     loadComponent: () => import('./manufacturing/workstations/workstation-list.component').then(c => c.WorkstationListComponent),
     canActivate: [authGuard, permissionGuard],
