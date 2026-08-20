@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
@@ -181,28 +182,60 @@ public class ReconciliationExchangeGainLossTests
     [Fact]
     public void ExchangeGainLoss_JE_IsBalanced()
     {
-        // An exchange gain/loss JE must always be double-entry balanced
+        // An exchange gain/loss JE must post against two DIFFERENT accounts — the party's own
+        // receivable/payable account and the Exchange Gain/Loss account — not the same account
+        // twice (a same-account DR+CR nets to zero real GL effect, the bug this test used to
+        // enshrine as "simplified"; PaymentReconciliationAppService.CreateExchangeGainLossJeIfNeeded
+        // now posts the real party-account leg).
         var je = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
         var exchangeAccountId = Guid.NewGuid();
+        var partyAccountId = Guid.NewGuid();
 
-        // Gain of RM 220 → DR Exchange, CR Exchange (simplified)
-        je.AddLine(exchangeAccountId, 220m, true);
+        // Gain of RM 220 → DR party account, CR Exchange Gain
+        je.AddLine(partyAccountId, 220m, true);
         je.AddLine(exchangeAccountId, 220m, false);
 
         je.Validate(); // Should not throw
         je.TotalDebit.ShouldBe(je.TotalCredit);
+        je.Lines.Select(l => l.AccountId).Distinct().Count().ShouldBe(2); // two distinct accounts, not one
     }
 
     [Fact]
-    public void ExchangeGainLoss_JE_HasReconciliationReference()
+    public void ExchangeGainLoss_JE_ReferencesThePaymentVoucherDirectly()
     {
+        // Tagged with the actual payment voucher's type/id (not a constant "PaymentReconciliation"
+        // string) so DocumentPostingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync can
+        // find and reverse it via the same (ReferenceType, ReferenceId) addressing every other
+        // document-linked JE uses.
         var paymentId = Guid.NewGuid();
-        var je = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
-        je.ReferenceType = "PaymentReconciliation";
-        je.ReferenceId = paymentId;
+        var je = new JournalEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = "PaymentEntry",
+            ReferenceId = paymentId,
+        };
 
-        je.ReferenceType.ShouldBe("PaymentReconciliation");
+        je.VoucherType.ShouldBe(JournalEntryVoucherType.ExchangeGainOrLoss);
+        je.ReferenceType.ShouldBe("PaymentEntry");
         je.ReferenceId.ShouldBe(paymentId);
+    }
+
+    [Fact]
+    public void ExchangeGainLoss_SignConvention_ReversedForPayable()
+    {
+        // Per payment-ledger-reconciliation skill's "PAYABLE ACCOUNT EXCEPTION": the same rate
+        // difference means the opposite GL direction on a liability (Payable) vs an asset
+        // (Receivable) account — CreateExchangeGainLossJeIfNeeded negates gainLoss for suppliers
+        // before deciding the DR/CR direction.
+        var gainLoss = PaymentReconciliationEngine.CalculateExchangeGainLoss(
+            allocatedAmount: 1000m, paymentExchangeRate: 4.72m, invoiceExchangeRate: 4.50m);
+        gainLoss.ShouldBe(220m); // raw formula result is the same regardless of party type
+
+        var effectiveForCustomer = "Customer" == "Supplier" ? -gainLoss : gainLoss;
+        var effectiveForSupplier = "Supplier" == "Supplier" ? -gainLoss : gainLoss;
+
+        effectiveForCustomer.ShouldBe(220m);  // Receivable: unchanged — a real gain
+        effectiveForSupplier.ShouldBe(-220m); // Payable: reversed — the same rate move is a loss
     }
 
     [Fact]

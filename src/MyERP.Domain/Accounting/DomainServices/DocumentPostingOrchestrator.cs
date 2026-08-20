@@ -296,13 +296,37 @@ public class DocumentPostingOrchestrator : DomainService
     public async Task ReverseGlForDocumentAsync(string voucherType, Guid voucherId)
     {
         var query = await _journalRepository.GetQueryableAsync();
+        // Excludes ExchangeGainOrLoss: a Payment Entry can have both its main GL and one or more
+        // per-reference exchange gain/loss JEs sharing the same (ReferenceType, ReferenceId) —
+        // those are reversed separately via ReverseExchangeGainLossJournalEntriesAsync, since an
+        // unreconcile should undo only the FX JE for that allocation, not the payment's main GL.
         var original = query.FirstOrDefault(j =>
             j.ReferenceType == voucherType && j.ReferenceId == voucherId
-            && j.Status == DocumentStatus.Posted && j.VoucherType != JournalEntryVoucherType.Reversal);
+            && j.Status == DocumentStatus.Posted
+            && j.VoucherType != JournalEntryVoucherType.Reversal
+            && j.VoucherType != JournalEntryVoucherType.ExchangeGainOrLoss);
 
         if (original == null) return;
 
         await ReverseJournalEntryAsync(original);
+    }
+
+    /// <summary>
+    /// Reverses every posted exchange gain/loss Journal Entry linked to a document — e.g. the
+    /// per-reference FX JEs a multi-currency Payment Entry posts alongside its main GL. Reverses
+    /// ALL matches (not just the first), unlike <see cref="ReverseGlForDocumentAsync"/>, since a
+    /// single Payment Entry can post one FX JE per allocated reference. No-op if none are posted.
+    /// </summary>
+    public async Task ReverseExchangeGainLossJournalEntriesAsync(string voucherType, Guid voucherId)
+    {
+        var query = await _journalRepository.GetQueryableAsync();
+        var entries = query.Where(j =>
+            j.ReferenceType == voucherType && j.ReferenceId == voucherId
+            && j.Status == DocumentStatus.Posted
+            && j.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss).ToList();
+
+        foreach (var entry in entries)
+            await ReverseJournalEntryAsync(entry);
     }
 
     /// <summary>

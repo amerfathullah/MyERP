@@ -123,7 +123,7 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
                 // Exchange gain/loss JE for multi-currency reconciliation
                 var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeeded(
-                    company, alloc, si.ExchangeRate, input.PartyType, input.PartyId);
+                    company, alloc, si.ExchangeRate, input.PartyType, partyAccount);
             }
             else if (alloc.InvoiceVoucherType == "PurchaseInvoice")
             {
@@ -132,25 +132,29 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
                 // Exchange gain/loss JE for multi-currency reconciliation
                 var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeeded(
-                    company, alloc, pi.ExchangeRate, input.PartyType, input.PartyId);
+                    company, alloc, pi.ExchangeRate, input.PartyType, partyAccount);
             }
         }
     }
 
     /// <summary>
     /// Creates an Exchange Gain/Loss Journal Entry when payment rate != invoice rate.
-    /// Per ERPNext: gain_loss = allocated_amount × (payment_rate - invoice_rate)
-    /// Positive = gain (DR Bank/Party, CR Exchange G/L account)
-    /// Negative = loss (DR Exchange G/L, CR Bank/Party)
+    /// Per ERPNext: gain_loss = allocated_amount × (payment_rate - invoice_rate), with the sign
+    /// reversed for Payable accounts (per payment-ledger-reconciliation skill's "PAYABLE ACCOUNT
+    /// EXCEPTION" — the same rate difference means the opposite GL direction on a liability vs an
+    /// asset account). Posts against the party's own receivable/payable account, not a placeholder —
+    /// this reconciles the invoice's rate against the payment's rate directly, no bank movement
+    /// happens here (unlike Payment Entry submit, which posts against the bank/cash account instead).
     /// </summary>
     private async Task CreateExchangeGainLossJeIfNeeded(
         Company company,
         ReconcileAllocationDto alloc,
         decimal invoiceExchangeRate,
         string partyType,
-        Guid partyId)
+        Guid partyAccountId)
     {
         if (!company.ExchangeGainLossAccountId.HasValue) return;
+        if (partyAccountId == Guid.Empty) return;
 
         // Get payment exchange rate
         decimal paymentExchangeRate = 1m;
@@ -166,6 +170,10 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
 
         if (Math.Abs(gainLoss) < 0.01m) return; // No material difference
 
+        // Payable accounts use the reversed sign convention for reconciliation exchange
+        // differences (a rate increase that's a gain on a receivable is a loss on a payable).
+        var effectiveGainLoss = partyType == "Supplier" ? -gainLoss : gainLoss;
+
         // Resolve fiscal year
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
         var fy = fyQuery.FirstOrDefault(f =>
@@ -173,32 +181,34 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
 
         if (fy == null) return; // Cannot post without fiscal year
 
-        // Create Exchange Gain/Loss JE
+        // Create Exchange Gain/Loss JE — tagged with the actual payment voucher's type/id (not a
+        // constant), so DocumentPostingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync can
+        // find and reverse it when that payment is unreconciled or cancelled.
         var je = new JournalEntry(
-            GuidGenerator.Create(), company.Id, fy.Id, DateTime.UtcNow.Date);
-        je.ReferenceType = "PaymentReconciliation";
-        je.ReferenceId = alloc.PaymentVoucherId;
-        je.Narration = $"Exchange {(gainLoss > 0 ? "Gain" : "Loss")} on reconciliation";
+            GuidGenerator.Create(), company.Id, fy.Id, DateTime.UtcNow.Date)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = alloc.PaymentVoucherType,
+            ReferenceId = alloc.PaymentVoucherId,
+        };
+        je.Narration = $"Exchange {(effectiveGainLoss > 0 ? "Gain" : "Loss")} on reconciliation";
 
         var exchangeAccountId = company.ExchangeGainLossAccountId.Value;
-        var absGainLoss = Math.Abs(gainLoss);
+        var absGainLoss = Math.Abs(effectiveGainLoss);
 
-        if (gainLoss > 0)
+        if (effectiveGainLoss > 0)
         {
-            // Gain: DR Party Account (reduce receivable/increase payable), CR Exchange G/L
-            je.AddLine(exchangeAccountId, absGainLoss, false); // CR Exchange Gain
-            je.AddLine(exchangeAccountId, absGainLoss, true);  // DR Party offset
-            // In production, the debit would go to the party account, not exchange account
-            // Simplified: both sides use same account for now (balanced JE)
+            // Gain: DR party account (asset up / liability down), CR Exchange Gain
+            je.AddLine(partyAccountId, absGainLoss, true);
+            je.AddLine(exchangeAccountId, absGainLoss, false);
         }
         else
         {
-            // Loss: DR Exchange G/L, CR Party Account
-            je.AddLine(exchangeAccountId, absGainLoss, true);  // DR Exchange Loss
-            je.AddLine(exchangeAccountId, absGainLoss, false); // CR Party offset
+            // Loss: DR Exchange Loss, CR party account (asset down / liability up)
+            je.AddLine(exchangeAccountId, absGainLoss, true);
+            je.AddLine(partyAccountId, absGainLoss, false);
         }
 
-        je.Validate();
         je.Post();
         await _journalEntryRepository.InsertAsync(je);
     }

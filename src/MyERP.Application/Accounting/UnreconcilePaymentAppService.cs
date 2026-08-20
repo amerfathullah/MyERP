@@ -22,13 +22,16 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
 {
     private readonly IRepository<UnreconcilePayment, Guid> _repository;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
+    private readonly DomainServices.DocumentPostingOrchestrator _postingOrchestrator;
 
     public UnreconcilePaymentAppService(
         IRepository<UnreconcilePayment, Guid> repository,
-        IRepository<PaymentLedgerEntry, Guid> pleRepository)
+        IRepository<PaymentLedgerEntry, Guid> pleRepository,
+        DomainServices.DocumentPostingOrchestrator postingOrchestrator)
     {
         _repository = repository;
         _pleRepository = pleRepository;
+        _postingOrchestrator = postingOrchestrator;
     }
 
     public async Task<UnreconcilePaymentDto> GetAsync(Guid id)
@@ -99,6 +102,13 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
             await _pleRepository.UpdateAsync(ple);
             allocation.Unlinked = true;
         }
+
+        // Cancel any exchange gain/loss JE(s) posted for this voucher during the reconciliation(s)
+        // being undone — otherwise they stay posted forever with no reconciliation left to justify
+        // them. Reverses only the FX JE(s), never the voucher's own main GL (which is untouched —
+        // unreconcile undoes an allocation, not the payment itself).
+        var voucherTypeName = entity.VoucherType.ToString();
+        await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync(voucherTypeName, entity.VoucherId);
 
         await _repository.UpdateAsync(entity);
 
