@@ -168,6 +168,21 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 .WithData("postingDate", entry.PostingDate.ToString("yyyy-MM-dd"));
         }
 
+        // Budget Level 3 validation: a manually-posted JE can debit an expense account
+        // just as directly as an SI/PI/PO can — must be checked the same way (per
+        // DocumentPostingOrchestrator.ValidateBudgetOnPostingAsync's own doc comment,
+        // which already named JE as an expected caller before this was wired).
+        var budgetItems = entry.Lines
+            .Where(l => l.IsDebit && l.Amount > 0)
+            .Select(l => new BudgetCheckItem(l.AccountId, l.Amount))
+            .ToList();
+        if (budgetItems.Count > 0)
+        {
+            var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<DocumentPostingOrchestrator>();
+            await postingOrchestrator.ValidateBudgetOnPostingAsync(
+                entry.CompanyId, entry.PostingDate, budgetItems, entry.TenantId);
+        }
+
         entry.Post();
         await _repository.UpdateAsync(entry, autoSave: true);
 
