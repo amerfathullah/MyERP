@@ -16,7 +16,19 @@ namespace MyERP.Manufacturing;
 public class OperationAppService : ApplicationService, IOperationAppService
 {
     private readonly IRepository<Operation, Guid> _repository;
-    public OperationAppService(IRepository<Operation, Guid> repository) => _repository = repository;
+    private readonly IRepository<WorkstationType, Guid> _typeRepository;
+    public OperationAppService(IRepository<Operation, Guid> repository, IRepository<WorkstationType, Guid> typeRepository)
+    {
+        _repository = repository;
+        _typeRepository = typeRepository;
+    }
+
+    private async Task<string?> ResolveWorkstationTypeNameAsync(Guid? workstationTypeId)
+    {
+        if (!workstationTypeId.HasValue) return null;
+        var type = await _typeRepository.FindAsync(workstationTypeId.Value);
+        return type?.Name;
+    }
 
     public async Task<OperationDto> GetAsync(Guid id)
     {
@@ -46,7 +58,10 @@ public class OperationAppService : ApplicationService, IOperationAppService
         {
             Description = input.Description,
             WorkstationId = input.WorkstationId,
-            WorkstationType = input.WorkstationType,
+            WorkstationTypeId = input.WorkstationTypeId,
+            WorkstationType = input.WorkstationTypeId.HasValue
+                ? await ResolveWorkstationTypeNameAsync(input.WorkstationTypeId)
+                : input.WorkstationType,
             CreateJobCardBasedOnBatchSize = input.CreateJobCardBasedOnBatchSize,
             BatchSize = input.BatchSize,
             IsCorrectiveOperation = input.IsCorrectiveOperation,
@@ -77,7 +92,10 @@ public class OperationAppService : ApplicationService, IOperationAppService
         var op = await _repository.GetAsync(id, includeDetails: true);
         op.Description = input.Description;
         op.WorkstationId = input.WorkstationId;
-        op.WorkstationType = input.WorkstationType;
+        op.WorkstationTypeId = input.WorkstationTypeId;
+        op.WorkstationType = input.WorkstationTypeId.HasValue
+            ? await ResolveWorkstationTypeNameAsync(input.WorkstationTypeId)
+            : input.WorkstationType;
         op.CreateJobCardBasedOnBatchSize = input.CreateJobCardBasedOnBatchSize;
         op.BatchSize = input.BatchSize;
         op.IsCorrectiveOperation = input.IsCorrectiveOperation;

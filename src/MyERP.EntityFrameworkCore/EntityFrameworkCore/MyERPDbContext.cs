@@ -3090,6 +3090,7 @@ public class MyERPDbContext :
             b.Property(x => x.WorkstationType).HasMaxLength(100);
             b.Property(x => x.TotalOperationTime).HasColumnType("decimal(18,2)");
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            b.HasOne<WorkstationType>().WithMany().HasForeignKey(x => x.WorkstationTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(x => x.SubOperations).WithOne().HasForeignKey(x => x.ParentOperationId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(x => x.SubOperations).AutoInclude();
         });

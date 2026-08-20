@@ -5,7 +5,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
-import type { CreateOperationDto, OperationDto } from '../../proxy/manufacturing/models';
+import { WorkstationTypeService } from '../../proxy/manufacturing/workstation-type.service';
+import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../../proxy/manufacturing/models';
 
 @Component({
   selector: 'app-operation-form', standalone: true,
@@ -20,7 +21,12 @@ import type { CreateOperationDto, OperationDto } from '../../proxy/manufacturing
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'WorkstationType' | abpLocalization }}</label>
-            <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationType" [placeholder]="'::Placeholder:WorkstationType' | abpLocalization" />
+            <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationTypeId">
+              <option [ngValue]="null">—</option>
+              @for (t of workstationTypes; track t.id) {
+                <option [ngValue]="t.id">{{ t.name }}</option>
+              }
+            </select>
           </div>
           <div class="col-md-4">
             <label class="form-label">{{ 'Workstation' | abpLocalization }}</label>
@@ -97,6 +103,7 @@ import type { CreateOperationDto, OperationDto } from '../../proxy/manufacturing
 })
 export class OperationFormComponent implements OnInit {
   private service = inject(ManufacturingService);
+  private workstationTypeService = inject(WorkstationTypeService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -105,9 +112,10 @@ export class OperationFormComponent implements OnInit {
   isEdit = false;
   operationId: string | null = null;
   workstations: any[] = [];
+  workstationTypes: WorkstationTypeDto[] = [];
   allOperations: OperationDto[] = [];
   form: CreateOperationDto & { subOperations: any[] } = {
-    name: '', description: null, workstationId: null, workstationType: null,
+    name: '', description: null, workstationId: null, workstationType: null, workstationTypeId: null,
     createJobCardBasedOnBatchSize: false, batchSize: 1, isCorrectiveOperation: false,
     isActive: true, subOperations: [],
   };
@@ -117,6 +125,8 @@ export class OperationFormComponent implements OnInit {
       .subscribe((r) => this.workstations = r.items ?? []);
     this.service.getOperationList({ skipCount: 0, maxResultCount: 1000, sorting: '' })
       .subscribe((r) => this.allOperations = r.items ?? []);
+    this.workstationTypeService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' })
+      .subscribe((r) => this.workstationTypes = r.items ?? []);
 
     this.operationId = this.route.snapshot.paramMap.get('id');
     if (this.operationId) {
@@ -125,6 +135,7 @@ export class OperationFormComponent implements OnInit {
         this.form = {
           name: op.name!, description: op.description ?? null,
           workstationId: op.workstationId ?? null, workstationType: op.workstationType ?? null,
+          workstationTypeId: op.workstationTypeId ?? null,
           createJobCardBasedOnBatchSize: op.createJobCardBasedOnBatchSize ?? false,
           batchSize: op.batchSize ?? 1, isCorrectiveOperation: op.isCorrectiveOperation ?? false,
           isActive: op.isActive ?? true,

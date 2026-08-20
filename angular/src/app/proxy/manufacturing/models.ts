@@ -555,6 +555,7 @@ export interface CreateOperationDto {
   description?: string | null;
   workstationId?: string | null;
   workstationType?: string | null;
+  workstationTypeId?: string | null;
   createJobCardBasedOnBatchSize?: boolean;
   batchSize?: number;
   isCorrectiveOperation?: boolean;
@@ -699,6 +700,7 @@ export interface OperationDto extends EntityDto<string> {
   description?: string | null;
   workstationId?: string | null;
   workstationType?: string | null;
+  workstationTypeId?: string | null;
   createJobCardBasedOnBatchSize?: boolean;
   batchSize?: number;
   isCorrectiveOperation?: boolean;

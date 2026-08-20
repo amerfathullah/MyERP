@@ -9,6 +9,7 @@ public class OperationDto : EntityDto<Guid>
     public string? Description { get; set; }
     public Guid? WorkstationId { get; set; }
     public string? WorkstationType { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     public bool CreateJobCardBasedOnBatchSize { get; set; }
     public int BatchSize { get; set; }
     public bool IsCorrectiveOperation { get; set; }
@@ -55,6 +56,7 @@ public class CreateOperationDto
     public string? Description { get; set; }
     public Guid? WorkstationId { get; set; }
     public string? WorkstationType { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     public bool CreateJobCardBasedOnBatchSize { get; set; }
     public int BatchSize { get; set; }
     public bool IsCorrectiveOperation { get; set; }

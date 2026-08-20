@@ -22,8 +22,11 @@ public class Operation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default workstation for this operation.</summary>
     public Guid? WorkstationId { get; set; }
 
-    /// <summary>Workstation type (for auto-assignment when specific workstation not set).</summary>
+    /// <summary>Denormalized display name of the linked WorkstationType, if any.</summary>
     public string? WorkstationType { get; set; }
+
+    /// <summary>Default workstation type (for auto-assignment when a specific workstation isn't set).</summary>
+    public Guid? WorkstationTypeId { get; set; }
 
     /// <summary>If true, Job Cards split by batch_size instead of full qty.</summary>
     public bool CreateJobCardBasedOnBatchSize { get; set; }
