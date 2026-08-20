@@ -1006,6 +1006,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         // Reverse PLE entries
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
+        await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseInvoice", invoice.Id);
 
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)

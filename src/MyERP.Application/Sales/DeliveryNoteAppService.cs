@@ -569,6 +569,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         dn.Cancel();
 
+        // Cancel the posted GL Journal Entry (DR COGS / CR Stock on submit)
+        await _postingOrchestrator.ReverseGlForDocumentAsync("DeliveryNote", dn.Id);
+
         // Reverse SLE + Bin for each item (in stock UOM)
         foreach (var item in dn.Items)
         {

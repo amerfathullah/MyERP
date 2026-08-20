@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using Volo.Abp;
@@ -265,6 +266,39 @@ public class DocumentPostingOrchestrator : DomainService
         await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
+    }
+
+    /// <summary>
+    /// Post a Stock Entry (perpetual inventory): creates GL entries for stock movement.
+    /// Material Receipt: DR Stock CR Adjustment. Material Issue: DR Expense CR Stock. Transfer: no P&amp;L impact.
+    /// </summary>
+    public async Task<JournalEntry> PostStockEntryAsync(IAccountableDocument stockEntry)
+    {
+        await ValidatePostingPeriodAsync(stockEntry.CompanyId, stockEntry.PostingDate, stockEntry.DocumentType);
+
+        var journal = await _ruleEngine.PostDocumentAsync(stockEntry);
+        await _dimensionService.ValidateMandatoryDimensionsAsync(stockEntry.CompanyId, journal.Lines);
+        await _journalRepository.InsertAsync(journal);
+        return journal;
+    }
+
+    /// <summary>
+    /// Cancels the posted GL Journal Entry linked to a cancelled document, if one exists.
+    /// Sets the original entry's Status to Cancelled so GL reports (which filter on Status == Posted,
+    /// see GeneralLedgerAppService) stop including it — mirrors JournalEntryAppService.CancelAsync's
+    /// manual-cancel behavior rather than posting a new offsetting entry.
+    /// No-op if the document never posted GL, or its GL entry was already reversed.
+    /// </summary>
+    public async Task ReverseGlForDocumentAsync(string voucherType, Guid voucherId)
+    {
+        var query = await _journalRepository.GetQueryableAsync();
+        var journal = query.FirstOrDefault(j =>
+            j.ReferenceType == voucherType && j.ReferenceId == voucherId && j.Status == DocumentStatus.Posted);
+
+        if (journal == null) return;
+
+        journal.Cancel();
+        await _journalRepository.UpdateAsync(journal, autoSave: true);
     }
 
     /// <summary>

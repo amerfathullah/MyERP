@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MyERP.Accounting.DomainServices;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
@@ -26,7 +25,6 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     private readonly IRepository<DocumentActivityLog, Guid> _activityLogRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly StockPostingService _stockPostingService;
-    private readonly AccountingRuleEngine _ruleEngine;
     private readonly ISettingProvider _settingProvider;
 
     public StockEntryAppService(
@@ -34,14 +32,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         IRepository<DocumentActivityLog, Guid> activityLogRepository,
         IDocumentNumberGenerator numberGenerator,
         StockPostingService stockPostingService,
-        AccountingRuleEngine ruleEngine,
         ISettingProvider settingProvider)
     {
         _repository = repository;
         _activityLogRepository = activityLogRepository;
         _numberGenerator = numberGenerator;
         _stockPostingService = stockPostingService;
-        _ruleEngine = ruleEngine;
         _settingProvider = settingProvider;
     }
 
@@ -216,8 +212,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         // GL posting for perpetual inventory (stock movement accounting)
         // Uses configured accounting rules: Material Receipt → DR Stock CR Adj,
-        // Material Issue → DR Expense CR Stock, Transfer → no P&L impact
-        await _ruleEngine.PostDocumentAsync(entry);
+        // Material Issue → DR Expense CR Stock, Transfer → no P&L impact.
+        // Routed through the orchestrator (not _ruleEngine directly) so the Journal Entry
+        // is actually validated against period-closure and persisted — calling _ruleEngine
+        // alone builds and discards it in memory, it is never written to the ledger.
+        var postingOrchestratorForPost = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestratorForPost.PostStockEntryAsync(entry);
 
         // Update Work Order material transferred qty for manufacturing transfers
         if (entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.WorkOrderId.HasValue)
@@ -307,8 +308,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // Reverse SLE entries + Bin balances
         await _stockPostingService.ReverseStockEntryAsync(entry);
 
-        // Reverse GL entries (per ERPNext: stock entries have perpetual inventory GL)
+        // Reverse PLE entries (StockEntry has no party, so this is normally a no-op)
+        // and cancel the posted GL Journal Entry (per ERPNext: stock entries have perpetual inventory GL)
         await postingOrchestrator.ReversePleForDocumentAsync("StockEntry", entry.Id);
+        await postingOrchestrator.ReverseGlForDocumentAsync("StockEntry", entry.Id);
 
         await _repository.UpdateAsync(entry, autoSave: true);
 

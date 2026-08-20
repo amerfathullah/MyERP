@@ -525,6 +525,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         receipt.Cancel();
 
+        // Cancel the posted GL Journal Entry (DR Stock / CR SRBNB on submit)
+        await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseReceipt", receipt.Id);
+
         // Reverse SLE + Bin for each item (in stock UOM)
         foreach (var item in receipt.Items)
         {

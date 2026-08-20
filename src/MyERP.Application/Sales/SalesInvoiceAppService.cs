@@ -1024,8 +1024,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.Cancel();
 
-        // Reverse PLE entries (GL reversal handled by cancellation JE)
+        // Reverse PLE entries + cancel the posted GL Journal Entry
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
+        await _postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", invoice.Id);
 
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
