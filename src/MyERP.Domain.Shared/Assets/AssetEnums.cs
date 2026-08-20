@@ -58,5 +58,6 @@ public enum AssetActivityType
     Adjusted = 5,
     Scrapped = 6,
     Sold = 7,
+    Restored = 8,
 }
 

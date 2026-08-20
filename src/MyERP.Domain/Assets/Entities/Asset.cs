@@ -136,6 +136,29 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Reverses a scrap — restores the asset's pre-disposal status and clears the disposal
+    /// fields. Scrap-only, matching ERPNext's restore_asset (a sold asset has real external
+    /// proceeds/counterparty and isn't reversible this way). Caller is responsible for
+    /// reversing the disposal GL entry first (DocumentPostingOrchestrator.ReverseGlForDocumentAsync)
+    /// — this method only updates the asset's own state.
+    /// </summary>
+    public void Restore()
+    {
+        if (Status != AssetStatus.Scrapped)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        DisposalDate = null;
+        DisposalAmount = null;
+
+        if (ValueAfterDepreciation <= 0)
+            Status = AssetStatus.FullyDepreciated;
+        else if (ValueAfterDepreciation < TotalAssetCost)
+            Status = AssetStatus.PartiallyDepreciated;
+        else
+            Status = AssetStatus.Submitted;
+    }
+
+    /// <summary>
     /// (Re)generates the depreciation schedule. Preserves already-booked (GL-posted) rows —
     /// only unbooked rows are cleared and rebuilt. Regenerating the whole schedule from
     /// scratch would silently recreate fresh, unbooked duplicates of periods whose Journal

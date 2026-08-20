@@ -245,6 +245,40 @@ public class AssetAppService : ApplicationService, IAssetAppService
         return _assetMapper.Map(asset);
     }
 
+    /// <summary>
+    /// Reverses a scrap: reverses the disposal GL entry (a genuine contra entry, not a mutation
+    /// of the original — per the accounts-controller "immutable audit trail" rule) and restores
+    /// the asset's pre-disposal status. Sale is not reversible this way — a sold asset has real
+    /// external proceeds/counterparty, matching ERPNext's restore_asset (scrap-only).
+    /// </summary>
+    [Authorize(MyERPPermissions.Assets.Edit)]
+    public async Task<AssetDto> RestoreAsync(Guid id)
+    {
+        var asset = await _assetRepository.GetAsync(id);
+
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ReverseGlForDocumentAsync("Asset", asset.Id);
+
+        asset.Restore();
+        await _assetRepository.UpdateAsync(asset);
+
+        var activity = new AssetActivity(
+            GuidGenerator.Create(),
+            asset.Id,
+            AssetActivityType.Restored,
+            $"Asset restored: {asset.AssetNumber}",
+            DateTime.UtcNow,
+            $"Scrap reversed. Status reset to {asset.Status}.",
+            "Asset",
+            asset.Id.ToString(),
+            CurrentTenant.Id);
+
+        await _activityRepository.InsertAsync(activity);
+
+        return _assetMapper.Map(asset);
+    }
+
     public async Task<AssetCategoryDto[]> GetCategoriesAsync()
     {
         var query = await _categoryRepository.WithDetailsAsync(c => c.Accounts);

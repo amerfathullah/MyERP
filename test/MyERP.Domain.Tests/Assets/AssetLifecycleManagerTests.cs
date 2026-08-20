@@ -68,6 +68,67 @@ public class AssetLifecycleManagerTests
     }
 
     [Fact]
+    public void Restore_NotScrapped_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+
+        Should.Throw<BusinessException>(() => asset.Restore());
+    }
+
+    [Fact]
+    public void Restore_SoldAsset_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        asset.Sell(DateTime.UtcNow, 6000);
+
+        // Restore is scrap-only — a sold asset has real external proceeds, not reversible this way.
+        Should.Throw<BusinessException>(() => asset.Restore());
+    }
+
+    [Fact]
+    public void Restore_Scrapped_ClearsDisposalFieldsAndRecomputesPartiallyDepreciatedStatus()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        asset.ValueAfterDepreciation = 4000; // some depreciation already posted
+        asset.Scrap(DateTime.UtcNow);
+
+        asset.Restore();
+
+        asset.Status.ShouldBe(AssetStatus.PartiallyDepreciated);
+        asset.DisposalDate.ShouldBeNull();
+        asset.DisposalAmount.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Restore_Scrapped_FullyDepreciated_RecomputesFullyDepreciatedStatus()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        asset.ValueAfterDepreciation = 0; // already fully depreciated before it was scrapped
+        asset.Scrap(DateTime.UtcNow);
+
+        asset.Restore();
+
+        asset.Status.ShouldBe(AssetStatus.FullyDepreciated);
+    }
+
+    [Fact]
+    public void Restore_Scrapped_NoDepreciationYet_RecomputesSubmittedStatus()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        // ValueAfterDepreciation still equals the original purchase amount — no depreciation posted.
+        asset.Scrap(DateTime.UtcNow);
+
+        asset.Restore();
+
+        asset.Status.ShouldBe(AssetStatus.Submitted);
+    }
+
+    [Fact]
     public async Task PostDisposalJournalEntry_SaleWithoutSettlementAccount_Throws()
     {
         var asset = CreateAsset(purchaseAmount: 10000);
