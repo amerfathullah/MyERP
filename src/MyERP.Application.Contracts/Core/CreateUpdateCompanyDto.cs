@@ -60,6 +60,8 @@ public class CreateUpdateCompanyDto
     // Warehouse Defaults (moved from Stock Settings to Company per PR #57571)
     public System.Guid? DefaultWarehouseId { get; set; }
     public System.Guid? SampleRetentionWarehouseId { get; set; }
+    public System.Guid? DefaultInTransitWarehouseId { get; set; }
+    public System.Guid? DefaultWarehouseForSalesReturnId { get; set; }
     public System.Guid? DefaultWipWarehouseId { get; set; }
     public System.Guid? DefaultFgWarehouseId { get; set; }
     public System.Guid? DefaultScrapWarehouseId { get; set; }

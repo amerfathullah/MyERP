@@ -70,6 +70,11 @@ public class PurchaseInvoiceItemDto
     public decimal LineTotal { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public bool EnableDeferredExpense { get; set; }
+    public Guid? DeferredExpenseAccountId { get; set; }
+    public DateTime? ServiceStartDate { get; set; }
+    public DateTime? ServiceEndDate { get; set; }
+    public DateTime? ServiceStopDate { get; set; }
 }
 
 /// <summary>3-way matching detail per PI item — enriched with PO/PR quantities and rates.</summary>
@@ -161,6 +166,11 @@ public class CreatePurchaseInvoiceItemDto
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
+    public bool EnableDeferredExpense { get; set; }
+    public Guid? DeferredExpenseAccountId { get; set; }
+    public DateTime? ServiceStartDate { get; set; }
+    public DateTime? ServiceEndDate { get; set; }
+    public DateTime? ServiceStopDate { get; set; }
 }
 
 /// <summary>

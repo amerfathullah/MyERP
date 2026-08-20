@@ -61,6 +61,9 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Service period end date.</summary>
     public DateTime? ServiceEndDate { get; set; }
 
+    /// <summary>Service stop date (for early contract termination). Per ERPNext: accounts/deferred_revenue.py.</summary>
+    public DateTime? ServiceStopDate { get; set; }
+
     // Valuation fields (for gross profit)
     /// <summary>Cost rate at time of billing (from stock valuation or last purchase rate).</summary>
     public decimal ValuationRate { get; set; }
@@ -81,6 +84,7 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
         DeferredRevenueAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;
+        ServiceStopDate = null;
     }
 
     protected SalesInvoiceItem() { }
@@ -114,5 +118,6 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
         DeferredRevenueAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;
+        ServiceStopDate = null;
     }
 }

@@ -59,6 +59,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Service period end date for deferred expense recognition.</summary>
     public DateTime? ServiceEndDate { get; set; }
 
+    /// <summary>Service stop date (for early termination of service contracts). Per ERPNext: accounts/deferred_revenue.py.</summary>
+    public DateTime? ServiceStopDate { get; set; }
+
     protected PurchaseInvoiceItem() { }
 
     public PurchaseInvoiceItem(
@@ -85,5 +88,6 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
         DeferredExpenseAccountId = null;
         ServiceStartDate = null;
         ServiceEndDate = null;
+        ServiceStopDate = null;
     }
 }

@@ -240,6 +240,29 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.OpeningInvoiceCannotUpdateStock)
                 .WithData("documentType", "Sales Invoice");
 
+        // Validate deferred revenue service dates (per ERPNext accounts/deferred_revenue.py)
+        foreach (var item in _items.Where(i => i.EnableDeferredRevenue))
+        {
+            if (item.ServiceStartDate.HasValue && item.ServiceEndDate.HasValue && item.ServiceStartDate > item.ServiceEndDate)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Service Start Date cannot be after Service End Date.");
+            }
+            if (item.ServiceStopDate.HasValue)
+            {
+                if (item.ServiceStartDate.HasValue && item.ServiceStopDate < item.ServiceStartDate)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Service Stop Date cannot be before Service Start Date.");
+                }
+                if (item.ServiceEndDate.HasValue && item.ServiceStopDate > item.ServiceEndDate)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Service Stop Date cannot be after Service End Date.");
+                }
+            }
+        }
+
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new SalesInvoiceSubmittedEvent(this));
     }

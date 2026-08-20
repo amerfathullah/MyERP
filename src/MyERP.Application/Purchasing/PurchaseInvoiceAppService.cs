@@ -475,6 +475,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.EnableDeferredExpense)
+            {
+                var added = invoice.Items.Last();
+                added.EnableDeferredExpense = true;
+                added.DeferredExpenseAccountId = item.DeferredExpenseAccountId;
+                added.ServiceStartDate = item.ServiceStartDate;
+                added.ServiceEndDate = item.ServiceEndDate;
+                added.ServiceStopDate = item.ServiceStopDate;
+            }
         }
 
         // Resolve UOM conversion factors for direct PI creation (when UpdateStock=true, stock needs StockQty)

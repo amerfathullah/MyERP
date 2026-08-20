@@ -36,6 +36,8 @@ public class UpdateCompanySettingsDto
     public Guid? ExchangeGainLossAccountId { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? SampleRetentionWarehouseId { get; set; }
+    public Guid? DefaultInTransitWarehouseId { get; set; }
+    public Guid? DefaultWarehouseForSalesReturnId { get; set; }
     public Guid? DefaultWipWarehouseId { get; set; }
     public Guid? DefaultFgWarehouseId { get; set; }
     public Guid? DefaultScrapWarehouseId { get; set; }
@@ -112,6 +114,8 @@ public class CompanyAppService :
         // Warehouse Defaults (per PR #57571)
         entity.DefaultWarehouseId = input.DefaultWarehouseId;
         entity.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
+        entity.DefaultInTransitWarehouseId = input.DefaultInTransitWarehouseId;
+        entity.DefaultWarehouseForSalesReturnId = input.DefaultWarehouseForSalesReturnId;
         entity.DefaultWipWarehouseId = input.DefaultWipWarehouseId;
         entity.DefaultFgWarehouseId = input.DefaultFgWarehouseId;
         entity.DefaultScrapWarehouseId = input.DefaultScrapWarehouseId;
@@ -162,6 +166,8 @@ public class CompanyAppService :
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
+        company.DefaultInTransitWarehouseId = input.DefaultInTransitWarehouseId;
+        company.DefaultWarehouseForSalesReturnId = input.DefaultWarehouseForSalesReturnId;
         company.DefaultWipWarehouseId = input.DefaultWipWarehouseId;
         company.DefaultFgWarehouseId = input.DefaultFgWarehouseId;
         company.DefaultScrapWarehouseId = input.DefaultScrapWarehouseId;
@@ -295,6 +301,8 @@ public class CompanyAppService :
         {
             input.DefaultWarehouseId,
             input.SampleRetentionWarehouseId,
+            input.DefaultInTransitWarehouseId,
+            input.DefaultWarehouseForSalesReturnId,
             input.DefaultWipWarehouseId,
             input.DefaultFgWarehouseId,
             input.DefaultScrapWarehouseId

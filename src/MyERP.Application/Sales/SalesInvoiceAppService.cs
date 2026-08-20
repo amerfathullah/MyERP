@@ -432,6 +432,15 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            if (item.EnableDeferredRevenue)
+            {
+                var added = invoice.Items.Last();
+                added.EnableDeferredRevenue = true;
+                added.DeferredRevenueAccountId = item.DeferredRevenueAccountId;
+                added.ServiceStartDate = item.ServiceStartDate;
+                added.ServiceEndDate = item.ServiceEndDate;
+                added.ServiceStopDate = item.ServiceStopDate;
+            }
         }
 
         // Resolve UOM conversion factors for direct SI creation (when UpdateStock=true, stock needs StockQty)

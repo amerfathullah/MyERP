@@ -32,6 +32,8 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     // Warehouse Defaults (moved from Stock Settings to Company per PR #57571)
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? SampleRetentionWarehouseId { get; set; }
+    public Guid? DefaultInTransitWarehouseId { get; set; }
+    public Guid? DefaultWarehouseForSalesReturnId { get; set; }
     public Guid? DefaultWipWarehouseId { get; set; }
     public Guid? DefaultFgWarehouseId { get; set; }
     public Guid? DefaultScrapWarehouseId { get; set; }

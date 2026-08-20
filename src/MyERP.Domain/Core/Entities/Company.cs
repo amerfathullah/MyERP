@@ -162,6 +162,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Sample retention warehouse for QC samples. Per PR #57571: now per-company.</summary>
     public Guid? SampleRetentionWarehouseId { get; set; }
 
+    /// <summary>Default in-transit warehouse for stock transfers. Per PR #57571.</summary>
+    public Guid? DefaultInTransitWarehouseId { get; set; }
+
+    /// <summary>Default warehouse for sales returns. Per PR #57571.</summary>
+    public Guid? DefaultWarehouseForSalesReturnId { get; set; }
+
     /// <summary>Default WIP warehouse for manufacturing operations.</summary>
     public Guid? DefaultWipWarehouseId { get; set; }
 

@@ -111,6 +111,11 @@ public class SalesInvoiceItemDto
     public decimal LineTotal { get; set; }
     public decimal ValuationRate { get; set; }
     public decimal GrossProfit { get; set; }
+    public bool EnableDeferredRevenue { get; set; }
+    public Guid? DeferredRevenueAccountId { get; set; }
+    public DateTime? ServiceStartDate { get; set; }
+    public DateTime? ServiceEndDate { get; set; }
+    public DateTime? ServiceStopDate { get; set; }
 }
 
 public class CreateSalesInvoiceDto
@@ -198,6 +203,12 @@ public class CreateSalesInvoiceItemDto
 
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
+
+    public bool EnableDeferredRevenue { get; set; }
+    public Guid? DeferredRevenueAccountId { get; set; }
+    public DateTime? ServiceStartDate { get; set; }
+    public DateTime? ServiceEndDate { get; set; }
+    public DateTime? ServiceStopDate { get; set; }
 }
 
 /// <summary>

@@ -174,7 +174,9 @@ public class DeferredAccountingService : DomainService
             return new List<DeferredScheduleEntry>();
 
         var start = item.ServiceStartDate.Value;
-        var end = item.ServiceEndDate.Value;
+        var end = item.ServiceStopDate.HasValue && item.ServiceStopDate.Value < item.ServiceEndDate.Value
+            ? item.ServiceStopDate.Value
+            : item.ServiceEndDate.Value;
         var totalAmount = item.LineTotal;
 
         var totalMonths = ((end.Year - start.Year) * 12) + end.Month - start.Month + 1;
@@ -246,7 +248,9 @@ public class DeferredAccountingService : DomainService
             return new List<DeferredScheduleEntry>();
 
         var start = item.ServiceStartDate.Value;
-        var end = item.ServiceEndDate.Value;
+        var end = item.ServiceStopDate.HasValue && item.ServiceStopDate.Value < item.ServiceEndDate.Value
+            ? item.ServiceStopDate.Value
+            : item.ServiceEndDate.Value;
         var totalAmount = item.LineTotal;
 
         // Calculate total months in service period
