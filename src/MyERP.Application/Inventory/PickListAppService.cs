@@ -57,6 +57,23 @@ public class PickListAppService : ApplicationService, IPickListAppService
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
+        // SRE conflict check per gotcha #3533
+        if (input.SalesOrderId.HasValue)
+        {
+            var sreRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockReservationEntry, Guid>>();
+            var activeSre = await sreRepo.FindAsync(s =>
+                s.VoucherType == "SalesOrder"
+                && s.VoucherId == input.SalesOrderId.Value
+                && s.Status == DocumentStatus.Posted
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
+
+            if (activeSre != null)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:13020")
+                    .WithData("reason", "Cannot create Pick List for Sales Order because stock has already been reserved via Stock Reservation Entries. Deliver directly against the reservation or cancel reservations first.");
+            }
+        }
+
         var pl = new PickList(GuidGenerator.Create(), input.CompanyId, input.Purpose, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
