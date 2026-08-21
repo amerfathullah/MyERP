@@ -102,6 +102,53 @@ public class ProjectTests
         project.Status.ShouldBe(ProjectStatus.Completed);
     }
 
+    [Fact]
+    public void UpdateProgress_TaskWeight_CalculatesWeightedAverage()
+    {
+        var project = CreateProject();
+        project.PercentCompleteMethod = PercentCompleteMethod.TaskWeight;
+        // Task 1: weight 1, progress 50%
+        // Task 2: weight 3, progress 100%
+        // Weighted progress = (50*1 + 100*3) / (1+3) = 350 / 4 = 87.5%
+        var t1 = new ProjectTask(Guid.NewGuid(), project.Id, "T-001", "Task 1") { TaskWeight = 1, Progress = 50 };
+        var t2 = new ProjectTask(Guid.NewGuid(), project.Id, "T-002", "Task 2") { TaskWeight = 3, Progress = 100 };
+        project.Tasks.Add(t1);
+        project.Tasks.Add(t2);
+
+        project.UpdateProgress();
+
+        project.PercentComplete.ShouldBe(87.5m);
+    }
+
+    [Fact]
+    public void UpdateProgress_TaskCompletion_CancelledTaskCountsAsCompleted()
+    {
+        var project = CreateProject();
+        project.PercentCompleteMethod = PercentCompleteMethod.TaskCompletion;
+        var t1 = new ProjectTask(Guid.NewGuid(), project.Id, "T-001", "Task 1");
+        var t2 = new ProjectTask(Guid.NewGuid(), project.Id, "T-002", "Task 2");
+        t1.Cancel(); // Cancelled counts as completed per ERPNext gotcha #2798
+        project.Tasks.Add(t1);
+        project.Tasks.Add(t2);
+
+        project.UpdateProgress();
+
+        project.PercentComplete.ShouldBe(50); // 1 of 2 completed/cancelled
+    }
+
+    [Fact]
+    public void SetPercentComplete_ManualMethod_EnforcesBounds()
+    {
+        var project = CreateProject();
+        project.PercentCompleteMethod = PercentCompleteMethod.Manual;
+
+        project.SetPercentComplete(75m);
+        project.PercentComplete.ShouldBe(75m);
+
+        Should.Throw<Volo.Abp.BusinessException>(() => project.SetPercentComplete(-5m));
+        Should.Throw<Volo.Abp.BusinessException>(() => project.SetPercentComplete(105m));
+    }
+
     private static Project CreateProject() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "PROJ-0001", "Test Project", Guid.NewGuid());
 }
