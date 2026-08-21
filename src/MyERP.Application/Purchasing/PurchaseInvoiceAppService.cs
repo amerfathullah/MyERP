@@ -487,12 +487,40 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var billingAddr = await partyDefaults.GetPrimaryAddressAsync("Supplier", input.SupplierId);
         if (billingAddr != null) invoice.BillingAddressId = billingAddr.Id;
 
+        // Per gotcha #1238 / #1508: PI issue date cannot be before linked PO date
+        var poItemIds = input.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (poItemIds.Count > 0)
+        {
+            var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+            var linkedPos = poQuery
+                .Where(po => po.Items.Any(item => poItemIds.Contains(item.Id)))
+                .Select(po => new { po.OrderNumber, po.OrderDate })
+                .ToList();
+
+            foreach (var po in linkedPos)
+            {
+                if (input.IssueDate.Date < po.OrderDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Issue Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+                }
+            }
+        }
+
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var added = invoice.Items.Last();
+            added.PurchaseOrderItemId = item.PurchaseOrderItemId;
+            added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
+
             if (item.EnableDeferredExpense)
             {
-                var added = invoice.Items.Last();
                 added.EnableDeferredExpense = true;
                 added.DeferredExpenseAccountId = item.DeferredExpenseAccountId;
                 added.ServiceStartDate = item.ServiceStartDate;

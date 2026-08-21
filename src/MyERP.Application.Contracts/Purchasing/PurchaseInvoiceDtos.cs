@@ -180,6 +180,8 @@ public class CreatePurchaseInvoiceItemDto
     public DateTime? ServiceStartDate { get; set; }
     public DateTime? ServiceEndDate { get; set; }
     public DateTime? ServiceStopDate { get; set; }
+    public Guid? PurchaseOrderItemId { get; set; }
+    public Guid? PurchaseReceiptItemId { get; set; }
 }
 
 /// <summary>
