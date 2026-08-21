@@ -326,10 +326,22 @@ public class PurchaseInvoiceManager : DomainService
                 var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
                 if (prItem != null)
                 {
+                    // Per ERPNext billing_status.py: amount_difference_with_purchase_invoice =
+                    // (pi_billed_rate - pr_rate) × billed_qty — tracks how much this PI's rate
+                    // diverged from what was recorded at receipt time, accumulated across every
+                    // PI that bills against this row.
+                    var variance = (piItem.UnitPrice - prItem.UnitPrice) * Math.Abs(piItem.Quantity);
+
                     if (reverse)
+                    {
                         prItem.BilledQty = Math.Max(0, prItem.BilledQty - Math.Abs(piItem.Quantity));
+                        prItem.AmountDifferenceWithPurchaseInvoice -= variance;
+                    }
                     else
+                    {
                         prItem.BilledQty += Math.Abs(piItem.Quantity);
+                        prItem.AmountDifferenceWithPurchaseInvoice += variance;
+                    }
                 }
             }
             await prRepo.UpdateAsync(pr, autoSave: true);

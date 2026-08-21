@@ -57,6 +57,20 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
 
     /// <summary>
+    /// Cumulative variance between what Purchase Invoices billed this item at and this PR item's
+    /// own receipt-time UnitPrice: SUM((piItem.UnitPrice - UnitPrice) × billedQty) across every PI
+    /// that has billed against this row. Positive = billed higher than received (understated cost
+    /// at receipt time); negative = billed lower (overstated).
+    /// Per ERPNext `billing_status.py` (`amount_difference_with_purchase_invoice`): tracked per-row
+    /// as the reference for a later incoming-rate/valuation adjustment. MyERP tracks the variance
+    /// itself here; the adjust-incoming-rate + stock-revaluation cascade ERPNext performs when
+    /// `adjust_incoming_rate` is enabled is a separate, larger, not-yet-migrated feature — this
+    /// field is deliberately informational-only for now (see purchase-receipt-full.md "Billing
+    /// Rate Variance Tracking").
+    /// </summary>
+    public decimal AmountDifferenceWithPurchaseInvoice { get; set; }
+
+    /// <summary>
     /// Calculated purchase expense GL amount.
     /// Per PR #57475: deducts landed cost voucher amount to prevent double-counting.
     /// </summary>

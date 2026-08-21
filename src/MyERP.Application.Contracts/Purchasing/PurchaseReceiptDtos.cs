@@ -40,6 +40,7 @@ public class PurchaseReceiptItemDto
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
+    public decimal AmountDifferenceWithPurchaseInvoice { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
 }
 
