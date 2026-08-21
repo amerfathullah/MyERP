@@ -177,8 +177,26 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        ValidatePaymentTypeWithOutstanding();
+
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PaymentEntrySubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates that Customer Receive payments do not have negative total allocated amount (gotcha #197).
+    /// </summary>
+    public void ValidatePaymentTypeWithOutstanding()
+    {
+        if (PaymentType == PaymentType.Receive && string.Equals(PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+        {
+            if (References.Count > 0 && References.Sum(r => r.AllocatedAmount) < 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot receive payment from Customer with negative total allocated amount.");
+            }
+        }
     }
 
     /// <summary>
