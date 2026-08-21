@@ -118,6 +118,8 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         if (Status != DocumentStatus.Draft || !_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        ValidateDeliveryDates();
+
         // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
         foreach (var item in _items)
         {
@@ -130,6 +132,40 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         }
 
         Status = DocumentStatus.ToDeliverAndBill;
+    }
+
+    /// <summary>
+    /// Validates delivery dates and syncs header delivery date to max of item delivery dates (gotcha #462).
+    /// </summary>
+    public void ValidateDeliveryDates()
+    {
+        var itemDates = _items.Where(i => i.DeliveryDate.HasValue).Select(i => i.DeliveryDate!.Value).ToList();
+
+        foreach (var item in _items)
+        {
+            if (item.DeliveryDate.HasValue)
+            {
+                if (item.DeliveryDate.Value.Date < OrderDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item '{item.Description}' delivery date ({item.DeliveryDate.Value:yyyy-MM-dd}) cannot be earlier than order date ({OrderDate:yyyy-MM-dd}).");
+                }
+            }
+            else if (DeliveryDate.HasValue)
+            {
+                item.DeliveryDate = DeliveryDate;
+            }
+        }
+
+        if (itemDates.Count > 0)
+        {
+            DeliveryDate = itemDates.Max();
+        }
+        else if (DeliveryDate.HasValue && DeliveryDate.Value.Date < OrderDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Delivery date ({DeliveryDate.Value:yyyy-MM-dd}) cannot be earlier than order date ({OrderDate:yyyy-MM-dd}).");
+        }
     }
 
     /// <summary>

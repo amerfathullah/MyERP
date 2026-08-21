@@ -190,9 +190,10 @@ public class ItemMovementAndUpstreamTests
     [Fact]
     public void SalesOrder_DeliveryDate_OverdueDetection()
     {
-        var so = new SalesOrder(Guid.NewGuid(), CompanyId, CustomerId, "SO-001", DateTime.UtcNow.Date);
+        var orderDate = DateTime.UtcNow.Date.AddDays(-10);
+        var so = new SalesOrder(Guid.NewGuid(), CompanyId, CustomerId, "SO-001", orderDate);
         so.AddItem(ItemId, "Test Item", 1m, 100m, 0m);
-        so.DeliveryDate = DateTime.UtcNow.Date.AddDays(-5);
+        so.DeliveryDate = orderDate.AddDays(5); // 5 days after order, but 5 days before today
         so.Submit();
 
         Assert.True(so.DeliveryDate < DateTime.UtcNow.Date);
