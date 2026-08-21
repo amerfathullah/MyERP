@@ -132,7 +132,7 @@ public class CompanySettingsCacheAndStatusFilterTests
     public void Lead_DefaultStatus_IsNew()
     {
         var lead = new Lead(Guid.NewGuid(), Guid.NewGuid(), "John", "Doe");
-        Assert.Equal(CRM.LeadStatus.New, lead.Status);
+        Assert.Equal(global::MyERP.CRM.LeadStatus.New, lead.Status);
     }
 
     [Theory]
@@ -146,7 +146,7 @@ public class CompanySettingsCacheAndStatusFilterTests
     public void Lead_StatusFilterValues_AreValidEnumNames(string statusName)
     {
         // Each status filter option must correspond to a valid Lead status
-        Assert.True(Enum.TryParse<CRM.LeadStatus>(statusName, true, out _));
+        Assert.True(Enum.TryParse<global::MyERP.CRM.LeadStatus>(statusName, true, out _));
     }
 
     // --- Status Filter Prerequisites: Opportunity statuses ---
@@ -155,7 +155,7 @@ public class CompanySettingsCacheAndStatusFilterTests
     public void Opportunity_DefaultStatus_IsOpen()
     {
         var opp = new Opportunity(Guid.NewGuid(), Guid.NewGuid(), "OPP-001", "Test Opp");
-        Assert.Equal(CRM.OpportunityStatus.Open, opp.Status);
+        Assert.Equal(global::MyERP.CRM.OpportunityStatus.Open, opp.Status);
     }
 
     // --- Status Filter Prerequisites: Project statuses ---

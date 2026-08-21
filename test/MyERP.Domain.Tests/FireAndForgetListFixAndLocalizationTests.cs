@@ -88,7 +88,7 @@ public class FireAndForgetListFixAndLocalizationTests
     [Fact]
     public void Contract_CanBeConstructed()
     {
-        var c = new CRM.Entities.Contract(Guid.NewGuid(), CompanyId, "C-001", "Customer",
+        var c = new global::MyERP.CRM.Entities.Contract(Guid.NewGuid(), CompanyId, "C-001", "Customer",
             Guid.NewGuid(), DateTime.Today);
         Assert.Equal("C-001", c.ContractNumber);
     }
@@ -96,7 +96,7 @@ public class FireAndForgetListFixAndLocalizationTests
     [Fact]
     public void Prospect_CanBeConstructed()
     {
-        var p = new CRM.Entities.Prospect(Guid.NewGuid(), CompanyId, "Prospect Co");
+        var p = new global::MyERP.CRM.Entities.Prospect(Guid.NewGuid(), CompanyId, "Prospect Co");
         Assert.Equal("Prospect Co", p.ProspectName);
     }
 
