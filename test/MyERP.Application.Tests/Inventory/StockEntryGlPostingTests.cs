@@ -146,6 +146,43 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         journal.TotalDebit.ShouldBe(journal.TotalCredit);
     }
 
+    [Fact]
+    public async Task MaterialTransferForManufacture_SameTreatmentAsMaterialTransfer()
+    {
+        // MaterialTransferForManufacture (WO material transfer, source -> WIP warehouse) validates
+        // identically to plain MaterialTransfer in StockEntryManager.ValidateWarehousesAsync's own
+        // "isTransfer" bucket (both source and target required) — same stock-to-stock, no-P&L-impact
+        // GL treatment applies.
+        var (company, item, sourceWarehouse, targetWarehouse) = await SeedCommonAsync("MTFM");
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 5m,
+            balanceQuantity: 10m, balanceValue: 50m), autoSave: true);
+
+        var transferEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.MaterialTransferForManufacture,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 3m, SourceWarehouseId = sourceWarehouse, TargetWarehouseId = targetWarehouse, ValuationRate = 5m } },
+        });
+        await stockEntryAppService.SubmitAsync(transferEntry.Id);
+        await stockEntryAppService.PostAsync(transferEntry.Id);
+
+        var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var journal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == transferEntry.Id);
+
+        journal.Lines.Count.ShouldBe(2); // source and target both resolve to the company default here, but as 2 distinct lines
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 15m); // 3 × 5
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && !l.IsDebit && l.Amount == 15m);
+        journal.TotalDebit.ShouldBe(journal.TotalCredit);
+    }
+
     private async Task<(Company Company, Item Item, Guid SourceWarehouse, Guid? TargetWarehouse)> SeedCommonAsync(string suffix)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();

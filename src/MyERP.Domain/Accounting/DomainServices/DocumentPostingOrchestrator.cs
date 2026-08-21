@@ -400,8 +400,15 @@ public class DocumentPostingOrchestrator : DomainService
                     break;
 
                 case StockEntryType.MaterialTransfer:
+                case StockEntryType.MaterialTransferForManufacture:
+                case StockEntryType.SendToWarehouse:
                 case StockEntryType.Manufacture:
                 case StockEntryType.Disassemble:
+                    // Per StockEntryManager.ValidateWarehousesAsync's own "isTransfer" bucket:
+                    // MaterialTransferForManufacture and SendToWarehouse require both a source and
+                    // target warehouse on every item exactly like MaterialTransfer — structurally
+                    // and economically the same "no P&L impact" stock-to-stock movement, just to a
+                    // WIP or transit warehouse instead of an arbitrary one.
                     await BuildStockToStockLinesAsync(journal, company, sles);
                     break;
 
