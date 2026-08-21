@@ -73,6 +73,60 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     }
 
     /// <summary>
+    /// Get unallocated payments (Payment Entries and Journal Entries) for a party — the payment
+    /// side of the reconciliation UI. <see cref="PaymentReconciliationEngine.GetUnreconciledPaymentsAsync"/>
+    /// already implemented this lookup but had zero callers: the Angular reconciliation page only
+    /// ever fetched outstanding invoices, with no way to pick which payment to allocate — so
+    /// "Reconcile" sent whatever default value the allocation DTO's PaymentVoucherType/Id happened to
+    /// have (Angular never set them), creating PLE rows against a nonexistent, all-zeros payment
+    /// voucher. This endpoint is what the fixed Angular page now calls to let the user pick a real one.
+    /// </summary>
+    public async Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId)
+    {
+        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId);
+        var result = new List<UnreconciledPaymentDto>();
+
+        foreach (var p in payments)
+        {
+            if (p.VoucherType == "PaymentEntry")
+            {
+                var pe = await _paymentEntryRepository.FindAsync(p.VoucherId);
+                if (pe == null) continue;
+                result.Add(new UnreconciledPaymentDto
+                {
+                    VoucherType = p.VoucherType,
+                    VoucherId = p.VoucherId,
+                    DocumentNumber = pe.PaymentNumber,
+                    PostingDate = pe.PostingDate,
+                    TotalAmount = p.TotalAmount,
+                    UnallocatedAmount = p.UnallocatedAmount,
+                    CurrencyCode = pe.CurrencyCode,
+                    ExchangeRate = pe.ExchangeRate,
+                });
+            }
+            else if (p.VoucherType == "JournalEntry")
+            {
+                var je = await _journalEntryRepository.FindAsync(p.VoucherId);
+                if (je == null) continue;
+                var jeCompany = await _companyRepository.GetAsync(je.CompanyId);
+                result.Add(new UnreconciledPaymentDto
+                {
+                    VoucherType = p.VoucherType,
+                    VoucherId = p.VoucherId,
+                    DocumentNumber = je.EntryNumber,
+                    PostingDate = je.PostingDate,
+                    TotalAmount = p.TotalAmount,
+                    UnallocatedAmount = p.UnallocatedAmount,
+                    CurrencyCode = jeCompany.CurrencyCode,
+                    ExchangeRate = 1m,
+                });
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Reconcile payments against invoices.
     /// Delegates to PaymentReconciliationEngine for stale-outstanding validation
     /// and batch processing.
@@ -232,11 +286,17 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         }
 
         // Cancel related exchange gain/loss JEs
-        // Per ERPNext: unreconciliation must cancel exchange gain/loss JE that was created during reconcile
+        // Per ERPNext: unreconciliation must cancel exchange gain/loss JE that was created during reconcile.
+        // CreateExchangeGainLossJeIfNeeded tags the JE with the actual payment voucher's own type
+        // ("PaymentEntry"/"JournalEntry"), not a "PaymentReconciliation" constant — this query used to
+        // filter on that literal, which never matched anything, so no exchange JE was ever found or
+        // cancelled here. Also scope to VoucherType=ExchangeGainOrLoss: a payment voucher's own main GL
+        // JE shares the same (ReferenceType, ReferenceId) and must never be touched by unreconcile.
         var jeQuery = await _journalEntryRepository.GetQueryableAsync();
         var relatedJes = jeQuery
-            .Where(je => je.ReferenceType == "PaymentReconciliation"
+            .Where(je => je.ReferenceType == input.PaymentVoucherType
                       && je.ReferenceId == input.PaymentVoucherId
+                      && je.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss
                       && je.Status == Core.DocumentStatus.Posted)
             .ToList();
 

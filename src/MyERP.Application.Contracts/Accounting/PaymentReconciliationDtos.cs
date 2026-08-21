@@ -59,3 +59,15 @@ public class OutstandingInvoiceDto
     public string VoucherType { get; set; } = null!;
     public decimal Outstanding { get; set; }
 }
+
+public class UnreconciledPaymentDto
+{
+    public Guid VoucherId { get; set; }
+    public string VoucherType { get; set; } = null!;
+    public string? DocumentNumber { get; set; }
+    public DateTime PostingDate { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal UnallocatedAmount { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public decimal ExchangeRate { get; set; }
+}

@@ -1420,6 +1420,17 @@ export interface OutstandingInvoiceDto {
   outstanding?: number;
 }
 
+export interface UnreconciledPaymentDto {
+  voucherId: string;
+  voucherType: string;
+  documentNumber?: string | null;
+  postingDate: string;
+  totalAmount: number;
+  unallocatedAmount: number;
+  currencyCode: string;
+  exchangeRate: number;
+}
+
 export interface OutstandingInvoiceForPaymentDto {
   invoiceId?: string;
   invoiceNumber?: string;
