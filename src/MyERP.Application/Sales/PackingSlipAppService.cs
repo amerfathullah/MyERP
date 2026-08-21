@@ -75,13 +75,19 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         }
 
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
-        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        var itemValidation = LazyServiceProvider?.LazyGetService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        if (itemValidation != null)
+        {
+            await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        }
 
         var dn = await _deliveryNoteRepository.FindAsync(input.DeliveryNoteId);
         if (dn == null)
             throw new BusinessException("MyERP:01004")
                 .WithData("entity", "DeliveryNote");
+        if (dn.Status != Core.DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Packing Slip can only be created for Draft Delivery Notes.");
 
         // Case number overlap validation — PackingSlip.HasOverlap() already implements the
         // 3-condition check, it just had no call site. Only Submitted slips count: a Draft
@@ -124,6 +130,14 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
     public async Task<PackingSlipDto> SubmitAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+
+        var dn = await _deliveryNoteRepository.GetAsync(entity.DeliveryNoteId);
+        if (dn.Status != Core.DocumentStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Packing Slip can only be submitted for Draft Delivery Notes.");
+        }
+
         entity.Submit();
         await _repository.UpdateAsync(entity);
 

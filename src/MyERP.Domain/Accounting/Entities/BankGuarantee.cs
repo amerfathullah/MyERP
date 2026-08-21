@@ -94,6 +94,24 @@ public class BankGuarantee : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Select customer or supplier for Bank Guarantee");
         }
+
+        if (CustomerId.HasValue && SupplierId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Bank Guarantee cannot be linked to both Customer and Supplier. Select only one party.");
+        }
+
+        if (BgType == BankGuaranteeType.Receiving && SupplierId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Receiving Bank Guarantee must be linked to a Customer, not a Supplier.");
+        }
+
+        if (BgType == BankGuaranteeType.Providing && CustomerId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Providing Bank Guarantee must be linked to a Supplier, not a Customer.");
+        }
     }
 
     public void Submit()

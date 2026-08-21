@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -52,6 +53,12 @@ public class DeliveryTripAppService :
     [Authorize(MyERPPermissions.DeliveryTrips.Create)]
     public override async Task<DeliveryTripDto> CreateAsync(CreateUpdateDeliveryTripDto input)
     {
+        if (string.IsNullOrWhiteSpace(input.Driver))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Driver is required for Delivery Trip.");
+        }
+
         if (input.DeliveryStops == null || input.DeliveryStops.Count == 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
@@ -105,6 +112,12 @@ public class DeliveryTripAppService :
     [Authorize(MyERPPermissions.DeliveryTrips.Edit)]
     public override async Task<DeliveryTripDto> UpdateAsync(Guid id, CreateUpdateDeliveryTripDto input)
     {
+        if (string.IsNullOrWhiteSpace(input.Driver))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Driver is required for Delivery Trip.");
+        }
+
         var query = await Repository.WithDetailsAsync(dt => dt.DeliveryStops);
         var entity = await AsyncExecuter.FirstOrDefaultAsync(query.Where(dt => dt.Id == id));
         if (entity == null)
@@ -194,6 +207,25 @@ public class DeliveryTripAppService :
         if (entity == null)
         {
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+        }
+
+        if (string.IsNullOrWhiteSpace(entity.Driver))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Driver is required for Delivery Trip.");
+        }
+
+        var dnIds = entity.DeliveryStops.Where(s => s.DeliveryNoteId.HasValue).Select(s => s.DeliveryNoteId!.Value).Distinct().ToList();
+        if (dnIds.Count > 0)
+        {
+            var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var dns = await dnRepo.GetListAsync(d => dnIds.Contains(d.Id));
+            var unsubmitted = dns.Where(d => d.Status != Core.DocumentStatus.Submitted).ToList();
+            if (unsubmitted.Count > 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"All Delivery Notes in trip must be submitted before scheduling. Unsubmitted notes: {string.Join(", ", unsubmitted.Select(d => d.DeliveryNumber))}");
+            }
         }
 
         entity.Schedule();

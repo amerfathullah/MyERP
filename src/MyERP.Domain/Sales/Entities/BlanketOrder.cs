@@ -51,11 +51,20 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, decimal qty, decimal rate, string? itemName = null)
+    public void AddItem(Guid itemId, decimal qty, decimal rate, string? itemName = null, string? partyItemCode = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        _items.Add(new BlanketOrderItem(Guid.NewGuid(), Id, itemId, qty, rate, itemName));
+        if (_items.Any(x => x.ItemId == itemId))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("itemId", itemId)
+                .WithData("detail", "Cannot add duplicate items in a Blanket Order.");
+
+        var item = new BlanketOrderItem(Guid.NewGuid(), Id, itemId, qty, rate, itemName)
+        {
+            PartyItemCode = partyItemCode
+        };
+        _items.Add(item);
     }
 
     public void Submit()
@@ -80,6 +89,7 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
     public Guid BlanketOrderId { get; set; }
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? PartyItemCode { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
 
