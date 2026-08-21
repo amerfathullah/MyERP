@@ -121,11 +121,17 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
 
     /// <summary>
     /// Mark quotation as lost (customer declined / competitor won).
+    /// Per gotcha #2142: Blocked if sales order has already been made.
     /// </summary>
     public void MarkLost()
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (ConvertedToSalesOrderId.HasValue || _items.Any(i => i.OrderedQty > 0))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot set as Lost as Sales Order is made.");
+
         Status = DocumentStatus.Rejected; // Rejected = Lost in quotation context
     }
 
