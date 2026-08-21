@@ -356,9 +356,16 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 }
             };
 
+            // Per the Angular form's own resolveAccounts(): Receive → PaidFrom=Receivable, PaidTo=Bank;
+            // Pay → PaidFrom=Bank, PaidTo=Payable. The PLE row's account must be the party's own
+            // receivable/payable account, not the bank/cash account — this was hardcoded to
+            // PaidToAccountId unconditionally, which is only correct for Pay. Every Receive Payment
+            // Entry (customer collection) posted its PLE against the bank account instead.
+            var partyAccountId = pe.PaymentType == PaymentType.Receive ? pe.PaidFromAccountId : pe.PaidToAccountId;
+
             await _postingOrchestrator.PostPaymentEntryAsync(
                 pe,
-                partyAccountId: pe.PaidToAccountId,
+                partyAccountId: partyAccountId,
                 partyType: pe.PartyType,
                 partyId: pe.PartyId.Value,
                 accountCurrency: pe.CurrencyCode,
@@ -527,9 +534,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             // Create PLE entries for multi-ref allocations (was missing — payment ledger was incomplete)
             if (multiAllocations.Any() && pe.PartyType != null && pe.PartyId.HasValue)
             {
+                // Same party-account fix as the single-ref path above: PaidFrom for Receive.
+                var partyAccountId = pe.PaymentType == PaymentType.Receive ? pe.PaidFromAccountId : pe.PaidToAccountId;
                 await _postingOrchestrator.PostPaymentEntryAsync(
                     pe,
-                    partyAccountId: pe.PaidToAccountId,
+                    partyAccountId: partyAccountId,
                     partyType: pe.PartyType,
                     partyId: pe.PartyId.Value,
                     accountCurrency: pe.CurrencyCode,
