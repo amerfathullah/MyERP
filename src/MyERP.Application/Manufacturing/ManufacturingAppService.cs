@@ -1455,8 +1455,80 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         entry.SourceStockEntryId = input.SourceStockEntryId;
         entry.FgCompletedQty = input.Quantity;
 
-        // Scale factor = disassemble_qty / source_fg_qty (proportional RM return)
-        var scaleFactor = wo.Quantity > 0 ? input.Quantity / wo.Quantity : 0m;
+        // Per stock-entry-full.md "3-Tier Source Priority": resolve RM items from the actual
+        // posted Manufacture Stock Entry(ies) for this WO where possible, not the WO's planned
+        // RequiredItems — a completed WO's actual consumption can differ from plan (process loss,
+        // partial production, substitutions), so reversing against RequiredItems silently returns
+        // the WRONG quantities whenever it does. RecordProductionAsync and
+        // CreateManufactureStockEntryAsync both now always create a real Manufacture Stock Entry
+        // (fixed earlier this session/71st session), so this data exists for any WO produced from
+        // here on.
+        var seManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockEntryManager>();
+
+        Inventory.Entities.StockEntry? sourceEntry = null;
+        List<Inventory.Entities.StockEntry>? aggregateSourceEntries = null;
+
+        if (input.SourceStockEntryId.HasValue)
+        {
+            // Tier 1: exact reversal of one explicitly-chosen Manufacture Stock Entry.
+            sourceEntry = await seRepo.GetAsync(input.SourceStockEntryId.Value);
+        }
+        else
+        {
+            var seQueryable = await seRepo.GetQueryableAsync();
+            var manufactureEntries = seQueryable
+                .Where(se => se.WorkOrderId == wo.Id
+                    && se.EntryType == Inventory.StockEntryType.Manufacture
+                    && se.Status != Core.DocumentStatus.Draft
+                    && se.Status != Core.DocumentStatus.Cancelled)
+                .ToList();
+
+            if (manufactureEntries.Count == 1)
+                sourceEntry = manufactureEntries[0]; // Auto-select: only one candidate, deterministic.
+            else if (manufactureEntries.Count > 1)
+                aggregateSourceEntries = manufactureEntries; // Tier 2: WO-aggregated average.
+            // else: Tier 3 fallback below — no posted Manufacture SE exists for this WO at all.
+        }
+
+        decimal sourceFgQty;
+        List<(Guid ItemId, decimal Qty, decimal? Rate, Guid WarehouseId)> rmSourceItems;
+
+        if (sourceEntry != null)
+        {
+            sourceFgQty = sourceEntry.FgCompletedQty;
+            rmSourceItems = sourceEntry.Items
+                .Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)
+                .Select(i => (i.ItemId, i.Quantity, (decimal?)i.ValuationRate, i.SourceWarehouseId!.Value))
+                .ToList();
+        }
+        else if (aggregateSourceEntries != null)
+        {
+            sourceFgQty = aggregateSourceEntries.Sum(se => se.FgCompletedQty);
+            rmSourceItems = aggregateSourceEntries
+                .SelectMany(se => se.Items.Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue))
+                .GroupBy(i => i.ItemId)
+                .Select(g =>
+                {
+                    var totalQty = g.Sum(i => i.Quantity);
+                    // Qty-weighted average rate across all contributing entries.
+                    var avgRate = totalQty > 0 ? g.Sum(i => i.Quantity * (i.ValuationRate ?? 0m)) / totalQty : 0m;
+                    return (g.Key, totalQty, (decimal?)avgRate, g.First().SourceWarehouseId!.Value);
+                })
+                .ToList();
+        }
+        else
+        {
+            // Tier 3: no posted Manufacture Stock Entry exists for this WO at all (e.g. it was
+            // produced before Stock-Entry-backed production existed) — fall back to the WO's
+            // planned RequiredItems, valued at current balance rather than a stored rate.
+            sourceFgQty = wo.Quantity;
+            rmSourceItems = wo.RequiredItems
+                .Where(i => (i.SourceWarehouseId ?? wo.SourceWarehouseId).HasValue)
+                .Select(i => (i.ItemId, i.RequiredQuantity, (decimal?)null, (i.SourceWarehouseId ?? wo.SourceWarehouseId)!.Value))
+                .ToList();
+        }
+
+        var scaleFactor = sourceFgQty > 0 ? input.Quantity / sourceFgQty : 0m;
 
         // FG item goes OUT (source warehouse = FG warehouse) — finished goods consumed.
         // No valuationRate needed here: StockPostingService prices outgoing lines off the
@@ -1469,25 +1541,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             lastFgItem.IsFinishedItem = true;
         }
 
-        // RM items come back IN (target warehouse = source warehouse) — proportional to scale
-        // factor, valued at the item's current balance rate (StockPostingService only prices
-        // incoming lines off item.ValuationRate — omitting it would post them at zero value).
-        foreach (var rmItem in wo.RequiredItems)
+        // RM items come back IN, proportional to scale factor. Tier 1/2 rows carry a real rate
+        // from the source entry(ies); Tier 3 falls back to current balance (no stored rate to use).
+        foreach (var rm in rmSourceItems)
         {
-            var returnQty = Math.Round(rmItem.RequiredQuantity * scaleFactor, 4);
+            var returnQty = Math.Round(rm.Qty * scaleFactor, 4);
             if (returnQty <= 0) continue;
 
-            var rmSourceWarehouse = rmItem.SourceWarehouseId ?? wo.SourceWarehouseId;
-            if (!rmSourceWarehouse.HasValue) continue;
-
-            var rmBalance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, rmSourceWarehouse.Value);
-            entry.AddItem(rmItem.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rmSourceWarehouse.Value,
-                valuationRate: rmBalance.ValuationRate);
+            var rate = rm.Rate ?? (await _valuationService.GetCurrentBalanceAsync(rm.ItemId, rm.WarehouseId)).ValuationRate;
+            entry.AddItem(rm.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rm.WarehouseId,
+                valuationRate: rate);
         }
 
-        // Validate using domain service
-        var seManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockEntryManager>();
-        seManager.ValidateDisassembleItems(entry, null); // Source entry validation deferred
+        // Validate against the real source row-by-row where a single source entry exists (Tiers 1
+        // and auto-select); the aggregated (Tier 2) and fallback (Tier 3) cases have no single
+        // source to cross-check against a specific row.
+        seManager.ValidateDisassembleItems(entry, sourceEntry);
+        if (sourceEntry != null)
+        {
+            seManager.ValidateDisassembleScaleFactor(entry.Items, sourceEntry.Items, input.Quantity, sourceFgQty);
+        }
 
         // Submit + post: StockPostingService creates the SLE/Bin movement (same mechanism
         // StockEntryAppService.PostAsync uses), DocumentPostingOrchestrator posts the GL Journal
