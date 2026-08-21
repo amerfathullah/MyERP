@@ -27,15 +27,21 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
     private readonly IRepository<SalesInvoice, Guid> _siRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _piRepository;
     private readonly IRepository<TransactionTaxRow, Guid> _taxRowRepository;
+    private readonly IRepository<Inventory.Entities.Item, Guid> _itemRepository;
+    private readonly IRepository<TaxCategory, Guid> _taxCategoryRepository;
 
     public TaxSummaryReportAppService(
         IRepository<SalesInvoice, Guid> siRepository,
         IRepository<PurchaseInvoice, Guid> piRepository,
-        IRepository<TransactionTaxRow, Guid> taxRowRepository)
+        IRepository<TransactionTaxRow, Guid> taxRowRepository,
+        IRepository<Inventory.Entities.Item, Guid> itemRepository,
+        IRepository<TaxCategory, Guid> taxCategoryRepository)
     {
         _siRepository = siRepository;
         _piRepository = piRepository;
         _taxRowRepository = taxRowRepository;
+        _itemRepository = itemRepository;
+        _taxCategoryRepository = taxCategoryRepository;
     }
 
     /// <summary>
@@ -123,6 +129,29 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
         };
     }
 
+    /// <summary>Batch-resolves ItemId -> TaxType via Item.TaxCategoryId -> TaxCategory.TaxType.</summary>
+    private async Task<Dictionary<Guid, TaxType>> ResolveItemTaxTypesAsync(IEnumerable<Guid> itemIds)
+    {
+        var ids = itemIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, TaxType>();
+
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var itemCategoryMap = itemQuery
+            .Where(i => ids.Contains(i.Id) && i.TaxCategoryId.HasValue)
+            .Select(i => new { i.Id, TaxCategoryId = i.TaxCategoryId!.Value })
+            .ToList();
+
+        var categoryIds = itemCategoryMap.Select(x => x.TaxCategoryId).Distinct().ToList();
+        var categoryQuery = await _taxCategoryRepository.GetQueryableAsync();
+        var categoryTypeMap = categoryQuery
+            .Where(c => categoryIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.TaxType);
+
+        return itemCategoryMap
+            .Where(x => categoryTypeMap.ContainsKey(x.TaxCategoryId))
+            .ToDictionary(x => x.Id, x => categoryTypeMap[x.TaxCategoryId]);
+    }
+
     private static List<TaxRateBreakdownDto> BuildTaxBreakdown(
         IEnumerable<dynamic> invoices)
     {
@@ -199,14 +228,26 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
         decimal exempt = 0;
         decimal zeroRated = 0;
 
-        foreach (var si in salesInvoices.Where(s => !s.IsReturn))
+        var nonReturnSales = salesInvoices.Where(s => !s.IsReturn).ToList();
+        var zeroTaxSales = nonReturnSales.Where(si => si.TaxAmount == 0 && si.NetTotal > 0).ToList();
+        var itemTaxType = await ResolveItemTaxTypesAsync(zeroTaxSales.SelectMany(si => si.Items.Select(i => i.ItemId)));
+
+        foreach (var si in nonReturnSales)
         {
             if (si.TaxAmount == 0 && si.NetTotal > 0)
             {
-                // No tax → could be exempt or zero-rated
-                // Per MY SST: zero-rated = export, exempt = specific categories
-                // Simplified: treat all zero-tax sales as exempt (in production, check item tax template)
-                exempt += si.NetTotal;
+                // No tax → exempt or zero-rated per Malaysian SST (zero-rated = export, exempt =
+                // specific gazetted categories). Distinguished by the invoice's own items' Tax
+                // Category (Item.TaxCategoryId -> TaxCategory.TaxType): if any line item is
+                // classified ZeroRated, the whole invoice reports as zero-rated; otherwise it
+                // falls back to Exempt — the same default this always used, now only applied when
+                // no item is actually classified zero-rated instead of unconditionally for every
+                // zero-tax invoice.
+                var isZeroRated = si.Items.Any(i => itemTaxType.GetValueOrDefault(i.ItemId) == TaxType.ZeroRated);
+                if (isZeroRated)
+                    zeroRated += si.NetTotal;
+                else
+                    exempt += si.NetTotal;
                 continue;
             }
 
@@ -225,9 +266,6 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
                 case 5:
                     taxable5 += si.NetTotal;
                     tax5 += si.TaxAmount;
-                    break;
-                case 0:
-                    zeroRated += si.NetTotal;
                     break;
                 default:
                     taxableOther += si.NetTotal;
