@@ -98,7 +98,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
-    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion (all items must be received).</summary>
+    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion with per-item capping (gotcha #370).</summary>
     public decimal PerReceived => _items.Count > 0
         ? Math.Round(_items.Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2)
         : 0;
