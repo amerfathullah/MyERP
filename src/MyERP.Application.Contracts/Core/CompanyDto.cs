@@ -54,4 +54,9 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultCostCenterId { get; set; }
     public Guid? RoundOffAccountId { get; set; }
     public Guid? RoundOffForOpeningAccountId { get; set; }
+
+    // Advance Payment Defaults (gotcha #510)
+    public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
+    public Guid? DefaultAdvanceReceivedAccountId { get; set; }
+    public Guid? DefaultAdvancePaidAccountId { get; set; }
 }

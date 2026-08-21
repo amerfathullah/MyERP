@@ -80,4 +80,9 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultCostCenterId { get; set; }
     public System.Guid? RoundOffAccountId { get; set; }
     public System.Guid? RoundOffForOpeningAccountId { get; set; }
+
+    // Advance Payment Defaults (gotcha #510)
+    public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
+    public System.Guid? DefaultAdvanceReceivedAccountId { get; set; }
+    public System.Guid? DefaultAdvancePaidAccountId { get; set; }
 }

@@ -45,6 +45,11 @@ public class UpdateCompanySettingsDto
     public Guid? DefaultWipWarehouseId { get; set; }
     public Guid? DefaultFgWarehouseId { get; set; }
     public Guid? DefaultScrapWarehouseId { get; set; }
+
+    // Advance Payment Settings (gotcha #510)
+    public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
+    public Guid? DefaultAdvanceReceivedAccountId { get; set; }
+    public Guid? DefaultAdvancePaidAccountId { get; set; }
 }
 
 public class CompanyAppService :
@@ -69,6 +74,7 @@ public class CompanyAppService :
     public override async Task<CompanyDto> CreateAsync(CreateUpdateCompanyDto input)
     {
         var result = await base.CreateAsync(input);
+        await ValidateAdvanceAccountsCurrencyAsync(result.Id, input.CurrencyCode, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
         // Auto-setup the new company with required master data (FY, CoA, warehouses, etc.)
         await SetupNewCompanyAsync(result.Id);
         return result;
@@ -77,6 +83,7 @@ public class CompanyAppService :
     public override async Task<CompanyDto> UpdateAsync(Guid id, CreateUpdateCompanyDto input)
     {
         await ValidateWarehousesAsync(id, input);
+        await ValidateAdvanceAccountsCurrencyAsync(id, input.CurrencyCode, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
         return await base.UpdateAsync(id, input);
     }
 
@@ -137,12 +144,20 @@ public class CompanyAppService :
         entity.DefaultCostCenterId = input.DefaultCostCenterId;
         entity.RoundOffAccountId = input.RoundOffAccountId;
         entity.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;
+
+        // Advance Payment Defaults (gotcha #510)
+        entity.BookAdvancePaymentsInSeparatePartyAccount = input.BookAdvancePaymentsInSeparatePartyAccount;
+        entity.DefaultAdvanceReceivedAccountId = input.DefaultAdvanceReceivedAccountId;
+        entity.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]
     public async Task UpdateSettingsAsync(Guid id, UpdateCompanySettingsDto input)
     {
         var company = await Repository.GetAsync(id);
+
+        var currency = !string.IsNullOrWhiteSpace(input.DefaultCurrency) ? input.DefaultCurrency : company.CurrencyCode;
+        await ValidateAdvanceAccountsCurrencyAsync(id, currency, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
 
         if (!string.IsNullOrWhiteSpace(input.DefaultCurrency))
             company.CurrencyCode = input.DefaultCurrency;
@@ -175,6 +190,10 @@ public class CompanyAppService :
         company.DefaultCostCenterId = input.DefaultCostCenterId;
         company.RoundOffAccountId = input.RoundOffAccountId;
         company.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;
+
+        company.BookAdvancePaymentsInSeparatePartyAccount = input.BookAdvancePaymentsInSeparatePartyAccount;
+        company.DefaultAdvanceReceivedAccountId = input.DefaultAdvanceReceivedAccountId;
+        company.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;
@@ -351,6 +370,35 @@ public class CompanyAppService :
             if (wh.IsGroup)
                 throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
                     .WithData("detail", $"Warehouse '{wh.Name}' is a group warehouse. Default warehouse must be a leaf warehouse.");
+        }
+    }
+
+    private async Task ValidateAdvanceAccountsCurrencyAsync(Guid companyId, string companyCurrency, Guid? advanceReceivedAccountId, Guid? advancePaidAccountId)
+    {
+        var accountIds = new[] { advanceReceivedAccountId, advancePaidAccountId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!accountIds.Any()) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accounts = await accountRepo.GetListAsync(a => accountIds.Contains(a.Id));
+
+        foreach (var account in accounts)
+        {
+            if (account.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Account '{account.AccountName}' does not belong to company.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(account.Currency) &&
+                !string.Equals(account.Currency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Advance account '{account.AccountName}' currency ({account.Currency}) must match company default currency ({companyCurrency}).");
+            }
         }
     }
 }
