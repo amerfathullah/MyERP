@@ -732,6 +732,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
+        // Build a real Manufacture Stock Entry instead of moving stock directly — previously this
+        // method called _valuationService/_binService straight through with voucherType="WorkOrder",
+        // which created SLE/Bin movement with NO backing Stock Entry document and NO GL posting at
+        // all (confirmed: no DocumentPostingOrchestrator/AccountingRuleEngine call existed anywhere in
+        // this method). The "Manufacture" dialog's other button (createManufactureStockEntry) already
+        // builds a real, auditable, GL-posted Stock Entry for the same action — this one-click
+        // shortcut silently skipped both the audit trail and the accounting impact for every unit
+        // ever produced through it.
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId, StockEntryType.Manufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            FgCompletedQty = quantity,
+            ProcessLossQty = processLossQty,
+            Notes = $"Production recorded — WO {wo.WorkOrderNumber}",
+        };
+
         // Issue raw materials and track total cost for FG valuation
         decimal totalRmCost = 0;
         foreach (var rmItem in consumptionItems)
@@ -743,14 +762,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 var rmRate = rmBalance.ValuationRate;
                 totalRmCost += rmItem.Quantity * rmRate;
 
-                await _valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, rmItem.ItemId, warehouseId.Value,
-                    DateTime.UtcNow, -rmItem.Quantity, rmRate,
-                    voucherType: "WorkOrder", voucherId: wo.Id,
-                    tenantId: wo.TenantId);
-
-                await _binService.ApplyStockMovementAsync(
-                    rmItem.ItemId, warehouseId.Value, -rmItem.Quantity, -(rmItem.Quantity * rmRate), wo.TenantId);
+                entry.AddItem(
+                    itemId: rmItem.ItemId, quantity: rmItem.Quantity,
+                    sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
+                    valuationRate: rmRate);
 
                 await _binService.UpdateReservedQtyForProductionAsync(
                     rmItem.ItemId, warehouseId.Value, -rmItem.Quantity, wo.TenantId);
@@ -785,14 +800,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             var fgRate = fgAllocatedCost / quantity;
 
-            await _valuationService.CreateLedgerEntryAsync(
-                wo.CompanyId, wo.ItemId, productionParams.TargetWarehouseId.Value,
-                DateTime.UtcNow, quantity, fgRate,
-                voucherType: "WorkOrder", voucherId: wo.Id,
-                tenantId: wo.TenantId);
-
-            await _binService.ApplyStockMovementAsync(
-                wo.ItemId, productionParams.TargetWarehouseId.Value, quantity, fgAllocatedCost, wo.TenantId);
+            entry.AddItem(
+                itemId: wo.ItemId, quantity: quantity,
+                sourceWarehouseId: null, targetWarehouseId: productionParams.TargetWarehouseId.Value,
+                valuationRate: fgRate);
 
             await _binService.UpdatePlannedQtyAsync(
                 wo.ItemId, productionParams.TargetWarehouseId.Value, -quantity, wo.TenantId);
@@ -816,20 +827,30 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
             if (secWarehouseId.HasValue)
             {
-                await _valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, secItem.ItemId, secWarehouseId.Value,
-                    DateTime.UtcNow, secQty, secRate,
-                    voucherType: "WorkOrder", voucherId: wo.Id,
-                    tenantId: wo.TenantId);
-
-                await _binService.ApplyStockMovementAsync(
-                    secItem.ItemId, secWarehouseId.Value, secQty, secCost, wo.TenantId);
+                entry.AddItem(
+                    itemId: secItem.ItemId, quantity: secQty,
+                    sourceWarehouseId: null, targetWarehouseId: secWarehouseId.Value,
+                    valuationRate: secRate);
             }
         }
 
         // Process loss: consumed materials but no FG output for the loss portion
         // The cost of process loss is absorbed into the FG rate (already included in totalRmCost)
         // Per gotcha #442: process_loss_qty = fg_completed_qty × (process_loss_percentage / 100)
+
+        // Submit + post the entry: StockPostingService creates the SLE/Bin movement (same mechanism
+        // StockEntryAppService.PostAsync uses for a manually-created Manufacture Stock Entry),
+        // DocumentPostingOrchestrator posts the GL Journal Entry, then the entry itself is persisted
+        // so this production event is auditable via the normal Stock Entry list like any other.
+        entry.Submit();
+        entry.Post();
+        var stockPostingService = LazyServiceProvider
+            .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
+        await stockPostingService.PostStockEntryAsync(entry);
+        await postingOrchestrator.PostStockEntryAsync(entry);
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        await seRepo.InsertAsync(entry, autoSave: true);
 
         // Notify production managers when WO completes
         if (wo.Status == WorkOrderStatus.Completed)
