@@ -267,6 +267,9 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
+    public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
+
     /// <summary>Quantity already received via Purchase Receipts.</summary>
     public decimal ReceivedQty { get; set; }
 

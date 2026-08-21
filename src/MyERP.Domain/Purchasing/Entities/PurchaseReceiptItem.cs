@@ -32,6 +32,9 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor. Used for SLE creation.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
+    public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
+
     /// <summary>Link back to the Purchase Order item being received.</summary>
     public Guid? PurchaseOrderItemId { get; set; }
 

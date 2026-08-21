@@ -158,6 +158,9 @@ public class QuotationItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
+    public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
+
     /// <summary>Qty converted to Sales Order. Tracked by document conversion.</summary>
     public decimal OrderedQty { get; set; }
 

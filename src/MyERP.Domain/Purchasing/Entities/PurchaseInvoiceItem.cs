@@ -29,6 +29,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
+    public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
+
     public Guid? TaxCategoryId { get; set; }
 
     /// <summary>Link to Purchase Order item (for billing qty tracking).</summary>

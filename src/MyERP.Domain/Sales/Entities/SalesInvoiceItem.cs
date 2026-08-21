@@ -33,6 +33,9 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
+    public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
+
     /// <summary>Tax category used for this line item.</summary>
     public Guid? TaxCategoryId { get; set; }
 
