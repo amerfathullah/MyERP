@@ -174,6 +174,33 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         return await MapToDtoAsync(entity);
     }
 
+    [Authorize(MyERPPermissions.PackingSlips.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        if (entity.Status != Core.DocumentStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft packing slips can be deleted");
+        }
+
+        await _repository.DeleteAsync(entity);
+    }
+
+    /// <summary>
+    /// Computes the next suggested case number for a Delivery Note: MAX(ToCaseNo) + 1, or 1 if none (Gotcha #128).
+    /// </summary>
+    public async Task<int> GetNextCaseNoAsync(Guid deliveryNoteId)
+    {
+        var slipsQuery = await _repository.GetQueryableAsync();
+        var maxToCaseNo = slipsQuery
+            .Where(ps => ps.DeliveryNoteId == deliveryNoteId && ps.Status != Core.DocumentStatus.Cancelled)
+            .Select(ps => (int?)ps.ToCaseNo)
+            .Max();
+
+        return (maxToCaseNo ?? 0) + 1;
+    }
+
     /// <summary>
     /// Applies (sign=1, on submit) or reverses (sign=-1, on cancel) this slip's item quantities
     /// onto the parent DN's item PackedQty. Only rows with a direct DeliveryNoteItemId reference
@@ -193,15 +220,6 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         }
 
         await _deliveryNoteRepository.UpdateAsync(dn, autoSave: true);
-    }
-
-    [Authorize(MyERPPermissions.PackingSlips.Delete)]
-    public async Task DeleteAsync(Guid id)
-    {
-        var entity = await _repository.GetAsync(id);
-        if (entity.Status != Core.DocumentStatus.Draft)
-            throw new BusinessException("MyERP:01001");
-        await _repository.DeleteAsync(entity);
     }
 
     private async Task<PackingSlipDto> MapToDtoAsync(PackingSlip entity)
