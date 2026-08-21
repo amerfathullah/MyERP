@@ -1840,6 +1840,7 @@
     "MyERP:02063": "A draft reversal journal entry already exists for journal entry {journalEntryId}.",
     "MyERP:02064": "Invalid regex pattern '{pattern}': {error}",
     "MyERP:02065": "{reason}",
+    "MyERP:02084": "GL posting is not yet supported for Stock Entry purpose '{purpose}'",
     "MyERP:10009": "Cannot delete BOM — {reason}",
     "MyERP:02021": "Duplicate payment reference: {referenceType} {referenceId} appears more than once",
     "MyERP:04012": "Cannot create purchase return — submitted assets exist on the original document {returnAgainst}. Cancel the assets first.",

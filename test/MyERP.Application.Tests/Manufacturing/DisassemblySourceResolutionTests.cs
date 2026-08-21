@@ -33,11 +33,10 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
             var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
             var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
-            var accountingRuleRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
             var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
 
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Disassembly Tier Test Co"), autoSave: true);
-            await SeedStockEntryGlRulesAsync(accountRepository, accountingRuleRepository, company.Id, suffix: "1");
+            await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, suffix: "1");
             var fgItem = await itemRepository.InsertAsync(
                 new Item(Guid.NewGuid(), company.Id, "FG-001", "Finished Widget", ItemType.Goods), autoSave: true);
             var rmItem = await itemRepository.InsertAsync(
@@ -111,11 +110,10 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
             var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
             var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
-            var accountingRuleRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
             var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
 
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Disassembly Tier Test Co 2"), autoSave: true);
-            await SeedStockEntryGlRulesAsync(accountRepository, accountingRuleRepository, company.Id, suffix: "2");
+            await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, suffix: "2");
             var fgItem = await itemRepository.InsertAsync(
                 new Item(Guid.NewGuid(), company.Id, "FG-002", "Finished Widget 2", ItemType.Goods), autoSave: true);
             var rmItem = await itemRepository.InsertAsync(
@@ -173,36 +171,30 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
     }
 
     /// <summary>
-    /// Test-only GL scaffolding: DefaultDataSeeder seeds no "StockEntry" AccountingRule rows at
-    /// all (Stock Entry GL is left to per-company configuration since account resolution varies
-    /// by purpose) — without SOME rule pair, DocumentPostingOrchestrator.PostStockEntryAsync
-    /// throws "no rules configured" before this test ever reaches the RM-item resolution logic
-    /// under test. Both rules use AmountSource.GrandTotal so the resulting JE is trivially
-    /// balanced regardless of which dummy accounts are used — this is not asserting anything
-    /// about Stock Entry GL correctness, only unblocking the posting pipeline.
+    /// Test-only GL scaffolding: DocumentPostingOrchestrator.PostStockEntryAsync resolves each
+    /// item's stock account via WarehouseAccountService, which falls back to
+    /// Company.DefaultInventoryAccountId when no per-warehouse override is configured. Setting
+    /// that (plus DefaultStockAdjustmentAccountId, needed for Disassemble's valuation-residual
+    /// plug) is enough to let real GL posting complete — this is not asserting anything about
+    /// Stock Entry GL correctness itself, only unblocking the posting pipeline so the RM-item
+    /// resolution logic under test actually runs end to end.
     /// </summary>
     private static async Task SeedStockEntryGlRulesAsync(
+        IRepository<Company, Guid> companyRepository,
         IRepository<MyERP.Accounting.Entities.Account, Guid> accountRepository,
-        IRepository<MyERP.Accounting.Entities.AccountingRule, Guid> accountingRuleRepository,
         Guid companyId,
         string suffix)
     {
-        var drAccount = await accountRepository.InsertAsync(
-            new MyERP.Accounting.Entities.Account(Guid.NewGuid(), companyId, $"9{suffix}01", "Test Stock Clearing", MyERP.Accounting.AccountType.Asset),
+        var stockAccount = await accountRepository.InsertAsync(
+            new MyERP.Accounting.Entities.Account(Guid.NewGuid(), companyId, $"9{suffix}01", "Test Stock", MyERP.Accounting.AccountType.Asset),
             autoSave: true);
-        var crAccount = await accountRepository.InsertAsync(
-            new MyERP.Accounting.Entities.Account(Guid.NewGuid(), companyId, $"9{suffix}02", "Test Stock Adjustment", MyERP.Accounting.AccountType.Asset),
+        var adjustmentAccount = await accountRepository.InsertAsync(
+            new MyERP.Accounting.Entities.Account(Guid.NewGuid(), companyId, $"9{suffix}02", "Test Stock Adjustment", MyERP.Accounting.AccountType.Equity),
             autoSave: true);
 
-        await accountingRuleRepository.InsertAsync(
-            new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), companyId, $"SE Test DR {suffix}",
-                "StockEntry", true, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.GrandTotal)
-            { FixedAccountId = drAccount.Id },
-            autoSave: true);
-        await accountingRuleRepository.InsertAsync(
-            new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), companyId, $"SE Test CR {suffix}",
-                "StockEntry", false, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.GrandTotal)
-            { FixedAccountId = crAccount.Id },
-            autoSave: true);
+        var company = await companyRepository.GetAsync(companyId);
+        company.DefaultInventoryAccountId = stockAccount.Id;
+        company.DefaultStockAdjustmentAccountId = adjustmentAccount.Id;
+        await companyRepository.UpdateAsync(company, autoSave: true);
     }
 }

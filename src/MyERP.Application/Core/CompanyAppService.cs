@@ -296,6 +296,7 @@ public class CompanyAppService :
             if (lookup.TryGetValue("5500", out var depr)) company.DepreciationExpenseAccountId = depr;
             if (lookup.TryGetValue("1220", out var accDepr)) company.AccumulatedDepreciationAccountId = accDepr;
             if (lookup.TryGetValue("4900", out var exchangeGl)) company.ExchangeGainLossAccountId = exchangeGl;
+            if (lookup.TryGetValue("3900", out var stockAdj)) company.DefaultStockAdjustmentAccountId = stockAdj;
             await Repository.UpdateAsync(company, autoSave: true);
         }
 

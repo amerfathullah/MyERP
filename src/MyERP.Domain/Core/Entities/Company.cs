@@ -75,6 +75,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? DefaultBankAccountId { get; set; }
     /// <summary>Default Stock/Inventory account (perpetual inventory).</summary>
     public Guid? DefaultInventoryAccountId { get; set; }
+    /// <summary>
+    /// Balancing account for stock movements with no natural other side — a standalone Material
+    /// Receipt (stock appearing with no PO/PI reference) or a Disassemble entry's valuation
+    /// residual. Per ERPNext: typically the seeded "Temporary Opening" equity account.
+    /// </summary>
+    public Guid? DefaultStockAdjustmentAccountId { get; set; }
     /// <summary>Default depreciation expense account.</summary>
     public Guid? DepreciationExpenseAccountId { get; set; }
     /// <summary>Default accumulated depreciation account.</summary>

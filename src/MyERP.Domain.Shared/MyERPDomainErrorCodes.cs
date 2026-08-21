@@ -30,6 +30,7 @@ public static class MyERPDomainErrorCodes
     public const string DuplicateReversalDraft = "MyERP:02063"; // was MyERP:02013 (collided with AccountCannotBeDeleted)
     public const string InvalidBankRuleRegexPattern = "MyERP:02064"; // was hardcoded "MyERP:02013" (collided with AccountCannotBeDeleted)
     public const string DefaultAccountNotConfigured = "MyERP:02065"; // was hardcoded "MyERP:02001" (collided with UnbalancedJournalEntry)
+    public const string StockEntryGlPurposeNotSupported = "MyERP:02084";
 
     // Tax
     public const string NoApplicableTaxRule = "MyERP:03001";

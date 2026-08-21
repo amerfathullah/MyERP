@@ -6,6 +6,9 @@ using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
+using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -34,6 +37,8 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly IRepository<AccountingPeriod, Guid> _periodRepository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
+    private readonly WarehouseAccountService _warehouseAccountService;
 
     public DocumentPostingOrchestrator(
         AccountingRuleEngine ruleEngine,
@@ -45,7 +50,9 @@ public class DocumentPostingOrchestrator : DomainService
         IRepository<PaymentLedgerEntry, Guid> pleRepository,
         IRepository<AccountingPeriod, Guid> periodRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<StockLedgerEntry, Guid> sleRepository,
+        WarehouseAccountService warehouseAccountService)
     {
         _ruleEngine = ruleEngine;
         _pleService = pleService;
@@ -56,6 +63,8 @@ public class DocumentPostingOrchestrator : DomainService
         _pleRepository = pleRepository;
         _periodRepository = periodRepository;
         _fiscalYearRepository = fiscalYearRepository;
+        _sleRepository = sleRepository;
+        _warehouseAccountService = warehouseAccountService;
         _companyRepository = companyRepository;
     }
 
@@ -329,17 +338,145 @@ public class DocumentPostingOrchestrator : DomainService
     }
 
     /// <summary>
-    /// Post a Stock Entry (perpetual inventory): creates GL entries for stock movement.
-    /// Material Receipt: DR Stock CR Adjustment. Material Issue: DR Expense CR Stock. Transfer: no P&amp;L impact.
+    /// Post a Stock Entry (perpetual inventory): creates GL entries for stock movement, built
+    /// directly from the StockLedgerEntry rows StockPostingService already created for this entry
+    /// (so GL always matches what actually moved — no separate rate recomputation).
     /// </summary>
-    public async Task<JournalEntry> PostStockEntryAsync(IAccountableDocument stockEntry)
+    /// <remarks>
+    /// Deliberately bypasses AccountingRuleEngine (unlike SI/PI/DN/PR, which always post the same
+    /// two accounts and fit that generic config model) — confirmed via DefaultDataSeeder and
+    /// CompanyAppService.SeedCompanyDefaultsAsync that ZERO "StockEntry" AccountingRule rows are
+    /// ever seeded anywhere in this codebase, and there is no AppService or Angular screen to add
+    /// them, so the generic path was completely unreachable for every Stock Entry purpose,
+    /// forever, in every company (76th migration session finding). Stock Entry GL genuinely needs
+    /// per-purpose treatment the generic engine can't express (it fires every matching rule
+    /// unconditionally, with no purpose/condition field) — same shape of mismatch the 75th
+    /// session's Payment Entry fix addressed, just with more distinct shapes here.
+    ///
+    /// Scoped this session to the 5 most common purposes: Material Receipt/Issue/Transfer,
+    /// Manufacture, Disassemble. Every other StockEntryType (Repack, Send/Receive to
+    /// Subcontractor, Material Transfer/Consumption For Manufacture, transit warehouse legs)
+    /// throws a clear, explicit error rather than guessing at GL treatment — same "throws" outcome
+    /// they always had (zero rules = always threw), just with an honest reason now instead of a
+    /// generic "no rules configured".
+    /// </remarks>
+    public async Task<JournalEntry> PostStockEntryAsync(StockEntry stockEntry)
     {
-        await ValidatePostingPeriodAsync(stockEntry.CompanyId, stockEntry.PostingDate, stockEntry.DocumentType);
+        await ValidatePostingPeriodAsync(stockEntry.CompanyId, stockEntry.PostingDate, ((IAccountableDocument)stockEntry).DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(stockEntry);
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fy =>
+            fy.CompanyId == stockEntry.CompanyId &&
+            !fy.IsClosed &&
+            fy.StartDate <= stockEntry.PostingDate &&
+            fy.EndDate >= stockEntry.PostingDate);
+        if (fiscalYear == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                .WithData("date", stockEntry.PostingDate);
+        }
+
+        var company = await _companyRepository.GetAsync(stockEntry.CompanyId);
+
+        var sles = await _sleRepository.GetListAsync(s =>
+            s.VoucherType == "StockEntry" && s.VoucherId == stockEntry.Id);
+
+        var journal = new JournalEntry(GuidGenerator.Create(), stockEntry.CompanyId, fiscalYear.Id, stockEntry.PostingDate)
+        {
+            ReferenceType = ((IAccountableDocument)stockEntry).DocumentType,
+            ReferenceId = stockEntry.Id,
+        };
+
+        if (sles.Count > 0)
+        {
+            switch (stockEntry.EntryType)
+            {
+                case StockEntryType.MaterialIssue:
+                    await BuildIssueOrReceiptLinesAsync(journal, company, sles, isIssue: true);
+                    break;
+
+                case StockEntryType.MaterialReceipt:
+                case StockEntryType.ReceiveAtWarehouse:
+                    await BuildIssueOrReceiptLinesAsync(journal, company, sles, isIssue: false);
+                    break;
+
+                case StockEntryType.MaterialTransfer:
+                case StockEntryType.Manufacture:
+                case StockEntryType.Disassemble:
+                    await BuildStockToStockLinesAsync(journal, company, sles);
+                    break;
+
+                default:
+                    throw new BusinessException(MyERPDomainErrorCodes.StockEntryGlPurposeNotSupported)
+                        .WithData("documentType", ((IAccountableDocument)stockEntry).DocumentType)
+                        .WithData("purpose", stockEntry.EntryType.ToString());
+            }
+        }
+
         await _dimensionService.ValidateMandatoryDimensionsAsync(stockEntry.CompanyId, journal.Lines);
-        await _journalRepository.InsertAsync(journal);
+
+        if (journal.Lines.Count > 0)
+        {
+            journal.Validate();
+            journal.Post();
+            await _journalRepository.InsertAsync(journal);
+        }
+
         return journal;
+    }
+
+    /// <summary>Material Issue: DR Expense (total), CR Stock(warehouse) per SLE. Material
+    /// Receipt/ReceiveAtWarehouse: DR Stock(warehouse) per SLE, CR Stock Adjustment (total).</summary>
+    private async Task BuildIssueOrReceiptLinesAsync(
+        JournalEntry journal, Company company, List<StockLedgerEntry> sles, bool isIssue)
+    {
+        var total = sles.Sum(s => Math.Abs(s.StockValue));
+        if (total <= 0) return;
+
+        var otherAccountId = isIssue ? company.DefaultExpenseAccountId : company.DefaultStockAdjustmentAccountId;
+        if (!otherAccountId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
+                .WithData("reason", isIssue
+                    ? "No expense account configured. Set Default Expense Account in Company settings."
+                    : "No stock adjustment account configured. Set Default Stock Adjustment Account in Company settings.");
+        }
+        journal.AddLine(otherAccountId.Value, total, isDebit: isIssue);
+
+        foreach (var sle in sles)
+        {
+            var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(sle.WarehouseId, company.Id);
+            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: !isIssue);
+        }
+    }
+
+    /// <summary>Transfer/Manufacture/Disassemble: per SLE, DR the resolved stock account for
+    /// stock-in (positive StockValue), CR for stock-out (negative). Manufacture and Transfer
+    /// balance exactly by construction (the caller derives FG/target value from the same RM/source
+    /// cost); Disassemble's FG-out (priced at current balance) and RM-in (priced at a stored or
+    /// current rate) can genuinely differ, so any residual is plugged to the Stock Adjustment
+    /// account rather than left to fail JournalEntry.Validate()'s zero-tolerance balance check.</summary>
+    private async Task BuildStockToStockLinesAsync(JournalEntry journal, Company company, List<StockLedgerEntry> sles)
+    {
+        decimal debitTotal = 0, creditTotal = 0;
+        foreach (var sle in sles)
+        {
+            if (sle.StockValue == 0) continue;
+            var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(sle.WarehouseId, company.Id);
+            var isDebit = sle.StockValue > 0;
+            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: isDebit);
+            if (isDebit) debitTotal += sle.StockValue; else creditTotal += -sle.StockValue;
+        }
+
+        var difference = debitTotal - creditTotal;
+        if (difference == 0) return;
+
+        if (!company.DefaultStockAdjustmentAccountId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
+                .WithData("reason", "No stock adjustment account configured. Set Default Stock Adjustment Account in Company settings.");
+        }
+        // debit-heavy (difference > 0) needs a credit to balance, and vice versa.
+        journal.AddLine(company.DefaultStockAdjustmentAccountId.Value, Math.Abs(difference), isDebit: difference < 0);
     }
 
     /// <summary>
