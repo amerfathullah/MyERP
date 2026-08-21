@@ -165,4 +165,21 @@ public class SalesTeamEntry : Entity<Guid>
         AllocatedAmount = Math.Round(eligibleAmount * allocatedPercentage / 100m, 2);
         Incentives = Math.Round(AllocatedAmount * commissionRate / 100m, 2);
     }
+
+    /// <summary>
+    /// Validates that the allocated percentages in a sales team sum to exactly 100% (gotcha #301).
+    /// </summary>
+    public static void ValidateAllocatedPercentages(IEnumerable<SalesTeamEntry>? entries)
+    {
+        if (entries == null) return;
+        var list = entries.ToList();
+        if (list.Count == 0) return;
+
+        var total = list.Sum(x => x.AllocatedPercentage);
+        if (Math.Abs(total - 100m) > 0.00001m)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Sales team allocated percentage must sum to exactly 100%. Current sum: {total}%.");
+        }
+    }
 }

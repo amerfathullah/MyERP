@@ -89,6 +89,29 @@ public class Contract : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = ContractStatus.Active;
     }
 
+    /// <summary>
+    /// Updates ContractStatus based on signing and date range per ERPNext Contract (gotchas #1155, #1185).
+    /// </summary>
+    public void UpdateContractStatus(DateTime asOfDate)
+    {
+        if (Status == ContractStatus.Cancelled) return;
+
+        if (!SigningDate.HasValue)
+        {
+            Status = ContractStatus.Unsigned;
+            return;
+        }
+
+        if (asOfDate.Date >= StartDate.Date && (!EndDate.HasValue || asOfDate.Date <= EndDate.Value.Date))
+        {
+            Status = ContractStatus.Active;
+        }
+        else
+        {
+            Status = ContractStatus.InactiveByExpiry;
+        }
+    }
+
     /// <summary>Checks if contract is expired based on end date.</summary>
     public bool IsExpired(DateTime asOfDate) =>
         EndDate.HasValue && EndDate.Value < asOfDate;

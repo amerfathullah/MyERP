@@ -31,6 +31,12 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string BillingInterval { get; set; } = "Monthly";
     public int BillingIntervalCount { get; set; } = 1;
 
+    /// <summary>Whether billing aligns strictly to calendar months (gotcha #545).</summary>
+    public bool FollowCalendarMonths { get; set; }
+
+    /// <summary>Whether subscription is prepaid (full invoice upfront) or postpaid (prorated) (gotcha #320).</summary>
+    public bool IsPrepaid { get; set; }
+
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public DateTime? CurrentInvoiceStart { get; set; }
@@ -52,6 +58,42 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     private readonly List<SubscriptionPlan> _plans = new();
     public IReadOnlyList<SubscriptionPlan> Plans => _plans.AsReadOnly();
+
+    /// <summary>
+    /// Validates subscription end date and calendar alignment rules per ERPNext subscription controller (gotchas #544, #545).
+    /// </summary>
+    public void ValidateSubscriptionPeriod()
+    {
+        var months = BillingInterval switch
+        {
+            "Monthly" => 1 * BillingIntervalCount,
+            "Quarterly" => 3 * BillingIntervalCount,
+            "Half-Yearly" => 6 * BillingIntervalCount,
+            "Yearly" => 12 * BillingIntervalCount,
+            _ => 1
+        };
+
+        if (EndDate.HasValue && EndDate.Value < StartDate.AddMonths(months))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Subscription End Date must exceed at least one full billing cycle.");
+        }
+
+        if (FollowCalendarMonths)
+        {
+            if (!EndDate.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "End Date is mandatory when Follow Calendar Months is enabled.");
+            }
+
+            if (!string.Equals(BillingInterval, "Monthly", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Billing Interval must be Monthly when Follow Calendar Months is enabled.");
+            }
+        }
+    }
 
     protected Subscription() { }
 
