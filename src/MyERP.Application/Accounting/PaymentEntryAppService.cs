@@ -598,7 +598,12 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             if (fy2 != null)
             {
                 var taxJe = new MyERP.Accounting.Entities.JournalEntry(
-                    GuidGenerator.Create(), pe.CompanyId, fy2.Id, pe.PostingDate, pe.TenantId);
+                    GuidGenerator.Create(), pe.CompanyId, fy2.Id, pe.PostingDate, pe.TenantId)
+                {
+                    VoucherType = JournalEntryVoucherType.PaymentTax,
+                    ReferenceType = "PaymentEntry",
+                    ReferenceId = pe.Id,
+                };
                 var bankAccount = pe.PaymentType == PaymentType.Receive
                     ? pe.PaidFromAccountId : pe.PaidToAccountId;
 
@@ -691,12 +696,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         pe.Cancel();
 
-        // Reverse PLE entries + reverse the posted GL Journal Entry (main JE and any
-        // per-reference exchange gain/loss JEs are reversed separately — see
-        // ReverseGlForDocumentAsync's doc comment for why FX JEs are excluded from it).
+        // Reverse PLE entries + reverse the posted GL Journal Entry (main JE, any per-reference
+        // exchange gain/loss JEs, and the separate tax JE are all reversed independently — see
+        // ReverseGlForDocumentAsync's doc comment for why they're excluded from it).
         await _postingOrchestrator.ReversePleForDocumentAsync("PaymentEntry", pe.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("PaymentEntry", pe.Id);
         await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync("PaymentEntry", pe.Id);
+        await _postingOrchestrator.ReversePaymentTaxJournalEntriesAsync("PaymentEntry", pe.Id);
 
         // Reverse invoice AmountPaid (with concurrency retry)
         if (pe.AgainstInvoiceId.HasValue)

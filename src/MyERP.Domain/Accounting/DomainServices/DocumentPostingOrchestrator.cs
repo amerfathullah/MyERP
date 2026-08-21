@@ -296,15 +296,17 @@ public class DocumentPostingOrchestrator : DomainService
     public async Task ReverseGlForDocumentAsync(string voucherType, Guid voucherId)
     {
         var query = await _journalRepository.GetQueryableAsync();
-        // Excludes ExchangeGainOrLoss: a Payment Entry can have both its main GL and one or more
-        // per-reference exchange gain/loss JEs sharing the same (ReferenceType, ReferenceId) —
-        // those are reversed separately via ReverseExchangeGainLossJournalEntriesAsync, since an
-        // unreconcile should undo only the FX JE for that allocation, not the payment's main GL.
+        // Excludes ExchangeGainOrLoss and PaymentTax: a Payment Entry can have its main GL JE plus
+        // one or more per-reference exchange gain/loss JEs AND a separate tax JE, all sharing the
+        // same (ReferenceType, ReferenceId) — those are reversed separately via
+        // ReverseExchangeGainLossJournalEntriesAsync / ReversePaymentTaxJournalEntriesAsync, since an
+        // unreconcile/cancel of one shouldn't touch the others.
         var original = query.FirstOrDefault(j =>
             j.ReferenceType == voucherType && j.ReferenceId == voucherId
             && j.Status == DocumentStatus.Posted
             && j.VoucherType != JournalEntryVoucherType.Reversal
-            && j.VoucherType != JournalEntryVoucherType.ExchangeGainOrLoss);
+            && j.VoucherType != JournalEntryVoucherType.ExchangeGainOrLoss
+            && j.VoucherType != JournalEntryVoucherType.PaymentTax);
 
         if (original == null) return;
 
@@ -324,6 +326,25 @@ public class DocumentPostingOrchestrator : DomainService
             j.ReferenceType == voucherType && j.ReferenceId == voucherId
             && j.Status == DocumentStatus.Posted
             && j.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss).ToList();
+
+        foreach (var entry in entries)
+            await ReverseJournalEntryAsync(entry);
+    }
+
+    /// <summary>
+    /// Reverses every posted Payment Entry tax Journal Entry linked to a document — see
+    /// PaymentEntryAppService.PostAsync's "Payment Entry Tax GL Posting" block, which builds this
+    /// as a separate JE from the payment's main GL. Only one is ever posted per Payment Entry today,
+    /// but reverses ALL matches for the same reason <see cref="ReverseExchangeGainLossJournalEntriesAsync"/>
+    /// does — no-op if none are posted.
+    /// </summary>
+    public async Task ReversePaymentTaxJournalEntriesAsync(string voucherType, Guid voucherId)
+    {
+        var query = await _journalRepository.GetQueryableAsync();
+        var entries = query.Where(j =>
+            j.ReferenceType == voucherType && j.ReferenceId == voucherId
+            && j.Status == DocumentStatus.Posted
+            && j.VoucherType == JournalEntryVoucherType.PaymentTax).ToList();
 
         foreach (var entry in entries)
             await ReverseJournalEntryAsync(entry);

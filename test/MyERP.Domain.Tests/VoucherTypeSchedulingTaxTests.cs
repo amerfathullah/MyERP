@@ -52,10 +52,13 @@ public class VoucherTypeSchedulingTaxTests
     }
 
     [Fact]
-    public void JournalEntryVoucherType_Enum_Has18Values()
+    public void JournalEntryVoucherType_Enum_Has19Values()
     {
+        // 18 + PaymentTax (added so a Payment Entry's tax JE can be found and reversed
+        // independently of its main GL JE on cancel/repost — see
+        // DocumentPostingOrchestrator.ReversePaymentTaxJournalEntriesAsync).
         var values = Enum.GetValues<JournalEntryVoucherType>();
-        values.Length.ShouldBe(18);
+        values.Length.ShouldBe(19);
     }
 
     [Fact]

@@ -60,5 +60,10 @@ public enum JournalEntryVoucherType
     Reversal = 16,
 
     /// <summary>Period closing entry (P&L closing to retained earnings).</summary>
-    PeriodClosing = 17
+    PeriodClosing = 17,
+
+    /// <summary>Payment Entry tax posting (withholding/other taxes on a payment, separate from the
+    /// payment's own main GL JE). Own voucher type so it can be found and reversed independently on
+    /// cancel/repost — see DocumentPostingOrchestrator.ReversePaymentTaxJournalEntriesAsync.</summary>
+    PaymentTax = 18
 }
