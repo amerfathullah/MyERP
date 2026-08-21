@@ -88,6 +88,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             var invoice = await _salesInvoiceRepository.GetAsync(input.SourceDocumentId, includeDetails: true);
             await _validationService.EnsureValidForSubmissionAsync(invoice, input.CompanyId);
         }
+        else if (input.SourceDocumentType == "PurchaseInvoice")
+        {
+            var invoice = await _purchaseInvoiceRepository.GetAsync(input.SourceDocumentId, includeDetails: true);
+            await _validationService.EnsureValidPurchaseInvoiceForSubmissionAsync(invoice, input.CompanyId);
+        }
 
         // Step 2: Build UBL 2.1 XML from source document
         var documentData = await BuildDocumentDataAsync(input.CompanyId, input.SourceDocumentType, input.SourceDocumentId);
@@ -165,17 +170,22 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var invoice = await _salesInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var customer = await _customerRepository.GetAsync(invoice.CustomerId);
 
+        var docTypeCode = invoice.EInvoiceDocType.HasValue
+            ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
+            : (invoice.IsReturn ? "02" : "01");
+
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
-            DocumentTypeCode = invoice.EInvoiceDocType?.ToString("D2") ?? "01",
+            DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
+            BillingReferenceNumber = invoice.ReturnAgainstId?.ToString(),
             Supplier = supplier,
             Buyer = new EInvoicePartyData
             {
                 Name = customer.Name,
-                Tin = customer.Tin ?? "EI00000000020",
+                Tin = !string.IsNullOrWhiteSpace(invoice.BuyerTin) ? invoice.BuyerTin : (customer.Tin ?? "EI00000000020"),
                 IdType = customer.IdType ?? "BRN",
                 IdValue = customer.IdValue ?? customer.RegistrationNumber ?? "",
                 SstRegistration = customer.SstRegistrationNumber,
@@ -188,6 +198,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
+            DiscountAmount = invoice.DiscountAmount,
             Lines = invoice.Items.Select(item => new EInvoiceLineData
             {
                 Description = item.Description,
@@ -205,13 +216,18 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var invoice = await _purchaseInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var supplier = await _supplierRepository.GetAsync(invoice.SupplierId);
 
+        var docTypeCode = invoice.EInvoiceDocType.HasValue
+            ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
+            : (invoice.IsReturn ? "12" : "11");
+
         // For purchase: supplier is the seller, company is the buyer
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
-            DocumentTypeCode = "01",
+            DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
+            BillingReferenceNumber = invoice.ReturnAgainstId?.ToString(),
             Supplier = new EInvoicePartyData
             {
                 Name = supplier.Name,
@@ -229,6 +245,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
+            DiscountAmount = invoice.DiscountAmount,
             Lines = invoice.Items.Select(item => new EInvoiceLineData
             {
                 Description = item.Description,
@@ -252,6 +269,15 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             invoice.LhdnSubmissionId = submission.Id;
             invoice.LhdnSubmittedAt = DateTime.UtcNow;
             await _salesInvoiceRepository.UpdateAsync(invoice);
+        }
+        else if (docType == "PurchaseInvoice")
+        {
+            var invoice = await _purchaseInvoiceRepository.GetAsync(docId);
+            invoice.EInvoiceStatus = submission.Status == "Accepted"
+                ? Sales.EInvoiceStatus.Pending : Sales.EInvoiceStatus.Invalid;
+            invoice.LhdnUuid = submission.DocumentUuid;
+            invoice.LhdnSubmissionId = submission.Id;
+            await _purchaseInvoiceRepository.UpdateAsync(invoice);
         }
     }
 

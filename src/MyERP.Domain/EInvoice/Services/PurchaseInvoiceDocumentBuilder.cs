@@ -40,11 +40,14 @@ public class PurchaseInvoiceDocumentBuilder : ITransientDependency
         var company = await _companyRepository.GetAsync(invoice.CompanyId);
         var supplier = await _supplierRepository.GetAsync(invoice.SupplierId);
 
+        var docType = invoice.EInvoiceDocType 
+            ?? (invoice.IsReturn ? EInvoiceDocumentType.SelfBilledCreditNote : EInvoiceDocumentType.SelfBilledInvoice);
+
         var data = new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
-            DocumentTypeCode = ((int)(invoice.EInvoiceDocType ?? EInvoiceDocumentType.Invoice)).ToString("D2"),
+            DocumentTypeCode = ((int)docType).ToString("D2"),
             CurrencyCode = invoice.CurrencyCode,
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
@@ -56,11 +59,15 @@ public class PurchaseInvoiceDocumentBuilder : ITransientDependency
             Supplier = new EInvoicePartyData
             {
                 Name = supplier.Name,
-                Tin = invoice.SupplierTin ?? "EI00000000020", // Default to general public TIN if not provided
-                IdType = "BRN",
-                IdValue = "NA", // Can be populated from supplier details
-                Address = "NA",
-                CountryCode = "MYS"
+                Tin = invoice.SupplierTin ?? supplier.Tin ?? "EI00000000020",
+                IdType = supplier.IdType ?? "BRN",
+                IdValue = supplier.IdValue ?? supplier.RegistrationNumber ?? "NA",
+                SstRegistration = supplier.SstRegistrationNumber,
+                Address = supplier.Address ?? "NA",
+                City = supplier.City,
+                State = supplier.State,
+                PostalCode = supplier.PostalCode,
+                CountryCode = supplier.Country ?? "MYS"
             },
 
             // Buyer = The Company
@@ -71,14 +78,17 @@ public class PurchaseInvoiceDocumentBuilder : ITransientDependency
                 IdType = "BRN",
                 IdValue = company.RegistrationNumber ?? "NA",
                 MsicCode = company.MsicCode,
-                SstRegistration = "NA", // Add real SST if available
-                Address = "NA",
-                CountryCode = "MYS"
+                SstRegistration = company.SstRegistrationNumber ?? "NA",
+                Address = company.Address ?? "NA",
+                City = company.City,
+                State = company.State,
+                PostalCode = company.PostalCode,
+                CountryCode = company.Country ?? "MYS"
             }
         };
 
         // If this is a self-billed return (Debit/Credit note), LHDN requires original reference
-        if ((data.DocumentTypeCode == "02" || data.DocumentTypeCode == "03" || data.DocumentTypeCode == "13" || data.DocumentTypeCode == "14") 
+        if ((data.DocumentTypeCode is "02" or "03" or "04" or "12" or "13" or "14") 
             && invoice.ReturnAgainstId.HasValue)
         {
             data.BillingReferenceNumber = invoice.ReturnAgainstId.Value.ToString();
@@ -95,7 +105,7 @@ public class PurchaseInvoiceDocumentBuilder : ITransientDependency
                 TaxAmount = item.TaxAmount,
                 Uom = item.Uom,
                 TaxCategoryCode = "01", // Standard rate
-                TaxRate = 0m // Calculate actual tax rate if available
+                TaxRate = 0m
             });
         }
 
