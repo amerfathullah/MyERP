@@ -15,6 +15,9 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = "Unit";
     public decimal Quantity { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
 
@@ -43,6 +46,31 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// Per ERPNext: billed_amt tracking enables PR→PI billing status (PerBilled).
     /// </summary>
     public decimal BilledQty { get; set; }
+
+    /// <summary>
+    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197).
+    /// </summary>
+    public void ValidateAcceptedRejectedQty(bool isReturn)
+    {
+        if (!isReturn)
+        {
+            if (Quantity < 0 || RejectedQty < 0 || ReceivedQty < 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Accepted, rejected, and received quantities cannot be negative on non-return receipts.");
+            }
+
+            if (ReceivedQty == 0 && (Quantity > 0 || RejectedQty > 0))
+            {
+                ReceivedQty = Quantity + RejectedQty;
+            }
+            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
+            }
+        }
+    }
 
     /// <summary>
     /// Amount allocated from Landed Cost Vouchers to this item.

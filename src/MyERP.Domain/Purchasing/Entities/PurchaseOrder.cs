@@ -98,10 +98,22 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
-    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion (all items must be received).</summary>
-    public decimal PerReceived => _items.Count > 0
-        ? Math.Round(_items.Min(i => i.Quantity > 0 ? i.ReceivedQty / i.Quantity * 100 : 100m), 2)
-        : 0;
+    /// <summary>
+    /// Percentage of total qty received (0-100) per ERPNext formula (gotcha #370):
+    /// SUM(MIN(item.received_qty, item.qty)) / SUM(item.qty) * 100.
+    /// Caps received_qty at ordered qty per item to prevent over-receipt distortion.
+    /// </summary>
+    public decimal PerReceived
+    {
+        get
+        {
+            if (_items.Count == 0) return 0;
+            var totalQty = _items.Sum(i => i.Quantity);
+            if (totalQty <= 0) return 0;
+            var cappedReceived = _items.Sum(i => Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity));
+            return Math.Round(cappedReceived / totalQty * 100, 2);
+        }
+    }
 
     /// <summary>Percentage of total amount billed (0-100).</summary>
     public decimal PerBilled => NetTotal > 0

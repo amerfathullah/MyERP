@@ -128,6 +128,15 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         RecalculateTotals();
     }
 
+    public void ValidatePostingDateWithPo(DateTime poTransactionDate)
+    {
+        if (PostingDate.Date < poTransactionDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Posting Date cannot be before the linked Purchase Order date.");
+        }
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
@@ -135,9 +144,17 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        // Validate from_warehouse and UOM conversion factor per ERPNext buying/stock controller
+        if (PostingDate.Date > DateTime.UtcNow.Date.AddDays(1))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Posting Date cannot be in the future.");
+        }
+
+        // Validate from_warehouse, UOM conversion factor, and accepted/rejected quantities per ERPNext buying/stock controller
         foreach (var item in _items)
         {
+            item.ValidateAcceptedRejectedQty(IsReturn);
+
             // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
             if (!string.IsNullOrEmpty(item.Uom) && !string.IsNullOrEmpty(item.StockUom)
                 && string.Equals(item.Uom, item.StockUom, StringComparison.OrdinalIgnoreCase)
