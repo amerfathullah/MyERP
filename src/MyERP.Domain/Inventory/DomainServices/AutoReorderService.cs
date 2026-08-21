@@ -84,9 +84,11 @@ public class AutoReorderService : DomainService
                     .Where(b => b.ItemId == item.Id && checkWarehouseIds.Contains(b.WarehouseId))
                     .Sum(b => (decimal?)b.ProjectedQty) ?? 0;
 
-                if (projectedQty < reorder.WarehouseReorderLevel)
+                if (projectedQty <= reorder.WarehouseReorderLevel)
                 {
-                    itemsNeedingReorder.Add((item, reorder.WarehouseId, reorder.WarehouseReorderQty, reorder.MaterialRequestType));
+                    var deficiency = reorder.WarehouseReorderLevel - projectedQty;
+                    var qtyToOrder = Math.Max(reorder.WarehouseReorderQty, deficiency);
+                    itemsNeedingReorder.Add((item, reorder.WarehouseId, qtyToOrder, reorder.MaterialRequestType));
                 }
             }
 
@@ -99,15 +101,18 @@ public class AutoReorderService : DomainService
 
                 if (!bins.Any() && item.DefaultWarehouseId.HasValue && !overriddenWarehouseIds.Contains(item.DefaultWarehouseId.Value))
                 {
-                    itemsNeedingReorder.Add((item, item.DefaultWarehouseId.Value, item.ReorderQty, item.DefaultMaterialRequestType));
+                    var qtyToOrder = Math.Max(item.ReorderQty, item.ReorderLevel);
+                    itemsNeedingReorder.Add((item, item.DefaultWarehouseId.Value, qtyToOrder, item.DefaultMaterialRequestType));
                     continue;
                 }
 
                 foreach (var bin in bins)
                 {
-                    if (bin.ProjectedQty < item.ReorderLevel)
+                    if (bin.ProjectedQty <= item.ReorderLevel)
                     {
-                        itemsNeedingReorder.Add((item, bin.WarehouseId, item.ReorderQty, item.DefaultMaterialRequestType));
+                        var deficiency = item.ReorderLevel - bin.ProjectedQty;
+                        var qtyToOrder = Math.Max(item.ReorderQty, deficiency);
+                        itemsNeedingReorder.Add((item, bin.WarehouseId, qtyToOrder, item.DefaultMaterialRequestType));
                     }
                 }
             }
@@ -193,8 +198,11 @@ public class AutoReorderService : DomainService
                 .Sum(b => (decimal?)b.ProjectedQty) ?? 0;
         }
 
-        if (projectedQty >= reorderLevel)
+        if (projectedQty > reorderLevel)
             return null;
+
+        var deficiency = reorderLevel - projectedQty;
+        var qtyToOrder = Math.Max(reorderQty, deficiency);
 
         // Check if there's already a pending MR for this item+warehouse
         var mrQuery = await _mrRepository.GetQueryableAsync();
@@ -215,7 +223,7 @@ public class AutoReorderService : DomainService
             DateTime.UtcNow,
             tenantId);
 
-        newMr.AddItem(item.Id, item.ItemName, reorderQty, item.Uom, warehouseId);
+        newMr.AddItem(item.Id, item.ItemName, qtyToOrder, item.Uom, warehouseId);
 
         await _mrRepository.InsertAsync(newMr, autoSave: true);
         return newMr.Id;
