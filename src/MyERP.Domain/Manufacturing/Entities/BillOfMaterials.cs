@@ -29,6 +29,18 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal OperatingCost { get; set; }
     public decimal TotalCost => TotalMaterialCost + OperatingCost;
 
+    /// <summary>Whether this BOM defines routing operations.</summary>
+    public bool WithOperations { get; set; }
+
+    /// <summary>
+    /// Transfer material against: "Work Order" or "Job Card".
+    /// Per gotcha #446: forced to "Work Order" when WithOperations is false.
+    /// </summary>
+    public string TransferMaterialAgainst { get; set; } = "Work Order";
+
+    /// <summary>Whether semi-finished goods tracking is enabled across operations.</summary>
+    public bool TrackSemiFinishedGoods { get; set; }
+
     /// <summary>
     /// Per-BOM override for backflush method. "BOM" or "Material Transferred for Manufacture".
     /// When set, takes precedence over ManufacturingSettings global value.
@@ -94,12 +106,27 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// Per ERPNext: same sequence_id = parallel operations (allowed).
     /// Per DO-NOT: "Allow routing sequence_id to decrease between rows"
     /// </summary>
+    public void ValidateOperations()
+    {
+        if (!WithOperations)
+        {
+            TransferMaterialAgainst = "Work Order";
+        }
+        else if (string.IsNullOrWhiteSpace(TransferMaterialAgainst) && !TrackSemiFinishedGoods)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Transfer Material Against is mandatory when With Operations is enabled.");
+        }
+    }
+
     public void AddOperation(BomOperation operation)
     {
         if (Operations.Any() && operation.SequenceId < Operations.Max(o => o.SequenceId))
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Operation sequence_id must be monotonically non-decreasing");
         Operations.Add(operation);
+        WithOperations = true;
+        ValidateOperations();
     }
 
     /// <summary>

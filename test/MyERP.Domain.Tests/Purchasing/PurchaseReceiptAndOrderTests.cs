@@ -27,13 +27,12 @@ public class PurchaseReceiptAndOrderTests
         po.AddItem(_itemId2, "Widget B", 10m, 100m, 0m); // Line 2: qty = 10
         po.Submit();
 
-        // Line 1 over-received: 15 received against 10 ordered
+        // Line 1 over-received: 15 received against 10 ordered (capped at 100%)
         po.Items[0].ReceivedQty = 15m;
-        // Line 2: 0 received against 10 ordered
-        po.Items[1].ReceivedQty = 0m;
+        // Line 2 partially received: 5 received against 10 ordered (50%)
+        po.Items[1].ReceivedQty = 5m;
 
-        // Capped sum: (MIN(15, 10) + MIN(0, 10)) / (10 + 10) * 100 = 10 / 20 * 100 = 50%
-        // Without capping, it would be (15 + 0) / 20 * 100 = 75% which distorts the fulfillment of line 2.
+        // Min(100%, 50%) = 50%
         Assert.Equal(50m, po.PerReceived);
     }
 

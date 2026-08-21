@@ -80,6 +80,18 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         PlannedEndDate = endDate;
     }
 
+    /// <summary>
+    /// Validates whole number quantity when item stock UOM has MustBeWholeNumber set (gotcha #497).
+    /// </summary>
+    public void ValidateWholeNumberQuantity(bool mustBeWholeNumber)
+    {
+        if (mustBeWholeNumber && Math.Abs(Math.Round(Quantity) - Quantity) > 0.0000001m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Quantity {Quantity} must be a whole number for this item's UOM.");
+        }
+    }
+
     public void ValidateDates()
     {
         if (PlannedStartDate.HasValue && PlannedEndDate.HasValue && PlannedEndDate.Value < PlannedStartDate.Value)
