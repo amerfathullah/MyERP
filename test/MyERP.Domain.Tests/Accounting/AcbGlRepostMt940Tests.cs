@@ -100,7 +100,7 @@ public class AcbGlRepostMt940Tests
     [Theory]
     [InlineData("SalesInvoice", true)]
     [InlineData("PurchaseInvoice", true)]
-    [InlineData("PaymentEntry", true)]
+    [InlineData("PaymentEntry", false)] // removed — see GlRepostService.AllowedVoucherTypes doc comment
     [InlineData("JournalEntry", true)]
     [InlineData("PurchaseReceipt", true)]
     [InlineData("DeliveryNote", true)]
@@ -115,9 +115,9 @@ public class AcbGlRepostMt940Tests
     }
 
     [Fact]
-    public void GlRepostService_AllowedTypes_Contains7Types()
+    public void GlRepostService_AllowedTypes_Contains6Types()
     {
-        Assert.Equal(7, GlRepostService.AllowedVoucherTypes.Count);
+        Assert.Equal(6, GlRepostService.AllowedVoucherTypes.Count);
     }
 
     [Fact]

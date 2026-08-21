@@ -95,6 +95,8 @@ public class MyERPDbContext :
     public DbSet<InvoiceDiscountingInvoice> InvoiceDiscountingInvoices { get; set; }
     public DbSet<UnreconcilePayment> UnreconcilePayments { get; set; }
     public DbSet<UnreconcilePaymentEntry> UnreconcilePaymentEntries { get; set; }
+    public DbSet<RepostAccountingLedger> RepostAccountingLedgers { get; set; }
+    public DbSet<RepostAccountingLedgerVoucher> RepostAccountingLedgerVouchers { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
     public DbSet<BankTransaction> BankTransactions { get; set; }
     public DbSet<BankTransactionRule> BankTransactionRules { get; set; }
@@ -1580,6 +1582,27 @@ public class MyERPDbContext :
             b.Property(x => x.OutstandingAmount).HasColumnType("decimal(18,4)");
             b.HasIndex(x => x.InvoiceDiscountingId);
             b.HasIndex(x => x.SalesInvoiceId);
+        });
+
+        builder.Entity<RepostAccountingLedger>(b =>
+        {
+            b.ToTable("Acc_RepostAccountingLedgers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ErrorLog).HasMaxLength(4000);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasMany(x => x.Vouchers).WithOne().HasForeignKey(x => x.RepostAccountingLedgerId).IsRequired();
+            b.Navigation(x => x.Vouchers).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
+        });
+
+        builder.Entity<RepostAccountingLedgerVoucher>(b =>
+        {
+            b.ToTable("Acc_RepostAccountingLedgerVouchers", MyERPConsts.DbSchema);
+            b.Property(x => x.VoucherType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.VoucherNumber).IsRequired().HasMaxLength(140);
+            b.Property(x => x.ErrorMessage).HasMaxLength(2000);
+            b.HasIndex(x => x.RepostAccountingLedgerId);
+            b.HasIndex(x => new { x.VoucherType, x.VoucherId });
         });
 
         builder.Entity<UnreconcilePayment>(b =>

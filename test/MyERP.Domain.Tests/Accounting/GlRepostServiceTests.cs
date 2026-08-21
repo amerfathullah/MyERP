@@ -12,11 +12,20 @@ public class GlRepostServiceTests
     {
         GlRepostService.IsRepostAllowed("SalesInvoice").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("PurchaseInvoice").ShouldBeTrue();
-        GlRepostService.IsRepostAllowed("PaymentEntry").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("JournalEntry").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("PurchaseReceipt").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("DeliveryNote").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("StockEntry").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AllowedVoucherTypes_ExcludesPaymentEntry()
+    {
+        // Removed deliberately: PE's GL repost would need to also reverse+rebuild PLE across
+        // potentially multiple allocated references and re-derive its exchange-gain/loss JE — see
+        // GlRepostService.AllowedVoucherTypes's doc comment. Silently reposting only the main GL
+        // while leaving PLE stale would be worse than not supporting repost for it at all.
+        GlRepostService.IsRepostAllowed("PaymentEntry").ShouldBeFalse();
     }
 
     [Fact]
@@ -34,7 +43,7 @@ public class GlRepostServiceTests
     {
         GlRepostService.IsRepostAllowed("salesinvoice").ShouldBeTrue();
         GlRepostService.IsRepostAllowed("PURCHASEINVOICE").ShouldBeTrue();
-        GlRepostService.IsRepostAllowed("paymentEntry").ShouldBeTrue();
+        GlRepostService.IsRepostAllowed("stockentry").ShouldBeTrue();
     }
 
     [Fact]
@@ -61,8 +70,8 @@ public class GlRepostServiceTests
     }
 
     [Fact]
-    public void AllowedVoucherTypes_Has7Types()
+    public void AllowedVoucherTypes_Has6Types()
     {
-        GlRepostService.AllowedVoucherTypes.Count.ShouldBe(7);
+        GlRepostService.AllowedVoucherTypes.Count.ShouldBe(6);
     }
 }

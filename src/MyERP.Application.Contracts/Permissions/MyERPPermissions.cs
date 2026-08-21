@@ -93,6 +93,14 @@ public static class MyERPPermissions
         public const string Post = Default + ".Post";
     }
 
+    public static class RepostAccountingLedger
+    {
+        public const string Default = GroupName + ".RepostAccountingLedger";
+        public const string Create = Default + ".Create";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class Quotations
     {
         public const string Default = GroupName + ".Quotations";

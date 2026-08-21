@@ -976,60 +976,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var invoice = await _repository.GetAsync(id);
         invoice.Post();
 
-        // Resolve payable account: invoice-specific → company default → throw
-        var company = await _companyRepository.GetAsync(invoice.CompanyId);
-        var payableAccountId = invoice.CreditToAccountId != Guid.Empty
-            ? invoice.CreditToAccountId
-            : company.DefaultPayableAccountId ?? Guid.Empty;
-
-        if (payableAccountId == Guid.Empty)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
-                .WithData("reason", "No payable account configured. Set Default Payable Account in Company settings.");
-        }
-
-        // Budget Level 3 validation: validate expense GL amounts against budget
-        if (company.DefaultExpenseAccountId.HasValue)
-        {
-            var expenseItems = invoice.Items
-                .Select(i => new Accounting.DomainServices.BudgetCheckItem(
-                    company.DefaultExpenseAccountId.Value, i.Quantity * i.UnitPrice))
-                .ToList();
-            await _postingOrchestrator.ValidateBudgetOnPostingAsync(
-                invoice.CompanyId, invoice.IssueDate, expenseItems, invoice.TenantId);
-        }
-
-        // GL posting + PLE creation for outstanding tracking
-        await _postingOrchestrator.PostPurchaseInvoiceAsync(
-            invoice,
-            payableAccountId: payableAccountId,
-            dueDate: invoice.DueDate);
-
-        // Common Party Accounting: auto-reconcile against a linked Customer if this Supplier
-        // represents the same real-world entity (see accounting/DomainServices/CommonPartyAccountingService).
-        var commonPartyService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CommonPartyAccountingService>();
-        var reconciliation = await commonPartyService.ReconcileAsync(new Accounting.DomainServices.CommonPartyReconciliationContext
-        {
-            CompanyId = invoice.CompanyId,
-            TenantId = invoice.TenantId,
-            PostingDate = invoice.IssueDate,
-            DocumentType = "PurchaseInvoice",
-            DocumentId = invoice.Id,
-            DocumentNumber = invoice.InvoiceNumber,
-            PartyType = "Supplier",
-            PartyId = invoice.SupplierId,
-            PartyAccountId = payableAccountId,
-            OutstandingAmount = invoice.OutstandingAmount,
-            CurrencyCode = invoice.CurrencyCode,
-            ExchangeRate = invoice.ExchangeRate,
-            CostCenterId = invoice.CostCenterId,
-            ProjectId = invoice.ProjectId,
-            IsReturn = invoice.IsReturn,
-        });
-        if (reconciliation != null)
-        {
-            invoice.AmountPaid += reconciliation.ReconciledAmount;
-        }
+        var glService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.GlRepostService>();
+        await glService.RebuildPurchaseInvoiceGlAsync(invoice);
 
         // Auto-insert item prices (per ERPNext: auto_insert_price_list_rate_if_missing)
         try

@@ -26,11 +26,10 @@ public class OrphanedServiceWiringTests
     // === GlRepostService ===
 
     [Fact]
-    public void GlRepostService_AllowedVoucherTypes_Contains_SevenTypes()
+    public void GlRepostService_AllowedVoucherTypes_Contains_SixTypes()
     {
         Assert.Contains("SalesInvoice", GlRepostService.AllowedVoucherTypes);
         Assert.Contains("PurchaseInvoice", GlRepostService.AllowedVoucherTypes);
-        Assert.Contains("PaymentEntry", GlRepostService.AllowedVoucherTypes);
         Assert.Contains("JournalEntry", GlRepostService.AllowedVoucherTypes);
         Assert.Contains("PurchaseReceipt", GlRepostService.AllowedVoucherTypes);
         Assert.Contains("DeliveryNote", GlRepostService.AllowedVoucherTypes);
@@ -44,6 +43,8 @@ public class OrphanedServiceWiringTests
         Assert.False(GlRepostService.IsRepostAllowed("MaterialRequest"));
         Assert.False(GlRepostService.IsRepostAllowed("WorkOrder"));
         Assert.False(GlRepostService.IsRepostAllowed("Quotation"));
+        // See GlRepostService.AllowedVoucherTypes doc comment for why PE was removed.
+        Assert.False(GlRepostService.IsRepostAllowed("PaymentEntry"));
     }
 
     [Fact]

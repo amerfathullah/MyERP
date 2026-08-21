@@ -2631,6 +2631,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'accounting/repost-accounting-ledger',
+    loadComponent: () => import('./accounting/repost-accounting-ledger/repost-accounting-ledger.component').then(c => c.RepostAccountingLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.RepostAccountingLedger' },
+  },
+  {
     path: 'accounting/closing-balances',
     loadComponent: () => import('./accounting/account-closing-balance/account-closing-balance.component').then(c => c.AccountClosingBalanceComponent),
     canActivate: [authGuard, permissionGuard],

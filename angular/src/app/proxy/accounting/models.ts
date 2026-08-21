@@ -1906,3 +1906,38 @@ export interface VoucherLedgerEntryDto {
   description?: string | null;
   financeBook?: string | null;
 }
+
+export interface RepostAccountingLedgerDto extends EntityDto<string> {
+  companyId: string;
+  status: number;
+  statusName: string;
+  errorLog?: string | null;
+  creationTime: string;
+  vouchers: RepostAccountingLedgerVoucherDto[];
+}
+
+export interface RepostAccountingLedgerVoucherDto extends EntityDto<string> {
+  voucherType: string;
+  voucherId: string;
+  voucherNumber: string;
+  status: number;
+  statusName: string;
+  errorMessage?: string | null;
+}
+
+export interface CreateRepostAccountingLedgerDto {
+  companyId: string;
+  vouchers: RepostAccountingLedgerVoucherInputDto[];
+}
+
+export interface RepostAccountingLedgerVoucherInputDto {
+  voucherType: string;
+  voucherId: string;
+}
+
+export interface RepostableVoucherDto {
+  voucherType: string;
+  voucherId: string;
+  voucherNumber: string;
+  postingDate: string;
+}

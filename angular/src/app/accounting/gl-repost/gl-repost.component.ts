@@ -53,7 +53,7 @@ interface RepostResultDto {
           </div>
           <p class="text-muted small mt-2 mb-0">
             <i class="fas fa-info-circle me-1"></i>
-            Reposts GL entries by deleting existing journal and regenerating from current accounting rules.
+            Reposts GL entries by reversing the existing journal (contra-entry, kept for audit) and regenerating from current accounting rules.
           </p>
         </div>
       </div>
@@ -134,7 +134,7 @@ export class GlRepostComponent {
       .subscribe({
         next: types => this.allowedTypes.set(types),
         error: () => this.allowedTypes.set([
-          'SalesInvoice', 'PurchaseInvoice', 'PaymentEntry',
+          'SalesInvoice', 'PurchaseInvoice',
           'JournalEntry', 'PurchaseReceipt', 'DeliveryNote', 'StockEntry'
         ])
       });

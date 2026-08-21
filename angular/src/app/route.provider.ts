@@ -1933,6 +1933,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesInvoices',
       },
       {
+        path: '/accounting/repost-accounting-ledger',
+        name: '::Menu:RepostAccountingLedger',
+        iconClass: 'fas fa-sync',
+        order: 28,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.RepostAccountingLedger',
+      },
+      {
         path: '/accounting/fiscal-years',
         name: '::Menu:FiscalYears',
         iconClass: 'fas fa-calendar-days',

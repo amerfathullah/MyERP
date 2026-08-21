@@ -151,7 +151,6 @@ public class RepostPipelineTests
     {
         Assert.True(GlRepostService.IsRepostAllowed("SalesInvoice"));
         Assert.True(GlRepostService.IsRepostAllowed("PurchaseInvoice"));
-        Assert.True(GlRepostService.IsRepostAllowed("PaymentEntry"));
         Assert.True(GlRepostService.IsRepostAllowed("JournalEntry"));
         Assert.True(GlRepostService.IsRepostAllowed("PurchaseReceipt"));
         Assert.True(GlRepostService.IsRepostAllowed("DeliveryNote"));
@@ -167,6 +166,12 @@ public class RepostPipelineTests
         Assert.False(GlRepostService.IsRepostAllowed("Quotation"));
         Assert.False(GlRepostService.IsRepostAllowed(""));
         Assert.False(GlRepostService.IsRepostAllowed("Unknown"));
+
+        // Removed from the allowed set deliberately (see GlRepostService.AllowedVoucherTypes doc
+        // comment): PE's GL repost would need to reverse+rebuild PLE across potentially multiple
+        // allocated references and re-derive its exchange-gain/loss JE — scoped out rather than
+        // shipped half-correct.
+        Assert.False(GlRepostService.IsRepostAllowed("PaymentEntry"));
     }
 
     [Fact]

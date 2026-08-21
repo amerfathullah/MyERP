@@ -464,6 +464,17 @@ public static class MyERPDomainErrorCodes
     public const string CostCenterRequiredForPlAccount = "MyERP:02072";
     public const string RoundOffAccountNotConfigured = "MyERP:02073";
 
+    // Repost Accounting Ledger
+    public const string RepostVoucherTypeNotAllowed = "MyERP:02074";
+    public const string RepostNoVouchersSelected = "MyERP:02075";
+    public const string RepostTooManyVouchers = "MyERP:02076";
+    public const string RepostDuplicateVoucher = "MyERP:02077";
+    public const string RepostVoucherNotPosted = "MyERP:02078";
+    public const string RepostVoucherInClosedFiscalYear = "MyERP:02079";
+    public const string RepostAccountingLedgerAlreadyInProgress = "MyERP:02080";
+    public const string RepostInvalidStatusForStart = "MyERP:02081";
+    public const string RepostVoucherHasDeferredAccounting = "MyERP:02082";
+
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";
 

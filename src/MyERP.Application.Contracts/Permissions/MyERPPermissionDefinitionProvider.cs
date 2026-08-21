@@ -62,6 +62,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         journalEntriesPermission.AddChild(MyERPPermissions.JournalEntries.Create, L("Permission:JournalEntries.Create"));
         journalEntriesPermission.AddChild(MyERPPermissions.JournalEntries.Post, L("Permission:JournalEntries.Post"));
 
+        var repostAccountingLedgerPermission = myGroup.AddPermission(MyERPPermissions.RepostAccountingLedger.Default, L("Permission:RepostAccountingLedger"));
+        repostAccountingLedgerPermission.AddChild(MyERPPermissions.RepostAccountingLedger.Create, L("Permission:RepostAccountingLedger.Create"));
+        repostAccountingLedgerPermission.AddChild(MyERPPermissions.RepostAccountingLedger.Submit, L("Permission:RepostAccountingLedger.Submit"));
+        repostAccountingLedgerPermission.AddChild(MyERPPermissions.RepostAccountingLedger.Cancel, L("Permission:RepostAccountingLedger.Cancel"));
+
         var quotationsPermission = myGroup.AddPermission(MyERPPermissions.Quotations.Default, L("Permission:Quotations"));
         quotationsPermission.AddChild(MyERPPermissions.Quotations.Create, L("Permission:Quotations.Create"));
         quotationsPermission.AddChild(MyERPPermissions.Quotations.Edit, L("Permission:Quotations.Edit"));
