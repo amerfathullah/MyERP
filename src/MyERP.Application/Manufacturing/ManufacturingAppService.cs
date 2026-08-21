@@ -1055,27 +1055,19 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
-        // Submit and post immediately (consumption is a direct stock-out)
+        // Submit + post: StockPostingService creates the SLE/Bin movement (same mechanism
+        // StockEntryAppService.PostAsync uses), DocumentPostingOrchestrator posts the GL Journal
+        // Entry — this previously moved stock via a raw _valuationService/_binService loop and
+        // never called DocumentPostingOrchestrator at all, same GL-skip gap RecordProductionAsync
+        // and CreateDisassemblyStockEntryAsync had (both fixed earlier this session).
         entry.Submit();
         entry.Post();
-
-        // Create SLE entries for each consumed item (stock-out from WIP/source)
-        foreach (var seItem in entry.Items)
-        {
-            if (seItem.SourceWarehouseId.HasValue)
-            {
-                var rate = seItem.ValuationRate ?? 0m;
-                await _valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, seItem.ItemId, seItem.SourceWarehouseId.Value,
-                    DateTime.UtcNow, -seItem.Quantity, rate,
-                    voucherType: "StockEntry", voucherId: entry.Id,
-                    tenantId: wo.TenantId);
-
-                await _binService.ApplyStockMovementAsync(
-                    seItem.ItemId, seItem.SourceWarehouseId.Value,
-                    -seItem.Quantity, -(seItem.Quantity * rate), wo.TenantId);
-            }
-        }
+        var stockPostingService = LazyServiceProvider
+            .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
+        await stockPostingService.PostStockEntryAsync(entry);
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.PostStockEntryAsync(entry);
 
         await seRepo.InsertAsync(entry, autoSave: true);
         await _workOrderRepository.UpdateAsync(wo);
