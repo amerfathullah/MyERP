@@ -43,6 +43,12 @@ public class Address : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Shipping address for this party.</summary>
     public bool IsShippingAddress { get; set; }
 
+    /// <summary>Tax category for this address (e.g. Sales Tax, Service Tax) (gotcha #399).</summary>
+    public string? TaxCategory { get; set; }
+
+    /// <summary>Indicates this address belongs to your own company (gotcha #399).</summary>
+    public bool IsYourCompanyAddress { get; set; }
+
     /// <summary>Whether this address is disabled.</summary>
     public bool IsDisabled { get; set; }
 
