@@ -1021,6 +1021,17 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 sourceWarehouseId: warehouseId.Value,
                 targetWarehouseId: null,
                 valuationRate: rate);
+
+            // Per DO-NOT: "Consume raw materials twice when material_consumption ON" — this method's
+            // own doc comment already claims this rule is enforced, but nothing here ever updated
+            // WorkOrderItem.ConsumedQuantity. RecordProductionAsync's CalculateRawMaterialConsumption
+            // derives "already consumed" purely from this field (unconsumed = RequiredQuantity -
+            // ConsumedQuantity) — with it never incremented here, completing production later saw
+            // zero prior consumption and recalculated + re-issued the SAME raw materials a second time.
+            if (woItem != null)
+            {
+                woItem.ConsumedQuantity += item.Quantity;
+            }
         }
 
         // Submit and post immediately (consumption is a direct stock-out)
@@ -1046,6 +1057,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         await seRepo.InsertAsync(entry, autoSave: true);
+        await _workOrderRepository.UpdateAsync(wo);
 
         return new MaterialConsumptionResultDto
         {
