@@ -84,6 +84,32 @@ export class PaymentReconciliationComponent {
     return !!payment && this.totalAllocated > payment.unallocatedAmount + 0.009;
   }
 
+  autoAllocating = signal(false);
+
+  /// Fetches the greedy first-fit allocation plan and applies only the rows for the currently
+  /// selected payment onto the matching invoice rows — the plan covers every unreconciled payment,
+  /// but the UI reconciles one payment at a time.
+  autoAllocate() {
+    const payment = this.selectedPayment;
+    if (!payment) {
+      this.toaster.warn('SelectAPaymentFirst');
+      return;
+    }
+
+    this.autoAllocating.set(true);
+    this.reconciliationService.getAutoAllocation(this.partyType(), this.partyId()).subscribe({
+      next: plan => {
+        const forThisPayment = (plan ?? []).filter(a => a.paymentVoucherId === payment.voucherId);
+        this.invoices.update(list => list.map(i => {
+          const match = forThisPayment.find(a => a.invoiceVoucherId === i.voucherId);
+          return match ? { ...i, selected: true, allocatedAmount: match.allocatedAmount } : i;
+        }));
+        this.autoAllocating.set(false);
+      },
+      error: () => this.autoAllocating.set(false),
+    });
+  }
+
   reconcile() {
     const payment = this.selectedPayment;
     if (!payment) {

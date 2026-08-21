@@ -1942,6 +1942,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.RepostAccountingLedger',
       },
       {
+        path: '/accounting/process-payment-reconciliation',
+        name: '::Menu:ProcessPaymentReconciliation',
+        iconClass: 'fas fa-robot',
+        order: 29,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ProcessPaymentReconciliation',
+      },
+      {
         path: '/accounting/fiscal-years',
         name: '::Menu:FiscalYears',
         iconClass: 'fas fa-calendar-days',

@@ -1420,6 +1420,27 @@ export interface OutstandingInvoiceDto {
   outstanding?: number;
 }
 
+export interface ProcessPaymentReconciliationDto extends EntityDto<string> {
+  companyId: string;
+  partyType: string;
+  partyId: string;
+  receivablePayableAccountId: string;
+  defaultAdvanceAccountId?: string | null;
+  status: number;
+  statusName: string;
+  reconciledCount: number;
+  errorLog?: string | null;
+  creationTime: string;
+}
+
+export interface CreateProcessPaymentReconciliationDto {
+  companyId: string;
+  partyType: string;
+  partyId: string;
+  receivablePayableAccountId: string;
+  defaultAdvanceAccountId?: string | null;
+}
+
 export interface UnreconciledPaymentDto {
   voucherId: string;
   voucherType: string;

@@ -82,6 +82,11 @@
           <h6 class="mb-0">{{ 'OutstandingInvoices' | abpLocalization }}</h6>
           @if (!selectedPayment) {
             <small class="text-muted">{{ 'SelectAPaymentFirst' | abpLocalization }}</small>
+          } @else {
+            <button class="btn btn-sm btn-outline-primary" (click)="autoAllocate()" [disabled]="autoAllocating()">
+              @if (autoAllocating()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-magic me-1"></i>{{ 'AutoAllocate' | abpLocalization }}
+            </button>
           }
         </div>
         <div class="card-body p-0">

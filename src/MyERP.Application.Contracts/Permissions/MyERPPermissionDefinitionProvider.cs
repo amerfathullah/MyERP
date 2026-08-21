@@ -67,6 +67,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         repostAccountingLedgerPermission.AddChild(MyERPPermissions.RepostAccountingLedger.Submit, L("Permission:RepostAccountingLedger.Submit"));
         repostAccountingLedgerPermission.AddChild(MyERPPermissions.RepostAccountingLedger.Cancel, L("Permission:RepostAccountingLedger.Cancel"));
 
+        var processPaymentReconciliationPermission = myGroup.AddPermission(MyERPPermissions.ProcessPaymentReconciliation.Default, L("Permission:ProcessPaymentReconciliation"));
+        processPaymentReconciliationPermission.AddChild(MyERPPermissions.ProcessPaymentReconciliation.Create, L("Permission:ProcessPaymentReconciliation.Create"));
+        processPaymentReconciliationPermission.AddChild(MyERPPermissions.ProcessPaymentReconciliation.Submit, L("Permission:ProcessPaymentReconciliation.Submit"));
+        processPaymentReconciliationPermission.AddChild(MyERPPermissions.ProcessPaymentReconciliation.Cancel, L("Permission:ProcessPaymentReconciliation.Cancel"));
+
         var quotationsPermission = myGroup.AddPermission(MyERPPermissions.Quotations.Default, L("Permission:Quotations"));
         quotationsPermission.AddChild(MyERPPermissions.Quotations.Create, L("Permission:Quotations.Create"));
         quotationsPermission.AddChild(MyERPPermissions.Quotations.Edit, L("Permission:Quotations.Edit"));

@@ -474,6 +474,7 @@ public static class MyERPDomainErrorCodes
     public const string RepostAccountingLedgerAlreadyInProgress = "MyERP:02080";
     public const string RepostInvalidStatusForStart = "MyERP:02081";
     public const string RepostVoucherHasDeferredAccounting = "MyERP:02082";
+    public const string ProcessPaymentReconciliationAlreadyActive = "MyERP:02083";
 
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05048";

@@ -2637,6 +2637,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.RepostAccountingLedger' },
   },
   {
+    path: 'accounting/process-payment-reconciliation',
+    loadComponent: () => import('./accounting/process-payment-reconciliation/process-payment-reconciliation.component').then(c => c.ProcessPaymentReconciliationComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProcessPaymentReconciliation' },
+  },
+  {
     path: 'accounting/closing-balances',
     loadComponent: () => import('./accounting/account-closing-balance/account-closing-balance.component').then(c => c.AccountClosingBalanceComponent),
     canActivate: [authGuard, permissionGuard],

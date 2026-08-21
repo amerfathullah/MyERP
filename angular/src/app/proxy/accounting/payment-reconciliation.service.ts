@@ -1,4 +1,4 @@
-import type { OutstandingInvoiceDto, ReconcilePaymentDto, UnreconcileDto, UnreconciledPaymentDto } from './models';
+import type { OutstandingInvoiceDto, ReconcileAllocationDto, ReconcilePaymentDto, UnreconcileDto, UnreconciledPaymentDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -23,6 +23,15 @@ export class PaymentReconciliationService {
     this.restService.request<any, UnreconciledPaymentDto[]>({
       method: 'GET',
       url: `/api/app/payment-reconciliation/unreconciled-payments/${partyId}`,
+      params: { partyType },
+    },
+    { apiName: this.apiName, ...config });
+
+
+  getAutoAllocation = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ReconcileAllocationDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-reconciliation/auto-allocation/${partyId}`,
       params: { partyType },
     },
     { apiName: this.apiName, ...config });

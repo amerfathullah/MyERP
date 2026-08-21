@@ -33,7 +33,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
-    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
 
     public PaymentReconciliationAppService(
@@ -44,7 +43,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
-        IRepository<FiscalYear, Guid> fiscalYearRepository,
         IRepository<Company, Guid> companyRepository)
     {
         _engine = engine;
@@ -54,7 +52,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _paymentEntryRepository = paymentEntryRepository;
         _journalEntryRepository = journalEntryRepository;
-        _fiscalYearRepository = fiscalYearRepository;
         _companyRepository = companyRepository;
     }
 
@@ -137,10 +134,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// </summary>
     public async Task ReconcileAsync(ReconcilePaymentDto input)
     {
-        // Resolve account currency from company (not hardcoded)
-        var company = await _companyRepository.GetAsync(input.CompanyId);
-        var accountCurrency = company.CurrencyCode;
-
         // Resolve party account
         var pleQuery = await _pleRepository.GetQueryableAsync();
         var partyAccount = pleQuery
@@ -148,7 +141,8 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
             .Select(p => p.AccountId)
             .FirstOrDefault();
 
-        // Build allocation list for engine
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+
         var allocations = input.Allocations.Select(a => new ReconciliationAllocation
         {
             PaymentVoucherType = a.PaymentVoucherType,
@@ -158,113 +152,34 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
             AllocatedAmount = a.AllocatedAmount,
         }).ToList();
 
-        // Delegate to engine (handles stale-outstanding, batch, error isolation)
-        var result = await _engine.ReconcileBatchAsync(
+        // Delegate to the engine — handles stale-outstanding validation, PLE batch, invoice
+        // AmountPaid updates, and exchange gain/loss JE creation all in one place (also used by
+        // ProcessPaymentReconciliationJob, which has no ABP authorization context to call this
+        // AppService method directly).
+        await _engine.ReconcileAndApplyAsync(
             input.CompanyId, input.PartyType, input.PartyId,
-            partyAccount, accountCurrency, allocations);
-
-        // Update invoice AmountPaid and create exchange gain/loss JE for successful allocations
-        foreach (var alloc in input.Allocations)
-        {
-            // Skip allocations that failed in engine
-            if (result.Errors.Any(e => e.InvoiceVoucherId == alloc.InvoiceVoucherId))
-                continue;
-
-            if (alloc.InvoiceVoucherType == "SalesInvoice")
-            {
-                await UpdateInvoiceAmountPaidAsync("SalesInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
-
-                // Exchange gain/loss JE for multi-currency reconciliation
-                var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
-                await CreateExchangeGainLossJeIfNeeded(
-                    company, alloc, si.ExchangeRate, input.PartyType, partyAccount);
-            }
-            else if (alloc.InvoiceVoucherType == "PurchaseInvoice")
-            {
-                await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
-
-                // Exchange gain/loss JE for multi-currency reconciliation
-                var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
-                await CreateExchangeGainLossJeIfNeeded(
-                    company, alloc, pi.ExchangeRate, input.PartyType, partyAccount);
-            }
-        }
+            partyAccount, company.CurrencyCode, allocations);
     }
 
     /// <summary>
-    /// Creates an Exchange Gain/Loss Journal Entry when payment rate != invoice rate.
-    /// Per ERPNext: gain_loss = allocated_amount × (payment_rate - invoice_rate), with the sign
-    /// reversed for Payable accounts (per payment-ledger-reconciliation skill's "PAYABLE ACCOUNT
-    /// EXCEPTION" — the same rate difference means the opposite GL direction on a liability vs an
-    /// asset account). Posts against the party's own receivable/payable account, not a placeholder —
-    /// this reconciles the invoice's rate against the payment's rate directly, no bank movement
-    /// happens here (unlike Payment Entry submit, which posts against the bank/cash account instead).
+    /// Computes a greedy first-fit allocation plan (payments × outstanding invoices) without
+    /// applying it — lets the Angular "Auto-Allocate" convenience button pre-fill allocation amounts
+    /// for the user to review/adjust before calling <see cref="ReconcileAsync"/>.
     /// </summary>
-    private async Task CreateExchangeGainLossJeIfNeeded(
-        Company company,
-        ReconcileAllocationDto alloc,
-        decimal invoiceExchangeRate,
-        string partyType,
-        Guid partyAccountId)
+    public async Task<List<ReconcileAllocationDto>> GetAutoAllocationAsync(string partyType, Guid partyId)
     {
-        if (!company.ExchangeGainLossAccountId.HasValue) return;
-        if (partyAccountId == Guid.Empty) return;
+        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId);
+        var invoices = await _pleService.GetOutstandingVouchersAsync(partyType, partyId);
 
-        // Get payment exchange rate
-        decimal paymentExchangeRate = 1m;
-        if (alloc.PaymentVoucherType == "PaymentEntry")
+        var plan = PaymentReconciliationEngine.AutoAllocate(payments, invoices);
+        return plan.Select(a => new ReconcileAllocationDto
         {
-            var pe = await _paymentEntryRepository.GetAsync(alloc.PaymentVoucherId);
-            paymentExchangeRate = pe.ExchangeRate;
-        }
-
-        // Calculate gain/loss
-        var gainLoss = PaymentReconciliationEngine.CalculateExchangeGainLoss(
-            alloc.AllocatedAmount, paymentExchangeRate, invoiceExchangeRate);
-
-        if (Math.Abs(gainLoss) < 0.01m) return; // No material difference
-
-        // Payable accounts use the reversed sign convention for reconciliation exchange
-        // differences (a rate increase that's a gain on a receivable is a loss on a payable).
-        var effectiveGainLoss = partyType == "Supplier" ? -gainLoss : gainLoss;
-
-        // Resolve fiscal year
-        var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
-        var fy = fyQuery.FirstOrDefault(f =>
-            f.CompanyId == company.Id && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date);
-
-        if (fy == null) return; // Cannot post without fiscal year
-
-        // Create Exchange Gain/Loss JE — tagged with the actual payment voucher's type/id (not a
-        // constant), so DocumentPostingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync can
-        // find and reverse it when that payment is unreconciled or cancelled.
-        var je = new JournalEntry(
-            GuidGenerator.Create(), company.Id, fy.Id, DateTime.UtcNow.Date)
-        {
-            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
-            ReferenceType = alloc.PaymentVoucherType,
-            ReferenceId = alloc.PaymentVoucherId,
-        };
-        je.Narration = $"Exchange {(effectiveGainLoss > 0 ? "Gain" : "Loss")} on reconciliation";
-
-        var exchangeAccountId = company.ExchangeGainLossAccountId.Value;
-        var absGainLoss = Math.Abs(effectiveGainLoss);
-
-        if (effectiveGainLoss > 0)
-        {
-            // Gain: DR party account (asset up / liability down), CR Exchange Gain
-            je.AddLine(partyAccountId, absGainLoss, true);
-            je.AddLine(exchangeAccountId, absGainLoss, false);
-        }
-        else
-        {
-            // Loss: DR Exchange Loss, CR party account (asset down / liability up)
-            je.AddLine(exchangeAccountId, absGainLoss, true);
-            je.AddLine(partyAccountId, absGainLoss, false);
-        }
-
-        je.Post();
-        await _journalEntryRepository.InsertAsync(je);
+            PaymentVoucherId = a.PaymentVoucherId,
+            PaymentVoucherType = a.PaymentVoucherType,
+            InvoiceVoucherId = a.InvoiceVoucherId,
+            InvoiceVoucherType = a.InvoiceVoucherType,
+            AllocatedAmount = a.AllocatedAmount,
+        }).ToList();
     }
 
     /// <summary>

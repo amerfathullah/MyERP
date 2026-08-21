@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
+using MyERP.Purchasing.Entities;
+using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -30,13 +34,31 @@ public class PaymentReconciliationEngine : DomainService
 {
     private readonly PaymentLedgerService _pleService;
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
+    private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
+    private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
+    private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
+    private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public PaymentReconciliationEngine(
         PaymentLedgerService pleService,
-        IRepository<PaymentLedgerEntry, Guid> pleRepository)
+        IRepository<PaymentLedgerEntry, Guid> pleRepository,
+        IRepository<SalesInvoice, Guid> salesInvoiceRepository,
+        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
+        IRepository<PaymentEntry, Guid> paymentEntryRepository,
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _pleService = pleService;
         _pleRepository = pleRepository;
+        _salesInvoiceRepository = salesInvoiceRepository;
+        _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _paymentEntryRepository = paymentEntryRepository;
+        _journalEntryRepository = journalEntryRepository;
+        _fiscalYearRepository = fiscalYearRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -122,6 +144,7 @@ public class PaymentReconciliationEngine : DomainService
 
                 result.ReconciledCount++;
                 result.TotalAllocated += alloc.AllocatedAmount;
+                result.AppliedAllocations.Add(alloc);
             }
             catch (BusinessException ex) when (ex.Code == "MyERP:02009")
             {
@@ -134,6 +157,138 @@ public class PaymentReconciliationEngine : DomainService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Full reconciliation: PLE batch (<see cref="ReconcileBatchAsync"/>) plus the two side effects
+    /// that make an allocation actually count — invoice AmountPaid update and exchange gain/loss JE
+    /// for multi-currency differences. Both <c>PaymentReconciliationAppService.ReconcileAsync</c> (the
+    /// manual UI) and <c>ProcessPaymentReconciliationJob</c> (the automated batch engine, no ABP
+    /// authorization context) call this single implementation — moved here from the AppService for
+    /// the same reason <see cref="GlRepostService"/> was: a background job can't satisfy an
+    /// [Authorize]'d AppService method, so the real logic has to live where both callers can reach it.
+    /// </summary>
+    public async Task<ReconciliationResult> ReconcileAndApplyAsync(
+        Guid companyId,
+        string partyType,
+        Guid partyId,
+        Guid partyAccountId,
+        string accountCurrency,
+        IReadOnlyList<ReconciliationAllocation> allocations)
+    {
+        var company = await _companyRepository.GetAsync(companyId);
+
+        var result = await ReconcileBatchAsync(
+            companyId, partyType, partyId, partyAccountId, accountCurrency, allocations);
+
+        foreach (var alloc in result.AppliedAllocations)
+        {
+            if (alloc.InvoiceVoucherType == "SalesInvoice")
+            {
+                await UpdateInvoiceAmountPaidAsync("SalesInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
+                var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
+                await CreateExchangeGainLossJeIfNeededAsync(company, alloc, si.ExchangeRate, partyType, partyAccountId);
+            }
+            else if (alloc.InvoiceVoucherType == "PurchaseInvoice")
+            {
+                await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
+                var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
+                await CreateExchangeGainLossJeIfNeededAsync(company, alloc, pi.ExchangeRate, partyType, partyAccountId);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates an Exchange Gain/Loss Journal Entry when payment rate != invoice rate.
+    /// Per ERPNext: gain_loss = allocated_amount × (payment_rate - invoice_rate), with the sign
+    /// reversed for Payable accounts (the same rate difference means the opposite GL direction on a
+    /// liability vs an asset account). Posts against the party's own receivable/payable account —
+    /// no bank movement happens here (unlike Payment Entry submit, which posts against bank/cash).
+    /// </summary>
+    private async Task CreateExchangeGainLossJeIfNeededAsync(
+        Company company,
+        ReconciliationAllocation alloc,
+        decimal invoiceExchangeRate,
+        string partyType,
+        Guid partyAccountId)
+    {
+        if (!company.ExchangeGainLossAccountId.HasValue) return;
+        if (partyAccountId == Guid.Empty) return;
+
+        decimal paymentExchangeRate = 1m;
+        if (alloc.PaymentVoucherType == "PaymentEntry")
+        {
+            var pe = await _paymentEntryRepository.GetAsync(alloc.PaymentVoucherId);
+            paymentExchangeRate = pe.ExchangeRate;
+        }
+
+        var gainLoss = CalculateExchangeGainLoss(alloc.AllocatedAmount, paymentExchangeRate, invoiceExchangeRate);
+        if (Math.Abs(gainLoss) < 0.01m) return;
+
+        var effectiveGainLoss = partyType == "Supplier" ? -gainLoss : gainLoss;
+
+        var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f =>
+            f.CompanyId == company.Id && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date);
+        if (fy == null) return;
+
+        var je = new JournalEntry(
+            GuidGenerator.Create(), company.Id, fy.Id, DateTime.UtcNow.Date)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = alloc.PaymentVoucherType,
+            ReferenceId = alloc.PaymentVoucherId,
+        };
+        je.Narration = $"Exchange {(effectiveGainLoss > 0 ? "Gain" : "Loss")} on reconciliation";
+
+        var exchangeAccountId = company.ExchangeGainLossAccountId.Value;
+        var absGainLoss = Math.Abs(effectiveGainLoss);
+
+        if (effectiveGainLoss > 0)
+        {
+            je.AddLine(partyAccountId, absGainLoss, true);
+            je.AddLine(exchangeAccountId, absGainLoss, false);
+        }
+        else
+        {
+            je.AddLine(exchangeAccountId, absGainLoss, true);
+            je.AddLine(partyAccountId, absGainLoss, false);
+        }
+
+        je.Post();
+        await _journalEntryRepository.InsertAsync(je);
+    }
+
+    private async Task UpdateInvoiceAmountPaidAsync(string invoiceType, Guid invoiceId, decimal amount)
+    {
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                if (invoiceType == "SalesInvoice")
+                {
+                    var si = await _salesInvoiceRepository.GetAsync(invoiceId);
+                    si.AmountPaid = Math.Max(0, si.AmountPaid + amount);
+                    await _salesInvoiceRepository.UpdateAsync(si, autoSave: true);
+                }
+                else if (invoiceType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.GetAsync(invoiceId);
+                    pi.AmountPaid = Math.Max(0, pi.AmountPaid + amount);
+                    await _purchaseInvoiceRepository.UpdateAsync(pi, autoSave: true);
+                }
+                return;
+            }
+            catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+            {
+                Logger.LogWarning(
+                    "Concurrency conflict updating {InvoiceType} {InvoiceId} AmountPaid (attempt {Attempt}/3)",
+                    invoiceType, invoiceId, attempt);
+                await Task.Delay(attempt * 10);
+            }
+        }
     }
 
     /// <summary>
@@ -154,6 +309,52 @@ public class PaymentReconciliationEngine : DomainService
             return 0;
 
         return Math.Round(allocatedAmount * (paymentExchangeRate - invoiceExchangeRate), 2);
+    }
+
+    /// <summary>
+    /// Greedy first-fit auto-allocation — matches unreconciled payments against outstanding invoices.
+    /// Per ERPNext allocate_entries(): iterates payments × invoices in the given order (callers should
+    /// pass invoices oldest-due-first and payments oldest-first for FIFO semantics); a payment
+    /// exhausted to zero stops consuming further invoices, an invoice fully covered is skipped for
+    /// the next payment. Pure computation — no PLE/GL side effects, safe to call from Angular-facing
+    /// endpoints or the background batch engine to produce a plan before executing it.
+    /// </summary>
+    public static List<ReconciliationAllocation> AutoAllocate(
+        IReadOnlyList<UnreconciledPayment> payments,
+        IReadOnlyList<OutstandingVoucher> invoices)
+    {
+        var allocations = new List<ReconciliationAllocation>();
+        var remainingInvoices = invoices
+            .Where(i => i.Outstanding > 0.009m)
+            .Select(i => new { i.VoucherType, i.VoucherId, Remaining = i.Outstanding })
+            .ToList();
+
+        foreach (var payment in payments)
+        {
+            var remainingPayment = payment.UnallocatedAmount;
+            if (remainingPayment <= 0.009m) continue;
+
+            for (int i = 0; i < remainingInvoices.Count && remainingPayment > 0.009m; i++)
+            {
+                var invoice = remainingInvoices[i];
+                if (invoice.Remaining <= 0.009m) continue;
+
+                var allocated = Math.Min(remainingPayment, invoice.Remaining);
+                allocations.Add(new ReconciliationAllocation
+                {
+                    PaymentVoucherType = payment.VoucherType,
+                    PaymentVoucherId = payment.VoucherId,
+                    InvoiceVoucherType = invoice.VoucherType,
+                    InvoiceVoucherId = invoice.VoucherId,
+                    AllocatedAmount = allocated,
+                });
+
+                remainingPayment -= allocated;
+                remainingInvoices[i] = new { invoice.VoucherType, invoice.VoucherId, Remaining = invoice.Remaining - allocated };
+            }
+        }
+
+        return allocations;
     }
 
     /// <summary>
@@ -208,6 +409,7 @@ public class ReconciliationResult
     public int ReconciledCount { get; set; }
     public decimal TotalAllocated { get; set; }
     public List<ReconciliationError> Errors { get; set; } = new();
+    public List<ReconciliationAllocation> AppliedAllocations { get; set; } = new();
     public bool HasErrors => Errors.Count > 0;
 }
 
