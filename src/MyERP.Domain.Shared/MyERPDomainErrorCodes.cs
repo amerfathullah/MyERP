@@ -93,7 +93,7 @@ public static class MyERPDomainErrorCodes
     public const string CannotDeleteItem = "MyERP:05018";
 
     // Barcode Scanner
-    public const string BarcodeRequired = "MyERP:05041";
+    public const string BarcodeRequired = "MyERP:05061";
     public const string InsufficientRawMaterial = "MyERP:10008";
     public const string CannotDeleteBOM = "MyERP:10009";
 

@@ -152,13 +152,13 @@ public class StockEntryManager : DomainService
 
         if (!outgoingItems.Any())
         {
-            throw new BusinessException("MyERP:05041")
+            throw new BusinessException(MyERPDomainErrorCodes.RepackMissingItems)
                 .WithData("reason", "Repack requires at least one outgoing (source) item");
         }
 
         if (!incomingItems.Any())
         {
-            throw new BusinessException("MyERP:05041")
+            throw new BusinessException(MyERPDomainErrorCodes.RepackMissingItems)
                 .WithData("reason", "Repack requires at least one incoming (target/finished) item");
         }
 
@@ -169,7 +169,7 @@ public class StockEntryManager : DomainService
             {
                 if (!fg.SetBasicRateManually)
                 {
-                    throw new BusinessException("MyERP:05042")
+                    throw new BusinessException(MyERPDomainErrorCodes.RepackMultiFgManualRate)
                         .WithData("reason", "Multiple finished goods in Repack require SetBasicRateManually=true on each item");
                 }
             }
@@ -232,7 +232,7 @@ public class StockEntryManager : DomainService
 
         if (sourceEntry == null && entry.SourceStockEntryId.HasValue)
         {
-            throw new BusinessException("MyERP:05043")
+            throw new BusinessException(MyERPDomainErrorCodes.DisassembleSourceNotFound)
                 .WithData("reason", "Source manufacture stock entry not found");
         }
 
@@ -242,14 +242,14 @@ public class StockEntryManager : DomainService
             if (entry.WorkOrderId.HasValue && sourceEntry.WorkOrderId.HasValue
                 && entry.WorkOrderId != sourceEntry.WorkOrderId)
             {
-                throw new BusinessException("MyERP:05044")
+                throw new BusinessException(MyERPDomainErrorCodes.DisassembleCrossWorkOrder)
                     .WithData("reason", "Cannot disassemble from a different Work Order's stock entry");
             }
 
             // FG consumption must not exceed source FG qty
             if (entry.FgCompletedQty > sourceEntry.FgCompletedQty)
             {
-                throw new BusinessException("MyERP:05045")
+                throw new BusinessException(MyERPDomainErrorCodes.DisassembleQtyExceedsSource)
                     .WithData("disassembleQty", entry.FgCompletedQty)
                     .WithData("sourceQty", sourceEntry.FgCompletedQty)
                     .WithData("reason", "Disassemble qty exceeds source manufacture FG qty");
@@ -291,7 +291,7 @@ public class StockEntryManager : DomainService
 
             if (diff > tolerance)
             {
-                throw new BusinessException("MyERP:05046")
+                throw new BusinessException(MyERPDomainErrorCodes.DisassembleScaleFactorMismatch)
                     .WithData("itemId", item.ItemId)
                     .WithData("expectedQty", expectedStockQty)
                     .WithData("actualQty", item.StockQty)
