@@ -488,6 +488,7 @@ public static class MyERPDomainErrorCodes
     // Maintain Same Rate (Buying/Selling Settings)
     public const string RateMismatchWithReferenceDoc = "MyERP:03035";
     public const string InvalidDiscountPercentage = "MyERP:03036";
+    public const string MaxDiscountExceeded = "MyERP:03037";
 
     // Item Alternative
     public const string ItemDoesNotAllowAlternatives = "MyERP:05049";

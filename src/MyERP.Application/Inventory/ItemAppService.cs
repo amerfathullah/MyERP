@@ -249,6 +249,7 @@ public class ItemAppService :
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
         entity.GrantCommission = input.GrantCommission;
+        entity.MaxDiscount = input.MaxDiscount;
         entity.IsActive = input.IsActive;
         entity.ReorderLevel = input.ReorderLevel;
         entity.ReorderQty = input.ReorderQty;

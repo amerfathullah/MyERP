@@ -67,6 +67,12 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool GrantCommission { get; set; } = true;
 
+    /// <summary>
+    /// Maximum discount percentage allowed for this item in sales transactions.
+    /// Per ERPNext: max_discount field on Item master (gotcha #3222). Null = no limit.
+    /// </summary>
+    public decimal? MaxDiscount { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings

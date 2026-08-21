@@ -99,6 +99,9 @@ public class CreateUpdateItemDto
 
     public bool GrantCommission { get; set; } = true;
 
+    [Range(0, 100)]
+    public decimal? MaxDiscount { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings
