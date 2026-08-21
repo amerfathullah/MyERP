@@ -201,6 +201,53 @@ public class BusinessLogicMigrationTests
     }
 
     // ═══════════════════════════════════════════════
+    // Manufacture Stock Entry Validation
+    // ═══════════════════════════════════════════════
+
+    [Fact]
+    public void Manufacture_MultipleDistinctFgItems_Throws()
+    {
+        var entry = CreateStockEntry(StockEntryType.Manufacture);
+        var sourceWh = Guid.NewGuid();
+        var targetWh = Guid.NewGuid();
+
+        entry.AddItem(Guid.NewGuid(), 10, sourceWh, null); // RM consumed
+        entry.AddItem(Guid.NewGuid(), 5, null, targetWh);  // FG #1
+        entry.AddItem(Guid.NewGuid(), 5, null, targetWh);  // FG #2 — different item code
+
+        var manager = new StockEntryManager(null!, null!);
+        Should.Throw<BusinessException>(() => manager.ValidateManufactureItems(entry));
+    }
+
+    [Fact]
+    public void Manufacture_SameFgItemSplitAcrossRows_DoesNotThrow()
+    {
+        var entry = CreateStockEntry(StockEntryType.Manufacture);
+        var sourceWh = Guid.NewGuid();
+        var targetWh = Guid.NewGuid();
+        var fgItemId = Guid.NewGuid();
+
+        entry.AddItem(Guid.NewGuid(), 10, sourceWh, null);
+        entry.AddItem(fgItemId, 3, null, targetWh);
+        entry.AddItem(fgItemId, 2, null, targetWh); // same FG item, qty split across rows
+
+        var manager = new StockEntryManager(null!, null!);
+        Should.NotThrow(() => manager.ValidateManufactureItems(entry));
+    }
+
+    [Fact]
+    public void Manufacture_NotAppliedToOtherTypes()
+    {
+        var entry = CreateStockEntry(StockEntryType.Repack);
+        var targetWh = Guid.NewGuid();
+        entry.AddItem(Guid.NewGuid(), 5, null, targetWh);
+        entry.AddItem(Guid.NewGuid(), 5, null, targetWh); // multiple distinct FGs — fine for Repack
+
+        var manager = new StockEntryManager(null!, null!);
+        Should.NotThrow(() => manager.ValidateManufactureItems(entry));
+    }
+
+    // ═══════════════════════════════════════════════
     // Disassemble Stock Entry Validation
     // ═══════════════════════════════════════════════
 
@@ -385,6 +432,7 @@ public class BusinessLogicMigrationTests
     [InlineData(MyERPDomainErrorCodes.DisassembleCrossWorkOrder, "MyERP:05044")]
     [InlineData(MyERPDomainErrorCodes.DisassembleQtyExceedsSource, "MyERP:05045")]
     [InlineData(MyERPDomainErrorCodes.DisassembleScaleFactorMismatch, "MyERP:05046")]
+    [InlineData(MyERPDomainErrorCodes.ManufactureMultiFgItemsNotAllowed, "MyERP:05048")]
     public void ErrorCodes_Exist(string code, string expected)
     {
         code.ShouldBe(expected);

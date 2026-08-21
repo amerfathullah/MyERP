@@ -148,10 +148,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate);
         }
 
-        // Delegate warehouse validation to StockEntryManager (DDD pattern)
+        // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
         // Per DO-NOT: same-warehouse transfers blocked, group warehouses blocked
         var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
         await seManager.ValidateWarehousesAsync(entry);
+        // ValidateRepackItems/ValidateManufactureItems were domain-service methods with no
+        // caller anywhere — a manually-authored Repack or Manufacture Stock Entry (via this
+        // generic create path) skipped their purpose-specific rules entirely (Repack's
+        // outgoing/incoming-item and multi-FG-manual-rate checks; Manufacture's one-unique-FG
+        // rule). Both are no-ops for every other entry type, so wiring them here is safe.
+        seManager.ValidateRepackItems(entry);
+        seManager.ValidateManufactureItems(entry);
 
         await _repository.InsertAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);

@@ -1068,6 +1068,7 @@
     "MyERP:05005": "Landed Cost Voucher must have at least one charge.",
     "MyERP:05006": "Total distributed landed cost charges do not match total charges.",
     "MyERP:05047": "Stock Reconciliation requires a Difference/Expense Account to post the valuation change to the general ledger",
+    "MyERP:05048": "Only one unique finished item is allowed per Manufacture Stock Entry",
     "MyERP:03018": "Either 'Selling' or 'Buying' must be selected",
     "MyERP:03019": "Price or product discount slabs are required",
     "MyERP:03020": "Recursive discounts with mixed condition are not supported",

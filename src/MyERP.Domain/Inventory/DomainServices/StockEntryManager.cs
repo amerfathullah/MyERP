@@ -177,6 +177,31 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates Manufacture Stock Entry rules.
+    /// Per ERPNext stock_entry.py: only ONE unique finished item is allowed per Manufacture
+    /// entry (multiple rows of the SAME item, qty split across, are fine — different item
+    /// codes are not). Repack is the only purpose that allows multiple distinct FG items.
+    /// FG rows are identified the same way the rest of the codebase already infers them for
+    /// Manufacture entries (target warehouse only, no source warehouse) since IsFinishedItem
+    /// is never populated on this purpose's items.
+    /// </summary>
+    public void ValidateManufactureItems(StockEntry entry)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture) return;
+
+        var distinctFgItemCount = entry.Items
+            .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+            .Select(i => i.ItemId)
+            .Distinct()
+            .Count();
+
+        if (distinctFgItemCount > 1)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ManufactureMultiFgItemsNotAllowed);
+        }
+    }
+
+    /// <summary>
     /// Calculates valuation rate for Repack FG items.
     /// Single FG: rate = total_outgoing_cost / fg_qty
     /// Multiple FGs: each must have rate set manually (validated separately).
