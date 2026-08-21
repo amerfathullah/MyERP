@@ -1466,7 +1466,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // Scale factor = disassemble_qty / source_fg_qty (proportional RM return)
         var scaleFactor = wo.Quantity > 0 ? input.Quantity / wo.Quantity : 0m;
 
-        // FG item goes OUT (source warehouse = FG warehouse) — finished goods consumed
+        // FG item goes OUT (source warehouse = FG warehouse) — finished goods consumed.
+        // No valuationRate needed here: StockPostingService prices outgoing lines off the
+        // item's own current balance, same as every other stock-out.
         var fgWarehouse = wo.FgWarehouseId ?? wo.SourceWarehouseId;
         if (fgWarehouse.HasValue)
         {
@@ -1475,7 +1477,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             lastFgItem.IsFinishedItem = true;
         }
 
-        // RM items come back IN (target warehouse = source warehouse) — proportional to scale factor
+        // RM items come back IN (target warehouse = source warehouse) — proportional to scale
+        // factor, valued at the item's current balance rate (StockPostingService only prices
+        // incoming lines off item.ValuationRate — omitting it would post them at zero value).
         foreach (var rmItem in wo.RequiredItems)
         {
             var returnQty = Math.Round(rmItem.RequiredQuantity * scaleFactor, 4);
@@ -1484,41 +1488,27 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             var rmSourceWarehouse = rmItem.SourceWarehouseId ?? wo.SourceWarehouseId;
             if (!rmSourceWarehouse.HasValue) continue;
 
-            entry.AddItem(rmItem.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rmSourceWarehouse.Value);
+            var rmBalance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, rmSourceWarehouse.Value);
+            entry.AddItem(rmItem.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rmSourceWarehouse.Value,
+                valuationRate: rmBalance.ValuationRate);
         }
 
         // Validate using domain service
         var seManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockEntryManager>();
         seManager.ValidateDisassembleItems(entry, null); // Source entry validation deferred
 
-        // Submit + Post atomically
+        // Submit + post: StockPostingService creates the SLE/Bin movement (same mechanism
+        // StockEntryAppService.PostAsync uses), DocumentPostingOrchestrator posts the GL Journal
+        // Entry — this previously moved stock via raw _valuationService/_binService calls (RM
+        // legs hardcoded at rate 0) and never posted GL at all, same gap RecordProductionAsync had.
         entry.Submit();
         entry.Post();
-
-        // Create SLE entries: FG stock-out, RM stock-in
-        foreach (var seItem in entry.Items)
-        {
-            if (seItem.IsFinishedItem && seItem.SourceWarehouseId.HasValue)
-            {
-                // FG goes out
-                await _valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, seItem.ItemId, seItem.SourceWarehouseId.Value,
-                    DateTime.UtcNow, -seItem.Quantity, 0,
-                    voucherType: "StockEntry", voucherId: entry.Id, tenantId: wo.TenantId);
-                await _binService.ApplyStockMovementAsync(
-                    seItem.ItemId, seItem.SourceWarehouseId.Value, -seItem.Quantity, 0, wo.TenantId);
-            }
-            else if (!seItem.IsFinishedItem && seItem.TargetWarehouseId.HasValue)
-            {
-                // RM comes back in
-                await _valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, seItem.ItemId, seItem.TargetWarehouseId.Value,
-                    DateTime.UtcNow, seItem.Quantity, 0,
-                    voucherType: "StockEntry", voucherId: entry.Id, tenantId: wo.TenantId);
-                await _binService.ApplyStockMovementAsync(
-                    seItem.ItemId, seItem.TargetWarehouseId.Value, seItem.Quantity, 0, wo.TenantId);
-            }
-        }
+        var stockPostingService = LazyServiceProvider
+            .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
+        await stockPostingService.PostStockEntryAsync(entry);
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.PostStockEntryAsync(entry);
 
         // Update WO disassembled quantity
         wo.RecordDisassembly(input.Quantity);
