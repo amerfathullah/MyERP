@@ -78,4 +78,71 @@ public class PaymentEntryExchangeTests
         pe.SourceExchangeRate = 1m;
         pe.ExchangeGainLoss.ShouldBe(0m);
     }
+
+    // ═══════════════════════════════════════════════
+    // ResolveExchangeGainLossPosting — party account + direction-aware gain/loss classification
+    // Regression coverage for the 75th migration session's exchange-gain-loss fix: the raw
+    // ExchangeGainLoss sign above is Receive-oriented ("higher payment rate = gain for
+    // receivable"); for Pay it means the opposite (paid more = loss), and the offsetting JE leg
+    // must hit the party account (PaidFrom for Receive, PaidTo for Pay), never PaidToAccountId
+    // unconditionally — see PaymentEntryAppService.ResolveExchangeGainLossPosting's own doc
+    // comment for the worked example this derives from.
+    // ═══════════════════════════════════════════════
+
+    [Fact]
+    public void ResolveExchangeGainLossPosting_Receive_PositiveRaw_IsGain_UsesPaidFrom()
+    {
+        var paidFrom = Guid.NewGuid();
+        var paidTo = Guid.NewGuid();
+
+        var (partyAccountId, isGain) = MyERP.Accounting.PaymentEntryAppService
+            .ResolveExchangeGainLossPosting(PaymentType.Receive, paidFrom, paidTo, rawGainLoss: 200m);
+
+        isGain.ShouldBeTrue();
+        partyAccountId.ShouldBe(paidFrom); // Receivable
+    }
+
+    [Fact]
+    public void ResolveExchangeGainLossPosting_Receive_NegativeRaw_IsLoss_UsesPaidFrom()
+    {
+        var paidFrom = Guid.NewGuid();
+        var paidTo = Guid.NewGuid();
+
+        var (partyAccountId, isGain) = MyERP.Accounting.PaymentEntryAppService
+            .ResolveExchangeGainLossPosting(PaymentType.Receive, paidFrom, paidTo, rawGainLoss: -200m);
+
+        isGain.ShouldBeFalse();
+        partyAccountId.ShouldBe(paidFrom); // Receivable
+    }
+
+    [Fact]
+    public void ResolveExchangeGainLossPosting_Pay_PositiveRaw_IsLoss_UsesPaidTo()
+    {
+        // Pay: PaidFrom=Bank, PaidTo=Payable. A higher settlement rate means the company paid
+        // MORE home-currency to clear the same foreign debt — a loss, not a gain, even though
+        // the raw formula's sign is identical to the Receive case.
+        var paidFrom = Guid.NewGuid(); // Bank
+        var paidTo = Guid.NewGuid();   // Payable
+
+        var (partyAccountId, isGain) = MyERP.Accounting.PaymentEntryAppService
+            .ResolveExchangeGainLossPosting(PaymentType.Pay, paidFrom, paidTo, rawGainLoss: 200m);
+
+        isGain.ShouldBeFalse();
+        partyAccountId.ShouldBe(paidTo); // Payable
+    }
+
+    [Fact]
+    public void ResolveExchangeGainLossPosting_Pay_NegativeRaw_IsGain_UsesPaidTo()
+    {
+        // Pay, rate dropped vs booking: paid LESS home-currency to clear the same foreign debt —
+        // a gain.
+        var paidFrom = Guid.NewGuid(); // Bank
+        var paidTo = Guid.NewGuid();   // Payable
+
+        var (partyAccountId, isGain) = MyERP.Accounting.PaymentEntryAppService
+            .ResolveExchangeGainLossPosting(PaymentType.Pay, paidFrom, paidTo, rawGainLoss: -200m);
+
+        isGain.ShouldBeTrue();
+        partyAccountId.ShouldBe(paidTo); // Payable
+    }
 }

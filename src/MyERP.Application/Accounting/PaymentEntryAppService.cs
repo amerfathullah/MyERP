@@ -23,6 +23,32 @@ namespace MyERP.Accounting;
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
 public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppService
 {
+    /// <summary>
+    /// Resolves which account the exchange-gain-loss JE's offsetting leg must hit, and whether
+    /// a given raw gain/loss figure (PaidAmount × (ExchangeRate - SourceExchangeRate), computed
+    /// from the Receive side by convention — see PaymentEntryExchangeTests) is really a gain or
+    /// a loss once PaymentType direction is accounted for.
+    /// </summary>
+    /// <remarks>
+    /// The main JE (DR PaidToAccountId / CR PaidFromAccountId, both at the payment's own
+    /// ExchangeRate) leaves the PARTY account — not the bank leg — with a residual balance
+    /// whenever ExchangeRate differs from SourceExchangeRate, since the party account was
+    /// originally booked at SourceExchangeRate. This leg must be closed against the party
+    /// account (PaidFromAccountId for Receive, PaidToAccountId for Pay), not PaidToAccountId
+    /// unconditionally. Worked example (Receive, invoice booked at 4.00, paid at 4.20):
+    /// Receivable Dr 400 (invoice) then Cr 420 (main JE) = -20 residual → needs Dr Receivable 20
+    /// / Cr Gain 20. Direction of "gain" also flips for Pay: a higher settlement rate means the
+    /// company paid MORE home-currency to settle the same foreign debt — a loss, not a gain,
+    /// even though the raw formula's sign is identical to the Receive case.
+    /// </remarks>
+    public static (Guid PartyAccountId, bool IsGain) ResolveExchangeGainLossPosting(
+        PaymentType paymentType, Guid paidFromAccountId, Guid paidToAccountId, decimal rawGainLoss)
+    {
+        var partyAccountId = paymentType == PaymentType.Receive ? paidFromAccountId : paidToAccountId;
+        var isGain = paymentType == PaymentType.Receive ? rawGainLoss > 0 : rawGainLoss < 0;
+        return (partyAccountId, isGain);
+    }
+
     private readonly IRepository<PaymentEntry, Guid> _repository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
@@ -422,21 +448,35 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             ReferenceId = pe.Id,
                         };
 
+                        // ExchangeGainLoss's raw sign (PaidAmount × (ExchangeRate - SourceExchangeRate)) is
+                        // defined from the Receive side by convention (see PaymentEntryExchangeTests: "higher
+                        // payment rate = gain for receivable") — a higher settlement rate means the company
+                        // collected more home-currency value than the invoice booked. For Pay it's the
+                        // opposite: a higher settlement rate means the company paid MORE to settle the same
+                        // foreign debt, i.e. a loss. The offsetting leg (besides the Exchange Gain/Loss
+                        // account) must hit the PARTY account, not pe.PaidToAccountId (= Bank for Receive but
+                        // Payable for Pay) — the main JE (DR PaidTo/CR PaidFrom, both at the payment rate)
+                        // leaves the party account with exactly this residual, since it was originally booked
+                        // at SourceExchangeRate. Worked example (Receive, SI booked at 4.00, paid at 4.20):
+                        // Receivable Dr 400 (invoice) then Cr 420 (main JE) = -20 residual → needs Dr
+                        // Receivable 20 / Cr Gain 20 to zero out. Symmetric for Pay against Payable.
+                        var (fxPartyAccountId, isGain) = ResolveExchangeGainLossPosting(
+                            pe.PaymentType, pe.PaidFromAccountId, pe.PaidToAccountId, pe.ExchangeGainLoss);
                         var gainLossAmount = Math.Abs(pe.ExchangeGainLoss);
-                        if (pe.ExchangeGainLoss > 0)
+                        if (isGain)
                         {
-                            // Gain: DR Bank/Receivable, CR Exchange Gain
-                            je.AddLineWithDimensions(pe.PaidToAccountId, gainLossAmount, true,
+                            // Gain: DR party account (clears the residual the main JE left), CR Exchange Gain
+                            je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, true,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
                             je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
                         }
                         else
                         {
-                            // Loss: DR Exchange Loss, CR Bank/Payable
+                            // Loss: DR Exchange Loss, CR party account
                             je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, true,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
-                            je.AddLineWithDimensions(pe.PaidToAccountId, gainLossAmount, false,
+                            je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
                         }
 
@@ -563,6 +603,12 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     var refGainLoss = refRow.AllocatedAmount * (pe.ExchangeRate - refExchangeRate);
                     if (Math.Abs(refGainLoss) < 0.01m) continue;
 
+                    // Same direction-awareness as the single-ref path above: refGainLoss's raw sign is
+                    // Receive-oriented, and the offsetting leg must hit the party account (PaidFrom for
+                    // Receive, PaidTo for Pay), not pe.PaidToAccountId unconditionally.
+                    var (partyAccountIdForFx, isRefGain) = ResolveExchangeGainLossPosting(
+                        pe.PaymentType, pe.PaidFromAccountId, pe.PaidToAccountId, refGainLoss);
+
                     var fxFyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
                     var fxFyQuery = await fxFyRepo.GetQueryableAsync();
                     var fxFy = fxFyQuery.FirstOrDefault(f => f.CompanyId == pe.CompanyId
@@ -577,15 +623,15 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         ReferenceId = pe.Id,
                     };
 
-                    if (refGainLoss > 0) // gain
+                    if (isRefGain)
                     {
-                        fxJe.AddLine(pe.PaidToAccountId, refGainLoss, true); // DR Bank
-                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, refGainLoss, false); // CR Exchange GL
+                        fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), true); // DR party account
+                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, Math.Abs(refGainLoss), false); // CR Exchange GL
                     }
-                    else // loss
+                    else
                     {
                         fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, Math.Abs(refGainLoss), true); // DR Exchange GL
-                        fxJe.AddLine(pe.PaidToAccountId, Math.Abs(refGainLoss), false); // CR Bank
+                        fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), false); // CR party account
                     }
 
                     fxJe.Post();
