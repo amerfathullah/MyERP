@@ -22,6 +22,8 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public Guid? QuotationId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public decimal PerDelivered { get; set; }
     public decimal PerBilled { get; set; }
     public decimal AdvancePaid { get; set; }

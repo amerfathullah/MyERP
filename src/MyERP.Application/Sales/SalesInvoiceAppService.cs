@@ -396,6 +396,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsOpening = input.IsOpening;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
+        invoice.CostCenterId = input.CostCenterId;
+        invoice.ProjectId = input.ProjectId;
+
+        // Per gotcha #468: project-customer cross-validation
+        if (input.ProjectId.HasValue)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ProjectCustomerMismatch)
+                    .WithData("projectName", project.ProjectName);
+            }
+        }
 
         // Set party account (debit_to):
         // Returns: inherit from original invoice (ensures account match validation works)

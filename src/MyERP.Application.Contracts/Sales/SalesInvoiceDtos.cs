@@ -83,6 +83,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
     public Guid DebitToAccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
     public int DaysOverdue { get; set; }
