@@ -271,17 +271,22 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Date = dn.PostingDate, Route = "/sales/delivery-notes/" + dn.Id
             }).ToList();
 
-        // Sales Invoices linked via items
+        // Sales Invoices linked via items — matched the same way GetPurchaseOrderConnectionsAsync
+        // matches Purchase Invoices to a Purchase Order below: resolve this order's own item ids,
+        // then filter invoices whose items reference one of them.
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var so = await soRepo.GetAsync(id);
+        var soItemIds = so.Items.Select(i => i.Id).ToList();
+
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
         var siQuery = await siRepo.GetQueryableAsync();
-        var sis = siQuery.Where(si => si.Items.Any(i => i.SalesOrderItemId.HasValue))
-            .ToList()
-            .Where(si => si.Items.Any(i =>
+        var sis = siQuery
+            .Where(si => si.Items.Any(i => i.SalesOrderItemId.HasValue && soItemIds.Contains(i.SalesOrderItemId.Value)))
+            .Select(si => new ConnectionDocumentDto
             {
-                // Must check if item's SO matches our order
-                var soItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrderItem, Guid>>();
-                return true; // Simplified — match by SO items
-            }));
+                Id = si.Id, DocumentNumber = si.InvoiceNumber, Status = si.Status.ToString(),
+                Amount = si.GrandTotal, Date = si.IssueDate, Route = "/sales/invoices/" + si.Id
+            }).ToList();
 
         // Payment Entries
         var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
@@ -308,6 +313,10 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (dns.Any())
             fulfillGroup.Items.Add(new ConnectionItemDto { DocumentType = "Delivery Note", Count = dns.Count, Route = "/sales/delivery-notes", Documents = dns });
 
+        var billingGroup = new ConnectionGroupDto { Label = "Billing", Items = new() };
+        if (sis.Any())
+            billingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Invoice", Count = sis.Count, Route = "/sales/invoices", Documents = sis });
+
         var paymentGroup = new ConnectionGroupDto { Label = "Payment", Items = new() };
         if (payments.Any())
             paymentGroup.Items.Add(new ConnectionItemDto { DocumentType = "Payment Entry", Count = payments.Count, Route = "/accounting/payments", Documents = payments });
@@ -317,6 +326,7 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
             mfgGroup.Items.Add(new ConnectionItemDto { DocumentType = "Work Order", Count = wos.Count, Route = "/manufacturing/work-orders", Documents = wos });
 
         if (fulfillGroup.Items.Any()) result.Groups.Add(fulfillGroup);
+        if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
         if (paymentGroup.Items.Any()) result.Groups.Add(paymentGroup);
         if (mfgGroup.Items.Any()) result.Groups.Add(mfgGroup);
 
@@ -384,15 +394,22 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
     {
         var result = new DocumentConnectionsDto();
 
-        // Linked SI
-        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
-        var siQuery = await siRepo.GetQueryableAsync();
-        var invoices = siQuery.Where(si => si.Items.Any(i => i.DeliveryNoteItemId.HasValue))
-            .ToList(); // Simplified — match by DN items
-
         // Source SO
         var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
         var dn = await dnRepo.GetAsync(id);
+
+        // Linked SI — matched by this DN's own item ids, same pattern as GetPurchaseOrderConnectionsAsync.
+        var dnItemIds = dn.Items.Select(i => i.Id).ToList();
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var siQuery = await siRepo.GetQueryableAsync();
+        var invoices = siQuery
+            .Where(si => si.Items.Any(i => i.DeliveryNoteItemId.HasValue && dnItemIds.Contains(i.DeliveryNoteItemId.Value)))
+            .Select(si => new ConnectionDocumentDto
+            {
+                Id = si.Id, DocumentNumber = si.InvoiceNumber, Status = si.Status.ToString(),
+                Amount = si.GrandTotal, Date = si.IssueDate, Route = "/sales/invoices/" + si.Id
+            }).ToList();
+
         var soConnections = new List<ConnectionDocumentDto>();
         if (dn.SalesOrderId.HasValue)
         {
@@ -407,6 +424,9 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         }
 
         var billingGroup = new ConnectionGroupDto { Label = "Billing", Items = new() };
+        if (invoices.Any())
+            billingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Invoice", Count = invoices.Count, Route = "/sales/invoices", Documents = invoices });
+
         var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
         if (soConnections.Any())
             refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Order", Count = soConnections.Count, Route = "/sales/orders", Documents = soConnections });
