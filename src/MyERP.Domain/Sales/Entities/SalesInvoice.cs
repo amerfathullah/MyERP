@@ -247,22 +247,32 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
                 .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Delivery Notes.");
         }
 
-        // Validate deferred revenue service dates (per ERPNext accounts/deferred_revenue.py)
+        // Validate deferred revenue service dates (per ERPNext accounts/deferred_revenue.py, gotcha #1624)
         foreach (var item in _items.Where(i => i.EnableDeferredRevenue))
         {
-            if (item.ServiceStartDate.HasValue && item.ServiceEndDate.HasValue && item.ServiceStartDate > item.ServiceEndDate)
+            if (!item.ServiceStartDate.HasValue || !item.ServiceEndDate.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Service Start Date and Service End Date are mandatory for deferred revenue items.");
+            }
+            if (item.ServiceStartDate.Value > item.ServiceEndDate.Value)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Service Start Date cannot be after Service End Date.");
             }
+            if (IssueDate.Date > item.ServiceEndDate.Value.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Service End Date cannot be before Invoice Posting Date.");
+            }
             if (item.ServiceStopDate.HasValue)
             {
-                if (item.ServiceStartDate.HasValue && item.ServiceStopDate < item.ServiceStartDate)
+                if (item.ServiceStopDate.Value < item.ServiceStartDate.Value)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "Service Stop Date cannot be before Service Start Date.");
                 }
-                if (item.ServiceEndDate.HasValue && item.ServiceStopDate > item.ServiceEndDate)
+                if (item.ServiceStopDate.Value > item.ServiceEndDate.Value)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "Service Stop Date cannot be after Service End Date.");
