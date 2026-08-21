@@ -516,4 +516,10 @@ public static class MyERPDomainErrorCodes
     public const string AttributeIncrementInvalid = "MyERP:05055"; // was hardcoded "MyERP:05020" (never registered)
     public const string NumericAttributeCannotHaveTextValues = "MyERP:05056"; // was hardcoded "MyERP:05021" (never registered)
     public const string DuplicateAttributeValue = "MyERP:05057"; // was hardcoded "MyERP:05022" (never registered)
+
+    // Party Validation (gotchas #1004, #1130)
+    public const string PartyDisabled = "MyERP:01020";
+    public const string PartyFrozen = "MyERP:01021";
+    public const string ItemAccountCannotBePartyAccount = "MyERP:02086";
+    public const string PartyAccountCurrencyMismatch = "MyERP:02087";
 }

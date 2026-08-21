@@ -4057,6 +4057,10 @@
     "MyERP:06004": "Consumed asset cannot be the same as the target capitalized asset.",
     "MyERP:01012": "The document company does not match the referenced record company.",
     "MyERP:03036": "Discount percentage must be between 0 and 100.",
-    "MyERP:05052": "A warehouse cannot be its own parent warehouse."
+    "MyERP:05052": "A warehouse cannot be its own parent warehouse.",
+    "MyERP:01020": "Party {partyName} is disabled and cannot be used in transactions.",
+    "MyERP:01021": "Party {partyName} is frozen and cannot be used in transactions.",
+    "MyERP:02086": "Item account cannot be the same as party account.",
+    "MyERP:02087": "Party account currency mismatch between party account ({accountCurrency}), advance account ({advanceCurrency}), and party currency ({partyCurrency})."
   }
 }
