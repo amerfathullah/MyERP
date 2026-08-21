@@ -81,6 +81,41 @@ public class InvoiceDocumentBuilder : ITransientDependency
         return invoice.ToString(SaveOptions.DisableFormatting);
     }
 
+    /// <summary>
+    /// Extracts the LHDN state code from composite string (e.g., "14:Kuala Lumpur" -> "14")
+    /// with default fallback to "17" (Not Applicable / Others) per MyInvois spec (gotcha #921).
+    /// </summary>
+    public static string NormalizeStateCode(string? state)
+    {
+        if (string.IsNullOrWhiteSpace(state)) return "17";
+        var trimmed = state.Trim();
+        var colonIdx = trimmed.IndexOf(':');
+        if (colonIdx >= 0)
+        {
+            var code = trimmed.Substring(0, colonIdx).Trim();
+            return string.IsNullOrEmpty(code) ? "17" : code;
+        }
+        return trimmed;
+    }
+
+    /// <summary>
+    /// Resolves LHDN payment mode code: Cash=01, Cheque=02, Bank Transfer=03, Credit Card=04,
+    /// Debit Card=05, E-wallet=06, Others=07 per MyInvois spec (gotcha #919).
+    /// </summary>
+    public static string NormalizePaymentModeCode(string? paymentMode)
+    {
+        if (string.IsNullOrWhiteSpace(paymentMode)) return "01";
+        var norm = paymentMode.Trim().ToLowerInvariant();
+        if (norm.Contains("cash")) return "01";
+        if (norm.Contains("cheque") || norm.Contains("check")) return "02";
+        if (norm.Contains("transfer") || norm.Contains("bank") || norm.Contains("wire")) return "03";
+        if (norm.Contains("credit")) return "04";
+        if (norm.Contains("debit")) return "05";
+        if (norm.Contains("wallet") || norm.Contains("qr") || norm.Contains("tng") || norm.Contains("grabpay") || norm.Contains("boost")) return "06";
+        if (int.TryParse(norm, out var codeInt) && codeInt >= 1 && codeInt <= 7) return codeInt.ToString("D2");
+        return "01";
+    }
+
     private XElement BuildSupplierParty(EInvoicePartyData supplier)
     {
         var party = new XElement(Cac + "AccountingSupplierParty",
@@ -96,7 +131,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "Line", supplier.Address ?? "")),
                     new XElement(Cbc + "CityName", supplier.City ?? ""),
                     new XElement(Cbc + "PostalZone", supplier.PostalCode ?? ""),
-                    new XElement(Cbc + "CountrySubentityCode", supplier.State ?? ""),
+                    new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(supplier.State)),
                     new XElement(Cac + "Country",
                         new XElement(Cbc + "IdentificationCode", supplier.CountryCode ?? "MYS"))),
                 new XElement(Cac + "PartyLegalEntity",
@@ -148,7 +183,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "Line", buyer.Address ?? "")),
                     new XElement(Cbc + "CityName", buyer.City ?? ""),
                     new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
-                    new XElement(Cbc + "CountrySubentityCode", buyer.State ?? ""),
+                    new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(buyer.State)),
                     new XElement(Cac + "Country",
                         new XElement(Cbc + "IdentificationCode", buyer.CountryCode ?? "MYS"))),
                 new XElement(Cac + "PartyLegalEntity",
@@ -276,7 +311,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "Line", delivery.Address ?? "")),
                 new XElement(Cbc + "CityName", delivery.City ?? ""),
                 new XElement(Cbc + "PostalZone", delivery.PostalCode ?? ""),
-                new XElement(Cbc + "CountrySubentityCode", delivery.State ?? ""),
+                new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State)),
                 new XElement(Cac + "Country",
                     new XElement(Cbc + "IdentificationCode", delivery.CountryCode ?? "MYS"))),
             new XElement(Cac + "DeliveryParty",
@@ -287,7 +322,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
     private XElement BuildPaymentMeans(EInvoicePaymentData payment)
     {
         var elem = new XElement(Cac + "PaymentMeans",
-            new XElement(Cbc + "PaymentMeansCode", payment.PaymentModeCode));
+            new XElement(Cbc + "PaymentMeansCode", NormalizePaymentModeCode(payment.PaymentModeCode)));
         if (!string.IsNullOrEmpty(payment.PayeeFinancialAccountId))
         {
             elem.Add(new XElement(Cac + "PayeeFinancialAccount",
