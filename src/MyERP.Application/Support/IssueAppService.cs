@@ -164,5 +164,62 @@ public class IssueAppService : ApplicationService, IIssueAppService
 
         return ObjectMapper.Map<Issue, IssueDto>(issue);
     }
+
+    [Authorize(MyERPPermissions.Issues.Create)]
+    public async Task<IssueDto> SplitAsync(Guid id, SplitIssueDto input)
+    {
+        var originalIssue = await _issueRepository.GetAsync(id);
+
+        var splitIssue = new Issue(Guid.NewGuid(), originalIssue.CompanyId, input.Subject, originalIssue.TenantId)
+        {
+            Description = originalIssue.Description,
+            Priority = originalIssue.Priority,
+            IssueType = originalIssue.IssueType,
+            CustomerId = originalIssue.CustomerId,
+            ContactId = originalIssue.ContactId,
+            AssignedToId = originalIssue.AssignedToId,
+            RaisedVia = originalIssue.RaisedVia,
+            SplitFromIssueId = originalIssue.Id
+        };
+
+        var sla = await FindApplicableSlaAsync(splitIssue.CompanyId, splitIssue.CustomerId);
+        if (sla != null)
+        {
+            var (responseHours, resolutionHours) = sla.GetTargets(splitIssue.Priority);
+            splitIssue.ApplySla(sla.Id, responseHours, resolutionHours);
+        }
+
+        await _issueRepository.InsertAsync(splitIssue);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                Guid.NewGuid(), "Issue", splitIssue.Id,
+                "Created", splitIssue.CompanyId,
+                splitIssue.Subject, "Draft", splitIssue.Status.ToString(), CurrentUser?.Id,
+                $"Issue '{splitIssue.Subject}' split from '{originalIssue.Subject}'", CurrentTenant?.Id));
+        }
+
+        return new IssueDto
+        {
+            Id = splitIssue.Id,
+            CompanyId = splitIssue.CompanyId,
+            Subject = splitIssue.Subject,
+            Description = splitIssue.Description,
+            Priority = splitIssue.Priority,
+            IssueType = splitIssue.IssueType,
+            CustomerId = splitIssue.CustomerId,
+            AssignedToId = splitIssue.AssignedToId,
+            RaisedVia = splitIssue.RaisedVia,
+            OpeningDate = splitIssue.OpeningDate,
+            Status = splitIssue.Status,
+            ServiceLevelAgreementId = splitIssue.ServiceLevelAgreementId,
+            FirstResponseTime = splitIssue.FirstResponseTime,
+            ResolutionTime = splitIssue.ResolutionTime,
+            AgreementStatus = splitIssue.AgreementStatus,
+            SplitFromIssueId = splitIssue.SplitFromIssueId
+        };
+    }
 }
 

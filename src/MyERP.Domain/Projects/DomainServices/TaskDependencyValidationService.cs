@@ -99,4 +99,43 @@ public class TaskDependencyValidationService : DomainService
                 .WithData("incompleteDependencies", string.Join(", ", incompleteDeps.Select(t => t.Subject)));
         }
     }
+
+    /// <summary>
+    /// Cascades date shifts to all dependent tasks when a task's end date changes.
+    /// Per ERPNext: reschedule_dependent_tasks in projects/doctype/task/task.py (Gotcha #1302).
+    /// </summary>
+    public async Task RescheduleDependentTasksAsync(ProjectTask task, HashSet<Guid>? visited = null)
+    {
+        var endDate = task.ExpectedEndDate ?? task.ActualEndDate;
+        if (!endDate.HasValue) return;
+
+        visited ??= new HashSet<Guid>();
+        if (!visited.Add(task.Id)) return; // Prevent infinite recursion
+
+        var queryable = await _taskRepository.GetQueryableAsync();
+        var projectTasks = queryable.Where(t => t.ProjectId == task.ProjectId).ToList();
+
+        // Find tasks that depend on this task
+        var dependentTasks = projectTasks
+            .Where(t => t.Dependencies.Any(d => d.DependsOnTaskId == task.Id))
+            .ToList();
+
+        foreach (var depTask in dependentTasks)
+        {
+            if (depTask.Status == ProjectTaskStatus.Open
+                && depTask.ExpectedStartDate.HasValue
+                && depTask.ExpectedEndDate.HasValue
+                && depTask.ExpectedStartDate.Value < endDate.Value)
+            {
+                var duration = (depTask.ExpectedEndDate.Value - depTask.ExpectedStartDate.Value).Days;
+                depTask.ExpectedStartDate = endDate.Value.Date.AddDays(1);
+                depTask.ExpectedEndDate = depTask.ExpectedStartDate.Value.AddDays(duration);
+
+                await _taskRepository.UpdateAsync(depTask);
+
+                // Cascade to downstream dependent tasks
+                await RescheduleDependentTasksAsync(depTask, visited);
+            }
+        }
+    }
 }

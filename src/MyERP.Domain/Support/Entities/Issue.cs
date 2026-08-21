@@ -38,6 +38,9 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Channel: Email, Phone, Website, Social.</summary>
     public string? RaisedVia { get; set; }
 
+    /// <summary>Link to the parent issue if this issue was split from another issue.</summary>
+    public Guid? SplitFromIssueId { get; set; }
+
     public DateTime OpeningDate { get; set; }
     public DateTime? ResolutionDate { get; set; }
 

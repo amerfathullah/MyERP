@@ -15,4 +15,5 @@ public interface IIssueAppService : IApplicationService
     Task<IssueDto> ResolveAsync(Guid id, ResolveIssueDto input);
     Task<IssueDto> ReopenAsync(Guid id);
     Task<IssueDto> HoldAsync(Guid id);
+    Task<IssueDto> SplitAsync(Guid id, SplitIssueDto input);
 }

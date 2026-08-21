@@ -25,6 +25,8 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public decimal PurchaseAmount { get; set; }
     public decimal AdditionalCost { get; set; }
     public decimal TotalAssetCost { get; set; }
+    public int AssetQuantity { get; set; } = 1;
+    public Guid? SplitFromAssetId { get; set; }
     public Guid? PurchaseReceiptId { get; set; }
     public Guid? PurchaseInvoiceId { get; set; }
     public bool CalculateDepreciation { get; set; }
@@ -592,4 +594,5 @@ public interface IAssetAppService : IApplicationService
     System.Threading.Tasks.Task<AssetDto> CancelAsync(Guid id);
     System.Threading.Tasks.Task<AssetCategoryDto[]> GetCategoriesAsync();
     System.Threading.Tasks.Task<AssetCategoryDto> CreateCategoryAsync(CreateUpdateAssetCategoryDto input);
+    System.Threading.Tasks.Task<AssetDto> SplitAsync(Guid id, int splitQty);
 }

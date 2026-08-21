@@ -25,6 +25,9 @@ public class MaintenanceVisit : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Linked maintenance schedule (if this is a scheduled visit).</summary>
     public Guid? MaintenanceScheduleId { get; set; }
 
+    /// <summary>Linked Warranty Claim if this visit was generated to service a warranty claim.</summary>
+    public Guid? WarrantyClaimId { get; set; }
+
     public Guid? CustomerId { get; set; }
     public Guid? ContactId { get; set; }
 

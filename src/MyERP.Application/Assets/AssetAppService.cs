@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
@@ -19,6 +20,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly IRepository<Location, Guid> _locationRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly AssetLifecycleManager _lifecycleManager;
     private readonly AssetMapper _assetMapper;
     private readonly AssetCategoryMapper _categoryMapper;
 
@@ -28,6 +30,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         IRepository<AssetActivity, Guid> activityRepository,
         IRepository<Location, Guid> locationRepository,
         IDocumentNumberGenerator numberGenerator,
+        AssetLifecycleManager lifecycleManager,
         AssetMapper assetMapper,
         AssetCategoryMapper categoryMapper)
     {
@@ -36,6 +39,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         _activityRepository = activityRepository;
         _locationRepository = locationRepository;
         _numberGenerator = numberGenerator;
+        _lifecycleManager = lifecycleManager;
         _assetMapper = assetMapper;
         _categoryMapper = categoryMapper;
     }
@@ -367,5 +371,20 @@ public class AssetAppService : ApplicationService, IAssetAppService
 
         await _categoryRepository.InsertAsync(category);
         return _categoryMapper.Map(category);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Create)]
+    public async Task<AssetDto> SplitAsync(Guid id, int splitQty)
+    {
+        var splitAsset = await _lifecycleManager.SplitAssetAsync(id, splitQty);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Asset", splitAsset.Id,
+            "Created", splitAsset.CompanyId,
+            splitAsset.AssetNumber, "Draft", splitAsset.Status.ToString(), CurrentUser.Id,
+            $"Asset '{splitAsset.AssetName}' created by splitting from asset ID {id} with quantity {splitQty}", CurrentTenant.Id));
+
+        return _assetMapper.Map(splitAsset);
     }
 }

@@ -20,15 +20,18 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
     private readonly IRepository<WarrantyClaim, Guid> _repository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<MaintenanceVisit, Guid> _visitRepository;
 
     public WarrantyClaimAppService(
         IRepository<WarrantyClaim, Guid> repository,
         IRepository<Customer, Guid> customerRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        IRepository<MaintenanceVisit, Guid> visitRepository)
     {
         _repository = repository;
         _customerRepository = customerRepository;
         _itemRepository = itemRepository;
+        _visitRepository = visitRepository;
     }
 
     public async Task<PagedResultDto<WarrantyClaimDto>> GetListAsync(GetWarrantyClaimListDto input)
@@ -156,15 +159,70 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
     public async Task CancelAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+
+        // Guard: check if any active maintenance visits exist for this claim (Gotcha #851 / #829)
+        var visits = await _visitRepository.GetListAsync(v => v.WarrantyClaimId == id);
+        if (visits.Any(v => v.CompletionStatus != MaintenanceVisitStatus.Cancelled))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot cancel Warranty Claim with active Maintenance Visits. Please cancel all linked Maintenance Visits first.");
+        }
+
         entity.Cancel();
         await _repository.UpdateAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "WarrantyClaim", entity.Id,
-            "Cancelled", entity.CompanyId,
-            entity.ClaimNumber, entity.Status.ToString(), "Cancelled", CurrentUser.Id,
-            $"Warranty Claim {entity.ClaimNumber} cancelled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                Guid.NewGuid(), "WarrantyClaim", entity.Id,
+                "Cancelled", entity.CompanyId,
+                entity.ClaimNumber, entity.Status.ToString(), "Cancelled", CurrentUser?.Id,
+                $"Warranty Claim {entity.ClaimNumber} cancelled", CurrentTenant?.Id));
+        }
+    }
+
+    [Authorize(MyERPPermissions.WarrantyClaims.Edit)]
+    public async Task<Guid> CreateMaintenanceVisitAsync(Guid id)
+    {
+        var claim = await _repository.GetAsync(id);
+        var item = await _itemRepository.FindAsync(claim.ItemId);
+
+        var visit = new MaintenanceVisit(
+            Guid.NewGuid(),
+            claim.CompanyId,
+            DateTime.UtcNow,
+            "Breakdown",
+            claim.TenantId)
+        {
+            CustomerId = claim.CustomerId,
+            WarrantyClaimId = claim.Id
+        };
+
+        visit.AddPurpose(new MaintenanceVisitPurpose(
+            Guid.NewGuid(),
+            visit.Id,
+            claim.Complaint ?? $"Warranty service for {item?.ItemName ?? "item"}")
+        {
+            ItemId = claim.ItemId,
+            ItemName = item?.ItemName,
+            SerialNoId = claim.SerialNoId,
+            WorkDetails = claim.Resolution
+        });
+
+        await _visitRepository.InsertAsync(visit);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                Guid.NewGuid(), "MaintenanceVisit", visit.Id,
+                "Created", visit.CompanyId,
+                $"MV for {claim.ClaimNumber}", "Draft", "Open", CurrentUser?.Id,
+                $"Maintenance Visit created from Warranty Claim {claim.ClaimNumber}", CurrentTenant?.Id));
+        }
+
+        return visit.Id;
     }
 
     private static WarrantyClaimDto MapToDto(

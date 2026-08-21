@@ -28,6 +28,7 @@ public class IssueDto : AuditedEntityDto<Guid>
     public decimal? FirstResponseTime { get; set; }
     public decimal? ResolutionTime { get; set; }
     public AgreementStatus AgreementStatus { get; set; }
+    public Guid? SplitFromIssueId { get; set; }
 }
 
 /// <summary>DTO for creating a new issue.</summary>
@@ -56,5 +57,13 @@ public class ResolveIssueDto
 {
     [StringLength(IssueConsts.MaxResolutionLength)]
     public string? Resolution { get; set; }
+}
+
+/// <summary>DTO for splitting an issue into a new sub-issue.</summary>
+public class SplitIssueDto
+{
+    [Required]
+    [StringLength(IssueConsts.MaxSubjectLength)]
+    public string Subject { get; set; } = null!;
 }
 

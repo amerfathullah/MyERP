@@ -150,7 +150,7 @@ public class LatestMigrationSessionTests2
     [Fact]
     public void AssetDepreciationDetail_PerBookValueTracking()
     {
-        var d = new AssetDepreciationDetail(Guid.NewGuid(), Guid.NewGuid(), Assets.DepreciationMethod.StraightLine, 60, 12, 100_000m);
+        var d = new AssetDepreciationDetail(Guid.NewGuid(), Guid.NewGuid(), MyERP.Assets.DepreciationMethod.StraightLine, 60, 12, 100_000m);
         d.ValueAfterDepreciation -= 1_500m;
         Assert.Equal(98_500m, d.ValueAfterDepreciation);
     }
@@ -159,8 +159,8 @@ public class LatestMigrationSessionTests2
     public void Asset_MultiBook_TwoDetails()
     {
         var asset = new Asset(Guid.NewGuid(), Guid.NewGuid(), "LAPTOP-001", "Laptop", DateTime.UtcNow, 5_000m);
-        asset.DepreciationDetails.Add(new AssetDepreciationDetail(Guid.NewGuid(), asset.Id, Assets.DepreciationMethod.StraightLine, 60, 12, 5_000m) { FinanceBookId = Guid.NewGuid() });
-        asset.DepreciationDetails.Add(new AssetDepreciationDetail(Guid.NewGuid(), asset.Id, Assets.DepreciationMethod.WrittenDownValue, 96, 12, 5_000m) { FinanceBookId = Guid.NewGuid(), Rate = 25m });
+        asset.DepreciationDetails.Add(new AssetDepreciationDetail(Guid.NewGuid(), asset.Id, MyERP.Assets.DepreciationMethod.StraightLine, 60, 12, 5_000m) { FinanceBookId = Guid.NewGuid() });
+        asset.DepreciationDetails.Add(new AssetDepreciationDetail(Guid.NewGuid(), asset.Id, MyERP.Assets.DepreciationMethod.WrittenDownValue, 96, 12, 5_000m) { FinanceBookId = Guid.NewGuid(), Rate = 25m });
         Assert.Equal(2, asset.DepreciationDetails.Count);
     }
 

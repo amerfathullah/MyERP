@@ -13,4 +13,5 @@ public interface IWarrantyClaimAppService : IApplicationService
     Task StartWorkAsync(Guid id);
     Task CloseAsync(Guid id, string? resolution);
     Task CancelAsync(Guid id);
+    Task<Guid> CreateMaintenanceVisitAsync(Guid id);
 }

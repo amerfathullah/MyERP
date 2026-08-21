@@ -248,4 +248,91 @@ public class AssetLifecycleManager : DomainService
     {
         return valuationRate * qty;
     }
+
+    /// <summary>
+    /// Splits an asset with quantity > 1 into two separate assets with proportional cost scaling.
+    /// Per ERPNext: split_asset() in assets/doctype/asset/mapper.py (Gotcha #969).
+    /// </summary>
+    public async Task<Asset> SplitAssetAsync(Guid assetId, int splitQty)
+    {
+        if (splitQty <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Split quantity must be greater than zero.");
+
+        var existingAsset = await _assetRepository.GetAsync(assetId, includeDetails: true);
+
+        if (splitQty >= existingAsset.AssetQuantity)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Split Quantity must be less than Asset Quantity.");
+
+        if (existingAsset.Status is AssetStatus.Draft or AssetStatus.Cancelled or AssetStatus.Scrapped or AssetStatus.Sold)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("from", existingAsset.Status.ToString())
+                .WithData("detail", "Only active submitted assets can be split.");
+
+        var totalQty = existingAsset.AssetQuantity;
+        var remainingQty = totalQty - splitQty;
+        var splitScale = (decimal)splitQty / totalQty;
+        var remainingScale = (decimal)remainingQty / totalQty;
+
+        // Generate new asset number
+        var newAssetNumber = await _numberGenerator.GenerateAsync("Asset", existingAsset.CompanyId);
+
+        // Create split asset
+        var newAsset = new Asset(
+            Guid.NewGuid(),
+            existingAsset.CompanyId,
+            newAssetNumber,
+            $"{existingAsset.AssetName} (Split)",
+            existingAsset.PurchaseDate,
+            existingAsset.PurchaseAmount,
+            existingAsset.TenantId)
+        {
+            AssetCategoryId = existingAsset.AssetCategoryId,
+            ItemId = existingAsset.ItemId,
+            Location = existingAsset.Location,
+            LocationId = existingAsset.LocationId,
+            CustodianEmployeeId = existingAsset.CustodianEmployeeId,
+            CalculateDepreciation = existingAsset.CalculateDepreciation,
+            DepreciationMethod = existingAsset.DepreciationMethod,
+            UsefulLifeMonths = existingAsset.UsefulLifeMonths,
+            DepreciationRate = existingAsset.DepreciationRate,
+            FrequencyMonths = existingAsset.FrequencyMonths,
+            AvailableForUseDate = existingAsset.AvailableForUseDate,
+            Notes = $"Split from {existingAsset.AssetNumber}",
+            SplitFromAssetId = existingAsset.Id
+        };
+
+        // Copy depreciation details / finance books
+        foreach (var d in existingAsset.DepreciationDetails)
+        {
+            var newDetail = new AssetDepreciationDetail(
+                Guid.NewGuid(),
+                newAsset.Id,
+                d.DepreciationMethod,
+                d.TotalNumberOfDepreciations,
+                d.FrequencyOfDepreciation,
+                d.NetPurchaseAmount)
+            {
+                FinanceBookId = d.FinanceBookId,
+                Rate = d.Rate,
+                OpeningAccumulatedDepreciation = d.OpeningAccumulatedDepreciation,
+                ValueAfterDepreciation = d.ValueAfterDepreciation,
+                ExpectedValueAfterUsefulLife = d.ExpectedValueAfterUsefulLife,
+                DepreciationStartDate = d.DepreciationStartDate
+            };
+            newAsset.DepreciationDetails.Add(newDetail);
+        }
+
+        newAsset.Submit();
+        newAsset.ApplySplitScale(splitScale, splitQty);
+
+        // Scale existing asset
+        existingAsset.ApplySplitScale(remainingScale, remainingQty);
+
+        await _assetRepository.InsertAsync(newAsset);
+        await _assetRepository.UpdateAsync(existingAsset);
+
+        return newAsset;
+    }
 }

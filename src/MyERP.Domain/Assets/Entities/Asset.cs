@@ -33,6 +33,12 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal AdditionalCost { get; set; }
     public decimal TotalAssetCost => PurchaseAmount + AdditionalCost;
 
+    /// <summary>Asset quantity (default: 1). Multiple quantity assets can be split.</summary>
+    public int AssetQuantity { get; set; } = 1;
+
+    /// <summary>Original asset ID if this asset was created by splitting another asset.</summary>
+    public Guid? SplitFromAssetId { get; set; }
+
     /// <summary>Source Purchase Receipt that created this asset (for return validation).</summary>
     public Guid? PurchaseReceiptId { get; set; }
 
@@ -346,5 +352,29 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             CustodianEmployeeId = custodianEmployeeId;
         }
+    }
+
+    /// <summary>
+    /// Scales proportional asset values and quantities when an asset is split.
+    /// Per ERPNext: split_asset() in assets/doctype/asset/mapper.py.
+    /// </summary>
+    public void ApplySplitScale(decimal scalingFactor, int newQuantity)
+    {
+        AssetQuantity = newQuantity;
+        PurchaseAmount = Math.Round(PurchaseAmount * scalingFactor, 2);
+        AdditionalCost = Math.Round(AdditionalCost * scalingFactor, 2);
+        OpeningAccumulatedDepreciation = Math.Round(OpeningAccumulatedDepreciation * scalingFactor, 2);
+        ValueAfterDepreciation = Math.Round(ValueAfterDepreciation * scalingFactor, 2);
+
+        foreach (var detail in DepreciationDetails)
+        {
+            detail.NetPurchaseAmount = Math.Round(detail.NetPurchaseAmount * scalingFactor, 2);
+            detail.OpeningAccumulatedDepreciation = Math.Round(detail.OpeningAccumulatedDepreciation * scalingFactor, 2);
+            detail.ValueAfterDepreciation = Math.Round(detail.ValueAfterDepreciation * scalingFactor, 2);
+            detail.ExpectedValueAfterUsefulLife = Math.Round(detail.ExpectedValueAfterUsefulLife * scalingFactor, 2);
+        }
+
+        DepreciationSchedule.Clear();
+        GenerateDepreciationSchedule();
     }
 }
