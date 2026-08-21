@@ -370,7 +370,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 partyId: pe.PartyId.Value,
                 accountCurrency: pe.CurrencyCode,
                 exchangeRate: pe.ExchangeRate,
-                allocations: allocations);
+                allocations: allocations,
+                paidFromAccountId: pe.PaidFromAccountId,
+                paidToAccountId: pe.PaidToAccountId);
 
             // Update the linked invoice's AmountPaid (with optimistic concurrency retry)
             await UpdateInvoiceAmountPaidAsync(pe.AgainstInvoiceType!, pe.AgainstInvoiceId.Value, pe.PaidAmount);
@@ -543,7 +545,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     partyId: pe.PartyId.Value,
                     accountCurrency: pe.CurrencyCode,
                     exchangeRate: pe.ExchangeRate,
-                    allocations: multiAllocations.ToArray());
+                    allocations: multiAllocations.ToArray(),
+                    paidFromAccountId: pe.PaidFromAccountId,
+                    paidToAccountId: pe.PaidToAccountId);
             }
 
             // Per-reference exchange gain/loss JE for multi-currency multi-ref payments

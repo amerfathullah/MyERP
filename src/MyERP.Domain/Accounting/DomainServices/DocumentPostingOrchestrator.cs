@@ -150,6 +150,22 @@ public class DocumentPostingOrchestrator : DomainService
     /// Supports multi-currency: allocatedAmount is in transaction currency,
     /// base amounts are converted using the payment's exchange rate.
     /// </summary>
+    /// <remarks>
+    /// Builds the main JE directly from paidFromAccountId/paidToAccountId — deliberately does
+    /// NOT go through AccountingRuleEngine.PostDocumentAsync (unlike SI/PI/DN/PR, which always
+    /// post the same two accounts and fit that generic AccountSource/AmountSource config model).
+    /// A Payment Entry's two GL legs are picked PER-TRANSACTION by the user (which bank account,
+    /// which party account) and flip direction between Receive and Pay — the seeded "PaymentEntry"
+    /// AccountingRule rows (DR FixedAccount / CR CustomerReceivable, both unconditional) can only
+    /// ever express one direction. Confirmed empirically (EfCorePaymentEntryGlDirectionTests) that
+    /// routing a Pay-type Payment Entry through the generic engine posted DR a hardcoded bank
+    /// account / CR the company's default Receivable — never touching Payable or the payment's
+    /// own PaidFrom/PaidTo accounts at all. The correct, direction-agnostic rule is simply
+    /// DR PaidToAccountId / CR PaidFromAccountId: for Receive (PaidFrom=Receivable, PaidTo=Bank)
+    /// that's DR Bank / CR Receivable; for Pay (PaidFrom=Bank, PaidTo=Payable) that's DR Payable /
+    /// CR Bank — matching the seeded rule's own "for received payments" comment, which was only
+    /// ever correct for the one direction it was written for.
+    /// </remarks>
     public async Task<JournalEntry> PostPaymentEntryAsync(
         IAccountableDocument payment,
         Guid partyAccountId,
@@ -157,11 +173,55 @@ public class DocumentPostingOrchestrator : DomainService
         Guid partyId,
         string accountCurrency,
         decimal exchangeRate,
-        PaymentAllocation[] allocations)
+        PaymentAllocation[] allocations,
+        Guid paidFromAccountId,
+        Guid paidToAccountId)
     {
         await ValidatePostingPeriodAsync(payment.CompanyId, payment.PostingDate, payment.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(payment);
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fy =>
+            fy.CompanyId == payment.CompanyId &&
+            !fy.IsClosed &&
+            fy.StartDate <= payment.PostingDate &&
+            fy.EndDate >= payment.PostingDate);
+        if (fiscalYear == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                .WithData("date", payment.PostingDate);
+        }
+
+        var journal = new JournalEntry(GuidGenerator.Create(), payment.CompanyId, fiscalYear.Id, payment.PostingDate)
+        {
+            ReferenceType = payment.DocumentType,
+            ReferenceId = payment.Id,
+        };
+
+        var isMultiCurrency = exchangeRate != 1m;
+        var amountInTransactionCurrency = payment.GrandTotal;
+        var amountInCompanyCurrency = isMultiCurrency
+            ? Math.Round(amountInTransactionCurrency * exchangeRate, 4)
+            : amountInTransactionCurrency;
+
+        journal.AddLineWithDimensions(paidToAccountId, amountInCompanyCurrency, true,
+            payment.CostCenterId, null, payment.FinanceBook);
+        if (isMultiCurrency)
+        {
+            journal.Lines[^1].AccountCurrency = accountCurrency;
+            journal.Lines[^1].AmountInAccountCurrency = amountInTransactionCurrency;
+            journal.Lines[^1].ExchangeRate = exchangeRate;
+        }
+
+        journal.AddLineWithDimensions(paidFromAccountId, amountInCompanyCurrency, false,
+            payment.CostCenterId, null, payment.FinanceBook);
+        if (isMultiCurrency)
+        {
+            journal.Lines[^1].AccountCurrency = accountCurrency;
+            journal.Lines[^1].AmountInAccountCurrency = amountInTransactionCurrency;
+            journal.Lines[^1].ExchangeRate = exchangeRate;
+        }
+
+        journal.Validate();
+        journal.Post();
 
         // Validate mandatory accounting dimensions on GL lines
         await _dimensionService.ValidateMandatoryDimensionsAsync(payment.CompanyId, journal.Lines);
