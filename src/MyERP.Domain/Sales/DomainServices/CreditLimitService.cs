@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
@@ -180,5 +181,41 @@ public class CreditLimitService : DomainService
 
         var outstanding = query.Sum(i => i.GrandTotal - i.AmountPaid);
         return outstanding;
+    }
+
+    /// <summary>
+    /// Validates customer credit limit configuration (Gotcha #302):
+    /// (1) Same company cannot appear twice in credit_limit list.
+    /// (2) New credit limit cannot be set below current outstanding amount for that company.
+    /// </summary>
+    public async Task ValidateCustomerCreditLimitsAsync(
+        Guid customerId, IEnumerable<CustomerCreditLimit> creditLimits)
+    {
+        var list = creditLimits.ToList();
+        var duplicates = list.GroupBy(cl => cl.CompanyId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicates.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("reason", "Same company cannot appear twice in customer credit limits");
+        }
+
+        foreach (var limit in list)
+        {
+            if (limit.CreditLimit > 0 && !limit.BypassCreditLimitCheck)
+            {
+                var outstanding = await GetCustomerOutstandingAsync(customerId, limit.CompanyId);
+                if (limit.CreditLimit < outstanding)
+                {
+                    throw new BusinessException("MyERP:03002")
+                        .WithData("reason", "Cannot set credit limit below current outstanding amount")
+                        .WithData("creditLimit", limit.CreditLimit)
+                        .WithData("outstanding", outstanding);
+                }
+            }
+        }
     }
 }
