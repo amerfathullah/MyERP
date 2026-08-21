@@ -13,4 +13,8 @@ public interface IPaymentRequestAppService : IApplicationService
     Task<PaymentRequestDto> CreateAsync(CreatePaymentRequestDto input);
     Task<PaymentRequestDto> SubmitAsync(Guid id);
     Task<PaymentRequestDto> CancelAsync(Guid id);
+
+    /// <summary>Creates, submits, and posts a real Payment Entry for this request's full
+    /// outstanding amount against Company default accounts, then marks the request Paid.</summary>
+    Task<PaymentRequestDto> PayAsync(Guid id);
 }

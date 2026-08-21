@@ -69,6 +69,10 @@ import type { PaymentRequestDto } from '../../proxy/accounting/models';
                 </button>
               }
               @if (statusNum() === 1) {
+                <button class="btn btn-outline-primary" (click)="pay()" [disabled]="paying()">
+                  @if (paying()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  <i class="fas fa-money-check-alt me-1"></i>{{ '::CreatePaymentEntry' | abpLocalization }}
+                </button>
                 <button class="btn btn-outline-danger" (click)="cancel()">
                   <i class="fas fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
                 </button>
@@ -123,6 +127,7 @@ export class PaymentRequestDetailComponent implements OnInit {
 
   entity = signal<PaymentRequestDto | null>(null);
   statusNum = signal(0);
+  paying = signal(false);
 
   statusLabel(): string {
     const labels: Record<number, string> = { 0: 'Draft', 1: 'Initiated', 2: 'Paid', 3: 'Cancelled' };
@@ -147,6 +152,21 @@ export class PaymentRequestDetailComponent implements OnInit {
         this.reload();
       },
       error: () => {}
+    });
+  }
+
+  pay(): void {
+    this.paying.set(true);
+    this.service.pay(this.entity()!.id!).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::SuccessfullyPaid'));
+        this.paying.set(false);
+        this.reload();
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message ?? 'OperationFailed');
+        this.paying.set(false);
+      },
     });
   }
 

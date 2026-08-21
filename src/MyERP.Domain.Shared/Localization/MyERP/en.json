@@ -2837,6 +2837,7 @@
     "CreateDeliveryNote": "Create Delivery Note",
     "CreateInvoice": "Create Invoice",
     "CreatePaymentEntry": "Create Payment Entry",
+    "SuccessfullyPaid": "Successfully paid",
     "CreatePickList": "Create Pick List",
     "CreateProductBundle": "Create Product Bundle",
     "CreatePurchaseOrder": "Create Purchase Order",
