@@ -78,6 +78,22 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TotalOutstanding = _overduePayments.Sum(p => p.OutstandingAmount);
     }
 
+    /// <summary>
+    /// Calculates interest amount across overdue payments based on yearly rate of interest (gotcha #2713).
+    /// Formula per item: outstanding × (rateOfInterest / 100 / 365) × overdueDays.
+    /// </summary>
+    public void CalculateInterest(decimal rateOfInterest)
+    {
+        if (rateOfInterest <= 0)
+        {
+            InterestAmount = 0;
+            return;
+        }
+
+        InterestAmount = Math.Round(_overduePayments.Sum(p =>
+            p.OutstandingAmount * (rateOfInterest / 100m / 365m) * p.OverdueDays), 2);
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
