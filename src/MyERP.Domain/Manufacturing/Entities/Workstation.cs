@@ -106,6 +106,9 @@ public class WorkstationWorkingHour : FullAuditedEntity<Guid>
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
 
+    /// <summary>Auto-calculated shift duration in hours (gotcha #1834).</summary>
+    public decimal Hours => (decimal)(EndTime - StartTime).TotalHours;
+
     protected WorkstationWorkingHour() { }
     public WorkstationWorkingHour(Guid id, Guid workstationId, string day, TimeSpan startTime, TimeSpan endTime) : base(id)
     {

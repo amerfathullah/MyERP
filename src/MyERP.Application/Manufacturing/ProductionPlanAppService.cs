@@ -145,7 +145,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
 
-        // Check for submitted Work Orders generated from this plan
+        // Check for submitted Work Orders generated from this plan; delete draft ones (gotchas #431, #552)
         var woIds = plan.PlannedItems.Where(i => i.WorkOrderId.HasValue).Select(i => i.WorkOrderId!.Value).ToList();
         if (woIds.Any())
         {
@@ -158,9 +158,15 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     .WithData("documentType", "ProductionPlan")
                     .WithData("dependent", "WorkOrder");
             }
+
+            var draftWos = woQ.Where(wo => woIds.Contains(wo.Id) && wo.Status == WorkOrderStatus.Draft).ToList();
+            foreach (var draftWo in draftWos)
+            {
+                await woRepo.DeleteAsync(draftWo);
+            }
         }
 
-        // Check for submitted Material Requests generated from this plan
+        // Check for submitted Material Requests generated from this plan; delete draft ones
         var mrIds = plan.MaterialRequirements.Where(i => i.MaterialRequestId.HasValue).Select(i => i.MaterialRequestId!.Value).ToList();
         if (mrIds.Any())
         {
@@ -172,6 +178,12 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
                     .WithData("documentType", "ProductionPlan")
                     .WithData("dependent", "MaterialRequest");
+            }
+
+            var draftMrs = mrQ.Where(mr => mrIds.Contains(mr.Id) && mr.Status == Core.DocumentStatus.Draft).ToList();
+            foreach (var draftMr in draftMrs)
+            {
+                await mrRepo.DeleteAsync(draftMr);
             }
         }
 
