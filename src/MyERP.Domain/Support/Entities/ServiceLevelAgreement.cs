@@ -63,7 +63,26 @@ public class ServiceLevelAgreement : FullAuditedAggregateRoot<Guid>, IMultiTenan
 
     public void AddPriority(ServiceLevelPriority priority)
     {
+        priority.Validate(ApplyOnResolution);
         _priorities.Add(priority);
+    }
+
+    /// <summary>
+    /// Validates all priorities in this SLA (gotcha #827).
+    /// Enforces: response_time must be positive; if apply_on_resolution enabled, resolution_time must be >= response_time.
+    /// </summary>
+    public void ValidatePriorities()
+    {
+        if (ApplyOnResolution && ResolutionTimeHours > 0 && ResolutionTimeHours < ResponseTimeHours)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Resolution Time must be greater than or equal to Response Time.");
+        }
+
+        foreach (var p in _priorities)
+        {
+            p.Validate(ApplyOnResolution);
+        }
     }
 
     public void AddServiceDay(ServiceDay day)
@@ -152,6 +171,24 @@ public class ServiceLevelPriority : Entity<Guid>
         PriorityName = Check.NotNullOrWhiteSpace(priorityName, nameof(priorityName), ServiceLevelPriorityConsts.MaxPriorityNameLength);
         ResponseTimeHours = responseTimeHours;
         ResolutionTimeHours = resolutionTimeHours;
+    }
+
+    /// <summary>
+    /// Validates priority targets (gotcha #827).
+    /// </summary>
+    public void Validate(bool applyOnResolution = true)
+    {
+        if (ResponseTimeHours <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Response Time for priority '{PriorityName}' must be greater than zero.");
+        }
+
+        if (applyOnResolution && ResolutionTimeHours > 0 && ResolutionTimeHours < ResponseTimeHours)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Resolution Time for priority '{PriorityName}' must be greater than or equal to Response Time.");
+        }
     }
 }
 
