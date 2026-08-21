@@ -44,6 +44,11 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// <summary>Process loss percentage (for Manufacture/Repack).</summary>
     public decimal ProcessLossPercentage { get; set; }
 
+    /// <summary>
+    /// Hidden flag marking excess/additional material transfer entries beyond standard WO required qty (gotcha #179).
+    /// </summary>
+    public bool IsAdditionalTransferEntry { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";

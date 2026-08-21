@@ -70,4 +70,17 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (ManufacturingDate.HasValue && ShelfLifeInDays.HasValue)
             ExpiryDate = ManufacturingDate.Value.AddDays(ShelfLifeInDays.Value);
     }
+
+    /// <summary>
+    /// Auto-derives ManufacturingDate from reference doc posting date if unset, then computes ExpiryDate from shelf life (gotcha #242).
+    /// </summary>
+    public void DeriveManufacturingDateAndExpiry(DateTime? referenceDocPostingDate)
+    {
+        if (!ManufacturingDate.HasValue && referenceDocPostingDate.HasValue)
+        {
+            ManufacturingDate = referenceDocPostingDate.Value;
+        }
+
+        SetExpiryFromShelfLife();
+    }
 }
