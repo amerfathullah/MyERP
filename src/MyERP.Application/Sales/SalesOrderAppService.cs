@@ -11,6 +11,7 @@ using MyERP.Purchasing;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Sales;
+using MyERP.Settings;
 using MyERP.Shared;
 using MyERP.Workflow.DomainServices;
 using Microsoft.AspNetCore.Authorization;
@@ -277,6 +278,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         if (input.QuotationId.HasValue)
         {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotation = await quotationRepo.FindAsync(input.QuotationId.Value);
+            if (quotation != null && quotation.IsExpired)
+            {
+                var allowExpired = await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation);
+                if (allowExpired != "true")
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.QuotationExpired)
+                        .WithData("quotationNumber", quotation.QuotationNumber)
+                        .WithData("validUntil", quotation.ValidUntil?.ToString("yyyy-MM-dd") ?? "");
+                }
+            }
             order.QuotationId = input.QuotationId;
         }
 
