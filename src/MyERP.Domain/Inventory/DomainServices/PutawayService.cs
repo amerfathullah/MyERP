@@ -40,26 +40,52 @@ public class PutawayService : DomainService
         var allocations = new List<PutawayAllocation>();
         var remaining = totalQty;
 
-        // Get matching rules sorted by priority
-        var rules = await GetMatchingRulesAsync(companyId, itemId, itemGroupId);
+        // Get matching rules
+        var rawRules = await GetMatchingRulesAsync(companyId, itemId, itemGroupId);
+        if (!rawRules.Any())
+        {
+            if (totalQty > 0)
+            {
+                allocations.Add(new PutawayAllocation
+                {
+                    WarehouseId = Guid.Empty,
+                    Qty = totalQty,
+                    IsUnallocated = true
+                });
+            }
+            return allocations;
+        }
 
-        foreach (var rule in rules)
+        var binQueryable = await _binRepository.GetQueryableAsync();
+        var warehouseIds = rawRules.Select(r => r.WarehouseId).Distinct().ToList();
+        var binBalances = binQueryable
+            .Where(b => b.ItemId == itemId && warehouseIds.Contains(b.WarehouseId))
+            .ToDictionary(b => b.WarehouseId, b => b.ActualQty);
+
+        // Sort candidate rules by priority ASC, then free_space DESC (gotcha #2718)
+        var ruleWithCapacities = rawRules
+            .Select(r =>
+            {
+                var currentBalance = binBalances.TryGetValue(r.WarehouseId, out var bal) ? bal : 0m;
+                var freeSpace = r.GetAvailableCapacity(currentBalance);
+                return new { Rule = r, FreeSpace = freeSpace };
+            })
+            .Where(x => x.FreeSpace > 0)
+            .OrderBy(x => x.Rule.ItemId.HasValue ? 0 : 1)
+            .ThenBy(x => x.Rule.Priority)
+            .ThenByDescending(x => x.FreeSpace)
+            .ToList();
+
+        foreach (var candidate in ruleWithCapacities)
         {
             if (remaining <= 0) break;
 
-            // Get current bin balance for capacity check
-            var binQueryable = await _binRepository.GetQueryableAsync();
-            var currentBalance = binQueryable
-                .Where(b => b.ItemId == itemId && b.WarehouseId == rule.WarehouseId)
-                .Select(b => b.ActualQty)
-                .FirstOrDefault();
-
-            var available = rule.GetAvailableCapacity(currentBalance);
-            if (available <= 0) continue;
+            var rule = candidate.Rule;
+            var available = candidate.FreeSpace;
 
             var allocateQty = Math.Min(remaining, available);
 
-            // FLOOR for whole-number UOMs
+            // FLOOR for whole-number UOMs (gotcha #2719)
             if (mustBeWholeNumber)
                 allocateQty = Math.Floor(allocateQty);
 
