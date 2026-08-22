@@ -127,7 +127,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
               <div class="d-flex gap-2 align-items-end mb-3">
                 <div>
                   <label class="form-label">{{ 'PointsToRedeem' | abpLocalization }}</label>
-                  <input type="number" min="1" [max]="balance.availablePoints" class="form-control form-control-sm" [(ngModel)]="pointsToRedeem" />
+                  <input type="number" min="1" [max]="balance.availablePoints ?? null" class="form-control form-control-sm" [(ngModel)]="pointsToRedeem" />
                 </div>
                 <button class="btn btn-outline-success btn-sm" [disabled]="!pointsToRedeem || pointsToRedeem <= 0 || redeeming" (click)="redeemPoints()">
                   <i class="fa fa-gift me-1"></i>{{ 'RedeemPoints' | abpLocalization }}
