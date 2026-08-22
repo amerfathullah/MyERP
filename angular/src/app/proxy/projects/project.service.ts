@@ -11,13 +11,22 @@ export class ProjectService {
   apiName = 'Default';
   
 
+  addTaskDependency = (taskId: string, dependsOnTaskId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectTaskDto>({
+      method: 'POST',
+      url: `/api/app/project/add-task-dependency/${taskId}`,
+      params: { dependsOnTaskId },
+    },
+    { apiName: this.apiName,...config });
+
+
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectDto>({
       method: 'POST',
       url: `/api/app/project/${id}/cancel`,
     },
     { apiName: this.apiName,...config });
-  
+
 
   cancelTask = (taskId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectTaskDto>({
@@ -117,7 +126,16 @@ export class ProjectService {
       url: `/api/app/project/tasks/${projectId}`,
     },
     { apiName: this.apiName,...config });
-  
+
+
+  removeTaskDependency = (taskId: string, dependencyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectTaskDto>({
+      method: 'POST',
+      url: `/api/app/project/remove-task-dependency/${taskId}`,
+      params: { dependencyId },
+    },
+    { apiName: this.apiName,...config });
+
 
   startTask = (taskId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectTaskDto>({

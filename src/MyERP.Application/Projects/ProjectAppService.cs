@@ -338,6 +338,33 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }
 
+    [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<ProjectTaskDto> AddTaskDependencyAsync(Guid taskId, Guid dependsOnTaskId)
+    {
+        var task = await _taskRepository.GetAsync(taskId);
+
+        // Per DO-NOT: "Skip circular reference detection on task dependency changes" —
+        // ProjectTask.AddDependency's own doc comment says full cycle detection requires this
+        // service; it had no caller anywhere until now (the only prior AddDependency call site,
+        // template instantiation, mirrors a template's own graph rather than accepting arbitrary
+        // user input).
+        var depValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.TaskDependencyValidationService>();
+        await depValidator.ValidateNoCycleAsync(task.ProjectId, taskId, dependsOnTaskId);
+
+        task.AddDependency(dependsOnTaskId);
+        await _taskRepository.UpdateAsync(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
+    }
+
+    [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<ProjectTaskDto> RemoveTaskDependencyAsync(Guid taskId, Guid dependencyId)
+    {
+        var task = await _taskRepository.GetAsync(taskId);
+        task.Dependencies.RemoveAll(d => d.Id == dependencyId);
+        await _taskRepository.UpdateAsync(task);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
+    }
+
     private async Task UpdateProjectProgress(Guid projectId)
     {
         var project = await _projectRepository.GetAsync(projectId, includeDetails: true);
