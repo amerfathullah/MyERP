@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Notification.DomainServices;
 using MyERP.Workflow.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Identity;
 using Volo.Abp.Users;
 
 namespace MyERP.Workflow.DomainServices;
@@ -17,13 +19,22 @@ public class ApprovalWorkflowManager : DomainService
 {
     private readonly IRepository<ApprovalRule, Guid> _ruleRepository;
     private readonly IRepository<ApprovalRequest, Guid> _requestRepository;
+    private readonly IIdentityUserRepository _userRepository;
+    private readonly IRepository<IdentityRole, Guid> _roleRepository;
+    private readonly BusinessNotificationService _notificationService;
 
     public ApprovalWorkflowManager(
         IRepository<ApprovalRule, Guid> ruleRepository,
-        IRepository<ApprovalRequest, Guid> requestRepository)
+        IRepository<ApprovalRequest, Guid> requestRepository,
+        IIdentityUserRepository userRepository,
+        IRepository<IdentityRole, Guid> roleRepository,
+        BusinessNotificationService notificationService)
     {
         _ruleRepository = ruleRepository;
         _requestRepository = requestRepository;
+        _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -53,6 +64,7 @@ public class ApprovalWorkflowManager : DomainService
                 tenantId);
 
             await _requestRepository.InsertAsync(request);
+            await NotifyApproverAsync(rule, documentType, documentId, tenantId);
         }
 
         return true;
@@ -135,6 +147,41 @@ public class ApprovalWorkflowManager : DomainService
                 request.TenantId);
 
             await _requestRepository.InsertAsync(nextRequest);
+            await NotifyApproverAsync(rule, request.DocumentType, request.DocumentId, request.TenantId);
+        }
+    }
+
+    /// <summary>
+    /// Notifies whoever can act on a newly-created approval request — either the rule's directly
+    /// assigned approver, or every active user holding the rule's approver role. Per ERPNext:
+    /// approval requests should push a notification, not rely on the approver polling a "Pending
+    /// Approvals" list. Confirmed via grep that no notification was ever sent here before this fix.
+    /// </summary>
+    private async Task NotifyApproverAsync(ApprovalRule rule, string documentType, Guid documentId, Guid? tenantId)
+    {
+        var documentRef = documentId.ToString()[..8];
+
+        if (rule.ApproverUserId.HasValue)
+        {
+            await _notificationService.NotifyApprovalNeededAsync(
+                rule.ApproverUserId.Value, documentType, documentRef, documentId, tenantId);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.ApproverRoleName))
+            return;
+
+        var role = (await _roleRepository.GetListAsync(r => r.Name == rule.ApproverRoleName)).FirstOrDefault();
+        if (role == null)
+            return;
+
+        var users = await _userRepository.GetListAsync(includeDetails: true);
+        var recipients = users.Where(u => u.IsActive && u.Roles.Any(r => r.RoleId == role.Id));
+
+        foreach (var user in recipients)
+        {
+            await _notificationService.NotifyApprovalNeededAsync(
+                user.Id, documentType, documentRef, documentId, tenantId);
         }
     }
 
