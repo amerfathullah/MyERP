@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ProformaInvoiceService } from '../../proxy/sales/proforma-invoice.service';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -11,7 +12,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   selector: 'app-proforma-invoice-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, RouterModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     <div class="container-fluid">
@@ -30,6 +31,9 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <div class="d-flex gap-2 align-items-center">
               <app-status-badge [status]="getStatusLabel(proforma()!.status)" />
               @if (proforma()!.status === 1) {
+                <button class="btn btn-sm btn-outline-primary" (click)="showEmailPanel = !showEmailPanel">
+                  <i class="fas fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}
+                </button>
                 <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
                   <i class="fas fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
                 </button>
@@ -110,6 +114,21 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 Emailed to {{ proforma()!.emailedTo }} on {{ proforma()!.sentOn | date:'dd/MM/yyyy HH:mm' }}
               </div>
             }
+
+            @if (showEmailPanel) {
+              <div class="card bg-light mt-3">
+                <div class="card-body">
+                  <label class="form-label">{{ '::Recipients' | abpLocalization }} *</label>
+                  <input type="text" class="form-control form-control-sm" placeholder="name@example.com, name2@example.com" [(ngModel)]="emailRecipients" />
+                  <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-primary btn-sm" [disabled]="!emailRecipients || sendingEmail" (click)="sendEmail()">
+                      <i class="fas fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
+                    </button>
+                    <button class="btn btn-secondary btn-sm" (click)="showEmailPanel = false">{{ '::Cancel' | abpLocalization }}</button>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
 
@@ -126,6 +145,9 @@ export class ProformaInvoiceDetailComponent implements OnInit {
 
   proforma = signal<any>(null);
   loading = signal(true);
+  showEmailPanel = false;
+  sendingEmail = false;
+  emailRecipients = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -149,6 +171,24 @@ export class ProformaInvoiceDetailComponent implements OnInit {
           this.load(this.proforma()!.id);
         }
       });
+    });
+  }
+
+  sendEmail() {
+    if (!this.emailRecipients) return;
+    this.sendingEmail = true;
+    this.proformaService.sendEmail(this.proforma()!.id, { recipients: this.emailRecipients }).subscribe({
+      next: () => {
+        this.sendingEmail = false;
+        this.showEmailPanel = false;
+        this.emailRecipients = '';
+        this.toaster.success('::EmailSent');
+        this.load(this.proforma()!.id);
+      },
+      error: (err: any) => {
+        this.sendingEmail = false;
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 
