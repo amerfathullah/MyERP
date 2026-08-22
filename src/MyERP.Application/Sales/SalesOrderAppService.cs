@@ -639,6 +639,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         // Release consumed Blanket Order allocations (reverse of submit)
         await ReleaseBlanketOrdersAsync(order);
 
+        // Cancel any Stock Reservation Entries raised against this order (Bin release handled separately below)
+        var cancelReservationManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        await cancelReservationManager.CancelReservationsForOrderAsync(order.Id);
+
         // Release reserved stock (reverse of submit — bundles release components)
         var cancelBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
         var cancelItemIds = order.Items.Select(i => i.ItemId).Distinct();
@@ -676,6 +680,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         var order = await _repository.GetAsync(id);
         order.Close();
+
+        // Cancel any Stock Reservation Entries raised against this order (Bin release handled separately below)
+        var closeReservationManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        await closeReservationManager.CancelReservationsForOrderAsync(order.Id);
 
         // Release remaining reserved stock for undelivered items (short-close)
         // Bundle-aware: release component items for bundles, skip drop-ship items
