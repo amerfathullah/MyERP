@@ -17,7 +17,8 @@ export class BankStatementImportComponent {
 
   bankAccountId = signal<string>('');
   companyId = signal<string>('');
-  csvContent = signal<string>('');
+  format = signal<'csv' | 'mt940'>('csv');
+  fileContent = signal<string>('');
   fileName = signal<string>('');
   importing = signal(false);
   result = signal<{ importedCount: number; skippedCount: number; errors: string[] } | null>(null);
@@ -30,23 +31,31 @@ export class BankStatementImportComponent {
 
       const reader = new FileReader();
       reader.onload = () => {
-        this.csvContent.set(reader.result as string);
+        this.fileContent.set(reader.result as string);
       };
       reader.readAsText(file);
     }
   }
 
   importStatement(): void {
-    if (!this.csvContent() || !this.bankAccountId()) return;
+    if (!this.fileContent() || !this.bankAccountId()) return;
 
     this.importing.set(true);
     this.result.set(null);
 
-    this.bankStatementImportService.importFromCsv({
-      companyId: this.companyId(),
-      bankAccountId: this.bankAccountId(),
-      csvContent: this.csvContent(),
-    } as any).subscribe({
+    const request$ = this.format() === 'mt940'
+      ? this.bankStatementImportService.importFromMt940({
+          companyId: this.companyId(),
+          bankAccountId: this.bankAccountId(),
+          mt940Content: this.fileContent(),
+        } as any)
+      : this.bankStatementImportService.importFromCsv({
+          companyId: this.companyId(),
+          bankAccountId: this.bankAccountId(),
+          csvContent: this.fileContent(),
+        } as any);
+
+    request$.subscribe({
       next: (res: any) => {
         this.result.set(res);
         this.importing.set(false);

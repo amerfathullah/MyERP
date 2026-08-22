@@ -20,11 +20,22 @@
         </div>
       </div>
 
+      <!-- Format Selection -->
+      <div class="mb-3">
+        <label class="form-label">{{ 'ImportFormat' | abpLocalization }}</label>
+        <div class="btn-group d-block">
+          <input type="radio" class="btn-check" id="formatCsv" name="format" [checked]="format() === 'csv'" (change)="format.set('csv')">
+          <label class="btn btn-outline-primary btn-sm" for="formatCsv">CSV</label>
+          <input type="radio" class="btn-check" id="formatMt940" name="format" [checked]="format() === 'mt940'" (change)="format.set('mt940')">
+          <label class="btn btn-outline-primary btn-sm" for="formatMt940">MT940</label>
+        </div>
+      </div>
+
       <!-- File Upload -->
       <div class="mb-3">
-        <label class="form-label">{{ 'SelectCSVFile' | abpLocalization }}</label>
+        <label class="form-label">{{ (format() === 'mt940' ? 'SelectMT940File' : 'SelectCSVFile') | abpLocalization }}</label>
         <div class="input-group">
-          <input type="file" class="form-control" accept=".csv,.txt" (change)="onFileSelected($event)" />
+          <input type="file" class="form-control" [attr.accept]="format() === 'mt940' ? '.sta,.940,.txt' : '.csv,.txt'" (change)="onFileSelected($event)" />
         </div>
         @if (fileName()) {
           <small class="text-muted mt-1 d-block">
@@ -33,15 +44,22 @@
         }
       </div>
 
-      <!-- CSV Format Info -->
-      <div class="alert alert-light border mb-3">
-        <h6 class="alert-heading mb-1"><i class="fa fa-info-circle me-1"></i>{{ 'ExpectedFormat' | abpLocalization }}</h6>
-        <code class="d-block">Date, Description, Debit, Credit, Balance</code>
-        <small class="text-muted">{{ 'SupportedDateFormats' | abpLocalization }}: dd/MM/yyyy, yyyy-MM-dd</small>
-      </div>
+      <!-- Format Info -->
+      @if (format() === 'csv') {
+        <div class="alert alert-light border mb-3">
+          <h6 class="alert-heading mb-1"><i class="fa fa-info-circle me-1"></i>{{ 'ExpectedFormat' | abpLocalization }}</h6>
+          <code class="d-block">Date, Description, Debit, Credit, Balance</code>
+          <small class="text-muted">{{ 'SupportedDateFormats' | abpLocalization }}: dd/MM/yyyy, yyyy-MM-dd</small>
+        </div>
+      } @else {
+        <div class="alert alert-light border mb-3">
+          <h6 class="alert-heading mb-1"><i class="fa fa-info-circle me-1"></i>{{ 'ExpectedFormat' | abpLocalization }}</h6>
+          <small class="text-muted">{{ 'Mt940FormatHint' | abpLocalization }}</small>
+        </div>
+      }
 
       <!-- Import Button -->
-      <button class="btn btn-primary" (click)="importStatement()" [disabled]="importing() || !csvContent() || !bankAccountId()">
+      <button class="btn btn-primary" (click)="importStatement()" [disabled]="importing() || !fileContent() || !bankAccountId()">
         @if (importing()) {
           <span class="spinner-border spinner-border-sm me-1"></span>
         } @else {
