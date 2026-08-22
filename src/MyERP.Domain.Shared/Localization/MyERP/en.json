@@ -3256,6 +3256,7 @@
     "IsCompanyAccount": "Company Account",
     "SetAsDefault": "Set as Default",
     "ConvertToOpportunity": "Convert to Opportunity",
+    "ConvertToQuotation": "Convert to Quotation",
     "LeadConvertedToCustomer": "Lead successfully converted to Customer",
     "QualityProcedures": "Quality Procedures",
     "QualityGoals": "Quality Goals",

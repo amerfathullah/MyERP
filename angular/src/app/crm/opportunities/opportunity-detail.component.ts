@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Router } from '@angular/router';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { CompetitorService } from '../../proxy/crm/competitor.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import type { CompetitorDto, OpportunityDto } from '../../proxy/crm/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -26,6 +28,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <a class="btn btn-outline-primary btn-sm" [routerLink]="'/crm/opportunities/' + o.id + '/edit'">
               <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
             </a>
+            <button class="btn btn-primary btn-sm" [disabled]="isConverting()" (click)="convertToQuotation()">
+              <i class="fa fa-file-invoice me-1"></i>{{ '::ConvertToQuotation' | abpLocalization }}
+            </button>
           }
         </div>
         <div class="card mb-3">
@@ -124,11 +129,14 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 })
 export class OpportunityDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private service = inject(OpportunityService);
   private competitorService = inject(CompetitorService);
+  private conversionService = inject(DocumentConversionService);
 
   opp = signal<OpportunityDto | null>(null);
   isLoading = signal(false);
+  isConverting = signal(false);
   competitors = signal<CompetitorDto[]>([]);
   selectedCompetitorId = '';
 
@@ -177,6 +185,17 @@ export class OpportunityDetailComponent implements OnInit {
     this.service.deleteCompetitor(competitorDetailId).subscribe({
       next: () => this.ngOnInit(),
       error: () => {}
+    });
+  }
+
+  convertToQuotation(): void {
+    const opportunityId = this.opp()?.id;
+    if (!opportunityId || this.isConverting()) return;
+
+    this.isConverting.set(true);
+    this.conversionService.convertOpportunityToQuotation(opportunityId).subscribe({
+      next: (quotation) => this.router.navigate(['/sales/quotations', quotation.id]),
+      error: () => this.isConverting.set(false),
     });
   }
 }

@@ -27,6 +27,12 @@ public interface IDocumentConversionAppService : IApplicationService
 
     /// <summary>Convert a submitted Delivery Note into a Sales Invoice.</summary>
     Task<SalesInvoiceDto> ConvertDeliveryNoteToSalesInvoiceAsync(Guid deliveryNoteId);
+
+    /// <summary>Convert an Open/Replied Opportunity into a Quotation.</summary>
+    Task<QuotationDto> ConvertOpportunityToQuotationAsync(Guid opportunityId);
+
+    /// <summary>Convert a submitted Sales Order's pending items into a Material Request.</summary>
+    Task<Guid> ConvertSalesOrderToMaterialRequestAsync(Guid salesOrderId);
 }
 
 /// <summary>
