@@ -110,6 +110,8 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   disposalDate?: string | null;
   disposalAmount?: number | null;
   notes?: string | null;
+  assetQuantity?: number;
+  splitFromAssetId?: string | null;
   schedule?: DepreciationScheduleDto[];
 }
 

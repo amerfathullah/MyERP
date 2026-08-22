@@ -117,6 +117,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             FrequencyMonths = input.FrequencyMonths > 0 ? input.FrequencyMonths : 12,
             AvailableForUseDate = input.AvailableForUseDate,
             OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation,
+            AssetQuantity = input.AssetQuantity > 0 ? input.AssetQuantity : 1,
             Notes = input.Notes,
         };
 

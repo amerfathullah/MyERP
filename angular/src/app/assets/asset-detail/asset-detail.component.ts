@@ -38,6 +38,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::AssetCategory' | abpLocalization }}</small><strong>{{ asset()!.assetCategoryName ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::Location' | abpLocalization }}</small><strong>{{ asset()!.location ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::PurchaseDate' | abpLocalization }}</small><strong>{{ asset()!.purchaseDate | date:'dd/MM/yyyy' }}</strong></div>
+                  @if ((asset()!.assetQuantity ?? 1) > 1) {
+                    <div class="col-md-6"><small class="text-muted d-block">{{ '::Assets:AssetQuantity' | abpLocalization }}</small><strong>{{ asset()!.assetQuantity }}</strong></div>
+                  }
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::AvailableForUseDate' | abpLocalization }}</small><strong>{{ asset()!.availableForUseDate ? (asset()!.availableForUseDate | date:'dd/MM/yyyy') : '—' }}</strong></div>
                   <div class="col-md-4"><small class="text-muted d-block">{{ '::PurchaseAmount' | abpLocalization }}</small><strong>{{ asset()!.purchaseAmount | number:'1.2-2' }}</strong></div>
                   <div class="col-md-4"><small class="text-muted d-block">{{ '::AdditionalCost' | abpLocalization }}</small><strong>{{ asset()!.additionalCost | number:'1.2-2' }}</strong></div>
@@ -98,6 +101,23 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 </div>
               </div>
             }
+
+            @if (showSplitForm) {
+              <div class="card mt-2">
+                <div class="card-body">
+                  <h6 class="card-title">{{ '::Assets:Split' | abpLocalization }}</h6>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::Assets:SplitQuantity' | abpLocalization }}</label>
+                    <input type="number" class="form-control form-control-sm" [(ngModel)]="splitQty" min="1" [max]="(asset()!.assetQuantity ?? 1) - 1" />
+                    <small class="form-text text-muted">{{ '::Assets:AssetQuantity' | abpLocalization }}: {{ asset()!.assetQuantity }}</small>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-success" [disabled]="splitQty < 1 || splitQty >= (asset()!.assetQuantity ?? 1)" (click)="confirmSplit()">{{ '::Confirm' | abpLocalization }}</button>
+                    <button class="btn btn-sm btn-secondary" (click)="showSplitForm = false">{{ '::Cancel' | abpLocalization }}</button>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
 
@@ -151,6 +171,8 @@ export class AssetDetailComponent implements OnInit {
   accounts: AccountDto[] = [];
   showSellForm = false;
   sellForm = { disposalDate: new Date().toISOString().substring(0, 10), amount: 0, settlementAccountId: '' };
+  showSplitForm = false;
+  splitQty = 1;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -166,6 +188,9 @@ export class AssetDetailComponent implements OnInit {
     const actions: WorkflowAction[] = [];
     if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
     if (s === 1 || s === 2 || s === 3) actions.push({ name: 'sell', label: 'Sell', icon: 'fa-hand-holding-dollar', color: 'btn-outline-success' });
+    if ((s === 1 || s === 2 || s === 3) && (this.asset()?.assetQuantity ?? 1) > 1) {
+      actions.push({ name: 'split', label: 'Split', icon: 'fa-code-branch', color: 'btn-outline-info' });
+    }
     if (s === 1 || s === 2 || s === 3) actions.push({ name: 'scrap', label: 'Scrap', icon: 'fa-trash-can', color: 'btn-outline-warning' });
     if (s === 1 || s === 2 || s === 3) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
     if (s === 5) actions.push({ name: 'restore', label: 'Restore', icon: 'fa-rotate-left', color: 'btn-outline-primary' });
@@ -183,6 +208,10 @@ export class AssetDetailComponent implements OnInit {
       case 'sell':
         this.sellForm = { disposalDate: today, amount: 0, settlementAccountId: '' };
         this.showSellForm = true;
+        break;
+      case 'split':
+        this.splitQty = 1;
+        this.showSplitForm = true;
         break;
       case 'scrap':
         this.service.scrap(id, today).subscribe(reload);
@@ -205,6 +234,16 @@ export class AssetDetailComponent implements OnInit {
     this.service.sell(id, this.sellForm.disposalDate, this.sellForm.amount, this.sellForm.settlementAccountId || null).subscribe(() => {
       this.showSellForm = false;
       reload();
+    });
+  }
+
+  confirmSplit(): void {
+    const id = this.asset()!.id!;
+    const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
+    this.service.split(id, this.splitQty).subscribe(newAsset => {
+      this.showSplitForm = false;
+      reload();
+      if (newAsset?.id) this.router.navigate(['/assets', newAsset.id]);
     });
   }
 }

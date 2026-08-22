@@ -58,6 +58,7 @@ export class AssetFormComponent implements OnInit {
       purchaseDate: [new Date().toISOString().split('T')[0], Validators.required],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
       additionalCost: [0, [Validators.min(0)]],
+      assetQuantity: [1, [Validators.required, Validators.min(1)]],
       calculateDepreciation: [true],
       depreciationMethod: [0],
       usefulLifeMonths: [60, [Validators.min(1)]],

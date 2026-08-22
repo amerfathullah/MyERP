@@ -78,6 +78,13 @@
             <label class="form-label">{{ '::AdditionalCost' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="additionalCost" min="0" step="0.01" />
           </div>
+          @if (!isEdit()) {
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label">{{ '::Assets:AssetQuantity' | abpLocalization }}</label>
+              <input type="number" class="form-control" formControlName="assetQuantity" min="1" step="1" />
+              <small class="form-text text-muted">{{ '::Assets:AssetQuantityHint' | abpLocalization }}</small>
+            </div>
+          }
         </div>
       </div>
     </div>

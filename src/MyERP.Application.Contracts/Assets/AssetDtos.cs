@@ -89,6 +89,11 @@ public class CreateAssetDto
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
 
+    /// <summary>Number of identical units this single asset record represents (e.g. "10 chairs").
+    /// Only a quantity greater than 1 can later be partially disposed via SplitAsync.</summary>
+    [Range(1, int.MaxValue)]
+    public int AssetQuantity { get; set; } = 1;
+
     [StringLength(AssetConsts.MaxNoteLength)]
     public string? Notes { get; set; }
 }

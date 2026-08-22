@@ -96,6 +96,15 @@ export class AssetService {
     { apiName: this.apiName,...config });
 
 
+  split = (id: string, splitQty: number, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetDto>({
+      method: 'POST',
+      url: `/api/app/asset/${id}/split`,
+      params: { splitQty },
+    },
+    { apiName: this.apiName,...config });
+
+
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetDto>({
       method: 'POST',
