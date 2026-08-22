@@ -124,7 +124,9 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
 
         for (int i = 0; i < noOfVisits; i++)
         {
-            var scheduledDate = entity.StartDate.AddDays(i * interval);
+            // Per ERPNext create_schedule_list: advance BEFORE recording — visit 1 is
+            // start_date + interval, never the bare start date itself.
+            var scheduledDate = entity.StartDate.AddDays((i + 1) * interval);
             if (scheduledDate > entity.EndDate)
                 scheduledDate = entity.EndDate;
 
@@ -133,9 +135,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
 
             if (holidayList != null)
             {
-                while (holidayList.IsHoliday(scheduledDate) && scheduledDate < entity.EndDate)
+                // Per ERPNext validate_schedule_date_for_holiday_list: shift BACKWARD off a
+                // holiday, capped at holidays.Count iterations, never before the schedule start.
+                var maxIterations = holidayList.Holidays.Count;
+                for (int iter = 0; iter < maxIterations && holidayList.IsHoliday(scheduledDate); iter++)
                 {
-                    scheduledDate = scheduledDate.AddDays(1);
+                    scheduledDate = scheduledDate.AddDays(-1);
+                    if (scheduledDate <= entity.StartDate)
+                        break;
                 }
             }
 

@@ -19,13 +19,21 @@ namespace MyERP.Maintenance;
 /// holiday-aware. This endpoint is the holiday-aware version (per ERPNext gotcha #850) that operates
 /// on the same MaintenanceSchedule entity/table, and was entirely unreachable. Added a "Generate
 /// Schedule" button (Draft-only, since it wipes existing details) to let a user regenerate with
-/// holiday awareness; this test covers the backend it now actually reaches.
+/// holiday awareness.
+///
+/// While writing this coverage, found the algorithm itself deviated from ERPNext's
+/// create_schedule_list/validate_schedule_date_for_holiday_list on two points, confirmed against
+/// erpnext/maintenance/doctype/maintenance_schedule/maintenance_schedule.py: (1) it shifted a
+/// holiday-colliding date FORWARD instead of BACKWARD (the HolidayList entity's own doc comment
+/// already said "backward-shift" — the AppService just didn't do it), and (2) it counted the bare
+/// start date as visit 1 instead of advancing one interval first. Fixed both to match source; the
+/// dates below reflect the corrected algorithm.
 /// </summary>
 public abstract class MaintenanceScheduleGenerateScheduleTests<TStartupModule> : MyERPApplicationTestBase<TStartupModule>
     where TStartupModule : IAbpModule
 {
     [Fact]
-    public async Task GenerateScheduleAsync_ShiftsScheduledDateForwardPastHoliday()
+    public async Task GenerateScheduleAsync_ShiftsScheduledDateBackwardOffHoliday()
     {
         await WithUnitOfWorkAsync(async () =>
         {
@@ -37,7 +45,7 @@ public abstract class MaintenanceScheduleGenerateScheduleTests<TStartupModule> :
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Maintenance Schedule Test Co"), autoSave: true);
 
             var holidayList = new HolidayList(Guid.NewGuid(), company.Id, "MY 2026", 2026);
-            holidayList.AddHoliday(new Holiday(Guid.NewGuid(), holidayList.Id, new DateTime(2026, 3, 2), "Test Holiday"));
+            holidayList.AddHoliday(new Holiday(Guid.NewGuid(), holidayList.Id, new DateTime(2026, 3, 16), "Test Holiday"));
             await holidayListRepository.InsertAsync(holidayList, autoSave: true);
 
             var schedule = new MaintenanceSchedule(
@@ -49,11 +57,12 @@ public abstract class MaintenanceScheduleGenerateScheduleTests<TStartupModule> :
             var reloaded = await scheduleRepository.GetAsync(schedule.Id);
             var dates = reloaded.Details.OrderBy(d => d.ScheduledDate).Select(d => d.ScheduledDate).ToList();
 
+            // Weekly over a 28-day window = 4 visits at start+7/14/21/28 days (never the bare start date).
             dates.Count.ShouldBe(4);
-            dates[0].ShouldBe(new DateTime(2026, 3, 3)); // shifted off the holiday
-            dates[1].ShouldBe(new DateTime(2026, 3, 9));
-            dates[2].ShouldBe(new DateTime(2026, 3, 16));
-            dates[3].ShouldBe(new DateTime(2026, 3, 23));
+            dates[0].ShouldBe(new DateTime(2026, 3, 9));
+            dates[1].ShouldBe(new DateTime(2026, 3, 15)); // shifted BACKWARD off the 3/16 holiday
+            dates[2].ShouldBe(new DateTime(2026, 3, 23));
+            dates[3].ShouldBe(new DateTime(2026, 3, 30));
         });
     }
 
