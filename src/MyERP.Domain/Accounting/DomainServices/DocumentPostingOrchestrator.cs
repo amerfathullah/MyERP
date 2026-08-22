@@ -353,12 +353,12 @@ public class DocumentPostingOrchestrator : DomainService
     /// unconditionally, with no purpose/condition field) — same shape of mismatch the 75th
     /// session's Payment Entry fix addressed, just with more distinct shapes here.
     ///
-    /// Scoped this session to the 5 most common purposes: Material Receipt/Issue/Transfer,
-    /// Manufacture, Disassemble. Every other StockEntryType (Repack, Send/Receive to
-    /// Subcontractor, Material Transfer/Consumption For Manufacture, transit warehouse legs)
-    /// throws a clear, explicit error rather than guessing at GL treatment — same "throws" outcome
-    /// they always had (zero rules = always threw), just with an honest reason now instead of a
-    /// generic "no rules configured".
+    /// Handles Material Receipt/Issue/Transfer, Manufacture, Disassemble, and Repack (see
+    /// BuildStockToStockLinesAsync's Repack remarks). Every remaining StockEntryType
+    /// (Send/Receive to Subcontractor, Material Consumption For Manufacture, Adjustment) throws a
+    /// clear, explicit error rather than guessing at GL treatment — same "throws" outcome they
+    /// always had (zero rules = always threw), just with an honest reason now instead of a generic
+    /// "no rules configured".
     /// </remarks>
     public async Task<JournalEntry> PostStockEntryAsync(StockEntry stockEntry)
     {
@@ -404,11 +404,22 @@ public class DocumentPostingOrchestrator : DomainService
                 case StockEntryType.SendToWarehouse:
                 case StockEntryType.Manufacture:
                 case StockEntryType.Disassemble:
+                case StockEntryType.Repack:
                     // Per StockEntryManager.ValidateWarehousesAsync's own "isTransfer" bucket:
                     // MaterialTransferForManufacture and SendToWarehouse require both a source and
                     // target warehouse on every item exactly like MaterialTransfer — structurally
                     // and economically the same "no P&L impact" stock-to-stock movement, just to a
                     // WIP or transit warehouse instead of an arbitrary one.
+                    //
+                    // Repack: per StockPostingService, each item row posts an SLE off its OWN
+                    // SourceWarehouseId/TargetWarehouseId independently (same mechanism Manufacture
+                    // and Disassemble already use), so it produces the identical
+                    // negative-SLE-for-RM-out / positive-SLE-for-FG-in shape — no separate handling
+                    // needed. Single-FG Repack balances exactly by construction
+                    // (StockEntryManager.CalculateRepackFgRate prices the FG at
+                    // total_outgoing_cost/fg_qty); multi-FG Repack requires each FG's rate to be set
+                    // manually (ValidateRepackItems), so it can leave a genuine residual — same as
+                    // Disassemble, already plugged to Stock Adjustment below.
                     await BuildStockToStockLinesAsync(journal, company, sles);
                     break;
 

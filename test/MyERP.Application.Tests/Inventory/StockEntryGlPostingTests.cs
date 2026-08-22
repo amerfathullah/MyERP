@@ -183,6 +183,52 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         journal.TotalDebit.ShouldBe(journal.TotalCredit);
     }
 
+    [Fact]
+    public async Task Repack_TreatedAsStockToStock_LikeManufacture()
+    {
+        // Repack posts an SLE per item off that item's OWN SourceWarehouseId/TargetWarehouseId
+        // (StockPostingService), identical to Manufacture/Disassemble — a source (RM) item and a
+        // distinct target (FG) item, priced so the two legs balance exactly with no residual.
+        var (company, rmItem, sourceWarehouse, targetWarehouse) = await SeedCommonAsync("RPK");
+
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var fgItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-RPK-FG", "Test FG Item RPK", ItemType.Goods), autoSave: true);
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 6m,
+            balanceQuantity: 10m, balanceValue: 60m), autoSave: true);
+
+        var repackEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.Repack,
+            PostingDate = DateTime.Today,
+            Items =
+            {
+                // Outgoing (source-only): 5 x 6 = 30 consumed.
+                new CreateStockEntryItemDto { ItemId = rmItem.Id, Quantity = 5m, SourceWarehouseId = sourceWarehouse },
+                // Incoming (target-only, FG): priced to match the outgoing cost exactly (30 / 3 = 10/unit).
+                new CreateStockEntryItemDto { ItemId = fgItem.Id, Quantity = 3m, TargetWarehouseId = targetWarehouse, ValuationRate = 10m },
+            },
+        });
+        await stockEntryAppService.SubmitAsync(repackEntry.Id);
+        await stockEntryAppService.PostAsync(repackEntry.Id);
+
+        var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var journal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == repackEntry.Id);
+
+        journal.Lines.Count.ShouldBe(2); // balances exactly, no Stock Adjustment plug needed
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 30m); // FG in
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && !l.IsDebit && l.Amount == 30m); // RM out
+        journal.TotalDebit.ShouldBe(journal.TotalCredit);
+    }
+
     private async Task<(Company Company, Item Item, Guid SourceWarehouse, Guid? TargetWarehouse)> SeedCommonAsync(string suffix)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
