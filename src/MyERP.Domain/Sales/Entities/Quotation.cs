@@ -28,6 +28,9 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
+
+    /// <summary>Selling Price List — defaults from Customer.DefaultPriceListId, overridable per quotation.</summary>
+    public Guid? PriceListId { get; set; }
     public bool HasUnitPriceItems { get; set; }
 
     public string? Terms { get; set; }

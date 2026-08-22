@@ -13,6 +13,7 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public DateTime? ExpectedDeliveryDate { get; set; }
     public Guid SupplierId { get; set; }
     public string? SupplierName { get; set; }
+    public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -57,6 +58,8 @@ public class CreatePurchaseOrderDto
     public DateTime? ExpectedDeliveryDate { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
+    /// <summary>Buying Price List. When omitted, defaults from Supplier.DefaultPriceListId.</summary>
+    public Guid? PriceListId { get; set; }
     public string? Notes { get; set; }
     [Required][MinLength(1)] public List<CreatePurchaseOrderItemDto> Items { get; set; } = new();
 }

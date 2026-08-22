@@ -35,6 +35,9 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
 
+    /// <summary>Selling Price List — defaults from Customer.DefaultPriceListId, overridable per order.</summary>
+    public Guid? PriceListId { get; set; }
+
     /// <summary>Primary billing address (auto-resolved from Customer on create).</summary>
     public Guid? BillingAddressId { get; set; }
 

@@ -257,6 +257,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
 
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
+        order.PriceListId = input.PriceListId
+            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
+
         // Per gotcha #468: project-customer cross-validation
         if (input.ProjectId.HasValue)
         {
@@ -800,6 +804,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.DeliveryDate = input.DeliveryDate;
         order.CustomerId = input.CustomerId;
         order.Notes = input.Notes;
+        order.PriceListId = input.PriceListId;
 
         // Replace items
         order.ClearItems();

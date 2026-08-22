@@ -391,6 +391,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
+
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
+        invoice.PriceListId = input.PriceListId
+            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
         invoice.IsReturn = input.IsReturn;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
@@ -1262,6 +1266,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         amended.AmendedFromId = original.Id;
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.PriceListId = original.PriceListId;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
 
         foreach (var item in original.Items)

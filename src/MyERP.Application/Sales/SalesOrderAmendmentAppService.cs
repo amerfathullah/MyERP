@@ -64,6 +64,7 @@ public class SalesOrderAmendmentAppService : ApplicationService, ISalesOrderAmen
         amended.DeliveryDate = original.DeliveryDate;
         amended.CustomerPoNumber = original.CustomerPoNumber;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
         amended.Notes = $"Amended from {original.OrderNumber}";
 

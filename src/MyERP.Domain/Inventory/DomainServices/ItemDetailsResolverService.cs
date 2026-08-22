@@ -268,29 +268,37 @@ public class ItemDetailsResolverService : DomainService
 
     /// <summary>
     /// Resolves the best Item Price rate for the given item and context.
-    /// Per ERPNext get_price_list_rate_for() priority:
+    /// Per ERPNext get_price_list_rate(): rates are always scoped to ONE specific price list —
+    /// resolved from <paramref name="priceListId"/> if given, else the system default price list
+    /// for the transaction type (Selling vs Buying). Previously this searched ItemPrice rows across
+    /// ALL price lists with no type check at all, so a Buying-only price could satisfy a Selling
+    /// lookup (or vice versa) purely by matching item+party. Fixed to resolve one specific,
+    /// type-matched price list first.
+    /// Per ERPNext get_price_list_rate_for() priority within that price list:
     /// 1. Party-specific Item Price (supplier/customer + date-valid + min-qty match)
-    /// 2. Generic Item Price (no party, from applicable price list)
-    /// Returns null when no matching Item Price is found (caller falls back to standard rate).
+    /// 2. Generic Item Price (no party)
+    /// Returns null when no applicable price list or no matching Item Price is found (caller falls
+    /// back to standard rate).
     /// </summary>
     private async Task<decimal?> ResolveItemPriceRateAsync(
         Guid itemId, TransactionType txType, Guid? partyId, Guid? priceListId, DateTime? transactionDate)
     {
         try
         {
+            var effectivePriceListId = await ResolveEffectivePriceListIdAsync(priceListId, txType);
+            if (!effectivePriceListId.HasValue)
+                return null;
+
             var itemPriceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemPrice, Guid>>();
             var query = await itemPriceRepo.GetQueryableAsync();
             var asOfDate = transactionDate ?? DateTime.UtcNow.Date;
 
-            // Base filter: item + active + date-valid
+            // Base filter: item + the one resolved price list + active + date-valid
             var candidates = query.Where(p =>
                 p.ItemId == itemId &&
+                p.PriceListId == effectivePriceListId.Value &&
                 (!p.ValidFrom.HasValue || p.ValidFrom.Value <= asOfDate) &&
                 (!p.ValidUpto.HasValue || p.ValidUpto.Value >= asOfDate));
-
-            // Filter by price list if specified
-            if (priceListId.HasValue)
-                candidates = candidates.Where(p => p.PriceListId == priceListId.Value);
 
             // Priority 1: party-specific price (supplier for buying, customer for selling)
             if (partyId.HasValue)
@@ -325,6 +333,26 @@ public class ItemDetailsResolverService : DomainService
         {
             return null; // Graceful fallback — ItemPrice resolution failure shouldn't block item selection
         }
+    }
+
+    /// <summary>
+    /// Resolves which single Price List applies: the explicit one if given, else the system default
+    /// price list matching the transaction type (Selling vs Buying). Per ERPNext, a party's own
+    /// default price list (Customer.default_price_list / Supplier.default_price_list) takes
+    /// precedence over the system default, but that resolution happens one layer up in
+    /// ItemDetailsAppService (which has the Customer/Supplier repositories); this fallback only
+    /// covers the case where no price list was ever resolved by the caller.
+    /// </summary>
+    private async Task<Guid?> ResolveEffectivePriceListIdAsync(Guid? explicitPriceListId, TransactionType txType)
+    {
+        if (explicitPriceListId.HasValue)
+            return explicitPriceListId;
+
+        var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+        var query = await priceListRepo.GetQueryableAsync();
+        var defaultList = query.FirstOrDefault(p => p.IsActive && p.IsDefault &&
+            (txType == TransactionType.Selling ? p.IsSelling : p.IsBuying));
+        return defaultList?.Id;
     }
 
     /// <summary>

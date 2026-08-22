@@ -158,6 +158,7 @@ public class SupplierAppService :
         entity.SupplierGroupId = input.SupplierGroupId;
         entity.TaxWithholdingCategory = input.TaxWithholdingCategory;
         entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
+        entity.DefaultPriceListId = input.DefaultPriceListId;
         entity.RestrictToCompanies = input.RestrictToCompanies;
     }
 }

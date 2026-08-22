@@ -40,6 +40,10 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     // Amounts
     public string CurrencyCode { get; set; } = "MYR";
     public decimal ExchangeRate { get; set; } = 1m;
+
+    /// <summary>Buying Price List — defaults from Supplier.DefaultPriceListId, overridable per invoice.</summary>
+    public Guid? PriceListId { get; set; }
+
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

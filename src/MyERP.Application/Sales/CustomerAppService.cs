@@ -172,6 +172,7 @@ public class CustomerAppService :
         entity.TerritoryId = input.TerritoryId;
         entity.LoyaltyProgramId = input.LoyaltyProgramId;
         entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
+        entity.DefaultPriceListId = input.DefaultPriceListId;
         entity.RestrictToCompanies = input.RestrictToCompanies;
         entity.SoRequired = input.SoRequired;
         entity.DnRequired = input.DnRequired;

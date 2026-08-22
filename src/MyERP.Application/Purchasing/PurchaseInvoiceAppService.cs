@@ -427,6 +427,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
+
+        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly.
+        invoice.PriceListId = input.PriceListId
+            ?? (await _supplierRepository.FindAsync(input.SupplierId))?.DefaultPriceListId;
+
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
         invoice.IsOpening = input.IsOpening;
@@ -582,6 +587,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IssueDate = input.IssueDate;
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
+        invoice.PriceListId = input.PriceListId;
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
         invoice.IsSubcontracted = input.IsSubcontracted;
@@ -1242,6 +1248,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         amended.AmendedFromId = original.Id;
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.PriceListId = original.PriceListId;
         amended.SupplierInvoiceNumber = original.SupplierInvoiceNumber;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
         amended.Notes = original.Notes;

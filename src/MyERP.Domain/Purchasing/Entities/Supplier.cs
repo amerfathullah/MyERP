@@ -68,6 +68,9 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>For inter-company: the Company this supplier represents (bidirectional link).</summary>
     public Guid? RepresentsCompanyId { get; set; }
 
+    /// <summary>Default Buying Price List — fetched onto new Purchase Orders/Invoices for this supplier.</summary>
+    public Guid? DefaultPriceListId { get; set; }
+
     /// <summary>Supplier group for categorization and defaults.</summary>
     public Guid? SupplierGroupId { get; set; }
 

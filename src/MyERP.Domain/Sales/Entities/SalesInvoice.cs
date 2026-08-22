@@ -36,6 +36,10 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     // Amounts
     public string CurrencyCode { get; set; } = "MYR";
     public decimal ExchangeRate { get; set; } = 1m;
+
+    /// <summary>Selling Price List — defaults from Customer.DefaultPriceListId, overridable per invoice.</summary>
+    public Guid? PriceListId { get; set; }
+
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

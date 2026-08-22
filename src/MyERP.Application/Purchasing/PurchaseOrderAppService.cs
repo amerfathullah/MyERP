@@ -155,6 +155,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         po.CostCenterId = input.CostCenterId;
         po.ProjectId = input.ProjectId;
 
+        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly.
+        po.PriceListId = input.PriceListId
+            ?? (await _supplierRepository.FindAsync(input.SupplierId))?.DefaultPriceListId;
+
         // Auto-fill billing address from supplier master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
         var billingAddress = await partyDefaults.GetPrimaryAddressAsync("Supplier", input.SupplierId);
@@ -495,6 +499,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.ExpectedDeliveryDate = original.ExpectedDeliveryDate;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
         amended.Notes = original.Notes;
 
@@ -518,6 +523,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.OrderDate = input.OrderDate;
         order.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
         order.SupplierId = input.SupplierId;
+        order.PriceListId = input.PriceListId;
         order.Notes = input.Notes;
 
         order.ClearItems();

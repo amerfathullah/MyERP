@@ -15,6 +15,7 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public string? CustomerName { get; set; }
     public string? CustomerPoNumber { get; set; }
     public string CurrencyCode { get; set; } = null!;
+    public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -111,6 +112,9 @@ public class CreateSalesOrderDto
 
     [StringLength(SalesOrderConsts.MaxCurrencyCodeLength)]
     public string CurrencyCode { get; set; } = "MYR";
+
+    /// <summary>Selling Price List. When omitted, defaults from Customer.DefaultPriceListId.</summary>
+    public Guid? PriceListId { get; set; }
 
     [StringLength(SalesOrderConsts.MaxTermsLength)]
     public string? Terms { get; set; }

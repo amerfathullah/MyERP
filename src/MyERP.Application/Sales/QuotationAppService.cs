@@ -160,6 +160,10 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Terms = input.Terms;
         quotation.Notes = input.Notes;
 
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
+        quotation.PriceListId = input.PriceListId
+            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
+
         // Validate all items are active (per DO-NOT: disabled items must not appear in transactions)
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
@@ -191,6 +195,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;
+        quotation.PriceListId = input.PriceListId;
         quotation.Terms = input.Terms;
         quotation.Notes = input.Notes;
 
@@ -271,6 +276,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         amended.AmendedFromId = original.Id;
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.PriceListId = original.PriceListId;
         amended.ValidUntil = DateTime.UtcNow.Date.AddDays(30); // Fresh validity
         amended.Terms = original.Terms;
         amended.Notes = original.Notes;

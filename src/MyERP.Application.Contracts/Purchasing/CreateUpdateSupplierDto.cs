@@ -68,5 +68,6 @@ public class CreateUpdateSupplierDto
     public Guid? SupplierGroupId { get; set; }
     public string? TaxWithholdingCategory { get; set; }
     public Guid? DefaultPaymentTermsTemplateId { get; set; }
+    public Guid? DefaultPriceListId { get; set; }
     public bool RestrictToCompanies { get; set; }
 }

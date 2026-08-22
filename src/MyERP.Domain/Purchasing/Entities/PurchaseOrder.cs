@@ -28,6 +28,10 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     public Guid SupplierId { get; set; }
 
     public string CurrencyCode { get; set; } = "MYR";
+
+    /// <summary>Buying Price List — defaults from Supplier.DefaultPriceListId, overridable per order.</summary>
+    public Guid? PriceListId { get; set; }
+
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

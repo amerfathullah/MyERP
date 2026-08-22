@@ -68,6 +68,25 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             ? TransactionType.Buying
             : TransactionType.Selling;
 
+        // Per ERPNext: a party's own default price list (Customer/Supplier.default_price_list) takes
+        // precedence over the system default when the document itself didn't specify one.
+        var effectivePriceListId = input.PriceListId;
+        if (!effectivePriceListId.HasValue)
+        {
+            if (txType == TransactionType.Selling && input.CustomerId.HasValue)
+            {
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+                effectivePriceListId = customer?.DefaultPriceListId;
+            }
+            else if (txType == TransactionType.Buying && input.SupplierId.HasValue)
+            {
+                var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+                var supplier = await supplierRepo.FindAsync(input.SupplierId.Value);
+                effectivePriceListId = supplier?.DefaultPriceListId;
+            }
+        }
+
         var context = new ItemResolutionContext
         {
             ItemId = input.ItemId,
@@ -75,7 +94,7 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             TransactionType = txType,
             WarehouseOverride = input.WarehouseId,
             PartyId = txType == TransactionType.Buying ? input.SupplierId : input.CustomerId,
-            PriceListId = input.PriceListId,
+            PriceListId = effectivePriceListId,
             TransactionDate = input.TransactionDate,
         };
 

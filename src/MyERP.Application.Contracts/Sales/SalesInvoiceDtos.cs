@@ -63,6 +63,7 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public string? CustomerName { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal ExchangeRate { get; set; } = 1m;
+    public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -140,6 +141,9 @@ public class CreateSalesInvoiceDto
 
     [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
     public string CurrencyCode { get; set; } = "MYR";
+
+    /// <summary>Selling Price List. When omitted, defaults from Customer.DefaultPriceListId.</summary>
+    public Guid? PriceListId { get; set; }
 
     public string? Notes { get; set; }
 
