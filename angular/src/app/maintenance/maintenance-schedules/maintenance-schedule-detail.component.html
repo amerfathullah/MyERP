@@ -12,6 +12,9 @@
       </div>
       <div class="btn-group">
         @if ((s.status ?? 0) === 0) {
+          <button class="btn btn-outline-primary btn-sm" (click)="generateSchedule()" [disabled]="actionLoading()">
+            <i class="fa fa-calendar-days me-1"></i>{{ '::GenerateSchedule' | abpLocalization }}
+          </button>
           <button class="btn btn-outline-success btn-sm" (click)="submit()" [disabled]="actionLoading()">
             <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
           </button>

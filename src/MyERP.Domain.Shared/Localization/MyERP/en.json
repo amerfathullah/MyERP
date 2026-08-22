@@ -1738,6 +1738,8 @@
     "IsGroup": "Is Group",
     "NewJournalEntry": "New Journal Entry",
     "GenerateSchedule": "Generate Schedule",
+    "ScheduleGenerated": "Schedule generated",
+    "RegenerateScheduleWarning": "This will replace all currently scheduled visit dates for this maintenance schedule. Continue?",
     "DeliverySchedule": "Delivery Schedule",
     "NoDeliveryScheduleYet": "No delivery schedule yet. Click Generate to create one.",
     "Frequency": "Frequency",

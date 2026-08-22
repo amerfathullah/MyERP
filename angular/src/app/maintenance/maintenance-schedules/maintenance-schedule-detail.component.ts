@@ -4,11 +4,12 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
 import { MaintenanceScheduleDto } from '../../proxy/assets/models';
+import { MaintenanceScheduleService } from '../../proxy/maintenance/maintenance-schedule.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-maintenance-schedule-detail',
@@ -19,9 +20,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
 export class MaintenanceScheduleDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(MaintenanceService);
+  private scheduleService = inject(MaintenanceScheduleService);
   private itemService = inject(ItemService);
   private customerService = inject(CustomerService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   schedule = signal<MaintenanceScheduleDto | null>(null);
   loading = signal(true);
@@ -75,6 +78,21 @@ export class MaintenanceScheduleDetailComponent implements OnInit {
         this.load();
       },
       error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
+    });
+  }
+
+  generateSchedule() {
+    this.confirmation.warn('::RegenerateScheduleWarning', '::AreYouSure').subscribe((res) => {
+      if (res !== Confirmation.Status.confirm) return;
+      this.actionLoading.set(true);
+      this.scheduleService.generateSchedule(this.id).subscribe({
+        next: () => {
+          this.actionLoading.set(false);
+          this.toaster.success('::ScheduleGenerated');
+          this.load();
+        },
+        error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
+      });
     });
   }
 
