@@ -17,6 +17,7 @@ import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchang
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 import type { CreateSalesInvoiceDto, SalesInvoiceItemDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 
@@ -54,9 +55,11 @@ export class SalesInvoiceFormComponent implements OnInit {
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
   private taxTemplateService = inject(TaxChargesTemplateService);
+  private priceListService = inject(PriceListService);
 
   isMultiCurrency = signal(false);
   customers = signal<any[]>([]);
+  priceLists = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   taxTemplates = signal<any[]>([]);
   selectedTaxRules = signal<TaxRuleModel[]>([]);
@@ -96,6 +99,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
     paymentTermsTemplateId: [''],
+    priceListId: [''],
     currencyCode: ['MYR'],
     exchangeRate: [1],
     notes: [''],
@@ -136,6 +140,9 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe({ next: res => this.customers.set(res.items ?? []), error: () => {} });
 
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isSelling && p.isActive)), error: () => {} });
+
     // Load warehouses for UpdateStock option
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe({ next: res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)), error: () => {} });
@@ -175,6 +182,7 @@ export class SalesInvoiceFormComponent implements OnInit {
           issueDate: invoice.issueDate,
           dueDate: invoice.dueDate,
           currencyCode: invoice.currencyCode,
+          priceListId: invoice.priceListId ?? '',
         });
         // Rebuild child FormArray from loaded items
         invoice.items?.forEach((item) => this.addItemRow(item));
@@ -191,6 +199,7 @@ export class SalesInvoiceFormComponent implements OnInit {
             customerName: source.customerName,
             issueDate: new Date().toISOString().split('T')[0],
             currencyCode: source.currencyCode,
+            priceListId: source.priceListId ?? '',
           });
           source.items?.forEach((item) => this.addItemRow(item));
           this.recalculate();
@@ -206,6 +215,7 @@ export class SalesInvoiceFormComponent implements OnInit {
             notes: `Credit Note against ${source.invoiceNumber}`,
             isReturn: true,
             returnAgainstId: returnAgainst,
+            priceListId: source.priceListId ?? '',
           });
           // Return items have negative quantities
           source.items?.forEach((item) => {

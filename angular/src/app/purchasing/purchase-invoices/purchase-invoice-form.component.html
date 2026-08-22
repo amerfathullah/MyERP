@@ -83,6 +83,15 @@
             <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
           </div>
           <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <select class="form-select" formControlName="priceListId">
+              <option value="">— {{ '::Default' | abpLocalization }} —</option>
+              @for (pl of priceLists(); track pl.id) {
+                <option [value]="pl.id">{{ pl.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::DueDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="dueDate" />
             <small class="form-text text-muted">{{ '::DueDateHelp' | abpLocalization }}</small>
@@ -143,7 +152,7 @@
         }
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" transactionType="Buying" [companyId]="form.get('companyId')?.value || ''" [supplierId]="form.get('supplierId')?.value || ''" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Buying" [companyId]="form.get('companyId')?.value || ''" [supplierId]="form.get('supplierId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
       </div>
     </div>
 

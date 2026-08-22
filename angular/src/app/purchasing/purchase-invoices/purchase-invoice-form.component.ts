@@ -22,6 +22,7 @@ import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, switchMap } from 'rxjs/operators';
 
@@ -57,11 +58,13 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   private taxRuleService = inject(TaxRuleService);
   private taxTemplateService = inject(TaxChargesTemplateService);
   private currencyExchangeService = inject(CurrencyExchangeService);
+  private priceListService = inject(PriceListService);
 
   /** Multi-currency: true when selected currency differs from company base (MYR) */
   isMultiCurrency = signal(false);
 
   suppliers = signal<any[]>([]);
+  priceLists = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   taxTemplates = signal<any[]>([]);
   selectedTaxRules = signal<TaxRuleModel[]>([]);
@@ -90,6 +93,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     issueDate: [new Date().toISOString().split('T')[0], Validators.required],
     dueDate: [''],
     paymentTermsTemplateId: [''],
+    priceListId: [''],
     currencyCode: ['MYR'],
     exchangeRate: [1],
     notes: [''],
@@ -123,6 +127,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     );
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
+
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isBuying && p.isActive)), error: () => {} });
 
     // Load tax categories for tax template selector
     this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
@@ -188,6 +195,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           supplierTin: invoice.supplierTin,
           issueDate: invoice.issueDate,
           dueDate: invoice.dueDate,
+          priceListId: invoice.priceListId ?? '',
         });
         invoice.items?.forEach((item: any) => this.addItemRow(item));
       });
@@ -204,6 +212,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
             notes: `Debit Note against ${source.invoiceNumber}`,
             isReturn: true,
             returnAgainstId: returnAgainst,
+            priceListId: source.priceListId ?? '',
           });
           (source.items ?? []).forEach((item: any) => {
             if (item) this.addItemRow({ ...item, quantity: -(item.quantity ?? 0) });

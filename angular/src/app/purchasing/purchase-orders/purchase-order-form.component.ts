@@ -19,6 +19,7 @@ import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchang
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -51,12 +52,14 @@ export class PurchaseOrderFormComponent implements OnInit {
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
   private taxCalc = inject(TaxCalculationService);
+  private priceListService = inject(PriceListService);
 
   /** Multi-currency: true when selected currency differs from company base (MYR) */
   isMultiCurrency = signal(false);
 
   companies = signal<CompanyDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
+  priceLists = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   selectedTaxRules = signal<any[]>([]);
@@ -80,6 +83,7 @@ export class PurchaseOrderFormComponent implements OnInit {
     expectedDeliveryDate: [''],
     currencyCode: ['MYR'],
     exchangeRate: [1],
+    priceListId: [''],
     notes: [''],
     warehouseId: [''],
     items: this.fb.array([], Validators.minLength(1)),
@@ -103,6 +107,8 @@ export class PurchaseOrderFormComponent implements OnInit {
       .subscribe(r => this.suppliers.set(r.items ?? []));
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(r => this.warehouses.set((r.items ?? []).filter((w: any) => !w.isGroup)));
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isBuying && p.isActive)), error: () => {} });
 
     this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => {
@@ -124,6 +130,7 @@ export class PurchaseOrderFormComponent implements OnInit {
           expectedDeliveryDate: po.expectedDeliveryDate ?? '',
           notes: '',
           warehouseId: itemWarehouse,
+          priceListId: po.priceListId ?? '',
         });
         po.items?.forEach(item => this.addItemRow(item));
       });
@@ -160,6 +167,7 @@ export class PurchaseOrderFormComponent implements OnInit {
         transactionType: 'Buying',
         companyId: this.form.get('companyId')?.value || undefined,
         supplierId: this.form.get('supplierId')?.value || undefined,
+        priceListId: this.form.get('priceListId')?.value || undefined,
       }).subscribe({
         next: (details) => {
           if (details) {

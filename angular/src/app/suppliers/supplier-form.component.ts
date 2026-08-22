@@ -12,6 +12,7 @@ import { MasterDataService } from '../proxy/core/master-data.service';
 import { AccountService } from '../proxy/accounting/account.service';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 import { TaxWithholdingCategoryService } from '../proxy/tax/tax-withholding-category.service';
+import { PriceListService } from '../proxy/inventory/price-list.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { HierarchyNodeDto, PaymentTermsLookupDto } from '../proxy/core/models';
 import type { AccountDto } from '../proxy/accounting/models';
@@ -42,6 +43,7 @@ export class SupplierFormComponent implements OnInit {
   private einvoiceService = inject(EInvoiceService);
   private taxWithholdingCategoryService = inject(TaxWithholdingCategoryService);
   private toaster = inject(ToasterService);
+  private priceListService = inject(PriceListService);
 
   outstandingInvoices = signal<any[]>([]);
   totalOutstanding = signal(0);
@@ -50,6 +52,7 @@ export class SupplierFormComponent implements OnInit {
   paymentTerms = signal<PaymentTermsLookupDto[]>([]);
   accounts = signal<AccountDto[]>([]);
   taxWithholdingCategories = signal<TaxWithholdingCategoryDto[]>([]);
+  priceLists = signal<any[]>([]);
   searchingTaxpayer = signal(false);
 
   form = this.fb.group({
@@ -59,6 +62,7 @@ export class SupplierFormComponent implements OnInit {
     supplierGroupId: [null as string | null],
     representsCompanyId: [null as string | null],
     defaultPaymentTermsTemplateId: [null as string | null],
+    defaultPriceListId: [null as string | null],
     defaultPayableAccountId: [null as string | null],
     holdType: [0],
     preventPurchaseOrders: [false],
@@ -102,6 +106,9 @@ export class SupplierFormComponent implements OnInit {
 
     this.accountService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' })
       .subscribe({ next: res => this.accounts.set(res.items ?? []), error: () => {} });
+
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isBuying && p.isActive)), error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((supplier) => {

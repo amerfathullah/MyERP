@@ -16,6 +16,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 
 @Component({
   selector: 'app-sales-order-form',
@@ -37,10 +38,12 @@ export class SalesOrderFormComponent implements OnInit {
   private paymentTermsService = inject(PaymentTermsTemplateService);
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
+  private priceListService = inject(PriceListService);
 
   customers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
+  priceLists = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
   selectedTaxRules = signal<any[]>([]);
   selectedTaxCategoryId = signal<string>('');
@@ -56,6 +59,7 @@ export class SalesOrderFormComponent implements OnInit {
     customerName: [''],
     warehouseId: [''],
     paymentTermsTemplateId: [''],
+    priceListId: [''],
     couponCode: [''],
     loyaltyPointsToRedeem: [0],
     items: this.fb.array([]),
@@ -81,6 +85,9 @@ export class SalesOrderFormComponent implements OnInit {
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
 
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isSelling && p.isActive)), error: () => {} });
+
     this.taxCategoryService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => {
         const categories = (res.items ?? []).filter((c: any) => c.isActive !== false);
@@ -102,6 +109,7 @@ export class SalesOrderFormComponent implements OnInit {
           deliveryDate: so.deliveryDate ? new Date(so.deliveryDate) : null,
           customerId: so.customerId,
           warehouseId: itemWarehouse,
+          priceListId: so.priceListId ?? '',
         });
         (so.items ?? []).forEach((item: any) => {
           this.items.push(this.fb.group({

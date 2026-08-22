@@ -8,6 +8,7 @@ import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-i
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { QuotationService } from '../../proxy/sales/quotation.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -29,8 +30,10 @@ export class QuotationFormComponent implements OnInit {
   private quotationService = inject(QuotationService);
   private customerService = inject(CustomerService);
   private companyContext = inject(CompanyContextService);
+  private priceListService = inject(PriceListService);
 
   customers = signal<any[]>([]);
+  priceLists = signal<any[]>([]);
   isEditMode = false;
   entityId: string | null = null;
 
@@ -41,6 +44,7 @@ export class QuotationFormComponent implements OnInit {
     validUntil: [null as Date | null],
     customerId: ['', Validators.required],
     customerName: [''],
+    priceListId: [''],
     items: this.fb.array([]),
   });
 
@@ -55,6 +59,8 @@ export class QuotationFormComponent implements OnInit {
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
       res => this.customers.set(res.items ?? [])
     );
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isSelling && p.isActive)), error: () => {} });
     // Detect edit mode from route param
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -68,6 +74,7 @@ export class QuotationFormComponent implements OnInit {
           validUntil: q.validUntil as any,
           customerId: q.customerId,
           customerName: q.customerName,
+          priceListId: q.priceListId ?? '',
         });
         // Load items into FormArray
         (q.items ?? []).forEach((item: any) => {

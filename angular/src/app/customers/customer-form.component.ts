@@ -11,6 +11,7 @@ import { HierarchyMasterDataService } from '../proxy/core/hierarchy-master-data.
 import { MasterDataService } from '../proxy/core/master-data.service';
 import { AccountService } from '../proxy/accounting/account.service';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
+import { PriceListService } from '../proxy/inventory/price-list.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import type { HierarchyNodeDto, PaymentTermsLookupDto } from '../proxy/core/models';
 import type { AccountDto } from '../proxy/accounting/models';
@@ -39,6 +40,7 @@ export class CustomerFormComponent implements OnInit {
   private einvoiceService = inject(EInvoiceService);
   private service = inject(CustomerService);
   private toaster = inject(ToasterService);
+  private priceListService = inject(PriceListService);
 
   outstandingInvoices = signal<any[]>([]);
   totalOutstanding = signal(0);
@@ -47,6 +49,7 @@ export class CustomerFormComponent implements OnInit {
   territories = signal<HierarchyNodeDto[]>([]);
   paymentTerms = signal<PaymentTermsLookupDto[]>([]);
   accounts = signal<AccountDto[]>([]);
+  priceLists = signal<any[]>([]);
   searchingTaxpayer = signal(false);
 
   form = this.fb.group({
@@ -58,6 +61,7 @@ export class CustomerFormComponent implements OnInit {
     representsCompanyId: [null as string | null],
     creditLimit: [0, [Validators.min(0)]],
     defaultPaymentTermsTemplateId: [null as string | null],
+    defaultPriceListId: [null as string | null],
     defaultReceivableAccountId: [null as string | null],
     tin: [''],
     registrationNumber: [''],
@@ -99,6 +103,9 @@ export class CustomerFormComponent implements OnInit {
 
     this.accountService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' })
       .subscribe({ next: res => this.accounts.set(res.items ?? []), error: () => {} });
+
+    this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
+      .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isSelling && p.isActive)), error: () => {} });
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((customer) => {

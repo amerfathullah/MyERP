@@ -26,6 +26,7 @@ export class InvoiceItemGridComponent {
   @Input() companyId: string = '';
   @Input() customerId: string = '';
   @Input() supplierId: string = '';
+  @Input() priceListId: string = '';
   @Input() showStockAvailability: boolean = true;
   @Output() rowChanged = new EventEmitter<void>();
 
@@ -75,6 +76,7 @@ export class InvoiceItemGridComponent {
         companyId: this.companyId || undefined,
         supplierId: this.supplierId || undefined,
         customerId: this.customerId || undefined,
+        priceListId: this.priceListId || undefined,
       }).subscribe({
         next: (details) => {
           if (details) {

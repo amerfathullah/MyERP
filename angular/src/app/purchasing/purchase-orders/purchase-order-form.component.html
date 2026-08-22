@@ -59,6 +59,15 @@
               <small class="form-text text-muted">{{ '::ExchangeRateHelpText' | abpLocalization }}</small>
             </div>
           }
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <select class="form-select" formControlName="priceListId">
+              <option value="">— {{ '::Default' | abpLocalization }} —</option>
+              @for (pl of priceLists(); track pl.id) {
+                <option [value]="pl.id">{{ pl.name }}</option>
+              }
+            </select>
+          </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="notes" [class.is-invalid]="form.get('notes')?.invalid && form.get('notes')?.touched" rows="2"></textarea>

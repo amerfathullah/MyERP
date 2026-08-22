@@ -46,6 +46,15 @@
             </select>
             <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <select class="form-select" formControlName="priceListId">
+              <option value="">— {{ '::Default' | abpLocalization }} —</option>
+              @for (pl of priceLists(); track pl.id) {
+                <option [value]="pl.id">{{ pl.name }}</option>
+              }
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -55,7 +64,14 @@
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Items</h5>
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" />
+        <app-invoice-item-grid
+          [items]="items"
+          transactionType="Selling"
+          [companyId]="form.get('companyId')?.value || ''"
+          [customerId]="form.get('customerId')?.value || ''"
+          [warehouseId]="form.get('warehouseId')?.value || ''"
+          [priceListId]="form.get('priceListId')?.value || ''"
+        />
 
         @if (items.length > 0) {
           <div class="mt-2 d-flex flex-wrap gap-2">

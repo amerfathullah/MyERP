@@ -47,6 +47,15 @@
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <select class="form-select" formControlName="priceListId">
+              <option value="">— {{ '::Default' | abpLocalization }} —</option>
+              @for (pl of priceLists(); track pl.id) {
+                <option [value]="pl.id">{{ pl.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::BuyerTin' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="buyerTin" [class.is-invalid]="form.get('buyerTin')?.invalid && form.get('buyerTin')?.touched" />
           </div>
@@ -167,7 +176,7 @@
         }
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
       </div>
     </div>
 
