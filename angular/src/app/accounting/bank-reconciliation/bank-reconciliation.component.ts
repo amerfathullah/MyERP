@@ -327,4 +327,54 @@ export class BankReconciliationComponent implements OnInit {
     this.showCreatePePanel.set(false);
     this.createPeTransaction.set(null);
   }
+
+  // --- Manually import a single bank transaction ---
+  showAddTransactionPanel = signal(false);
+  isAddingTransaction = signal(false);
+  newTransactionDate = new Date().toISOString().substring(0, 10);
+  newTransactionDescription = '';
+  newTransactionAmount = 0;
+  newTransactionReference = '';
+
+  openAddTransaction(): void {
+    this.newTransactionDate = new Date().toISOString().substring(0, 10);
+    this.newTransactionDescription = '';
+    this.newTransactionAmount = 0;
+    this.newTransactionReference = '';
+    this.showAddTransactionPanel.set(true);
+  }
+
+  confirmAddTransaction(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId || !this.bankAccountId || !this.newTransactionDescription.trim() || !this.newTransactionAmount) {
+      this.toaster.warn('::PleaseFillAllRequiredFields');
+      return;
+    }
+
+    this.isAddingTransaction.set(true);
+    this.service.importTransaction({
+      companyId,
+      bankAccountId: this.bankAccountId,
+      transactionDate: this.newTransactionDate,
+      description: this.newTransactionDescription.trim(),
+      amount: this.newTransactionAmount,
+      referenceNumber: this.newTransactionReference.trim() || undefined,
+    }).subscribe({
+      next: () => {
+        this.isAddingTransaction.set(false);
+        this.showAddTransactionPanel.set(false);
+        this.toaster.success('::SuccessfullyCreated');
+        this.loadTransactions(0, 20);
+        this.loadSummary();
+      },
+      error: () => {
+        this.isAddingTransaction.set(false);
+        this.toaster.error('::FailedToCreateTransfer');
+      },
+    });
+  }
+
+  closeAddTransactionPanel(): void {
+    this.showAddTransactionPanel.set(false);
+  }
 }

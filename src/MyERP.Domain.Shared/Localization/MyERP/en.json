@@ -808,6 +808,8 @@
     "BankEntryCreated": "Bank entry created successfully",
     "SelectBankAccount": "Select Bank Account",
     "ReferenceNumber": "Reference Number",
+    "AddTransaction": "Add Transaction",
+    "AddTransactionAmountHint": "Positive = deposit, negative = withdrawal",
     "TotalPayment": "Total Payment",
     "CreateEntry": "Create Entry",
     "EligibleEmployees": "Eligible Employees",
