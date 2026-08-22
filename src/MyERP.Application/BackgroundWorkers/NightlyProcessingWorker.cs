@@ -175,6 +175,14 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AlertDaysAhead = 30,
                 });
 
+                // Enqueue Safety Stock alerts — a stricter, "must act now" floor distinct from
+                // ReorderLevel (already handled proactively by CheckAndReorderAsync elsewhere).
+                await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.SafetyStockAlertJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                });
+
                 // Enqueue upcoming payment due date alerts (proactive cash flow management)
                 // Per ERPNext: daily reminder for invoices due in 3/7 days — separate from overdue reminders
                 await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.UpcomingPaymentDueAlertJobArgs
