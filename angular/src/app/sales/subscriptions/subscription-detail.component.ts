@@ -33,6 +33,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           @if (d.status === 0) {
             <div class="mt-3 d-flex gap-2">
               <button class="btn btn-sm btn-success" (click)="generateInvoice()"><i class="fa fa-file-invoice me-1"></i>{{ 'GenerateInvoice' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-success" (click)="generateCatchUpInvoices()"><i class="fa fa-layer-group me-1"></i>{{ 'GenerateCatchUpInvoices' | abpLocalization }}</button>
               <button class="btn btn-sm btn-primary" (click)="advancePeriod()"><i class="fa fa-forward me-1"></i>Advance Period</button>
               <button class="btn btn-sm btn-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
             </div>
@@ -87,6 +88,21 @@ export class SubscriptionDetailComponent implements OnInit {
       next: (result: any) => {
         this.load();
         this.toaster.success(this.l('::InvoiceCreated') + `: ${result.invoiceNumber} (${result.grandTotal})`);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed')),
+    });
+  }
+
+  generateCatchUpInvoices() {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.generateCatchUpInvoices(id).subscribe({
+      next: (results: any[]) => {
+        this.load();
+        if (results?.length) {
+          this.toaster.success(this.l('::CatchUpInvoicesGenerated').replace('{0}', String(results.length)));
+        } else {
+          this.toaster.info(this.l('::NoCatchUpInvoicesNeeded'));
+        }
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed')),
     });
