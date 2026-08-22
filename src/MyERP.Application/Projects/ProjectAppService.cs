@@ -368,7 +368,11 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     private async Task UpdateProjectProgress(Guid projectId)
     {
         var project = await _projectRepository.GetAsync(projectId, includeDetails: true);
-        project.UpdateProgress();
+        // Query tasks directly rather than trusting project.Tasks (AutoInclude): confirmed on both
+        // SQLite and PostgreSQL that the navigation can still reflect the pre-mutation task set
+        // immediately after a same-request insert/delete, while a direct repository query is fresh.
+        var currentTasks = await _taskRepository.GetListAsync(t => t.ProjectId == projectId);
+        project.UpdateProgress(currentTasks);
         await _projectRepository.UpdateAsync(project);
     }
 }

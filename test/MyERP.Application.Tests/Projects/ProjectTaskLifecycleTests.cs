@@ -16,8 +16,10 @@ namespace MyERP.Projects;
 /// entirely unreachable from Angular — the project detail page only ever displayed a read-only Tasks
 /// table via GetTasksAsync, with no way to create or manage one. Added a "New Task" panel and
 /// per-row Start/Complete/Cancel/Delete actions; this test covers the AppService layer, including the
-/// project percent-complete rollup that CompleteTaskAsync triggers (see the Delete test below for a
-/// rollup discrepancy found but not yet confirmed/fixed).
+/// project percent-complete rollup that Complete/DeleteTaskAsync trigger (see the Delete test below —
+/// that rollup had a real cross-provider staleness bug, confirmed on both SQLite and PostgreSQL and
+/// fixed by having UpdateProjectProgress query tasks directly instead of trusting the AutoInclude
+/// navigation).
 /// </summary>
 public abstract class ProjectTaskLifecycleTests<TStartupModule> : MyERPApplicationTestBase<TStartupModule>
     where TStartupModule : IAbpModule
@@ -78,17 +80,15 @@ public abstract class ProjectTaskLifecycleTests<TStartupModule> : MyERPApplicati
     }
 
     [Fact]
-    public async Task DeleteTaskAsync_RemovesTaskRow()
+    public async Task DeleteTaskAsync_RemovesTaskAndResetsProjectPercentCompleteToZero()
     {
-        // NOTE: DeleteTaskAsync also calls UpdateProjectProgress to recompute Project.PercentComplete.
-        // While building this coverage, a real discrepancy was found: querying Project.Tasks (the
-        // AutoInclude navigation UpdateProjectProgress reads) immediately after the delete — even
-        // within DeleteTaskAsync's own single, isolated unit of work — still returns the deleted task,
-        // while a direct IRepository<ProjectTask> query in the exact same unit of work correctly
-        // excludes it. Confirmed reproducible on this test suite's SQLite provider; NOT yet confirmed
-        // against the real PostgreSQL backend, so it is deliberately not asserted here or claimed as
-        // fixed — see the migration memory for 2026-08-22 for the follow-up investigation needed
-        // before trusting Project.PercentComplete right after a task deletion in production.
+        // Regression test for a confirmed cross-provider bug (SQLite AND real PostgreSQL, verified
+        // against a scratch database): UpdateProjectProgress used to reload Project.Tasks via its
+        // AutoInclude navigation, which still returned the just-deleted task within DeleteTaskAsync's
+        // own single unit of work, even though a direct IRepository<ProjectTask> query in the exact
+        // same scope correctly excluded it. Fixed by having UpdateProjectProgress query tasks directly
+        // via the task repository and passing that explicit list into Project.UpdateProgress(tasks)
+        // instead of the parameterless overload that reads the (unreliable, in this context) navigation.
         await WithUnitOfWorkAsync(async () =>
         {
             var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
@@ -105,10 +105,14 @@ public abstract class ProjectTaskLifecycleTests<TStartupModule> : MyERPApplicati
                 ProjectId = project.Id,
                 Subject = "Task to delete",
             });
+            await projectAppService.CompleteTaskAsync(task.Id);
 
             await projectAppService.DeleteTaskAsync(task.Id);
 
             (await taskRepository.FindAsync(task.Id)).ShouldBeNull();
+
+            var reloadedProject = await projectRepository.GetAsync(project.Id);
+            reloadedProject.PercentComplete.ShouldBe(0m);
         });
     }
 }

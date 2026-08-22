@@ -55,9 +55,19 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void UpdateProgress()
+    public void UpdateProgress() => UpdateProgress(Tasks);
+
+    /// <summary>
+    /// Recalculates PercentComplete from an explicit task list rather than the <see cref="Tasks"/>
+    /// navigation. Callers that just inserted/deleted a task in the same unit of work should query
+    /// tasks fresh via the task repository and pass them here — the <see cref="Tasks"/> AutoInclude
+    /// navigation has been observed (confirmed on both SQLite and PostgreSQL) to still reflect the
+    /// pre-mutation state immediately after a same-request task delete, even though a direct
+    /// repository query for the same tasks correctly reflects it.
+    /// </summary>
+    public void UpdateProgress(IReadOnlyList<ProjectTask> currentTasks)
     {
-        if (Tasks.Count == 0)
+        if (currentTasks.Count == 0)
         {
             PercentComplete = 0;
             return;
@@ -65,9 +75,9 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         PercentComplete = PercentCompleteMethod switch
         {
-            PercentCompleteMethod.TaskCompletion => CalculateByTaskCompletion(),
-            PercentCompleteMethod.TaskProgress => CalculateByTaskProgress(),
-            PercentCompleteMethod.TaskWeight => CalculateByTaskWeight(),
+            PercentCompleteMethod.TaskCompletion => CalculateByTaskCompletion(currentTasks),
+            PercentCompleteMethod.TaskProgress => CalculateByTaskProgress(currentTasks),
+            PercentCompleteMethod.TaskWeight => CalculateByTaskWeight(currentTasks),
             _ => PercentComplete, // Manual — don't change
         };
 
@@ -124,11 +134,11 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal GrossMargin =>
         TotalBilledAmount - TotalCostingAmount;
 
-    private decimal CalculateByTaskCompletion()
+    private static decimal CalculateByTaskCompletion(IReadOnlyList<ProjectTask> tasks)
     {
-        var total = Tasks.Count;
+        var total = tasks.Count;
         var completed = 0;
-        foreach (var t in Tasks)
+        foreach (var t in tasks)
         {
             if (t.Status is ProjectTaskStatus.Completed or ProjectTaskStatus.Cancelled)
                 completed++;
@@ -136,20 +146,20 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
         return total > 0 ? Math.Round((decimal)completed / total * 100, 1) : 0;
     }
 
-    private decimal CalculateByTaskProgress()
+    private static decimal CalculateByTaskProgress(IReadOnlyList<ProjectTask> tasks)
     {
-        var total = Tasks.Count;
+        var total = tasks.Count;
         var sum = 0m;
-        foreach (var t in Tasks)
+        foreach (var t in tasks)
             sum += t.Progress;
         return total > 0 ? Math.Round(sum / total, 1) : 0;
     }
 
-    private decimal CalculateByTaskWeight()
+    private static decimal CalculateByTaskWeight(IReadOnlyList<ProjectTask> tasks)
     {
         var totalWeight = 0m;
         var weightedProgress = 0m;
-        foreach (var t in Tasks)
+        foreach (var t in tasks)
         {
             var w = t.TaskWeight > 0 ? t.TaskWeight : 1;
             totalWeight += w;
