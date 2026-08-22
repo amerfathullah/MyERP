@@ -2841,6 +2841,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.NonConformances.Edit' },
   },
   {
+    path: 'inventory/quality-meetings',
+    loadComponent: () => import('./inventory/quality-meetings/quality-meeting-list.component').then(c => c.QualityMeetingListComponent),
+    canActivate: [authGuard],
+    data: { requiredPolicy: 'MyERP.QualityMeetings' },
+  },
+  {
+    path: 'inventory/quality-meetings/new',
+    loadComponent: () => import('./inventory/quality-meetings/quality-meeting-form.component').then(c => c.QualityMeetingFormComponent),
+    canActivate: [authGuard],
+    data: { requiredPolicy: 'MyERP.QualityMeetings.Create' },
+  },
+  {
+    path: 'inventory/quality-meetings/:id',
+    loadComponent: () => import('./inventory/quality-meetings/quality-meeting-form.component').then(c => c.QualityMeetingFormComponent),
+    canActivate: [authGuard],
+    data: { requiredPolicy: 'MyERP.QualityMeetings.Edit' },
+  },
+  {
     path: 'settings/print-formats',
     loadComponent: () => import('./settings/print-formats/print-format-list.component').then(c => c.PrintFormatListComponent),
     canActivate: [authGuard],

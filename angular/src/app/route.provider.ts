@@ -677,6 +677,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.NonConformances',
       },
       {
+        path: '/inventory/quality-meetings',
+        name: '::Menu:QualityMeetings',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-people-group',
+        order: 10,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.QualityMeetings',
+      },
+      {
         path: '/inventory/stock-reconciliations',
         name: '::Menu:StockReconciliations',
         parentName: '::Menu:Inventory',
