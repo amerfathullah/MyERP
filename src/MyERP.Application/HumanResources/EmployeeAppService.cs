@@ -128,6 +128,12 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     [Authorize(MyERPPermissions.Employees.Delete)]
     public async Task DeleteAsync(Guid id)
     {
+        // Per EmployeeLifecycleManager's own class doc: "Cannot delete with linked transactions
+        // (leave, salary, attendance)" — CheckDeletionRulesAsync already implemented this and had
+        // zero callers anywhere, so deletion was previously unconditional.
+        var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.EmployeeLifecycleManager>();
+        await lifecycleManager.CheckDeletionRulesAsync(id);
+
         await _repository.DeleteAsync(id);
     }
 }
