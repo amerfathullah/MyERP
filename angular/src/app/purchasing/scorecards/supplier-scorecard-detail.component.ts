@@ -1,7 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
@@ -9,7 +11,7 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
 @Component({
   selector: 'app-supplier-scorecard-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageModule, BreadcrumbComponent, LocalizationPipe],
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, BreadcrumbComponent, LocalizationPipe],
   template: `
     <app-breadcrumb />
     <abp-page [title]="scorecard?.supplierName ?? 'Supplier Scorecard'">
@@ -71,7 +73,7 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
           </div>
         </div>
 
-        <div class="card"><div class="card-header"><h6 class="mb-0">Evaluation Criteria</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">Evaluation Criteria</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr><th>Criteria</th><th class="text-end">Weight</th><th class="text-end">Max Score</th></tr></thead>
@@ -87,6 +89,39 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
             </table>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">{{ 'SubmitPeriodEvaluation' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-primary btn-sm" (click)="showSubmitPanel = !showSubmitPanel">
+              <i class="fa fa-plus me-1"></i>{{ 'SubmitPeriodEvaluation' | abpLocalization }}
+            </button>
+          </div>
+          @if (showSubmitPanel) {
+            <div class="card-body">
+              <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                  <label class="form-label">{{ '::StartDate' | abpLocalization }} *</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="periodStartDate" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">{{ '::EndDate' | abpLocalization }} *</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="periodEndDate" />
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">{{ '::Score' | abpLocalization }} *</label>
+                  <input type="number" min="0" max="100" class="form-control form-control-sm" [(ngModel)]="periodScore" />
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                  <button type="button" class="btn btn-success btn-sm" [disabled]="isSubmittingPeriod || !periodStartDate || !periodEndDate || periodScore === null" (click)="submitPeriod()">
+                    <i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" (click)="showSubmitPanel = false">{{ '::Cancel' | abpLocalization }}</button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
       }
     </abp-page>
   `
@@ -94,10 +129,21 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
 export class SupplierScorecardDetailComponent implements OnInit {
   private service = inject(SupplierScorecardService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
   scorecard: any = null;
   isLoading = false;
 
+  showSubmitPanel = false;
+  isSubmittingPeriod = false;
+  periodStartDate = '';
+  periodEndDate = '';
+  periodScore: number | null = null;
+
   ngOnInit() {
+    this.load();
+  }
+
+  load() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isLoading = true;
@@ -106,6 +152,32 @@ export class SupplierScorecardDetailComponent implements OnInit {
         error: () => { this.isLoading = false; }
       });
     }
+  }
+
+  submitPeriod() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id || !this.periodStartDate || !this.periodEndDate || this.periodScore === null) return;
+
+    this.isSubmittingPeriod = true;
+    this.service.submitPeriod(id, {
+      startDate: this.periodStartDate,
+      endDate: this.periodEndDate,
+      score: this.periodScore,
+    }).subscribe({
+      next: () => {
+        this.isSubmittingPeriod = false;
+        this.showSubmitPanel = false;
+        this.periodStartDate = '';
+        this.periodEndDate = '';
+        this.periodScore = null;
+        this.toaster.success('::PeriodSubmitted');
+        this.load();
+      },
+      error: (err: any) => {
+        this.isSubmittingPeriod = false;
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
+    });
   }
 
   isCurrentStanding(standing: any): boolean {

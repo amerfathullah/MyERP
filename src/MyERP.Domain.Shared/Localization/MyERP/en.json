@@ -3410,6 +3410,8 @@
     "NoTransactionData": "No transaction data available",
     "NoPriceRecords": "No price records",
     "NoRestrictions": "No Restrictions",
+    "SubmitPeriodEvaluation": "Submit Period Evaluation",
+    "PeriodSubmitted": "Period evaluation submitted",
     "NoTiersConfigured": "No tiers configured",
     "NoTargetsSet": "No targets set",
     "GeneratedFromTemplate": "Generated from payment terms template",
