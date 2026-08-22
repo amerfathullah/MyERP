@@ -115,7 +115,7 @@ export class SubcontractingDetailComponent implements OnInit {
     switch (name) {
       case 'submit': this.service.submitOrder(id).subscribe(reload); break;
       case 'transferMaterials': this.createRmTransfer(id); break;
-      case 'close': this.service.cancelOrder(id).subscribe(reload); break;
+      case 'close': this.service.closeOrder(id).subscribe(reload); break;
       case 'cancel': this.confirmation.warn('CancelConfirmationMessage', 'Confirm').subscribe(s => {
         if (s === Confirmation.Status.confirm) this.service.cancelOrder(id).subscribe(reload);
       }); break;
