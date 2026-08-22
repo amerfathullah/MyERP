@@ -2441,6 +2441,7 @@
     "ContractNumber": "Contract Number",
     "SignContract": "Sign",
     "RenewContract": "Renew",
+    "NewEndDate": "New End Date",
     "Unsigned": "Unsigned",
     "InactiveByExpiry": "Expired",
     "InactiveByAutoRenewFailure": "Renewal Failed",

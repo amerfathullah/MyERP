@@ -29,12 +29,39 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </button>
           }
           @if (contract().status === 'Active') {
+            <button class="btn btn-sm btn-outline-primary" (click)="showRenewForm = !showRenewForm">
+              <i class="fas fa-rotate me-1"></i>{{ '::RenewContract' | abpLocalization }}
+            </button>
             <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
               <i class="fas fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
           }
         </div>
       </div>
+
+      @if (showRenewForm) {
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="card-title">{{ '::RenewContract' | abpLocalization }}</h6>
+            <div class="row g-2 align-items-end">
+              <div class="col-auto">
+                <label class="form-label small">{{ '::NewEndDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="newEndDate" />
+              </div>
+              <div class="col-auto">
+                <button class="btn btn-sm btn-primary" [disabled]="!newEndDate" (click)="renew()">
+                  {{ '::Confirm' | abpLocalization }}
+                </button>
+              </div>
+              <div class="col-auto">
+                <button class="btn btn-sm btn-secondary" (click)="showRenewForm = false">
+                  {{ '::Cancel' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
 
       <div class="row g-3 mb-4">
         <div class="col-md-3">
@@ -139,6 +166,8 @@ export class ContractDetailComponent implements OnInit {
   contract = signal<any>(null);
   loading = signal(true);
   newRequirement = '';
+  showRenewForm = false;
+  newEndDate = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -159,6 +188,19 @@ export class ContractDetailComponent implements OnInit {
   cancel() {
     this.contractService.cancel(this.contract().id).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.reload(); },
+      error: () => {},
+    });
+  }
+
+  renew() {
+    if (!this.newEndDate) return;
+    this.contractService.renew(this.contract().id, this.newEndDate).subscribe({
+      next: () => {
+        this.toaster.success(this.l('::SuccessfullyUpdated'));
+        this.showRenewForm = false;
+        this.newEndDate = '';
+        this.reload();
+      },
       error: () => {},
     });
   }
