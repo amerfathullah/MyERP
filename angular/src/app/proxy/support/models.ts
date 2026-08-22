@@ -89,6 +89,7 @@ export interface IssueDto extends AuditedEntityDto<string> {
   firstResponseTime?: number | null;
   resolutionTime?: number | null;
   agreementStatus?: AgreementStatus;
+  splitFromIssueId?: string | null;
 }
 
 export interface IssuePriorityDto extends AuditedEntityDto<string> {
@@ -140,6 +141,10 @@ export interface ServiceLevelPriorityDto {
   responseTimeHours?: number;
   resolutionTimeHours?: number;
   isDefault?: boolean;
+}
+
+export interface SplitIssueDto {
+  subject: string;
 }
 
 export interface SupportSettingsDto extends EntityDto<string> {

@@ -8,7 +8,16 @@ import { Injectable, inject } from '@angular/core';
 export class PaymentReconciliationService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  getAutoAllocation = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ReconcileAllocationDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-reconciliation/auto-allocation/${partyId}`,
+      params: { partyType },
+    },
+    { apiName: this.apiName,...config });
+  
 
   getOutstandingInvoices = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OutstandingInvoiceDto[]>({
@@ -17,7 +26,7 @@ export class PaymentReconciliationService {
       params: { partyType },
     },
     { apiName: this.apiName,...config });
-
+  
 
   getUnreconciledPayments = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnreconciledPaymentDto[]>({
@@ -25,17 +34,8 @@ export class PaymentReconciliationService {
       url: `/api/app/payment-reconciliation/unreconciled-payments/${partyId}`,
       params: { partyType },
     },
-    { apiName: this.apiName, ...config });
-
-
-  getAutoAllocation = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ReconcileAllocationDto[]>({
-      method: 'GET',
-      url: `/api/app/payment-reconciliation/auto-allocation/${partyId}`,
-      params: { partyType },
-    },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   reconcile = (input: ReconcilePaymentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({

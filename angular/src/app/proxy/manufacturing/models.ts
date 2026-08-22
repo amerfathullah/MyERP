@@ -142,6 +142,17 @@ export interface CreateUpdateDowntimeEntryDto {
   remarks?: string | null;
 }
 
+export interface CreateWorkstationTypeCostDto {
+  component?: string;
+  operatingCost?: number;
+}
+
+export interface CreateWorkstationTypeDto {
+  name?: string;
+  description?: string | null;
+  costs?: CreateWorkstationTypeCostDto[];
+}
+
 export interface DailyProductionPointDto {
   date?: string;
   producedQty?: number;
@@ -402,6 +413,18 @@ export interface UpdateSalesForecastDto {
   selectedItemIds?: string[];
 }
 
+export interface WorkstationTypeCostDto {
+  component?: string;
+  operatingCost?: number;
+}
+
+export interface WorkstationTypeDto extends EntityDto<string> {
+  name?: string;
+  description?: string | null;
+  hourRate?: number;
+  costs?: WorkstationTypeCostDto[];
+}
+
 export interface ActiveJobOnWorkstationDto {
   jobCardId?: string;
   workOrderNumber?: string | null;
@@ -609,29 +632,6 @@ export interface CreateWorkstationDto {
   productionCapacity?: number;
   description?: string | null;
   costs?: CreateWorkstationCostDto[];
-}
-
-export interface CreateWorkstationTypeCostDto {
-  component?: string;
-  operatingCost?: number;
-}
-
-export interface CreateWorkstationTypeDto {
-  name?: string;
-  description?: string | null;
-  costs?: CreateWorkstationTypeCostDto[];
-}
-
-export interface WorkstationTypeCostDto {
-  component?: string;
-  operatingCost?: number;
-}
-
-export interface WorkstationTypeDto extends EntityDto<string> {
-  name?: string;
-  description?: string | null;
-  hourRate?: number;
-  costs?: WorkstationTypeCostDto[];
 }
 
 export interface CreatedWorkOrderInfo {

@@ -332,6 +332,7 @@ export interface CreateQuotationDto {
   issueDate: string;
   validUntil?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   terms?: string | null;
   notes?: string | null;
   items: CreateQuotationItemDto[];
@@ -352,6 +353,7 @@ export interface CreateSalesInvoiceDto {
   issueDate: string;
   dueDate?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   notes?: string | null;
   paymentTermsTemplateId?: string | null;
   isReturn?: boolean;
@@ -376,6 +378,11 @@ export interface CreateSalesInvoiceItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  enableDeferredRevenue?: boolean;
+  deferredRevenueAccountId?: string | null;
+  serviceStartDate?: string | null;
+  serviceEndDate?: string | null;
+  serviceStopDate?: string | null;
 }
 
 export interface CreateSalesOrderDto {
@@ -385,6 +392,7 @@ export interface CreateSalesOrderDto {
   deliveryDate?: string | null;
   customerPoNumber?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   terms?: string | null;
   notes?: string | null;
   quotationId?: string | null;
@@ -393,6 +401,7 @@ export interface CreateSalesOrderDto {
   shippingCountry?: string | null;
   couponCode?: string | null;
   loyaltyPointsToRedeem?: number;
+  salesTeam?: SalesTeamAllocationInputDto[] | null;
   items: CreateSalesOrderItemDto[];
 }
 
@@ -491,7 +500,10 @@ export interface CreateUpdateCustomerDto {
   territoryId?: string | null;
   loyaltyProgramId?: string | null;
   defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
+  soRequired?: boolean;
+  dnRequired?: boolean;
 }
 
 export interface CreateUpdatePartySpecificItemDto {
@@ -575,6 +587,7 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   territoryId?: string | null;
   loyaltyProgramId?: string | null;
   defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
   soRequired?: boolean;
   dnRequired?: boolean;
@@ -630,6 +643,7 @@ export interface DeliveryNoteItemDto {
   taxAmount?: number;
   lineTotal?: number;
   billedQty?: number;
+  packedQty?: number;
   salesOrderItemId?: string | null;
 }
 
@@ -1218,6 +1232,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   customerId?: string;
   customerName?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -1297,6 +1312,7 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   customerName?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
+  priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -1317,6 +1333,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   amendedFromId?: string | null;
   amendmentIndex?: number;
   debitToAccountId?: string;
+  costCenterId?: string | null;
+  projectId?: string | null;
   daysOverdue?: number;
   isOverdue?: boolean;
   items?: SalesInvoiceItemDto[];
@@ -1338,6 +1356,11 @@ export interface SalesInvoiceItemDto {
   lineTotal?: number;
   valuationRate?: number;
   grossProfit?: number;
+  enableDeferredRevenue?: boolean;
+  deferredRevenueAccountId?: string | null;
+  serviceStartDate?: string | null;
+  serviceEndDate?: string | null;
+  serviceStopDate?: string | null;
 }
 
 export interface SalesInvoiceListSummaryDto {
@@ -1358,6 +1381,7 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   customerName?: string | null;
   customerPoNumber?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -1365,6 +1389,8 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   notes?: string | null;
   status?: string;
   quotationId?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
   perDelivered?: number;
   perBilled?: number;
   advancePaid?: number;
@@ -1375,6 +1401,7 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   firstPaymentDate?: string | null;
   overdueWarning?: string | null;
   items?: SalesOrderItemDto[];
+  salesTeam?: SalesTeamEntryDto[];
 }
 
 export interface SalesOrderItemDto {

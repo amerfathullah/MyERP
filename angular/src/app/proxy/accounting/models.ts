@@ -368,6 +368,12 @@ export interface BulkClearanceResultDto {
   updatedCount?: number;
 }
 
+export interface CalculateDiscountingDto {
+  totalOutstanding?: number;
+  annualDiscountRate?: number;
+  daysToMaturity?: number;
+}
+
 export interface CashFlowForecastDto {
   asOfDate?: string;
   forecastDays?: number;
@@ -618,41 +624,20 @@ export interface CreateInternalTransferDto {
 }
 
 export interface CreateInvoiceDiscountingDto {
-  companyId: string;
-  postingDate: string;
-  shortTermLoanAccountId: string;
-  bankAccountId: string;
-  bankChargesAccountId: string;
-  accountsReceivableCreditAccountId: string;
-  accountsReceivableDiscountedAccountId: string;
-  accountsReceivableUnpaidAccountId: string;
-  invoices: CreateInvoiceDiscountingInvoiceDto[];
+  companyId?: string;
+  postingDate?: string;
+  shortTermLoanAccountId?: string;
+  bankAccountId?: string;
+  bankChargesAccountId?: string;
+  accountsReceivableCreditAccountId?: string;
+  accountsReceivableDiscountedAccountId?: string;
+  accountsReceivableUnpaidAccountId?: string;
+  invoices?: CreateInvoiceDiscountingInvoiceDto[];
 }
 
 export interface CreateInvoiceDiscountingInvoiceDto {
-  salesInvoiceId: string;
-  outstandingAmount: number;
-}
-
-export interface SubmitInvoiceDiscountingDto {
-  loanStartDate: string;
-  loanPeriodDays: number;
-}
-
-export interface DisburseInvoiceDiscountingDto {
-  bankCharges: number;
-}
-
-export interface CalculateDiscountingDto {
-  totalOutstanding: number;
-  annualDiscountRate: number;
-  daysToMaturity: number;
-}
-
-export interface DiscountingCalculationResultDto {
-  discountCharge: number;
-  disbursementAmount: number;
-  effectiveRate: number;
+  salesInvoiceId?: string;
+  outstandingAmount?: number;
 }
 
 export interface CreateJournalEntryDto {
@@ -719,6 +704,7 @@ export interface CreatePaymentEntryDto {
   paymentType: PaymentType;
   postingDate: string;
   paidAmount: number;
+  receivedAmount?: number | null;
   paidFromAccountId: string;
   paidToAccountId: string;
   modeOfPayment?: string | null;
@@ -785,6 +771,19 @@ export interface CreatePeriodClosingVoucherDto {
   transactionDate?: string;
   closingAccountId?: string;
   remarks?: string | null;
+}
+
+export interface CreateProcessPaymentReconciliationDto {
+  companyId?: string;
+  partyType?: string;
+  partyId?: string;
+  receivablePayableAccountId?: string;
+  defaultAdvanceAccountId?: string | null;
+}
+
+export interface CreateRepostAccountingLedgerDto {
+  companyId?: string;
+  vouchers?: RepostAccountingLedgerVoucherInputDto[];
 }
 
 export interface CreateRevaluationDto {
@@ -867,6 +866,14 @@ export interface CreateUpdateJournalEntryTemplateDto {
   lines?: CreateJournalEntryTemplateLineDto[];
 }
 
+export interface CreateUpdateModeOfPaymentDto {
+  name?: string;
+  type?: string;
+  isActive?: boolean;
+  defaultAccountId?: string | null;
+  companyId?: string | null;
+}
+
 export interface CreateUpdateMonthlyDistributionDto {
   distributionName?: string;
   fiscalYearId?: string | null;
@@ -909,6 +916,16 @@ export interface CurrencyExchangeDto extends EntityDto<string> {
   toCurrency?: string;
   exchangeRate?: number;
   date?: string;
+}
+
+export interface DisburseInvoiceDiscountingDto {
+  bankCharges?: number;
+}
+
+export interface DiscountingCalculationResultDto {
+  discountCharge?: number;
+  disbursementAmount?: number;
+  effectiveRate?: number;
 }
 
 export interface EligibleAccountDto {
@@ -1153,41 +1170,41 @@ export interface InternalTransferResultDto {
 }
 
 export interface InvoiceDiscountingDto extends EntityDto<string> {
-  companyId: string;
-  postingDate: string;
+  companyId?: string;
+  postingDate?: string;
   loanStartDate?: string | null;
-  loanPeriodDays: number;
+  loanPeriodDays?: number;
   loanEndDate?: string | null;
-  status: number;
-  totalAmount: number;
-  bankCharges: number;
-  shortTermLoanAccountId: string;
-  bankAccountId: string;
-  bankChargesAccountId: string;
-  accountsReceivableCreditAccountId: string;
-  accountsReceivableDiscountedAccountId: string;
-  accountsReceivableUnpaidAccountId: string;
+  status?: number;
+  totalAmount?: number;
+  bankCharges?: number;
+  shortTermLoanAccountId?: string;
+  bankAccountId?: string;
+  bankChargesAccountId?: string;
+  accountsReceivableCreditAccountId?: string;
+  accountsReceivableDiscountedAccountId?: string;
+  accountsReceivableUnpaidAccountId?: string;
   sanctionJournalEntryId?: string | null;
   disbursementJournalEntryId?: string | null;
   settlementJournalEntryId?: string | null;
-  invoices: InvoiceDiscountingInvoiceDto[];
+  invoices?: InvoiceDiscountingInvoiceDto[];
 }
 
 export interface InvoiceDiscountingInvoiceDto {
-  salesInvoiceId: string;
+  salesInvoiceId?: string;
   invoiceNumber?: string | null;
-  customerId: string;
+  customerId?: string;
   customerName?: string | null;
-  outstandingAmount: number;
+  outstandingAmount?: number;
 }
 
 export interface InvoiceForDiscountingDto {
-  invoiceId: string;
-  invoiceNumber: string;
-  customerId: string;
-  customerName: string;
-  issueDate: string;
-  outstandingAmount: number;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  issueDate?: string;
+  outstandingAmount?: number;
 }
 
 export interface JournalEntryDto extends EntityDto<string> {
@@ -1293,6 +1310,9 @@ export interface MirrorTransactionDto {
 export interface ModeOfPaymentDto extends EntityDto<string> {
   name?: string;
   type?: string;
+  isActive?: boolean;
+  defaultAccountId?: string | null;
+  companyId?: string | null;
 }
 
 export interface MonthEndCheckDto {
@@ -1420,38 +1440,6 @@ export interface OutstandingInvoiceDto {
   outstanding?: number;
 }
 
-export interface ProcessPaymentReconciliationDto extends EntityDto<string> {
-  companyId: string;
-  partyType: string;
-  partyId: string;
-  receivablePayableAccountId: string;
-  defaultAdvanceAccountId?: string | null;
-  status: number;
-  statusName: string;
-  reconciledCount: number;
-  errorLog?: string | null;
-  creationTime: string;
-}
-
-export interface CreateProcessPaymentReconciliationDto {
-  companyId: string;
-  partyType: string;
-  partyId: string;
-  receivablePayableAccountId: string;
-  defaultAdvanceAccountId?: string | null;
-}
-
-export interface UnreconciledPaymentDto {
-  voucherId: string;
-  voucherType: string;
-  documentNumber?: string | null;
-  postingDate: string;
-  totalAmount: number;
-  unallocatedAmount: number;
-  currencyCode: string;
-  exchangeRate: number;
-}
-
 export interface OutstandingInvoiceForPaymentDto {
   invoiceId?: string;
   invoiceNumber?: string;
@@ -1521,6 +1509,7 @@ export interface PaymentEntryDto extends EntityDto<string> {
   postingDate?: string;
   modeOfPayment?: string | null;
   paidAmount?: number;
+  receivedAmount?: number;
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;
@@ -1619,6 +1608,19 @@ export interface PeriodClosingVoucherDto extends EntityDto<string> {
   entryCount?: number;
 }
 
+export interface ProcessPaymentReconciliationDto extends EntityDto<string> {
+  companyId?: string;
+  partyType?: string;
+  partyId?: string;
+  receivablePayableAccountId?: string;
+  defaultAdvanceAccountId?: string | null;
+  status?: number;
+  statusName?: string;
+  reconciledCount?: number;
+  errorLog?: string | null;
+  creationTime?: string;
+}
+
 export interface ProfitLossByCostCenterDto {
   companyId?: string;
   fromDate?: string;
@@ -1692,6 +1694,29 @@ export interface ReconcilePaymentDto {
   allocations: ReconcileAllocationDto[];
 }
 
+export interface RepostAccountingLedgerDto extends EntityDto<string> {
+  companyId?: string;
+  status?: number;
+  statusName?: string;
+  errorLog?: string | null;
+  creationTime?: string;
+  vouchers?: RepostAccountingLedgerVoucherDto[];
+}
+
+export interface RepostAccountingLedgerVoucherDto extends EntityDto<string> {
+  voucherType?: string;
+  voucherId?: string;
+  voucherNumber?: string;
+  status?: number;
+  statusName?: string;
+  errorMessage?: string | null;
+}
+
+export interface RepostAccountingLedgerVoucherInputDto {
+  voucherType?: string;
+  voucherId?: string;
+}
+
 export interface RepostBatchGlDto {
   companyId?: string;
   vouchers?: RepostVoucherRefDto[];
@@ -1717,6 +1742,13 @@ export interface RepostPaymentLedgerForCompanyDto {
 export interface RepostVoucherRefDto {
   voucherType?: string;
   voucherId?: string;
+}
+
+export interface RepostableVoucherDto {
+  voucherType?: string;
+  voucherId?: string;
+  voucherNumber?: string;
+  postingDate?: string;
 }
 
 export interface RunLedgerHealthCheckDto {
@@ -1802,6 +1834,11 @@ export interface StatementOfAccountsDto {
   entries?: StatementEntryDto[];
 }
 
+export interface SubmitInvoiceDiscountingDto {
+  loanStartDate?: string;
+  loanPeriodDays?: number;
+}
+
 export interface SupplierStatementDto {
   supplierId?: string;
   companyId?: string;
@@ -1866,6 +1903,17 @@ export interface UnreconcilePaymentDto extends AuditedEntityDto<string> {
   voucherId?: string;
   status?: number;
   allocations?: UnreconcilePaymentAllocationDto[];
+}
+
+export interface UnreconciledPaymentDto {
+  voucherId?: string;
+  voucherType?: string;
+  documentNumber?: string | null;
+  postingDate?: string;
+  totalAmount?: number;
+  unallocatedAmount?: number;
+  currencyCode?: string;
+  exchangeRate?: number;
 }
 
 export interface UpcomingPaymentDueDto {
@@ -1937,39 +1985,4 @@ export interface VoucherLedgerEntryDto {
   costCenterName?: string | null;
   description?: string | null;
   financeBook?: string | null;
-}
-
-export interface RepostAccountingLedgerDto extends EntityDto<string> {
-  companyId: string;
-  status: number;
-  statusName: string;
-  errorLog?: string | null;
-  creationTime: string;
-  vouchers: RepostAccountingLedgerVoucherDto[];
-}
-
-export interface RepostAccountingLedgerVoucherDto extends EntityDto<string> {
-  voucherType: string;
-  voucherId: string;
-  voucherNumber: string;
-  status: number;
-  statusName: string;
-  errorMessage?: string | null;
-}
-
-export interface CreateRepostAccountingLedgerDto {
-  companyId: string;
-  vouchers: RepostAccountingLedgerVoucherInputDto[];
-}
-
-export interface RepostAccountingLedgerVoucherInputDto {
-  voucherType: string;
-  voucherId: string;
-}
-
-export interface RepostableVoucherDto {
-  voucherType: string;
-  voucherId: string;
-  voucherNumber: string;
-  postingDate: string;
 }

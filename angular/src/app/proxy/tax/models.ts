@@ -61,6 +61,17 @@ export interface CreateTaxWithholdingRateDto {
   group?: string | null;
 }
 
+export interface CreateUpdateLowerDeductionCertificateDto {
+  companyId: string;
+  supplierId: string;
+  taxWithholdingCategoryId: string;
+  certificateNumber: string;
+  rate?: number;
+  certificateLimit?: number;
+  validFrom: string;
+  validUpto: string;
+}
+
 export interface CreateUpdateTaxCategoryDto {
   code: string;
   name: string;
@@ -89,6 +100,11 @@ export interface DefaultTaxLineDto {
   taxCategoryCode?: string | null;
 }
 
+export interface GetLowerDeductionCertificateListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  supplierId?: string | null;
+}
+
 export interface GetTaxTemplateListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   templateType?: TaxTemplateType | null;
@@ -107,6 +123,19 @@ export interface ItemTaxTemplateDto extends EntityDto<string> {
   title?: string;
   isDisabled?: boolean;
   details?: ItemTaxTemplateDetailDto[];
+}
+
+export interface LowerDeductionCertificateDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  supplierId?: string;
+  supplierName?: string | null;
+  taxWithholdingCategoryId?: string;
+  taxWithholdingCategoryName?: string | null;
+  certificateNumber?: string;
+  rate?: number;
+  certificateLimit?: number;
+  validFrom?: string;
+  validUpto?: string;
 }
 
 export interface Sst02FilingDataDto {
@@ -247,33 +276,4 @@ export interface UpdateItemTaxTemplateDto {
 }
 
 export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
-}
-
-export interface LowerDeductionCertificateDto extends FullAuditedEntityDto<string> {
-  companyId: string;
-  supplierId: string;
-  supplierName?: string | null;
-  taxWithholdingCategoryId: string;
-  taxWithholdingCategoryName?: string | null;
-  certificateNumber: string;
-  rate: number;
-  certificateLimit: number;
-  validFrom: string;
-  validUpto: string;
-}
-
-export interface CreateUpdateLowerDeductionCertificateDto {
-  companyId: string;
-  supplierId: string;
-  taxWithholdingCategoryId: string;
-  certificateNumber: string;
-  rate: number;
-  certificateLimit: number;
-  validFrom: string;
-  validUpto: string;
-}
-
-export interface GetLowerDeductionCertificateListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string;
-  supplierId?: string;
 }

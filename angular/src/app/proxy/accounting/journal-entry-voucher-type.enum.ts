@@ -19,6 +19,7 @@ export enum JournalEntryVoucherType {
   DeferredExpense = 15,
   Reversal = 16,
   PeriodClosing = 17,
+  PaymentTax = 18,
 }
 
 export const journalEntryVoucherTypeOptions = mapEnumToOptions(JournalEntryVoucherType);

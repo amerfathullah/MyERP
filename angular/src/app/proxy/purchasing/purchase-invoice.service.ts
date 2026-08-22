@@ -19,24 +19,16 @@ export class PurchaseInvoiceService {
       url: `/api/app/purchase-invoice/${id}/amend`,
     },
     { apiName: this.apiName,...config });
+  
 
-
-  block = (id: string, holdComment?: string, releaseDate?: string, config?: Partial<Rest.Config>) =>
+  block = (id: string, holdComment: string, releaseDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
       url: `/api/app/purchase-invoice/${id}/block`,
       params: { holdComment, releaseDate },
     },
     { apiName: this.apiName,...config });
-
-
-  unblock = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PurchaseInvoiceDto>({
-      method: 'POST',
-      url: `/api/app/purchase-invoice/${id}/unblock`,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
@@ -168,6 +160,14 @@ export class PurchaseInvoiceService {
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
       url: `/api/app/purchase-invoice/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  unblock = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/purchase-invoice/${id}/unblock`,
     },
     { apiName: this.apiName,...config });
   

@@ -54,6 +54,14 @@ export class PackingSlipService {
     { apiName: this.apiName,...config });
   
 
+  getNextCaseNo = (deliveryNoteId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, number>({
+      method: 'GET',
+      url: `/api/app/packing-slip/next-case-no/${deliveryNoteId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PackingSlipDto>({
       method: 'POST',

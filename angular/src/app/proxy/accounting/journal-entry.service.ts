@@ -12,6 +12,14 @@ export class JournalEntryService {
   apiName = 'Default';
   
 
+  amend = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JournalEntryDto>({
+      method: 'POST',
+      url: `/api/app/journal-entry/${id}/amend`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryDto>({
       method: 'POST',

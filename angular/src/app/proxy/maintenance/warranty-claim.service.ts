@@ -37,6 +37,15 @@ export class WarrantyClaimService {
     { apiName: this.apiName,...config });
   
 
+  createMaintenanceVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      responseType: 'text',
+      url: `/api/app/warranty-claim/${id}/maintenance-visit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WarrantyClaimDto>({
       method: 'GET',

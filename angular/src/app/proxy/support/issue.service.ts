@@ -1,4 +1,4 @@
-import type { CreateIssueDto, GetIssueListDto, IssueDto, ResolveIssueDto } from './models';
+import type { CreateIssueDto, GetIssueListDto, IssueDto, ResolveIssueDto, SplitIssueDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -65,6 +65,15 @@ export class IssueService {
     this.restService.request<any, IssueDto>({
       method: 'POST',
       url: `/api/app/issue/${id}/resolve`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  split = (id: string, input: SplitIssueDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, IssueDto>({
+      method: 'POST',
+      url: `/api/app/issue/${id}/split`,
       body: input,
     },
     { apiName: this.apiName,...config });

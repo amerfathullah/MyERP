@@ -443,6 +443,8 @@ export interface CreateUpdateItemDto {
   maintainStock?: boolean;
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
+  grantCommission?: boolean;
+  maxDiscount?: number | null;
   isActive?: boolean;
   reorderLevel?: number;
   reorderQty?: number;
@@ -909,6 +911,8 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   maintainStock?: boolean;
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
+  grantCommission?: boolean;
+  maxDiscount?: number | null;
   isActive?: boolean;
   reorderLevel?: number;
   reorderQty?: number;

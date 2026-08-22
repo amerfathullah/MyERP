@@ -12,11 +12,28 @@ export class PaymentEntryService {
   apiName = 'Default';
   
 
+  amend = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentEntryDto>({
+      method: 'POST',
+      url: `/api/app/payment-entry/${id}/amend`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   autoAllocate = (input: AutoAllocateRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoAllocationResultDto>({
       method: 'POST',
       url: '/api/app/payment-entry/auto-allocate',
       body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  bulkPost = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BulkOperationResultDto>({
+      method: 'POST',
+      url: '/api/app/payment-entry/bulk-post',
+      body: ids,
     },
     { apiName: this.apiName,...config });
   
@@ -28,16 +45,7 @@ export class PaymentEntryService {
       body: ids,
     },
     { apiName: this.apiName,...config });
-
-
-  bulkPost = (ids: string[], config?: Partial<Rest.Config>) =>
-    this.restService.request<any, BulkOperationResultDto>({
-      method: 'POST',
-      url: '/api/app/payment-entry/bulk-post',
-      body: ids,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentEntryDto>({

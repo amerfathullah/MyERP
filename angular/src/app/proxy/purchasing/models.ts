@@ -50,11 +50,13 @@ export interface CreatePurchaseInvoiceDto {
   paymentTermsTemplateId?: string | null;
   supplierInvoiceNumber?: string | null;
   currencyCode?: string;
+  priceListId?: string | null;
   notes?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
   isOpening?: boolean;
   isReturn?: boolean;
+  isSubcontracted?: boolean;
   returnAgainstId?: string | null;
   updateStock?: boolean;
   warehouseId?: string | null;
@@ -68,6 +70,13 @@ export interface CreatePurchaseInvoiceItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  enableDeferredExpense?: boolean;
+  deferredExpenseAccountId?: string | null;
+  serviceStartDate?: string | null;
+  serviceEndDate?: string | null;
+  serviceStopDate?: string | null;
+  purchaseOrderItemId?: string | null;
+  purchaseReceiptItemId?: string | null;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -77,6 +86,7 @@ export interface CreatePurchaseOrderDto {
   expectedDeliveryDate?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
+  priceListId?: string | null;
   notes?: string | null;
   items: CreatePurchaseOrderItemDto[];
 }
@@ -281,6 +291,7 @@ export interface CreateUpdateSupplierDto {
   supplierGroupId?: string | null;
   taxWithholdingCategory?: string | null;
   defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
 }
 
@@ -387,6 +398,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   supplierTin?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
+  priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -400,6 +412,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   eInvoiceStatus?: string;
   lhdnUuid?: string | null;
   isReturn?: boolean;
+  isSubcontracted?: boolean;
   returnAgainstId?: string | null;
   amendedFromId?: string | null;
   amendmentIndex?: number;
@@ -407,11 +420,11 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   daysOverdue?: number;
   isOverdue?: boolean;
   matchingStatus?: string | null;
-  isReadyForPayment?: boolean;
-  onHold?: boolean;
   holdComment?: string | null;
   releaseDate?: string | null;
   isBlocked?: boolean;
+  isReadyForPayment?: boolean;
+  onHold?: boolean;
   interCompanyInvoiceId?: string | null;
   interCompanyInvoiceNumber?: string | null;
   interCompanyCompanyName?: string | null;
@@ -429,6 +442,11 @@ export interface PurchaseInvoiceItemDto {
   lineTotal?: number;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  enableDeferredExpense?: boolean;
+  deferredExpenseAccountId?: string | null;
+  serviceStartDate?: string | null;
+  serviceEndDate?: string | null;
+  serviceStopDate?: string | null;
 }
 
 export interface PurchaseInvoiceListSummaryDto {
@@ -447,6 +465,7 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   expectedDeliveryDate?: string | null;
   supplierId?: string;
   supplierName?: string | null;
+  priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
@@ -455,6 +474,7 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   perBilled?: number;
   advancePaid?: number;
   perAdvancePaid?: number;
+  advancePaymentStatus?: string;
   notes?: string | null;
   supplierConfirmationNumber?: string | null;
   supplierConfirmationDate?: string | null;
@@ -520,6 +540,7 @@ export interface PurchaseReceiptItemDto {
   taxAmount?: number;
   lineTotal?: number;
   billedQty?: number;
+  amountDifferenceWithPurchaseInvoice?: number;
   purchaseOrderItemId?: string | null;
 }
 
@@ -739,6 +760,7 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   supplierGroupId?: string | null;
   taxWithholdingCategory?: string | null;
   defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
 }
 

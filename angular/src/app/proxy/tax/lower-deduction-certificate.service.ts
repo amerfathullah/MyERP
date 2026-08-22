@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class LowerDeductionCertificateService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateLowerDeductionCertificateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LowerDeductionCertificateDto>({
@@ -17,24 +17,24 @@ export class LowerDeductionCertificateService {
       url: '/api/app/lower-deduction-certificate',
       body: input,
     },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/lower-deduction-certificate/${id}`,
     },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LowerDeductionCertificateDto>({
       method: 'GET',
       url: `/api/app/lower-deduction-certificate/${id}`,
     },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   getList = (input: GetLowerDeductionCertificateListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LowerDeductionCertificateDto>>({
@@ -42,8 +42,8 @@ export class LowerDeductionCertificateService {
       url: '/api/app/lower-deduction-certificate',
       params: { companyId: input.companyId, supplierId: input.supplierId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreateUpdateLowerDeductionCertificateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LowerDeductionCertificateDto>({
@@ -51,5 +51,5 @@ export class LowerDeductionCertificateService {
       url: `/api/app/lower-deduction-certificate/${id}`,
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

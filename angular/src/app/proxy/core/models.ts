@@ -1,10 +1,10 @@
 import type { EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { ValuationMethod } from '../inventory/valuation-method.enum';
 import type { AuthorizationBasedOn } from './authorization-based-on.enum';
 import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 import type { EmailDigestFrequency } from './email-digest-frequency.enum';
 import type { DocumentStatus } from './document-status.enum';
-import type { ValuationMethod } from '../inventory/valuation-method.enum';
 
 export interface AddressDto extends EntityDto<string> {
   title?: string;
@@ -126,8 +126,11 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultValuationMethod?: ValuationMethod | null;
   overDeliveryReceiptAllowance?: number;
   overBillingAllowance?: number;
+  allowUomWithConversionRateDefinedInItem?: boolean;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
+  defaultInTransitWarehouseId?: string | null;
+  defaultWarehouseForSalesReturnId?: string | null;
   defaultWipWarehouseId?: string | null;
   defaultFgWarehouseId?: string | null;
   defaultScrapWarehouseId?: string | null;
@@ -145,6 +148,9 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultCostCenterId?: string | null;
   roundOffAccountId?: string | null;
   roundOffForOpeningAccountId?: string | null;
+  bookAdvancePaymentsInSeparatePartyAccount?: boolean;
+  defaultAdvanceReceivedAccountId?: string | null;
+  defaultAdvancePaidAccountId?: string | null;
 }
 
 export interface CompanyRestrictionDto {
@@ -316,8 +322,11 @@ export interface CreateUpdateCompanyDto {
   currencyCode: string;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  allowUomWithConversionRateDefinedInItem?: boolean;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
+  defaultInTransitWarehouseId?: string | null;
+  defaultWarehouseForSalesReturnId?: string | null;
   defaultWipWarehouseId?: string | null;
   defaultFgWarehouseId?: string | null;
   defaultScrapWarehouseId?: string | null;
@@ -332,6 +341,9 @@ export interface CreateUpdateCompanyDto {
   defaultCostCenterId?: string | null;
   roundOffAccountId?: string | null;
   roundOffForOpeningAccountId?: string | null;
+  bookAdvancePaymentsInSeparatePartyAccount?: boolean;
+  defaultAdvanceReceivedAccountId?: string | null;
+  defaultAdvancePaidAccountId?: string | null;
 }
 
 export interface CustomerPerformanceDto {
@@ -846,8 +858,10 @@ export interface UpdateCompanySettingsDto {
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;
   defaultValuationMethod?: string | null;
+  enablePerpetualInventory?: boolean;
   overDeliveryAllowance?: number;
   overBillingAllowance?: number;
+  allowUomWithConversionRateDefinedInItem?: boolean;
   defaultReceivableAccountId?: string | null;
   defaultPayableAccountId?: string | null;
   defaultIncomeAccountId?: string | null;
@@ -862,9 +876,14 @@ export interface UpdateCompanySettingsDto {
   roundOffForOpeningAccountId?: string | null;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
+  defaultInTransitWarehouseId?: string | null;
+  defaultWarehouseForSalesReturnId?: string | null;
   defaultWipWarehouseId?: string | null;
   defaultFgWarehouseId?: string | null;
   defaultScrapWarehouseId?: string | null;
+  bookAdvancePaymentsInSeparatePartyAccount?: boolean;
+  defaultAdvanceReceivedAccountId?: string | null;
+  defaultAdvancePaidAccountId?: string | null;
 }
 
 export interface UpdateEmailDigestSettingsDto {

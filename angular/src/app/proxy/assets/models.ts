@@ -96,6 +96,8 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   purchaseAmount?: number;
   additionalCost?: number;
   totalAssetCost?: number;
+  assetQuantity?: number;
+  splitFromAssetId?: string | null;
   purchaseReceiptId?: string | null;
   purchaseInvoiceId?: string | null;
   calculateDepreciation?: boolean;
@@ -110,8 +112,6 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   disposalDate?: string | null;
   disposalAmount?: number | null;
   notes?: string | null;
-  assetQuantity?: number;
-  splitFromAssetId?: string | null;
   schedule?: DepreciationScheduleDto[];
 }
 
@@ -333,6 +333,8 @@ export interface CreateAssetDto {
   purchaseDate: string;
   purchaseAmount?: number;
   additionalCost?: number;
+  purchaseReceiptId?: string | null;
+  purchaseInvoiceId?: string | null;
   calculateDepreciation?: boolean;
   depreciationMethod?: DepreciationMethod;
   usefulLifeMonths?: number;
@@ -340,6 +342,7 @@ export interface CreateAssetDto {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  assetQuantity?: number;
   notes?: string | null;
 }
 

@@ -21,15 +21,6 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
-    this.restService.request<any, BulkOperationResultDto>({
-      method: 'POST',
-      url: '/api/app/sales-invoice/bulk-submit',
-      body: ids,
-    },
-    { apiName: this.apiName,...config });
-
-
   bulkPost = (ids: string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
       method: 'POST',
@@ -37,7 +28,16 @@ export class SalesInvoiceService {
       body: ids,
     },
     { apiName: this.apiName,...config });
+  
 
+  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BulkOperationResultDto>({
+      method: 'POST',
+      url: '/api/app/sales-invoice/bulk-submit',
+      body: ids,
+    },
+    { apiName: this.apiName,...config });
+  
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
