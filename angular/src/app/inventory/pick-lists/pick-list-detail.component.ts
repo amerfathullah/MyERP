@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
-import type { PickListDto } from '../../proxy/inventory/models';
+import type { PickAllocationResultDto, PickListDto } from '../../proxy/inventory/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -30,6 +30,9 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               <a [routerLink]="['/inventory/pick-lists', pickListId, 'edit']" class="btn btn-outline-primary btn-sm">
                 <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
               </a>
+              <button class="btn btn-outline-info btn-sm" [disabled]="checkingAvailability()" (click)="checkAvailability()">
+                <i class="fa fa-boxes-stacked me-1"></i>{{ '::CheckAvailability' | abpLocalization }}
+              </button>
               <button class="btn btn-outline-success btn-sm" (click)="submit()">
                 <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
               </button>
@@ -85,6 +88,42 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </div>
           </div>
         </div>
+
+        <!-- Stock Availability Check Results -->
+        @if (allocationResult(); as ar) {
+          <div class="card shadow-sm mb-3" [class.border-warning]="ar.hasShortage" [class.border-success]="!ar.hasShortage">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="fw-bold">{{ '::CheckAvailability' | abpLocalization }}</span>
+              @if (ar.hasShortage) {
+                <span class="badge bg-warning text-dark"><i class="fa fa-triangle-exclamation me-1"></i>{{ '::StockShortage' | abpLocalization }}</span>
+              } @else {
+                <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::FullyAvailable' | abpLocalization }}</span>
+              }
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::RequestedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AllocatedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ShortageQty' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (a of ar.allocations || []; track $index) {
+                    <tr [class.table-warning]="(a.shortageQty ?? 0) > 0">
+                      <td>{{ itemLabel(a.itemId) }}</td>
+                      <td class="text-end">{{ a.requestedQty | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ a.allocatedQty | number:'1.2-2' }}</td>
+                      <td class="text-end" [class.text-danger]="(a.shortageQty ?? 0) > 0">{{ a.shortageQty | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
 
         <!-- Barcode Scan Mode (for Submitted pick lists with pending items) -->
         @if (pickList()!.status === 1 && !pickList()!.isFullyTransferred) {
@@ -192,6 +231,8 @@ export class PickListDetailComponent implements OnInit {
   scanInput = '';
   scanMode = signal(false);
   scannedItems = signal<Set<string>>(new Set());
+  allocationResult = signal<PickAllocationResultDto | null>(null);
+  checkingAvailability = signal(false);
 
   pickedProgress = computed(() => {
     const items = this.pickList()?.items ?? [];
@@ -221,6 +262,24 @@ export class PickListDetailComponent implements OnInit {
       next: () => { this.toaster.success(this.l('::SuccessfullySubmitted')); this.loadData(); },
       error: () => {},
     });
+  }
+
+  checkAvailability() {
+    this.checkingAvailability.set(true);
+    this.service.allocateStock(this.pickListId).subscribe({
+      next: (result) => {
+        this.allocationResult.set(result);
+        this.checkingAvailability.set(false);
+        if (result.hasShortage) this.toaster.warn(this.l('::StockShortage'));
+        else this.toaster.success(this.l('::FullyAvailable'));
+      },
+      error: () => this.checkingAvailability.set(false),
+    });
+  }
+
+  itemLabel(itemId: string | undefined): string {
+    const item = (this.pickList()?.items ?? []).find(i => i.itemId === itemId);
+    return item?.itemName || itemId || '—';
   }
 
   createDeliveryNote() {
