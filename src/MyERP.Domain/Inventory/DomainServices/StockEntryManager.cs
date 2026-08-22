@@ -36,7 +36,8 @@ public class StockEntryManager : DomainService
         {
             var isTransfer = entry.EntryType is StockEntryType.MaterialTransfer
                 or StockEntryType.MaterialTransferForManufacture
-                or StockEntryType.SendToWarehouse;
+                or StockEntryType.SendToWarehouse
+                or StockEntryType.SendToSubcontractor;
 
             if (isTransfer)
             {

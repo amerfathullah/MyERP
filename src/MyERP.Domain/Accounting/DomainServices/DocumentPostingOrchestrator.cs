@@ -353,9 +353,9 @@ public class DocumentPostingOrchestrator : DomainService
     /// unconditionally, with no purpose/condition field) — same shape of mismatch the 75th
     /// session's Payment Entry fix addressed, just with more distinct shapes here.
     ///
-    /// Handles Material Receipt/Issue/Transfer, Manufacture, Disassemble, and Repack (see
-    /// BuildStockToStockLinesAsync's Repack remarks). Every remaining StockEntryType
-    /// (Send/Receive to Subcontractor, Material Consumption For Manufacture, Adjustment) throws a
+    /// Handles Material Receipt/Issue/Transfer, Manufacture, Disassemble, Repack, and
+    /// SendToSubcontractor (see the case group's remarks below). Every remaining StockEntryType
+    /// (Material Consumption For Manufacture, Subcontracting Delivery/Return, Adjustment) throws a
     /// clear, explicit error rather than guessing at GL treatment — same "throws" outcome they
     /// always had (zero rules = always threw), just with an honest reason now instead of a generic
     /// "no rules configured".
@@ -402,14 +402,22 @@ public class DocumentPostingOrchestrator : DomainService
                 case StockEntryType.MaterialTransfer:
                 case StockEntryType.MaterialTransferForManufacture:
                 case StockEntryType.SendToWarehouse:
+                case StockEntryType.SendToSubcontractor:
                 case StockEntryType.Manufacture:
                 case StockEntryType.Disassemble:
                 case StockEntryType.Repack:
                     // Per StockEntryManager.ValidateWarehousesAsync's own "isTransfer" bucket:
-                    // MaterialTransferForManufacture and SendToWarehouse require both a source and
-                    // target warehouse on every item exactly like MaterialTransfer — structurally
-                    // and economically the same "no P&L impact" stock-to-stock movement, just to a
-                    // WIP or transit warehouse instead of an arbitrary one.
+                    // MaterialTransferForManufacture, SendToWarehouse, and (as of this session)
+                    // SendToSubcontractor all require both a source and target warehouse on every
+                    // item exactly like MaterialTransfer — structurally and economically the same
+                    // "no P&L impact" stock-to-stock movement, just to a WIP, transit, or supplier
+                    // warehouse instead of an arbitrary one. SendToSubcontractor's target
+                    // (SubcontractingOrder.SupplierWarehouseId) is a plain Warehouse row like any
+                    // other — WarehouseAccountService's 5-level resolution chain (direct mapping ->
+                    // warehouse's own DefaultAccountId -> parent chain -> company default) doesn't
+                    // care that it happens to represent supplier-held stock, so no bespoke
+                    // "supplier-owned-inventory" account plumbing was needed, contrary to what the
+                    // 76th session assumed without reading CreateRmTransferStockEntryAsync.
                     //
                     // Repack: per StockPostingService, each item row posts an SLE off its OWN
                     // SourceWarehouseId/TargetWarehouseId independently (same mechanism Manufacture

@@ -229,6 +229,61 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         journal.TotalDebit.ShouldBe(journal.TotalCredit);
     }
 
+    [Fact]
+    public async Task SendToSubcontractor_SameTreatmentAsMaterialTransfer()
+    {
+        // SendToSubcontractor moves RM from own warehouse to the SCO's supplier warehouse — a
+        // plain Warehouse row, resolved by WarehouseAccountService like any other. Same
+        // stock-to-stock, no-P&L-impact GL treatment as MaterialTransfer applies.
+        var (company, item, sourceWarehouse, supplierWarehouse) = await SeedCommonAsync("STS");
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 4m,
+            balanceQuantity: 10m, balanceValue: 40m), autoSave: true);
+
+        var sendEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.SendToSubcontractor,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 6m, SourceWarehouseId = sourceWarehouse, TargetWarehouseId = supplierWarehouse, ValuationRate = 4m } },
+        });
+        await stockEntryAppService.SubmitAsync(sendEntry.Id);
+        await stockEntryAppService.PostAsync(sendEntry.Id);
+
+        var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var journal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == sendEntry.Id);
+
+        journal.Lines.Count.ShouldBe(2);
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 24m); // 6 x 4
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && !l.IsDebit && l.Amount == 24m);
+        journal.TotalDebit.ShouldBe(journal.TotalCredit);
+    }
+
+    [Fact]
+    public async Task SendToSubcontractor_MissingTargetWarehouse_Throws()
+    {
+        // Regression guard for this session's ValidateWarehousesAsync fix: SendToSubcontractor now
+        // requires both warehouses like MaterialTransfer, closing the gap where a manually-authored
+        // entry (unlike CreateRmTransferStockEntryAsync's own always-both-warehouses path) could
+        // previously be created with only a source warehouse.
+        var (company, item, sourceWarehouse, _) = await SeedCommonAsync("STSMISS");
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() => stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.SendToSubcontractor,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 6m, SourceWarehouseId = sourceWarehouse } },
+        }));
+    }
+
     private async Task<(Company Company, Item Item, Guid SourceWarehouse, Guid? TargetWarehouse)> SeedCommonAsync(string suffix)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
