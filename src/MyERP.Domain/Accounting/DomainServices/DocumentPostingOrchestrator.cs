@@ -399,6 +399,23 @@ public class DocumentPostingOrchestrator : DomainService
                     await BuildIssueOrReceiptLinesAsync(journal, company, sles, isIssue: false);
                     break;
 
+                case StockEntryType.MaterialConsumptionForManufacture:
+                    // Structurally identical to Material Issue (source-only SLEs, single "other
+                    // side" account) but the RM hasn't left the company for good — it's been
+                    // reclassified into work-in-process ahead of the Manufacture entry that
+                    // completes the FG, so the offsetting debit is DefaultWipAccountId (an ASSET),
+                    // never DefaultExpenseAccountId. See ManufacturingAppService.RecordProductionAsync
+                    // and CreateManufactureStockEntryAsync's GetPriorMaterialConsumptionValueAsync
+                    // calls for the other half of this: folding this value back into the FG's cost
+                    // once it's produced. NOTE: the later Manufacture entry's own GL still credits
+                    // this pre-consumed value to Stock Adjustment (via BuildStockToStockLinesAsync's
+                    // generic residual plug), not back to WIP — so WIP accumulates rather than
+                    // clearing to zero on FG completion. Deliberately left unresolved this session
+                    // (would require Manufacture's builder to know about linked prior consumption
+                    // entries); flagged for a dedicated follow-up.
+                    await BuildMaterialConsumptionLinesAsync(journal, company, sles);
+                    break;
+
                 case StockEntryType.MaterialTransfer:
                 case StockEntryType.MaterialTransferForManufacture:
                 case StockEntryType.SendToWarehouse:
@@ -455,23 +472,44 @@ public class DocumentPostingOrchestrator : DomainService
     private async Task BuildIssueOrReceiptLinesAsync(
         JournalEntry journal, Company company, List<StockLedgerEntry> sles, bool isIssue)
     {
+        var otherAccountId = isIssue ? company.DefaultExpenseAccountId : company.DefaultStockAdjustmentAccountId;
+        var reason = isIssue
+            ? "No expense account configured. Set Default Expense Account in Company settings."
+            : "No stock adjustment account configured. Set Default Stock Adjustment Account in Company settings.";
+        await BuildSingleSidedStockLinesAsync(journal, company, sles, isStockOut: isIssue, otherAccountId, reason);
+    }
+
+    /// <summary>Material Consumption For Manufacture: DR WIP (total), CR Stock(warehouse) per SLE —
+    /// same source-only stock-out mechanics as Material Issue, but the RM hasn't left the company
+    /// for good. It's been reclassified into work-in-process ahead of the Manufacture entry that
+    /// completes the FG, so the offsetting debit is an ASSET account, never Expense.</summary>
+    private async Task BuildMaterialConsumptionLinesAsync(
+        JournalEntry journal, Company company, List<StockLedgerEntry> sles)
+    {
+        await BuildSingleSidedStockLinesAsync(journal, company, sles, isStockOut: true, company.DefaultWipAccountId,
+            "No WIP account configured. Set Default WIP Account in Company settings.");
+    }
+
+    /// <summary>Shared "one other account, N per-warehouse stock lines" shape used by both the
+    /// Issue/Receipt builder and the Material Consumption builder above.</summary>
+    private async Task BuildSingleSidedStockLinesAsync(
+        JournalEntry journal, Company company, List<StockLedgerEntry> sles,
+        bool isStockOut, Guid? otherAccountId, string missingAccountReason)
+    {
         var total = sles.Sum(s => Math.Abs(s.StockValue));
         if (total <= 0) return;
 
-        var otherAccountId = isIssue ? company.DefaultExpenseAccountId : company.DefaultStockAdjustmentAccountId;
         if (!otherAccountId.HasValue)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
-                .WithData("reason", isIssue
-                    ? "No expense account configured. Set Default Expense Account in Company settings."
-                    : "No stock adjustment account configured. Set Default Stock Adjustment Account in Company settings.");
+                .WithData("reason", missingAccountReason);
         }
-        journal.AddLine(otherAccountId.Value, total, isDebit: isIssue);
+        journal.AddLine(otherAccountId.Value, total, isDebit: isStockOut);
 
         foreach (var sle in sles)
         {
             var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(sle.WarehouseId, company.Id);
-            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: !isIssue);
+            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: !isStockOut);
         }
     }
 

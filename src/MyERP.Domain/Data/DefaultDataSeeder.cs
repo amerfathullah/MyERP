@@ -319,6 +319,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         company.ExchangeGainLossAccountId = FindByCode("4900")?.Id          // Exchange Gain/Loss
             ?? FindByCode("7100")?.Id;                                        // Fallback: Other Income
         company.DefaultStockAdjustmentAccountId = FindByCode("3900")?.Id;   // Temporary Opening
+        company.DefaultWipAccountId = FindByCode("1145")?.Id;               // Work In Progress
 
         await _companyRepository.UpdateAsync(company, autoSave: true);
     }

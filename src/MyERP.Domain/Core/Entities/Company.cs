@@ -81,6 +81,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// residual. Per ERPNext: typically the seeded "Temporary Opening" equity account.
     /// </summary>
     public Guid? DefaultStockAdjustmentAccountId { get; set; }
+    /// <summary>
+    /// Asset account holding the value of raw materials recorded as consumed (via a Material
+    /// Consumption for Manufacture stock entry) before the corresponding Manufacture entry
+    /// completes the finished good — a reclassification out of raw material stock, not an expense.
+    /// </summary>
+    public Guid? DefaultWipAccountId { get; set; }
     /// <summary>Default depreciation expense account.</summary>
     public Guid? DepreciationExpenseAccountId { get; set; }
     /// <summary>Default accumulated depreciation account.</summary>

@@ -38,6 +38,7 @@ public class MalaysianCoaSeeder : ITransientDependency
         await CreateAccount(companyId, "1120", "Bank Accounts", AccountType.Asset, AccountSubType.BankAccount, currentAssets.Id, tenantId);
         await CreateAccount(companyId, "1130", "Accounts Receivable", AccountType.Asset, AccountSubType.AccountsReceivable, currentAssets.Id, tenantId);
         await CreateAccount(companyId, "1140", "Inventory", AccountType.Asset, AccountSubType.CurrentAsset, currentAssets.Id, tenantId);
+        await CreateAccount(companyId, "1145", "Work In Progress", AccountType.Asset, AccountSubType.CurrentAsset, currentAssets.Id, tenantId);
         await CreateAccount(companyId, "1150", "Prepaid Expenses", AccountType.Asset, AccountSubType.CurrentAsset, currentAssets.Id, tenantId);
 
         var fixedAssets = await CreateGroup(companyId, "1200", "Fixed Assets", AccountType.Asset, assets.Id, tenantId);

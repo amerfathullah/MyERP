@@ -779,6 +779,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
+        // Fold in the value of RM already recorded as consumed via a prior, separate Material
+        // Consumption entry for this WO — CalculateRawMaterialConsumption's ConsumedQuantity-aware
+        // formula already excludes that RM from consumptionItems above (correctly, so it isn't
+        // physically re-issued), but nothing previously added its VALUE back into the FG's cost,
+        // silently undervaluing every FG produced whenever Material Consumption was used ahead of
+        // recording production (confirmed no test exercised this combination).
+        totalRmCost += await GetPriorMaterialConsumptionValueAsync(wo.Id);
+
         // Receive finished goods (excluding process loss qty — only good items enter stock)
         // When BOM has secondary items with cost allocation: FG gets only its allocated share
         // Per DO-NOT: "Skip FG cost_allocation_per validation (FG + all secondary items MUST total exactly 100%)"
@@ -1273,29 +1281,41 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             Notes = $"Manufacture — WO {wo.WorkOrderNumber}",
         };
 
-        // Add RM consumption items (outgoing from WIP)
+        // Add RM consumption items (outgoing from WIP). Delegates the quantity calc to
+        // WorkOrderProductionService.CalculateRawMaterialConsumption (the same domain method
+        // RecordProductionAsync uses) instead of the old `RequiredQuantity * ratio` formula this
+        // method used to inline — that formula ignored WorkOrderItem.ConsumedQuantity entirely, so
+        // any RM already recorded via a separate Material Consumption entry got re-consumed a
+        // second time here (a real double-consumption bug, not just a valuation nuance — the same
+        // "Consume raw materials twice when material_consumption ON" case CreateMaterialConsumptionAsync's
+        // own doc comment already calls out, just from the other creation path).
         decimal totalRmCost = 0;
-        var ratio = input.FgQuantity / (wo.Quantity > 0 ? wo.Quantity : 1m);
+        var productionService = LazyServiceProvider
+            .LazyGetRequiredService<Manufacturing.Services.WorkOrderProductionService>();
+        var backflushMethod = settings?.BackflushRawMaterialsBasedOn ?? "BOM";
+        var consumptionItems = productionService.CalculateRawMaterialConsumption(wo, input.FgQuantity, backflushMethod);
 
-        foreach (var woItem in wo.RequiredItems)
+        foreach (var rmItem in consumptionItems)
         {
-            var consumeQty = Math.Round(woItem.RequiredQuantity * ratio, 4);
-            if (consumeQty <= 0) continue;
-
-            var sourceWh = wipWarehouseId ?? woItem.SourceWarehouseId;
+            var sourceWh = wipWarehouseId ?? rmItem.SourceWarehouseId;
             if (!sourceWh.HasValue) continue;
 
-            var balance = await _valuationService.GetCurrentBalanceAsync(woItem.ItemId, sourceWh.Value);
+            var balance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, sourceWh.Value);
             var rate = balance.ValuationRate;
-            totalRmCost += consumeQty * rate;
+            totalRmCost += rmItem.Quantity * rate;
 
             entry.AddItem(
-                itemId: woItem.ItemId,
-                quantity: consumeQty,
+                itemId: rmItem.ItemId,
+                quantity: rmItem.Quantity,
                 sourceWarehouseId: sourceWh.Value,
                 targetWarehouseId: null,
                 valuationRate: rate);
         }
+
+        // Fold in RM value already recorded via a prior, separate Material Consumption entry —
+        // CalculateRawMaterialConsumption correctly excludes that RM from consumptionItems above
+        // (so it isn't re-issued), but its value must still land in the FG's cost.
+        totalRmCost += await GetPriorMaterialConsumptionValueAsync(wo.Id);
 
         // Add FG production item (incoming to FG warehouse)
         // FG rate = total RM cost / fg_qty (absorbed costing)
@@ -1329,6 +1349,24 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
         var q = await settingsRepo.GetQueryableAsync();
         return q.FirstOrDefault(s => s.CompanyId == companyId);
+    }
+
+    /// <summary>
+    /// Sums the value of raw materials already recorded as consumed via posted
+    /// MaterialConsumptionForManufacture stock entries for this Work Order. RM consumed this way
+    /// is correctly excluded from re-issue by CalculateRawMaterialConsumption's ConsumedQuantity-aware
+    /// formula, but its cost must still be folded into the FG's valuation — otherwise every FG
+    /// produced after a Material Consumption entry silently drops that portion of its cost.
+    /// </summary>
+    private async Task<decimal> GetPriorMaterialConsumptionValueAsync(Guid workOrderId)
+    {
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var priorEntries = await seRepo.GetListAsync(
+            se => se.WorkOrderId == workOrderId
+                && se.EntryType == StockEntryType.MaterialConsumptionForManufacture
+                && se.Status == Core.DocumentStatus.Posted,
+            includeDetails: true);
+        return priorEntries.SelectMany(se => se.Items).Sum(i => i.Quantity * (i.ValuationRate ?? 0));
     }
 
     /// <summary>
