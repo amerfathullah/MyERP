@@ -51,7 +51,8 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
             ItemId = input.ItemId,
             CustomerId = input.CustomerId,
         };
-        GenerateScheduleDetails(ms);
+        var generator = LazyServiceProvider.LazyGetRequiredService<MyERP.Maintenance.DomainServices.MaintenanceScheduleGenerator>();
+        await generator.GenerateAsync(ms);
         await _scheduleRepo.InsertAsync(ms);
         return ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(ms);
     }
@@ -63,20 +64,6 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
         ms.Submit();
         await _scheduleRepo.UpdateAsync(ms);
         return ObjectMapper.Map<MaintenanceSchedule, MaintenanceScheduleDto>(ms);
-    }
-
-    private void GenerateScheduleDetails(MaintenanceSchedule schedule)
-    {
-        var months = schedule.Periodicity switch
-        {
-            "Monthly" => 1, "Quarterly" => 3, "Half Yearly" => 6, "Yearly" => 12, _ => 3,
-        };
-        var date = schedule.StartDate;
-        while (date <= schedule.EndDate)
-        {
-            schedule.AddDetail(new MaintenanceScheduleDetail(Guid.NewGuid(), schedule.Id, date));
-            date = date.AddMonths(months);
-        }
     }
 
     // --- Maintenance Visit CRUD ---

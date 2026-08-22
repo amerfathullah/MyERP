@@ -111,44 +111,9 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
     public async Task<MaintenanceScheduleDto> GenerateScheduleAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
-        entity.ClearDetails();
 
-        // Generate evenly-spaced visit dates per ERPNext algorithm with holiday awareness (gotcha #850)
-        var dateDiff = (entity.EndDate - entity.StartDate).Days;
-        var daysInPeriod = GetDaysInPeriod(entity.Periodicity);
-        var noOfVisits = daysInPeriod > 0 ? Math.Max(1, dateDiff / daysInPeriod) : 1;
-        var interval = dateDiff > 0 ? Math.Max(1, dateDiff / noOfVisits) : 0;
-
-        var holidayListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.HolidayList, Guid>>();
-        var holidayLists = await holidayListRepo.GetListAsync(h => h.CompanyId == entity.CompanyId, includeDetails: true);
-
-        for (int i = 0; i < noOfVisits; i++)
-        {
-            // Per ERPNext create_schedule_list: advance BEFORE recording — visit 1 is
-            // start_date + interval, never the bare start date itself.
-            var scheduledDate = entity.StartDate.AddDays((i + 1) * interval);
-            if (scheduledDate > entity.EndDate)
-                scheduledDate = entity.EndDate;
-
-            var holidayList = holidayLists.FirstOrDefault(h => h.Year == scheduledDate.Year)
-                ?? holidayLists.FirstOrDefault(h => h.IsDefault);
-
-            if (holidayList != null)
-            {
-                // Per ERPNext validate_schedule_date_for_holiday_list: shift BACKWARD off a
-                // holiday, capped at holidays.Count iterations, never before the schedule start.
-                var maxIterations = holidayList.Holidays.Count;
-                for (int iter = 0; iter < maxIterations && holidayList.IsHoliday(scheduledDate); iter++)
-                {
-                    scheduledDate = scheduledDate.AddDays(-1);
-                    if (scheduledDate <= entity.StartDate)
-                        break;
-                }
-            }
-
-            entity.AddDetail(new MaintenanceScheduleDetail(
-                GuidGenerator.Create(), entity.Id, scheduledDate));
-        }
+        var generator = LazyServiceProvider.LazyGetRequiredService<MyERP.Maintenance.DomainServices.MaintenanceScheduleGenerator>();
+        var noOfVisits = await generator.GenerateAsync(entity);
 
         await _repository.UpdateAsync(entity, autoSave: true);
 
@@ -195,18 +160,6 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
 
         return MapToDto(entity);
     }
-
-    private static int GetDaysInPeriod(string periodicity) => periodicity switch
-    {
-        "Weekly" => 7,
-        "Monthly" => 30,
-        "Quarterly" => 91,
-        "HalfYearly" or "Half Yearly" => 182,
-        "Yearly" => 365,
-        "TwoYearly" => 730,
-        "ThreeYearly" => 1095,
-        _ => 30
-    };
 
     private static MaintenanceScheduleDto MapToDto(MaintenanceSchedule entity) => new()
     {
