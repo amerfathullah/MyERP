@@ -217,6 +217,7 @@ public partial class WorkstationTypeMapper : MapperBase<Manufacturing.Entities.W
 {
     public override partial Manufacturing.WorkstationTypeDto Map(Manufacturing.Entities.WorkstationType source);
     public override partial void Map(Manufacturing.Entities.WorkstationType source, Manufacturing.WorkstationTypeDto destination);
+    [MapProperty(nameof(Manufacturing.Entities.WorkstationTypeCost.OperatingComponent), nameof(Manufacturing.WorkstationTypeCostDto.Component))]
     private partial Manufacturing.WorkstationTypeCostDto MapChild(Manufacturing.Entities.WorkstationTypeCost source);
 }
 
