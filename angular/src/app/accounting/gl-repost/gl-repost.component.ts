@@ -58,6 +58,58 @@ interface RepostResultDto {
         </div>
       </div>
 
+      <!-- Batch Repost -->
+      <div class="card mb-3">
+        <div class="card-header">
+          <h6 class="mb-0">{{ 'RepostBatch' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ 'VoucherType' | abpLocalization }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="batchVoucherType">
+                @for (t of allowedTypes(); track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">{{ 'VoucherId' | abpLocalization }}</label>
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="batchVoucherId"
+                     [placeholder]="'::Placeholder:EnterDocumentId' | abpLocalization">
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-outline-primary btn-sm w-100" (click)="addToBatch()" [disabled]="!batchVoucherId">
+                <i class="fas fa-plus me-1"></i> {{ 'Add' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+
+          @if (batchVouchers().length > 0) {
+            <table class="table table-sm mb-3">
+              <thead><tr><th>{{ 'VoucherType' | abpLocalization }}</th><th>{{ 'VoucherId' | abpLocalization }}</th><th></th></tr></thead>
+              <tbody>
+                @for (v of batchVouchers(); track $index; let i = $index) {
+                  <tr>
+                    <td>{{ v.voucherType }}</td>
+                    <td>{{ v.voucherId }}</td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-danger" (click)="removeFromBatch(i)">
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+
+          <button class="btn btn-warning btn-sm" (click)="repostBatch()" [disabled]="isProcessing() || batchVouchers().length === 0">
+            <i class="fas fa-rotate me-1"></i> {{ 'RepostBatch' | abpLocalization }} ({{ batchVouchers().length }})
+          </button>
+        </div>
+      </div>
+
       <!-- Result Display -->
       @if (lastResult()) {
         <div class="card mb-3" [class.border-success]="!lastResult()!.hasErrors" [class.border-danger]="lastResult()!.hasErrors">
@@ -125,6 +177,10 @@ export class GlRepostComponent {
   voucherType = 'SalesInvoice';
   voucherId = '';
 
+  batchVoucherType = 'SalesInvoice';
+  batchVoucherId = '';
+  batchVouchers = signal<{ voucherType: string; voucherId: string }[]>([]);
+
   constructor() {
     this.loadAllowedTypes();
   }
@@ -153,6 +209,39 @@ export class GlRepostComponent {
       next: result => {
         this.lastResult.set(result as any);
         this.isProcessing.set(false);
+        if (result.successCount > 0) {
+          this.toaster.success('::SuccessfullyReposted');
+        } else if (result.skippedCount > 0) {
+          this.toaster.warn(this.localization.instant('::RepostSkipped'), this.localization.instant('::Skipped'));
+        }
+      },
+      error: () => this.isProcessing.set(false)
+    });
+  }
+
+  addToBatch(): void {
+    if (!this.batchVoucherId) return;
+    this.batchVouchers.update(list => [...list, { voucherType: this.batchVoucherType, voucherId: this.batchVoucherId }]);
+    this.batchVoucherId = '';
+  }
+
+  removeFromBatch(index: number): void {
+    this.batchVouchers.update(list => list.filter((_, i) => i !== index));
+  }
+
+  repostBatch(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (!cid || this.batchVouchers().length === 0) return;
+
+    this.isProcessing.set(true);
+    this.glRepostService.repostBatch({
+      companyId: cid,
+      vouchers: this.batchVouchers(),
+    } as any).subscribe({
+      next: result => {
+        this.lastResult.set(result as any);
+        this.isProcessing.set(false);
+        this.batchVouchers.set([]);
         if (result.successCount > 0) {
           this.toaster.success('::SuccessfullyReposted');
         } else if (result.skippedCount > 0) {
