@@ -860,15 +860,19 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
         await seRepo.InsertAsync(entry, autoSave: true);
 
-        // Notify production managers when WO completes
-        if (wo.Status == WorkOrderStatus.Completed)
+        // Notify the user who recorded production when the WO completes. Was previously created
+        // with UserId = Guid.Empty (no real user ever matches that), so the notification was
+        // created but permanently invisible — matches CurrentUser.Id being the notification target
+        // for the other interactive BusinessNotificationService calls in this codebase (auto-reorder,
+        // credit limit warning, payment received).
+        if (wo.Status == WorkOrderStatus.Completed && CurrentUser.Id.HasValue)
         {
             try
             {
                 var notificationService = LazyServiceProvider
                     .LazyGetRequiredService<Notification.DomainServices.BusinessNotificationService>();
                 await notificationService.NotifyWorkOrderCompletedAsync(
-                    wo.CompanyId, wo.WorkOrderNumber, wo.ProducedQuantity, wo.TenantId);
+                    CurrentUser.Id.Value, wo.WorkOrderNumber, wo.ProducedQuantity, wo.TenantId);
             }
             catch (Exception ex)
             {

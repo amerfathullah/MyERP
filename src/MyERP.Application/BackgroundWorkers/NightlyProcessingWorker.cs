@@ -153,7 +153,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
-                    UserId = Guid.Empty, // Resolved at job execution time
                 });
 
                 // Enqueue Purchase Order overdue delivery alert
@@ -163,7 +162,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
-                    UserId = Guid.Empty,
                 });
 
                 // Enqueue batch expiry alerts (proactive notification for expiring stock)
@@ -184,7 +182,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                     AsOfDate = DateTime.UtcNow.Date,
-                    UserId = Guid.Empty,
                 });
 
                 // Enqueue opportunity auto-close (inactivity cleanup)

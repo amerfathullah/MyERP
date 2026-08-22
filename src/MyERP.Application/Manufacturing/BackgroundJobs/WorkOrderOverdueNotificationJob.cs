@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using MyERP.Notification.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Identity;
 
 namespace MyERP.Manufacturing.BackgroundJobs;
 
@@ -23,15 +25,18 @@ public class WorkOrderOverdueNotificationJob : AsyncBackgroundJob<WorkOrderOverd
 {
     private readonly IRepository<WorkOrder, Guid> _workOrderRepository;
     private readonly IRepository<AppNotification, Guid> _notificationRepository;
+    private readonly IIdentityUserRepository _userRepository;
     private readonly ILogger<WorkOrderOverdueNotificationJob> _logger;
 
     public WorkOrderOverdueNotificationJob(
         IRepository<WorkOrder, Guid> workOrderRepository,
         IRepository<AppNotification, Guid> notificationRepository,
+        IIdentityUserRepository userRepository,
         ILogger<WorkOrderOverdueNotificationJob> logger)
     {
         _workOrderRepository = workOrderRepository;
         _notificationRepository = notificationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -79,21 +84,38 @@ public class WorkOrderOverdueNotificationJob : AsyncBackgroundJob<WorkOrderOverd
 
         var message = $"{overdueOrders.Count} overdue Work Order(s) ({criticalCount} critical, {warningCount} warning). Top: {string.Join("; ", details)}";
 
-        var notification = new AppNotification(
-            Guid.NewGuid(),
-            args.UserId,
-            message,
-            args.TenantId)
+        var targetUserIds = await ResolveRecipientsAsync();
+        if (targetUserIds.Count == 0)
         {
-            Severity = severity,
-            SourceDocumentType = "WorkOrder"
-        };
+            _logger.LogWarning("WorkOrderOverdueNotificationJob: No notification recipients found for company {CompanyId}", args.CompanyId);
+            return;
+        }
 
-        await _notificationRepository.InsertAsync(notification);
+        foreach (var userId in targetUserIds)
+        {
+            await _notificationRepository.InsertAsync(new AppNotification(
+                Guid.NewGuid(), userId, message, args.TenantId)
+            {
+                Severity = severity,
+                SourceDocumentType = "WorkOrder"
+            });
+        }
 
         _logger.LogInformation(
-            "WorkOrderOverdueNotificationJob: {Count} overdue WOs found for company {CompanyId} ({Critical} critical)",
-            overdueOrders.Count, args.CompanyId, criticalCount);
+            "WorkOrderOverdueNotificationJob: {Count} overdue WOs found for company {CompanyId} ({Critical} critical), {RecipientCount} recipients notified",
+            overdueOrders.Count, args.CompanyId, criticalCount, targetUserIds.Count);
+    }
+
+    /// <summary>Same convention as BatchExpiryAlertJob.ResolveRecipientsAsync — active users with at
+    /// least one role, capped at 5.</summary>
+    private async Task<List<Guid>> ResolveRecipientsAsync()
+    {
+        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName", includeDetails: true);
+        return users
+            .Where(u => u.IsActive && u.Roles.Any())
+            .Take(5)
+            .Select(u => u.Id)
+            .ToList();
     }
 }
 
@@ -102,5 +124,4 @@ public class WorkOrderOverdueNotificationJobArgs
     public Guid CompanyId { get; set; }
     public Guid? TenantId { get; set; }
     public DateTime AsOfDate { get; set; }
-    public Guid UserId { get; set; }
 }

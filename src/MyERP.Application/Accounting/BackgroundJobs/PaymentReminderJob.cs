@@ -186,7 +186,11 @@ public class PaymentReminderJob : AsyncBackgroundJob<PaymentReminderJobArgs>, IT
     /// </summary>
     private async Task<List<Guid>> ResolveNotificationRecipientsAsync()
     {
-        var users = await _userRepository.GetListAsync(maxResultCount: 100, sorting: "UserName");
+        // includeDetails is required — IdentityUser.Roles is a lazily-loaded navigation collection
+        // that comes back null (not an empty collection) without it, throwing on roles.Any() below
+        // for every user (confirmed via a real integration test while fixing the identical bug in
+        // 3 other background jobs' copy of this same pattern).
+        var users = await _userRepository.GetListAsync(maxResultCount: 100, sorting: "UserName", includeDetails: true);
         var recipientIds = new HashSet<Guid>();
 
         foreach (var user in users)

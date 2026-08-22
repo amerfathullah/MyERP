@@ -179,7 +179,12 @@ public class BatchExpiryAlertJob : AsyncBackgroundJob<BatchExpiryAlertJobArgs>, 
 
     private async Task<List<Guid>> ResolveRecipientsAsync()
     {
-        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName");
+        // includeDetails is required — IdentityUser.Roles is a lazily-loaded navigation collection
+        // that comes back null (not an empty collection) without it, throwing on .Roles.Any() below
+        // for every user. Confirmed via a real integration test while fixing the same bug freshly
+        // copied into 3 other background jobs (WorkOrderOverdueNotificationJob et al.) — this
+        // original method had never actually been exercised end-to-end before that.
+        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName", includeDetails: true);
         return users
             .Where(u => u.IsActive && u.Roles.Any())
             .Take(5)

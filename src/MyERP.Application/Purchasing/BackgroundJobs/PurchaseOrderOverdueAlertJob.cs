@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ using MyERP.Purchasing.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Identity;
 
 namespace MyERP.Purchasing.BackgroundJobs;
 
@@ -24,15 +26,18 @@ public class PurchaseOrderOverdueAlertJob : AsyncBackgroundJob<PurchaseOrderOver
 {
     private readonly IRepository<PurchaseOrder, Guid> _purchaseOrderRepository;
     private readonly IRepository<AppNotification, Guid> _notificationRepository;
+    private readonly IIdentityUserRepository _userRepository;
     private readonly ILogger<PurchaseOrderOverdueAlertJob> _logger;
 
     public PurchaseOrderOverdueAlertJob(
         IRepository<PurchaseOrder, Guid> purchaseOrderRepository,
         IRepository<AppNotification, Guid> notificationRepository,
+        IIdentityUserRepository userRepository,
         ILogger<PurchaseOrderOverdueAlertJob> logger)
     {
         _purchaseOrderRepository = purchaseOrderRepository;
         _notificationRepository = notificationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -80,21 +85,38 @@ public class PurchaseOrderOverdueAlertJob : AsyncBackgroundJob<PurchaseOrderOver
 
         var message = $"{overdueOrders.Count} overdue Purchase Order(s) ({criticalCount} critical, {warningCount} warning), total value {totalValue:N2}. Top: {string.Join("; ", details)}";
 
-        var notification = new AppNotification(
-            Guid.NewGuid(),
-            args.UserId,
-            message,
-            args.TenantId)
+        var targetUserIds = await ResolveRecipientsAsync();
+        if (targetUserIds.Count == 0)
         {
-            Severity = severity,
-            SourceDocumentType = "PurchaseOrder"
-        };
+            _logger.LogWarning("PurchaseOrderOverdueAlertJob: No notification recipients found for company {CompanyId}", args.CompanyId);
+            return;
+        }
 
-        await _notificationRepository.InsertAsync(notification);
+        foreach (var userId in targetUserIds)
+        {
+            await _notificationRepository.InsertAsync(new AppNotification(
+                Guid.NewGuid(), userId, message, args.TenantId)
+            {
+                Severity = severity,
+                SourceDocumentType = "PurchaseOrder"
+            });
+        }
 
         _logger.LogInformation(
-            "PurchaseOrderOverdueAlertJob: {Count} overdue POs for company {CompanyId} ({Critical} critical, value {Value:N2})",
-            overdueOrders.Count, args.CompanyId, criticalCount, totalValue);
+            "PurchaseOrderOverdueAlertJob: {Count} overdue POs for company {CompanyId} ({Critical} critical, value {Value:N2}), {RecipientCount} recipients notified",
+            overdueOrders.Count, args.CompanyId, criticalCount, totalValue, targetUserIds.Count);
+    }
+
+    /// <summary>Same convention as BatchExpiryAlertJob.ResolveRecipientsAsync — active users with at
+    /// least one role, capped at 5.</summary>
+    private async Task<List<Guid>> ResolveRecipientsAsync()
+    {
+        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName", includeDetails: true);
+        return users
+            .Where(u => u.IsActive && u.Roles.Any())
+            .Take(5)
+            .Select(u => u.Id)
+            .ToList();
     }
 }
 
@@ -103,5 +125,4 @@ public class PurchaseOrderOverdueAlertJobArgs
     public Guid CompanyId { get; set; }
     public Guid? TenantId { get; set; }
     public DateTime AsOfDate { get; set; }
-    public Guid UserId { get; set; }
 }

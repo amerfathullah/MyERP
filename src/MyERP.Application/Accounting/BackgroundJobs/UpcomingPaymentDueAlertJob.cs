@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ using MyERP.Sales.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Identity;
 
 namespace MyERP.Accounting.BackgroundJobs;
 
@@ -25,17 +27,20 @@ public class UpcomingPaymentDueAlertJob : AsyncBackgroundJob<UpcomingPaymentDueA
     private readonly IRepository<PurchaseInvoice, Guid> _piRepository;
     private readonly IRepository<SalesInvoice, Guid> _siRepository;
     private readonly IRepository<AppNotification, Guid> _notificationRepository;
+    private readonly IIdentityUserRepository _userRepository;
     private readonly ILogger<UpcomingPaymentDueAlertJob> _logger;
 
     public UpcomingPaymentDueAlertJob(
         IRepository<PurchaseInvoice, Guid> piRepository,
         IRepository<SalesInvoice, Guid> siRepository,
         IRepository<AppNotification, Guid> notificationRepository,
+        IIdentityUserRepository userRepository,
         ILogger<UpcomingPaymentDueAlertJob> logger)
     {
         _piRepository = piRepository;
         _siRepository = siRepository;
         _notificationRepository = notificationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -95,6 +100,13 @@ public class UpcomingPaymentDueAlertJob : AsyncBackgroundJob<UpcomingPaymentDueA
             return;
         }
 
+        var targetUserIds = await ResolveRecipientsAsync();
+        if (targetUserIds.Count == 0)
+        {
+            _logger.LogWarning("UpcomingPaymentDueAlertJob: No notification recipients found for company {CompanyId}", args.CompanyId);
+            return;
+        }
+
         // Create payables notification (AP team)
         if (upcomingPayables.Count > 0)
         {
@@ -108,17 +120,15 @@ public class UpcomingPaymentDueAlertJob : AsyncBackgroundJob<UpcomingPaymentDueA
                 $"({urgentPayables} within 3 days), total {totalPayable:N2}. " +
                 $"Top: {string.Join("; ", topPayables)}";
 
-            var payableNotification = new AppNotification(
-                Guid.NewGuid(),
-                args.UserId,
-                payableMessage,
-                args.TenantId)
+            foreach (var userId in targetUserIds)
             {
-                Severity = urgentPayables > 0 ? NotificationSeverity.Warning : NotificationSeverity.Info,
-                SourceDocumentType = "PurchaseInvoice"
-            };
-
-            await _notificationRepository.InsertAsync(payableNotification);
+                await _notificationRepository.InsertAsync(new AppNotification(
+                    Guid.NewGuid(), userId, payableMessage, args.TenantId)
+                {
+                    Severity = urgentPayables > 0 ? NotificationSeverity.Warning : NotificationSeverity.Info,
+                    SourceDocumentType = "PurchaseInvoice"
+                });
+            }
         }
 
         // Create receivables notification (AR team — collection follow-up)
@@ -134,24 +144,35 @@ public class UpcomingPaymentDueAlertJob : AsyncBackgroundJob<UpcomingPaymentDueA
                 $"({urgentReceivables} within 3 days), total {totalReceivable:N2}. " +
                 $"Follow up: {string.Join("; ", topReceivables)}";
 
-            var receivableNotification = new AppNotification(
-                Guid.NewGuid(),
-                args.UserId,
-                receivableMessage,
-                args.TenantId)
+            foreach (var userId in targetUserIds)
             {
-                Severity = NotificationSeverity.Info,
-                SourceDocumentType = "SalesInvoice"
-            };
-
-            await _notificationRepository.InsertAsync(receivableNotification);
+                await _notificationRepository.InsertAsync(new AppNotification(
+                    Guid.NewGuid(), userId, receivableMessage, args.TenantId)
+                {
+                    Severity = NotificationSeverity.Info,
+                    SourceDocumentType = "SalesInvoice"
+                });
+            }
         }
 
         _logger.LogInformation(
-            "UpcomingPaymentDueAlertJob: Company {CompanyId} — {PayableCount} payables ({PayableTotal:N2}), {ReceivableCount} receivables ({ReceivableTotal:N2}) due within 7 days",
+            "UpcomingPaymentDueAlertJob: Company {CompanyId} — {PayableCount} payables ({PayableTotal:N2}), {ReceivableCount} receivables ({ReceivableTotal:N2}) due within 7 days, {RecipientCount} recipients notified",
             args.CompanyId,
             upcomingPayables.Count, upcomingPayables.Sum(p => p.Outstanding),
-            upcomingReceivables.Count, upcomingReceivables.Sum(r => r.Outstanding));
+            upcomingReceivables.Count, upcomingReceivables.Sum(r => r.Outstanding),
+            targetUserIds.Count);
+    }
+
+    /// <summary>Same convention as BatchExpiryAlertJob.ResolveRecipientsAsync — active users with at
+    /// least one role, capped at 5.</summary>
+    private async Task<List<Guid>> ResolveRecipientsAsync()
+    {
+        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName", includeDetails: true);
+        return users
+            .Where(u => u.IsActive && u.Roles.Any())
+            .Take(5)
+            .Select(u => u.Id)
+            .ToList();
     }
 }
 
@@ -160,5 +181,4 @@ public class UpcomingPaymentDueAlertJobArgs
     public Guid CompanyId { get; set; }
     public Guid? TenantId { get; set; }
     public DateTime AsOfDate { get; set; }
-    public Guid UserId { get; set; }
 }

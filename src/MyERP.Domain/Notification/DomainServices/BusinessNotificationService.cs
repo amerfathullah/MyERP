@@ -131,13 +131,13 @@ public class BusinessNotificationService : DomainService
     };
 
     /// <summary>
-    /// Notify production managers when a Work Order completes production.
+    /// Notify the user who recorded production that a Work Order completed.
     /// Per ERPNext: WO auto-transitions to Completed when ProducedQuantity >= Quantity.
     /// </summary>
-    public async Task NotifyWorkOrderCompletedAsync(Guid companyId, string workOrderNumber, decimal producedQty, Guid? tenantId = null)
+    public async Task NotifyWorkOrderCompletedAsync(Guid userId, string workOrderNumber, decimal producedQty, Guid? tenantId = null)
     {
         var notification = new AppNotification(
-            _guidGenerator.Create(), Guid.Empty, $"Production Complete: {workOrderNumber}", tenantId)
+            _guidGenerator.Create(), userId, $"Production Complete: {workOrderNumber}", tenantId)
         {
             Body = $"Work Order {workOrderNumber} has completed production ({producedQty:N0} units produced).",
             Severity = NotificationSeverity.Success,
