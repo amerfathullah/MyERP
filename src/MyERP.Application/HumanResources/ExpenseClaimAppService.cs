@@ -154,6 +154,16 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         var claimManager = LazyServiceProvider.LazyGetRequiredService<ExpenseClaimManager>();
         claimManager.ValidateForReimbursement(ec);
 
+        // Per DO-NOT: "Allow expense claim GL posting without verifying advance linkage
+        // (double-payment risk)" — this method's own doc comment already claimed this check ran,
+        // but ValidateAdvanceLinkage had no caller anywhere until now.
+        if (ec.AdvancePaymentEntryId.HasValue)
+        {
+            var advancePeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentEntry, Guid>>();
+            var advancePe = await advancePeRepo.FindAsync(ec.AdvancePaymentEntryId.Value);
+            claimManager.ValidateAdvanceLinkage(ec, advancePe?.PaidAmount);
+        }
+
         // Calculate reimbursable via domain service (single source of truth)
         var reimbursableAmount = claimManager.CalculateReimbursableAmount(ec);
 
