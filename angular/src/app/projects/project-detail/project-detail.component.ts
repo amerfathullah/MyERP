@@ -8,7 +8,7 @@ import { ProjectService } from '../../proxy/projects/project.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import type { ProjectDto, ProjectTaskDto, ProjectUserDto } from '../../proxy/projects/models';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-project-detail',
@@ -126,11 +126,47 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
       </div>
 
       <!-- Tasks Table -->
-      @if (tasks().length > 0) {
-        <div class="card mb-3">
-          <div class="card-header">
-            <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>{{ '::Tasks' | abpLocalization }}</h6>
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>{{ '::Tasks' | abpLocalization }}</h6>
+          <button class="btn btn-sm btn-outline-primary" (click)="showTaskForm = !showTaskForm">
+            <i class="fas fa-plus me-1"></i>{{ '::NewTask' | abpLocalization }}
+          </button>
+        </div>
+        @if (showTaskForm) {
+          <div class="card-body border-bottom bg-light">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">{{ '::Subject' | abpLocalization }} *</label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="newTask.subject" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::Priority' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="newTask.priority">
+                  <option [ngValue]="0">Low</option>
+                  <option [ngValue]="1">Medium</option>
+                  <option [ngValue]="2">High</option>
+                  <option [ngValue]="3">Urgent</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::StartDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="newTask.expectedStartDate" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::EndDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="newTask.expectedEndDate" />
+              </div>
+              <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" [disabled]="!newTask.subject" (click)="createTask()">
+                  <i class="fas fa-save me-1"></i>{{ '::Save' | abpLocalization }}
+                </button>
+                <button class="btn btn-secondary btn-sm" (click)="showTaskForm = false">{{ '::Cancel' | abpLocalization }}</button>
+              </div>
+            </div>
           </div>
+        }
+        @if (tasks().length > 0) {
           <div class="card-body p-0">
             <div class="table-responsive">
               <table class="table table-hover mb-0">
@@ -141,6 +177,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                     <th>{{ '::Status' | abpLocalization }}</th>
                     <th>{{ '::Priority' | abpLocalization }}</th>
                     <th>{{ '::Progress' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,14 +192,40 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                           <div class="progress-bar bg-info" [style.width.%]="task.progress">{{ task.progress | number:'1.0-0' }}%</div>
                         </div>
                       </td>
+                      <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                          @if (task.status === 0 || task.status === 3) {
+                            <button class="btn btn-outline-primary" title="{{ '::Start' | abpLocalization }}" (click)="startTask(task)">
+                              <i class="fas fa-play"></i>
+                            </button>
+                          }
+                          @if (task.status !== 4 && task.status !== 5) {
+                            <button class="btn btn-outline-success" title="{{ '::Complete' | abpLocalization }}" (click)="completeTask(task)">
+                              <i class="fas fa-check"></i>
+                            </button>
+                          }
+                          @if (task.status !== 4) {
+                            <button class="btn btn-outline-danger" title="{{ '::Cancel' | abpLocalization }}" (click)="cancelTask(task)">
+                              <i class="fas fa-ban"></i>
+                            </button>
+                          }
+                          @if (task.status === 0) {
+                            <button class="btn btn-outline-danger" title="{{ '::Delete' | abpLocalization }}" (click)="deleteTask(task)">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
                     </tr>
                   }
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
-      }
+        } @else if (!showTaskForm) {
+          <div class="card-body text-muted">{{ '::NoData' | abpLocalization }}</div>
+        }
+      </div>
 
       <!-- Team Members -->
       <div class="card mb-3">
@@ -231,11 +294,17 @@ export class ProjectDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private router = inject(Router);
   private service = inject(ProjectService);
+  private toaster = inject(ToasterService);
 
   project = signal<ProjectDto | null>(null);
   tasks = signal<ProjectTaskDto[]>([]);
   loading = signal(true);
   newMemberUserId = '';
+
+  showTaskForm = false;
+  newTask: { subject: string; priority: number; expectedStartDate: string; expectedEndDate: string } = {
+    subject: '', priority: 1, expectedStartDate: '', expectedEndDate: '',
+  };
 
   statusLabel = computed(() => {
     const s = this.project()?.status;
@@ -316,13 +385,72 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   getTaskStatusLabel(status: number): string {
-    const map: Record<number, string> = { 0: 'Open', 1: 'Working', 2: 'Pending Review', 3: 'Completed', 4: 'Cancelled', 5: 'Overdue' };
+    const map: Record<number, string> = { 0: 'Open', 1: 'Working', 2: 'Pending Review', 3: 'Overdue', 4: 'Completed', 5: 'Cancelled' };
     return map[status] ?? 'Unknown';
   }
 
   getTaskStatusBadge(status: number): string {
-    const map: Record<number, string> = { 0: 'bg-primary', 1: 'bg-info', 2: 'bg-warning', 3: 'bg-success', 4: 'bg-secondary', 5: 'bg-danger' };
+    const map: Record<number, string> = { 0: 'bg-primary', 1: 'bg-info', 2: 'bg-warning', 3: 'bg-danger', 4: 'bg-success', 5: 'bg-secondary' };
     return map[status] ?? 'bg-secondary';
+  }
+
+  createTask(): void {
+    const projectId = this.project()?.id;
+    if (!projectId || !this.newTask.subject) return;
+
+    this.service.createTask({
+      projectId,
+      subject: this.newTask.subject,
+      priority: this.newTask.priority as any,
+      expectedStartDate: this.newTask.expectedStartDate || null,
+      expectedEndDate: this.newTask.expectedEndDate || null,
+    }).subscribe({
+      next: () => {
+        this.toaster.success('::TaskCreated');
+        this.showTaskForm = false;
+        this.newTask = { subject: '', priority: 1, expectedStartDate: '', expectedEndDate: '' };
+        this.loadTasks(projectId);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  startTask(task: ProjectTaskDto): void {
+    if (!task.id) return;
+    this.service.startTask(task.id).subscribe({
+      next: () => this.loadTasks(this.project()!.id!),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  completeTask(task: ProjectTaskDto): void {
+    if (!task.id) return;
+    this.service.completeTask(task.id).subscribe({
+      next: () => this.loadTasks(this.project()!.id!),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  cancelTask(task: ProjectTaskDto): void {
+    if (!task.id) return;
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.cancelTask(task.id!).subscribe({
+        next: () => this.loadTasks(this.project()!.id!),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
+  }
+
+  deleteTask(task: ProjectTaskDto): void {
+    if (!task.id) return;
+    this.confirmation.warn('::DeleteTaskConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.deleteTask(task.id!).subscribe({
+        next: () => this.loadTasks(this.project()!.id!),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
   }
 
   getPriorityLabel(priority: number): string {

@@ -300,7 +300,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     {
         var task = await _taskRepository.GetAsync(taskId);
         var projectId = task.ProjectId;
-        await _taskRepository.DeleteAsync(task);
+        await _taskRepository.DeleteAsync(task, autoSave: true);
         await UpdateProjectProgress(projectId);
     }
 
