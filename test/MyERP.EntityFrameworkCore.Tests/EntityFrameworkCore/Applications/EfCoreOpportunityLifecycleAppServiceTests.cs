@@ -1,0 +1,9 @@
+using MyERP.CRM;
+using Xunit;
+
+namespace MyERP.EntityFrameworkCore.Applications;
+
+[Collection(MyERPTestConsts.CollectionDefinitionName)]
+public class EfCoreOpportunityLifecycleAppServiceTests : OpportunityLifecycleAppServiceTests<MyERPEntityFrameworkCoreTestModule>
+{
+}

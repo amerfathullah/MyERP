@@ -2554,6 +2554,8 @@
     "ContractValue": "Contract Value",
     "PartyName": "Party Name",
     "MarkLost": "Mark Lost",
+    "MarkWon": "Mark Won",
+    "LostReason": "Lost Reason",
     "Hold": "Hold",
     "Reply": "Reply",
     "Resolve": "Resolve",

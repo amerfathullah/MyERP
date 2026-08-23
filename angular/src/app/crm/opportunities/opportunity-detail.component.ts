@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Router } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { CompetitorService } from '../../proxy/crm/competitor.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
@@ -32,7 +33,37 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <i class="fa fa-file-invoice me-1"></i>{{ '::ConvertToQuotation' | abpLocalization }}
             </button>
           }
+          @if (o.status === 0 || o.status === 1 || o.status === 2) {
+            <button class="btn btn-success btn-sm" [disabled]="isUpdatingStatus()" (click)="markWon()">
+              <i class="fa fa-trophy me-1"></i>{{ '::MarkWon' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-danger btn-sm" [disabled]="isUpdatingStatus()" (click)="showLostReasonPrompt.set(true)">
+              <i class="fa fa-times-circle me-1"></i>{{ '::MarkLost' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" [disabled]="isUpdatingStatus()" (click)="closeOpportunity()">
+              <i class="fa fa-box-archive me-1"></i>{{ '::Close' | abpLocalization }}
+            </button>
+          }
+          @if (o.status === 4 || o.status === 5) {
+            <button class="btn btn-outline-primary btn-sm" [disabled]="isUpdatingStatus()" (click)="reopen()">
+              <i class="fa fa-rotate-left me-1"></i>{{ '::Reopen' | abpLocalization }}
+            </button>
+          }
         </div>
+
+        @if (showLostReasonPrompt()) {
+          <div class="card mb-3 border-danger"><div class="card-body">
+            <h6>{{ '::LostReason' | abpLocalization }}</h6>
+            <textarea class="form-control mb-2" rows="2" #lostReasonInput
+              [placeholder]="'::LostReason' | abpLocalization"></textarea>
+            <button class="btn btn-danger btn-sm me-2" [disabled]="isUpdatingStatus()" (click)="markLost(lostReasonInput.value)">
+              {{ 'Confirm' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="showLostReasonPrompt.set(false)">
+              {{ 'Cancel' | abpLocalization }}
+            </button>
+          </div></div>
+        }
         <div class="card mb-3">
           <div class="card-body">
             <div class="row">
@@ -133,10 +164,13 @@ export class OpportunityDetailComponent implements OnInit {
   private service = inject(OpportunityService);
   private competitorService = inject(CompetitorService);
   private conversionService = inject(DocumentConversionService);
+  private toaster = inject(ToasterService);
 
   opp = signal<OpportunityDto | null>(null);
   isLoading = signal(false);
   isConverting = signal(false);
+  isUpdatingStatus = signal(false);
+  showLostReasonPrompt = signal(false);
   competitors = signal<CompetitorDto[]>([]);
   selectedCompetitorId = '';
 
@@ -196,6 +230,46 @@ export class OpportunityDetailComponent implements OnInit {
     this.conversionService.convertOpportunityToQuotation(opportunityId).subscribe({
       next: (quotation) => this.router.navigate(['/sales/quotations', quotation.id]),
       error: () => this.isConverting.set(false),
+    });
+  }
+
+  markWon(): void {
+    const id = this.opp()?.id;
+    if (!id) return;
+    this.isUpdatingStatus.set(true);
+    this.service.convert(id).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success('::SuccessfullyUpdated'); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'); },
+    });
+  }
+
+  markLost(reason: string): void {
+    const id = this.opp()?.id;
+    if (!id) return;
+    this.isUpdatingStatus.set(true);
+    this.service.declareLost(id, reason).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.showLostReasonPrompt.set(false); this.toaster.success('::SuccessfullyUpdated'); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.data?.reason ?? err?.error?.error?.message ?? '::OperationFailed'); },
+    });
+  }
+
+  closeOpportunity(): void {
+    const id = this.opp()?.id;
+    if (!id) return;
+    this.isUpdatingStatus.set(true);
+    this.service.close(id).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success('::SuccessfullyUpdated'); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'); },
+    });
+  }
+
+  reopen(): void {
+    const id = this.opp()?.id;
+    if (!id) return;
+    this.isUpdatingStatus.set(true);
+    this.service.reopen(id).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success('::SuccessfullyUpdated'); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'); },
     });
   }
 }
