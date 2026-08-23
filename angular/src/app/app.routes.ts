@@ -673,6 +673,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.EInvoice' },
   },
   {
+    path: 'sales/installation-notes/new',
+    loadComponent: () => import('./sales/installation-notes/installation-note-form.component').then(c => c.InstallationNoteFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
+  },
+  {
+    path: 'sales/installation-notes/new',
+    loadComponent: () => import('./sales/installation-notes/installation-note-form.component').then(c => c.InstallationNoteFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes.Create' },
+  },
+  {
     path: 'sales/installation-notes/:id',
     loadComponent: () => import('./sales/installation-notes/installation-note-detail.component').then(c => c.InstallationNoteDetailComponent),
     canActivate: [authGuard, permissionGuard],
@@ -2193,6 +2205,18 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./sales/packing-slips/packing-slip-list.component').then(c => c.PackingSlipListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.DeliveryNotes' },
+  },
+  {
+    path: 'sales/packing-slips/new',
+    loadComponent: () => import('./sales/packing-slips/packing-slip-form.component').then(c => c.PackingSlipFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
+  },
+  {
+    path: 'sales/packing-slips/new',
+    loadComponent: () => import('./sales/packing-slips/packing-slip-form.component').then(c => c.PackingSlipFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes.Create' },
   },
   {
     path: 'sales/packing-slips/:id',

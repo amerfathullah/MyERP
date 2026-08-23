@@ -62,6 +62,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
       case 'Submitted':
         actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
         actions.push({ name: 'packing_slip', label: 'Packing Slip', icon: 'box', color: 'info' });
+        actions.push({ name: 'installation_note', label: 'Installation Note', icon: 'screwdriver-wrench', color: 'info' });
         actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
         break;
@@ -127,6 +128,11 @@ export class DeliveryNoteDetailComponent implements OnInit {
         break;
       case 'packing_slip':
         this.router.navigate(['/sales/packing-slips/new'], {
+          queryParams: { deliveryNoteId: id }
+        });
+        break;
+      case 'installation_note':
+        this.router.navigate(['/sales/installation-notes/new'], {
           queryParams: { deliveryNoteId: id }
         });
         break;
