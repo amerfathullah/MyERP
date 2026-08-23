@@ -84,6 +84,25 @@ export const LhdnDashboardStore = signalStore(
         }),
       )
     ),
+    loadMonthlyTrend: rxMethod<void>(
+      pipe(
+        switchMap(() => eInvoiceService.getMonthlyTrend('')),
+        tap((trend) => {
+          patchState(store, {
+            monthlyTrend: trend.map((m) => ({
+              month: m.month ?? '',
+              valid: m.valid ?? 0,
+              invalid: m.invalid ?? 0,
+              submitted: m.submitted ?? 0,
+            })),
+          });
+        }),
+        catchError(() => {
+          toaster.error('::FailedToLoad');
+          return EMPTY;
+        }),
+      )
+    ),
   })),
 );
 

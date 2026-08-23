@@ -828,6 +828,37 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     }
 
     [Authorize(MyERPPermissions.EInvoice.Default)]
+    public async Task<List<LhdnMonthlyTrendDto>> GetMonthlyTrendAsync(Guid? companyId)
+    {
+        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
+
+        if (companyId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.CompanyId == companyId.Value);
+        }
+
+        var trend = new List<LhdnMonthlyTrendDto>();
+        var monthStart = new DateTime(Clock.Now.Year, Clock.Now.Month, 1);
+
+        for (var i = 5; i >= 0; i--)
+        {
+            var periodStart = monthStart.AddMonths(-i);
+            var periodEnd = periodStart.AddMonths(1);
+            var periodQuery = salesQuery.Where(x => x.IssueDate >= periodStart && x.IssueDate < periodEnd);
+
+            trend.Add(new LhdnMonthlyTrendDto
+            {
+                Month = periodStart.ToString("MMM yyyy"),
+                Valid = await AsyncExecuter.CountAsync(periodQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Valid)),
+                Invalid = await AsyncExecuter.CountAsync(periodQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Invalid)),
+                Submitted = await AsyncExecuter.CountAsync(periodQuery.Where(x => x.EInvoiceStatus == Sales.EInvoiceStatus.Pending)),
+            });
+        }
+
+        return trend;
+    }
+
+    [Authorize(MyERPPermissions.EInvoice.Default)]
     public async Task<List<ConsolidationCandidateDto>> GetConsolidationCandidatesAsync(GetConsolidationCandidatesInputDto input)
     {
         var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();

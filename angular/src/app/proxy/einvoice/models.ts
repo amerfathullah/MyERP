@@ -126,6 +126,13 @@ export interface LhdnDashboardStatsDto {
   purchaseNotSubmitted?: number;
 }
 
+export interface LhdnMonthlyTrendDto {
+  month?: string;
+  valid?: number;
+  invalid?: number;
+  submitted?: number;
+}
+
 export interface LhdnStatusReportItemDto {
   invoiceId?: string;
   invoiceNumber?: string;

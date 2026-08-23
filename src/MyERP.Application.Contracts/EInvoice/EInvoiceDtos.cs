@@ -147,6 +147,14 @@ public class LhdnDashboardStatsDto
     public int PurchaseNotSubmitted { get; set; }
 }
 
+public class LhdnMonthlyTrendDto
+{
+    public string Month { get; set; } = string.Empty;
+    public int Valid { get; set; }
+    public int Invalid { get; set; }
+    public int Submitted { get; set; }
+}
+
 public class GetConsolidationCandidatesInputDto
 {
     public Guid? CompanyId { get; set; }

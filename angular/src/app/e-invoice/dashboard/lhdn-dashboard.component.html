@@ -40,6 +40,18 @@
       </div>
     </div>
 
+    <!-- Trend row -->
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header"><h5 class="card-title mb-0">{{ '::MonthlyTrend' | abpLocalization }}</h5></div>
+          <div class="card-body pt-3">
+            <canvas #trendCanvas height="80"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Summary stats -->
     <div class="row g-4">
       <div class="col-12 col-md-6">

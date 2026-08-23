@@ -20,6 +20,7 @@ public interface IEInvoiceAppService : IApplicationService
     Task<List<LhdnStatusReportItemDto>> GetPurchaseStatusReportAsync(LhdnStatusReportRequestDto input);
     Task<LhdnVatReportDto> GetVatReportAsync(LhdnVatReportRequestDto input);
     Task<LhdnDashboardStatsDto> GetDashboardStatsAsync(Guid? companyId);
+    Task<List<LhdnMonthlyTrendDto>> GetMonthlyTrendAsync(Guid? companyId);
     Task<List<ConsolidationCandidateDto>> GetConsolidationCandidatesAsync(GetConsolidationCandidatesInputDto input);
     Task<PagedResultDto<EInvoiceConsolidationDto>> GetConsolidationsAsync(GetConsolidationsInputDto input);
     Task<PagedResultDto<LhdnSuccessLogDto>> GetSuccessLogsAsync(GetLhdnSuccessLogsInputDto input);

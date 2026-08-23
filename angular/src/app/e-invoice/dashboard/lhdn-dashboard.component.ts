@@ -3,9 +3,9 @@ import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
-import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController } from 'chart.js';
+import { Chart, ArcElement, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController, LineController } from 'chart.js';
 
-Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController);
+Chart.register(ArcElement, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, PieController, BarController, LineController);
 
 interface StatCard {
   label: string;
@@ -29,9 +29,11 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
 
   @ViewChild('pieCanvas') pieCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('barCanvas') barCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('trendCanvas') trendCanvas!: ElementRef<HTMLCanvasElement>;
 
   private pieChart?: Chart;
   private barChart?: Chart;
+  private trendChart?: Chart;
 
   get statusCards(): StatCard[] {
     const stats = this.store.salesStats();
@@ -58,16 +60,26 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
         this.barChart.data.datasets[1].data = [purchase.valid, purchase.invalid, purchase.submitted, purchase.cancelled, purchase.failed];
         this.barChart.update();
       }
+      if (this.trendChart) {
+        const trend = this.store.monthlyTrend();
+        this.trendChart.data.labels = trend.map((m) => m.month);
+        this.trendChart.data.datasets[0].data = trend.map((m) => m.valid);
+        this.trendChart.data.datasets[1].data = trend.map((m) => m.invalid);
+        this.trendChart.data.datasets[2].data = trend.map((m) => m.submitted);
+        this.trendChart.update();
+      }
     });
   }
 
   ngOnInit(): void {
     this.store.loadDashboard();
+    this.store.loadMonthlyTrend();
   }
 
   ngAfterViewInit(): void {
     this.initPieChart();
     this.initBarChart();
+    this.initTrendChart();
   }
 
   private initPieChart(): void {
@@ -98,6 +110,22 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
           { label: 'Purchase', data: [0, 0, 0, 0, 0], backgroundColor: '#7c3aed' }],
       },
       options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+
+  private initTrendChart(): void {
+    const ctx = this.trendCanvas?.nativeElement?.getContext('2d');
+    if (!ctx) return;
+    this.trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Valid', data: [], borderColor: '#16a34a', backgroundColor: '#16a34a', tension: 0.3 },
+          { label: 'Invalid', data: [], borderColor: '#dc2626', backgroundColor: '#dc2626', tension: 0.3 },
+          { label: 'Submitted', data: [], borderColor: '#2563eb', backgroundColor: '#2563eb', tension: 0.3 }],
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
     });
   }
 }

@@ -1,4 +1,4 @@
-import type { BatchSubmitEInvoiceDto, BatchSubmitResultDto, CancelEInvoiceDto, ConsolidateInvoicesDto, ConsolidationCandidateDto, EInvoiceConsolidationDto, EInvoiceSubmissionDto, GetConsolidationCandidatesInputDto, GetConsolidationsInputDto, GetLhdnSuccessLogsInputDto, LhdnDashboardStatsDto, LhdnStatusReportItemDto, LhdnStatusReportRequestDto, LhdnSuccessLogDto, LhdnVatReportDto, LhdnVatReportRequestDto, SearchTaxpayerDto, SubmitEInvoiceDto, TaxpayerSearchResultDto } from './models';
+import type { BatchSubmitEInvoiceDto, BatchSubmitResultDto, CancelEInvoiceDto, ConsolidateInvoicesDto, ConsolidationCandidateDto, EInvoiceConsolidationDto, EInvoiceSubmissionDto, GetConsolidationCandidatesInputDto, GetConsolidationsInputDto, GetLhdnSuccessLogsInputDto, LhdnDashboardStatsDto, LhdnMonthlyTrendDto, LhdnStatusReportItemDto, LhdnStatusReportRequestDto, LhdnSuccessLogDto, LhdnVatReportDto, LhdnVatReportRequestDto, SearchTaxpayerDto, SubmitEInvoiceDto, TaxpayerSearchResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -73,6 +73,14 @@ export class EInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  getMonthlyTrend = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LhdnMonthlyTrendDto[]>({
+      method: 'GET',
+      url: `/api/app/e-invoice/monthly-trend/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+
+
   getPurchaseStatusReport = (input: LhdnStatusReportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LhdnStatusReportItemDto[]>({
       method: 'GET',
@@ -80,7 +88,7 @@ export class EInvoiceService {
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, status: input.status },
     },
     { apiName: this.apiName,...config });
-  
+
 
   getSalesStatusReport = (input: LhdnStatusReportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LhdnStatusReportItemDto[]>({
