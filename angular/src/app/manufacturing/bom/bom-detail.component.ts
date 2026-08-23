@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { BomDto } from '../../proxy/manufacturing/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -43,6 +43,12 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
               <a [routerLink]="['/manufacturing/bom', b.id, 'edit']" class="btn btn-outline-primary">
                 <i class="fas fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
               </a>
+              <button class="btn btn-outline-danger" (click)="deleteBom()" [disabled]="isDeleting()">
+                @if (isDeleting()) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fas fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+              </button>
             </div>
           </div>
           <div class="card-body">
@@ -186,10 +192,12 @@ export class BomDetailComponent implements OnInit {
   private router = inject(Router);
   private manufacturingService = inject(ManufacturingService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   bom = signal<BomDto | null>(null);
   bomId = '';
   isUpdatingCost = signal(false);
+  isDeleting = signal(false);
 
   ngOnInit(): void {
     this.bomId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -208,6 +216,24 @@ export class BomDetailComponent implements OnInit {
         this.isUpdatingCost.set(false);
         this.toaster.error('::OperationFailed');
       }
+    });
+  }
+
+  deleteBom(): void {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.isDeleting.set(true);
+      this.manufacturingService.deleteBom(this.bomId).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.router.navigate(['/manufacturing/bom']);
+        },
+        error: (err) => {
+          this.isDeleting.set(false);
+          const reason = err?.error?.error?.data?.reason || err?.error?.error?.message;
+          this.toaster.error(reason || '::OperationFailed');
+        },
+      });
     });
   }
 
