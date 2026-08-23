@@ -58,10 +58,10 @@ export class DeliveryNoteDetailComponent implements OnInit {
     switch (this.deliveryNote.status) {
       case 'Draft':
         actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+        actions.push({ name: 'packing_slip', label: 'Packing Slip', icon: 'box', color: 'info' });
         break;
       case 'Submitted':
         actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
-        actions.push({ name: 'packing_slip', label: 'Packing Slip', icon: 'box', color: 'info' });
         actions.push({ name: 'installation_note', label: 'Installation Note', icon: 'screwdriver-wrench', color: 'info' });
         actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
