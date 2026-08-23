@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 import { SortableHeaderComponent, type SortEvent } from '../../shared/components/sortable-header/sortable-header.component';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
@@ -83,6 +84,9 @@ import type { BomDto } from '../../proxy/manufacturing/models';
                       </td>
                       <td class="text-end">
                         <a [routerLink]="['/manufacturing/bom', bom.id]" class="btn btn-sm btn-outline-primary"><i class="fa fa-eye"></i></a>
+                        @if (!bom.isDefault) {
+                          <button class="btn btn-sm btn-outline-danger ms-1" (click)="deleteBom(bom)"><i class="fa fa-trash"></i></button>
+                        }
                       </td>
                     </tr>
                   }
@@ -98,6 +102,8 @@ import type { BomDto } from '../../proxy/manufacturing/models';
 })
 export class BomListComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   boms = signal<BomDto[]>([]);
   isLoading = signal(true);
   searchTerm = '';
@@ -132,4 +138,17 @@ export class BomListComponent implements OnInit {
   }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.loadData(); }
+
+  deleteBom(bom: BomDto): void {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.manufacturingService.deleteBom(bom.id!).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
+        error: (err) => {
+          const reason = err?.error?.error?.data?.reason || err?.error?.error?.message;
+          this.toaster.error(reason || '::OperationFailed');
+        },
+      });
+    });
+  }
 }
