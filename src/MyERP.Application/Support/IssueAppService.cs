@@ -64,7 +64,9 @@ public class IssueAppService : ApplicationService, IIssueAppService
         if (sla != null)
         {
             var (responseHours, resolutionHours) = sla.GetTargets(issue.Priority);
-            issue.ApplySla(sla.Id, responseHours, resolutionHours);
+            issue.ApplySla(sla.Id, responseHours, resolutionHours,
+                sla.ComputeDeadline(issue.OpeningDate, responseHours),
+                sla.ComputeDeadline(issue.OpeningDate, resolutionHours));
         }
 
         await _issueRepository.InsertAsync(issue);
@@ -186,7 +188,9 @@ public class IssueAppService : ApplicationService, IIssueAppService
         if (sla != null)
         {
             var (responseHours, resolutionHours) = sla.GetTargets(splitIssue.Priority);
-            splitIssue.ApplySla(sla.Id, responseHours, resolutionHours);
+            splitIssue.ApplySla(sla.Id, responseHours, resolutionHours,
+                sla.ComputeDeadline(splitIssue.OpeningDate, responseHours),
+                sla.ComputeDeadline(splitIssue.OpeningDate, resolutionHours));
         }
 
         await _issueRepository.InsertAsync(splitIssue);
@@ -217,6 +221,8 @@ public class IssueAppService : ApplicationService, IIssueAppService
             ServiceLevelAgreementId = splitIssue.ServiceLevelAgreementId,
             FirstResponseTime = splitIssue.FirstResponseTime,
             ResolutionTime = splitIssue.ResolutionTime,
+            ResponseByDate = splitIssue.ResponseByDate,
+            ResolutionByDate = splitIssue.ResolutionByDate,
             AgreementStatus = splitIssue.AgreementStatus,
             SplitFromIssueId = splitIssue.SplitFromIssueId
         };

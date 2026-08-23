@@ -599,6 +599,8 @@
     "AgreementStatus": "SLA Status",
     "FirstResponseTime": "First Response Target",
     "ResolutionTime": "Resolution Target",
+    "RespondBy": "Respond By",
+    "ResolveBy": "Resolve By",
     "Issues": "Issues",
     "NewIssue": "New Issue",
     "Subject": "Subject",

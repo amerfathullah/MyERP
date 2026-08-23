@@ -88,6 +88,8 @@ export interface IssueDto extends AuditedEntityDto<string> {
   serviceLevelAgreementId?: string | null;
   firstResponseTime?: number | null;
   resolutionTime?: number | null;
+  responseByDate?: string | null;
+  resolutionByDate?: string | null;
   agreementStatus?: AgreementStatus;
   splitFromIssueId?: string | null;
 }

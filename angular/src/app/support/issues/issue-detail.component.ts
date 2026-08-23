@@ -29,6 +29,10 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <div class="col-md-3"><strong>{{ '::FirstResponseTime' | abpLocalization }}:</strong> {{ d.firstResponseTime ?? '—' }}h</div>
               <div class="col-md-3"><strong>{{ '::ResolutionTime' | abpLocalization }}:</strong> {{ d.resolutionTime ?? '—' }}h</div>
             </div>
+            <div class="row mt-2">
+              <div class="col-md-3"><strong>{{ '::RespondBy' | abpLocalization }}:</strong> {{ d.responseByDate ? (d.responseByDate | date:'dd/MM/yyyy HH:mm') : '—' }}</div>
+              <div class="col-md-3"><strong>{{ '::ResolveBy' | abpLocalization }}:</strong> {{ d.resolutionByDate ? (d.resolutionByDate | date:'dd/MM/yyyy HH:mm') : '—' }}</div>
+            </div>
           }
           @if (d.description) { <div class="mt-3"><strong>{{ 'Description' | abpLocalization }}:</strong><p class="mt-1">{{ d.description }}</p></div> }
           <div class="mt-3 d-flex gap-2">

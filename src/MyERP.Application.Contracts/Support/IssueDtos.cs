@@ -27,6 +27,8 @@ public class IssueDto : AuditedEntityDto<Guid>
     public Guid? ServiceLevelAgreementId { get; set; }
     public decimal? FirstResponseTime { get; set; }
     public decimal? ResolutionTime { get; set; }
+    public DateTime? ResponseByDate { get; set; }
+    public DateTime? ResolutionByDate { get; set; }
     public AgreementStatus AgreementStatus { get; set; }
     public Guid? SplitFromIssueId { get; set; }
 }

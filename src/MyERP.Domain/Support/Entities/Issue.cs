@@ -50,6 +50,12 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>SLA: resolution target (hours).</summary>
     public decimal? ResolutionTime { get; set; }
 
+    /// <summary>Working-hours-aware first response due date, per <see cref="ServiceLevelAgreement.ComputeDeadline"/>. Informational only — breach detection still uses the elapsed-vs-target-hours check below.</summary>
+    public DateTime? ResponseByDate { get; set; }
+
+    /// <summary>Working-hours-aware resolution due date, per <see cref="ServiceLevelAgreement.ComputeDeadline"/>. Informational only — breach detection still uses the elapsed-vs-target-hours check below.</summary>
+    public DateTime? ResolutionByDate { get; set; }
+
     /// <summary>Actual first response datetime.</summary>
     public DateTime? FirstRespondedOn { get; set; }
 
@@ -105,11 +111,14 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>Assigns an SLA and its priority-specific (or SLA-default) response/resolution targets.</summary>
-    public void ApplySla(Guid serviceLevelAgreementId, decimal responseTimeHours, decimal resolutionTimeHours)
+    public void ApplySla(Guid serviceLevelAgreementId, decimal responseTimeHours, decimal resolutionTimeHours,
+        DateTime? responseByDate = null, DateTime? resolutionByDate = null)
     {
         ServiceLevelAgreementId = serviceLevelAgreementId;
         FirstResponseTime = responseTimeHours;
         ResolutionTime = resolutionTimeHours;
+        ResponseByDate = responseByDate;
+        ResolutionByDate = resolutionByDate;
     }
 
     public void Reply()
