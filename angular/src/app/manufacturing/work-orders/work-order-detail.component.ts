@@ -98,7 +98,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
         }
 
         <div class="d-flex gap-2 mb-3">
-          @if (wo()!.status === 1) {
+          @if (wo()!.status === 1 || wo()!.status === 2) {
             <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
           }
           @if (wo()!.status === 3) {
