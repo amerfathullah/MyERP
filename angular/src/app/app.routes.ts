@@ -2939,6 +2939,32 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settings/terms-and-conditions',
+    loadComponent: () => import('./settings/terms-and-conditions/terms-and-conditions-list.component').then(c => c.TermsAndConditionsListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TermsAndConditions' },
+  },
+  {
+    path: 'settings/terms-and-conditions/new',
+    loadComponent: () => import('./settings/terms-and-conditions/terms-and-conditions-form.component').then(c => c.TermsAndConditionsFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TermsAndConditions.Create' },
+  },
+  {
+    path: 'settings/terms-and-conditions/:id/edit',
+    loadComponent: () => import('./settings/terms-and-conditions/terms-and-conditions-form.component').then(c => c.TermsAndConditionsFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TermsAndConditions.Edit' },
+  },
+  {
+    path: 'settings/terms-and-conditions/:id',
+    loadComponent: () => import('./settings/terms-and-conditions/terms-and-conditions-form.component').then(c => c.TermsAndConditionsFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TermsAndConditions' },
+  },
+  {
     path: 'settings/payment-terms-templates',
     loadComponent: () => import('./settings/payment-terms-template/payment-terms-template-list.component').then(c => c.PaymentTermsTemplateListComponent),
     canActivate: [authGuard, permissionGuard],

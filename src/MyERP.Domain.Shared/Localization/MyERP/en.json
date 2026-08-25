@@ -4206,6 +4206,18 @@
     "MyERP:01021": "Party {partyName} is frozen and cannot be used in transactions.",
     "MyERP:02086": "Item account cannot be the same as party account.",
     "MyERP:02087": "Party account currency mismatch between party account ({accountCurrency}), advance account ({advanceCurrency}), and party currency ({partyCurrency}).",
-    "MyERP:03037": "Discount percentage {discountPercentage}% exceeds maximum allowed discount of {maxDiscount}% for item {itemCode}."
+    "MyERP:03037": "Discount percentage {discountPercentage}% exceeds maximum allowed discount of {maxDiscount}% for item {itemCode}.",
+    "Permission:TermsAndConditions": "Terms and Conditions",
+    "Permission:TermsAndConditions.Create": "Create Terms and Conditions",
+    "Permission:TermsAndConditions.Edit": "Edit Terms and Conditions",
+    "Permission:TermsAndConditions.Delete": "Delete Terms and Conditions",
+    "TermsAndConditions": "Terms & Conditions",
+    "Menu:TermsAndConditions": "Terms & Conditions",
+    "NewTermsAndConditions": "New Terms & Conditions",
+    "EditTermsAndConditions": "Edit Terms & Conditions",
+    "NoTermsAndConditionsYet": "No terms & conditions defined yet",
+    "SellingTerms": "Applicable for Selling",
+    "BuyingTerms": "Applicable for Buying",
+    "CopyAttachmentsToTransaction": "Copy Attachments to Transaction"
   }
 }

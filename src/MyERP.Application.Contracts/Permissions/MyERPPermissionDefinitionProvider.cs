@@ -501,6 +501,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         avaPermission.AddChild(MyERPPermissions.AssetValueAdjustments.Create, L("Permission:AssetValueAdjustments.Create"));
         avaPermission.AddChild(MyERPPermissions.AssetValueAdjustments.Edit, L("Permission:AssetValueAdjustments.Edit"));
         avaPermission.AddChild(MyERPPermissions.AssetValueAdjustments.Delete, L("Permission:AssetValueAdjustments.Delete"));
+
+        var termsPermission = myGroup.AddPermission(MyERPPermissions.TermsAndConditions.Default, L("Permission:TermsAndConditions"));
+        termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Create, L("Permission:TermsAndConditions.Create"));
+        termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Edit, L("Permission:TermsAndConditions.Edit"));
+        termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Delete, L("Permission:TermsAndConditions.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -1357,6 +1357,15 @@ function configureRoutes() {
         layout: eLayoutType.application,
       },
       {
+        path: '/settings/terms-and-conditions',
+        name: '::Menu:TermsAndConditions',
+        iconClass: 'fas fa-file-contract',
+        order: 11,
+        parentName: '::Menu:Settings',
+        requiredPolicy: 'MyERP.TermsAndConditions',
+        layout: eLayoutType.application,
+      },
+      {
         path: '/hr/leave-types',
         name: '::Menu:LeaveTypes',
         iconClass: 'fas fa-calendar-minus',

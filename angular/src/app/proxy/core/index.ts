@@ -25,3 +25,6 @@ export * from './party-details.service';
 export * from './party-performance.service';
 export * from './repeat-day-of-week.enum';
 export * from './repeat-frequency.enum';
+export * from './letter-head.service';
+export * from './terms-and-conditions.service';
+

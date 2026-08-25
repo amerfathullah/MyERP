@@ -1442,6 +1442,13 @@ public partial class LetterHeadMapper : MapperBase<Core.Entities.LetterHead, Cor
     public override partial void Map(Core.Entities.LetterHead source, Core.LetterHeadDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class TermsAndConditionsMapper : MapperBase<Core.Entities.TermsAndConditions, Core.TermsAndConditionsDto>
+{
+    public override partial Core.TermsAndConditionsDto Map(Core.Entities.TermsAndConditions source);
+    public override partial void Map(Core.Entities.TermsAndConditions source, Core.TermsAndConditionsDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetValueAdjustmentMapper : MapperBase<Assets.Entities.AssetValueAdjustment, Assets.AssetValueAdjustmentDto>
 {

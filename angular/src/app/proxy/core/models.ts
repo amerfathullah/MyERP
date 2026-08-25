@@ -914,13 +914,41 @@ export interface LetterHeadDto extends FullAuditedEntityDto<string> {
 }
 
 export interface CreateUpdateLetterHeadDto {
-  companyId?: string;
-  letterHeadName?: string;
+  companyId: string;
+  letterHeadName: string;
   letterHeadFor?: LetterHeadFor;
   isDefault?: boolean;
   headerContent?: string | null;
   footerContent?: string | null;
   isDisabled?: boolean;
+}
+
+export interface TermsAndConditionsDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  title?: string;
+  terms?: string | null;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDisabled?: boolean;
+  copyAttachmentsToTransaction?: boolean;
+}
+
+export interface CreateUpdateTermsAndConditionsDto {
+  companyId: string;
+  title: string;
+  terms?: string | null;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDisabled?: boolean;
+  copyAttachmentsToTransaction?: boolean;
+}
+
+export interface GetTermsAndConditionsListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isSelling?: boolean | null;
+  isBuying?: boolean | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
 }
 
 export interface GetLetterHeadListDto extends PagedAndSortedResultRequestDto {
