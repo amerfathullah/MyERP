@@ -42,4 +42,7 @@ export class IssueDetailService {
   get = (id: string) => this.issueService.get(id);
   reply = (id: string) => this.issueService.reply(id);
   resolve = (id: string, input?: any) => this.issueService.resolve(id, input ?? {});
+  hold = (id: string) => this.issueService.hold(id);
+  reopen = (id: string) => this.issueService.reopen(id);
+  split = (id: string, subject: string) => this.issueService.split(id, { subject });
 }

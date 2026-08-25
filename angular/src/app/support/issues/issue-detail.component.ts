@@ -1,8 +1,10 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { IssueDetailService } from '../../shared/services/detail-services';
 import type { IssueDto } from '../../proxy/support/models';
 
@@ -10,7 +12,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 
 @Component({
   selector: 'app-issue-detail', standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'Issues' | abpLocalization">
   <app-breadcrumb />
@@ -36,9 +38,20 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           }
           @if (d.description) { <div class="mt-3"><strong>{{ 'Description' | abpLocalization }}:</strong><p class="mt-1">{{ d.description }}</p></div> }
           <div class="mt-3 d-flex gap-2">
-            @if (d.status === 0) { <button class="btn btn-sm btn-success" (click)="action('reply')"><i class="fa fa-reply me-1"></i>Reply</button> }
-            @if ((d.status ?? 0) < 3) { <button class="btn btn-sm btn-primary" (click)="action('resolve')"><i class="fa fa-check me-1"></i>Resolve</button> }
+            @if (d.status === 0) { <button class="btn btn-sm btn-success" [disabled]="busy" (click)="action('reply')"><i class="fa fa-reply me-1"></i>Reply</button> }
+            @if ((d.status ?? 0) < 3) { <button class="btn btn-sm btn-primary" [disabled]="busy" (click)="action('resolve')"><i class="fa fa-check me-1"></i>Resolve</button> }
+            @if (d.status === 0 || d.status === 1) { <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="action('hold')"><i class="fa fa-pause me-1"></i>{{ 'Hold' | abpLocalization }}</button> }
+            @if (d.status === 1 || d.status === 2 || d.status === 3) { <button class="btn btn-sm btn-outline-primary" [disabled]="busy" (click)="action('reopen')"><i class="fa fa-rotate-left me-1"></i>{{ 'Reopen' | abpLocalization }}</button> }
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="busy" (click)="showSplitPrompt = !showSplitPrompt"><i class="fa fa-code-branch me-1"></i>{{ 'Split' | abpLocalization }}</button>
           </div>
+          @if (showSplitPrompt) {
+            <div class="mt-3 p-3 border rounded">
+              <label class="form-label">{{ 'Subject' | abpLocalization }}</label>
+              <input class="form-control mb-2" [(ngModel)]="splitSubject" [placeholder]="'Subject' | abpLocalization" />
+              <button class="btn btn-sm btn-primary me-2" [disabled]="busy || !splitSubject.trim()" (click)="action('split')">{{ 'Confirm' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="showSplitPrompt = false">{{ 'Cancel' | abpLocalization }}</button>
+            </div>
+          }
         </div></div>
       }
     </abp-page>
@@ -47,15 +60,37 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class IssueDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(IssueDetailService);
+  private toaster = inject(ToasterService);
   d: IssueDto | null = null;
+  busy = false;
+  showSplitPrompt = false;
+  splitSubject = '';
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
   }
+
   action(type: string) {
     const id = this.route.snapshot.paramMap.get('id')!;
-    if (type === 'reply') this.service.reply(id).subscribe({ next: () => this.ngOnInit(), error: () => {} });
-    else if (type === 'resolve') this.service.resolve(id).subscribe({ next: () => this.ngOnInit(), error: () => {} });
+    this.busy = true;
+    const onSuccess = () => {
+      this.busy = false;
+      this.showSplitPrompt = false;
+      this.splitSubject = '';
+      this.toaster.success('::SuccessfullyUpdated');
+      this.ngOnInit();
+    };
+    const onError = (err: any) => {
+      this.busy = false;
+      this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+    };
+
+    if (type === 'reply') this.service.reply(id).subscribe({ next: onSuccess, error: onError });
+    else if (type === 'resolve') this.service.resolve(id).subscribe({ next: onSuccess, error: onError });
+    else if (type === 'hold') this.service.hold(id).subscribe({ next: onSuccess, error: onError });
+    else if (type === 'reopen') this.service.reopen(id).subscribe({ next: onSuccess, error: onError });
+    else if (type === 'split') this.service.split(id, this.splitSubject.trim()).subscribe({ next: onSuccess, error: onError });
   }
 
   agreementStatusLabel(status: number | undefined): string {
