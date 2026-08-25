@@ -5,6 +5,7 @@ import type { RepeatFrequency } from './repeat-frequency.enum';
 import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 import type { EmailDigestFrequency } from './email-digest-frequency.enum';
 import type { DocumentStatus } from './document-status.enum';
+import type { LetterHeadFor } from './letter-head-for.enum';
 
 export interface AddressDto extends EntityDto<string> {
   title?: string;
@@ -900,4 +901,29 @@ export interface UpdateEmailTemplateDto {
   subject?: string;
   body?: string;
   documentType?: string | null;
+}
+
+export interface LetterHeadDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  letterHeadName?: string;
+  letterHeadFor?: LetterHeadFor;
+  isDefault?: boolean;
+  headerContent?: string | null;
+  footerContent?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface CreateUpdateLetterHeadDto {
+  companyId?: string;
+  letterHeadName?: string;
+  letterHeadFor?: LetterHeadFor;
+  isDefault?: boolean;
+  headerContent?: string | null;
+  footerContent?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface GetLetterHeadListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string;
+  letterHeadFor?: LetterHeadFor;
 }

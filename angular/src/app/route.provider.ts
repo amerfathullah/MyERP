@@ -1340,6 +1340,14 @@ function configureRoutes() {
         layout: eLayoutType.application,
       },
       {
+        path: '/settings/letter-heads',
+        name: 'Letter Heads',
+        iconClass: 'fas fa-file-signature',
+        order: 10,
+        parentName: '::Menu:Settings',
+        layout: eLayoutType.application,
+      },
+      {
         path: '/hr/leave-types',
         name: '::Menu:LeaveTypes',
         iconClass: 'fas fa-calendar-minus',

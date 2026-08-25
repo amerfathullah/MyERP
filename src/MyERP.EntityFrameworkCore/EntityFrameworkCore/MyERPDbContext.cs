@@ -470,6 +470,7 @@ public class MyERPDbContext :
     public DbSet<QualityFeedback> QualityFeedbacks { get; set; }
     public DbSet<QualityFeedbackParameter> QualityFeedbackParameters { get; set; }
     public DbSet<MyERP.Settings.Entities.PrintFormat> PrintFormats { get; set; }
+    public DbSet<MyERP.Core.Entities.LetterHead> LetterHeads { get; set; }
 
     // Sales (logistics)
     public DbSet<Shipment> Shipments { get; set; }
@@ -4635,6 +4636,16 @@ public class MyERPDbContext :
             b.Property(x => x.DocumentType).IsRequired().HasMaxLength(100);
             b.Property(x => x.HtmlTemplate).IsRequired(); // No max length (max allowed by DB)
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DocumentType, x.IsDefault });
+        });
+
+        builder.Entity<MyERP.Core.Entities.LetterHead>(b =>
+        {
+            b.ToTable("Core_LetterHeads", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LetterHeadName).IsRequired().HasMaxLength(MyERP.Core.LetterHeadConsts.MaxNameLength);
+            b.Property(x => x.HeaderContent); // No max length (HTML/image content)
+            b.Property(x => x.FooterContent); // No max length (HTML content)
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.LetterHeadFor, x.IsDefault });
         });
 
         builder.Entity<BankGuarantee>(b =>

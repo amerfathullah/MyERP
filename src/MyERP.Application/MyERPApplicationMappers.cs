@@ -1435,6 +1435,13 @@ public partial class PrintFormatMapper : MapperBase<Settings.Entities.PrintForma
     public override partial void Map(Settings.Entities.PrintFormat source, Settings.PrintFormatDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class LetterHeadMapper : MapperBase<Core.Entities.LetterHead, Core.LetterHeadDto>
+{
+    public override partial Core.LetterHeadDto Map(Core.Entities.LetterHead source);
+    public override partial void Map(Core.Entities.LetterHead source, Core.LetterHeadDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetValueAdjustmentMapper : MapperBase<Assets.Entities.AssetValueAdjustment, Assets.AssetValueAdjustmentDto>
 {

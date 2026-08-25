@@ -2935,6 +2935,21 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settings/letter-heads',
+    loadComponent: () => import('./settings/letter-heads/letter-head-list.component').then(c => c.LetterHeadListComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/letter-heads/new',
+    loadComponent: () => import('./settings/letter-heads/letter-head-form.component').then(c => c.LetterHeadFormComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/letter-heads/:id',
+    loadComponent: () => import('./settings/letter-heads/letter-head-form.component').then(c => c.LetterHeadFormComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'accounting/fiscal-years',
     loadComponent: () => import('./accounting/fiscal-years/fiscal-year-list.component').then(c => c.FiscalYearListComponent),
     canActivate: [authGuard, permissionGuard],
