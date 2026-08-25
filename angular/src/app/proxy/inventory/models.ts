@@ -1748,3 +1748,54 @@ export interface CreateUpdateShipmentParcelTemplateDto {
 export interface GetShipmentParcelTemplateListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
+
+export interface ItemLeadTimeDto extends FullAuditedEntityDto<string> {
+  itemId: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  stockUom?: string | null;
+  shiftTimeInHours: number;
+  noOfWorkstations: number;
+  noOfShifts: number;
+  totalWorkstationTime: number;
+  manufacturingTimeInMins: number;
+  dailyYield: number;
+  noOfUnitsProduced: number;
+  capacityPerDay: number;
+  purchaseTimeDays: number;
+  bufferTimeDays: number;
+  suppliers: ItemLeadTimeSupplierDto[];
+}
+
+export interface ItemLeadTimeSupplierDto extends FullAuditedEntityDto<string> {
+  itemLeadTimeId: string;
+  supplierId: string;
+  supplierName?: string | null;
+  purchaseTimeDays: number;
+  bufferTimeDays: number;
+  isDefault: boolean;
+}
+
+export interface CreateUpdateItemLeadTimeDto {
+  itemId: string;
+  shiftTimeInHours?: number;
+  noOfWorkstations?: number;
+  noOfShifts?: number;
+  manufacturingTimeInMins?: number;
+  dailyYield?: number;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  suppliers?: CreateUpdateItemLeadTimeSupplierDto[];
+}
+
+export interface CreateUpdateItemLeadTimeSupplierDto {
+  supplierId: string;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  isDefault?: boolean;
+}
+
+export interface GetItemLeadTimeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  itemId?: string | null;
+}

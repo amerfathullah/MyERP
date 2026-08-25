@@ -13,6 +13,7 @@ export * from './item-alternative.service';
 export * from './item-attribute.service';
 export * from './item-details.service';
 export * from './item-group.service';
+export * from './item-lead-time.service';
 export * from './item-manufacturer.service';
 export * from './item-price.service';
 export * from './item-standard-cost.service';

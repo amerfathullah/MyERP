@@ -561,6 +561,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Create, L("Permission:ShipmentParcelTemplates.Create"));
         shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Edit, L("Permission:ShipmentParcelTemplates.Edit"));
         shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Delete, L("Permission:ShipmentParcelTemplates.Delete"));
+
+        var itemLeadTimePermission = myGroup.AddPermission(MyERPPermissions.ItemLeadTimes.Default, L("Permission:ItemLeadTimes"));
+        itemLeadTimePermission.AddChild(MyERPPermissions.ItemLeadTimes.Create, L("Permission:ItemLeadTimes.Create"));
+        itemLeadTimePermission.AddChild(MyERPPermissions.ItemLeadTimes.Edit, L("Permission:ItemLeadTimes.Edit"));
+        itemLeadTimePermission.AddChild(MyERPPermissions.ItemLeadTimes.Delete, L("Permission:ItemLeadTimes.Delete"));
     }
 
     private static LocalizableString L(string name)

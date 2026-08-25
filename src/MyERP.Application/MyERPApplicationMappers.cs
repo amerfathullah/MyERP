@@ -1257,6 +1257,32 @@ public partial class ShipmentParcelTemplateMapper : MapperBase<Inventory.Entitie
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ItemLeadTimeMapper : MapperBase<Inventory.Entities.ItemLeadTime, Inventory.ItemLeadTimeDto>
+{
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.ItemCode))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.StockUom))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.Suppliers))]
+    public override partial Inventory.ItemLeadTimeDto Map(Inventory.Entities.ItemLeadTime source);
+
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.ItemCode))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.ItemName))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.StockUom))]
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeDto.Suppliers))]
+    public override partial void Map(Inventory.Entities.ItemLeadTime source, Inventory.ItemLeadTimeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ItemLeadTimeSupplierMapper : MapperBase<Inventory.Entities.ItemLeadTimeSupplier, Inventory.ItemLeadTimeSupplierDto>
+{
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeSupplierDto.SupplierName))]
+    public override partial Inventory.ItemLeadTimeSupplierDto Map(Inventory.Entities.ItemLeadTimeSupplier source);
+
+    [MapperIgnoreTarget(nameof(Inventory.ItemLeadTimeSupplierDto.SupplierName))]
+    public override partial void Map(Inventory.Entities.ItemLeadTimeSupplier source, Inventory.ItemLeadTimeSupplierDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PriceListMapper : MapperBase<Inventory.Entities.PriceList, Inventory.PriceListDto>
 {
     [MapProperty(nameof(Inventory.Entities.PriceList.Name), nameof(Inventory.PriceListDto.PriceListName))]

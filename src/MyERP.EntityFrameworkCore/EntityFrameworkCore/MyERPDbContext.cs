@@ -253,6 +253,8 @@ public class MyERPDbContext :
     public DbSet<Manufacturer> Manufacturers { get; set; }
     public DbSet<ItemManufacturer> ItemManufacturers { get; set; }
     public DbSet<ItemAlternative> ItemAlternatives { get; set; }
+    public DbSet<ItemLeadTime> ItemLeadTimes { get; set; }
+    public DbSet<ItemLeadTimeSupplier> ItemLeadTimeSuppliers { get; set; }
     public DbSet<DeliveryTrip> DeliveryTrips { get; set; }
     public DbSet<DeliveryStop> DeliveryStops { get; set; }
     public DbSet<ShipmentParcelTemplate> ShipmentParcelTemplates { get; set; }
@@ -4912,6 +4914,23 @@ public class MyERPDbContext :
             b.Property(x => x.Weight).HasColumnType("decimal(18,2)");
             b.Property(x => x.Description).HasMaxLength(ShipmentParcelTemplateConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.TenantId, x.ParcelTemplateName }).IsUnique();
+        });
+
+        builder.Entity<ItemLeadTime>(b =>
+        {
+            b.ToTable("Inv_ItemLeadTimes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.DailyYield).HasColumnType("decimal(18,2)");
+            b.HasMany(x => x.Suppliers).WithOne().HasForeignKey(x => x.ItemLeadTimeId).IsRequired();
+            b.Navigation(x => x.Suppliers).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.ItemId }).IsUnique();
+        });
+
+        builder.Entity<ItemLeadTimeSupplier>(b =>
+        {
+            b.ToTable("Inv_ItemLeadTimeSuppliers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.ItemLeadTimeId, x.SupplierId });
         });
 
         builder.Entity<WarrantyClaim>(b =>

@@ -569,6 +569,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
+        path: '/inventory/item-lead-times',
+        name: '::MenuItemLeadTimes',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-stopwatch',
+        order: 2,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ItemLeadTimes',
+      },
+      {
         path: '/inventory/brands',
         name: '::Menu:Brands',
         parentName: '::Menu:Inventory',

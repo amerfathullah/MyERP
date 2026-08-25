@@ -976,6 +976,32 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Items' },
   },
+  {
+    path: 'inventory/item-lead-times',
+    loadComponent: () => import('./inventory/item-lead-times/item-lead-time-list.component').then(c => c.ItemLeadTimeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ItemLeadTimes' },
+  },
+  {
+    path: 'inventory/item-lead-times/new',
+    loadComponent: () => import('./inventory/item-lead-times/item-lead-time-form.component').then(c => c.ItemLeadTimeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ItemLeadTimes.Create' },
+  },
+  {
+    path: 'inventory/item-lead-times/:id/edit',
+    loadComponent: () => import('./inventory/item-lead-times/item-lead-time-form.component').then(c => c.ItemLeadTimeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ItemLeadTimes.Edit' },
+  },
+  {
+    path: 'inventory/item-lead-times/:id',
+    loadComponent: () => import('./inventory/item-lead-times/item-lead-time-form.component').then(c => c.ItemLeadTimeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ItemLeadTimes' },
+  },
   // EInvoice Submissions Dashboard
   {
     path: 'einvoice',

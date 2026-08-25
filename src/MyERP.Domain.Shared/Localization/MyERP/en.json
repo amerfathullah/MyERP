@@ -4314,6 +4314,22 @@
     "LengthCm": "Length (cm)",
     "WidthCm": "Width (cm)",
     "HeightCm": "Height (cm)",
-    "WeightKg": "Weight (kg)"
+    "WeightKg": "Weight (kg)",
+    "Permission:ItemLeadTimes": "Item Lead Times",
+    "Permission:ItemLeadTimes.Create": "Create Item Lead Time",
+    "Permission:ItemLeadTimes.Edit": "Edit Item Lead Time",
+    "Permission:ItemLeadTimes.Delete": "Delete Item Lead Time",
+    "ItemLeadTimes": "Item Lead Times",
+    "MenuItemLeadTimes": "Item Lead Times",
+    "NewItemLeadTime": "New Item Lead Time",
+    "EditItemLeadTime": "Edit Item Lead Time",
+    "ShiftTimeInHours": "Shift Time (Hours)",
+    "NoOfWorkstations": "No of Workstations",
+    "NoOfShifts": "No of Shifts",
+    "ManufacturingTimeInMins": "Manufacturing Time (Mins)",
+    "DailyYield": "Daily Yield (%)",
+    "CapacityPerDay": "Capacity / Day",
+    "PurchaseTimeDays": "Purchase Time (Days)",
+    "BufferTimeDays": "Buffer Time (Days)"
   }
 }
