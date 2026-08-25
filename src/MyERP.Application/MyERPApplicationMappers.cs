@@ -1141,6 +1141,13 @@ public partial class WorkOrderMapper : MapperBase<Manufacturing.Entities.WorkOrd
     private partial Manufacturing.WorkOrderItemDto MapChild(Manufacturing.Entities.WorkOrderItem source);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class PlantFloorMapper : MapperBase<Manufacturing.Entities.PlantFloor, Manufacturing.PlantFloorDto>
+{
+    public override partial Manufacturing.PlantFloorDto Map(Manufacturing.Entities.PlantFloor source);
+    public override partial void Map(Manufacturing.Entities.PlantFloor source, Manufacturing.PlantFloorDto destination);
+}
+
 // ─── Assets ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]

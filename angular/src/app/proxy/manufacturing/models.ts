@@ -897,3 +897,26 @@ export interface WorkstationWorkingHourDto {
   startTime?: string;
   endTime?: string;
 }
+
+export interface PlantFloorDto extends AuditedEntityDto<string> {
+  companyId?: string;
+  companyName?: string | null;
+  floorName: string;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdatePlantFloorDto {
+  companyId: string;
+  floorName: string;
+  warehouseId?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetPlantFloorListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  filter?: string | null;
+}

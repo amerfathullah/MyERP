@@ -403,6 +403,7 @@ public class MyERPDbContext :
     public DbSet<WorkstationCost> WorkstationCosts { get; set; }
     public DbSet<WorkstationWorkingHour> WorkstationWorkingHours { get; set; }
     public DbSet<WorkstationType> WorkstationTypes { get; set; }
+    public DbSet<PlantFloor> PlantFloors { get; set; }
     public DbSet<WorkstationTypeCost> WorkstationTypeCosts { get; set; }
     public DbSet<Operation> Operations { get; set; }
     public DbSet<SubOperation> SubOperations { get; set; }
@@ -3117,6 +3118,18 @@ public class MyERPDbContext :
             b.HasMany(x => x.WorkingHours).WithOne().HasForeignKey(x => x.WorkstationId).IsRequired();
             b.Navigation(x => x.WorkingHours).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Name }).IsUnique();
+        });
+
+        // Plant Floor
+        builder.Entity<PlantFloor>(b =>
+        {
+            b.ToTable("Mfg_PlantFloors", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.FloorName).IsRequired().HasMaxLength(PlantFloorConsts.MaxFloorNameLength);
+            b.Property(x => x.Description).HasMaxLength(PlantFloorConsts.MaxDescriptionLength);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.FloorName }).IsUnique();
         });
 
         builder.Entity<WorkstationCost>(b =>

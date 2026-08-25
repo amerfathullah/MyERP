@@ -803,6 +803,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class PlantFloors
+    {
+        public const string Default = GroupName + ".PlantFloors";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

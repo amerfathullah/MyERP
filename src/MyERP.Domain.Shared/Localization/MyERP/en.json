@@ -4275,6 +4275,15 @@
     "Menu:TaskTypes": "Task Types",
     "NewTaskType": "New Task Type",
     "EditTaskType": "Edit Task Type",
-    "TaskWeight": "Task Weight"
+    "TaskWeight": "Task Weight",
+    "Permission:PlantFloors": "Plant Floors",
+    "Permission:PlantFloors.Create": "Create Plant Floor",
+    "Permission:PlantFloors.Edit": "Edit Plant Floor",
+    "Permission:PlantFloors.Delete": "Delete Plant Floor",
+    "PlantFloors": "Plant Floors",
+    "Menu:PlantFloors": "Plant Floors",
+    "NewPlantFloor": "New Plant Floor",
+    "EditPlantFloor": "Edit Plant Floor",
+    "FloorName": "Floor Name"
   }
 }

@@ -541,6 +541,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Create, L("Permission:TaskTypes.Create"));
         taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Edit, L("Permission:TaskTypes.Edit"));
         taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Delete, L("Permission:TaskTypes.Delete"));
+
+        var plantFloorPermission = myGroup.AddPermission(MyERPPermissions.PlantFloors.Default, L("Permission:PlantFloors"));
+        plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Create, L("Permission:PlantFloors.Create"));
+        plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Edit, L("Permission:PlantFloors.Edit"));
+        plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Delete, L("Permission:PlantFloors.Delete"));
     }
 
     private static LocalizableString L(string name)

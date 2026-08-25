@@ -15,3 +15,4 @@ export * from './secondary-item-type.enum';
 export * from './sub-assembly-type.enum';
 export * from './work-order-status.enum';
 export * from './workstation-type.service';
+export * from './plant-floor.service';

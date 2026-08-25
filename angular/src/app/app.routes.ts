@@ -2604,6 +2604,32 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
+  {
+    path: 'manufacturing/plant-floors',
+    loadComponent: () => import('./manufacturing/plant-floors/plant-floor-list.component').then(c => c.PlantFloorListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PlantFloors' },
+  },
+  {
+    path: 'manufacturing/plant-floors/new',
+    loadComponent: () => import('./manufacturing/plant-floors/plant-floor-form.component').then(c => c.PlantFloorFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.PlantFloors.Create' },
+  },
+  {
+    path: 'manufacturing/plant-floors/:id/edit',
+    loadComponent: () => import('./manufacturing/plant-floors/plant-floor-form.component').then(c => c.PlantFloorFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.PlantFloors.Edit' },
+  },
+  {
+    path: 'manufacturing/plant-floors/:id',
+    loadComponent: () => import('./manufacturing/plant-floors/plant-floor-form.component').then(c => c.PlantFloorFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PlantFloors' },
+  },
 
   // Detail routes for recently added modules
   {

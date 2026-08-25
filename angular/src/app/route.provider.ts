@@ -1734,6 +1734,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/plant-floors',
+        name: '::Menu:PlantFloors',
+        iconClass: 'fas fa-building',
+        order: 17,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PlantFloors',
+      },
+      {
         path: '/sales/proforma-invoices',
         name: '::Menu:ProformaInvoices',
         iconClass: 'fas fa-file-invoice',
