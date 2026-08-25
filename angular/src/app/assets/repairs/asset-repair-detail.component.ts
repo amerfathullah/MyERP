@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
@@ -14,7 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 @Component({
   selector: 'app-asset-repair-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, DocumentWorkflowComponent, BreadcrumbComponent, ActivityLogComponent, StatusBadgeComponent],
+  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, DocumentWorkflowComponent, BreadcrumbComponent, ActivityLogComponent, StatusBadgeComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="'AssetRepairDetails' | abpLocalization">
@@ -24,8 +24,15 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         <div class="row mb-3">
           <div class="col-md-8">
             <div class="card">
-              <div class="card-header d-flex justify-content-between"><h5 class="mb-0">{{ repair()!.repairDescription ?? 'Repair' }}</h5>
-                <app-status-badge [status]="repair()!.status + ''" />
+              <div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0">{{ repair()!.repairDescription ?? 'Repair' }}</h5>
+                <div class="d-flex align-items-center gap-2">
+                  @if (repair()!.status === 0) {
+                    <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/assets/repairs', repair()!.id, 'edit']">
+                      <i class="fa fa-pen me-1"></i>{{ 'Edit' | abpLocalization }}
+                    </a>
+                  }
+                  <app-status-badge [status]="repair()!.status + ''" />
+                </div>
               </div>
               <div class="card-body">
                 <div class="row g-3">

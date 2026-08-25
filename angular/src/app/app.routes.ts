@@ -1599,18 +1599,6 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Assets.Create' },
   },
   {
-    path: 'assets/repairs',
-    loadComponent: () => import('./assets/repairs/asset-repair-list.component').then(c => c.AssetRepairListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  {
-    path: 'assets/repairs/:id',
-    loadComponent: () => import('./assets/repairs/asset-repair-detail.component').then(c => c.AssetRepairDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  {
     path: 'assets/:id',
     loadComponent: () => import('./assets/asset-detail/asset-detail.component').then(c => c.AssetDetailComponent),
     canActivate: [authGuard, permissionGuard],
@@ -3224,9 +3212,17 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'assets/repairs/new',
-    loadComponent: () => import('./assets/repairs/asset-repair-detail.component').then(c => c.AssetRepairDetailComponent),
+    loadComponent: () => import('./assets/repairs/asset-repair-form.component').then(c => c.AssetRepairFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.AssetRepairs.Create' },
+  },
+  {
+    path: 'assets/repairs/:id/edit',
+    loadComponent: () => import('./assets/repairs/asset-repair-form.component').then(c => c.AssetRepairFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.AssetRepairs.Edit' },
   },
   {
     path: 'assets/repairs/:id',
