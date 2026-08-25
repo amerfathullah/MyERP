@@ -131,6 +131,15 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
             // Consumption entry) = 5000 total → rate 50/unit. Pre-fix this was 300×10/100 = 30/unit,
             // silently dropping the pre-consumed 2000 of value.
             fgLine.ValuationRate.ShouldBe(50m);
+            // GL regression for this same residual (Manufacture entry's WIP-clearing credit) is
+            // covered separately by StockEntryGlPostingTests.Manufacture_ClearsWipInsteadOfStockAdjustment...
+            // — confirmed (pre-fix, with the original code too) that this test's own journalAppService
+            // query cannot find RecordProductionAsync's Manufacture-entry journal when read back here,
+            // inside the same WithUnitOfWorkAsync block as the earlier CreateMaterialConsumptionAsync
+            // call. Whether that's purely a same-UnitOfWork test-read artifact (a real caller's request
+            // boundary would commit before anyone reads it back) or an actual persistence gap in this
+            // exact call chain is unconfirmed — flagged for a dedicated follow-up, not this session's
+            // WIP-crediting fix.
         });
     }
 

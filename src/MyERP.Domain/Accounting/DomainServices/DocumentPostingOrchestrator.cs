@@ -38,6 +38,7 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
+    private readonly IRepository<StockEntry, Guid> _stockEntryRepository;
     private readonly WarehouseAccountService _warehouseAccountService;
 
     public DocumentPostingOrchestrator(
@@ -52,6 +53,7 @@ public class DocumentPostingOrchestrator : DomainService
         IRepository<FiscalYear, Guid> fiscalYearRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
+        IRepository<StockEntry, Guid> stockEntryRepository,
         WarehouseAccountService warehouseAccountService)
     {
         _ruleEngine = ruleEngine;
@@ -64,6 +66,7 @@ public class DocumentPostingOrchestrator : DomainService
         _periodRepository = periodRepository;
         _fiscalYearRepository = fiscalYearRepository;
         _sleRepository = sleRepository;
+        _stockEntryRepository = stockEntryRepository;
         _warehouseAccountService = warehouseAccountService;
         _companyRepository = companyRepository;
     }
@@ -353,12 +356,9 @@ public class DocumentPostingOrchestrator : DomainService
     /// unconditionally, with no purpose/condition field) — same shape of mismatch the 75th
     /// session's Payment Entry fix addressed, just with more distinct shapes here.
     ///
-    /// Handles Material Receipt/Issue/Transfer, Manufacture, Disassemble, Repack, and
-    /// SendToSubcontractor (see the case group's remarks below). Every remaining StockEntryType
-    /// (Material Consumption For Manufacture, Subcontracting Delivery/Return, Adjustment) throws a
-    /// clear, explicit error rather than guessing at GL treatment — same "throws" outcome they
-    /// always had (zero rules = always threw), just with an honest reason now instead of a generic
-    /// "no rules configured".
+    /// Every StockEntryType has an explicit case (see each group's remarks below) — the `default:`
+    /// branch is unreachable today but kept as a guard against a future enum value being added
+    /// without a matching GL treatment, throwing a clear, explicit error rather than guessing.
     /// </remarks>
     public async Task<JournalEntry> PostStockEntryAsync(StockEntry stockEntry)
     {
@@ -411,13 +411,24 @@ public class DocumentPostingOrchestrator : DomainService
                     // never DefaultExpenseAccountId. See ManufacturingAppService.RecordProductionAsync
                     // and CreateManufactureStockEntryAsync's GetPriorMaterialConsumptionValueAsync
                     // calls for the other half of this: folding this value back into the FG's cost
-                    // once it's produced. NOTE: the later Manufacture entry's own GL still credits
-                    // this pre-consumed value to Stock Adjustment (via BuildStockToStockLinesAsync's
-                    // generic residual plug), not back to WIP — so WIP accumulates rather than
-                    // clearing to zero on FG completion. Deliberately left unresolved this session
-                    // (would require Manufacture's builder to know about linked prior consumption
-                    // entries); flagged for a dedicated follow-up.
+                    // once it's produced. See the Manufacture case below for the matching WIP-clearing
+                    // credit on the other end of this entry.
                     await BuildMaterialConsumptionLinesAsync(journal, company, sles);
+                    break;
+
+                case StockEntryType.Manufacture:
+                    // Split out from the shared stock-to-stock group below: when this WO has any
+                    // posted MaterialConsumptionForManufacture entry (the case above), this entry's
+                    // FG item was priced including that pre-consumed RM's value (see
+                    // ManufacturingAppService.GetPriorMaterialConsumptionValueAsync), but the RM
+                    // itself isn't re-issued here — only freshly-issued RM appears in this entry's own
+                    // SLEs. That leaves BuildStockToStockLinesAsync's per-SLE debit/credit exactly
+                    // short by the pre-consumed value, and its generic residual plug used to route
+                    // that shortfall to Stock Adjustment — silently leaving DefaultWipAccountId's
+                    // earlier debit uncleared forever (WIP balance only ever grows). Now routed to
+                    // DefaultWipAccountId instead, clearing the WIP asset back down as the FG it
+                    // funded actually completes.
+                    await BuildManufactureLinesAsync(journal, company, sles, stockEntry.WorkOrderId);
                     break;
 
                 case StockEntryType.MaterialTransfer:
@@ -426,7 +437,6 @@ public class DocumentPostingOrchestrator : DomainService
                 case StockEntryType.SendToSubcontractor:
                 case StockEntryType.SubcontractingDelivery:
                 case StockEntryType.SubcontractingReturn:
-                case StockEntryType.Manufacture:
                 case StockEntryType.Disassemble:
                 case StockEntryType.Repack:
                     // Per StockEntryManager.ValidateWarehousesAsync's own "isTransfer" bucket:
@@ -534,16 +544,7 @@ public class DocumentPostingOrchestrator : DomainService
     /// account rather than left to fail JournalEntry.Validate()'s zero-tolerance balance check.</summary>
     private async Task BuildStockToStockLinesAsync(JournalEntry journal, Company company, List<StockLedgerEntry> sles)
     {
-        decimal debitTotal = 0, creditTotal = 0;
-        foreach (var sle in sles)
-        {
-            if (sle.StockValue == 0) continue;
-            var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(sle.WarehouseId, company.Id);
-            var isDebit = sle.StockValue > 0;
-            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: isDebit);
-            if (isDebit) debitTotal += sle.StockValue; else creditTotal += -sle.StockValue;
-        }
-
+        var (debitTotal, creditTotal) = await AddStockAccountLinesAsync(journal, company, sles);
         var difference = debitTotal - creditTotal;
         if (difference == 0) return;
 
@@ -554,6 +555,67 @@ public class DocumentPostingOrchestrator : DomainService
         }
         // debit-heavy (difference > 0) needs a credit to balance, and vice versa.
         journal.AddLine(company.DefaultStockAdjustmentAccountId.Value, Math.Abs(difference), isDebit: difference < 0);
+    }
+
+    /// <summary>Manufacture: same per-SLE stock account lines as <see cref="BuildStockToStockLinesAsync"/>,
+    /// but when this entry's Work Order has a posted MaterialConsumptionForManufacture entry, the
+    /// residual isn't a genuine imbalance — it's exactly the pre-consumed RM value that
+    /// <see cref="BuildMaterialConsumptionLinesAsync"/> already debited to WIP earlier (folded into
+    /// this entry's FG cost by ManufacturingAppService.GetPriorMaterialConsumptionValueAsync, but
+    /// never re-issued as an SLE here). Clear that WIP debit instead of plugging to Stock Adjustment.
+    /// Falls back to the ordinary Stock Adjustment plug for a WO with no such prior entry (or no
+    /// WO at all), where any residual is a genuine valuation gap same as Disassemble/multi-FG Repack.</summary>
+    private async Task BuildManufactureLinesAsync(
+        JournalEntry journal, Company company, List<StockLedgerEntry> sles, Guid? workOrderId)
+    {
+        var (debitTotal, creditTotal) = await AddStockAccountLinesAsync(journal, company, sles);
+        var difference = debitTotal - creditTotal;
+        if (difference == 0) return;
+
+        var clearsWip = false;
+        if (workOrderId.HasValue)
+        {
+            clearsWip = await _stockEntryRepository.AnyAsync(se =>
+                se.WorkOrderId == workOrderId.Value
+                && se.EntryType == StockEntryType.MaterialConsumptionForManufacture
+                && se.Status == DocumentStatus.Posted);
+        }
+
+        if (clearsWip)
+        {
+            if (!company.DefaultWipAccountId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
+                    .WithData("reason", "No WIP account configured. Set Default WIP Account in Company settings.");
+            }
+            journal.AddLine(company.DefaultWipAccountId.Value, Math.Abs(difference), isDebit: difference < 0);
+            return;
+        }
+
+        if (!company.DefaultStockAdjustmentAccountId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
+                .WithData("reason", "No stock adjustment account configured. Set Default Stock Adjustment Account in Company settings.");
+        }
+        journal.AddLine(company.DefaultStockAdjustmentAccountId.Value, Math.Abs(difference), isDebit: difference < 0);
+    }
+
+    /// <summary>Per SLE, adds a line to the resolved stock account: DR for stock-in (positive
+    /// StockValue), CR for stock-out (negative). Returns the debit/credit totals so the caller can
+    /// plug any residual to whichever "other side" account fits its purpose.</summary>
+    private async Task<(decimal DebitTotal, decimal CreditTotal)> AddStockAccountLinesAsync(
+        JournalEntry journal, Company company, List<StockLedgerEntry> sles)
+    {
+        decimal debitTotal = 0, creditTotal = 0;
+        foreach (var sle in sles)
+        {
+            if (sle.StockValue == 0) continue;
+            var stockAccountId = await _warehouseAccountService.ResolveStockAccountAsync(sle.WarehouseId, company.Id);
+            var isDebit = sle.StockValue > 0;
+            journal.AddLine(stockAccountId, Math.Abs(sle.StockValue), isDebit: isDebit);
+            if (isDebit) debitTotal += sle.StockValue; else creditTotal += -sle.StockValue;
+        }
+        return (debitTotal, creditTotal);
     }
 
     /// <summary>

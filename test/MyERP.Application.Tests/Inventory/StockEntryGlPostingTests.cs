@@ -2,8 +2,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Shared;
 using Shouldly;
@@ -376,6 +378,125 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
 
         journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 96m);
         journal.Lines.ShouldContain(l => l.AccountId == company.DefaultStockAdjustmentAccountId && !l.IsDebit && l.Amount == 96m);
+    }
+
+    [Fact]
+    public async Task Manufacture_ClearsWipInsteadOfStockAdjustment_WhenWorkOrderHadPriorMaterialConsumption()
+    {
+        // Regression for the WIP-accumulates bug documented at DocumentPostingOrchestrator's
+        // MaterialConsumptionForManufacture case: a WO's Material Consumption entry debits WIP for
+        // the RM it pre-consumes; the RM isn't re-issued in the later Manufacture entry (only the FG
+        // cost folds that value back in), so the Manufacture entry's own SLEs run short by exactly
+        // that value. The residual must clear the earlier WIP debit, not plug to Stock Adjustment.
+        var (company, item, sourceWarehouse, targetWarehouse) = await SeedCommonAsync("MFGWIP");
+
+        var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+        var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+        var wipAccount = await accountRepository.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, "94MFGWIP", "Test WIP", AccountType.Asset), autoSave: true);
+        company.DefaultWipAccountId = wipAccount.Id;
+        await companyRepository.UpdateAsync(company, autoSave: true);
+
+        var fgItem = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-MFGWIP-FG", "Test FG MFGWIP", ItemType.Goods), autoSave: true);
+
+        var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var stockPostingService = GetRequiredService<StockPostingService>();
+        var postingOrchestrator = GetRequiredService<DocumentPostingOrchestrator>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var workOrderId = Guid.NewGuid();
+
+        // Source-out SLEs price at the warehouse's CURRENT moving-average rate (StockPostingService),
+        // not the AddItem-supplied rate — seed a starting balance so both consumptions below value
+        // at a known 4/unit.
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 20m, valuationRate: 4m,
+            balanceQuantity: 20m, balanceValue: 80m), autoSave: true);
+
+        // Raw domain-service calls (StockPostingService/DocumentPostingOrchestrator, not AppServices)
+        // need an ambient UnitOfWork to keep the same DbContext alive across the sequence below —
+        // an AppService call carries its own via [UnitOfWork], these don't.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            // Prior Material Consumption entry for this WO: 5 units RM @ rate 4 = 20 → DR WIP 20, CR Stock 20.
+            var consumptionEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.MaterialConsumptionForManufacture, DateTime.Today, company.TenantId)
+            { WorkOrderId = workOrderId };
+            consumptionEntry.AddItem(item.Id, 5m, sourceWarehouseId: sourceWarehouse, targetWarehouseId: null, valuationRate: 4m);
+            consumptionEntry.Submit();
+            consumptionEntry.Post();
+            await stockPostingService.PostStockEntryAsync(consumptionEntry);
+            await postingOrchestrator.PostStockEntryAsync(consumptionEntry);
+            await seRepository.InsertAsync(consumptionEntry, autoSave: true);
+
+            // Manufacture entry for the same WO: only 2 fresh RM units issued here (8 cost) — the other
+            // 5 were already consumed above — but FG is priced at 28 (8 fresh + 20 prior), same as
+            // ManufacturingAppService.RecordProductionAsync's totalRmCost += GetPriorMaterialConsumptionValueAsync.
+            var manufactureEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
+            { WorkOrderId = workOrderId };
+            manufactureEntry.AddItem(item.Id, 2m, sourceWarehouseId: sourceWarehouse, targetWarehouseId: null, valuationRate: 4m);
+            manufactureEntry.AddItem(fgItem.Id, 1m, sourceWarehouseId: null, targetWarehouseId: targetWarehouse, valuationRate: 28m);
+            manufactureEntry.Submit();
+            manufactureEntry.Post();
+            await stockPostingService.PostStockEntryAsync(manufactureEntry);
+            await postingOrchestrator.PostStockEntryAsync(manufactureEntry);
+            await seRepository.InsertAsync(manufactureEntry, autoSave: true);
+
+            var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+            var manufactureJournal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == manufactureEntry.Id);
+
+            // Residual = 28 (FG in) - 8 (fresh RM out) = 20 — exactly the prior entry's WIP debit.
+            manufactureJournal.Lines.ShouldContain(l => l.AccountId == wipAccount.Id && !l.IsDebit && l.Amount == 20m);
+            manufactureJournal.Lines.ShouldNotContain(l => l.AccountId == company.DefaultStockAdjustmentAccountId);
+            manufactureJournal.TotalDebit.ShouldBe(manufactureJournal.TotalCredit);
+        });
+    }
+
+    [Fact]
+    public async Task Manufacture_PlugsStockAdjustment_WhenWorkOrderHadNoPriorMaterialConsumption()
+    {
+        // Regression guard for the OTHER branch of the same fix: a WO with no Material Consumption
+        // history must keep the ordinary Stock Adjustment plug (e.g. a genuine multi-FG Repack-style
+        // valuation gap) — the WIP-clearing path must not fire unconditionally for every Manufacture
+        // entry just because it references a Work Order.
+        var (company, item, sourceWarehouse, targetWarehouse) = await SeedCommonAsync("MFGNOWIP");
+
+        var fgItem = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-MFGNOWIP-FG", "Test FG MFGNOWIP", ItemType.Goods), autoSave: true);
+
+        var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var stockPostingService = GetRequiredService<StockPostingService>();
+        var postingOrchestrator = GetRequiredService<DocumentPostingOrchestrator>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 20m, valuationRate: 4m,
+            balanceQuantity: 20m, balanceValue: 80m), autoSave: true);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            // Deliberately mispriced FG (10 instead of the balanced 8) to force a genuine residual,
+            // with no Material Consumption entry for this WorkOrderId anywhere.
+            var manufactureEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
+            { WorkOrderId = Guid.NewGuid() };
+            manufactureEntry.AddItem(item.Id, 2m, sourceWarehouseId: sourceWarehouse, targetWarehouseId: null, valuationRate: 4m);
+            manufactureEntry.AddItem(fgItem.Id, 1m, sourceWarehouseId: null, targetWarehouseId: targetWarehouse, valuationRate: 10m);
+            manufactureEntry.Submit();
+            manufactureEntry.Post();
+            await stockPostingService.PostStockEntryAsync(manufactureEntry);
+            await postingOrchestrator.PostStockEntryAsync(manufactureEntry);
+            await seRepository.InsertAsync(manufactureEntry, autoSave: true);
+
+            var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+            var manufactureJournal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == manufactureEntry.Id);
+
+            manufactureJournal.Lines.ShouldContain(l => l.AccountId == company.DefaultStockAdjustmentAccountId && !l.IsDebit && l.Amount == 2m);
+            manufactureJournal.TotalDebit.ShouldBe(manufactureJournal.TotalCredit);
+        });
     }
 
     private async Task<(Company Company, Item Item, Guid SourceWarehouse, Guid? TargetWarehouse)> SeedCommonAsync(string suffix)
