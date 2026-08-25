@@ -1708,3 +1708,19 @@ export interface UomConversionDto extends EntityDto<string> {
   conversionFactor?: number;
   itemId?: string | null;
 }
+
+export interface QualityInspectionParameterGroupDto extends FullAuditedEntityDto<string> {
+  groupName: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateQualityInspectionParameterGroupDto {
+  groupName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetQualityInspectionParameterGroupListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}

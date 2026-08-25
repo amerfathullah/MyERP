@@ -1243,6 +1243,13 @@ public partial class LeaveTypeMapper : MapperBase<HumanResources.Entities.LeaveT
 // ─── Inventory ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class QualityInspectionParameterGroupMapper : MapperBase<Inventory.Entities.QualityInspectionParameterGroup, Inventory.QualityInspectionParameterGroupDto>
+{
+    public override partial Inventory.QualityInspectionParameterGroupDto Map(Inventory.Entities.QualityInspectionParameterGroup source);
+    public override partial void Map(Inventory.Entities.QualityInspectionParameterGroup source, Inventory.QualityInspectionParameterGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PriceListMapper : MapperBase<Inventory.Entities.PriceList, Inventory.PriceListDto>
 {
     [MapProperty(nameof(Inventory.Entities.PriceList.Name), nameof(Inventory.PriceListDto.PriceListName))]

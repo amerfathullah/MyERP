@@ -551,6 +551,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Create, L("Permission:QuotationLostReasons.Create"));
         quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Edit, L("Permission:QuotationLostReasons.Edit"));
         quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Delete, L("Permission:QuotationLostReasons.Delete"));
+
+        var qualityInspectionParameterGroupPermission = myGroup.AddPermission(MyERPPermissions.QualityInspectionParameterGroups.Default, L("Permission:QualityInspectionParameterGroups"));
+        qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Create, L("Permission:QualityInspectionParameterGroups.Create"));
+        qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Edit, L("Permission:QualityInspectionParameterGroups.Edit"));
+        qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Delete, L("Permission:QualityInspectionParameterGroups.Delete"));
     }
 
     private static LocalizableString L(string name)

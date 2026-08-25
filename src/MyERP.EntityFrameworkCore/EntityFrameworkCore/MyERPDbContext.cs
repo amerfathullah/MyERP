@@ -456,6 +456,7 @@ public class MyERPDbContext :
     // Quality Management (additional)
     public DbSet<QualityInspectionTemplate> QualityInspectionTemplates { get; set; }
     public DbSet<QualityInspectionParameter> QualityInspectionParameters { get; set; }
+    public DbSet<QualityInspectionParameterGroup> QualityInspectionParameterGroups { get; set; }
     public DbSet<QualityProcedure> QualityProcedures { get; set; }
     public DbSet<QualityProcedureStep> QualityProcedureSteps { get; set; }
     public DbSet<QualityGoal> QualityGoals { get; set; }
@@ -4266,6 +4267,15 @@ public class MyERPDbContext :
             b.Property(x => x.MaxValue).HasColumnType("decimal(18,6)");
             b.Property(x => x.Formula).HasMaxLength(500);
             b.Property(x => x.AcceptanceCriteria).HasMaxLength(500);
+        });
+
+        builder.Entity<QualityInspectionParameterGroup>(b =>
+        {
+            b.ToTable("Inv_QualityInspectionParameterGroups", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.GroupName).IsRequired().HasMaxLength(QualityInspectionParameterGroupConsts.MaxGroupNameLength);
+            b.Property(x => x.Description).HasMaxLength(QualityInspectionParameterGroupConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.GroupName }).IsUnique();
         });
 
         builder.Entity<QualityProcedure>(b =>

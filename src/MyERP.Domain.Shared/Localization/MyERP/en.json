@@ -4292,6 +4292,15 @@
     "QuotationLostReasons": "Quotation Lost Reasons",
     "Menu:QuotationLostReasons": "Quotation Lost Reasons",
     "NewQuotationLostReason": "New Quotation Lost Reason",
-    "EditQuotationLostReason": "Edit Quotation Lost Reason"
+    "EditQuotationLostReason": "Edit Quotation Lost Reason",
+    "Permission:QualityInspectionParameterGroups": "Quality Inspection Parameter Groups",
+    "Permission:QualityInspectionParameterGroups.Create": "Create Quality Inspection Parameter Group",
+    "Permission:QualityInspectionParameterGroups.Edit": "Edit Quality Inspection Parameter Group",
+    "Permission:QualityInspectionParameterGroups.Delete": "Delete Quality Inspection Parameter Group",
+    "QualityInspectionParameterGroups": "Quality Inspection Parameter Groups",
+    "Menu:QualityInspectionParameterGroups": "Parameter Groups",
+    "NewQualityInspectionParameterGroup": "New Parameter Group",
+    "EditQualityInspectionParameterGroup": "Edit Parameter Group",
+    "ParameterGroupName": "Parameter Group Name"
   }
 }

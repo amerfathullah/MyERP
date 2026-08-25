@@ -2951,6 +2951,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
   },
   {
+    path: 'inventory/quality-inspection-parameter-groups',
+    loadComponent: () => import('./inventory/quality-inspection-parameter-groups/quality-inspection-parameter-group-list.component').then(c => c.QualityInspectionParameterGroupListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspectionParameterGroups' },
+  },
+  {
+    path: 'inventory/quality-inspection-parameter-groups/new',
+    loadComponent: () => import('./inventory/quality-inspection-parameter-groups/quality-inspection-parameter-group-form.component').then(c => c.QualityInspectionParameterGroupFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspectionParameterGroups.Create' },
+  },
+  {
+    path: 'inventory/quality-inspection-parameter-groups/:id/edit',
+    loadComponent: () => import('./inventory/quality-inspection-parameter-groups/quality-inspection-parameter-group-form.component').then(c => c.QualityInspectionParameterGroupFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspectionParameterGroups.Edit' },
+  },
+  {
+    path: 'inventory/quality-inspection-parameter-groups/:id',
+    loadComponent: () => import('./inventory/quality-inspection-parameter-groups/quality-inspection-parameter-group-form.component').then(c => c.QualityInspectionParameterGroupFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspectionParameterGroups' },
+  },
+  {
     path: 'inventory/quality-feedback-templates',
     loadComponent: () => import('./inventory/quality-feedback-templates/quality-feedback-template-list.component').then(c => c.QualityFeedbackTemplateListComponent),
     canActivate: [authGuard, permissionGuard],
