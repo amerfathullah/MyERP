@@ -1173,13 +1173,13 @@ export const APP_ROUTES: Routes = [
     path: 'hr/payroll',
     loadComponent: () => import('./hr/payroll/payroll-list.component').then(c => c.PayrollListComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Employees' },
+    data: { requiredPolicy: 'MyERP.Payroll' },
   },
   {
     path: 'hr/payroll/:id',
     loadComponent: () => import('./hr/payroll/payroll-detail.component').then(c => c.PayrollDetailComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Employees' },
+    data: { requiredPolicy: 'MyERP.Payroll' },
   },
   {
     path: 'tax/categories',
@@ -3038,54 +3038,6 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.WarrantyClaims' },
   },
-  // Maintenance Schedules
-  {
-    path: 'maintenance/schedules',
-    loadComponent: () => import('./maintenance/maintenance-schedules/maintenance-schedule-list.component').then(c => c.MaintenanceScheduleListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  {
-    path: 'maintenance/schedules/new',
-    loadComponent: () => import('./maintenance/maintenance-schedules/maintenance-schedule-form.component').then(c => c.MaintenanceScheduleFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
-    data: { requiredPolicy: 'MyERP.Assets.Create' },
-  },
-  {
-    path: 'maintenance/schedules/:id',
-    loadComponent: () => import('./maintenance/maintenance-schedules/maintenance-schedule-detail.component').then(c => c.MaintenanceScheduleDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  // Maintenance Visits
-  {
-    path: 'maintenance/visits',
-    loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-list.component').then(c => c.MaintenanceVisitListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  {
-    path: 'maintenance/visits/new',
-    loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-form.component').then(c => c.MaintenanceVisitFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
-    data: { requiredPolicy: 'MyERP.Assets.Create' },
-  },
-  {
-    path: 'maintenance/visits/:id/edit',
-    loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-form.component').then(c => c.MaintenanceVisitFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
-    data: { requiredPolicy: 'MyERP.Assets.Edit' },
-  },
-  {
-    path: 'maintenance/visits/:id',
-    loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-detail.component').then(c => c.MaintenanceVisitDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-
   // Bank Guarantees
   {
     path: 'accounting/bank-guarantees',
@@ -3456,13 +3408,13 @@ export const APP_ROUTES: Routes = [
     path: 'assets/value-adjustments',
     loadComponent: () => import('./assets/asset-value-adjustments/asset-value-adjustment-list.component').then(c => c.AssetValueAdjustmentListComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
+    data: { requiredPolicy: 'MyERP.AssetValueAdjustments' },
   },
   {
     path: 'assets/value-adjustments/new',
     loadComponent: () => import('./assets/asset-value-adjustments/asset-value-adjustment-form.component').then(c => c.AssetValueAdjustmentFormComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets.Create' },
+    data: { requiredPolicy: 'MyERP.AssetValueAdjustments.Create' },
   },
 
   // Maintenance & Support
@@ -3513,6 +3465,13 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-form.component').then(c => c.MaintenanceVisitFormComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.MaintenanceVisits.Create' },
+  },
+  {
+    path: 'maintenance/visits/:id/edit',
+    loadComponent: () => import('./maintenance/maintenance-visits/maintenance-visit-form.component').then(c => c.MaintenanceVisitFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.MaintenanceVisits.Edit' },
   },
   {
     path: 'maintenance/visits/:id',

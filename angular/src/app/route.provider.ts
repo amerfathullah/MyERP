@@ -200,15 +200,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.WarrantyClaims',
       },
       {
-        path: '/maintenance/schedules',
-        name: '::Menu:MaintenanceSchedules',
-        parentName: '::Menu:Support',
-        iconClass: 'fas fa-calendar-check',
-        order: 4,
-        layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Assets',
-      },
-      {
         path: '/suppliers',
         name: '::Menu:Suppliers',
         iconClass: 'fas fa-truck',
@@ -620,7 +611,7 @@ function configureRoutes() {
         iconClass: 'fas fa-scroll',
         order: 10,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.StockLedger',
+        requiredPolicy: 'MyERP.Items',
       },
       {
         path: '/inventory/reports/stock-balance',
@@ -1009,7 +1000,7 @@ function configureRoutes() {
         iconClass: 'fas fa-money-check-alt',
         order: 2,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Employees',
+        requiredPolicy: 'MyERP.Payroll',
       },
       {
         path: '/tax/categories',
@@ -1225,15 +1216,6 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Assets',
       },
       {
-        path: '/assets/repairs',
-        name: '::Menu:AssetRepairs',
-        parentName: '::Menu:Assets',
-        iconClass: 'fas fa-wrench',
-        order: 2,
-        layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Assets',
-      },
-      {
         path: '/manufacturing/work-orders',
         name: '::Menu:Manufacturing',
         iconClass: 'fas fa-industry',
@@ -1285,15 +1267,6 @@ function configureRoutes() {
         parentName: '::Menu:Sales',
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.DeliveryNotes',
-      },
-      {
-        path: '/assets/capitalizations',
-        name: '::Menu:AssetCapitalizations',
-        iconClass: 'fas fa-building-circle-arrow-right',
-        order: 3,
-        parentName: '::Menu:Assets',
-        layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Assets',
       },
       {
         path: '/settings/authorization-rules',
@@ -2324,7 +2297,7 @@ function configureRoutes() {
         iconClass: 'fas fa-sliders',
         order: 9,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Assets',
+        requiredPolicy: 'MyERP.AssetValueAdjustments',
       },
       // Maintenance & Support Module
       {
