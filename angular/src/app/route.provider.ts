@@ -116,7 +116,7 @@ function configureRoutes() {
         iconClass: 'fas fa-cubes',
         order: 13,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.SalesInvoices',
+        requiredPolicy: 'MyERP.Items',
       },
       {
         path: '/sales/loyalty-programs',
@@ -1092,6 +1092,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Opportunities',
       },
       {
+        path: '/crm/sales-pipeline',
+        name: '::Menu:SalesPipeline',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-filter',
+        order: 3,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Opportunities',
+      },
+      {
         path: '/crm/prospects',
         name: '::Menu:Prospects',
         parentName: '::Menu:CRM',
@@ -1363,7 +1372,7 @@ function configureRoutes() {
         order: 21,
         parentName: '::Menu:HR',
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.Employees',
+        requiredPolicy: 'MyERP.Payroll',
       },
       {
         path: '/inventory/putaway-rules',
@@ -1372,7 +1381,7 @@ function configureRoutes() {
         order: 11,
         parentName: '::Menu:Inventory',
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.StockEntries',
+        requiredPolicy: 'MyERP.Warehouses',
       },
       {
         path: '/accounting/payment-requests',
@@ -1639,6 +1648,15 @@ function configureRoutes() {
         name: '::Menu:ProductionAnalytics',
         iconClass: 'fas fa-chart-bar',
         order: 15,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
+        path: '/manufacturing/reports/bom-stock-analysis',
+        name: '::Menu:BomStockAnalysis',
+        iconClass: 'fas fa-sitemap',
+        order: 16,
         parentName: '::Menu:Manufacturing',
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.Manufacturing',

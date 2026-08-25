@@ -924,6 +924,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Items' },
   },
   {
+    path: 'inventory/putaway-rules',
+    loadComponent: () => import('./inventory/putaway-rules/putaway-rule-list.component').then(c => c.PutawayRuleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Warehouses' },
+  },
+  {
     path: 'inventory/reports/stock-ageing',
     loadComponent: () => import('./inventory/reports/stock-ageing/stock-ageing.component').then(c => c.StockAgeingComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1156,6 +1162,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Employees' },
   },
   {
+    path: 'hr/leave-types',
+    loadComponent: () => import('./hr/leave-types/leave-type-list.component').then(c => c.LeaveTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Employees' },
+  },
+  {
+    path: 'hr/salary-components',
+    loadComponent: () => import('./hr/salary-components/salary-component-list.component').then(c => c.SalaryComponentListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
     path: 'hr/employees/new',
     loadComponent: () => import('./hr/employees/employee-form.component').then(c => c.EmployeeFormComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1277,6 +1295,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'crm/opportunities',
     loadComponent: () => import('./crm/opportunities/opportunity-list.component').then(c => c.OpportunityListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/sales-pipeline',
+    loadComponent: () => import('./crm/pipeline/sales-pipeline.component').then(c => c.SalesPipelineComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Opportunities' },
   },
@@ -1742,6 +1766,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'manufacturing/reports/analytics',
     loadComponent: () => import('./manufacturing/reports/production-analytics.component').then(c => c.ProductionAnalyticsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
+    path: 'manufacturing/reports/bom-stock-analysis',
+    loadComponent: () => import('./manufacturing/reports/bom-stock-analysis.component').then(c => c.BomStockAnalysisComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
@@ -2249,10 +2279,30 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'sales/pos-closing/new',
+    loadComponent: () => import('./sales/pos-closing/pos-closing-form.component').then(c => c.PosClosingFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/pos-closing/:id',
     loadComponent: () => import('./sales/pos-closing/pos-closing-detail.component').then(c => c.PosClosingDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/product-bundles',
+    loadComponent: () => import('./sales/product-bundles/product-bundle-list.component').then(c => c.ProductBundleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
+    path: 'sales/product-bundles/new',
+    loadComponent: () => import('./sales/product-bundles/product-bundle-form.component').then(c => c.ProductBundleFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.Items.Create' },
   },
   {
     path: 'sales/pos-opening',
@@ -2967,6 +3017,18 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settings/payment-terms-templates',
+    loadComponent: () => import('./settings/payment-terms-template/payment-terms-template-list.component').then(c => c.PaymentTermsTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'settings/document-series',
+    loadComponent: () => import('./settings/document-series/document-series-list.component').then(c => c.DocumentSeriesListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Companies' },
+  },
+  {
     path: 'accounting/fiscal-years',
     loadComponent: () => import('./accounting/fiscal-years/fiscal-year-list.component').then(c => c.FiscalYearListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -3005,6 +3067,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'accounting/report-templates',
     loadComponent: () => import('./accounting/report-templates/financial-report-template-list.component').then(c => c.FinancialReportTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/report-templates/execute',
+    loadComponent: () => import('./accounting/report-templates/financial-report-execute.component').then(c => c.FinancialReportExecuteComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Accounts' },
   },

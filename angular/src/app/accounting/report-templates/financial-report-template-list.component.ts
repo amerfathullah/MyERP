@@ -75,7 +75,7 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
                 @for (t of templates(); track t.id) {
                   <tr>
                     <td>
-                      <a [routerLink]="['/accounting/report-templates', t.id]" class="text-decoration-none fw-medium">{{ t.name }}</a>
+                      <a routerLink="/accounting/report-templates/execute" class="text-decoration-none fw-medium">{{ t.name }}</a>
                       @if (t.isStandard) { <span class="badge bg-info ms-1">Standard</span> }
                     </td>
                     <td>{{ getReportTypeName(t.reportType) }}</td>
