@@ -685,8 +685,8 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.EInvoice' },
   },
   {
-    path: 'sales/installation-notes/new',
-    loadComponent: () => import('./sales/installation-notes/installation-note-form.component').then(c => c.InstallationNoteFormComponent),
+    path: 'sales/installation-notes',
+    loadComponent: () => import('./sales/installation-notes/installation-note-list.component').then(c => c.InstallationNoteListComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.DeliveryNotes' },
   },
@@ -694,6 +694,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/installation-notes/new',
     loadComponent: () => import('./sales/installation-notes/installation-note-form.component').then(c => c.InstallationNoteFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.DeliveryNotes.Create' },
   },
   {
@@ -701,18 +702,6 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./sales/installation-notes/installation-note-detail.component').then(c => c.InstallationNoteDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.DeliveryNotes' },
-  },
-  {
-    path: 'sales/installation-notes',
-    loadComponent: () => import('./sales/installation-notes/installation-note-list.component').then(c => c.InstallationNoteListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
-  },
-  {
-    path: 'assets/capitalizations',
-    loadComponent: () => import('./assets/capitalizations/asset-capitalization-list.component').then(c => c.AssetCapitalizationListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
   },
   {
     path: 'accounting/budgets',
@@ -961,28 +950,10 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Items' },
   },
-  {
-    path: 'e-invoice/logs',
-    loadComponent: () => import('./e-invoice/logs/einvoice-logs.component').then(c => c.EinvoiceLogsComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.EInvoice' },
-  },
   // EInvoice Submissions Dashboard
   {
     path: 'einvoice',
     loadComponent: () => import('./einvoice/einvoice-list.component').then(c => c.EInvoiceListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.EInvoice' },
-  },
-  {
-    path: 'einvoice/settings',
-    loadComponent: () => import('./einvoice/einvoice-settings.component').then(c => c.EInvoiceSettingsComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.EInvoice' },
-  },
-  {
-    path: 'einvoice/batch-submit',
-    loadComponent: () => import('./einvoice/einvoice-batch-submit.component').then(c => c.EInvoiceBatchSubmitComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.EInvoice' },
   },
@@ -1105,12 +1076,6 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./accounting/bank-statement-import/bank-statement-import.component').then(c => c.BankStatementImportComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.PaymentEntries' },
-  },
-  {
-    path: 'e-invoice/reports',
-    loadComponent: () => import('./e-invoice/reports/einvoice-status-report.component').then(c => c.EinvoiceStatusReportComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.EInvoice' },
   },
   {
     path: 'workflow/pending',
@@ -1631,26 +1596,6 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.Projects.Edit' },
-  },
-  // Assets
-  {
-    path: 'assets',
-    loadComponent: () => import('./assets/asset-list/asset-list.component').then(c => c.AssetListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
-  },
-  {
-    path: 'assets/new',
-    loadComponent: () => import('./assets/asset-form/asset-form.component').then(c => c.AssetFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
-    data: { requiredPolicy: 'MyERP.Assets.Create' },
-  },
-  {
-    path: 'assets/:id',
-    loadComponent: () => import('./assets/asset-detail/asset-detail.component').then(c => c.AssetDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.Assets' },
   },
   // Manufacturing
   {
@@ -2215,6 +2160,7 @@ export const APP_ROUTES: Routes = [
     path: 'purchasing/scorecards/new',
     loadComponent: () => import('./purchasing/scorecards/supplier-scorecard-form.component').then(c => c.SupplierScorecardFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.SupplierScorecards.Create' },
   },
   {
@@ -2258,12 +2204,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/packing-slips/new',
     loadComponent: () => import('./sales/packing-slips/packing-slip-form.component').then(c => c.PackingSlipFormComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
-  },
-  {
-    path: 'sales/packing-slips/new',
-    loadComponent: () => import('./sales/packing-slips/packing-slip-form.component').then(c => c.PackingSlipFormComponent),
-    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.DeliveryNotes.Create' },
   },
   {
@@ -2362,12 +2303,6 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesPersons' },
   },
   {
-    path: 'purchasing/scorecards',
-    loadComponent: () => import('./purchasing/scorecards/supplier-scorecard-list.component').then(c => c.SupplierScorecardListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.SupplierScorecards' },
-  },
-  {
     path: 'sales/loyalty-programs/new',
     loadComponent: () => import('./sales/loyalty-programs/loyalty-program-form.component').then(c => c.LoyaltyProgramFormComponent),
     canActivate: [authGuard, permissionGuard],
@@ -2387,13 +2322,6 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.SalesPersons.Create' },
-  },
-  {
-    path: 'purchasing/scorecards/new',
-    loadComponent: () => import('./purchasing/scorecards/supplier-scorecard-form.component').then(c => c.SupplierScorecardFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
-    data: { requiredPolicy: 'MyERP.SupplierScorecards.Create' },
   },
   {
     path: 'hr/expense-claims',
@@ -2496,12 +2424,6 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./sales/blanket-orders/blanket-order-detail.component').then(c => c.BlanketOrderDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesOrders' },
-  },
-  {
-    path: 'purchasing/scorecards/:id',
-    loadComponent: () => import('./purchasing/scorecards/supplier-scorecard-detail.component').then(c => c.SupplierScorecardDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.SupplierScorecards' },
   },
   {
     path: 'purchasing/rfq/:id',
@@ -3130,6 +3052,7 @@ export const APP_ROUTES: Routes = [
     path: 'maintenance/warranty-claims/new',
     loadComponent: () => import('./maintenance/warranty-claims/warranty-claim-form.component').then(c => c.WarrantyClaimFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.WarrantyClaims.Create' },
   },
   {
@@ -3514,28 +3437,17 @@ export const APP_ROUTES: Routes = [
     path: 'assets/value-adjustments/new',
     loadComponent: () => import('./assets/asset-value-adjustments/asset-value-adjustment-form.component').then(c => c.AssetValueAdjustmentFormComponent),
     canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.AssetValueAdjustments.Create' },
+  },
+  {
+    path: 'assets/:id',
+    loadComponent: () => import('./assets/asset-detail/asset-detail.component').then(c => c.AssetDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
   },
 
   // Maintenance & Support
-  {
-    path: 'maintenance/warranty-claims',
-    loadComponent: () => import('./maintenance/warranty-claims/warranty-claim-list.component').then(c => c.WarrantyClaimListComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.WarrantyClaims' },
-  },
-  {
-    path: 'maintenance/warranty-claims/new',
-    loadComponent: () => import('./maintenance/warranty-claims/warranty-claim-form.component').then(c => c.WarrantyClaimFormComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.WarrantyClaims.Create' },
-  },
-  {
-    path: 'maintenance/warranty-claims/:id',
-    loadComponent: () => import('./maintenance/warranty-claims/warranty-claim-detail.component').then(c => c.WarrantyClaimDetailComponent),
-    canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.WarrantyClaims' },
-  },
   {
     path: 'maintenance/schedules',
     loadComponent: () => import('./maintenance/maintenance-schedules/maintenance-schedule-list.component').then(c => c.MaintenanceScheduleListComponent),
