@@ -946,6 +946,201 @@ export interface CreateUpdateTermsAndConditionsDto {
 export interface GetTermsAndConditionsListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   isSelling?: boolean | null;
+}
+
+export interface SendEmailDigestNowInput {
+  companyId?: string;
+}
+
+export interface StockValuationItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  valuationRate?: number;
+  stockValue?: number;
+}
+
+export interface StockValuationWidgetDto {
+  totalStockValue?: number;
+  totalItems?: number;
+  totalQuantity?: number;
+  topItemsByValue?: StockValuationItemDto[];
+}
+
+export interface SupplierPerformanceDto {
+  totalSpend?: number;
+  spendThisMonth?: number;
+  spendLastMonth?: number;
+  totalOrders?: number;
+  ordersThisMonth?: number;
+  averageOrderValue?: number;
+  averageLeadTimeDays?: number;
+  onTimeDeliveryPercent?: number;
+  pendingReceiptCount?: number;
+  totalOutstandingPayable?: number;
+  overduePayableCount?: number;
+  spendTrend?: MonthlyRevenuePoint[];
+}
+
+export interface SupplierPerformanceItemDto {
+  supplierId?: string;
+  supplierName?: string;
+  totalOrders?: number;
+  onTimeCount?: number;
+  lateCount?: number;
+  onTimeRate?: number;
+  totalValue?: number;
+}
+
+export interface SupplierPerformanceWidgetDto {
+  totalSuppliers?: number;
+  overallOnTimeRate?: number;
+  suppliersAtRisk?: number;
+  suppliers?: SupplierPerformanceItemDto[];
+}
+
+export interface TodaysActivityDto {
+  invoicesCreated?: number;
+  paymentsReceived?: number;
+  ordersPlaced?: number;
+  deliveriesMade?: number;
+  receiptsProcessed?: number;
+  totalInvoiced?: number;
+  totalCollected?: number;
+}
+
+export interface TopCustomerDto {
+  customerId?: string;
+  customerName?: string;
+  revenue?: number;
+  invoiceCount?: number;
+}
+
+export interface TopDebtorDto {
+  customerId?: string;
+  customerName?: string;
+  totalOutstanding?: number;
+  invoiceCount?: number;
+  oldestDueDate?: string | null;
+  daysOverdue?: number;
+}
+
+export interface UpcomingPaymentDuesDto {
+  receivablesDueIn7Days?: number;
+  receivablesDueIn14Days?: number;
+  receivablesDueIn30Days?: number;
+  receivablesOverdue?: number;
+  payablesDueIn7Days?: number;
+  payablesDueIn14Days?: number;
+  payablesDueIn30Days?: number;
+  payablesOverdue?: number;
+  receivableInvoiceCount?: number;
+  payableInvoiceCount?: number;
+}
+
+export interface UpdateAuthorizationRuleDto {
+  thresholdValue?: number;
+  systemUserId?: string | null;
+  systemRole?: string | null;
+  approvingRole?: string | null;
+  approvingUserId?: string | null;
+  customerId?: string | null;
+}
+
+export interface UpdateCompanySettingsDto {
+  defaultCurrency?: string | null;
+  fiscalYearStartMonth?: number | null;
+  stockFrozenUpto?: string | null;
+  accountsFrozenTillDate?: string | null;
+  defaultValuationMethod?: string | null;
+  enablePerpetualInventory?: boolean;
+  overDeliveryAllowance?: number;
+  overBillingAllowance?: number;
+  allowUomWithConversionRateDefinedInItem?: boolean;
+  defaultReceivableAccountId?: string | null;
+  defaultPayableAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  defaultBankAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
+  depreciationExpenseAccountId?: string | null;
+  accumulatedDepreciationAccountId?: string | null;
+  exchangeGainLossAccountId?: string | null;
+  defaultCostCenterId?: string | null;
+  roundOffAccountId?: string | null;
+  roundOffForOpeningAccountId?: string | null;
+  defaultWarehouseId?: string | null;
+  sampleRetentionWarehouseId?: string | null;
+  defaultInTransitWarehouseId?: string | null;
+  defaultWarehouseForSalesReturnId?: string | null;
+  defaultWipWarehouseId?: string | null;
+  defaultFgWarehouseId?: string | null;
+  defaultScrapWarehouseId?: string | null;
+  bookAdvancePaymentsInSeparatePartyAccount?: boolean;
+  defaultAdvanceReceivedAccountId?: string | null;
+  defaultAdvancePaidAccountId?: string | null;
+}
+
+export interface UpdateEmailDigestSettingsDto {
+  companyId?: string;
+  isEnabled?: boolean;
+  frequency?: EmailDigestFrequency;
+  recipients?: string;
+  includeOpenSalesOrders?: boolean;
+  includeOverdueInvoices?: boolean;
+  includeLowStockItems?: boolean;
+}
+
+export interface UpdateEmailTemplateDto {
+  subject?: string;
+  body?: string;
+  documentType?: string | null;
+}
+
+export interface LetterHeadDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  letterHeadName?: string;
+  letterHeadFor?: LetterHeadFor;
+  isDefault?: boolean;
+  headerContent?: string | null;
+  footerContent?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface CreateUpdateLetterHeadDto {
+  companyId: string;
+  letterHeadName: string;
+  letterHeadFor?: LetterHeadFor;
+  isDefault?: boolean;
+  headerContent?: string | null;
+  footerContent?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface TermsAndConditionsDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  title?: string;
+  terms?: string | null;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDisabled?: boolean;
+  copyAttachmentsToTransaction?: boolean;
+}
+
+export interface CreateUpdateTermsAndConditionsDto {
+  companyId: string;
+  title: string;
+  terms?: string | null;
+  isSelling?: boolean;
+  isBuying?: boolean;
+  isDisabled?: boolean;
+  copyAttachmentsToTransaction?: boolean;
+}
+
+export interface GetTermsAndConditionsListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isSelling?: boolean | null;
   isBuying?: boolean | null;
   isDisabled?: boolean | null;
   filter?: string | null;
@@ -954,4 +1149,72 @@ export interface GetTermsAndConditionsListDto extends PagedAndSortedResultReques
 export interface GetLetterHeadListDto extends PagedAndSortedResultRequestDto {
   companyId?: string;
   letterHeadFor?: LetterHeadFor;
+}
+
+export interface CustomerGroupDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  parentId?: string | null;
+  parentName?: string | null;
+  isGroup?: boolean;
+  defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
+  defaultCreditLimit?: number;
+}
+
+export interface CreateUpdateCustomerGroupDto {
+  name: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  defaultPaymentTermsTemplateId?: string | null;
+  defaultPriceListId?: string | null;
+  defaultCreditLimit?: number;
+}
+
+export interface GetCustomerGroupListDto extends PagedAndSortedResultRequestDto {
+  parentId?: string | null;
+  isGroup?: boolean | null;
+  filter?: string | null;
+}
+
+export interface SupplierGroupDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  parentId?: string | null;
+  parentName?: string | null;
+  isGroup?: boolean;
+  defaultPaymentTermsTemplateId?: string | null;
+}
+
+export interface CreateUpdateSupplierGroupDto {
+  name: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  defaultPaymentTermsTemplateId?: string | null;
+}
+
+export interface GetSupplierGroupListDto extends PagedAndSortedResultRequestDto {
+  parentId?: string | null;
+  isGroup?: boolean | null;
+  filter?: string | null;
+}
+
+export interface TerritoryDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  parentId?: string | null;
+  parentName?: string | null;
+  isGroup?: boolean;
+  territoryManagerId?: string | null;
+  territoryManagerName?: string | null;
+}
+
+export interface CreateUpdateTerritoryDto {
+  name: string;
+  parentId?: string | null;
+  isGroup?: boolean;
+  territoryManagerId?: string | null;
+}
+
+export interface GetTerritoryListDto extends PagedAndSortedResultRequestDto {
+  parentId?: string | null;
+  isGroup?: boolean | null;
+  filter?: string | null;
 }

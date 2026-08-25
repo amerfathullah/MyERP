@@ -763,6 +763,30 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class CustomerGroups
+    {
+        public const string Default = GroupName + ".CustomerGroups";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class SupplierGroups
+    {
+        public const string Default = GroupName + ".SupplierGroups";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Territories
+    {
+        public const string Default = GroupName + ".Territories";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

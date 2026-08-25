@@ -516,6 +516,21 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Create, L("Permission:EmployeeGroups.Create"));
         employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Edit, L("Permission:EmployeeGroups.Edit"));
         employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Delete, L("Permission:EmployeeGroups.Delete"));
+
+        var customerGroupPermission = myGroup.AddPermission(MyERPPermissions.CustomerGroups.Default, L("Permission:CustomerGroups"));
+        customerGroupPermission.AddChild(MyERPPermissions.CustomerGroups.Create, L("Permission:CustomerGroups.Create"));
+        customerGroupPermission.AddChild(MyERPPermissions.CustomerGroups.Edit, L("Permission:CustomerGroups.Edit"));
+        customerGroupPermission.AddChild(MyERPPermissions.CustomerGroups.Delete, L("Permission:CustomerGroups.Delete"));
+
+        var supplierGroupPermission = myGroup.AddPermission(MyERPPermissions.SupplierGroups.Default, L("Permission:SupplierGroups"));
+        supplierGroupPermission.AddChild(MyERPPermissions.SupplierGroups.Create, L("Permission:SupplierGroups.Create"));
+        supplierGroupPermission.AddChild(MyERPPermissions.SupplierGroups.Edit, L("Permission:SupplierGroups.Edit"));
+        supplierGroupPermission.AddChild(MyERPPermissions.SupplierGroups.Delete, L("Permission:SupplierGroups.Delete"));
+
+        var territoryPermission = myGroup.AddPermission(MyERPPermissions.Territories.Default, L("Permission:Territories"));
+        territoryPermission.AddChild(MyERPPermissions.Territories.Create, L("Permission:Territories.Create"));
+        territoryPermission.AddChild(MyERPPermissions.Territories.Edit, L("Permission:Territories.Edit"));
+        territoryPermission.AddChild(MyERPPermissions.Territories.Delete, L("Permission:Territories.Delete"));
     }
 
     private static LocalizableString L(string name)

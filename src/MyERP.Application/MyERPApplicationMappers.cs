@@ -1449,6 +1449,27 @@ public partial class TermsAndConditionsMapper : MapperBase<Core.Entities.TermsAn
     public override partial void Map(Core.Entities.TermsAndConditions source, Core.TermsAndConditionsDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class CustomerGroupMapper : MapperBase<Core.Entities.CustomerGroup, Core.CustomerGroupDto>
+{
+    public override partial Core.CustomerGroupDto Map(Core.Entities.CustomerGroup source);
+    public override partial void Map(Core.Entities.CustomerGroup source, Core.CustomerGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class SupplierGroupMapper : MapperBase<Core.Entities.SupplierGroup, Core.SupplierGroupDto>
+{
+    public override partial Core.SupplierGroupDto Map(Core.Entities.SupplierGroup source);
+    public override partial void Map(Core.Entities.SupplierGroup source, Core.SupplierGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
+public partial class TerritoryMapper : MapperBase<Core.Entities.Territory, Core.TerritoryDto>
+{
+    public override partial Core.TerritoryDto Map(Core.Entities.Territory source);
+    public override partial void Map(Core.Entities.Territory source, Core.TerritoryDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class OpportunityLostReasonMapper : MapperBase<CRM.Entities.OpportunityLostReason, CRM.OpportunityLostReasonDto>
 {
