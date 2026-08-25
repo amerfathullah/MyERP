@@ -582,3 +582,23 @@ export interface UpdateOpportunityStageDto {
 export interface VerifyAppointmentDto {
   token: string;
 }
+
+export interface OpportunityLostReasonDto extends EntityDto<string> {
+  companyId?: string;
+  reason?: string;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface CreateUpdateOpportunityLostReasonDto {
+  companyId: string;
+  reason: string;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface GetOpportunityLostReasonListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
+}

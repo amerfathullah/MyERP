@@ -994,6 +994,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Employees',
       },
       {
+        path: '/hr/employee-groups',
+        name: '::Menu:EmployeeGroups',
+        parentName: '::Menu:HR',
+        iconClass: 'fas fa-users-rectangle',
+        order: 4,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.EmployeeGroups',
+      },
+      {
         path: '/hr/payroll',
         name: '::Menu:Payroll',
         parentName: '::Menu:HR',
@@ -1198,6 +1207,15 @@ function configureRoutes() {
         order: 11,
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.Leads',
+      },
+      {
+        path: '/crm/opportunity-lost-reasons',
+        name: '::Menu:OpportunityLostReasons',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-ban',
+        order: 13,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.OpportunityLostReasons',
       },
       {
         path: '',

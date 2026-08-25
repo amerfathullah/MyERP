@@ -17,4 +17,5 @@ export * from './salary-slip.service';
 export * from './salary-structure.service';
 export * from './shift-assignment-status.enum';
 export * from './shift-assignment.service';
+export * from './employee-group.service';
 export * from './shift-type.service';

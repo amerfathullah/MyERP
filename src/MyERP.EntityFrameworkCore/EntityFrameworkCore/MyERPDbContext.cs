@@ -472,6 +472,9 @@ public class MyERPDbContext :
     public DbSet<MyERP.Settings.Entities.PrintFormat> PrintFormats { get; set; }
     public DbSet<MyERP.Core.Entities.LetterHead> LetterHeads { get; set; }
     public DbSet<MyERP.Core.Entities.TermsAndConditions> TermsAndConditions { get; set; }
+    public DbSet<MyERP.CRM.Entities.OpportunityLostReason> OpportunityLostReasons { get; set; }
+    public DbSet<MyERP.HumanResources.Entities.EmployeeGroup> EmployeeGroups { get; set; }
+    public DbSet<MyERP.HumanResources.Entities.EmployeeGroupItem> EmployeeGroupItems { get; set; }
 
     // Sales (logistics)
     public DbSet<Shipment> Shipments { get; set; }
@@ -4656,6 +4659,33 @@ public class MyERPDbContext :
             b.Property(x => x.Title).IsRequired().HasMaxLength(MyERP.Core.TermsAndConditionsConsts.MaxTitleLength);
             b.Property(x => x.Terms); // No max length (rich text / HTML)
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Title });
+        });
+
+        builder.Entity<MyERP.CRM.Entities.OpportunityLostReason>(b =>
+        {
+            b.ToTable("CRM_OpportunityLostReasons", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Reason).IsRequired().HasMaxLength(MyERP.CRM.OpportunityLostReasonConsts.MaxReasonLength);
+            b.Property(x => x.Description).HasMaxLength(MyERP.CRM.OpportunityLostReasonConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Reason });
+        });
+
+        builder.Entity<MyERP.HumanResources.Entities.EmployeeGroup>(b =>
+        {
+            b.ToTable("HR_EmployeeGroups", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.GroupName).IsRequired().HasMaxLength(MyERP.HumanResources.EmployeeGroupConsts.MaxGroupNameLength);
+            b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.EmployeeGroupId).IsRequired().OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.GroupName });
+        });
+
+        builder.Entity<MyERP.HumanResources.Entities.EmployeeGroupItem>(b =>
+        {
+            b.ToTable("HR_EmployeeGroupItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.EmployeeName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Designation).HasMaxLength(200);
+            b.HasIndex(x => new { x.EmployeeGroupId, x.EmployeeId });
         });
 
         builder.Entity<BankGuarantee>(b =>

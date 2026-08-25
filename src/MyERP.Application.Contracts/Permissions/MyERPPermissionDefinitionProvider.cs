@@ -506,6 +506,16 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Create, L("Permission:TermsAndConditions.Create"));
         termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Edit, L("Permission:TermsAndConditions.Edit"));
         termsPermission.AddChild(MyERPPermissions.TermsAndConditions.Delete, L("Permission:TermsAndConditions.Delete"));
+
+        var oppLostReasonPermission = myGroup.AddPermission(MyERPPermissions.OpportunityLostReasons.Default, L("Permission:OpportunityLostReasons"));
+        oppLostReasonPermission.AddChild(MyERPPermissions.OpportunityLostReasons.Create, L("Permission:OpportunityLostReasons.Create"));
+        oppLostReasonPermission.AddChild(MyERPPermissions.OpportunityLostReasons.Edit, L("Permission:OpportunityLostReasons.Edit"));
+        oppLostReasonPermission.AddChild(MyERPPermissions.OpportunityLostReasons.Delete, L("Permission:OpportunityLostReasons.Delete"));
+
+        var employeeGroupPermission = myGroup.AddPermission(MyERPPermissions.EmployeeGroups.Default, L("Permission:EmployeeGroups"));
+        employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Create, L("Permission:EmployeeGroups.Create"));
+        employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Edit, L("Permission:EmployeeGroups.Edit"));
+        employeeGroupPermission.AddChild(MyERPPermissions.EmployeeGroups.Delete, L("Permission:EmployeeGroups.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -747,6 +747,22 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class OpportunityLostReasons
+    {
+        public const string Default = GroupName + ".OpportunityLostReasons";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class EmployeeGroups
+    {
+        public const string Default = GroupName + ".EmployeeGroups";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

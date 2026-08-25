@@ -515,3 +515,36 @@ export interface ShiftTypeDto extends FullAuditedEntityDto<string> {
   endTime?: string;
   holidayListId?: string | null;
 }
+
+export interface EmployeeGroupItemDto extends EntityDto<string> {
+  employeeGroupId?: string;
+  employeeId?: string;
+  employeeName?: string;
+  designation?: string | null;
+}
+
+export interface EmployeeGroupDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  groupName?: string;
+  isDisabled?: boolean;
+  items?: EmployeeGroupItemDto[];
+}
+
+export interface CreateUpdateEmployeeGroupItemDto {
+  employeeId: string;
+  employeeName: string;
+  designation?: string | null;
+}
+
+export interface CreateUpdateEmployeeGroupDto {
+  companyId: string;
+  groupName: string;
+  isDisabled?: boolean;
+  items?: CreateUpdateEmployeeGroupItemDto[];
+}
+
+export interface GetEmployeeGroupListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
+}

@@ -1449,6 +1449,27 @@ public partial class TermsAndConditionsMapper : MapperBase<Core.Entities.TermsAn
     public override partial void Map(Core.Entities.TermsAndConditions source, Core.TermsAndConditionsDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class OpportunityLostReasonMapper : MapperBase<CRM.Entities.OpportunityLostReason, CRM.OpportunityLostReasonDto>
+{
+    public override partial CRM.OpportunityLostReasonDto Map(CRM.Entities.OpportunityLostReason source);
+    public override partial void Map(CRM.Entities.OpportunityLostReason source, CRM.OpportunityLostReasonDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class EmployeeGroupItemMapper : MapperBase<HumanResources.Entities.EmployeeGroupItem, HumanResources.EmployeeGroupItemDto>
+{
+    public override partial HumanResources.EmployeeGroupItemDto Map(HumanResources.Entities.EmployeeGroupItem source);
+    public override partial void Map(HumanResources.Entities.EmployeeGroupItem source, HumanResources.EmployeeGroupItemDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class EmployeeGroupMapper : MapperBase<HumanResources.Entities.EmployeeGroup, HumanResources.EmployeeGroupDto>
+{
+    public override partial HumanResources.EmployeeGroupDto Map(HumanResources.Entities.EmployeeGroup source);
+    public override partial void Map(HumanResources.Entities.EmployeeGroup source, HumanResources.EmployeeGroupDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetValueAdjustmentMapper : MapperBase<Assets.Entities.AssetValueAdjustment, Assets.AssetValueAdjustmentDto>
 {
