@@ -4210,8 +4210,8 @@ public class MyERPDbContext :
         {
             b.ToTable("Inv_QualityInspectionTemplates", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
-            b.Property(x => x.Name).HasMaxLength(140).IsRequired();
-            b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(2000);
             b.HasMany(x => x.Parameters).WithOne().HasForeignKey(x => x.QualityInspectionTemplateId).IsRequired();
             b.Navigation(x => x.Parameters).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
