@@ -154,6 +154,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         entity.Submit();
         await _repository.UpdateAsync(entity);
+        await ApplyIndentedQtyAsync(entity, sign: 1);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -170,6 +171,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         var entity = await _repository.GetAsync(id, includeDetails: true);
         entity.Cancel();
         await _repository.UpdateAsync(entity);
+        await ApplyIndentedQtyAsync(entity, sign: -1);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -178,6 +180,33 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             CurrentUser.Id, tenantId: entity.TenantId));
 
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
+    }
+
+    /// <summary>
+    /// Per material-request-rfq-full.md's Submit/Cancel effects: updates Bin.IndentedQty ("requested
+    /// but not yet fulfilled") for every stock item with a warehouse set — sign=+1 on submit, -1 on
+    /// cancel (revert). Applies to every MR type per the doc's unconditional "Submit Effects" list;
+    /// only the separate ordered_qty/received_qty fulfillment tracking distinguishes Purchase MRs.
+    /// </summary>
+    private async Task ApplyIndentedQtyAsync(MaterialRequest entity, int sign)
+    {
+        var candidateItemIds = entity.Items.Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.ItemId).Distinct().ToArray();
+        if (candidateItemIds.Length == 0) return;
+
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var stockItemIds = itemQuery
+            .Where(i => candidateItemIds.Contains(i.Id) && i.MaintainStock)
+            .Select(i => i.Id)
+            .ToHashSet();
+        if (stockItemIds.Count == 0) return;
+
+        var binService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.BinService>();
+        foreach (var item in entity.Items.Where(i => i.WarehouseId.HasValue && stockItemIds.Contains(i.ItemId)))
+        {
+            await binService.UpdateIndentedQtyAsync(
+                item.ItemId, item.WarehouseId!.Value, sign * item.Quantity, entity.TenantId);
+        }
     }
 
     /// <summary>
