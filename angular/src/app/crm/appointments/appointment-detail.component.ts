@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -13,7 +14,7 @@ const STATUS_LABELS = ['Unverified', 'Open', 'Closed'];
 @Component({
   selector: 'app-appointment-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'::Appointments' | abpLocalization">
       <app-breadcrumb />
@@ -34,6 +35,13 @@ const STATUS_LABELS = ['Unverified', 'Open', 'Closed'];
           @if (d.status === 0) {
             <div class="alert alert-info mt-3">
               <i class="fa fa-info-circle me-2"></i>{{ '::PortalAppointmentAwaitingVerification' | abpLocalization }}
+              <div class="input-group input-group-sm mt-2" style="max-width: 400px;">
+                <input type="text" class="form-control" [(ngModel)]="verificationToken"
+                  [placeholder]="'::VerificationToken' | abpLocalization" />
+                <button class="btn btn-primary" [disabled]="!verificationToken" (click)="verify()">
+                  {{ '::Verify' | abpLocalization }}
+                </button>
+              </div>
             </div>
           }
 
@@ -53,6 +61,7 @@ export class AppointmentDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
 
   d: AppointmentDto | null = null;
+  verificationToken = '';
 
   ngOnInit(): void { this.load(); }
 
@@ -67,6 +76,15 @@ export class AppointmentDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.close(id).subscribe({
       next: () => { this.toaster.success('::SuccessfullyClosed'); this.load(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
+  }
+
+  verify(): void {
+    if (!this.verificationToken) return;
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.verify(id, { token: this.verificationToken }).subscribe({
+      next: () => { this.toaster.success('::SuccessfullyVerified'); this.verificationToken = ''; this.load(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
   }

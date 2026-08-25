@@ -83,6 +83,18 @@ export class LeadDetailComponent implements OnInit {
     });
   }
 
+  convertToCustomer(): void {
+    this.service.convertToCustomer({ leadId: this.lead!.id! }).subscribe({
+      next: (customerId) => {
+        this.toaster.success('::SuccessfullyConverted');
+        this.router.navigate(['/customers', customerId, 'edit']);
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message ?? 'Conversion failed');
+      },
+    });
+  }
+
   delete(): void {
     this.confirmation.warn('::DeleteConfirmationMessage', '::AreYouSure').subscribe((status) => {
       if (status === Confirmation.Status.confirm) {

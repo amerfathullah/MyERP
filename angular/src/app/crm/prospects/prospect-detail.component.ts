@@ -1,9 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ProspectService } from '../../proxy/crm/prospect.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 import type { ProspectDto } from '../../proxy/crm/models';
+import type { CustomerDto } from '../../proxy/sales/models';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -11,7 +14,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 @Component({
   standalone: true,
   selector: 'app-prospect-detail',
-  imports: [CommonModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
     @if (loading()) {
@@ -22,6 +25,18 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         @if (p.isConverted) {
           <div class="col-auto">
             <span class="badge bg-success">{{ '::Converted' | abpLocalization }}</span>
+          </div>
+        } @else {
+          <div class="col-auto d-flex gap-2">
+            <select class="form-select form-select-sm" style="width: 250px;" [(ngModel)]="selectedCustomerId">
+              <option value="">— {{ '::SelectCustomer' | abpLocalization }} —</option>
+              @for (c of customers(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+            <button class="btn btn-success btn-sm" [disabled]="!selectedCustomerId" (click)="convertToCustomer()">
+              <i class="fa fa-link me-1"></i>{{ '::CRM:ConvertToCustomer' | abpLocalization }}
+            </button>
           </div>
         }
       </div>
@@ -65,9 +80,13 @@ export class ProspectDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private prospectService = inject(ProspectService);
+  private customerService = inject(CustomerService);
+  private toaster = inject(ToasterService);
 
   prospect = signal<ProspectDto | null>(null);
+  customers = signal<CustomerDto[]>([]);
   loading = signal(true);
+  selectedCustomerId = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -75,6 +94,18 @@ export class ProspectDetailComponent implements OnInit {
     this.prospectService.get(id).subscribe({
       next: (p: any) => { this.prospect.set(p); this.loading.set(false); },
       error: () => { this.router.navigate(['/crm/prospects']); },
+    });
+    this.customerService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe(r => {
+      this.customers.set(r.items ?? []);
+    });
+  }
+
+  convertToCustomer(): void {
+    if (!this.selectedCustomerId) return;
+    const id = this.prospect()!.id!;
+    this.prospectService.convertToCustomer(id, this.selectedCustomerId).subscribe({
+      next: (updated: any) => { this.prospect.set(updated); this.toaster.success('::SuccessfullyConverted'); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Conversion failed'),
     });
   }
 }

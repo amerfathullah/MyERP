@@ -219,6 +219,9 @@ export class PaymentEntryDetailComponent implements OnInit {
     if (e.status === 'Posted') {
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
+    if (e.status === 'Cancelled') {
+      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+    }
     return actions;
   }
 
@@ -252,6 +255,12 @@ export class PaymentEntryDetailComponent implements OnInit {
           if (s === Confirmation.Status.confirm) {
             this.paymentEntryService.cancel(id).subscribe({ next: () => this.reload(), error: () => {} });
           }
+        });
+        break;
+      case 'amend':
+        this.paymentEntryService.amend(id).subscribe({
+          next: (amended: any) => this.router.navigate(['/accounting/payments', amended.id]),
+          error: () => {},
         });
         break;
     }

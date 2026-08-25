@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 
@@ -35,6 +36,13 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
               <span class="badge fs-6" [class]="person.isEnabled ? 'bg-success' : 'bg-secondary'">
                 {{ person.isEnabled ? 'Active' : 'Disabled' }}
               </span>
+              @if (person.isEnabled) {
+                <div class="mt-2">
+                  <button class="btn btn-outline-danger btn-sm" (click)="disable()">
+                    <i class="fa fa-ban me-1"></i>{{ 'Disable' | abpLocalization }}
+                  </button>
+                </div>
+              }
             </div></div>
           </div>
         </div>
@@ -75,17 +83,33 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 export class SalesPersonDetailComponent implements OnInit {
   private service = inject(SalesPersonService);
   private route = inject(ActivatedRoute);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   person: any = null;
   isLoading = false;
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.isLoading = true;
-      this.service.get(id).subscribe({
-        next: p => { this.person = p; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
-      });
+      this.load(id);
     }
+  }
+
+  private load(id: string): void {
+    this.isLoading = true;
+    this.service.get(id).subscribe({
+      next: p => { this.person = p; this.isLoading = false; },
+      error: () => { this.isLoading = false; }
+    });
+  }
+
+  disable(): void {
+    this.confirmation.warn('::DisableSalesPersonConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.disable(this.person.id).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyDisabled'); this.load(this.person.id); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      });
+    });
   }
 }

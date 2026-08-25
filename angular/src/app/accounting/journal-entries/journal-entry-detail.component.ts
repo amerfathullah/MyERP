@@ -169,6 +169,9 @@ export class JournalEntryDetailComponent implements OnInit {
     if (j.status === 'Posted') {
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
+    if (j.status === 'Cancelled') {
+      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+    }
     return actions;
   }
 
@@ -194,6 +197,12 @@ export class JournalEntryDetailComponent implements OnInit {
               error: () => {},
             });
           }
+        });
+        break;
+      case 'amend':
+        this.journalEntryService.amend(id).subscribe({
+          next: (amended: any) => this.router.navigate(['/accounting/journal-entries', amended.id]),
+          error: () => {},
         });
         break;
     }
