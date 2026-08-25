@@ -1411,6 +1411,15 @@ function configureRoutes() {
         layout: eLayoutType.application,
       },
       {
+        path: '/sales/quotation-lost-reasons',
+        name: '::Menu:QuotationLostReasons',
+        iconClass: 'fas fa-flag',
+        order: 15,
+        parentName: '::Menu:Settings',
+        requiredPolicy: 'MyERP.QuotationLostReasons',
+        layout: eLayoutType.application,
+      },
+      {
         path: '/hr/leave-types',
         name: '::Menu:LeaveTypes',
         iconClass: 'fas fa-calendar-minus',

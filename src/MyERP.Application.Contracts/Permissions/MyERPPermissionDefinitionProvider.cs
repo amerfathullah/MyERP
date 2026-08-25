@@ -546,6 +546,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Create, L("Permission:PlantFloors.Create"));
         plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Edit, L("Permission:PlantFloors.Edit"));
         plantFloorPermission.AddChild(MyERPPermissions.PlantFloors.Delete, L("Permission:PlantFloors.Delete"));
+
+        var quotationLostReasonPermission = myGroup.AddPermission(MyERPPermissions.QuotationLostReasons.Default, L("Permission:QuotationLostReasons"));
+        quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Create, L("Permission:QuotationLostReasons.Create"));
+        quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Edit, L("Permission:QuotationLostReasons.Edit"));
+        quotationLostReasonPermission.AddChild(MyERPPermissions.QuotationLostReasons.Delete, L("Permission:QuotationLostReasons.Delete"));
     }
 
     private static LocalizableString L(string name)

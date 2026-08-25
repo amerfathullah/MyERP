@@ -4284,6 +4284,14 @@
     "Menu:PlantFloors": "Plant Floors",
     "NewPlantFloor": "New Plant Floor",
     "EditPlantFloor": "Edit Plant Floor",
-    "FloorName": "Floor Name"
+    "FloorName": "Floor Name",
+    "Permission:QuotationLostReasons": "Quotation Lost Reasons",
+    "Permission:QuotationLostReasons.Create": "Create Quotation Lost Reason",
+    "Permission:QuotationLostReasons.Edit": "Edit Quotation Lost Reason",
+    "Permission:QuotationLostReasons.Delete": "Delete Quotation Lost Reason",
+    "QuotationLostReasons": "Quotation Lost Reasons",
+    "Menu:QuotationLostReasons": "Quotation Lost Reasons",
+    "NewQuotationLostReason": "New Quotation Lost Reason",
+    "EditQuotationLostReason": "Edit Quotation Lost Reason"
   }
 }

@@ -140,6 +140,7 @@ public class MyERPDbContext :
     public DbSet<Customer> Customers { get; set; }
     public DbSet<Quotation> Quotations { get; set; }
     public DbSet<QuotationItem> QuotationItems { get; set; }
+    public DbSet<QuotationLostReason> QuotationLostReasons { get; set; }
     public DbSet<SalesOrder> SalesOrders { get; set; }
     public DbSet<SalesOrderItem> SalesOrderItems { get; set; }
     public DbSet<DeliveryScheduleEntry> DeliveryScheduleEntries { get; set; }
@@ -1058,6 +1059,15 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.QuotationNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
+        });
+
+        builder.Entity<QuotationLostReason>(b =>
+        {
+            b.ToTable("Sls_QuotationLostReasons", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Reason).IsRequired().HasMaxLength(QuotationLostReasonConsts.MaxReasonLength);
+            b.Property(x => x.Description).HasMaxLength(QuotationLostReasonConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.Reason }).IsUnique();
         });
 
         builder.Entity<QuotationItem>(b =>

@@ -101,6 +101,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Quotations' },
   },
   {
+    path: 'sales/quotation-lost-reasons',
+    loadComponent: () => import('./sales/quotation-lost-reasons/quotation-lost-reason-list.component').then(c => c.QuotationLostReasonListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QuotationLostReasons' },
+  },
+  {
+    path: 'sales/quotation-lost-reasons/new',
+    loadComponent: () => import('./sales/quotation-lost-reasons/quotation-lost-reason-form.component').then(c => c.QuotationLostReasonFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.QuotationLostReasons.Create' },
+  },
+  {
+    path: 'sales/quotation-lost-reasons/:id/edit',
+    loadComponent: () => import('./sales/quotation-lost-reasons/quotation-lost-reason-form.component').then(c => c.QuotationLostReasonFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.QuotationLostReasons.Edit' },
+  },
+  {
+    path: 'sales/quotation-lost-reasons/:id',
+    loadComponent: () => import('./sales/quotation-lost-reasons/quotation-lost-reason-form.component').then(c => c.QuotationLostReasonFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QuotationLostReasons' },
+  },
+  {
     path: 'sales/orders',
     loadComponent: () => import('./sales/sales-orders/sales-order-list.component').then(c => c.SalesOrderListComponent),
     canActivate: [authGuard, permissionGuard],

@@ -34,6 +34,7 @@ export * from './proforma-invoice.service';
 export * from './promotional-scheme-applicable-for.enum';
 export * from './promotional-scheme.service';
 export * from './quotation.service';
+export * from './quotation-lost-reason.service';
 export * from './sales-analytics.service';
 export * from './sales-commission-report.service';
 export * from './sales-invoice.service';

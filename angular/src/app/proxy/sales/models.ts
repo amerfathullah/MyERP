@@ -1663,3 +1663,19 @@ export interface OrderReceiptDto {
   status?: string;
   itemCount?: number;
 }
+
+export interface QuotationLostReasonDto extends FullAuditedEntityDto<string> {
+  reason: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateQuotationLostReasonDto {
+  reason: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetQuotationLostReasonListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
