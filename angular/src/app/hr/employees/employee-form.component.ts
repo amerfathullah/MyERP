@@ -37,16 +37,16 @@ export class EmployeeFormComponent implements OnInit {
   form = this.fb.group({
     companyId: ['', Validators.required],
     firstName: ['', [Validators.required, Validators.maxLength(128)]],
-    lastName: [''],
+    lastName: ['', Validators.maxLength(128)],
     dateOfBirth: [''],
     dateOfJoining: [''],
     phone: ['', Validators.maxLength(20)],
     email: ['', [Validators.email, Validators.maxLength(200)]],
-    designation: [''],
-    department: [''],
-    epfNumber: [''],
-    socsoNumber: [''],
-    taxNumber: [''],
+    designation: ['', Validators.maxLength(128)],
+    department: ['', Validators.maxLength(128)],
+    epfNumber: ['', Validators.maxLength(100)],
+    socsoNumber: ['', Validators.maxLength(100)],
+    taxNumber: ['', Validators.maxLength(100)],
   });
 
   ngOnInit(): void {

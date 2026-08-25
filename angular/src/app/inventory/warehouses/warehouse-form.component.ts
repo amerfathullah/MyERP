@@ -34,12 +34,12 @@ export class WarehouseFormComponent implements OnInit {
   form = this.fb.group({
     companyId: ['', Validators.required],
     name: ['', [Validators.required, Validators.maxLength(256)]],
-    warehouseCode: [''],
-    address: [''],
-    city: [''],
-    state: [''],
-    postalCode: [''],
-    country: ['Malaysia'],
+    warehouseCode: ['', Validators.maxLength(20)],
+    address: ['', Validators.maxLength(500)],
+    city: ['', Validators.maxLength(100)],
+    state: ['', Validators.maxLength(100)],
+    postalCode: ['', Validators.maxLength(10)],
+    country: ['Malaysia', Validators.maxLength(100)],
     isGroup: [false],
     isActive: [true],
   });
