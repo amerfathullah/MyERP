@@ -437,6 +437,7 @@ public class MyERPDbContext :
     public DbSet<SalesPersonTarget> SalesPersonTargets { get; set; }
     public DbSet<SalesTeamEntry> SalesTeamEntries { get; set; }
     public DbSet<SalesPartner> SalesPartners { get; set; }
+    public DbSet<SalesPartnerType> SalesPartnerTypes { get; set; }
 
     // CRM (additional)
     public DbSet<Prospect> Prospects { get; set; }
@@ -3414,6 +3415,15 @@ public class MyERPDbContext :
             b.Property(x => x.Website).HasMaxLength(SalesPartnerConsts.MaxWebsiteLength);
             b.Property(x => x.ReferralCode).HasMaxLength(50);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<SalesPartnerType>(b =>
+        {
+            b.ToTable("Sls_SalesPartnerTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PartnerTypeName).IsRequired().HasMaxLength(SalesPartnerTypeConsts.MaxNameLength);
+            b.Property(x => x.Description).HasMaxLength(SalesPartnerTypeConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.PartnerTypeName }).IsUnique();
         });
 
         builder.Entity<WarrantyClaim>(b =>

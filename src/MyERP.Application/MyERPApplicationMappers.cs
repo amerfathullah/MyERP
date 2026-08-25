@@ -1128,6 +1128,13 @@ public partial class QuotationLostReasonMapper : MapperBase<Sales.Entities.Quota
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SalesPartnerTypeMapper : MapperBase<Sales.Entities.SalesPartnerType, Sales.SalesPartnerTypeDto>
+{
+    public override partial Sales.SalesPartnerTypeDto Map(Sales.Entities.SalesPartnerType source);
+    public override partial void Map(Sales.Entities.SalesPartnerType source, Sales.SalesPartnerTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class StockEntryMapper : MapperBase<Inventory.Entities.StockEntry, Inventory.StockEntryDto>
 {
     public override partial Inventory.StockEntryDto Map(Inventory.Entities.StockEntry source);

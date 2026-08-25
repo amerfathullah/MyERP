@@ -3431,6 +3431,32 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SalesPartners' },
   },
+  {
+    path: 'sales/sales-partner-types',
+    loadComponent: () => import('./sales/sales-partner-types/sales-partner-type-list.component').then(c => c.SalesPartnerTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesPartnerTypes' },
+  },
+  {
+    path: 'sales/sales-partner-types/new',
+    loadComponent: () => import('./sales/sales-partner-types/sales-partner-type-form.component').then(c => c.SalesPartnerTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.SalesPartnerTypes.Create' },
+  },
+  {
+    path: 'sales/sales-partner-types/:id/edit',
+    loadComponent: () => import('./sales/sales-partner-types/sales-partner-type-form.component').then(c => c.SalesPartnerTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.SalesPartnerTypes.Edit' },
+  },
+  {
+    path: 'sales/sales-partner-types/:id',
+    loadComponent: () => import('./sales/sales-partner-types/sales-partner-type-form.component').then(c => c.SalesPartnerTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesPartnerTypes' },
+  },
   // Warranty Claims
   {
     path: 'maintenance/warranty-claims',

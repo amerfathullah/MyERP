@@ -4360,6 +4360,15 @@
     "Menu:BankAccountSubtypes": "Account Subtypes",
     "NewBankAccountSubtype": "New Bank Account Subtype",
     "EditBankAccountSubtype": "Edit Bank Account Subtype",
-    "AccountSubtypeName": "Account Subtype Name"
+    "AccountSubtypeName": "Account Subtype Name",
+    "Permission:SalesPartnerTypes": "Sales Partner Types",
+    "Permission:SalesPartnerTypes.Create": "Create Sales Partner Type",
+    "Permission:SalesPartnerTypes.Edit": "Edit Sales Partner Type",
+    "Permission:SalesPartnerTypes.Delete": "Delete Sales Partner Type",
+    "SalesPartnerTypes": "Sales Partner Types",
+    "Menu:SalesPartnerTypes": "Partner Types",
+    "NewSalesPartnerType": "New Sales Partner Type",
+    "EditSalesPartnerType": "Edit Sales Partner Type",
+    "PartnerTypeName": "Partner Type Name"
   }
 }

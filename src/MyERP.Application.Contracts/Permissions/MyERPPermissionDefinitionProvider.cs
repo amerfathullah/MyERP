@@ -581,6 +581,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Create, L("Permission:BankAccountSubtypes.Create"));
         bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Edit, L("Permission:BankAccountSubtypes.Edit"));
         bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Delete, L("Permission:BankAccountSubtypes.Delete"));
+
+        var salesPartnerTypePermission = myGroup.AddPermission(MyERPPermissions.SalesPartnerTypes.Default, L("Permission:SalesPartnerTypes"));
+        salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Create, L("Permission:SalesPartnerTypes.Create"));
+        salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Edit, L("Permission:SalesPartnerTypes.Edit"));
+        salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Delete, L("Permission:SalesPartnerTypes.Delete"));
     }
 
     private static LocalizableString L(string name)

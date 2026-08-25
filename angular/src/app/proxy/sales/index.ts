@@ -41,6 +41,7 @@ export * from './sales-invoice.service';
 export * from './sales-order-amendment.service';
 export * from './sales-order.service';
 export * from './sales-partner.service';
+export * from './sales-partner-type.service';
 export * from './sales-person.service';
 export * from './sales-register.service';
 export * from './shipping-calculation-mode.enum';

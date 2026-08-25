@@ -191,6 +191,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesPartners',
       },
       {
+        path: '/sales/sales-partner-types',
+        name: '::Menu:SalesPartnerTypes',
+        parentName: '::Menu:Sales',
+        iconClass: 'fas fa-tags',
+        order: 16,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesPartnerTypes',
+      },
+      {
         path: '/maintenance/warranty-claims',
         name: '::Menu:WarrantyClaims',
         parentName: '::Menu:Support',

@@ -1679,3 +1679,20 @@ export interface CreateUpdateQuotationLostReasonDto {
 export interface GetQuotationLostReasonListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
+
+export interface SalesPartnerTypeDto extends FullAuditedEntityDto<string> {
+  partnerTypeName: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateSalesPartnerTypeDto {
+  partnerTypeName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetSalesPartnerTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
