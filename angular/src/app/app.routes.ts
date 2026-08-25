@@ -2793,6 +2793,42 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.QualityGoals.Edit' },
   },
   {
+    path: 'inventory/quality-inspection-templates',
+    loadComponent: () => import('./inventory/quality-inspection-templates/quality-inspection-template-list.component').then(c => c.QualityInspectionTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspections' },
+  },
+  {
+    path: 'inventory/quality-inspection-templates/new',
+    loadComponent: () => import('./inventory/quality-inspection-templates/quality-inspection-template-form.component').then(c => c.QualityInspectionTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityInspections.Create' },
+  },
+  {
+    path: 'inventory/quality-feedback-templates',
+    loadComponent: () => import('./inventory/quality-feedback-templates/quality-feedback-template-list.component').then(c => c.QualityFeedbackTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityFeedbacks' },
+  },
+  {
+    path: 'inventory/quality-feedback-templates/new',
+    loadComponent: () => import('./inventory/quality-feedback-templates/quality-feedback-template-form.component').then(c => c.QualityFeedbackTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityFeedbacks.Create' },
+  },
+  {
+    path: 'inventory/quality-feedback',
+    loadComponent: () => import('./inventory/quality-feedback/quality-feedback-list.component').then(c => c.QualityFeedbackListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityFeedbacks' },
+  },
+  {
+    path: 'inventory/quality-feedback/new',
+    loadComponent: () => import('./inventory/quality-feedback/quality-feedback-form.component').then(c => c.QualityFeedbackFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.QualityFeedbacks.Create' },
+  },
+  {
     path: 'inventory/quality-reviews',
     loadComponent: () => import('./inventory/quality-reviews/quality-review-list.component').then(c => c.QualityReviewListComponent),
     canActivate: [authGuard],
