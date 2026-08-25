@@ -247,6 +247,7 @@ public static class MyERPDomainErrorCodes
     public const string ItemHasVariants = "MyERP:10010";
     public const string BomInactive = "MyERP:10011";
     public const string WorkstationCapacityExceeded = "MyERP:10012";
+    public const string JobCardTimeLogRequired = "MyERP:10031";
 
     // Sales — Extended
     public const string InstallationDateBeforeDelivery = "MyERP:03016";

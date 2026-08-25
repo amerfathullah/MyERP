@@ -57,6 +57,7 @@ public class WorkstationSchedulingService : DomainService
         var minsBetween = settings?.MinsBetweenOperations ?? 10;
         var capacityPlanningDays = settings?.CapacityPlanningForDays ?? 30;
         var allowHolidays = settings?.AllowProductionOnHolidays ?? false;
+        var disableCapacityPlanning = settings?.DisableCapacityPlanning ?? false;
 
         // Load holidays if configured
         var holidays = new HashSet<DateTime>();
@@ -115,12 +116,15 @@ public class WorkstationSchedulingService : DomainService
                 var windowEnd = currentDate.Add(window.EndTime);
                 var windowMins = (decimal)(windowEnd - windowStart).TotalMinutes;
 
-                // Check capacity — count overlapping active JCs
-                var overlapping = await CountOverlappingJobCardsAsync(
-                    workstationId, windowStart, windowEnd);
+                // Check capacity — count overlapping active JCs (skipped when capacity planning is disabled)
+                if (!disableCapacityPlanning)
+                {
+                    var overlapping = await CountOverlappingJobCardsAsync(
+                        workstationId, windowStart, windowEnd);
 
-                if (overlapping >= workstation.ProductionCapacity)
-                    continue; // Slot full, try next window
+                    if (overlapping >= workstation.ProductionCapacity)
+                        continue; // Slot full, try next window
+                }
 
                 var availableMins = Math.Min(windowMins, remainingMins);
                 slotStart ??= windowStart;
@@ -170,6 +174,9 @@ public class WorkstationSchedulingService : DomainService
     {
         var ws = await _workstationRepository.GetAsync(workstationId);
         if (ws.ProductionCapacity <= 0) return;
+
+        var settings = await _settingsRepository.FindAsync(s => s.CompanyId == ws.CompanyId);
+        if (settings?.DisableCapacityPlanning == true) return;
 
         var overlapping = await CountOverlappingJobCardsAsync(
             workstationId, fromTime, toTime, excludeJobCardId);

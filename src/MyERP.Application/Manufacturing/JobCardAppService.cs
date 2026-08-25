@@ -144,6 +144,14 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> CompleteAsync(Guid id)
     {
         var jc = await _repository.GetAsync(id);
+
+        var settingsRepoForTimeLogs = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var mfgSettings = await settingsRepoForTimeLogs.FindAsync(s => s.CompanyId == jc.CompanyId);
+        if (mfgSettings?.EnforceTimeLogs == true && !jc.TimeLogs.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.JobCardTimeLogRequired);
+        }
+
         jc.Complete();
         await _repository.UpdateAsync(jc);
 
