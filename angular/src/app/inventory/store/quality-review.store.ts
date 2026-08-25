@@ -5,7 +5,7 @@ import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
-import type { QualityReviewDto, CreateQualityReviewDto, EvaluateQualityReviewDto } from '../../proxy/inventory/models';
+import type { QualityReviewDto, CreateQualityReviewDto, EvaluateQualityReviewDto, EvaluateGoalDto } from '../../proxy/inventory/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
 type QualityReviewEntity = QualityReviewDto & { id: EntityId };
@@ -53,6 +53,30 @@ export const QualityReviewStore = signalStore(
             catchError((err) => {
               patchState(store, { isLoading: false });
               toaster.error(err?.error?.error?.message ?? 'Create failed');
+              return EMPTY;
+            })
+          )
+        )
+      )
+    ),
+
+    // Creates a Review AND auto-determines Pass/Fail against the Goal's TargetValue in one call
+    // (QualityGoalTrackingService.EvaluateGoalAsync), instead of the manual create-then-evaluate
+    // flow above where the user has to judge and pick Passed/Failed themselves.
+    autoEvaluate: rxMethod<{ goalId: string; input: EvaluateGoalDto; onSuccess?: () => void }>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap(({ goalId, input, onSuccess }) =>
+          service.evaluateGoal(goalId, input).pipe(
+            tap((created) => {
+              patchState(store, addEntity(created as QualityReviewEntity));
+              patchState(store, { isLoading: false });
+              toaster.success('::SuccessfullyCreated');
+              onSuccess?.();
+            }),
+            catchError((err) => {
+              patchState(store, { isLoading: false });
+              toaster.error(err?.error?.error?.message ?? 'Evaluation failed');
               return EMPTY;
             })
           )

@@ -102,6 +102,18 @@ public class EvaluateQualityReviewDto
     public bool Passed { get; set; }
 }
 
+/// <summary>
+/// Creates a Quality Review AND auto-determines Pass/Fail against the Goal's TargetValue in one
+/// step (QualityGoalTrackingService.EvaluateGoalAsync), instead of the two-step manual flow
+/// (CreateReviewAsync followed by a user-judged EvaluateReviewAsync/Passed flag).
+/// </summary>
+public class EvaluateGoalDto
+{
+    public decimal ActualValue { get; set; }
+    public DateTime ReviewDate { get; set; }
+    public string? Notes { get; set; }
+}
+
 // ─── Quality Action DTOs ─────────────────────────────────────────────
 public class QualityActionDto : FullAuditedEntityDto<Guid>
 {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -21,6 +22,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     private readonly IRepository<QualityMeeting, Guid> _meetingRepository;
     private readonly IRepository<QualityFeedbackTemplate, Guid> _feedbackTemplateRepository;
     private readonly IRepository<QualityFeedback, Guid> _feedbackRepository;
+    private readonly QualityGoalTrackingService _goalTrackingService;
 
     public QualityManagementAppService(
         IRepository<QualityGoal, Guid> goalRepository,
@@ -30,7 +32,8 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         IRepository<NonConformance, Guid> nonConformanceRepository,
         IRepository<QualityMeeting, Guid> meetingRepository,
         IRepository<QualityFeedbackTemplate, Guid> feedbackTemplateRepository,
-        IRepository<QualityFeedback, Guid> feedbackRepository)
+        IRepository<QualityFeedback, Guid> feedbackRepository,
+        QualityGoalTrackingService goalTrackingService)
     {
         _goalRepository = goalRepository;
         _actionRepository = actionRepository;
@@ -40,6 +43,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         _meetingRepository = meetingRepository;
         _feedbackTemplateRepository = feedbackTemplateRepository;
         _feedbackRepository = feedbackRepository;
+        _goalTrackingService = goalTrackingService;
     }
 
     // ─── Quality Goal ──────────────────────────────────────────────────
@@ -119,6 +123,17 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     public async Task DeleteGoalAsync(Guid id)
     {
         await _goalRepository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Creates a Quality Review for this Goal and auto-determines Pass/Fail against the Goal's
+    /// TargetValue (QualityGoalTrackingService.EvaluateGoalAsync) — an alternative to the manual
+    /// CreateReviewAsync + user-judged EvaluateReviewAsync two-step flow.
+    /// </summary>
+    public async Task<QualityReviewDto> EvaluateGoalAsync(Guid id, EvaluateGoalDto input)
+    {
+        var review = await _goalTrackingService.EvaluateGoalAsync(id, input.ActualValue, input.ReviewDate, input.Notes);
+        return new QualityReviewMapper().Map(review);
     }
 
     // ─── Quality Review ────────────────────────────────────────────────

@@ -113,6 +113,12 @@ import { QualityReviewStatus } from '../../proxy/inventory/quality-review-status
               </div>
               <div class="d-flex gap-2">
                 <a routerLink="/inventory/quality-reviews" class="btn btn-secondary btn-sm">{{ '::Cancel' | abpLocalization }}</a>
+                @if (!isEdit) {
+                  <button type="button" class="btn btn-outline-primary btn-sm"
+                    [disabled]="!canAutoEvaluate() || store.isLoading()" (click)="autoEvaluate()">
+                    <i class="fa fa-bolt me-1"></i>{{ '::AutoEvaluate' | abpLocalization }}
+                  </button>
+                }
                 <button type="submit" class="btn btn-primary btn-sm" [disabled]="form.invalid || store.isLoading()">
                   <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
                 </button>
@@ -203,6 +209,25 @@ export class QualityReviewFormComponent implements OnInit {
     const onSuccess = () => this.router.navigate(['/inventory/quality-reviews']);
 
     this.store.create({ input: val, onSuccess });
+  }
+
+  canAutoEvaluate(): boolean {
+    const v = this.form.value;
+    return !!v.qualityGoalId && !!v.reviewDate && v.actualValue !== null && v.actualValue !== undefined;
+  }
+
+  autoEvaluate() {
+    if (!this.canAutoEvaluate()) return;
+    const v = this.form.value;
+    this.store.autoEvaluate({
+      goalId: v.qualityGoalId,
+      input: {
+        actualValue: v.actualValue,
+        reviewDate: v.reviewDate,
+        notes: v.notes,
+      },
+      onSuccess: () => this.router.navigate(['/inventory/quality-reviews']),
+    });
   }
 
   evaluate(passed: boolean) {

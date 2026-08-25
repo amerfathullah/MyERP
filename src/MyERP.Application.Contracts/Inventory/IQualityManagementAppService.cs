@@ -14,6 +14,7 @@ public interface IQualityManagementAppService : IApplicationService
     Task<QualityGoalDto> CreateGoalAsync(CreateUpdateQualityGoalDto input);
     Task<QualityGoalDto> UpdateGoalAsync(Guid id, CreateUpdateQualityGoalDto input);
     Task DeleteGoalAsync(Guid id);
+    Task<QualityReviewDto> EvaluateGoalAsync(Guid id, EvaluateGoalDto input);
 
     // Quality Review
     Task<QualityReviewDto> GetReviewAsync(Guid id);

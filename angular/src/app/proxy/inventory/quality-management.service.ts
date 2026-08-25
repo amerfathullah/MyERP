@@ -1,4 +1,4 @@
-import type { CreateQualityFeedbackDto, CreateQualityReviewDto, CreateUpdateNonConformanceDto, CreateUpdateQualityActionDto, CreateUpdateQualityFeedbackTemplateDto, CreateUpdateQualityGoalDto, CreateUpdateQualityMeetingDto, CreateUpdateQualityProcedureDto, EvaluateQualityReviewDto, NonConformanceDto, QualityActionDto, QualityFeedbackDto, QualityFeedbackTemplateDto, QualityGoalDto, QualityMeetingDto, QualityProcedureDto, QualityReviewDto, ResolveNonConformanceDto, ResolveQualityActionDto } from './models';
+import type { CreateQualityFeedbackDto, CreateQualityReviewDto, CreateUpdateNonConformanceDto, CreateUpdateQualityActionDto, CreateUpdateQualityFeedbackTemplateDto, CreateUpdateQualityGoalDto, CreateUpdateQualityMeetingDto, CreateUpdateQualityProcedureDto, EvaluateGoalDto, EvaluateQualityReviewDto, NonConformanceDto, QualityActionDto, QualityFeedbackDto, QualityFeedbackTemplateDto, QualityGoalDto, QualityMeetingDto, QualityProcedureDto, QualityReviewDto, ResolveNonConformanceDto, ResolveQualityActionDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -122,6 +122,15 @@ export class QualityManagementService {
     },
     { apiName: this.apiName,...config });
   
+
+  evaluateGoal = (id: string, input: EvaluateGoalDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, QualityReviewDto>({
+      method: 'POST',
+      url: `/api/app/quality-management/${id}/evaluate-goal`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   evaluateReview = (id: string, input: EvaluateQualityReviewDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityReviewDto>({

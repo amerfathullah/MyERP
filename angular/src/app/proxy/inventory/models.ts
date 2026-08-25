@@ -667,6 +667,12 @@ export interface EvaluateQualityReviewDto {
   passed?: boolean;
 }
 
+export interface EvaluateGoalDto {
+  actualValue: number;
+  reviewDate: string;
+  notes?: string | null;
+}
+
 export interface GetBatchListDto extends PagedAndSortedResultRequestDto {
   itemId?: string | null;
   isDisabled?: boolean | null;
