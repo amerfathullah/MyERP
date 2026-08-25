@@ -581,6 +581,14 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     catch (Exception ex) { Logger.LogWarning(ex, "Auto-reorder notification failed"); }
                 }
             }
+
+            // Low-stock alert for procurement staff, distinct from AutoReorderService above (which
+            // auto-creates a Material Request) — StockAlertNotificationService had zero callers
+            // anywhere despite its own doc comment saying it should fire here (DN submit).
+            var stockAlert = LazyServiceProvider
+                .LazyGetRequiredService<Inventory.DomainServices.StockAlertNotificationService>();
+            await stockAlert.CheckMultipleAndNotifyAsync(
+                dn.Items.Select(i => i.ItemId), dn.WarehouseId, dn.CompanyId, dn.TenantId);
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);

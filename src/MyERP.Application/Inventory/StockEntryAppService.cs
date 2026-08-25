@@ -277,6 +277,19 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 await autoReorder.CheckSingleItemAsync(
                     item.ItemId, item.SourceWarehouseId!.Value, entry.CompanyId, entry.TenantId);
             }
+
+            // Low-stock alert for procurement staff, distinct from AutoReorderService above
+            // (which auto-creates a Material Request) — StockAlertNotificationService had zero
+            // callers anywhere despite its own doc comment saying it should fire here.
+            var stockAlert = LazyServiceProvider.LazyGetRequiredService<DomainServices.StockAlertNotificationService>();
+            var alertWarehouseGroups = entry.Items
+                .Where(i => i.SourceWarehouseId.HasValue)
+                .GroupBy(i => i.SourceWarehouseId!.Value);
+            foreach (var group in alertWarehouseGroups)
+            {
+                await stockAlert.CheckMultipleAndNotifyAsync(
+                    group.Select(i => i.ItemId), group.Key, entry.CompanyId, entry.TenantId);
+            }
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);

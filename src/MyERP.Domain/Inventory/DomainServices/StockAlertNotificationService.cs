@@ -7,6 +7,7 @@ using MyERP.Notification;
 using MyERP.Notification.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Identity;
 
 namespace MyERP.Inventory.DomainServices;
 
@@ -19,15 +20,18 @@ public class StockAlertNotificationService : DomainService
     private readonly IRepository<Bin, Guid> _binRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<AppNotification, Guid> _notificationRepository;
+    private readonly IIdentityUserRepository _userRepository;
 
     public StockAlertNotificationService(
         IRepository<Bin, Guid> binRepository,
         IRepository<Item, Guid> itemRepository,
-        IRepository<AppNotification, Guid> notificationRepository)
+        IRepository<AppNotification, Guid> notificationRepository,
+        IIdentityUserRepository userRepository)
     {
         _binRepository = binRepository;
         _itemRepository = itemRepository;
         _notificationRepository = notificationRepository;
+        _userRepository = userRepository;
     }
 
     /// <summary>
@@ -36,6 +40,39 @@ public class StockAlertNotificationService : DomainService
     /// </summary>
     public async Task CheckAndNotifyAsync(
         Guid itemId, Guid warehouseId, Guid companyId, Guid? tenantId = null)
+    {
+        var recipients = await ResolveRecipientsAsync();
+        if (recipients.Count == 0) return;
+
+        await CheckAndNotifyCoreAsync(itemId, warehouseId, recipients, tenantId);
+    }
+
+    /// <summary>
+    /// Batch check for multiple items at once (e.g., after Stock Entry post). Resolves recipients
+    /// once up front rather than per item.
+    /// Per ERPNext: groups notifications by company, creates one per low-stock item.
+    /// </summary>
+    public async Task CheckMultipleAndNotifyAsync(
+        IEnumerable<Guid> itemIds, Guid warehouseId, Guid companyId, Guid? tenantId = null)
+    {
+        var recipients = await ResolveRecipientsAsync();
+        if (recipients.Count == 0) return;
+
+        foreach (var itemId in itemIds.Distinct())
+        {
+            try
+            {
+                await CheckAndNotifyCoreAsync(itemId, warehouseId, recipients, tenantId);
+            }
+            catch
+            {
+                // Per ERPNext: per-item error isolation — one failure doesn't block others
+            }
+        }
+    }
+
+    private async Task CheckAndNotifyCoreAsync(
+        Guid itemId, Guid warehouseId, List<Guid> recipients, Guid? tenantId)
     {
         var itemQuery = await _itemRepository.GetQueryableAsync();
         var item = itemQuery.FirstOrDefault(i => i.Id == itemId);
@@ -50,38 +87,33 @@ public class StockAlertNotificationService : DomainService
         var projected = bin.ProjectedQty;
         if (projected > item.ReorderLevel) return;
 
-        var notification = new AppNotification(
-            Guid.NewGuid(),
-            Guid.Empty,
-            $"Low Stock: {item.ItemCode}",
-            tenantId)
+        foreach (var userId in recipients)
         {
-            Body = $"Stock for '{item.ItemName}' ({item.ItemCode}) is below reorder level. " +
-                   $"Current projected: {projected:N2}, Reorder level: {item.ReorderLevel:N2}.",
-            Severity = NotificationSeverity.Warning,
-            ActionUrl = "/inventory/items/" + itemId,
-        };
+            var notification = new AppNotification(
+                Guid.NewGuid(),
+                userId,
+                $"Low Stock: {item.ItemCode}",
+                tenantId)
+            {
+                Body = $"Stock for '{item.ItemName}' ({item.ItemCode}) is below reorder level. " +
+                       $"Current projected: {projected:N2}, Reorder level: {item.ReorderLevel:N2}.",
+                Severity = NotificationSeverity.Warning,
+                ActionUrl = "/inventory/items/" + itemId,
+            };
 
-        await _notificationRepository.InsertAsync(notification);
+            await _notificationRepository.InsertAsync(notification);
+        }
     }
 
-    /// <summary>
-    /// Batch check for multiple items at once (e.g., after Stock Entry post).
-    /// Per ERPNext: groups notifications by company, creates one per low-stock item.
-    /// </summary>
-    public async Task CheckMultipleAndNotifyAsync(
-        IEnumerable<Guid> itemIds, Guid warehouseId, Guid companyId, Guid? tenantId = null)
+    /// <summary>Same convention as SafetyStockAlertJob/BatchExpiryAlertJob.ResolveRecipientsAsync —
+    /// active users with at least one role, capped at 5.</summary>
+    private async Task<List<Guid>> ResolveRecipientsAsync()
     {
-        foreach (var itemId in itemIds.Distinct())
-        {
-            try
-            {
-                await CheckAndNotifyAsync(itemId, warehouseId, companyId, tenantId);
-            }
-            catch
-            {
-                // Per ERPNext: per-item error isolation — one failure doesn't block others
-            }
-        }
+        var users = await _userRepository.GetListAsync(maxResultCount: 50, sorting: "UserName", includeDetails: true);
+        return users
+            .Where(u => u.IsActive && u.Roles.Any())
+            .Take(5)
+            .Select(u => u.Id)
+            .ToList();
     }
 }

@@ -895,6 +895,18 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     item.ItemId, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
             }
 
+            // Low-stock alert for procurement staff, distinct from AutoReorderService above (which
+            // auto-creates a Material Request) — batched once for all stock items, not per-item,
+            // since every SI item shares the same document-level WarehouseId here. Reuses
+            // stockItemIds (computed above for QI enforcement) to skip service items the same way
+            // the stock-out loop itself does.
+            if (stockItemIds.Any())
+            {
+                var stockAlert = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockAlertNotificationService>();
+                await stockAlert.CheckMultipleAndNotifyAsync(
+                    stockItemIds, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
+            }
+
             // Consume Stock Reservation Entries for UpdateStock SI (direct sales without DN)
             // Per ERPNext: update_stock_reservation_entries on SI submit with update_stock=true
             var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
