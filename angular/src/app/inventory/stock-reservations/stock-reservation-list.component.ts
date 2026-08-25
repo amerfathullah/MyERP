@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
@@ -15,13 +16,16 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 @Component({
   selector: 'app-stock-reservation-list',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, FormsModule,
+  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, FormsModule,
     PaginationComponent, StatusBadgeComponent],
   template: `
     <abp-page [title]="'StockReservations' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">{{ 'StockReservations' | abpLocalization }}</h5>
+          <a class="btn btn-primary btn-sm" routerLink="/inventory/stock-reservations/new">
+            <i class="fa fa-plus me-1"></i>{{ 'NewStockReservation' | abpLocalization }}
+          </a>
         </div>
         <div class="card-body">
           <div class="row mb-3">
@@ -45,6 +49,9 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
             <div class="text-center py-5">
               <i class="fa fa-lock fa-3x text-muted mb-3 d-block"></i>
               <p class="text-muted">{{ 'NoStockReservationsYet' | abpLocalization }}</p>
+              <a class="btn btn-primary" routerLink="/inventory/stock-reservations/new">
+                <i class="fa fa-plus me-1"></i>{{ 'NewStockReservation' | abpLocalization }}
+              </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">

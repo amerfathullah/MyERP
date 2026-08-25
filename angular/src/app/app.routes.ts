@@ -845,6 +845,13 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/stock-reservations/new',
+    loadComponent: () => import('./inventory/stock-reservations/stock-reservation-form.component').then(c => c.StockReservationFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries.Create' },
+  },
+  {
     path: 'inventory/stock-reservations/:id',
     loadComponent: () => import('./inventory/stock-reservations/stock-reservation-detail.component').then(c => c.StockReservationDetailComponent),
     canActivate: [authGuard, permissionGuard],
