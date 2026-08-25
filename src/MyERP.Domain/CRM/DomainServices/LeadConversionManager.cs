@@ -84,6 +84,8 @@ public class LeadConversionManager : DomainService
         );
         customer.CustomerCode = custNum;
         customer.CustomerGroupId = Guid.TryParse(customerGroupId, out var cGroupId) ? cGroupId : null;
+        customer.Email = lead.Email;
+        customer.Phone = lead.Phone;
 
         // Mark lead as converted to customer
         lead.ConvertToCustomer(custId);
