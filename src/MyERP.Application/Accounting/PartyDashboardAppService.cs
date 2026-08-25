@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Sales.Entities;
+using MyERP.Sales.DomainServices;
 using MyERP.Purchasing.Entities;
 using MyERP.Settings.Entities;
 using MyERP.Core;
@@ -18,15 +19,21 @@ public class PartyDashboardAppService : MyERPAppService, IPartyDashboardAppServi
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Customer, Guid> _customerRepository;
+    private readonly LoyaltyPointService _loyaltyPointService;
 
     public PartyDashboardAppService(
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Customer, Guid> customerRepository,
+        LoyaltyPointService loyaltyPointService)
     {
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _companyRepository = companyRepository;
+        _customerRepository = customerRepository;
+        _loyaltyPointService = loyaltyPointService;
     }
 
     public async Task<PartyDashboardDto> GetCustomerDashboardAsync(Guid customerId)
@@ -47,11 +54,16 @@ public class PartyDashboardAppService : MyERPAppService, IPartyDashboardAppServi
         var companyIds = invoices.Select(x => x.CompanyId).Distinct().ToList();
         var companies = await _companyRepository.GetListAsync(x => companyIds.Contains(x.Id));
 
+        var customer = await _customerRepository.FindAsync(customerId);
+        var loyaltyPoints = customer?.LoyaltyProgramId.HasValue == true
+            ? await _loyaltyPointService.GetAvailablePointsAsync(customerId, customer.LoyaltyProgramId!.Value, DateTime.Today)
+            : 0;
+
         return new PartyDashboardDto
         {
             YtdBilling = ytdBilling,
             TotalUnpaid = totalUnpaid,
-            LoyaltyPoints = 0, // Mocked for now, pending Loyalty Program module
+            LoyaltyPoints = loyaltyPoints,
             Companies = companies.Select(c => new CompanyReferenceDto { Id = c.Id, Name = c.Name }).ToList()
         };
     }
@@ -74,7 +86,7 @@ public class PartyDashboardAppService : MyERPAppService, IPartyDashboardAppServi
         {
             YtdBilling = ytdBilling,
             TotalUnpaid = totalUnpaid,
-            LoyaltyPoints = 0,
+            LoyaltyPoints = 0, // Suppliers don't participate in the Loyalty Program (customer-only feature)
             Companies = companies.Select(c => new CompanyReferenceDto { Id = c.Id, Name = c.Name }).ToList()
         };
     }

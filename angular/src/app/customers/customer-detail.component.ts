@@ -173,23 +173,27 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
 
             @if (dashboard(); as dash) {
               <hr class="my-3" />
-              <div class="row text-center">
+              <div class="row text-center mb-2">
                 <div class="col-sm-6">
                   <div class="fs-5 fw-bold text-success">{{ dash.ytdBilling | number:'1.2-2' }}</div>
                   <div class="text-muted small">{{ '::YtdBilling' | abpLocalization }}</div>
                 </div>
                 <div class="col-sm-6">
-                  @if (dash.companies?.length) {
-                    <div class="d-flex flex-wrap gap-1 justify-content-center">
-                      @for (c of dash.companies; track c.id) {
-                        <span class="badge bg-light text-dark border">{{ c.name }}</span>
-                      }
-                    </div>
-                    <div class="text-muted small mt-1">{{ '::TransactedCompanies' | abpLocalization }}</div>
-                  } @else {
-                    <div class="text-muted small">{{ '::NoTransactionsYet' | abpLocalization }}</div>
-                  }
+                  <div class="fs-5 fw-bold text-warning">{{ dash.loyaltyPoints | number:'1.0-0' }}</div>
+                  <div class="text-muted small">{{ '::AvailablePoints' | abpLocalization }}</div>
                 </div>
+              </div>
+              <div class="text-center">
+                @if (dash.companies?.length) {
+                  <div class="d-flex flex-wrap gap-1 justify-content-center">
+                    @for (c of dash.companies; track c.id) {
+                      <span class="badge bg-light text-dark border">{{ c.name }}</span>
+                    }
+                  </div>
+                  <div class="text-muted small mt-1">{{ '::TransactedCompanies' | abpLocalization }}</div>
+                } @else {
+                  <div class="text-muted small">{{ '::NoTransactionsYet' | abpLocalization }}</div>
+                }
               </div>
             }
 
