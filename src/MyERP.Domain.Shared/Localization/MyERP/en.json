@@ -1493,6 +1493,7 @@
     "GenerateCatchUpInvoices": "Generate Catch-Up Invoices",
     "CatchUpInvoicesGenerated": "{0} catch-up invoice(s) generated",
     "NoCatchUpInvoicesNeeded": "No catch-up invoices needed — subscription is up to date",
+    "FinalProratedInvoiceCreated": "Final prorated invoice created",
     "SubscriptionNotActive": "Subscription is not active. Cannot generate invoices for inactive subscriptions.",
     "SubscriptionHasNoPlans": "Subscription has no plans. Add at least one plan before generating invoices.",
     "MyERP:12001": "Subscription is not in active status. Only active subscriptions can generate invoices.",

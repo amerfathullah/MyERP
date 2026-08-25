@@ -79,7 +79,19 @@ export class SubscriptionDetailComponent implements OnInit {
 
   cancel() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.cancel(id).subscribe({ next: () => this.load(), error: () => {} });
+    this.service.cancel(id).subscribe({
+      next: (result: SubscriptionDto) => {
+        this.load();
+        const finalInvoice = result?.finalProratedInvoice;
+        if (finalInvoice) {
+          this.toaster.success(
+            this.l('::FinalProratedInvoiceCreated') + `: ${finalInvoice.invoiceNumber} (${finalInvoice.grandTotal})`);
+        } else {
+          this.toaster.success(this.l('::SuccessfullyCancelled'));
+        }
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed')),
+    });
   }
 
   generateInvoice() {

@@ -21,6 +21,11 @@ public class SubscriptionDto : EntityDto<Guid>
     public decimal TotalPerInterval { get; set; }
     public int Status { get; set; }
     public SubscriptionPlanDto[] Plans { get; set; } = [];
+
+    /// <summary>Set by CancelAsync when cancelling an Active, postpaid subscription mid-period
+    /// generated a prorated final invoice for the partial period consumed. Null otherwise (prepaid,
+    /// already past period end, no plans, or the cancellation wasn't from Active).</summary>
+    public GeneratedInvoiceDto? FinalProratedInvoice { get; set; }
 }
 
 public class SubscriptionPlanDto

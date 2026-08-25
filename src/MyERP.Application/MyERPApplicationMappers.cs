@@ -768,7 +768,9 @@ public partial class SalesPersonMapper : MapperBase<Sales.Entities.SalesPerson, 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SubscriptionMapper : MapperBase<Sales.Entities.Subscription, Sales.SubscriptionDto>
 {
+    [MapperIgnoreTarget(nameof(Sales.SubscriptionDto.FinalProratedInvoice))]
     public override partial Sales.SubscriptionDto Map(Sales.Entities.Subscription source);
+    [MapperIgnoreTarget(nameof(Sales.SubscriptionDto.FinalProratedInvoice))]
     public override partial void Map(Sales.Entities.Subscription source, Sales.SubscriptionDto destination);
     private partial Sales.SubscriptionPlanDto MapChild(Sales.Entities.SubscriptionPlan source);
 }

@@ -101,21 +101,72 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
         return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
     }
 
+    /// <summary>
+    /// Cancels the subscription. Per loyalty-subscription-dunning-full.md's "Cancellation" rule:
+    /// cancelling from Active with postpaid billing generates a prorated final invoice covering
+    /// the current period's start date through today, before the status transition — the customer
+    /// has been using the current period but (unlike prepaid) hasn't paid for it upfront, so that
+    /// partial usage would otherwise go unbilled forever.
+    /// </summary>
     [Authorize(MyERPPermissions.SalesInvoices.Cancel)]
     public async Task<SubscriptionDto> CancelAsync(Guid id)
     {
-        var sub = await _repository.GetAsync(id);
+        var sub = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+        var wasActive = sub.Status == SubscriptionStatus.Active;
+        var today = DateTime.UtcNow.Date;
+
+        GeneratedInvoiceDto? finalInvoice = null;
+        if (wasActive && !sub.IsPrepaid && sub.Plans.Any()
+            && sub.CurrentInvoiceStart.HasValue && sub.CurrentInvoiceEnd.HasValue
+            && today <= sub.CurrentInvoiceEnd.Value)
+        {
+            var prorationFactor = _billingEngine.CalculateProrationFactor(
+                sub, sub.CurrentInvoiceStart.Value, sub.CurrentInvoiceEnd.Value, cancellationDate: today);
+            var items = _billingEngine.BuildInvoiceItems(sub, today, prorationFactor);
+
+            if (items.Any(i => i.Rate > 0))
+            {
+                var invoiceRef = _billingEngine.GenerateInvoiceReference(sub);
+                var invoice = new SalesInvoice(
+                    GuidGenerator.Create(), sub.CompanyId, sub.PartyId, invoiceRef,
+                    sub.CurrentInvoiceStart.Value, CurrentTenant.Id);
+                invoice.CostCenterId = sub.CostCenterId;
+                invoice.Notes = $"Subscription {sub.SubscriptionNumber} (final, prorated on cancel) — " +
+                                $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {today:dd/MM/yyyy}";
+
+                foreach (var item in items)
+                    invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
+                        item.Qty, item.Rate, 0m);
+
+                await _salesInvoiceRepository.InsertAsync(invoice);
+
+                finalInvoice = new GeneratedInvoiceDto
+                {
+                    InvoiceId = invoice.Id,
+                    InvoiceNumber = invoice.InvoiceNumber,
+                    GrandTotal = invoice.GrandTotal,
+                    PeriodStart = sub.CurrentInvoiceStart,
+                    PeriodEnd = today,
+                };
+            }
+        }
+
         sub.Cancel();
         await _repository.UpdateAsync(sub);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        var activityMessage = finalInvoice != null
+            ? $"Subscription {sub.SubscriptionNumber} cancelled — final prorated invoice {finalInvoice.InvoiceNumber} generated for {finalInvoice.PeriodStart:dd/MM/yyyy} to {finalInvoice.PeriodEnd:dd/MM/yyyy}"
+            : $"Subscription {sub.SubscriptionNumber} cancelled";
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "Subscription", sub.Id,
             "Cancelled", sub.CompanyId,
             sub.SubscriptionNumber ?? sub.Id.ToString()[..8], "Active", "Cancelled", CurrentUser.Id,
-            $"Subscription {sub.SubscriptionNumber} cancelled", CurrentTenant.Id));
+            activityMessage, CurrentTenant.Id));
 
-        return ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
+        var dto = ObjectMapper.Map<Subscription, SubscriptionDto>(sub);
+        dto.FinalProratedInvoice = finalInvoice;
+        return dto;
     }
 
     public async Task<SubscriptionDto> AdvancePeriodAsync(Guid id)

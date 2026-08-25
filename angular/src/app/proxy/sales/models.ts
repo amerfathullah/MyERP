@@ -1602,6 +1602,7 @@ export interface SubscriptionDto extends EntityDto<string> {
   totalPerInterval?: number;
   status?: number;
   plans?: SubscriptionPlanDto[];
+  finalProratedInvoice?: GeneratedInvoiceDto | null;
 }
 
 export interface SubscriptionPlanDto {
