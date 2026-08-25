@@ -254,6 +254,14 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         var supportSettingsPermission = myGroup.AddPermission(MyERPPermissions.SupportSettings.Default, L("Permission:SupportSettings"));
         supportSettingsPermission.AddChild(MyERPPermissions.SupportSettings.Edit, L("Permission:SupportSettings.Edit"));
 
+        var settingsPermission = myGroup.AddPermission(MyERPPermissions.Settings.Default, L("Permission:Settings"));
+        settingsPermission.AddChild(MyERPPermissions.Settings.Edit, L("Permission:Settings.Edit"));
+
+        var taxTemplatesPermission = myGroup.AddPermission(MyERPPermissions.TaxTemplates.Default, L("Permission:TaxTemplates"));
+        taxTemplatesPermission.AddChild(MyERPPermissions.TaxTemplates.Create, L("Permission:TaxTemplates.Create"));
+        taxTemplatesPermission.AddChild(MyERPPermissions.TaxTemplates.Edit, L("Permission:TaxTemplates.Edit"));
+        taxTemplatesPermission.AddChild(MyERPPermissions.TaxTemplates.Delete, L("Permission:TaxTemplates.Delete"));
+
         var budgetsPermission = myGroup.AddPermission(MyERPPermissions.Budgets.Default, L("Permission:Budgets"));
         budgetsPermission.AddChild(MyERPPermissions.Budgets.Create, L("Permission:Budgets.Create"));
         budgetsPermission.AddChild(MyERPPermissions.Budgets.Edit, L("Permission:Budgets.Edit"));
