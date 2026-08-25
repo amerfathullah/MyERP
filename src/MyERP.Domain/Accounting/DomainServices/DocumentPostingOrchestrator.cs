@@ -396,6 +396,10 @@ public class DocumentPostingOrchestrator : DomainService
 
                 case StockEntryType.MaterialReceipt:
                 case StockEntryType.ReceiveAtWarehouse:
+                case StockEntryType.Adjustment:
+                    // Adjustment: the form hides source warehouse and only shows target
+                    // (stock-entry-form.component.ts showSourceWarehouse/showTargetWarehouse), so
+                    // every item is a target-only stock-in — identical shape to Material Receipt.
                     await BuildIssueOrReceiptLinesAsync(journal, company, sles, isIssue: false);
                     break;
 
@@ -420,6 +424,8 @@ public class DocumentPostingOrchestrator : DomainService
                 case StockEntryType.MaterialTransferForManufacture:
                 case StockEntryType.SendToWarehouse:
                 case StockEntryType.SendToSubcontractor:
+                case StockEntryType.SubcontractingDelivery:
+                case StockEntryType.SubcontractingReturn:
                 case StockEntryType.Manufacture:
                 case StockEntryType.Disassemble:
                 case StockEntryType.Repack:
@@ -445,6 +451,13 @@ public class DocumentPostingOrchestrator : DomainService
                     // total_outgoing_cost/fg_qty); multi-FG Repack requires each FG's rate to be set
                     // manually (ValidateRepackItems), so it can leave a genuine residual — same as
                     // Disassemble, already plugged to Stock Adjustment below.
+                    // SubcontractingDelivery/SubcontractingReturn: per the form's own
+                    // showSourceWarehouse/showTargetWarehouse rules (stock-entry-form.component.ts)
+                    // both types carry a source AND target warehouse per item — Delivery moves
+                    // company stock into the supplier's warehouse, Return moves it back — so they're
+                    // the identical stock-to-stock, no-P&L-impact shape as SendToSubcontractor
+                    // already handled here (see that case's comment on why the supplier warehouse
+                    // needs no bespoke account plumbing).
                     await BuildStockToStockLinesAsync(journal, company, sles);
                     break;
 

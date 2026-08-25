@@ -37,7 +37,9 @@ public class StockEntryManager : DomainService
             var isTransfer = entry.EntryType is StockEntryType.MaterialTransfer
                 or StockEntryType.MaterialTransferForManufacture
                 or StockEntryType.SendToWarehouse
-                or StockEntryType.SendToSubcontractor;
+                or StockEntryType.SendToSubcontractor
+                or StockEntryType.SubcontractingDelivery
+                or StockEntryType.SubcontractingReturn;
 
             if (isTransfer)
             {
@@ -55,7 +57,8 @@ public class StockEntryManager : DomainService
 
             var isReceipt = entry.EntryType is StockEntryType.MaterialReceipt
                 or StockEntryType.ReceiveAtWarehouse
-                or StockEntryType.Manufacture;
+                or StockEntryType.Manufacture
+                or StockEntryType.Adjustment;
 
             if (isReceipt && !item.TargetWarehouseId.HasValue)
                 throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)

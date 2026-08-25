@@ -284,6 +284,100 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         }));
     }
 
+    [Fact]
+    public async Task SubcontractingDelivery_SameTreatmentAsMaterialTransfer()
+    {
+        // SubcontractingDelivery/SubcontractingReturn were previously unhandled by
+        // DocumentPostingOrchestrator's switch (fell to the `default:` throw) despite both being
+        // real, user-selectable purposes on the Angular form — same stock-to-stock shape as
+        // SendToSubcontractor above (source + target both required per the form's
+        // showSourceWarehouse/showTargetWarehouse rules).
+        var (company, item, sourceWarehouse, supplierWarehouse) = await SeedCommonAsync("SCD");
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
+            DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 3m,
+            balanceQuantity: 10m, balanceValue: 30m), autoSave: true);
+
+        var deliveryEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.SubcontractingDelivery,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 5m, SourceWarehouseId = sourceWarehouse, TargetWarehouseId = supplierWarehouse, ValuationRate = 3m } },
+        });
+        await stockEntryAppService.SubmitAsync(deliveryEntry.Id);
+        await stockEntryAppService.PostAsync(deliveryEntry.Id);
+
+        var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var journal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == deliveryEntry.Id);
+
+        journal.Lines.Count.ShouldBe(2);
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 15m); // 5 x 3
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && !l.IsDebit && l.Amount == 15m);
+        journal.TotalDebit.ShouldBe(journal.TotalCredit);
+    }
+
+    [Fact]
+    public async Task SubcontractingDelivery_MissingTargetWarehouse_Throws()
+    {
+        var (company, item, sourceWarehouse, _) = await SeedCommonAsync("SCDMISS");
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() => stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.SubcontractingDelivery,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 5m, SourceWarehouseId = sourceWarehouse } },
+        }));
+    }
+
+    [Fact]
+    public async Task SubcontractingReturn_MissingSourceWarehouse_Throws()
+    {
+        var (company, item, _, targetWarehouse) = await SeedCommonAsync("SCRMISS");
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() => stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.SubcontractingReturn,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 5m, TargetWarehouseId = targetWarehouse } },
+        }));
+    }
+
+    [Fact]
+    public async Task Adjustment_TreatedSameAsMaterialReceipt()
+    {
+        // Adjustment hides source warehouse on the Angular form (only target is shown), so every
+        // item is a target-only stock-in — same GL shape as Material Receipt.
+        var (company, item, _, targetWarehouse) = await SeedCommonAsync("ADJ");
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var created = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.Adjustment,
+            PostingDate = DateTime.Today,
+            Items = { new CreateStockEntryItemDto { ItemId = item.Id, Quantity = 8m, TargetWarehouseId = targetWarehouse, ValuationRate = 12m } },
+        });
+        await stockEntryAppService.SubmitAsync(created.Id);
+        await stockEntryAppService.PostAsync(created.Id);
+
+        var allJournals = await journalAppService.GetListAsync(new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var journal = allJournals.Items.Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == created.Id);
+
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultInventoryAccountId && l.IsDebit && l.Amount == 96m);
+        journal.Lines.ShouldContain(l => l.AccountId == company.DefaultStockAdjustmentAccountId && !l.IsDebit && l.Amount == 96m);
+    }
+
     private async Task<(Company Company, Item Item, Guid SourceWarehouse, Guid? TargetWarehouse)> SeedCommonAsync(string suffix)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
