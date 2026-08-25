@@ -88,6 +88,20 @@ public partial class BankAccountMapper : MapperBase<Accounting.Entities.BankAcco
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankAccountTypeMapper : MapperBase<Accounting.Entities.BankAccountType, Accounting.BankAccountTypeDto>
+{
+    public override partial Accounting.BankAccountTypeDto Map(Accounting.Entities.BankAccountType source);
+    public override partial void Map(Accounting.Entities.BankAccountType source, Accounting.BankAccountTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankAccountSubtypeMapper : MapperBase<Accounting.Entities.BankAccountSubtype, Accounting.BankAccountSubtypeDto>
+{
+    public override partial Accounting.BankAccountSubtypeDto Map(Accounting.Entities.BankAccountSubtype source);
+    public override partial void Map(Accounting.Entities.BankAccountSubtype source, Accounting.BankAccountSubtypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class BankTransactionMapper : MapperBase<Accounting.Entities.BankTransaction, Accounting.BankTransactionDto>
 {
     public override partial Accounting.BankTransactionDto Map(Accounting.Entities.BankTransaction source);

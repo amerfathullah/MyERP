@@ -7,6 +7,8 @@ export * from './accounting-dimension.service';
 export * from './accounting-period.service';
 export * from './aging-report.service';
 export * from './bank-account.service';
+export * from './bank-account-type.service';
+export * from './bank-account-subtype.service';
 export * from './bank-auto-match.service';
 export * from './bank-clearance.service';
 export * from './bank-guarantee-type.enum';

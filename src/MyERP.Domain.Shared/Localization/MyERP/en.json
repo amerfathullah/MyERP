@@ -4342,6 +4342,24 @@
     "UpdateDate": "Update Date",
     "UpdateTime": "Update Time",
     "UpdateSummary": "Summary",
-    "UpdateNotes": "Notes"
+    "UpdateNotes": "Notes",
+    "Permission:BankAccountTypes": "Bank Account Types",
+    "Permission:BankAccountTypes.Create": "Create Bank Account Type",
+    "Permission:BankAccountTypes.Edit": "Edit Bank Account Type",
+    "Permission:BankAccountTypes.Delete": "Delete Bank Account Type",
+    "BankAccountTypes": "Bank Account Types",
+    "Menu:BankAccountTypes": "Account Types",
+    "NewBankAccountType": "New Bank Account Type",
+    "EditBankAccountType": "Edit Bank Account Type",
+    "AccountTypeName": "Account Type Name",
+    "Permission:BankAccountSubtypes": "Bank Account Subtypes",
+    "Permission:BankAccountSubtypes.Create": "Create Bank Account Subtype",
+    "Permission:BankAccountSubtypes.Edit": "Edit Bank Account Subtype",
+    "Permission:BankAccountSubtypes.Delete": "Delete Bank Account Subtype",
+    "BankAccountSubtypes": "Bank Account Subtypes",
+    "Menu:BankAccountSubtypes": "Account Subtypes",
+    "NewBankAccountSubtype": "New Bank Account Subtype",
+    "EditBankAccountSubtype": "Edit Bank Account Subtype",
+    "AccountSubtypeName": "Account Subtype Name"
   }
 }

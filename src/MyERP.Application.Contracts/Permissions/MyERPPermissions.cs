@@ -851,6 +851,22 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class BankAccountTypes
+    {
+        public const string Default = GroupName + ".BankAccountTypes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class BankAccountSubtypes
+    {
+        public const string Default = GroupName + ".BankAccountSubtypes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

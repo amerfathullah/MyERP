@@ -1986,3 +1986,37 @@ export interface VoucherLedgerEntryDto {
   description?: string | null;
   financeBook?: string | null;
 }
+
+export interface BankAccountTypeDto extends FullAuditedEntityDto<string> {
+  accountTypeName: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateBankAccountTypeDto {
+  accountTypeName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetBankAccountTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface BankAccountSubtypeDto extends FullAuditedEntityDto<string> {
+  accountSubtypeName: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateBankAccountSubtypeDto {
+  accountSubtypeName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetBankAccountSubtypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}

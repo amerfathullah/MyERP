@@ -99,6 +99,8 @@ public class MyERPDbContext :
     public DbSet<RepostAccountingLedgerVoucher> RepostAccountingLedgerVouchers { get; set; }
     public DbSet<ProcessPaymentReconciliation> ProcessPaymentReconciliations { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
+    public DbSet<BankAccountType> BankAccountTypes { get; set; }
+    public DbSet<BankAccountSubtype> BankAccountSubtypes { get; set; }
     public DbSet<BankTransaction> BankTransactions { get; set; }
     public DbSet<BankTransactionRule> BankTransactionRules { get; set; }
     public DbSet<BankTransactionRuleCondition> BankTransactionRuleConditions { get; set; }
@@ -1675,6 +1677,24 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsDefault });
             b.HasIndex(x => new { x.TenantId, x.AccountId }).IsUnique()
                 .HasFilter("\"IsDeleted\" = false");
+        });
+
+        builder.Entity<BankAccountType>(b =>
+        {
+            b.ToTable("Acc_BankAccountTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.AccountTypeName).IsRequired().HasMaxLength(BankAccountTypeConsts.MaxAccountTypeLength);
+            b.Property(x => x.Description).HasMaxLength(BankAccountTypeConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.AccountTypeName }).IsUnique();
+        });
+
+        builder.Entity<BankAccountSubtype>(b =>
+        {
+            b.ToTable("Acc_BankAccountSubtypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.AccountSubtypeName).IsRequired().HasMaxLength(BankAccountSubtypeConsts.MaxAccountSubtypeLength);
+            b.Property(x => x.Description).HasMaxLength(BankAccountSubtypeConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.AccountSubtypeName }).IsUnique();
         });
 
         builder.Entity<BankTransaction>(b =>

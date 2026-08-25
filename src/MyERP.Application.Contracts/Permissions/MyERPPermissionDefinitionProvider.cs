@@ -571,6 +571,16 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         projectUpdatePermission.AddChild(MyERPPermissions.ProjectUpdates.Create, L("Permission:ProjectUpdates.Create"));
         projectUpdatePermission.AddChild(MyERPPermissions.ProjectUpdates.Edit, L("Permission:ProjectUpdates.Edit"));
         projectUpdatePermission.AddChild(MyERPPermissions.ProjectUpdates.Delete, L("Permission:ProjectUpdates.Delete"));
+
+        var bankAccountTypePermission = myGroup.AddPermission(MyERPPermissions.BankAccountTypes.Default, L("Permission:BankAccountTypes"));
+        bankAccountTypePermission.AddChild(MyERPPermissions.BankAccountTypes.Create, L("Permission:BankAccountTypes.Create"));
+        bankAccountTypePermission.AddChild(MyERPPermissions.BankAccountTypes.Edit, L("Permission:BankAccountTypes.Edit"));
+        bankAccountTypePermission.AddChild(MyERPPermissions.BankAccountTypes.Delete, L("Permission:BankAccountTypes.Delete"));
+
+        var bankAccountSubtypePermission = myGroup.AddPermission(MyERPPermissions.BankAccountSubtypes.Default, L("Permission:BankAccountSubtypes"));
+        bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Create, L("Permission:BankAccountSubtypes.Create"));
+        bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Edit, L("Permission:BankAccountSubtypes.Edit"));
+        bankAccountSubtypePermission.AddChild(MyERPPermissions.BankAccountSubtypes.Delete, L("Permission:BankAccountSubtypes.Delete"));
     }
 
     private static LocalizableString L(string name)
