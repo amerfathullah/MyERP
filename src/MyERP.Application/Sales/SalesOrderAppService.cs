@@ -33,6 +33,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     private readonly ApprovalWorkflowManager _approvalManager;
     private readonly PricingRuleApplicationService _pricingRuleService;
     private readonly ItemTransactionValidationService _itemValidation;
+    private readonly ChildItemUpdateService _childItemUpdateService;
 
     public SalesOrderAppService(
         IRepository<SalesOrder, Guid> repository,
@@ -41,7 +42,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         BinService binService,
         ApprovalWorkflowManager approvalManager,
         PricingRuleApplicationService pricingRuleService,
-        ItemTransactionValidationService itemValidation)
+        ItemTransactionValidationService itemValidation,
+        ChildItemUpdateService childItemUpdateService)
     {
         _repository = repository;
         _customerRepository = customerRepository;
@@ -50,6 +52,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         _approvalManager = approvalManager;
         _pricingRuleService = pricingRuleService;
         _itemValidation = itemValidation;
+        _childItemUpdateService = childItemUpdateService;
     }
 
     private async Task<string?> ResolveCustomerNameAsync(Guid customerId)
@@ -994,9 +997,29 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var warnings = new List<string>();
         var updatedCount = 0;
 
+        foreach (var removeId in input.RemovedItemIds)
+        {
+            var soItemToRemove = so.Items.FirstOrDefault(i => i.Id == removeId);
+            if (soItemToRemove == null)
+            {
+                warnings.Add($"Item row {removeId} not found on this order — skipped.");
+                continue;
+            }
+
+            _childItemUpdateService.ValidateSalesOrderItemDeletion(soItemToRemove);
+
+            if (soItemToRemove.WarehouseId.HasValue && !soItemToRemove.DeliveredBySupplier)
+            {
+                await _binService.UpdateReservedQtyAsync(
+                    soItemToRemove.ItemId, soItemToRemove.WarehouseId.Value, -soItemToRemove.StockQty, so.TenantId);
+            }
+
+            so.RemoveItem(removeId);
+        }
+
         foreach (var update in input.Items)
         {
-            var soItem = so.Items.FirstOrDefault(i => i.ItemId == update.ItemId);
+            var soItem = so.Items.FirstOrDefault(i => i.Id == update.ItemId);
             if (soItem == null)
             {
                 warnings.Add($"Item {update.ItemId} not found on this order — skipped.");
@@ -1051,7 +1074,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "SalesOrder", so.Id, "ItemsUpdated",
             so.CompanyId, so.OrderNumber, so.Status.ToString(), so.Status.ToString(),
-            CurrentUser.Id, $"Updated {updatedCount} items. Grand total: {previousGrandTotal} → {so.GrandTotal}",
+            CurrentUser.Id, $"Updated {updatedCount} items, removed {input.RemovedItemIds.Count}. Grand total: {previousGrandTotal} → {so.GrandTotal}",
             so.TenantId));
 
         return new UpdateOrderItemsResultDto

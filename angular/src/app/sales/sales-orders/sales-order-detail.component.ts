@@ -75,6 +75,7 @@ export class SalesOrderDetailComponent implements OnInit {
   // Update Items inline editing state (per ERPNext update_child_qty_rate)
   isEditingItems = signal(false);
   editableItems = signal<Array<{ itemId: string; quantity: number; unitPrice: number; description: string; deliveredQty: number }>>([]);
+  removedItemIds = signal<string[]>([]);
   isSavingItems = signal(false);
 
   // Delivery Schedule Generator state
@@ -555,12 +556,20 @@ export class SalesOrderDetailComponent implements OnInit {
       description: item.description,
       deliveredQty: item.deliveredQty ?? 0,
     })));
+    this.removedItemIds.set([]);
     this.isEditingItems.set(true);
   }
 
   cancelEditingItems(): void {
     this.isEditingItems.set(false);
     this.editableItems.set([]);
+    this.removedItemIds.set([]);
+  }
+
+  /** Mark a row for removal (blocked server-side if already delivered/billed). */
+  removeEditableItem(itemId: string): void {
+    this.editableItems.set(this.editableItems().filter(i => i.itemId !== itemId));
+    this.removedItemIds.set([...this.removedItemIds(), itemId]);
   }
 
   saveItemUpdates(): void {
@@ -572,12 +581,14 @@ export class SalesOrderDetailComponent implements OnInit {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
+      removedItemIds: this.removedItemIds(),
     };
     this.service.updateItems(this.order.id, payload).subscribe({
       next: () => {
         this.toaster.success(this.l.instant('::ItemsUpdatedSuccessfully'));
         this.isEditingItems.set(false);
         this.isSavingItems.set(false);
+        this.removedItemIds.set([]);
         this.reloadAfterAction();
       },
       error: (err: any) => {

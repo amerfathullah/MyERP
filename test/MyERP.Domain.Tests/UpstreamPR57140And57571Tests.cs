@@ -445,6 +445,51 @@ public class UpstreamPR57140And57571Tests
     }
 
     [Fact]
+    public void SalesOrder_RemoveItem_RemovesRowAndRecalculatesTotals_ButBlocksOnceCancelled()
+    {
+        var so = new SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-0001", DateTime.Today);
+        so.AddItem(Guid.NewGuid(), "Laptop", 2, 1000, 0);
+        so.AddItem(Guid.NewGuid(), "Mouse", 5, 20, 0);
+        var laptopRowId = so.Items[0].Id;
+
+        so.RemoveItem(laptopRowId);
+
+        Assert.Single(so.Items);
+        Assert.Equal("Mouse", so.Items[0].Description);
+        Assert.Equal(100m, so.NetTotal); // 5 * 20
+
+        // Removing an unknown row id is a no-op, not an error
+        so.RemoveItem(Guid.NewGuid());
+        Assert.Single(so.Items);
+
+        so.Submit();
+        so.Cancel();
+        Assert.Throws<BusinessException>(() => so.RemoveItem(so.Items[0].Id));
+    }
+
+    [Fact]
+    public void PurchaseOrder_RemoveItem_RemovesRowAndRecalculatesTotals_ButBlocksOnceCancelled()
+    {
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-0001", DateTime.Today);
+        po.AddItem(Guid.NewGuid(), "Server", 1, 5000, 0);
+        po.AddItem(Guid.NewGuid(), "Cable", 10, 15, 0);
+        var serverRowId = po.Items[0].Id;
+
+        po.RemoveItem(serverRowId);
+
+        Assert.Single(po.Items);
+        Assert.Equal("Cable", po.Items[0].Description);
+        Assert.Equal(150m, po.NetTotal); // 10 * 15
+
+        po.RemoveItem(Guid.NewGuid());
+        Assert.Single(po.Items);
+
+        po.Submit();
+        po.Cancel();
+        Assert.Throws<BusinessException>(() => po.RemoveItem(po.Items[0].Id));
+    }
+
+    [Fact]
     public void PaymentEntry_ClearanceDate_Is_Cleared_When_Null_Passed()
     {
         var pe = new MyERP.Accounting.Entities.PaymentEntry(

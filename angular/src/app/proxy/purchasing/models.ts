@@ -921,6 +921,7 @@ export interface UpdateOrderItemDto {
 
 export interface UpdateOrderItemsDto {
   items: UpdateOrderItemDto[];
+  removedItemIds: string[];
 }
 
 export interface UpdateOrderItemsResultDto {

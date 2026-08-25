@@ -42,6 +42,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly PricingRuleApplicationService _pricingRuleService;
     private readonly PurchaseOrderManager _purchaseOrderManager;
+    private readonly ChildItemUpdateService _childItemUpdateService;
 
     public PurchaseOrderAppService(
         IRepository<PurchaseOrder, Guid> repository,
@@ -57,7 +58,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         TransactionValidationService transactionValidation,
         ItemTransactionValidationService itemValidation,
         PricingRuleApplicationService pricingRuleService,
-        PurchaseOrderManager purchaseOrderManager)
+        PurchaseOrderManager purchaseOrderManager,
+        ChildItemUpdateService childItemUpdateService)
     {
         _repository = repository;
         _materialRequestRepository = materialRequestRepository;
@@ -73,6 +75,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         _itemValidation = itemValidation;
         _pricingRuleService = pricingRuleService;
         _purchaseOrderManager = purchaseOrderManager;
+        _childItemUpdateService = childItemUpdateService;
     }
 
     public async Task<PurchaseOrderDto> GetAsync(Guid id)
@@ -567,9 +570,29 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var warnings = new List<string>();
         var updatedCount = 0;
 
+        foreach (var removeId in input.RemovedItemIds)
+        {
+            var poItemToRemove = po.Items.FirstOrDefault(i => i.Id == removeId);
+            if (poItemToRemove == null)
+            {
+                warnings.Add($"Item row {removeId} not found on this order — skipped.");
+                continue;
+            }
+
+            _childItemUpdateService.ValidatePurchaseOrderItemDeletion(poItemToRemove);
+
+            if (poItemToRemove.WarehouseId.HasValue)
+            {
+                await _binService.UpdateOrderedQtyAsync(
+                    poItemToRemove.ItemId, poItemToRemove.WarehouseId.Value, -poItemToRemove.StockQty, po.TenantId);
+            }
+
+            po.RemoveItem(removeId);
+        }
+
         foreach (var update in input.Items)
         {
-            var poItem = po.Items.FirstOrDefault(i => i.ItemId == update.ItemId);
+            var poItem = po.Items.FirstOrDefault(i => i.Id == update.ItemId);
             if (poItem == null)
             {
                 warnings.Add($"Item {update.ItemId} not found on this order — skipped.");
@@ -621,7 +644,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PurchaseOrder", po.Id, "ItemsUpdated",
             po.CompanyId, po.OrderNumber, po.Status.ToString(), po.Status.ToString(),
-            CurrentUser.Id, $"Updated {updatedCount} items. Grand total: {previousGrandTotal} → {po.GrandTotal}",
+            CurrentUser.Id, $"Updated {updatedCount} items, removed {input.RemovedItemIds.Count}. Grand total: {previousGrandTotal} → {po.GrandTotal}",
             tenantId: po.TenantId));
 
         return new UpdateOrderItemsResultDto

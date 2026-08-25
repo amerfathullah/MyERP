@@ -76,6 +76,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
   // Update Items inline editing state
   isEditingItems = signal(false);
   editableItems = signal<Array<{ itemId: string; quantity: number; unitPrice: number; description: string; receivedQty: number }>>([]);
+  removedItemIds = signal<string[]>([]);
   isSavingItems = signal(false);
 
   get workflowActions(): WorkflowAction[] {
@@ -370,6 +371,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
       description: item.description,
       receivedQty: item.receivedQty ?? 0,
     })));
+    this.removedItemIds.set([]);
     this.isEditingItems.set(true);
   }
 
@@ -377,6 +379,13 @@ export class PurchaseOrderDetailComponent implements OnInit {
   cancelEditingItems(): void {
     this.isEditingItems.set(false);
     this.editableItems.set([]);
+    this.removedItemIds.set([]);
+  }
+
+  /** Mark a row for removal (blocked server-side if already received/billed). */
+  removeEditableItem(itemId: string): void {
+    this.editableItems.set(this.editableItems().filter(i => i.itemId !== itemId));
+    this.removedItemIds.set([...this.removedItemIds(), itemId]);
   }
 
   /** Save updated items to backend */
@@ -389,12 +398,14 @@ export class PurchaseOrderDetailComponent implements OnInit {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
+      removedItemIds: this.removedItemIds(),
     };
     this.service.updateItems(this.order.id, payload).subscribe({
       next: (result) => {
         this.toaster.success(this.l.instant('::ItemsUpdatedSuccessfully'));
         this.isEditingItems.set(false);
         this.isSavingItems.set(false);
+        this.removedItemIds.set([]);
         this.reloadAfterAction();
       },
       error: (err: any) => {

@@ -123,8 +123,13 @@ public class RecordSupplierConfirmationDto
 /// </summary>
 public class UpdateOrderItemsDto
 {
-    [Required][MinLength(1)]
     public List<UpdateOrderItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Item row IDs to remove from the order. Per ERPNext validate_child_on_delete (gotcha #6206):
+    /// blocked if the row has already been received/delivered or billed.
+    /// </summary>
+    public List<Guid> RemovedItemIds { get; set; } = new();
 }
 
 public class UpdateOrderItemDto

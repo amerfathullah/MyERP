@@ -147,6 +147,21 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         RecalculateTotals();
     }
 
+    /// <summary>
+    /// Removes a single item row from a submitted order (post-submit editing).
+    /// Caller must validate the row is safe to delete (ChildItemUpdateService) before calling this.
+    /// </summary>
+    public void RemoveItem(Guid itemRowId)
+    {
+        if (Status == DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null)
+            return;
+        _items.Remove(item);
+        RecalculateTotals();
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft || !_items.Any())
