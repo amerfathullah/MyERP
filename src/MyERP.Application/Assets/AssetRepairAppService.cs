@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
 using Volo.Abp;
@@ -18,17 +19,20 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly AssetRepairMapper _mapper;
+    private readonly AssetLifecycleManager _lifecycleManager;
 
     public AssetRepairAppService(
         IRepository<AssetRepair, Guid> repository,
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
-        AssetRepairMapper mapper)
+        AssetRepairMapper mapper,
+        AssetLifecycleManager lifecycleManager)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
         _mapper = mapper;
+        _lifecycleManager = lifecycleManager;
     }
 
     public async Task<PagedResultDto<AssetRepairDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -136,8 +140,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         // Per gotcha #35: fully depreciated assets can be repaired
         // but capitalize_repair_cost and increase_in_asset_life are forced to 0
-        repair.ApplyFullyDepreciatedRules(
-            asset.IsFullyDepreciated || asset.Status == AssetStatus.FullyDepreciated);
+        repair.ApplyFullyDepreciatedRules(!_lifecycleManager.GetRepairOptions(asset).CanCapitalize);
 
         repair.CalculateTotals();
 
@@ -225,8 +228,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             }
         }
 
-        repair.ApplyFullyDepreciatedRules(
-            asset.IsFullyDepreciated || asset.Status == AssetStatus.FullyDepreciated);
+        repair.ApplyFullyDepreciatedRules(!_lifecycleManager.GetRepairOptions(asset).CanCapitalize);
 
         repair.CalculateTotals();
 
