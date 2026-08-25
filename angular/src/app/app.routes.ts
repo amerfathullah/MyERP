@@ -70,6 +70,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Customers' },
   },
   {
+    path: 'customers/:id',
+    loadComponent: () => import('./customers/customer-detail.component').then(c => c.CustomerDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Customers' },
+  },
+  {
     path: 'sales/invoices',
     loadComponent: () => import('./sales/sales-invoices/sales-invoice-list.component').then(c => c.SalesInvoiceListComponent),
     canActivate: [authGuard, permissionGuard],
@@ -169,6 +175,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'suppliers/groups',
     loadComponent: () => import('./suppliers/supplier-groups/supplier-group-tree.component').then(c => c.SupplierGroupTreeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Suppliers' },
+  },
+  {
+    path: 'suppliers/:id',
+    loadComponent: () => import('./suppliers/supplier-detail.component').then(c => c.SupplierDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Suppliers' },
   },
@@ -938,6 +950,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Items.Edit' },
   },
   {
+    path: 'inventory/items/:id',
+    loadComponent: () => import('./inventory/items/item-detail.component').then(c => c.ItemDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'e-invoice/logs',
     loadComponent: () => import('./e-invoice/logs/einvoice-logs.component').then(c => c.EinvoiceLogsComponent),
     canActivate: [authGuard, permissionGuard],
@@ -1579,9 +1597,8 @@ export const APP_ROUTES: Routes = [
   },
   {
     path: 'projects/:id',
-    loadComponent: () => import('./projects/project-form/project-form.component').then(c => c.ProjectFormComponent),
+    loadComponent: () => import('./projects/project-detail/project-detail.component').then(c => c.ProjectDetailComponent),
     canActivate: [authGuard, permissionGuard],
-    canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {

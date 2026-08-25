@@ -57,7 +57,7 @@
               @for (supplier of suppliers; track supplier.id ?? $index) {
                 <tr>
                   <td class="fw-semibold">
-                    <a [routerLink]="['/suppliers', supplier.id, 'edit']" class="text-decoration-none d-inline-block text-truncate" style="max-width: 200px;"
+                    <a [routerLink]="['/suppliers', supplier.id]" class="text-decoration-none d-inline-block text-truncate" style="max-width: 200px;"
                     [title]="supplier.name">{{ supplier.name }}</a>
                   </td>
                   <td>{{ supplier.supplierCode }}</td>
