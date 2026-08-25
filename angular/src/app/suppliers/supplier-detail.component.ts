@@ -6,6 +6,7 @@ import type { SupplierDto } from '../proxy/purchasing/models';
 import { SupplierHoldType } from '../proxy/purchasing/supplier-hold-type.enum';
 import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { PartyPerformanceService } from '../proxy/core/party-performance.service';
+import { PartyDashboardService } from '../proxy/accounting/party-dashboard.service';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BreadcrumbComponent } from '../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../shared/components/activity-log/activity-log.component';
@@ -165,6 +166,27 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                 <div class="text-muted small">{{ '::TotalOutstandingAmount' | abpLocalization }}</div>
               </div>
             </div>
+            @if (dashboard(); as dash) {
+              <hr class="my-3" />
+              <div class="row text-center">
+                <div class="col-sm-6">
+                  <div class="fs-5 fw-bold text-success">{{ dash.ytdBilling | number:'1.2-2' }}</div>
+                  <div class="text-muted small">{{ '::YtdBilling' | abpLocalization }}</div>
+                </div>
+                <div class="col-sm-6">
+                  @if (dash.companies?.length) {
+                    <div class="d-flex flex-wrap gap-1 justify-content-center">
+                      @for (c of dash.companies; track c.id) {
+                        <span class="badge bg-light text-dark border">{{ c.name }}</span>
+                      }
+                    </div>
+                    <div class="text-muted small mt-1">{{ '::TransactedCompanies' | abpLocalization }}</div>
+                  } @else {
+                    <div class="text-muted small">{{ '::NoTransactionsYet' | abpLocalization }}</div>
+                  }
+                </div>
+              </div>
+            }
           }
         </div>
       </div>
@@ -260,6 +282,7 @@ export class SupplierDetailComponent implements OnInit {
   private supplierService = inject(SupplierService);
   private reconciliationService = inject(PaymentReconciliationService);
   private partyPerformanceService = inject(PartyPerformanceService);
+  private partyDashboardService = inject(PartyDashboardService);
 
   entity = signal<SupplierDto | null>(null);
   entityId = '';
@@ -269,12 +292,21 @@ export class SupplierDetailComponent implements OnInit {
   outstandingTotal = signal(0);
   performanceLoading = signal(true);
   performance = signal<any>(null);
+  dashboard = signal<any>(null);
 
   ngOnInit() {
     this.entityId = this.route.snapshot.params['id'];
     this.loadEntity();
     this.loadOutstanding();
     this.loadPerformance();
+    this.loadDashboard();
+  }
+
+  private loadDashboard(): void {
+    this.partyDashboardService.getSupplierDashboard(this.entityId).subscribe({
+      next: (data) => this.dashboard.set(data),
+      error: () => {},
+    });
   }
 
   private loadEntity() {

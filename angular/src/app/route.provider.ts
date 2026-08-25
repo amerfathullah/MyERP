@@ -393,6 +393,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseInvoices',
       },
       {
+        path: '/purchasing/reports/fulfillment',
+        name: '::Menu:PoFulfillmentReport',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-clipboard-check',
+        order: 19,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',
@@ -1643,6 +1652,15 @@ function configureRoutes() {
         parentName: '::Menu:Manufacturing',
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.SalesForecasts',
+      },
+      {
+        path: '/manufacturing/reports/analytics',
+        name: '::Menu:ProductionAnalytics',
+        iconClass: 'fas fa-chart-bar',
+        order: 15,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
       },
       {
         path: '/sales/proforma-invoices',
