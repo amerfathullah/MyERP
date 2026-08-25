@@ -1639,6 +1639,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ActivityCosts' },
   },
   {
+    path: 'projects/task-types',
+    loadComponent: () => import('./projects/task-types/task-type-list.component').then(c => c.TaskTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaskTypes' },
+  },
+  {
+    path: 'projects/task-types/new',
+    loadComponent: () => import('./projects/task-types/task-type-form.component').then(c => c.TaskTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TaskTypes.Create' },
+  },
+  {
+    path: 'projects/task-types/:id/edit',
+    loadComponent: () => import('./projects/task-types/task-type-form.component').then(c => c.TaskTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TaskTypes.Edit' },
+  },
+  {
+    path: 'projects/task-types/:id',
+    loadComponent: () => import('./projects/task-types/task-type-form.component').then(c => c.TaskTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaskTypes' },
+  },
+  {
     path: 'projects/templates',
     loadComponent: () => import('./projects/project-templates/project-template-list.component').then(c => c.ProjectTemplateListComponent),
     canActivate: [authGuard, permissionGuard],

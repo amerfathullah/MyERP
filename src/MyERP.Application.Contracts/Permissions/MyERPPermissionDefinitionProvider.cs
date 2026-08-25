@@ -536,6 +536,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Create, L("Permission:ActivityCosts.Create"));
         activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Edit, L("Permission:ActivityCosts.Edit"));
         activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Delete, L("Permission:ActivityCosts.Delete"));
+
+        var taskTypePermission = myGroup.AddPermission(MyERPPermissions.TaskTypes.Default, L("Permission:TaskTypes"));
+        taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Create, L("Permission:TaskTypes.Create"));
+        taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Edit, L("Permission:TaskTypes.Edit"));
+        taskTypePermission.AddChild(MyERPPermissions.TaskTypes.Delete, L("Permission:TaskTypes.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -4266,6 +4266,15 @@
     "NewActivityCost": "New Activity Cost",
     "EditActivityCost": "Edit Activity Cost",
     "BillingRate": "Billing Rate",
-    "CostingRate": "Costing Rate"
+    "CostingRate": "Costing Rate",
+    "Permission:TaskTypes": "Task Types",
+    "Permission:TaskTypes.Create": "Create Task Type",
+    "Permission:TaskTypes.Edit": "Edit Task Type",
+    "Permission:TaskTypes.Delete": "Delete Task Type",
+    "TaskTypes": "Task Types",
+    "Menu:TaskTypes": "Task Types",
+    "NewTaskType": "New Task Type",
+    "EditTaskType": "Edit Task Type",
+    "TaskWeight": "Task Weight"
   }
 }

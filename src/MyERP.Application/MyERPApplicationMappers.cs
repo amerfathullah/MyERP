@@ -1290,6 +1290,13 @@ public partial class ActivityCostMapper : MapperBase<Projects.Entities.ActivityC
     public override partial void Map(Projects.Entities.ActivityCost source, Projects.ActivityCostDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class TaskTypeMapper : MapperBase<Projects.Entities.TaskType, Projects.TaskTypeDto>
+{
+    public override partial Projects.TaskTypeDto Map(Projects.Entities.TaskType source);
+    public override partial void Map(Projects.Entities.TaskType source, Projects.TaskTypeDto destination);
+}
+
 // ─── Purchasing ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

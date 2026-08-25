@@ -341,6 +341,7 @@ public class MyERPDbContext :
     public DbSet<TimesheetDetail> TimesheetDetails { get; set; }
     public DbSet<ActivityType> ActivityTypes { get; set; }
     public DbSet<ActivityCost> ActivityCosts { get; set; }
+    public DbSet<TaskType> TaskTypes { get; set; }
 
     // Assets
     public DbSet<Asset> Assets { get; set; }
@@ -2809,6 +2810,16 @@ public class MyERPDbContext :
             b.Property(x => x.CostingRate).HasColumnType("decimal(18,2)");
             b.HasOne<ActivityType>().WithMany().HasForeignKey(x => x.ActivityTypeId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.EmployeeId, x.ActivityTypeId }).IsUnique();
+        });
+
+        builder.Entity<TaskType>(b =>
+        {
+            b.ToTable("Prj_TaskTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(TaskTypeConsts.MaxNameLength);
+            b.Property(x => x.Weight).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Description).HasMaxLength(TaskTypeConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
         // Assets

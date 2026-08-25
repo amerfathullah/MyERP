@@ -293,3 +293,19 @@ export interface UpdateProjectUserDto {
   viewAttachments?: boolean;
   hideTimesheets?: boolean;
 }
+
+export interface TaskTypeDto extends FullAuditedEntityDto<string> {
+  name: string;
+  weight: number;
+  description?: string | null;
+}
+
+export interface CreateUpdateTaskTypeDto {
+  name: string;
+  weight?: number;
+  description?: string | null;
+}
+
+export interface GetTaskTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
