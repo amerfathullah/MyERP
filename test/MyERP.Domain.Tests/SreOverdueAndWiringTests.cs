@@ -116,7 +116,7 @@ public class SreOverdueAndWiringTests
     [Fact]
     public void ErrorCode_OverdueBillingThresholdExceeded_Exists()
     {
-        MyERPDomainErrorCodes.OverdueBillingThresholdExceeded.ShouldBe("MyERP:03021");
+        MyERPDomainErrorCodes.OverdueBillingThresholdExceeded.ShouldBe("MyERP:03043");
     }
 
     // ═══════════════════════════════════════════════

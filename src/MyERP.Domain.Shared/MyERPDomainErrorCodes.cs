@@ -99,7 +99,7 @@ public static class MyERPDomainErrorCodes
     public const string CannotDeleteBOM = "MyERP:10009";
 
     // Pricing Rule
-    public const string PricingRuleAmbiguity = "MyERP:11001";
+    public const string PricingRuleAmbiguity = "MyERP:11002";
 
     // Inter-Company
     public const string InterCompanyPartyMismatch = "MyERP:09001";
@@ -250,7 +250,7 @@ public static class MyERPDomainErrorCodes
 
     // Sales — Extended
     public const string InstallationDateBeforeDelivery = "MyERP:03016";
-    public const string InstallationQtyExceedsDeliveryNote = "MyERP:03037"; // was MyERP:03032 (collided with TaxWithholdingCategoryNotFound)
+    public const string InstallationQtyExceedsDeliveryNote = "MyERP:03039"; // was MyERP:03032 (collided with TaxWithholdingCategoryNotFound), then MyERP:03037 (collided with MaxDiscountExceeded)
 
     // Stock Entry — Extended
     public const string ExcessMaterialTransfer = "MyERP:05030";
@@ -315,16 +315,16 @@ public static class MyERPDomainErrorCodes
     public const string CompletionSplitMismatch = "MyERP:10021";
 
     // Party Link
-    public const string PartyCannotLinkToSelf = "MyERP:00005";
+    public const string PartyCannotLinkToSelf = "MyERP:00009";
 
     // Coupon Code
     public const string CouponCodeMaxUsageReached = "MyERP:03017";
-    public const string PricingRuleNotFound = "MyERP:03018";
-    public const string CouponCodeNotFound = "MyERP:03019";
-    public const string CouponCodeInvalid = "MyERP:03020";
+    public const string PricingRuleNotFound = "MyERP:03040";
+    public const string CouponCodeNotFound = "MyERP:03041";
+    public const string CouponCodeInvalid = "MyERP:03042";
 
     // Overdue Billing
-    public const string OverdueBillingThresholdExceeded = "MyERP:03021";
+    public const string OverdueBillingThresholdExceeded = "MyERP:03043";
 
     // Lead
     public const string DuplicateLeadEmail = "MyERP:03022";
@@ -356,7 +356,7 @@ public static class MyERPDomainErrorCodes
     public const string ProjectTemplateDependencyNotInTemplate = "MyERP:13004";
 
     // Account
-    public const string StockAccountTypeChangeLocked = "MyERP:02028";
+    public const string StockAccountTypeChangeLocked = "MyERP:02085";
 
     // CRM — Prospect
     public const string ProspectAlreadyConverted = "MyERP:17001";
@@ -381,7 +381,7 @@ public static class MyERPDomainErrorCodes
     public const string CannotFreezeFutureDate = "MyERP:02047";
 
     // Finance Book
-    public const string DuplicateDefaultFinanceBook = "MyERP:02029";
+    public const string DuplicateDefaultFinanceBook = "MyERP:02088";
 
     // Authorization Control
     public const string NoApprover = "MyERP:01013";
@@ -479,7 +479,7 @@ public static class MyERPDomainErrorCodes
     public const string ProcessPaymentReconciliationAlreadyActive = "MyERP:02083";
 
     // Stock Reservation — Settings
-    public const string StockReservationDisabled = "MyERP:05048";
+    public const string StockReservationDisabled = "MyERP:05062";
 
     // Selling Settings — Mandatory Linkage
     public const string SalesOrderLinkRequired = "MyERP:03033";
@@ -489,6 +489,7 @@ public static class MyERPDomainErrorCodes
     public const string RateMismatchWithReferenceDoc = "MyERP:03035";
     public const string InvalidDiscountPercentage = "MyERP:03036";
     public const string MaxDiscountExceeded = "MyERP:03037";
+    public const string ProformaInvoiceDisabled = "MyERP:03038";
 
     // Item Alternative
     public const string ItemDoesNotAllowAlternatives = "MyERP:05049";
@@ -519,7 +520,7 @@ public static class MyERPDomainErrorCodes
     public const string DuplicateAttributeValue = "MyERP:05057"; // was hardcoded "MyERP:05022" (never registered)
 
     // Party Validation (gotchas #1004, #1130)
-    public const string PartyDisabled = "MyERP:01020";
+    public const string PartyDisabled = "MyERP:01022";
     public const string PartyFrozen = "MyERP:01021";
     public const string ItemAccountCannotBePartyAccount = "MyERP:02086";
     public const string PartyAccountCurrencyMismatch = "MyERP:02087";

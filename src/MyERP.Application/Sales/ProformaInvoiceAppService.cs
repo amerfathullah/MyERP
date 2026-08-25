@@ -8,10 +8,12 @@ using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales;
 
@@ -26,17 +28,20 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly ISettingProvider _settingProvider;
 
     public ProformaInvoiceAppService(
         IRepository<ProformaInvoice, Guid> repository,
         IRepository<SalesOrder, Guid> salesOrderRepository,
         IRepository<Customer, Guid> customerRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        ISettingProvider settingProvider)
     {
         _repository = repository;
         _salesOrderRepository = salesOrderRepository;
         _customerRepository = customerRepository;
         _numberGenerator = numberGenerator;
+        _settingProvider = settingProvider;
     }
 
     public async Task<ProformaInvoiceDto> GetAsync(Guid id)
@@ -123,6 +128,9 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<ProformaInvoiceDto> CreateAsync(CreateProformaInvoiceDto input)
     {
+        if (!await _settingProvider.IsTrueAsync(MyERPSettings.Selling.EnableProformaInvoice))
+            throw new BusinessException(MyERPDomainErrorCodes.ProformaInvoiceDisabled);
+
         var so = await _salesOrderRepository.GetAsync(input.SalesOrderId);
 
         // Must be submitted (any active fulfillment status)
