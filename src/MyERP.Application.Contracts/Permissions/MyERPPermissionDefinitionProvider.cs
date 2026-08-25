@@ -556,6 +556,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Create, L("Permission:QualityInspectionParameterGroups.Create"));
         qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Edit, L("Permission:QualityInspectionParameterGroups.Edit"));
         qualityInspectionParameterGroupPermission.AddChild(MyERPPermissions.QualityInspectionParameterGroups.Delete, L("Permission:QualityInspectionParameterGroups.Delete"));
+
+        var shipmentParcelTemplatePermission = myGroup.AddPermission(MyERPPermissions.ShipmentParcelTemplates.Default, L("Permission:ShipmentParcelTemplates"));
+        shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Create, L("Permission:ShipmentParcelTemplates.Create"));
+        shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Edit, L("Permission:ShipmentParcelTemplates.Edit"));
+        shipmentParcelTemplatePermission.AddChild(MyERPPermissions.ShipmentParcelTemplates.Delete, L("Permission:ShipmentParcelTemplates.Delete"));
     }
 
     private static LocalizableString L(string name)

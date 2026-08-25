@@ -1250,6 +1250,13 @@ public partial class QualityInspectionParameterGroupMapper : MapperBase<Inventor
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ShipmentParcelTemplateMapper : MapperBase<Inventory.Entities.ShipmentParcelTemplate, Inventory.ShipmentParcelTemplateDto>
+{
+    public override partial Inventory.ShipmentParcelTemplateDto Map(Inventory.Entities.ShipmentParcelTemplate source);
+    public override partial void Map(Inventory.Entities.ShipmentParcelTemplate source, Inventory.ShipmentParcelTemplateDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PriceListMapper : MapperBase<Inventory.Entities.PriceList, Inventory.PriceListDto>
 {
     [MapProperty(nameof(Inventory.Entities.PriceList.Name), nameof(Inventory.PriceListDto.PriceListName))]

@@ -255,6 +255,7 @@ public class MyERPDbContext :
     public DbSet<ItemAlternative> ItemAlternatives { get; set; }
     public DbSet<DeliveryTrip> DeliveryTrips { get; set; }
     public DbSet<DeliveryStop> DeliveryStops { get; set; }
+    public DbSet<ShipmentParcelTemplate> ShipmentParcelTemplates { get; set; }
 
     // Tax
     public DbSet<TaxCategory> TaxCategories { get; set; }
@@ -4898,6 +4899,19 @@ public class MyERPDbContext :
             b.Property(x => x.Uom).HasMaxLength(DeliveryTripConsts.MaxUomLength);
             b.Property(x => x.Details).HasMaxLength(DeliveryTripConsts.MaxDetailsLength);
             b.HasIndex(x => new { x.TenantId, x.DeliveryTripId });
+        });
+
+        builder.Entity<ShipmentParcelTemplate>(b =>
+        {
+            b.ToTable("Inv_ShipmentParcelTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ParcelTemplateName).IsRequired().HasMaxLength(ShipmentParcelTemplateConsts.MaxParcelTemplateNameLength);
+            b.Property(x => x.Length).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Width).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Height).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Weight).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Description).HasMaxLength(ShipmentParcelTemplateConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.ParcelTemplateName }).IsUnique();
         });
 
         builder.Entity<WarrantyClaim>(b =>

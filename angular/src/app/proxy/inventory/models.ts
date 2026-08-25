@@ -1724,3 +1724,27 @@ export interface CreateUpdateQualityInspectionParameterGroupDto {
 export interface GetQualityInspectionParameterGroupListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
+
+export interface ShipmentParcelTemplateDto extends FullAuditedEntityDto<string> {
+  parcelTemplateName: string;
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateShipmentParcelTemplateDto {
+  parcelTemplateName: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  weight?: number;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetShipmentParcelTemplateListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}

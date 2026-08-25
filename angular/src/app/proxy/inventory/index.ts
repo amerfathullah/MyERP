@@ -39,6 +39,7 @@ export * from './quality-review-status.enum';
 export * from './repost-item-valuation.service';
 export * from './serial-and-batch-bundle.service';
 export * from './serial-no.service';
+export * from './shipment-parcel-template.service';
 export * from './stock-balance.service';
 export * from './stock-closing.service';
 export * from './stock-entry-type.enum';

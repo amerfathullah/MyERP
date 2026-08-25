@@ -4301,6 +4301,19 @@
     "Menu:QualityInspectionParameterGroups": "Parameter Groups",
     "NewQualityInspectionParameterGroup": "New Parameter Group",
     "EditQualityInspectionParameterGroup": "Edit Parameter Group",
-    "ParameterGroupName": "Parameter Group Name"
+    "ParameterGroupName": "Parameter Group Name",
+    "Permission:ShipmentParcelTemplates": "Shipment Parcel Templates",
+    "Permission:ShipmentParcelTemplates.Create": "Create Shipment Parcel Template",
+    "Permission:ShipmentParcelTemplates.Edit": "Edit Shipment Parcel Template",
+    "Permission:ShipmentParcelTemplates.Delete": "Delete Shipment Parcel Template",
+    "ShipmentParcelTemplates": "Shipment Parcel Templates",
+    "Menu:ShipmentParcelTemplates": "Parcel Templates",
+    "NewShipmentParcelTemplate": "New Parcel Template",
+    "EditShipmentParcelTemplate": "Edit Parcel Template",
+    "ParcelTemplateName": "Parcel Template Name",
+    "LengthCm": "Length (cm)",
+    "WidthCm": "Width (cm)",
+    "HeightCm": "Height (cm)",
+    "WeightKg": "Weight (kg)"
   }
 }

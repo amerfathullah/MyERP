@@ -3456,6 +3456,32 @@ export const APP_ROUTES: Routes = [
     canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.DeliveryTrips.Edit' },
   },
+  {
+    path: 'inventory/shipment-parcel-templates',
+    loadComponent: () => import('./inventory/shipment-parcel-templates/shipment-parcel-template-list.component').then(c => c.ShipmentParcelTemplateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ShipmentParcelTemplates' },
+  },
+  {
+    path: 'inventory/shipment-parcel-templates/new',
+    loadComponent: () => import('./inventory/shipment-parcel-templates/shipment-parcel-template-form.component').then(c => c.ShipmentParcelTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ShipmentParcelTemplates.Create' },
+  },
+  {
+    path: 'inventory/shipment-parcel-templates/:id/edit',
+    loadComponent: () => import('./inventory/shipment-parcel-templates/shipment-parcel-template-form.component').then(c => c.ShipmentParcelTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ShipmentParcelTemplates.Edit' },
+  },
+  {
+    path: 'inventory/shipment-parcel-templates/:id',
+    loadComponent: () => import('./inventory/shipment-parcel-templates/shipment-parcel-template-form.component').then(c => c.ShipmentParcelTemplateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ShipmentParcelTemplates' },
+  },
 
   // Assets
   {

@@ -812,6 +812,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.DeliveryTrips',
       },
       {
+        path: '/inventory/shipment-parcel-templates',
+        name: '::Menu:ShipmentParcelTemplates',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-box-open',
+        order: 14,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ShipmentParcelTemplates',
+      },
+      {
         path: '/inventory/repost-valuation',
         name: '::Menu:RepostItemValuation',
         parentName: '::Menu:Inventory',
