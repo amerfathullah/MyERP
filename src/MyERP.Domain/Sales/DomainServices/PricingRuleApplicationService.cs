@@ -17,10 +17,14 @@ namespace MyERP.Sales.DomainServices;
 public class PricingRuleApplicationService : DomainService
 {
     private readonly IRepository<PricingRule, Guid> _pricingRuleRepository;
+    private readonly DiscountCeilingValidationService _discountCeilingValidationService;
 
-    public PricingRuleApplicationService(IRepository<PricingRule, Guid> pricingRuleRepository)
+    public PricingRuleApplicationService(
+        IRepository<PricingRule, Guid> pricingRuleRepository,
+        DiscountCeilingValidationService discountCeilingValidationService)
     {
         _pricingRuleRepository = pricingRuleRepository;
+        _discountCeilingValidationService = discountCeilingValidationService;
     }
 
     /// <summary>
@@ -74,6 +78,22 @@ public class PricingRuleApplicationService : DomainService
             var result = ApplyRule(rule, item);
             if (result != null)
                 applied.Add(result);
+        }
+
+        // Per DiscountCeilingValidationService (Item.MaxDiscount, Gotcha #3222): a Pricing Rule is
+        // configured independently of any specific item's discount ceiling, so it can easily exceed
+        // one without the rule author noticing — validate every rule-computed percentage discount
+        // against its item's ceiling before returning, so a misconfigured rule blocks the whole
+        // document rather than silently overselling. Rate/DiscountAmount/FreeItem rule types are
+        // exempt — MaxDiscount is defined as a percentage ceiling only, same as ERPNext. Selling-only:
+        // MaxDiscount caps what a customer can be discounted, it isn't a ceiling on a bigger discount
+        // a supplier grants us on the buying side.
+        if (applicableFor == "Selling")
+        {
+            var percentageDiscounts = items
+                .Where(i => i.DiscountPercentage > 0)
+                .Select(i => (i.ItemId, i.DiscountPercentage));
+            await _discountCeilingValidationService.ValidateDiscountsAsync(percentageDiscounts);
         }
 
         return applied;
