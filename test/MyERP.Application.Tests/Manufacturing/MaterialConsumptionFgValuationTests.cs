@@ -30,6 +30,101 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
     where TStartupModule : IAbpModule
 {
     [Fact]
+    public async Task RecordProductionAsync_JournalIsReadableAfterTheCallCompletes()
+    {
+        // Regression for a real, silent GL-posting failure: RecordProductionAsync called
+        // stockPostingService.PostStockEntryAsync(entry) (inserts SLEs, no autoSave) immediately
+        // followed by postingOrchestrator.PostStockEntryAsync(entry), whose own SLE query
+        // (`_sleRepository.GetListAsync(... VoucherId == stockEntry.Id)`) ran before those SLEs were
+        // ever flushed to the DB — so it always saw zero rows, the GL switch never ran, and the
+        // Journal Entry was silently never built or inserted. RecordProductionAsync still returned
+        // successfully every time — no exception, no error — so every "Record Production" click
+        // silently failed to post its own GL journal. Confirmed with each AppService call awaited at
+        // the TOP LEVEL (its own request/UnitOfWork boundary, matching how a real caller invokes it)
+        // rather than chained inside one shared WithUnitOfWorkAsync test block, ruling out a test-only
+        // artifact. Fixed by an explicit IUnitOfWorkManager.Current.SaveChangesAsync() flush between
+        // the two calls (see RecordProductionAsync) — a plain flush, not a commit, so a later
+        // exception in the same method still rolls everything back together under a real transactional
+        // UnitOfWork.
+        var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+        var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+        var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+        var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+        var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+        var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+        var journalAppService = GetRequiredService<IJournalEntryAppService>();
+
+        var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Mc Fg Journal Readability Test Co"), autoSave: true);
+        await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, "MCJR1");
+
+        var fgItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "FG-MCJR1", "Finished Widget", ItemType.Goods), autoSave: true);
+        var rmItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "RM-MCJR1", "Raw Bolt", ItemType.Goods), autoSave: true);
+        var sourceWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "RM Store MCJR1"), autoSave: true);
+        var fgWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG Store MCJR1"), autoSave: true);
+        await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series MCJR1", "SE", "SEMCJR1-"), autoSave: true);
+        await fiscalYearRepository.InsertAsync(
+            new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-MCJR1",
+                new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+            autoSave: true);
+
+        await settingsRepository.InsertAsync(
+            new ManufacturingSettings(Guid.NewGuid(), company.Id) { MaterialConsumption = true }, autoSave: true);
+
+        var bom = await bomRepository.InsertAsync(
+            new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-MCJR1", fgItem.Id), autoSave: true);
+
+        var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-MCJR1", fgItem.Id, bom.Id, quantity: 100m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            FgWarehouseId = fgWarehouse.Id,
+        };
+        var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Raw Bolt", requiredQuantity: 500m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            TransferredQuantity = 500m,
+        };
+        wo.RequiredItems.Add(woItem);
+        wo.Submit();
+        wo.Start();
+        await woRepository.InsertAsync(wo, autoSave: true);
+
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+            DateTime.Today.AddDays(-1), quantityChange: 1000m, valuationRate: 10m,
+            balanceQuantity: 1000m, balanceValue: 10000m), autoSave: true);
+
+        // Top-level await #1: its own request/UnitOfWork boundary, same as production.
+        await manufacturingAppService.CreateMaterialConsumptionAsync(new CreateMaterialConsumptionDto
+        {
+            WorkOrderId = wo.Id,
+            Items = { new ConsumptionItemDto { ItemId = rmItem.Id, Quantity = 200m } },
+        });
+
+        // Top-level await #2: separate boundary.
+        await manufacturingAppService.RecordProductionAsync(wo.Id, quantity: 100m);
+
+        var manufactureEntry = (await seRepository.GetListAsync(
+            se => se.WorkOrderId == wo.Id && se.EntryType == StockEntryType.Manufacture, includeDetails: true))
+            .Single();
+
+        // Top-level await #3: a fresh read, same as a real caller checking the GL after the fact.
+        var allJournals = await journalAppService.GetListAsync(
+            new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+        var manufactureJournal = allJournals.Items.SingleOrDefault(j => j.ReferenceType == "StockEntry" && j.ReferenceId == manufactureEntry.Id);
+
+        manufactureJournal.ShouldNotBeNull("RecordProductionAsync's own JournalEntry must be persisted and readable once the call has completed.");
+        manufactureJournal!.TotalDebit.ShouldBe(manufactureJournal.TotalCredit);
+    }
+
+    [Fact]
     public async Task RecordProductionAsync_FoldsInPriorMaterialConsumptionValue()
     {
         await WithUnitOfWorkAsync(async () =>
@@ -131,15 +226,20 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
             // Consumption entry) = 5000 total → rate 50/unit. Pre-fix this was 300×10/100 = 30/unit,
             // silently dropping the pre-consumed 2000 of value.
             fgLine.ValuationRate.ShouldBe(50m);
-            // GL regression for this same residual (Manufacture entry's WIP-clearing credit) is
-            // covered separately by StockEntryGlPostingTests.Manufacture_ClearsWipInsteadOfStockAdjustment...
-            // — confirmed (pre-fix, with the original code too) that this test's own journalAppService
-            // query cannot find RecordProductionAsync's Manufacture-entry journal when read back here,
-            // inside the same WithUnitOfWorkAsync block as the earlier CreateMaterialConsumptionAsync
-            // call. Whether that's purely a same-UnitOfWork test-read artifact (a real caller's request
-            // boundary would commit before anyone reads it back) or an actual persistence gap in this
-            // exact call chain is unconfirmed — flagged for a dedicated follow-up, not this session's
-            // WIP-crediting fix.
+
+            // GL regression: this Manufacture entry's own SLEs only cover the fresh 300×10=3000 RM
+            // cost against the 5000 FG-in — a 2000 residual, exactly the earlier Material Consumption
+            // entry's WIP debit. Before RecordProductionAsync's SaveChanges flush fix, this entry's
+            // JournalEntry never even got created (see RecordProductionAsync_JournalIsReadableAfter...
+            // above) — now it must clear the earlier WIP debit, not plug to Stock Adjustment (same
+            // fix verified in isolation by StockEntryGlPostingTests.Manufacture_ClearsWipInstead...).
+            var allJournalsAfterProduction = await journalAppService.GetListAsync(
+                new CompanyFilteredPagedRequestDto { CompanyId = company.Id, MaxResultCount = 100 });
+            var manufactureJournal = allJournalsAfterProduction.Items
+                .Single(j => j.ReferenceType == "StockEntry" && j.ReferenceId == manufactureEntry.Id);
+            manufactureJournal.Lines.ShouldContain(l => l.AccountId == wipAccountId && !l.IsDebit && l.Amount == 2000m);
+            manufactureJournal.Lines.ShouldNotContain(l => l.AccountId == company.DefaultStockAdjustmentAccountId);
+            manufactureJournal.TotalDebit.ShouldBe(manufactureJournal.TotalCredit);
         });
     }
 

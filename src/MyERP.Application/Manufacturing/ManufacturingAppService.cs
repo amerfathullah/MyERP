@@ -855,6 +855,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var stockPostingService = LazyServiceProvider
             .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
         await stockPostingService.PostStockEntryAsync(entry);
+        await FlushPendingChangesAsync();
         await postingOrchestrator.PostStockEntryAsync(entry);
 
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
@@ -1077,6 +1078,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var stockPostingService = LazyServiceProvider
             .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
         await stockPostingService.PostStockEntryAsync(entry);
+        await FlushPendingChangesAsync();
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.PostStockEntryAsync(entry);
@@ -1356,6 +1358,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     }
 
     /// <summary>
+    /// Flushes pending changes (e.g. StockPostingService's just-inserted SLEs) to the DB without
+    /// completing/committing the ambient UnitOfWork — a later exception in the same method still
+    /// rolls everything back together under a real transactional UnitOfWork. Needed before
+    /// DocumentPostingOrchestrator.PostStockEntryAsync's own `_sleRepository.GetListAsync(...)` call:
+    /// without this, that query can see zero rows (nothing having been saved yet), so its GL switch
+    /// never runs and the Journal Entry silently never gets built or inserted — the caller still
+    /// returns successfully, so this fails 100% silently. Confirmed via
+    /// RecordProductionAsync_JournalIsReadableAfterTheCallCompletes (MaterialConsumptionFgValuationTests).
+    /// </summary>
+    private async Task FlushPendingChangesAsync()
+    {
+        var uowManager = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+        if (uowManager.Current != null)
+        {
+            await uowManager.Current.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
     /// Sums the value of raw materials already recorded as consumed via posted
     /// MaterialConsumptionForManufacture stock entries for this Work Order. RM consumed this way
     /// is correctly excluded from re-issue by CalculateRawMaterialConsumption's ConsumedQuantity-aware
@@ -1613,6 +1634,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var stockPostingService = LazyServiceProvider
             .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
         await stockPostingService.PostStockEntryAsync(entry);
+        await FlushPendingChangesAsync();
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.PostStockEntryAsync(entry);
