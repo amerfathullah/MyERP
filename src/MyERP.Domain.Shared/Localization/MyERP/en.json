@@ -4256,6 +4256,16 @@
     "Territories": "Territories",
     "Menu:Territories": "Territories",
     "NewTerritory": "New Territory",
-    "EditTerritory": "Edit Territory"
+    "EditTerritory": "Edit Territory",
+    "Permission:ActivityCosts": "Activity Costs",
+    "Permission:ActivityCosts.Create": "Create Activity Cost",
+    "Permission:ActivityCosts.Edit": "Edit Activity Cost",
+    "Permission:ActivityCosts.Delete": "Delete Activity Cost",
+    "ActivityCosts": "Activity Costs",
+    "Menu:ActivityCosts": "Activity Costs",
+    "NewActivityCost": "New Activity Cost",
+    "EditActivityCost": "Edit Activity Cost",
+    "BillingRate": "Billing Rate",
+    "CostingRate": "Costing Rate"
   }
 }

@@ -1518,6 +1518,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Projects',
       },
       {
+        path: '/projects/activity-costs',
+        name: '::Menu:ActivityCosts',
+        iconClass: 'fas fa-coins',
+        order: 17,
+        parentName: '::Menu:Projects',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ActivityCosts',
+      },
+      {
         path: '/projects/timesheet-billing',
         name: '::Menu:TimesheetBilling',
         iconClass: 'fas fa-file-invoice-dollar',

@@ -101,7 +101,7 @@ public class ActivityTypeAppService : ApplicationService, IActivityTypeAppServic
     {
         var query = await _costRepository.GetQueryableAsync();
         return query.Where(c => c.ActivityTypeId == activityTypeId).ToList()
-            .Select(ObjectMapper.Map<ActivityCost, ActivityCostDto>).ToList();
+            .Select(c => new ActivityCostMapper().Map(c)).ToList();
     }
 
     /// <summary>
@@ -133,7 +133,7 @@ public class ActivityTypeAppService : ApplicationService, IActivityTypeAppServic
                 existing.Id.ToString()[..8], "Active", "Active", CurrentUser.Id,
                 $"Activity cost override updated for employee {input.EmployeeId}", CurrentTenant.Id));
 
-            return ObjectMapper.Map<ActivityCost, ActivityCostDto>(existing);
+            return new ActivityCostMapper().Map(existing);
         }
 
         var cost = new ActivityCost(
@@ -153,7 +153,7 @@ public class ActivityTypeAppService : ApplicationService, IActivityTypeAppServic
             cost.Id.ToString()[..8], "Draft", "Active", CurrentUser.Id,
             $"Activity cost override created for employee {input.EmployeeId}", CurrentTenant.Id));
 
-        return ObjectMapper.Map<ActivityCost, ActivityCostDto>(cost);
+        return new ActivityCostMapper().Map(cost);
     }
 
     [Authorize(MyERPPermissions.Projects.Delete)]

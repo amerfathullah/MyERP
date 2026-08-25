@@ -1613,6 +1613,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/activity-costs',
+    loadComponent: () => import('./projects/activity-costs/activity-cost-list.component').then(c => c.ActivityCostListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ActivityCosts' },
+  },
+  {
+    path: 'projects/activity-costs/new',
+    loadComponent: () => import('./projects/activity-costs/activity-cost-form.component').then(c => c.ActivityCostFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ActivityCosts.Create' },
+  },
+  {
+    path: 'projects/activity-costs/:id/edit',
+    loadComponent: () => import('./projects/activity-costs/activity-cost-form.component').then(c => c.ActivityCostFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ActivityCosts.Edit' },
+  },
+  {
+    path: 'projects/activity-costs/:id',
+    loadComponent: () => import('./projects/activity-costs/activity-cost-form.component').then(c => c.ActivityCostFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ActivityCosts' },
+  },
+  {
     path: 'projects/templates',
     loadComponent: () => import('./projects/project-templates/project-template-list.component').then(c => c.ProjectTemplateListComponent),
     canActivate: [authGuard, permissionGuard],

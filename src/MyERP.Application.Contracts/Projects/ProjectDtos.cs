@@ -297,14 +297,6 @@ public class UpdateActivityTypeDto
     public bool IsEnabled { get; set; }
 }
 
-public class ActivityCostDto : EntityDto<Guid>
-{
-    public Guid EmployeeId { get; set; }
-    public Guid ActivityTypeId { get; set; }
-    public decimal BillingRate { get; set; }
-    public decimal CostingRate { get; set; }
-}
-
 public class SetActivityCostDto
 {
     [Required]

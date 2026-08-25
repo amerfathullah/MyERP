@@ -531,6 +531,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         territoryPermission.AddChild(MyERPPermissions.Territories.Create, L("Permission:Territories.Create"));
         territoryPermission.AddChild(MyERPPermissions.Territories.Edit, L("Permission:Territories.Edit"));
         territoryPermission.AddChild(MyERPPermissions.Territories.Delete, L("Permission:Territories.Delete"));
+
+        var activityCostPermission = myGroup.AddPermission(MyERPPermissions.ActivityCosts.Default, L("Permission:ActivityCosts"));
+        activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Create, L("Permission:ActivityCosts.Create"));
+        activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Edit, L("Permission:ActivityCosts.Edit"));
+        activityCostPermission.AddChild(MyERPPermissions.ActivityCosts.Delete, L("Permission:ActivityCosts.Delete"));
     }
 
     private static LocalizableString L(string name)

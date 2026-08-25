@@ -5,11 +5,26 @@ import type { ProjectStatus } from './project-status.enum';
 import type { TimesheetStatus } from './timesheet-status.enum';
 import type { ProjectTaskStatus } from './project-task-status.enum';
 
-export interface ActivityCostDto extends EntityDto<string> {
+export interface ActivityCostDto extends FullAuditedEntityDto<string> {
   employeeId?: string;
+  employeeName?: string | null;
+  department?: string | null;
   activityTypeId?: string;
+  activityTypeName?: string | null;
   billingRate?: number;
   costingRate?: number;
+}
+
+export interface CreateUpdateActivityCostDto {
+  employeeId: string;
+  activityTypeId: string;
+  billingRate?: number;
+  costingRate?: number;
+}
+
+export interface GetActivityCostListDto extends PagedAndSortedResultRequestDto {
+  employeeId?: string | null;
+  activityTypeId?: string | null;
 }
 
 export interface ActivityTypeDto extends EntityDto<string> {
