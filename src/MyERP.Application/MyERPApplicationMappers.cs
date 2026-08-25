@@ -1351,6 +1351,18 @@ public partial class TaskTypeMapper : MapperBase<Projects.Entities.TaskType, Pro
     public override partial void Map(Projects.Entities.TaskType source, Projects.TaskTypeDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ProjectUpdateMapper : MapperBase<Projects.Entities.ProjectUpdate, Projects.ProjectUpdateDto>
+{
+    [MapperIgnoreTarget(nameof(Projects.ProjectUpdateDto.ProjectNumber))]
+    [MapperIgnoreTarget(nameof(Projects.ProjectUpdateDto.ProjectName))]
+    public override partial Projects.ProjectUpdateDto Map(Projects.Entities.ProjectUpdate source);
+
+    [MapperIgnoreTarget(nameof(Projects.ProjectUpdateDto.ProjectNumber))]
+    [MapperIgnoreTarget(nameof(Projects.ProjectUpdateDto.ProjectName))]
+    public override partial void Map(Projects.Entities.ProjectUpdate source, Projects.ProjectUpdateDto destination);
+}
+
 // ─── Purchasing ───
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

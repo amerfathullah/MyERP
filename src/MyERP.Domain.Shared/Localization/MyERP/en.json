@@ -4330,6 +4330,18 @@
     "DailyYield": "Daily Yield (%)",
     "CapacityPerDay": "Capacity / Day",
     "PurchaseTimeDays": "Purchase Time (Days)",
-    "BufferTimeDays": "Buffer Time (Days)"
+    "BufferTimeDays": "Buffer Time (Days)",
+    "Permission:ProjectUpdates": "Project Updates",
+    "Permission:ProjectUpdates.Create": "Create Project Update",
+    "Permission:ProjectUpdates.Edit": "Edit Project Update",
+    "Permission:ProjectUpdates.Delete": "Delete Project Update",
+    "ProjectUpdates": "Project Updates",
+    "Menu:ProjectUpdates": "Project Updates",
+    "NewProjectUpdate": "New Project Update",
+    "EditProjectUpdate": "Edit Project Update",
+    "UpdateDate": "Update Date",
+    "UpdateTime": "Update Time",
+    "UpdateSummary": "Summary",
+    "UpdateNotes": "Notes"
   }
 }

@@ -346,6 +346,7 @@ public class MyERPDbContext :
     public DbSet<ActivityType> ActivityTypes { get; set; }
     public DbSet<ActivityCost> ActivityCosts { get; set; }
     public DbSet<TaskType> TaskTypes { get; set; }
+    public DbSet<ProjectUpdate> ProjectUpdates { get; set; }
 
     // Assets
     public DbSet<Asset> Assets { get; set; }
@@ -2835,6 +2836,16 @@ public class MyERPDbContext :
             b.Property(x => x.Weight).HasColumnType("decimal(18,2)");
             b.Property(x => x.Description).HasMaxLength(TaskTypeConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<ProjectUpdate>(b =>
+        {
+            b.ToTable("Prj_ProjectUpdates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PercentComplete).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Summary).HasMaxLength(ProjectUpdateConsts.MaxSummaryLength);
+            b.Property(x => x.Notes).HasMaxLength(ProjectUpdateConsts.MaxNotesLength);
+            b.HasIndex(x => new { x.TenantId, x.ProjectId, x.Date });
         });
 
         // Assets

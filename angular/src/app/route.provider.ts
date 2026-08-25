@@ -1590,6 +1590,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaskTypes',
       },
       {
+        path: '/projects/project-updates',
+        name: '::Menu:ProjectUpdates',
+        iconClass: 'fas fa-bullhorn',
+        order: 19,
+        parentName: '::Menu:Projects',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ProjectUpdates',
+      },
+      {
         path: '/hr/leave',
         name: '::Menu:Leave',
         iconClass: 'fas fa-calendar-minus',

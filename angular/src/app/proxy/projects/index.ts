@@ -7,6 +7,7 @@ export * from './project-status.enum';
 export * from './project-task-status.enum';
 export * from './project-template.service';
 export * from './project-type.service';
+export * from './project-update.service';
 export * from './project.service';
 export * from './task-type.service';
 export * from './timesheet-status.enum';

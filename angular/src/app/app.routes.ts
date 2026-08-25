@@ -1741,6 +1741,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/project-updates',
+    loadComponent: () => import('./projects/project-updates/project-update-list.component').then(c => c.ProjectUpdateListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProjectUpdates' },
+  },
+  {
+    path: 'projects/project-updates/new',
+    loadComponent: () => import('./projects/project-updates/project-update-form.component').then(c => c.ProjectUpdateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ProjectUpdates.Create' },
+  },
+  {
+    path: 'projects/project-updates/:id/edit',
+    loadComponent: () => import('./projects/project-updates/project-update-form.component').then(c => c.ProjectUpdateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ProjectUpdates.Edit' },
+  },
+  {
+    path: 'projects/project-updates/:id',
+    loadComponent: () => import('./projects/project-updates/project-update-form.component').then(c => c.ProjectUpdateFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProjectUpdates' },
+  },
+  {
     path: 'projects/:id',
     loadComponent: () => import('./projects/project-detail/project-detail.component').then(c => c.ProjectDetailComponent),
     canActivate: [authGuard, permissionGuard],

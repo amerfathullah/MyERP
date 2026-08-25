@@ -309,3 +309,30 @@ export interface CreateUpdateTaskTypeDto {
 export interface GetTaskTypeListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
+
+export interface ProjectUpdateDto extends FullAuditedEntityDto<string> {
+  projectId: string;
+  projectNumber?: string | null;
+  projectName?: string | null;
+  date: string;
+  time?: string | null;
+  percentComplete: number;
+  summary?: string | null;
+  notes?: string | null;
+  sent: boolean;
+}
+
+export interface CreateUpdateProjectUpdateDto {
+  projectId: string;
+  date: string;
+  time?: string | null;
+  percentComplete?: number;
+  summary?: string | null;
+  notes?: string | null;
+  sent?: boolean;
+}
+
+export interface GetProjectUpdateListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  projectId?: string | null;
+}
