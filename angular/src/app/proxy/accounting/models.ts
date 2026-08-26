@@ -2224,3 +2224,59 @@ export interface UpdateAccountsSettingsDto {
   createPrInDraftStatus?: boolean;
 }
 
+export interface CurrencyExchangeSettingsDetailDto extends AuditedEntityDto<string> {
+  settingsId: string;
+  key: string;
+  value: string;
+}
+
+export interface CreateUpdateCurrencyExchangeSettingsDetailDto {
+  key: string;
+  value: string;
+}
+
+export interface CurrencyExchangeSettingsResultDto extends AuditedEntityDto<string> {
+  settingsId: string;
+  key: string;
+}
+
+export interface CreateUpdateCurrencyExchangeSettingsResultDto {
+  key: string;
+}
+
+export interface CurrencyExchangeSettingsDto extends FullAuditedEntityDto<string> {
+  serviceProvider: string;
+  apiEndpoint: string;
+  accessKey?: string | null;
+  url?: string | null;
+  useHttp: boolean;
+  disabled: boolean;
+  reqParams: CurrencyExchangeSettingsDetailDto[];
+  resultKeys: CurrencyExchangeSettingsResultDto[];
+}
+
+export interface UpdateCurrencyExchangeSettingsDto {
+  serviceProvider: string;
+  apiEndpoint: string;
+  accessKey?: string | null;
+  url?: string | null;
+  useHttp?: boolean;
+  disabled?: boolean;
+  reqParams?: CreateUpdateCurrencyExchangeSettingsDetailDto[];
+  resultKeys?: CreateUpdateCurrencyExchangeSettingsResultDto[];
+}
+
+export interface TestCurrencyExchangeApiRequestDto {
+  fromCurrency?: string | null;
+  toCurrency?: string | null;
+  transactionDate?: string | null;
+}
+
+export interface TestCurrencyExchangeApiResponseDto {
+  success: boolean;
+  exchangeRate: number;
+  resolvedUrl?: string | null;
+  rawResponse?: string | null;
+  errorMessage?: string | null;
+}
+

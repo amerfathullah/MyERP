@@ -505,6 +505,11 @@ public class MyERPDbContext :
     // Accounts Settings
     public DbSet<AccountsSettings> AccountsSettings { get; set; }
 
+    // Currency Exchange Settings
+    public DbSet<CurrencyExchangeSettings> CurrencyExchangeSettings { get; set; }
+    public DbSet<CurrencyExchangeSettingsDetail> CurrencyExchangeSettingsDetails { get; set; }
+    public DbSet<CurrencyExchangeSettingsResult> CurrencyExchangeSettingsResults { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4988,6 +4993,40 @@ public class MyERPDbContext :
             b.Property(x => x.RoleAllowedToBypassOverdueBilling).HasMaxLength(AccountsSettingsConsts.MaxRoleLength);
             b.Property(x => x.DefaultAgeingRange).HasMaxLength(AccountsSettingsConsts.MaxAgeingRangeLength);
             b.Property(x => x.OverBillingAllowance).HasPrecision(6, 2);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Currency Exchange Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<CurrencyExchangeSettings>(b =>
+        {
+            b.ToTable("Acc_CurrencyExchangeSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ServiceProvider).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxServiceProviderLength);
+            b.Property(x => x.ApiEndpoint).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxApiEndpointLength);
+            b.Property(x => x.AccessKey).HasMaxLength(CurrencyExchangeSettingsConsts.MaxAccessKeyLength);
+            b.Property(x => x.Url).HasMaxLength(CurrencyExchangeSettingsConsts.MaxUrlLength);
+            b.HasMany(x => x.ReqParams).WithOne().HasForeignKey(x => x.SettingsId).IsRequired();
+            b.HasMany(x => x.ResultKeys).WithOne().HasForeignKey(x => x.SettingsId).IsRequired();
+            b.Navigation(x => x.ReqParams).AutoInclude();
+            b.Navigation(x => x.ResultKeys).AutoInclude();
+        });
+
+        builder.Entity<CurrencyExchangeSettingsDetail>(b =>
+        {
+            b.ToTable("Acc_CurrencyExchangeSettingsDetails", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Key).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxKeyLength);
+            b.Property(x => x.Value).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxValueLength);
+            b.HasIndex(x => x.SettingsId);
+        });
+
+        builder.Entity<CurrencyExchangeSettingsResult>(b =>
+        {
+            b.ToTable("Acc_CurrencyExchangeSettingsResults", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Key).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxKeyLength);
+            b.HasIndex(x => x.SettingsId);
         });
 
         // ═══════════════════════════════════════════════════

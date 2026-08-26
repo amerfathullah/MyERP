@@ -4634,6 +4634,16 @@
     "EnablePartyMatching": "Enable Automatic Party Matching",
     "EnableFuzzyMatching": "Enable Fuzzy Matching",
     "TransferMatchDays": "Match Transfers Within (Days)",
-    "CreatePrInDraftStatus": "Create Payment Requests in Draft Status"
+    "CreatePrInDraftStatus": "Create Payment Requests in Draft Status",
+    "Permission:CurrencyExchangeSettings": "Currency Exchange Settings",
+    "Permission:CurrencyExchangeSettings.Edit": "Edit Currency Exchange Settings",
+    "CurrencyExchangeSettings": "Currency Exchange Settings",
+    "Menu:CurrencyExchangeSettings": "Currency Exchange Settings",
+    "ServiceProvider": "Service Provider",
+    "ApiEndpoint": "API Endpoint",
+    "UseHttp": "Use HTTP Protocol",
+    "ReqParams": "Request Parameters",
+    "ResultKeys": "Result Keys",
+    "TestApi": "Test Connection"
   }
 }

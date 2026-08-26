@@ -677,6 +677,9 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var accountsSettingsPermission = myGroup.AddPermission(MyERPPermissions.AccountsSettings.Default, L("Permission:AccountsSettings"));
         accountsSettingsPermission.AddChild(MyERPPermissions.AccountsSettings.Edit, L("Permission:AccountsSettings.Edit"));
+
+        var currencyExchangeSettingsPermission = myGroup.AddPermission(MyERPPermissions.CurrencyExchangeSettings.Default, L("Permission:CurrencyExchangeSettings"));
+        currencyExchangeSettingsPermission.AddChild(MyERPPermissions.CurrencyExchangeSettings.Edit, L("Permission:CurrencyExchangeSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

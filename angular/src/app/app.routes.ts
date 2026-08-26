@@ -310,6 +310,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.AccountsSettings' },
   },
   {
+    path: 'accounting/currency-exchange-settings',
+    loadComponent: () => import('./accounting/settings/currency-exchange-settings.component').then(c => c.CurrencyExchangeSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CurrencyExchangeSettings' },
+  },
+  {
     path: 'accounting/accounts',
     loadComponent: () => import('./accounting/accounts/chart-of-accounts.component').then(c => c.ChartOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],

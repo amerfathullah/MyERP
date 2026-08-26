@@ -1166,6 +1166,15 @@ public partial class AccountsSettingsMapper : MapperBase<Accounting.Entities.Acc
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CurrencyExchangeSettingsMapper : MapperBase<Accounting.Entities.CurrencyExchangeSettings, Accounting.CurrencyExchangeSettingsDto>
+{
+    public override partial Accounting.CurrencyExchangeSettingsDto Map(Accounting.Entities.CurrencyExchangeSettings source);
+    public override partial void Map(Accounting.Entities.CurrencyExchangeSettings source, Accounting.CurrencyExchangeSettingsDto destination);
+    private partial Accounting.CurrencyExchangeSettingsDetailDto MapDetail(Accounting.Entities.CurrencyExchangeSettingsDetail source);
+    private partial Accounting.CurrencyExchangeSettingsResultDto MapResult(Accounting.Entities.CurrencyExchangeSettingsResult source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

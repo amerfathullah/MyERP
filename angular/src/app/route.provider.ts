@@ -2363,6 +2363,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.AccountsSettings',
       },
       {
+        path: '/accounting/currency-exchange-settings',
+        name: '::Menu:CurrencyExchangeSettings',
+        iconClass: 'fas fa-money-bill-transfer',
+        order: 26,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CurrencyExchangeSettings',
+      },
+      {
         path: '/accounting/batch-payment',
         name: '::Menu:BatchPayment',
         iconClass: 'fas fa-money-check-dollar',

@@ -1026,6 +1026,12 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
     }
 
+    public static class CurrencyExchangeSettings
+    {
+        public const string Default = GroupName + ".CurrencyExchangeSettings";
+        public const string Edit = Default + ".Edit";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";
