@@ -277,6 +277,8 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectTaskDto> UpdateTaskAsync(Guid taskId, UpdateProjectTaskDto input)
     {
         var task = await _taskRepository.GetAsync(taskId);
+        var endDateChanged = task.ExpectedEndDate != input.ExpectedEndDate;
+
         task.Subject = input.Subject;
         task.Priority = input.Priority;
         task.ParentTaskId = input.ParentTaskId;
@@ -291,6 +293,15 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         task.Description = input.Description;
 
         await _taskRepository.UpdateAsync(task);
+
+        // Per ERPNext task.py reschedule_dependent_tasks (Gotcha #1302): pushing this task's end
+        // date out must cascade to dependent tasks whose start would otherwise overlap it.
+        if (endDateChanged)
+        {
+            var depValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.TaskDependencyValidationService>();
+            await depValidator.RescheduleDependentTasksAsync(task);
+        }
+
         await UpdateProjectProgress(task.ProjectId);
         return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
     }

@@ -16,6 +16,7 @@ public interface IMaintenanceAppService : IApplicationService
     Task<MaintenanceVisitDto> CreateVisitAsync(CreateMaintenanceVisitDto input);
     Task<MaintenanceVisitDto> UpdateVisitAsync(Guid id, CreateMaintenanceVisitDto input);
     Task<MaintenanceVisitDto> CompleteVisitAsync(Guid id);
+    Task<MaintenanceVisitDto> PartiallyCompleteVisitAsync(Guid id);
     Task<MaintenanceVisitDto> CancelVisitAsync(Guid id);
     Task DeleteVisitAsync(Guid id);
 }

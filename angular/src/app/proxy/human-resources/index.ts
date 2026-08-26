@@ -3,6 +3,7 @@ export * from './attendance.service';
 export * from './department.service';
 export * from './designation.service';
 export * from './employee.service';
+export * from './employment-status.enum';
 export * from './expense-claim.service';
 export * from './holiday-list.service';
 export * from './leave-allocation.service';

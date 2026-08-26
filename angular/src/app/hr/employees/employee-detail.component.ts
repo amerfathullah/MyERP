@@ -1,9 +1,11 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { EmployeeDto } from '../../proxy/human-resources/models';
+import { EmploymentStatus, employmentStatusOptions } from '../../proxy/human-resources/employment-status.enum';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -12,7 +14,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 @Component({
   standalone: true,
   selector: 'app-employee-detail',
-  imports: [CommonModule, LocalizationPipe, RouterLink, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, LocalizationPipe, RouterLink, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <app-breadcrumb />
 
@@ -86,6 +88,25 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <dt class="col-sm-5">{{ '::Status' | abpLocalization }}</dt>
                 <dd class="col-sm-7"><app-status-badge [status]="employee()!.status || 'Active'" /></dd>
               </dl>
+              <div class="d-flex align-items-end gap-2 mt-3">
+                <div class="flex-grow-1">
+                  <label class="form-label small text-muted mb-1">{{ 'MyERP::ChangeStatus' | abpLocalization }}</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="selectedStatus">
+                    @for (opt of statusOptions; track opt.value) {
+                      <option [ngValue]="opt.value">{{ opt.key }}</option>
+                    }
+                  </select>
+                </div>
+                @if (selectedStatus === resignedStatus) {
+                  <div class="flex-grow-1">
+                    <label class="form-label small text-muted mb-1">{{ '::DateOfResignation' | abpLocalization }}</label>
+                    <input type="date" class="form-control form-control-sm" [(ngModel)]="resignationDate">
+                  </div>
+                }
+                <button class="btn btn-sm btn-primary" (click)="changeStatus()">
+                  {{ 'MyERP::Apply' | abpLocalization }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -155,6 +176,11 @@ export class EmployeeDetailComponent implements OnInit {
   employee = signal<EmployeeDto | null>(null);
   loading = signal(true);
 
+  statusOptions = employmentStatusOptions;
+  resignedStatus = EmploymentStatus.Resigned;
+  selectedStatus: EmploymentStatus = EmploymentStatus.Active;
+  resignationDate: string | null = null;
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
@@ -165,11 +191,30 @@ export class EmployeeDetailComponent implements OnInit {
       next: (emp) => {
         this.employee.set(emp);
         this.loading.set(false);
+        const matchedOption = this.statusOptions.find(o => o.key === emp.status);
+        this.selectedStatus = matchedOption ? matchedOption.value : EmploymentStatus.Active;
+        this.resignationDate = emp.dateOfResignation ? emp.dateOfResignation.substring(0, 10) : null;
       },
       error: () => {
         this.toaster.error('::RecordNotFound');
         this.router.navigate(['/hr/employees']);
       },
+    });
+  }
+
+  changeStatus() {
+    const emp = this.employee();
+    if (!emp?.id) return;
+
+    this.service.changeStatus(emp.id, {
+      status: this.selectedStatus,
+      dateOfResignation: this.selectedStatus === this.resignedStatus ? this.resignationDate : null,
+    }).subscribe({
+      next: (updated) => {
+        this.employee.set(updated);
+        this.toaster.success('MyERP::SuccessfullySaved');
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
   }
 }

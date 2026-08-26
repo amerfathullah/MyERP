@@ -245,6 +245,23 @@ public class LeadAppService : ApplicationService, ILeadAppService
 
         await _customerRepository.InsertAsync(customer);
 
+        // Per ERPNext lead.py: qualify/convert also creates a Contact from the lead's own
+        // name/email/phone, distinct from the Customer's flat ContactPerson/Email/Phone fields.
+        var contactFromLead = MyERP.CRM.DomainServices.LeadManager.BuildContactFromLead(lead);
+        if (contactFromLead != null)
+        {
+            var contactRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Contact, Guid>>();
+            await contactRepo.InsertAsync(new Core.Entities.Contact(
+                GuidGenerator.Create(), contactFromLead.FirstName, "Customer", customer.Id, CurrentTenant.Id)
+            {
+                LastName = contactFromLead.LastName,
+                Email = contactFromLead.Email,
+                Phone = contactFromLead.Phone,
+                MobileNo = contactFromLead.MobileNo,
+                IsPrimaryContact = true,
+            });
+        }
+
         // Mark lead as converted
         lead.ConvertToCustomer(customer.Id);
         await _leadRepository.UpdateAsync(lead);

@@ -1,4 +1,4 @@
-import type { CreateUpdateEmployeeDto, EmployeeDto, GetEmployeeListDto } from './models';
+import type { ChangeEmployeeStatusDto, CreateUpdateEmployeeDto, EmployeeDto, GetEmployeeListDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -10,6 +10,15 @@ export class EmployeeService {
   private restService = inject(RestService);
   apiName = 'Default';
   
+
+  changeStatus = (id: string, input: ChangeEmployeeStatusDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, EmployeeDto>({
+      method: 'POST',
+      url: `/api/app/employee/${id}/change-status`,
+      body: input,
+    },
+    { apiName: this.apiName, ...config });
+
 
   create = (input: CreateUpdateEmployeeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EmployeeDto>({

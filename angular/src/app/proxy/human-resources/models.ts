@@ -1,5 +1,6 @@
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AttendanceStatus } from './attendance-status.enum';
+import type { EmploymentStatus } from './employment-status.enum';
 import type { LeaveApplicationStatus } from './leave-application-status.enum';
 import type { ShiftAssignmentStatus } from './shift-assignment-status.enum';
 
@@ -163,6 +164,11 @@ export interface CreateUpdateDepartmentDto {
 export interface CreateUpdateDesignationDto {
   name?: string;
   description?: string | null;
+}
+
+export interface ChangeEmployeeStatusDto {
+  status: EmploymentStatus;
+  dateOfResignation?: string | null;
 }
 
 export interface CreateUpdateEmployeeDto {

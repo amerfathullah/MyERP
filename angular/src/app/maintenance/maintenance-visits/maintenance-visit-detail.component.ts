@@ -29,6 +29,9 @@ import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
               <button class="btn btn-sm btn-success" (click)="complete()">
                 <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::MarkComplete' | abpLocalization }}
               </button>
+              <button class="btn btn-sm btn-outline-info" (click)="partiallyComplete()">
+                <i class="bi bi-hourglass-split me-1"></i>{{ 'MyERP::MarkPartiallyComplete' | abpLocalization }}
+              </button>
               <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
                 <i class="bi bi-x-lg me-1"></i>{{ 'MyERP::Cancel' | abpLocalization }}
               </button>
@@ -123,6 +126,19 @@ export class MaintenanceVisitDetailComponent implements OnInit {
           next: (v) => {
             this.visit.set(v);
             this.toaster.success('MyERP::SuccessfullyCompleted');
+          },
+        });
+      }
+    });
+  }
+
+  partiallyComplete() {
+    this.confirmation.warn('MyERP::AreYouSure', 'MyERP::AreYouSure').subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        this.service.partiallyCompleteVisit(this.visit()!.id).subscribe({
+          next: (v) => {
+            this.visit.set(v);
+            this.toaster.success('MyERP::SuccessfullySaved');
           },
         });
       }

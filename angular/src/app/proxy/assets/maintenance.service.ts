@@ -25,7 +25,15 @@ export class MaintenanceService {
       url: `/api/app/maintenance/${id}/complete-visit`,
     },
     { apiName: this.apiName,...config });
-  
+
+
+  partiallyCompleteVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance/${id}/partially-complete-visit`,
+    },
+    { apiName: this.apiName, ...config });
+
 
   createSchedule = (input: CreateMaintenanceScheduleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaintenanceScheduleDto>({

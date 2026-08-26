@@ -125,6 +125,17 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         return ObjectMapper.Map<Employee, EmployeeDto>(employee);
     }
 
+    [Authorize(MyERPPermissions.Employees.Edit)]
+    public async Task<EmployeeDto> ChangeStatusAsync(Guid id, ChangeEmployeeStatusDto input)
+    {
+        var employee = await _repository.GetAsync(id);
+
+        var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.EmployeeLifecycleManager>();
+        await lifecycleManager.ChangeStatusAsync(employee, input.Status, input.DateOfResignation);
+
+        return ObjectMapper.Map<Employee, EmployeeDto>(employee);
+    }
+
     [Authorize(MyERPPermissions.Employees.Delete)]
     public async Task DeleteAsync(Guid id)
     {

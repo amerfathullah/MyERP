@@ -153,6 +153,15 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
+    public async Task<MaintenanceVisitDto> PartiallyCompleteVisitAsync(Guid id)
+    {
+        var visit = await _visitRepo.GetAsync(id);
+        visit.PartiallyComplete();
+        await _visitRepo.UpdateAsync(visit);
+        return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    [Authorize(MyERPPermissions.Assets.Submit)]
     public async Task<MaintenanceVisitDto> CancelVisitAsync(Guid id)
     {
         var visit = await _visitRepo.GetAsync(id);
