@@ -382,6 +382,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync("SalesInvoice", input.CompanyId, siItemIds, customerIds: new[] { input.CustomerId });
 
+        var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
+        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", input.CompanyId);
 
         var invoice = new SalesInvoice(

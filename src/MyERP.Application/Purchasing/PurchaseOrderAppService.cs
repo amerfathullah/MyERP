@@ -153,6 +153,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync("PurchaseOrder", input.CompanyId, itemIds, supplierIds: new[] { input.SupplierId });
 
+        var supplierForStatus = await _supplierRepository.GetAsync(input.SupplierId);
+        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: !supplierForStatus.IsActive, supplierForStatus.Name);
+
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
         po.ExpectedDeliveryDate = input.ExpectedDeliveryDate;

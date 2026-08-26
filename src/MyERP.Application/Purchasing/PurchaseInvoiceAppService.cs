@@ -418,6 +418,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync("PurchaseInvoice", input.CompanyId, piItemIds, supplierIds: new[] { input.SupplierId });
 
+        var supplierForStatus = await _supplierRepository.GetAsync(input.SupplierId);
+        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: !supplierForStatus.IsActive, supplierForStatus.Name);
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", input.CompanyId);
 
         var invoice = new PurchaseInvoice(

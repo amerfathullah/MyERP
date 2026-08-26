@@ -245,6 +245,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync("SalesOrder", input.CompanyId, itemIds, customerIds: new[] { input.CustomerId });
 
+        var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
+        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
         var order = new SalesOrder(
