@@ -99,6 +99,8 @@ public class MyERPDbContext :
     public DbSet<RepostAccountingLedger> RepostAccountingLedgers { get; set; }
     public DbSet<RepostAccountingLedgerVoucher> RepostAccountingLedgerVouchers { get; set; }
     public DbSet<ProcessPaymentReconciliation> ProcessPaymentReconciliations { get; set; }
+    public DbSet<Bank> Banks { get; set; }
+    public DbSet<ChequePrintTemplate> ChequePrintTemplates { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
     public DbSet<BankAccountBalance> BankAccountBalances { get; set; }
     public DbSet<BankAccountType> BankAccountTypes { get; set; }
@@ -1698,6 +1700,45 @@ public class MyERPDbContext :
             b.Property(x => x.Balance).HasColumnType("decimal(18,2)");
             b.HasOne<BankAccount>().WithMany().HasForeignKey(x => x.BankAccountId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.BankAccountId, x.Date });
+        });
+
+        builder.Entity<Bank>(b =>
+        {
+            b.ToTable("Acc_Banks", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.BankName).IsRequired().HasMaxLength(BankConsts.MaxBankNameLength);
+            b.Property(x => x.SwiftNumber).HasMaxLength(BankConsts.MaxSwiftNumberLength);
+            b.Property(x => x.Website).HasMaxLength(BankConsts.MaxWebsiteLength);
+            b.HasIndex(x => new { x.TenantId, x.BankName }).IsUnique();
+        });
+
+        builder.Entity<ChequePrintTemplate>(b =>
+        {
+            b.ToTable("Acc_ChequePrintTemplates", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.BankName).IsRequired().HasMaxLength(ChequePrintTemplateConsts.MaxBankNameLength);
+            b.Property(x => x.MessageToShow).HasMaxLength(ChequePrintTemplateConsts.MaxMessageToShowLength);
+            b.Property(x => x.ScannedCheque).HasMaxLength(ChequePrintTemplateConsts.MaxScannedChequeLength);
+            b.Property(x => x.StartingPositionFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.ChequeWidth).HasColumnType("decimal(18,2)");
+            b.Property(x => x.ChequeHeight).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccPayDistFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccPayDistFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.DateDistFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.DateDistFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.PayerNameFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.PayerNameFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInWordsFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInWordsFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInWordWidth).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInWordsLineSpacing).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInFiguresFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AmtInFiguresFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccNoDistFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AccNoDistFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.SignatoryFromTopEdge).HasColumnType("decimal(18,2)");
+            b.Property(x => x.SignatoryFromLeftEdge).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.BankName }).IsUnique();
         });
 
         builder.Entity<BankAccountType>(b =>

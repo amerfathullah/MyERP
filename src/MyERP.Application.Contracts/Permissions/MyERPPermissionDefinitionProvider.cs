@@ -601,6 +601,16 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Create, L("Permission:PartyTypes.Create"));
         partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Edit, L("Permission:PartyTypes.Edit"));
         partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Delete, L("Permission:PartyTypes.Delete"));
+
+        var bankPermission = myGroup.AddPermission(MyERPPermissions.Banks.Default, L("Permission:Banks"));
+        bankPermission.AddChild(MyERPPermissions.Banks.Create, L("Permission:Banks.Create"));
+        bankPermission.AddChild(MyERPPermissions.Banks.Edit, L("Permission:Banks.Edit"));
+        bankPermission.AddChild(MyERPPermissions.Banks.Delete, L("Permission:Banks.Delete"));
+
+        var chequePrintTemplatePermission = myGroup.AddPermission(MyERPPermissions.ChequePrintTemplates.Default, L("Permission:ChequePrintTemplates"));
+        chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Create, L("Permission:ChequePrintTemplates.Create"));
+        chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Edit, L("Permission:ChequePrintTemplates.Edit"));
+        chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Delete, L("Permission:ChequePrintTemplates.Delete"));
     }
 
     private static LocalizableString L(string name)

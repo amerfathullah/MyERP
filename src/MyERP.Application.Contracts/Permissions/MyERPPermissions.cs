@@ -899,9 +899,26 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class Banks
+    {
+        public const string Default = GroupName + ".Banks";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class ChequePrintTemplates
+    {
+        public const string Default = GroupName + ".ChequePrintTemplates";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";
         public const string Edit = Default + ".Edit";
     }
 }
+

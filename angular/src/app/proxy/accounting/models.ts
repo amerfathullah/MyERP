@@ -10,6 +10,7 @@ import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum'
 import type { PaymentOrderType } from './payment-order-type.enum';
 import type { UnreconcileVoucherType } from './unreconcile-voucher-type.enum';
 import type { ShareTransferType } from './share-transfer-type.enum';
+import type { ChequeSize } from './cheque-size.enum';
 
 export interface AccountCategoryDto {
   id?: string;
@@ -2041,3 +2042,87 @@ export interface GetBankAccountSubtypeListDto extends PagedAndSortedResultReques
   filter?: string | null;
   isActive?: boolean | null;
 }
+
+export interface BankDto extends FullAuditedEntityDto<string> {
+  bankName: string;
+  swiftNumber?: string | null;
+  website?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateBankDto {
+  bankName: string;
+  swiftNumber?: string | null;
+  website?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetBankListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface ChequePrintTemplateDto extends FullAuditedEntityDto<string> {
+  bankName: string;
+  chequeSize: ChequeSize;
+  startingPositionFromTopEdge: number;
+  chequeWidth: number;
+  chequeHeight: number;
+  scannedCheque?: string | null;
+  isAccountPayable: boolean;
+  accPayDistFromTopEdge: number;
+  accPayDistFromLeftEdge: number;
+  messageToShow?: string | null;
+  dateDistFromTopEdge: number;
+  dateDistFromLeftEdge: number;
+  payerNameFromTopEdge: number;
+  payerNameFromLeftEdge: number;
+  amtInWordsFromTopEdge: number;
+  amtInWordsFromLeftEdge: number;
+  amtInWordWidth: number;
+  amtInWordsLineSpacing: number;
+  amtInFiguresFromTopEdge: number;
+  amtInFiguresFromLeftEdge: number;
+  accNoDistFromTopEdge: number;
+  accNoDistFromLeftEdge: number;
+  signatoryFromTopEdge: number;
+  signatoryFromLeftEdge: number;
+  hasPrintFormat: boolean;
+}
+
+export interface CreateUpdateChequePrintTemplateDto {
+  bankName: string;
+  chequeSize?: ChequeSize;
+  startingPositionFromTopEdge?: number;
+  chequeWidth?: number;
+  chequeHeight?: number;
+  scannedCheque?: string | null;
+  isAccountPayable?: boolean;
+  accPayDistFromTopEdge?: number;
+  accPayDistFromLeftEdge?: number;
+  messageToShow?: string | null;
+  dateDistFromTopEdge?: number;
+  dateDistFromLeftEdge?: number;
+  payerNameFromTopEdge?: number;
+  payerNameFromLeftEdge?: number;
+  amtInWordsFromTopEdge?: number;
+  amtInWordsFromLeftEdge?: number;
+  amtInWordWidth?: number;
+  amtInWordsLineSpacing?: number;
+  amtInFiguresFromTopEdge?: number;
+  amtInFiguresFromLeftEdge?: number;
+  accNoDistFromTopEdge?: number;
+  accNoDistFromLeftEdge?: number;
+  signatoryFromTopEdge?: number;
+  signatoryFromLeftEdge?: number;
+  hasPrintFormat?: boolean;
+}
+
+export interface GetChequePrintTemplateListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
+export interface ChequePrintPreviewDto {
+  htmlContent: string;
+}
+

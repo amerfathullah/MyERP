@@ -81,6 +81,20 @@ public partial class AccountingDimensionMapper : MapperBase<Accounting.Entities.
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankMapper : MapperBase<Accounting.Entities.Bank, Accounting.BankDto>
+{
+    public override partial Accounting.BankDto Map(Accounting.Entities.Bank source);
+    public override partial void Map(Accounting.Entities.Bank source, Accounting.BankDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ChequePrintTemplateMapper : MapperBase<Accounting.Entities.ChequePrintTemplate, Accounting.ChequePrintTemplateDto>
+{
+    public override partial Accounting.ChequePrintTemplateDto Map(Accounting.Entities.ChequePrintTemplate source);
+    public override partial void Map(Accounting.Entities.ChequePrintTemplate source, Accounting.ChequePrintTemplateDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class BankAccountMapper : MapperBase<Accounting.Entities.BankAccount, Accounting.BankAccountDto>
 {
     public override partial Accounting.BankAccountDto Map(Accounting.Entities.BankAccount source);
