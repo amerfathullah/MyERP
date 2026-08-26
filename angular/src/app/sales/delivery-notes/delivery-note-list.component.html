@@ -96,6 +96,7 @@
                     {{ '::DeliveryNumber' | abpLocalization }}
                   </app-sortable-header>
                 </th>
+                <th style="min-width: 150px;">{{ '::Customer' | abpLocalization }}</th>
                 <th style="width: 110px;">
                   <app-sortable-header field="postingDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::PostingDate' | abpLocalization }}
@@ -126,6 +127,7 @@
                   <td class="fw-medium">
                     <a [routerLink]="[row.id]" class="text-primary text-decoration-none">{{ row.deliveryNumber }}</a>
                   </td>
+                  <td>{{ row.customerName }}</td>
                   <td>{{ row.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td>

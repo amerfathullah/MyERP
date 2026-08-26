@@ -176,7 +176,12 @@
                       (change)="toggleSelect(inv.id, $any($event.target).checked)">
                   </td>
                   <td class="fw-semibold"><a [routerLink]="['/sales/invoices', inv.id]" class="text-decoration-none">{{ inv.invoiceNumber }}</a></td>
-                  <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    {{ inv.issueDate | date:'dd/MM/yyyy' }}
+                    @if (inv.dueDate) {
+                      <div class="text-muted small">{{ '::DueDate' | abpLocalization }}: {{ inv.dueDate | date:'dd/MM/yyyy' }}</div>
+                    }
+                  </td>
                   <td>
                     <span class="d-inline-block text-truncate" style="max-width: 180px;"
                     [title]="inv.customerName">

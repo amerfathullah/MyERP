@@ -86,6 +86,7 @@
                     {{ '::OrderNumber' | abpLocalization }}
                   </app-sortable-header>
                 </th>
+                <th style="min-width: 150px;">{{ '::Customer' | abpLocalization }}</th>
                 <th style="width: 110px;">
                   <app-sortable-header field="orderDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
                     {{ '::OrderDate' | abpLocalization }}
@@ -121,6 +122,7 @@
                       <span class="badge bg-danger ms-1" style="font-size: 0.65rem">{{ '::Overdue' | abpLocalization }}</span>
                     }
                   </td>
+                  <td>{{ row.customerName }}</td>
                   <td>{{ row.orderDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td><app-status-badge [status]="row.status ?? ''" /></td>

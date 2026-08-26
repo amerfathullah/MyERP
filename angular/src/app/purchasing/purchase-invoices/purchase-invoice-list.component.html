@@ -146,7 +146,12 @@
             <tbody>
               @for (inv of store.entities(); track inv.id ?? $index) {
                 <tr>
-                  <td class="fw-medium"><a [routerLink]="['/purchasing/invoices', inv.id]" class="text-decoration-none">{{ inv.invoiceNumber }}</a></td>
+                  <td class="fw-medium">
+                    <a [routerLink]="['/purchasing/invoices', inv.id]" class="text-decoration-none">{{ inv.invoiceNumber }}</a>
+                    @if (inv.supplierInvoiceNumber) {
+                      <div class="text-muted small">{{ '::SupplierInvoiceNumber' | abpLocalization }}: {{ inv.supplierInvoiceNumber }}</div>
+                    }
+                  </td>
                   <td>{{ inv.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-truncate" style="max-width: 200px;" [title]="inv.supplierName ?? inv.supplierId">{{ inv.supplierName ?? inv.supplierId }}</td>
                   <td class="text-end font-monospace">{{ inv.grandTotal | number:'1.2-2' }}</td>
