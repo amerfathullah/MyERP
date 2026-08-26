@@ -89,7 +89,7 @@ function configureRoutes() {
         iconClass: 'fas fa-cash-register',
         order: 10,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.POS',
+        requiredPolicy: 'MyERP.SalesInvoices.Create',
       },
       {
         path: '/sales/pos-closing',
@@ -505,7 +505,7 @@ function configureRoutes() {
         iconClass: 'fas fa-building-columns',
         order: 20,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.BankReconciliation',
+        requiredPolicy: 'MyERP.PaymentEntries',
       },
       {
         path: '/accounting/bank-reconciliation-statement',
@@ -514,7 +514,7 @@ function configureRoutes() {
         iconClass: 'fas fa-file-lines',
         order: 21,
         layout: eLayoutType.application,
-        requiredPolicy: 'MyERP.PaymentEntries.Default',
+        requiredPolicy: 'MyERP.PaymentEntries',
       },
       {
         path: '/accounting/bank-clearance',

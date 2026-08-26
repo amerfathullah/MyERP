@@ -1032,7 +1032,7 @@ export const APP_ROUTES: Routes = [
     path: 'sales/pos',
     loadComponent: () => import('./sales/pos/pos.component').then(c => c.PosComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.POS' },
+    data: { requiredPolicy: 'MyERP.SalesInvoices.Create' },
   },
   {
     path: 'purchasing/receipts',
@@ -1169,13 +1169,13 @@ export const APP_ROUTES: Routes = [
     path: 'accounting/bank-reconciliation',
     loadComponent: () => import('./accounting/bank-reconciliation/bank-reconciliation.component').then(c => c.BankReconciliationComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.BankReconciliation' },
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
     path: 'accounting/bank-reconciliation-statement',
     loadComponent: () => import('./accounting/bank-reconciliation-statement/bank-reconciliation-statement.component').then(c => c.BankReconciliationStatementComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.PaymentEntries.Default' },
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
     path: 'accounting/bank-clearance',
@@ -1193,13 +1193,13 @@ export const APP_ROUTES: Routes = [
     path: 'accounting/payment-requests',
     loadComponent: () => import('./accounting/payment-requests/payment-request-list.component').then(c => c.PaymentRequestListComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.PaymentEntries.Default' },
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
     path: 'accounting/payment-requests/:id',
     loadComponent: () => import('./accounting/payment-requests/payment-request-detail.component').then(c => c.PaymentRequestDetailComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.PaymentEntries.Default' },
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
     path: 'accounting/bank-statement-import',
