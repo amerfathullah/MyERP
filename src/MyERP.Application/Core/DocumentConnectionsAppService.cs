@@ -456,11 +456,29 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 });
         }
 
+        // Linked Purchase Invoices (via PI items referencing this PR's items) — reverse of the
+        // lookup GetPurchaseInvoiceConnectionsAsync already does the other way around.
+        var prItemIds = pr.Items.Select(i => i.Id).ToList();
+        var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+        var piQuery = await piRepo.GetQueryableAsync();
+        var invoices = piQuery
+            .Where(pi => pi.Items.Any(i => i.PurchaseReceiptItemId.HasValue && prItemIds.Contains(i.PurchaseReceiptItemId.Value)))
+            .Select(pi => new ConnectionDocumentDto
+            {
+                Id = pi.Id, DocumentNumber = pi.InvoiceNumber, Status = pi.Status.ToString(),
+                Amount = pi.GrandTotal, Date = pi.IssueDate, Route = "/purchasing/invoices/" + pi.Id
+            }).ToList();
+
         var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
         if (poConnections.Any())
             refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Order", Count = poConnections.Count, Route = "/purchasing/orders", Documents = poConnections });
 
+        var billingGroup = new ConnectionGroupDto { Label = "Billing", Items = new() };
+        if (invoices.Any())
+            billingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Invoice", Count = invoices.Count, Route = "/purchasing/invoices", Documents = invoices });
+
         if (refGroup.Items.Any()) result.Groups.Add(refGroup);
+        if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
         return result;
     }
 
@@ -578,7 +596,22 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
 
     private async Task<DocumentConnectionsDto> GetQuotationConnectionsAsync(Guid id)
     {
-        // Quotation connections are tracked via conversion (QTN→SO)
-        return new DocumentConnectionsDto();
+        var result = new DocumentConnectionsDto();
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQuery = await soRepo.GetQueryableAsync();
+        var orders = soQuery.Where(so => so.QuotationId == id)
+            .Select(so => new ConnectionDocumentDto
+            {
+                Id = so.Id, DocumentNumber = so.OrderNumber, Status = so.Status.ToString(),
+                Amount = so.GrandTotal, Date = so.OrderDate, Route = "/sales/orders/" + so.Id
+            }).ToList();
+
+        var conversionGroup = new ConnectionGroupDto { Label = "Conversion", Items = new() };
+        if (orders.Any())
+            conversionGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Order", Count = orders.Count, Route = "/sales/orders", Documents = orders });
+
+        if (conversionGroup.Items.Any()) result.Groups.Add(conversionGroup);
+        return result;
     }
 }
