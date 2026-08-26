@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.CRM;
@@ -46,7 +47,7 @@ public class CreateLeadDto
     public string? CompanyName { get; set; }
 
     [StringLength(LeadConsts.MaxEmailLength)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(LeadConsts.MaxPhoneLength)]
@@ -98,7 +99,7 @@ public class UpdateLeadDto
     public string? CompanyName { get; set; }
 
     [StringLength(LeadConsts.MaxEmailLength)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(LeadConsts.MaxPhoneLength)]

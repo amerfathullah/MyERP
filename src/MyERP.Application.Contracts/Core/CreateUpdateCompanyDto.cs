@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MyERP.Shared;
 
 namespace MyERP.Core;
 
@@ -27,7 +28,7 @@ public class CreateUpdateCompanyDto
     public string? Phone { get; set; }
 
     [StringLength(CompanyConsts.MaxEmailLength)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(CompanyConsts.MaxWebsiteLength)]

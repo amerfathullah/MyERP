@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Shared;
 
 namespace MyERP.Core;
 
@@ -19,7 +20,7 @@ public class CreateUpdateBranchDto
     public string? Phone { get; set; }
 
     [StringLength(BranchConsts.MaxEmailLength)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(BranchConsts.MaxAddressLength)]

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Shared;
 
 namespace MyERP.Purchasing;
 
@@ -37,7 +38,7 @@ public class CreateUpdateSupplierDto
     public string? Phone { get; set; }
 
     [StringLength(SupplierConsts.MaxEmailLength)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(SupplierConsts.MaxWebsiteLength)]

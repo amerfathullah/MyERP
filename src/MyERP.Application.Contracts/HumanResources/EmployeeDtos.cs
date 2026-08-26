@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.HumanResources;
@@ -43,7 +44,7 @@ public class CreateUpdateEmployeeDto
     public string? Phone { get; set; }
 
     [StringLength(200)]
-    [EmailAddress]
+    [OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(128)]
