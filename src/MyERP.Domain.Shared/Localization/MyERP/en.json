@@ -4369,6 +4369,14 @@
     "Menu:SalesPartnerTypes": "Partner Types",
     "NewSalesPartnerType": "New Sales Partner Type",
     "EditSalesPartnerType": "Edit Sales Partner Type",
-    "PartnerTypeName": "Partner Type Name"
+    "PartnerTypeName": "Partner Type Name",
+    "Permission:PartyTypes": "Party Types",
+    "Permission:PartyTypes.Create": "Create Party Type",
+    "Permission:PartyTypes.Edit": "Edit Party Type",
+    "Permission:PartyTypes.Delete": "Delete Party Type",
+    "PartyTypes": "Party Types",
+    "Menu:PartyTypes": "Party Types",
+    "NewPartyType": "New Party Type",
+    "EditPartyType": "Edit Party Type"
   }
 }

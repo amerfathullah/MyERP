@@ -1447,6 +1447,15 @@ function configureRoutes() {
         layout: eLayoutType.application,
       },
       {
+        path: '/settings/party-types',
+        name: '::Menu:PartyTypes',
+        iconClass: 'fas fa-address-card',
+        order: 14.5,
+        parentName: '::Menu:Settings',
+        requiredPolicy: 'MyERP.PartyTypes',
+        layout: eLayoutType.application,
+      },
+      {
         path: '/sales/quotation-lost-reasons',
         name: '::Menu:QuotationLostReasons',
         iconClass: 'fas fa-flag',

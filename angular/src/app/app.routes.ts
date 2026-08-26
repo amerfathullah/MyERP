@@ -3277,6 +3277,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.CustomerGroups' },
   },
   {
+    path: 'settings/party-types',
+    loadComponent: () => import('./settings/party-types/party-type-list.component').then(c => c.PartyTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PartyTypes' },
+  },
+  {
+    path: 'settings/party-types/new',
+    loadComponent: () => import('./settings/party-types/party-type-form.component').then(c => c.PartyTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.PartyTypes.Create' },
+  },
+  {
+    path: 'settings/party-types/:id/edit',
+    loadComponent: () => import('./settings/party-types/party-type-form.component').then(c => c.PartyTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.PartyTypes.Edit' },
+  },
+  {
+    path: 'settings/party-types/:id',
+    loadComponent: () => import('./settings/party-types/party-type-form.component').then(c => c.PartyTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PartyTypes' },
+  },
+  {
     path: 'settings/supplier-groups',
     loadComponent: () => import('./settings/supplier-groups/supplier-group-list.component').then(c => c.SupplierGroupListComponent),
     canActivate: [authGuard, permissionGuard],

@@ -586,6 +586,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Create, L("Permission:SalesPartnerTypes.Create"));
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Edit, L("Permission:SalesPartnerTypes.Edit"));
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Delete, L("Permission:SalesPartnerTypes.Delete"));
+
+        var partyTypePermission = myGroup.AddPermission(MyERPPermissions.PartyTypes.Default, L("Permission:PartyTypes"));
+        partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Create, L("Permission:PartyTypes.Create"));
+        partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Edit, L("Permission:PartyTypes.Edit"));
+        partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Delete, L("Permission:PartyTypes.Delete"));
     }
 
     private static LocalizableString L(string name)

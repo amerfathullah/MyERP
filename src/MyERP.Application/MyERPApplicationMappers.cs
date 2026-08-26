@@ -1729,3 +1729,10 @@ public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sa
     public override partial void Map(Sales.Entities.PosProfile source, Sales.PosProfileDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PartyTypeMapper : MapperBase<Core.Entities.PartyType, Core.PartyTypeDto>
+{
+    public override partial Core.PartyTypeDto Map(Core.Entities.PartyType source);
+    public override partial void Map(Core.Entities.PartyType source, Core.PartyTypeDto destination);
+}
+

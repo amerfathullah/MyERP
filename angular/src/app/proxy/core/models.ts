@@ -6,6 +6,7 @@ import type { RepeatDayOfWeek } from './repeat-day-of-week.enum';
 import type { EmailDigestFrequency } from './email-digest-frequency.enum';
 import type { DocumentStatus } from './document-status.enum';
 import type { LetterHeadFor } from './letter-head-for.enum';
+import type { PartyAccountType } from './party-account-type.enum';
 
 export interface AddressDto extends EntityDto<string> {
   title?: string;
@@ -1173,6 +1174,21 @@ export interface CreateUpdateCustomerGroupDto {
 export interface GetCustomerGroupListDto extends PagedAndSortedResultRequestDto {
   parentId?: string | null;
   isGroup?: boolean | null;
+  filter?: string | null;
+}
+
+export interface PartyTypeDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  accountType?: PartyAccountType;
+}
+
+export interface CreateUpdatePartyTypeDto {
+  name: string;
+  accountType: PartyAccountType;
+}
+
+export interface GetPartyTypeListDto extends PagedAndSortedResultRequestDto {
+  accountType?: PartyAccountType | null;
   filter?: string | null;
 }
 

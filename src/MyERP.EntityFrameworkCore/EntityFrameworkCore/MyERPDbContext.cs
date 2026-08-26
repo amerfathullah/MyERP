@@ -74,6 +74,7 @@ public class MyERPDbContext :
     public DbSet<Territory> Territories { get; set; }
     public DbSet<CustomerGroup> CustomerGroups { get; set; }
     public DbSet<SupplierGroup> SupplierGroups { get; set; }
+    public DbSet<MyERP.Core.Entities.PartyType> PartyTypes { get; set; }
     public DbSet<CompanyRestrictionEntry> CompanyRestrictionEntries { get; set; }
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
     public DbSet<EmailDigestSettings> EmailDigestSettings { get; set; }
@@ -680,6 +681,14 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ParentId });
+        });
+
+        builder.Entity<MyERP.Core.Entities.PartyType>(b =>
+        {
+            b.ToTable(MyERPConsts.DbTablePrefix + "PartyTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(MyERP.Core.PartyTypeConsts.MaxPartyTypeNameLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 
         builder.Entity<CompanyRestrictionEntry>(b =>
