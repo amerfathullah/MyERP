@@ -142,6 +142,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("DeliveryNote", input.CompanyId, itemIds, customerIds: new[] { input.CustomerId });
 
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", input.CompanyId);
 
@@ -211,6 +213,10 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         if (dn.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft delivery notes can be edited");
+
+        var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
+        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync("DeliveryNote", dn.CompanyId, updateItemIds, customerIds: new[] { dn.CustomerId });
 
         dn.PostingDate = input.PostingDate;
         dn.ShippingAddress = input.ShippingAddress;

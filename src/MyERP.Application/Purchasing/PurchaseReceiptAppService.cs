@@ -145,6 +145,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseReceipt", input.CompanyId, itemIds, supplierIds: new[] { input.SupplierId });
+
         // Per gotcha #538: PR blocks future posting date
         if (input.PostingDate.Date > DateTime.UtcNow.Date)
         {
@@ -231,6 +234,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
             }
         }
+
+        var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
+        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync("PurchaseReceipt", receipt.CompanyId, updateItemIds, supplierIds: new[] { receipt.SupplierId });
 
         receipt.PostingDate = input.PostingDate;
         receipt.SupplierDeliveryNote = input.SupplierDeliveryNote;

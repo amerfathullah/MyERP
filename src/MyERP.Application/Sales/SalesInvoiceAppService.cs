@@ -379,6 +379,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var siItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(siItemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("SalesInvoice", input.CompanyId, siItemIds, customerIds: new[] { input.CustomerId });
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", input.CompanyId);
 

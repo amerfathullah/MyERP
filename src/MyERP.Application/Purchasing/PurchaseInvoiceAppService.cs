@@ -415,6 +415,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(piItemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseInvoice", input.CompanyId, piItemIds, supplierIds: new[] { input.SupplierId });
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", input.CompanyId);
 
@@ -583,6 +585,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (invoice.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft purchase invoices can be edited");
+
+        var updateItemIds = input.Items.Select(i => i.ItemId).ToArray();
+        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync("PurchaseInvoice", invoice.CompanyId, updateItemIds, supplierIds: new[] { invoice.SupplierId });
 
         invoice.IssueDate = input.IssueDate;
         invoice.DueDate = input.DueDate;

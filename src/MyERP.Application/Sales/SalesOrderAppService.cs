@@ -242,6 +242,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("SalesOrder", input.CompanyId, itemIds, customerIds: new[] { input.CustomerId });
 
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
@@ -802,6 +804,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (order.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft sales orders can be edited");
+
+        var updateItemIds = input.Items.Select(i => i.ItemId).ToArray();
+        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync("SalesOrder", order.CompanyId, updateItemIds, customerIds: new[] { input.CustomerId });
 
         order.OrderDate = input.OrderDate;
         order.DeliveryDate = input.DeliveryDate;

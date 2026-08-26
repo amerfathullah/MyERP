@@ -150,6 +150,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseOrder", input.CompanyId, itemIds, supplierIds: new[] { input.SupplierId });
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
@@ -522,6 +524,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         if (order.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft purchase orders can be edited");
+
+        var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
+        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync("PurchaseOrder", order.CompanyId, updateItemIds, supplierIds: new[] { input.SupplierId });
 
         order.OrderDate = input.OrderDate;
         order.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
