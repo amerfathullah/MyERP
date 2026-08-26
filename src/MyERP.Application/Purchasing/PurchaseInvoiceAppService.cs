@@ -1305,12 +1305,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         var receipts = query.ToList();
 
+        // Per Buying Settings "Bill for Rejected Quantity in Purchase Invoice": when enabled,
+        // rejected qty is billable too (e.g. supplier charges for rejected goods returned to them).
+        var billForRejectedQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.BillForRejectedQty);
+
         var result = new List<UnbilledReceiptItemDto>();
         foreach (var pr in receipts)
         {
             foreach (var item in pr.Items)
             {
-                var unbilledQty = item.PendingBillingQty;
+                var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
+                var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledReceiptItemDto
@@ -1407,12 +1412,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         var receipts = query.ToList();
 
+        var billForRejectedQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.BillForRejectedQty);
+
         var result = new List<UnbilledPurchaseReceiptItemDto>();
         foreach (var pr in receipts)
         {
             foreach (var item in pr.Items)
             {
-                var unbilledQty = item.PendingBillingQty;
+                var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
+                var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledPurchaseReceiptItemDto
