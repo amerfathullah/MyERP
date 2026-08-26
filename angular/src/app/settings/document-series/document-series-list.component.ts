@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { DocumentSeriesService } from '../../proxy/core/document-series.service';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   standalone: true,
@@ -23,20 +24,20 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <div class="border rounded p-3 mb-3 bg-light">
               <div class="row g-2">
                 <div class="col-md-3">
+                  <label class="form-label">{{ '::Name' | abpLocalization }}</label>
+                  <input class="form-control form-control-sm" [(ngModel)]="newItem.name" [placeholder]="'::Placeholder:DocumentSeriesName' | abpLocalization" />
+                </div>
+                <div class="col-md-3">
                   <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
                   <input class="form-control form-control-sm" [(ngModel)]="newItem.documentType" [placeholder]="'::Placeholder:DocumentType' | abpLocalization" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                   <label class="form-label">{{ '::Prefix' | abpLocalization }}</label>
                   <input class="form-control form-control-sm" [(ngModel)]="newItem.prefix" [placeholder]="'::Placeholder:SeriesPrefix' | abpLocalization" />
                 </div>
                 <div class="col-md-2">
                   <label class="form-label">{{ '::PadDigits' | abpLocalization }}</label>
-                  <input class="form-control form-control-sm" type="number" [(ngModel)]="newItem.paddedDigits" />
-                </div>
-                <div class="col-md-2">
-                  <label class="form-label">{{ '::ResetOnFY' | abpLocalization }}</label>
-                  <div><input type="checkbox" [(ngModel)]="newItem.resetOnFiscalYear" /></div>
+                  <input class="form-control form-control-sm" type="number" [(ngModel)]="newItem.numberPadding" />
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
                   <button class="btn btn-primary btn-sm" (click)="save()"><i class="fas fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
@@ -79,10 +80,15 @@ import { ToasterService } from '@abp/ng.theme.shared';
 export class DocumentSeriesListComponent implements OnInit {
   private seriesService = inject(DocumentSeriesService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   items = signal<any[]>([]);
   showForm = false;
-  newItem: any = { documentType: '', prefix: '', paddedDigits: 5, resetOnFiscalYear: true };
+  newItem: any = this.blankItem();
+
+  private blankItem() {
+    return { name: '', documentType: '', prefix: '', numberPadding: 5 };
+  }
 
   ngOnInit() { this.load(); }
 
@@ -91,9 +97,11 @@ export class DocumentSeriesListComponent implements OnInit {
   }
 
   save() {
-    if (!this.newItem.documentType || !this.newItem.prefix) return;
-    this.seriesService.create(this.newItem as any).subscribe({
-      next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.newItem = { documentType: '', prefix: '', paddedDigits: 5, resetOnFiscalYear: true }; this.load(); },
+    if (!this.newItem.name || !this.newItem.documentType || !this.newItem.prefix) return;
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
+    this.seriesService.create({ ...this.newItem, companyId } as any).subscribe({
+      next: () => { this.toaster.success('::SuccessfullySaved'); this.showForm = false; this.newItem = this.blankItem(); this.load(); },
       error: () => {}
     });
   }
