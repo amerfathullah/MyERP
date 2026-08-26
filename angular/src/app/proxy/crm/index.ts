@@ -25,5 +25,6 @@ export * from './prospect.service';
 export * from './sales-pipeline.service';
 export * from './sales-stage.service';
 export * from './opportunity-lost-reason.service';
+export * from './crm-settings.service';
 export * from './shipment-status.enum';
 export * from './shipment.service';

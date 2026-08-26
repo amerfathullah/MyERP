@@ -662,6 +662,9 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var videoSettingsPermission = myGroup.AddPermission(MyERPPermissions.VideoSettings.Default, L("Permission:VideoSettings"));
         videoSettingsPermission.AddChild(MyERPPermissions.VideoSettings.Edit, L("Permission:VideoSettings.Edit"));
+
+        var crmSettingsPermission = myGroup.AddPermission(MyERPPermissions.CrmSettings.Default, L("Permission:CrmSettings"));
+        crmSettingsPermission.AddChild(MyERPPermissions.CrmSettings.Edit, L("Permission:CrmSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

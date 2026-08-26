@@ -620,3 +620,25 @@ export interface GetOpportunityTypeListDto extends PagedAndSortedResultRequestDt
   isActive?: boolean | null;
 }
 
+export interface CrmSettingsDto extends FullAuditedEntityDto<string> {
+  campaignNamingBy: string;
+  allowLeadDuplicationBasedOnEmails: boolean;
+  autoCreationOfContact: boolean;
+  closeOpportunityAfterDays: number;
+  enableOpportunityCreationFromContactUs: boolean;
+  defaultQuotationValidityDays: number;
+  carryForwardCommunicationAndComments: boolean;
+  updateTimestampOnNewCommunication: boolean;
+}
+
+export interface UpdateCrmSettingsDto {
+  campaignNamingBy?: string;
+  allowLeadDuplicationBasedOnEmails?: boolean;
+  autoCreationOfContact?: boolean;
+  closeOpportunityAfterDays?: number;
+  enableOpportunityCreationFromContactUs?: boolean;
+  defaultQuotationValidityDays?: number;
+  carryForwardCommunicationAndComments?: boolean;
+  updateTimestampOnNewCommunication?: boolean;
+}
+

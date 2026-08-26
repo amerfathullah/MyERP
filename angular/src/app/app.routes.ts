@@ -1714,6 +1714,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.OpportunityLostReasons' },
   },
   {
+    path: 'crm/settings',
+    loadComponent: () => import('./crm/settings/crm-settings.component').then(c => c.CrmSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CrmSettings' },
+  },
+  {
     path: 'crm/campaigns',
     loadComponent: () => import('./crm/campaigns/campaign-list.component').then(c => c.CampaignListComponent),
     canActivate: [authGuard, permissionGuard],

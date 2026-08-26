@@ -1280,6 +1280,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.OpportunityLostReasons',
       },
       {
+        path: '/crm/settings',
+        name: '::Menu:CrmSettings',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-cog',
+        order: 14,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CrmSettings',
+      },
+      {
         path: '',
         name: '::Menu:Projects',
         iconClass: 'fas fa-project-diagram',

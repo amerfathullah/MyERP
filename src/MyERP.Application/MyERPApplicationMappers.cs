@@ -1145,6 +1145,13 @@ public partial class VideoSettingsMapper : MapperBase<Utilities.Entities.VideoSe
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CrmSettingsMapper : MapperBase<CRM.Entities.CrmSettings, CRM.CrmSettingsDto>
+{
+    public override partial CRM.CrmSettingsDto Map(CRM.Entities.CrmSettings source);
+    public override partial void Map(CRM.Entities.CrmSettings source, CRM.CrmSettingsDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

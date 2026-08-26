@@ -999,6 +999,12 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
     }
 
+    public static class CrmSettings
+    {
+        public const string Default = GroupName + ".CrmSettings";
+        public const string Edit = Default + ".Edit";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

@@ -4545,6 +4545,18 @@
     "VideoSettings": "Video Settings",
     "Menu:VideoSettings": "Video Settings",
     "EnableYoutubeTracking": "Enable YouTube Tracking",
-    "FrequencyMinutes": "Sync Frequency (Minutes)"
+    "FrequencyMinutes": "Sync Frequency (Minutes)",
+    "Permission:CrmSettings": "CRM Settings",
+    "Permission:CrmSettings.Edit": "Edit CRM Settings",
+    "CrmSettings": "CRM Settings",
+    "Menu:CrmSettings": "CRM Settings",
+    "CampaignNamingBy": "Campaign Naming By",
+    "AllowLeadDuplicationBasedOnEmails": "Allow Lead Duplication Based on Emails",
+    "AutoCreationOfContact": "Auto Creation of Contact",
+    "CloseOpportunityAfterDays": "Close Replied Opportunity After Days",
+    "EnableOpportunityCreationFromContactUs": "Enable Opportunity Creation from Contact Us",
+    "DefaultQuotationValidityDays": "Default Quotation Validity Days",
+    "CarryForwardCommunicationAndComments": "Carry Forward Communication and Comments",
+    "UpdateTimestampOnNewCommunication": "Update Timestamp on New Communication"
   }
 }

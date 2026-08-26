@@ -496,6 +496,9 @@ public class MyERPDbContext :
     public DbSet<Video> Videos { get; set; }
     public DbSet<VideoSettings> VideoSettings { get; set; }
 
+    // CRM Settings
+    public DbSet<CrmSettings> CrmSettings { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4945,6 +4948,16 @@ public class MyERPDbContext :
             b.ToTable("Util_VideoSettings", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.ApiKey).HasMaxLength(VideoConsts.MaxApiKeyLength);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // CRM — Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<CrmSettings>(b =>
+        {
+            b.ToTable("CRM_Settings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CampaignNamingBy).HasMaxLength(CrmSettingsConsts.MaxCampaignNamingLength);
         });
 
         // ═══════════════════════════════════════════════════
