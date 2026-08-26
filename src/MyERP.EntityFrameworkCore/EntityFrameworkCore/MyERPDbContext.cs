@@ -37,6 +37,8 @@ using MyERP.Telephony;
 using MyERP.Telephony.Entities;
 using MyERP.EDI;
 using MyERP.EDI.Entities;
+using MyERP.Utilities;
+using MyERP.Utilities.Entities;
 using MyERP.Maintenance;
 using MyERP.Maintenance.Entities;
 using MyERP.Workflow;
@@ -489,6 +491,10 @@ public class MyERPDbContext :
     // Bulk Transaction
     public DbSet<BulkTransactionLog> BulkTransactionLogs { get; set; }
     public DbSet<BulkTransactionLogDetail> BulkTransactionLogDetails { get; set; }
+
+    // Utilities — Video
+    public DbSet<Video> Videos { get; set; }
+    public DbSet<VideoSettings> VideoSettings { get; set; }
 
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
@@ -4917,6 +4923,28 @@ public class MyERPDbContext :
             b.Property(x => x.ErrorDescription).HasMaxLength(BulkTransactionConsts.MaxErrorDescriptionLength);
             b.HasIndex(x => x.BulkTransactionLogId);
             b.HasIndex(x => new { x.TenantId, x.TransactionName });
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Utilities — Video & Video Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<Video>(b =>
+        {
+            b.ToTable("Util_Videos", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(VideoConsts.MaxTitleLength);
+            b.Property(x => x.Url).IsRequired().HasMaxLength(VideoConsts.MaxUrlLength);
+            b.Property(x => x.YoutubeVideoId).HasMaxLength(VideoConsts.MaxVideoIdLength);
+            b.Property(x => x.Description).HasMaxLength(VideoConsts.MaxDescriptionLength);
+            b.Property(x => x.ImageUrl).HasMaxLength(VideoConsts.MaxImageUrlLength);
+            b.HasIndex(x => new { x.TenantId, x.Title }).IsUnique();
+        });
+
+        builder.Entity<VideoSettings>(b =>
+        {
+            b.ToTable("Util_VideoSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ApiKey).HasMaxLength(VideoConsts.MaxApiKeyLength);
         });
 
         // ═══════════════════════════════════════════════════

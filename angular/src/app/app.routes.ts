@@ -2394,6 +2394,39 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.BulkTransactionLogs' },
   },
+  // Utilities
+  {
+    path: 'utilities/videos',
+    loadComponent: () => import('./utilities/videos/video-list.component').then(c => c.VideoListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Videos' },
+  },
+  {
+    path: 'utilities/videos/new',
+    loadComponent: () => import('./utilities/videos/video-form.component').then(c => c.VideoFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.Videos.Create' },
+  },
+  {
+    path: 'utilities/videos/:id/edit',
+    loadComponent: () => import('./utilities/videos/video-form.component').then(c => c.VideoFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.Videos.Edit' },
+  },
+  {
+    path: 'utilities/videos/:id',
+    loadComponent: () => import('./utilities/videos/video-form.component').then(c => c.VideoFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Videos' },
+  },
+  {
+    path: 'utilities/settings',
+    loadComponent: () => import('./utilities/settings/video-settings.component').then(c => c.VideoSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.VideoSettings' },
+  },
   // Leave
   {
     path: 'hr/leave',

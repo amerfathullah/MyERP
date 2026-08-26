@@ -1131,6 +1131,20 @@ public partial class BulkTransactionLogMapper : MapperBase<Automation.Entities.B
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class VideoMapper : MapperBase<Utilities.Entities.Video, Utilities.VideoDto>
+{
+    public override partial Utilities.VideoDto Map(Utilities.Entities.Video source);
+    public override partial void Map(Utilities.Entities.Video source, Utilities.VideoDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class VideoSettingsMapper : MapperBase<Utilities.Entities.VideoSettings, Utilities.VideoSettingsDto>
+{
+    public override partial Utilities.VideoSettingsDto Map(Utilities.Entities.VideoSettings source);
+    public override partial void Map(Utilities.Entities.VideoSettings source, Utilities.VideoSettingsDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

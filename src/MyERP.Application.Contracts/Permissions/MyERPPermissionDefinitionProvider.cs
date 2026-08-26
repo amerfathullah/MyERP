@@ -654,6 +654,14 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Create, L("Permission:BulkTransactionLogs.Create"));
         bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Edit, L("Permission:BulkTransactionLogs.Edit"));
         bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Delete, L("Permission:BulkTransactionLogs.Delete"));
+
+        var videosPermission = myGroup.AddPermission(MyERPPermissions.Videos.Default, L("Permission:Videos"));
+        videosPermission.AddChild(MyERPPermissions.Videos.Create, L("Permission:Videos.Create"));
+        videosPermission.AddChild(MyERPPermissions.Videos.Edit, L("Permission:Videos.Edit"));
+        videosPermission.AddChild(MyERPPermissions.Videos.Delete, L("Permission:Videos.Delete"));
+
+        var videoSettingsPermission = myGroup.AddPermission(MyERPPermissions.VideoSettings.Default, L("Permission:VideoSettings"));
+        videoSettingsPermission.AddChild(MyERPPermissions.VideoSettings.Edit, L("Permission:VideoSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

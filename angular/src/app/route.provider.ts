@@ -1403,6 +1403,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.BulkTransactionLogs',
       },
       {
+        path: '/utilities/videos',
+        name: '::Menu:Videos',
+        iconClass: 'fas fa-video',
+        order: 7.8,
+        parentName: '::Menu:Settings',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Videos',
+      },
+      {
         path: '/settings/einvoice',
         name: '::Menu:EInvoiceSettings',
         iconClass: 'fas fa-file-shield',
