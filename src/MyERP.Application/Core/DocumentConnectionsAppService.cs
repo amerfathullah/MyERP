@@ -7,6 +7,8 @@ using MyERP.Purchasing.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Accounting.Entities;
 using MyERP.Manufacturing.Entities;
+using MyERP.Assets.Entities;
+using MyERP.Projects.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
@@ -166,9 +168,35 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Documents = returns
             });
 
+        // Timesheets billed to this SI (via TimesheetDetail rows)
+        var tsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Timesheet, Guid>>();
+        var tsQuery = await tsRepo.GetQueryableAsync();
+        var timesheets = tsQuery.Where(ts => ts.Details.Any(d => d.SalesInvoiceId == id))
+            .Select(ts => new ConnectionDocumentDto
+            {
+                Id = ts.Id, DocumentNumber = ts.StartDate.ToString("d") + " - " + ts.EndDate.ToString("d"),
+                Status = ts.Status.ToString(), Date = ts.StartDate, Route = "/projects/timesheets/" + ts.Id
+            }).ToList();
+
+        // Dunning notices issued for this SI (via DunningOverduePayment rows)
+        var dunRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Dunning, Guid>>();
+        var dunQuery = await dunRepo.GetQueryableAsync();
+        var dunnings = dunQuery.Where(d => d.OverduePayments.Any(op => op.SalesInvoiceId == id))
+            .Select(d => new ConnectionDocumentDto
+            {
+                Id = d.Id, Status = d.Status.ToString(), Date = d.PostingDate, Route = "/sales/dunnings/" + d.Id
+            }).ToList();
+
+        var otherGroup = new ConnectionGroupDto { Label = "Other", Items = new() };
+        if (timesheets.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Timesheet", Count = timesheets.Count, Route = "/projects/timesheets", Documents = timesheets });
+        if (dunnings.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Dunning", Count = dunnings.Count, Route = "/sales/dunnings", Documents = dunnings });
+
         if (paymentGroup.Items.Any()) result.Groups.Add(paymentGroup);
         if (referenceGroup.Items.Any()) result.Groups.Add(referenceGroup);
         if (returnGroup.Items.Any()) result.Groups.Add(returnGroup);
+        if (otherGroup.Items.Any()) result.Groups.Add(otherGroup);
 
         return result;
     }
@@ -250,9 +278,45 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (returns.Any())
             returnGroup.Items.Add(new ConnectionItemDto { DocumentType = "Debit Note", Count = returns.Count, Route = "/purchasing/invoices", Documents = returns });
 
+        // Assets capitalized from this PI
+        var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Asset, Guid>>();
+        var assetQuery = await assetRepo.GetQueryableAsync();
+        var assets = assetQuery.Where(a => a.PurchaseInvoiceId == id)
+            .Select(a => new ConnectionDocumentDto
+            {
+                Id = a.Id, DocumentNumber = a.AssetName, Status = a.Status.ToString(),
+                Route = "/assets/" + a.Id
+            }).ToList();
+
+        // Landed Cost Vouchers that allocated charges to this PI
+        var lciRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<LandedCostItem, Guid>>();
+        var lciQuery = await lciRepo.GetQueryableAsync();
+        var lcvIds = lciQuery.Where(lci => lci.ReceiptType == "PurchaseInvoice" && lci.ReceiptId == id)
+            .Select(lci => lci.LandedCostVoucherId).Distinct().ToList();
+
+        var lcvConnections = new List<ConnectionDocumentDto>();
+        if (lcvIds.Any())
+        {
+            var lcvRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<LandedCostVoucher, Guid>>();
+            var lcvQuery = await lcvRepo.GetQueryableAsync();
+            lcvConnections = lcvQuery.Where(lcv => lcvIds.Contains(lcv.Id))
+                .Select(lcv => new ConnectionDocumentDto
+                {
+                    Id = lcv.Id, DocumentNumber = lcv.VoucherNumber, Status = lcv.Status.ToString(),
+                    Date = lcv.PostingDate, Route = "/inventory/landed-costs/" + lcv.Id
+                }).ToList();
+        }
+
+        var otherGroup = new ConnectionGroupDto { Label = "Other", Items = new() };
+        if (assets.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Asset", Count = assets.Count, Route = "/assets", Documents = assets });
+        if (lcvConnections.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Landed Cost Voucher", Count = lcvConnections.Count, Route = "/inventory/landed-costs", Documents = lcvConnections });
+
         if (paymentGroup.Items.Any()) result.Groups.Add(paymentGroup);
         if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (returnGroup.Items.Any()) result.Groups.Add(returnGroup);
+        if (otherGroup.Items.Any()) result.Groups.Add(otherGroup);
 
         return result;
     }
@@ -309,9 +373,21 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Date = wo.PlannedStartDate, Route = "/manufacturing/work-orders/" + wo.Id
             }).ToList();
 
+        // Pick Lists
+        var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PickList, Guid>>();
+        var plQuery = await plRepo.GetQueryableAsync();
+        var pickLists = plQuery.Where(pl => pl.SalesOrderId == id)
+            .Select(pl => new ConnectionDocumentDto
+            {
+                Id = pl.Id, DocumentNumber = pl.PickListNumber, Status = pl.Status.ToString(),
+                Route = "/inventory/pick-lists/" + pl.Id
+            }).ToList();
+
         var fulfillGroup = new ConnectionGroupDto { Label = "Fulfillment", Items = new() };
         if (dns.Any())
             fulfillGroup.Items.Add(new ConnectionItemDto { DocumentType = "Delivery Note", Count = dns.Count, Route = "/sales/delivery-notes", Documents = dns });
+        if (pickLists.Any())
+            fulfillGroup.Items.Add(new ConnectionItemDto { DocumentType = "Pick List", Count = pickLists.Count, Route = "/inventory/pick-lists", Documents = pickLists });
 
         var billingGroup = new ConnectionGroupDto { Label = "Billing", Items = new() };
         if (sis.Any())
@@ -371,6 +447,20 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Amount = pe.PaidAmount, Date = pe.PostingDate, Route = "/accounting/payments/" + pe.Id
             }).ToList();
 
+        // Source Supplier Quotation
+        var sqConnections = new List<ConnectionDocumentDto>();
+        if (po.SupplierQuotationId.HasValue)
+        {
+            var sqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SupplierQuotation, Guid>>();
+            var sq = await sqRepo.FindAsync(po.SupplierQuotationId.Value);
+            if (sq != null)
+                sqConnections.Add(new ConnectionDocumentDto
+                {
+                    Id = sq.Id, DocumentNumber = sq.QuotationNumber, Status = sq.Status.ToString(),
+                    Route = "/purchasing/supplier-quotations/" + sq.Id
+                });
+        }
+
         var receivingGroup = new ConnectionGroupDto { Label = "Receiving", Items = new() };
         if (receipts.Any())
             receivingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Receipt", Count = receipts.Count, Route = "/purchasing/receipts", Documents = receipts });
@@ -383,6 +473,11 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (payments.Any())
             paymentGroup.Items.Add(new ConnectionItemDto { DocumentType = "Payment Entry", Count = payments.Count, Route = "/accounting/payments", Documents = payments });
 
+        var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
+        if (sqConnections.Any())
+            refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Supplier Quotation", Count = sqConnections.Count, Route = "/purchasing/supplier-quotations", Documents = sqConnections });
+
+        if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (receivingGroup.Items.Any()) result.Groups.Add(receivingGroup);
         if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
         if (paymentGroup.Items.Any()) result.Groups.Add(paymentGroup);
@@ -431,8 +526,47 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (soConnections.Any())
             refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Order", Count = soConnections.Count, Route = "/sales/orders", Documents = soConnections });
 
+        // Quality Inspections against this DN
+        var qiRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<QualityInspection, Guid>>();
+        var qiQuery = await qiRepo.GetQueryableAsync();
+        var inspections = qiQuery.Where(qi => qi.ReferenceType == "DeliveryNote" && qi.ReferenceId == id)
+            .Select(qi => new ConnectionDocumentDto
+            {
+                Id = qi.Id, DocumentNumber = qi.InspectionNumber, Status = qi.DocStatus.ToString(),
+                Date = qi.InspectionDate, Route = "/inventory/quality-inspections/" + qi.Id
+            }).ToList();
+
+        // Packing Slips
+        var psRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PackingSlip, Guid>>();
+        var psQuery = await psRepo.GetQueryableAsync();
+        var packingSlips = psQuery.Where(ps => ps.DeliveryNoteId == id)
+            .Select(ps => new ConnectionDocumentDto
+            {
+                Id = ps.Id, DocumentNumber = "Cases " + ps.FromCaseNo + "-" + ps.ToCaseNo,
+                Route = "/sales/packing-slips/" + ps.Id
+            }).ToList();
+
+        // Shipments (many-to-many via ShipmentDeliveryNote)
+        var shipRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Shipment, Guid>>();
+        var shipQuery = await shipRepo.GetQueryableAsync();
+        var shipments = shipQuery.Where(sh => sh.DeliveryNotes.Any(dnl => dnl.DeliveryNoteId == id))
+            .Select(sh => new ConnectionDocumentDto
+            {
+                Id = sh.Id, DocumentNumber = sh.ShipmentNumber, Status = sh.Status.ToString(),
+                Route = "/sales/shipments/" + sh.Id
+            }).ToList();
+
+        var otherGroup = new ConnectionGroupDto { Label = "Other", Items = new() };
+        if (inspections.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Quality Inspection", Count = inspections.Count, Route = "/inventory/quality-inspections", Documents = inspections });
+        if (packingSlips.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Packing Slip", Count = packingSlips.Count, Route = "/sales/packing-slips", Documents = packingSlips });
+        if (shipments.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Shipment", Count = shipments.Count, Route = "/sales/shipments", Documents = shipments });
+
         if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
+        if (otherGroup.Items.Any()) result.Groups.Add(otherGroup);
 
         return result;
     }
@@ -469,6 +603,35 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Amount = pi.GrandTotal, Date = pi.IssueDate, Route = "/purchasing/invoices/" + pi.Id
             }).ToList();
 
+        // Quality Inspections against this PR
+        var qiRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<QualityInspection, Guid>>();
+        var qiQuery = await qiRepo.GetQueryableAsync();
+        var inspections = qiQuery.Where(qi => qi.ReferenceType == "PurchaseReceipt" && qi.ReferenceId == id)
+            .Select(qi => new ConnectionDocumentDto
+            {
+                Id = qi.Id, DocumentNumber = qi.InspectionNumber, Status = qi.DocStatus.ToString(),
+                Date = qi.InspectionDate, Route = "/inventory/quality-inspections/" + qi.Id
+            }).ToList();
+
+        // Landed Cost Vouchers that allocated charges to this PR
+        var lciRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<LandedCostItem, Guid>>();
+        var lciQuery = await lciRepo.GetQueryableAsync();
+        var lcvIds = lciQuery.Where(lci => lci.ReceiptType == "PurchaseReceipt" && lci.ReceiptId == id)
+            .Select(lci => lci.LandedCostVoucherId).Distinct().ToList();
+
+        var lcvConnections = new List<ConnectionDocumentDto>();
+        if (lcvIds.Any())
+        {
+            var lcvRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<LandedCostVoucher, Guid>>();
+            var lcvQuery = await lcvRepo.GetQueryableAsync();
+            lcvConnections = lcvQuery.Where(lcv => lcvIds.Contains(lcv.Id))
+                .Select(lcv => new ConnectionDocumentDto
+                {
+                    Id = lcv.Id, DocumentNumber = lcv.VoucherNumber, Status = lcv.Status.ToString(),
+                    Date = lcv.PostingDate, Route = "/inventory/landed-costs/" + lcv.Id
+                }).ToList();
+        }
+
         var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
         if (poConnections.Any())
             refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Order", Count = poConnections.Count, Route = "/purchasing/orders", Documents = poConnections });
@@ -477,8 +640,15 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (invoices.Any())
             billingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Invoice", Count = invoices.Count, Route = "/purchasing/invoices", Documents = invoices });
 
+        var otherGroup = new ConnectionGroupDto { Label = "Other", Items = new() };
+        if (inspections.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Quality Inspection", Count = inspections.Count, Route = "/inventory/quality-inspections", Documents = inspections });
+        if (lcvConnections.Any())
+            otherGroup.Items.Add(new ConnectionItemDto { DocumentType = "Landed Cost Voucher", Count = lcvConnections.Count, Route = "/inventory/landed-costs", Documents = lcvConnections });
+
         if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
+        if (otherGroup.Items.Any()) result.Groups.Add(otherGroup);
         return result;
     }
 
