@@ -514,6 +514,9 @@ public class MyERPDbContext :
     public DbSet<CashierClosing> CashierClosings { get; set; }
     public DbSet<CashierClosingPayment> CashierClosingPayments { get; set; }
 
+    // Process Deferred Accounting
+    public DbSet<ProcessDeferredAccounting> ProcessDeferredAccountings { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -5060,6 +5063,18 @@ public class MyERPDbContext :
             b.Property(x => x.ModeOfPayment).IsRequired().HasMaxLength(CashierClosingConsts.MaxModeOfPaymentLength);
             b.Property(x => x.Amount).HasPrecision(18, 2);
             b.HasIndex(x => x.CashierClosingId);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Process Deferred Accounting
+        // ═══════════════════════════════════════════════════
+        builder.Entity<ProcessDeferredAccounting>(b =>
+        {
+            b.ToTable("Acc_ProcessDeferredAccountings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ProcessNumber).IsRequired().HasMaxLength(ProcessDeferredAccountingConsts.MaxProcessNumberLength);
+            b.HasIndex(x => new { x.TenantId, x.ProcessNumber });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Type, x.PostingDate });
         });
 
         // ═══════════════════════════════════════════════════

@@ -1183,6 +1183,18 @@ public partial class CashierClosingMapper : MapperBase<Accounting.Entities.Cashi
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class ProcessDeferredAccountingMapper : MapperBase<Accounting.Entities.ProcessDeferredAccounting, Accounting.ProcessDeferredAccountingDto>
+{
+    [MapperIgnoreTarget(nameof(Accounting.ProcessDeferredAccountingDto.CompanyName))]
+    [MapperIgnoreTarget(nameof(Accounting.ProcessDeferredAccountingDto.AccountName))]
+    public override partial Accounting.ProcessDeferredAccountingDto Map(Accounting.Entities.ProcessDeferredAccounting source);
+
+    [MapperIgnoreTarget(nameof(Accounting.ProcessDeferredAccountingDto.CompanyName))]
+    [MapperIgnoreTarget(nameof(Accounting.ProcessDeferredAccountingDto.AccountName))]
+    public override partial void Map(Accounting.Entities.ProcessDeferredAccounting source, Accounting.ProcessDeferredAccountingDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

@@ -2381,6 +2381,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.CashierClosings',
       },
       {
+        path: '/accounting/process-deferred-accounting',
+        name: '::Menu:ProcessDeferredAccounting',
+        iconClass: 'fas fa-clock-rotate-left',
+        order: 28,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.ProcessDeferredAccountings',
+      },
+      {
         path: '/accounting/batch-payment',
         name: '::Menu:BatchPayment',
         iconClass: 'fas fa-money-check-dollar',

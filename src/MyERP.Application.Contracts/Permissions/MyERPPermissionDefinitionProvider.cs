@@ -686,6 +686,13 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Edit, L("Permission:CashierClosings.Edit"));
         cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Delete, L("Permission:CashierClosings.Delete"));
         cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Submit, L("Permission:CashierClosings.Submit"));
+
+        var processDeferredAccountingsPermission = myGroup.AddPermission(MyERPPermissions.ProcessDeferredAccountings.Default, L("Permission:ProcessDeferredAccountings"));
+        processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Create, L("Permission:ProcessDeferredAccountings.Create"));
+        processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Edit, L("Permission:ProcessDeferredAccountings.Edit"));
+        processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Delete, L("Permission:ProcessDeferredAccountings.Delete"));
+        processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Submit, L("Permission:ProcessDeferredAccountings.Submit"));
+        processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Cancel, L("Permission:ProcessDeferredAccountings.Cancel"));
     }
 
     private static LocalizableString L(string name)

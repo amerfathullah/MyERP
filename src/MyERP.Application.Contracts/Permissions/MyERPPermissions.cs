@@ -1041,6 +1041,16 @@ public static class MyERPPermissions
         public const string Submit = Default + ".Submit";
     }
 
+    public static class ProcessDeferredAccountings
+    {
+        public const string Default = GroupName + ".ProcessDeferredAccountings";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

@@ -4659,6 +4659,17 @@
     "Custody": "Custody (Float)",
     "Returns": "Returns",
     "NetAmount": "Net Amount",
-    "FetchShiftTotals": "Fetch Shift Totals"
+    "FetchShiftTotals": "Fetch Shift Totals",
+    "Permission:ProcessDeferredAccountings": "Process Deferred Accounting",
+    "Permission:ProcessDeferredAccountings.Create": "Create Process Deferred Accounting",
+    "Permission:ProcessDeferredAccountings.Edit": "Edit Process Deferred Accounting",
+    "Permission:ProcessDeferredAccountings.Delete": "Delete Process Deferred Accounting",
+    "Permission:ProcessDeferredAccountings.Submit": "Submit Process Deferred Accounting",
+    "Permission:ProcessDeferredAccountings.Cancel": "Cancel Process Deferred Accounting",
+    "ProcessDeferredAccounting": "Process Deferred Accounting",
+    "ProcessDeferredAccountings": "Process Deferred Accounting",
+    "Menu:ProcessDeferredAccounting": "Process Deferred Accounting",
+    "ProcessNumber": "Process #",
+    "EntriesProcessed": "Entries Processed"
   }
 }

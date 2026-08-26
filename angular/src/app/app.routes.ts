@@ -328,6 +328,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.CashierClosings' },
   },
   {
+    path: 'accounting/process-deferred-accounting',
+    loadComponent: () => import('./accounting/process-deferred-accounting/process-deferred-accounting-list.component').then(c => c.ProcessDeferredAccountingListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProcessDeferredAccountings' },
+  },
+  {
+    path: 'accounting/process-deferred-accounting/:id',
+    loadComponent: () => import('./accounting/process-deferred-accounting/process-deferred-accounting-detail.component').then(c => c.ProcessDeferredAccountingDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ProcessDeferredAccountings' },
+  },
+  {
     path: 'accounting/accounts',
     loadComponent: () => import('./accounting/accounts/chart-of-accounts.component').then(c => c.ChartOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],

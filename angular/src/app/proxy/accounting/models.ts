@@ -2346,3 +2346,49 @@ export interface CalculateCashierClosingTotalsResponseDto {
   suggestedPayments: CreateUpdateCashierClosingPaymentDto[];
 }
 
+export enum DeferredAccountingType {
+  Income = 1,
+  Expense = 2,
+}
+
+export interface ProcessDeferredAccountingDto extends FullAuditedEntityDto<string> {
+  processNumber: string;
+  companyId: string;
+  companyName?: string | null;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  accountName?: string | null;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
+  isSubmitted: boolean;
+  isCancelled: boolean;
+  entriesProcessed: number;
+}
+
+export interface CreateProcessDeferredAccountingDto {
+  companyId: string;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateProcessDeferredAccountingDto {
+  companyId: string;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ProcessDeferredAccountingGetListInput extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  companyId?: string | null;
+  type?: DeferredAccountingType | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
