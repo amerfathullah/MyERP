@@ -1005,6 +1005,21 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
     }
 
+    public static class Subscriptions
+    {
+        public const string Default = GroupName + ".Subscriptions";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Cancel = Default + ".Cancel";
+    }
+
+    public static class SubscriptionSettings
+    {
+        public const string Default = GroupName + ".SubscriptionSettings";
+        public const string Edit = Default + ".Edit";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

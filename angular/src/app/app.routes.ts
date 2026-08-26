@@ -2618,7 +2618,13 @@ export const APP_ROUTES: Routes = [
     path: 'sales/subscriptions',
     loadComponent: () => import('./sales/subscriptions/subscription-list.component').then(c => c.SubscriptionListComponent),
     canActivate: [authGuard, permissionGuard],
-    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+    data: { requiredPolicy: 'MyERP.Subscriptions' },
+  },
+  {
+    path: 'sales/subscriptions/settings',
+    loadComponent: () => import('./sales/subscriptions/subscription-settings.component').then(c => c.SubscriptionSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SubscriptionSettings' },
   },
   {
     path: 'sales/pricing-rules',

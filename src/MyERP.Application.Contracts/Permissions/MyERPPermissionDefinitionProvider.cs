@@ -665,6 +665,15 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var crmSettingsPermission = myGroup.AddPermission(MyERPPermissions.CrmSettings.Default, L("Permission:CrmSettings"));
         crmSettingsPermission.AddChild(MyERPPermissions.CrmSettings.Edit, L("Permission:CrmSettings.Edit"));
+
+        var subscriptionsPermission = myGroup.AddPermission(MyERPPermissions.Subscriptions.Default, L("Permission:Subscriptions"));
+        subscriptionsPermission.AddChild(MyERPPermissions.Subscriptions.Create, L("Permission:Subscriptions.Create"));
+        subscriptionsPermission.AddChild(MyERPPermissions.Subscriptions.Edit, L("Permission:Subscriptions.Edit"));
+        subscriptionsPermission.AddChild(MyERPPermissions.Subscriptions.Delete, L("Permission:Subscriptions.Delete"));
+        subscriptionsPermission.AddChild(MyERPPermissions.Subscriptions.Cancel, L("Permission:Subscriptions.Cancel"));
+
+        var subscriptionSettingsPermission = myGroup.AddPermission(MyERPPermissions.SubscriptionSettings.Default, L("Permission:SubscriptionSettings"));
+        subscriptionSettingsPermission.AddChild(MyERPPermissions.SubscriptionSettings.Edit, L("Permission:SubscriptionSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

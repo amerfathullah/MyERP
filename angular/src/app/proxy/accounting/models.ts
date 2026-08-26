@@ -2126,3 +2126,15 @@ export interface ChequePrintPreviewDto {
   htmlContent: string;
 }
 
+export interface SubscriptionSettingsDto extends FullAuditedEntityDto<string> {
+  gracePeriod: number;
+  cancelAfterGrace: boolean;
+  prorate: boolean;
+}
+
+export interface UpdateSubscriptionSettingsDto {
+  gracePeriod?: number;
+  cancelAfterGrace?: boolean;
+  prorate?: boolean;
+}
+

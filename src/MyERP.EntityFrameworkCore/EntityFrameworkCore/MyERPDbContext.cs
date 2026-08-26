@@ -499,6 +499,9 @@ public class MyERPDbContext :
     // CRM Settings
     public DbSet<CrmSettings> CrmSettings { get; set; }
 
+    // Subscription Settings
+    public DbSet<SubscriptionSettings> SubscriptionSettings { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4958,6 +4961,15 @@ public class MyERPDbContext :
             b.ToTable("CRM_Settings", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.CampaignNamingBy).HasMaxLength(CrmSettingsConsts.MaxCampaignNamingLength);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Subscription Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<SubscriptionSettings>(b =>
+        {
+            b.ToTable("Acc_SubscriptionSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
         });
 
         // ═══════════════════════════════════════════════════
