@@ -2138,3 +2138,89 @@ export interface UpdateSubscriptionSettingsDto {
   prorate?: boolean;
 }
 
+export interface AccountsSettingsDto extends FullAuditedEntityDto<string> {
+  unlinkPaymentOnCancellationOfInvoice: boolean;
+  unlinkAdvancePaymentOnCancellationOfOrder: boolean;
+  deleteLinkedLedgerEntries: boolean;
+  enableImmutableLedger: boolean;
+  checkSupplierInvoiceUniqueness: boolean;
+  automaticallyFetchPaymentTerms: boolean;
+  enableSubscription: boolean;
+  enableCommonPartyAccounting: boolean;
+  allowMultiCurrencyInvoicesAgainstSinglePartyAccount: boolean;
+  confirmBeforeResettingPostingDate: boolean;
+  bookStockExpenseGlEntries: boolean;
+  enableDiscountsAndMargin: boolean;
+  enableAccountingDimensions: boolean;
+  mergeSimilarAccountHeads: boolean;
+  bookDeferredEntriesBasedOn: string;
+  automaticallyProcessDeferredAccountingEntry: boolean;
+  bookDeferredEntriesViaJournalEntry: boolean;
+  submitJournalEntries: boolean;
+  determineAddressTaxCategoryFrom: string;
+  addTaxesFromItemTaxTemplate: boolean;
+  addTaxesFromTaxesAndChargesTemplate: boolean;
+  bookTaxDiscountLoss: boolean;
+  roundRowWiseTax: boolean;
+  allowStaleExchangeRates: boolean;
+  staleDays: number;
+  autoReconcilePayments: boolean;
+  autoReconciliationJobTrigger: number;
+  reconciliationQueueSize: number;
+  overBillingAllowance: number;
+  creditControllerRole?: string | null;
+  enableOverdueBillingThreshold: boolean;
+  roleAllowedToBypassOverdueBilling?: string | null;
+  bookAssetDepreciationEntryAutomatically: boolean;
+  calculateDeprUsingTotalDays: boolean;
+  defaultAgeingRange: string;
+  showBalanceInCoa: boolean;
+  enablePartyMatching: boolean;
+  enableFuzzyMatching: boolean;
+  transferMatchDays: number;
+  createPrInDraftStatus: boolean;
+}
+
+export interface UpdateAccountsSettingsDto {
+  unlinkPaymentOnCancellationOfInvoice?: boolean;
+  unlinkAdvancePaymentOnCancellationOfOrder?: boolean;
+  deleteLinkedLedgerEntries?: boolean;
+  enableImmutableLedger?: boolean;
+  checkSupplierInvoiceUniqueness?: boolean;
+  automaticallyFetchPaymentTerms?: boolean;
+  enableSubscription?: boolean;
+  enableCommonPartyAccounting?: boolean;
+  allowMultiCurrencyInvoicesAgainstSinglePartyAccount?: boolean;
+  confirmBeforeResettingPostingDate?: boolean;
+  bookStockExpenseGlEntries?: boolean;
+  enableDiscountsAndMargin?: boolean;
+  enableAccountingDimensions?: boolean;
+  mergeSimilarAccountHeads?: boolean;
+  bookDeferredEntriesBasedOn?: string;
+  automaticallyProcessDeferredAccountingEntry?: boolean;
+  bookDeferredEntriesViaJournalEntry?: boolean;
+  submitJournalEntries?: boolean;
+  determineAddressTaxCategoryFrom?: string;
+  addTaxesFromItemTaxTemplate?: boolean;
+  addTaxesFromTaxesAndChargesTemplate?: boolean;
+  bookTaxDiscountLoss?: boolean;
+  roundRowWiseTax?: boolean;
+  allowStaleExchangeRates?: boolean;
+  staleDays?: number;
+  autoReconcilePayments?: boolean;
+  autoReconciliationJobTrigger?: number;
+  reconciliationQueueSize?: number;
+  overBillingAllowance?: number;
+  creditControllerRole?: string | null;
+  enableOverdueBillingThreshold?: boolean;
+  roleAllowedToBypassOverdueBilling?: string | null;
+  bookAssetDepreciationEntryAutomatically?: boolean;
+  calculateDeprUsingTotalDays?: boolean;
+  defaultAgeingRange?: string;
+  showBalanceInCoa?: boolean;
+  enablePartyMatching?: boolean;
+  enableFuzzyMatching?: boolean;
+  transferMatchDays?: number;
+  createPrInDraftStatus?: boolean;
+}
+

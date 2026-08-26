@@ -304,6 +304,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
   },
   {
+    path: 'accounting/settings',
+    loadComponent: () => import('./accounting/settings/accounts-settings.component').then(c => c.AccountsSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.AccountsSettings' },
+  },
+  {
     path: 'accounting/accounts',
     loadComponent: () => import('./accounting/accounts/chart-of-accounts.component').then(c => c.ChartOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],

@@ -2354,6 +2354,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/settings',
+        name: '::Menu:AccountsSettings',
+        iconClass: 'fas fa-sliders',
+        order: 25,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.AccountsSettings',
+      },
+      {
         path: '/accounting/batch-payment',
         name: '::Menu:BatchPayment',
         iconClass: 'fas fa-money-check-dollar',

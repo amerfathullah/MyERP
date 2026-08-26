@@ -502,6 +502,9 @@ public class MyERPDbContext :
     // Subscription Settings
     public DbSet<SubscriptionSettings> SubscriptionSettings { get; set; }
 
+    // Accounts Settings
+    public DbSet<AccountsSettings> AccountsSettings { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4970,6 +4973,21 @@ public class MyERPDbContext :
         {
             b.ToTable("Acc_SubscriptionSettings", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Accounts Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<AccountsSettings>(b =>
+        {
+            b.ToTable("Acc_AccountsSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.BookDeferredEntriesBasedOn).HasMaxLength(AccountsSettingsConsts.MaxOptionLength);
+            b.Property(x => x.DetermineAddressTaxCategoryFrom).HasMaxLength(AccountsSettingsConsts.MaxOptionLength);
+            b.Property(x => x.CreditControllerRole).HasMaxLength(AccountsSettingsConsts.MaxRoleLength);
+            b.Property(x => x.RoleAllowedToBypassOverdueBilling).HasMaxLength(AccountsSettingsConsts.MaxRoleLength);
+            b.Property(x => x.DefaultAgeingRange).HasMaxLength(AccountsSettingsConsts.MaxAgeingRangeLength);
+            b.Property(x => x.OverBillingAllowance).HasPrecision(6, 2);
         });
 
         // ═══════════════════════════════════════════════════

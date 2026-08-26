@@ -674,6 +674,9 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var subscriptionSettingsPermission = myGroup.AddPermission(MyERPPermissions.SubscriptionSettings.Default, L("Permission:SubscriptionSettings"));
         subscriptionSettingsPermission.AddChild(MyERPPermissions.SubscriptionSettings.Edit, L("Permission:SubscriptionSettings.Edit"));
+
+        var accountsSettingsPermission = myGroup.AddPermission(MyERPPermissions.AccountsSettings.Default, L("Permission:AccountsSettings"));
+        accountsSettingsPermission.AddChild(MyERPPermissions.AccountsSettings.Edit, L("Permission:AccountsSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

@@ -1159,6 +1159,13 @@ public partial class SubscriptionSettingsMapper : MapperBase<Accounting.Entities
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class AccountsSettingsMapper : MapperBase<Accounting.Entities.AccountsSettings, Accounting.AccountsSettingsDto>
+{
+    public override partial Accounting.AccountsSettingsDto Map(Accounting.Entities.AccountsSettings source);
+    public override partial void Map(Accounting.Entities.AccountsSettings source, Accounting.AccountsSettingsDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]
