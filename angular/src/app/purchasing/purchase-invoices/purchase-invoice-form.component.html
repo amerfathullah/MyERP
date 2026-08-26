@@ -72,16 +72,18 @@
     <div class="card mb-4">
       <div class="card-body">
         <div class="row">
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ '::PaymentTerms' | abpLocalization }}</label>
-            <select class="form-select" formControlName="paymentTermsTemplateId">
-              <option value="">— {{ '::None' | abpLocalization }} —</option>
-              @for (pt of paymentTermsTemplates(); track pt.id) {
-                <option [value]="pt.id">{{ pt.name }}</option>
-              }
-            </select>
-            <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
-          </div>
+          @if (!form.get('isReturn')?.value) {
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::PaymentTerms' | abpLocalization }}</label>
+              <select class="form-select" formControlName="paymentTermsTemplateId">
+                <option value="">— {{ '::None' | abpLocalization }} —</option>
+                @for (pt of paymentTermsTemplates(); track pt.id) {
+                  <option [value]="pt.id">{{ pt.name }}</option>
+                }
+              </select>
+              <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
+            </div>
+          }
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
             <select class="form-select" formControlName="priceListId">

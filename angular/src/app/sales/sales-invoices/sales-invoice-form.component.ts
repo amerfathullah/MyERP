@@ -1,7 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -31,6 +31,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
+    RouterLink,
     PageModule,
     LocalizationPipe,
     InvoiceItemGridComponent,
@@ -78,6 +79,7 @@ export class SalesInvoiceFormComponent implements OnInit {
   isLoadingSoItems = signal(false);
   isLoadingDnItems = signal(false);
   paymentSchedulePreview = signal<{ dueDate: string; portion: number; amount: number }[]>([]);
+  returnAgainstNumber = signal<string>('');
 
   // Sales Team (commission split)
   salesPersons = signal<{ id: string; name: string; commissionRate: number }[]>([]);
@@ -183,9 +185,18 @@ export class SalesInvoiceFormComponent implements OnInit {
           dueDate: invoice.dueDate,
           currencyCode: invoice.currencyCode,
           priceListId: invoice.priceListId ?? '',
+          isReturn: invoice.isReturn ?? false,
+          returnAgainstId: invoice.returnAgainstId ?? null,
         });
         // Rebuild child FormArray from loaded items
         invoice.items?.forEach((item) => this.addItemRow(item));
+
+        if (invoice.returnAgainstId) {
+          this.service.get(invoice.returnAgainstId).subscribe({
+            next: (source) => this.returnAgainstNumber.set(source.invoiceNumber ?? ''),
+            error: () => {},
+          });
+        }
       });
     } else {
       // Check for duplicate-from param
@@ -217,6 +228,7 @@ export class SalesInvoiceFormComponent implements OnInit {
             returnAgainstId: returnAgainst,
             priceListId: source.priceListId ?? '',
           });
+          this.returnAgainstNumber.set(source.invoiceNumber ?? '');
           // Return items have negative quantities
           source.items?.forEach((item) => {
             if (item) {

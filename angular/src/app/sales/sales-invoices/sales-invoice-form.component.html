@@ -1,5 +1,17 @@
 <abp-page [title]="'::CreateSalesInvoice' | abpLocalization">
   <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
+    @if (form.get('isReturn')?.value) {
+      <div class="alert alert-warning d-flex align-items-center mb-4">
+        <i class="fa fa-rotate-left me-2"></i>
+        <span>
+          {{ '::CreditNote' | abpLocalization }}
+          @if (form.get('returnAgainstId')?.value) {
+            &mdash; {{ '::ReturnAgainst' | abpLocalization }}:
+            <a [routerLink]="['/sales/invoices', form.get('returnAgainstId')?.value]">{{ returnAgainstNumber() || form.get('returnAgainstId')?.value }}</a>
+          }
+        </span>
+      </div>
+    }
     <!-- Header fields -->
     <div class="card mb-4">
       <div class="card-header">
