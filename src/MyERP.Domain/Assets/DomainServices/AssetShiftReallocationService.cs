@@ -51,7 +51,7 @@ public class AssetShiftReallocationService : DomainService
             var unassigned = unbookedEntriesOrdered.Where(e => !assignedIds.Contains(e.Id)).ToList();
             if (unassigned.Count == 0)
             {
-                throw new BusinessException("MyERP:15003")
+                throw new BusinessException(MyERPDomainErrorCodes.AssetShiftInsufficientUnassignedPeriods)
                     .WithData("reason", "At least one unbooked period must remain unassigned to absorb the shift change.");
             }
 

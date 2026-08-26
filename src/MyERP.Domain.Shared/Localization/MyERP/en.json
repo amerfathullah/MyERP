@@ -2341,6 +2341,8 @@
     "MyERP:15003": "Cannot post disposal entry for asset '{assetName}': missing {accountField} configuration.",
     "MyERP:15004": "Cannot delete location — {reason}",
     "MyERP:15005": "Cannot delete asset category — {reason}",
+    "MyERP:15006": "Overlapping time logs: {reason}",
+    "MyERP:15007": "Cannot apply shift reallocation — {reason}",
     "MyERP:16006": "Cannot cancel POS Closing Entry: a new POS Opening Entry is already active for this profile. Close or cancel the new session first.",
     "Placeholder:CompanyId": "Company ID",
     "CoProduct": "Co-Product",
