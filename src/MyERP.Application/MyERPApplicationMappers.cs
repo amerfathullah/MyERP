@@ -1087,6 +1087,28 @@ public partial class OpportunityTypeMapper : MapperBase<CRM.Entities.Opportunity
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class TelephonyCallTypeMapper : MapperBase<Telephony.Entities.TelephonyCallType, Telephony.TelephonyCallTypeDto>
+{
+    public override partial Telephony.TelephonyCallTypeDto Map(Telephony.Entities.TelephonyCallType source);
+    public override partial void Map(Telephony.Entities.TelephonyCallType source, Telephony.TelephonyCallTypeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CallLogMapper : MapperBase<Telephony.Entities.CallLog, Telephony.CallLogDto>
+{
+    public override partial Telephony.CallLogDto Map(Telephony.Entities.CallLog source);
+    public override partial void Map(Telephony.Entities.CallLog source, Telephony.CallLogDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class IncomingCallSettingsMapper : MapperBase<Telephony.Entities.IncomingCallSettings, Telephony.IncomingCallSettingsDto>
+{
+    public override partial Telephony.IncomingCallSettingsDto Map(Telephony.Entities.IncomingCallSettings source);
+    public override partial void Map(Telephony.Entities.IncomingCallSettings source, Telephony.IncomingCallSettingsDto destination);
+    private partial Telephony.IncomingCallHandlingScheduleDto MapChild(Telephony.Entities.IncomingCallHandlingSchedule source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

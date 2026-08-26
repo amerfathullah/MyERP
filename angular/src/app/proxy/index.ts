@@ -20,6 +20,7 @@ import * as Settings from './settings';
 import * as Shared from './shared';
 import * as Support from './support';
 import * as Tax from './tax';
+import * as Telephony from './telephony';
 import * as Workflow from './workflow';
-export { Accounting, Assets, Automation, Controllers, Core, Communication, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Workflow };
+export { Accounting, Assets, Automation, Controllers, Core, Communication, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Telephony, Workflow };
 

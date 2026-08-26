@@ -2269,6 +2269,65 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.CommunicationMedia' },
   },
+  // Telephony
+  {
+    path: 'telephony/call-types',
+    loadComponent: () => import('./telephony/call-types/call-type-list.component').then(c => c.CallTypeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TelephonyCallTypes' },
+  },
+  {
+    path: 'telephony/call-types/new',
+    loadComponent: () => import('./telephony/call-types/call-type-form.component').then(c => c.CallTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TelephonyCallTypes.Create' },
+  },
+  {
+    path: 'telephony/call-types/:id/edit',
+    loadComponent: () => import('./telephony/call-types/call-type-form.component').then(c => c.CallTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.TelephonyCallTypes.Edit' },
+  },
+  {
+    path: 'telephony/call-types/:id',
+    loadComponent: () => import('./telephony/call-types/call-type-form.component').then(c => c.CallTypeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TelephonyCallTypes' },
+  },
+  {
+    path: 'telephony/call-logs',
+    loadComponent: () => import('./telephony/call-logs/call-log-list.component').then(c => c.CallLogListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CallLogs' },
+  },
+  {
+    path: 'telephony/call-logs/new',
+    loadComponent: () => import('./telephony/call-logs/call-log-form.component').then(c => c.CallLogFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CallLogs.Create' },
+  },
+  {
+    path: 'telephony/call-logs/:id/edit',
+    loadComponent: () => import('./telephony/call-logs/call-log-form.component').then(c => c.CallLogFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CallLogs.Edit' },
+  },
+  {
+    path: 'telephony/call-logs/:id',
+    loadComponent: () => import('./telephony/call-logs/call-log-form.component').then(c => c.CallLogFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CallLogs' },
+  },
+  {
+    path: 'telephony/settings',
+    loadComponent: () => import('./telephony/settings/incoming-call-settings.component').then(c => c.IncomingCallSettingsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.IncomingCallSettings' },
+  },
   // Leave
   {
     path: 'hr/leave',

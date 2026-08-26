@@ -939,6 +939,28 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class TelephonyCallTypes
+    {
+        public const string Default = GroupName + ".TelephonyCallTypes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class CallLogs
+    {
+        public const string Default = GroupName + ".CallLogs";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class IncomingCallSettings
+    {
+        public const string Default = GroupName + ".IncomingCallSettings";
+        public const string Edit = Default + ".Edit";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

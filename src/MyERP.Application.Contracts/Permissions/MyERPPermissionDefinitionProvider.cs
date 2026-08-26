@@ -626,6 +626,19 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Create, L("Permission:CommunicationMedia.Create"));
         communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Edit, L("Permission:CommunicationMedia.Edit"));
         communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Delete, L("Permission:CommunicationMedia.Delete"));
+
+        var telephonyCallTypesPermission = myGroup.AddPermission(MyERPPermissions.TelephonyCallTypes.Default, L("Permission:TelephonyCallTypes"));
+        telephonyCallTypesPermission.AddChild(MyERPPermissions.TelephonyCallTypes.Create, L("Permission:TelephonyCallTypes.Create"));
+        telephonyCallTypesPermission.AddChild(MyERPPermissions.TelephonyCallTypes.Edit, L("Permission:TelephonyCallTypes.Edit"));
+        telephonyCallTypesPermission.AddChild(MyERPPermissions.TelephonyCallTypes.Delete, L("Permission:TelephonyCallTypes.Delete"));
+
+        var callLogsPermission = myGroup.AddPermission(MyERPPermissions.CallLogs.Default, L("Permission:CallLogs"));
+        callLogsPermission.AddChild(MyERPPermissions.CallLogs.Create, L("Permission:CallLogs.Create"));
+        callLogsPermission.AddChild(MyERPPermissions.CallLogs.Edit, L("Permission:CallLogs.Edit"));
+        callLogsPermission.AddChild(MyERPPermissions.CallLogs.Delete, L("Permission:CallLogs.Delete"));
+
+        var incomingCallSettingsPermission = myGroup.AddPermission(MyERPPermissions.IncomingCallSettings.Default, L("Permission:IncomingCallSettings"));
+        incomingCallSettingsPermission.AddChild(MyERPPermissions.IncomingCallSettings.Edit, L("Permission:IncomingCallSettings.Edit"));
     }
 
     private static LocalizableString L(string name)

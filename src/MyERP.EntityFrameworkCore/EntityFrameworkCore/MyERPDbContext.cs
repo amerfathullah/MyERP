@@ -33,6 +33,8 @@ using MyERP.Support;
 using MyERP.Support.Entities;
 using MyERP.Communication;
 using MyERP.Communication.Entities;
+using MyERP.Telephony;
+using MyERP.Telephony.Entities;
 using MyERP.Maintenance;
 using MyERP.Maintenance.Entities;
 using MyERP.Workflow;
@@ -471,6 +473,13 @@ public class MyERPDbContext :
     // Communication
     public DbSet<CommunicationMedium> CommunicationMedia { get; set; }
     public DbSet<CommunicationMediumTimeslot> CommunicationMediumTimeslots { get; set; }
+
+    // Telephony
+    public DbSet<TelephonyCallType> TelephonyCallTypes { get; set; }
+    public DbSet<CallLog> CallLogs { get; set; }
+    public DbSet<IncomingCallSettings> IncomingCallSettings { get; set; }
+    public DbSet<IncomingCallHandlingSchedule> IncomingCallHandlingSchedules { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4796,6 +4805,53 @@ public class MyERPDbContext :
             b.ToTable("Comm_CommunicationMediumTimeslots", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.HasIndex(x => x.CommunicationMediumId);
+            b.HasIndex(x => x.EmployeeGroupId);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Telephony — Call Types, Call Logs, Incoming Call Settings
+        // ═══════════════════════════════════════════════════
+        builder.Entity<TelephonyCallType>(b =>
+        {
+            b.ToTable("Tel_CallTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CallTypeName).IsRequired().HasMaxLength(TelephonyConsts.MaxCallTypeNameLength);
+            b.HasIndex(x => new { x.TenantId, x.CallTypeName }).IsUnique();
+        });
+
+        builder.Entity<CallLog>(b =>
+        {
+            b.ToTable("Tel_CallLogs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CallId).IsRequired().HasMaxLength(TelephonyConsts.MaxCallIdLength);
+            b.Property(x => x.From).IsRequired().HasMaxLength(TelephonyConsts.MaxPhoneNumberLength);
+            b.Property(x => x.To).IsRequired().HasMaxLength(TelephonyConsts.MaxPhoneNumberLength);
+            b.Property(x => x.Medium).HasMaxLength(TelephonyConsts.MaxMediumLength);
+            b.Property(x => x.RecordingUrl).HasMaxLength(TelephonyConsts.MaxUrlLength);
+            b.Property(x => x.Summary).HasMaxLength(TelephonyConsts.MaxSummaryLength);
+            b.HasIndex(x => new { x.TenantId, x.CallId });
+            b.HasIndex(x => new { x.TenantId, x.From });
+            b.HasIndex(x => new { x.TenantId, x.To });
+            b.HasIndex(x => new { x.TenantId, x.CustomerId });
+            b.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        builder.Entity<IncomingCallSettings>(b =>
+        {
+            b.ToTable("Tel_IncomingCallSettings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.GreetingMessage).HasMaxLength(TelephonyConsts.MaxMessageLength);
+            b.Property(x => x.AgentBusyMessage).HasMaxLength(TelephonyConsts.MaxMessageLength);
+            b.Property(x => x.AgentUnavailableMessage).HasMaxLength(TelephonyConsts.MaxMessageLength);
+            b.HasMany(x => x.Schedules).WithOne().HasForeignKey(x => x.IncomingCallSettingsId).IsRequired();
+            b.Navigation(x => x.Schedules).AutoInclude();
+        });
+
+        builder.Entity<IncomingCallHandlingSchedule>(b =>
+        {
+            b.ToTable("Tel_IncomingCallHandlingSchedules", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => x.IncomingCallSettingsId);
             b.HasIndex(x => x.EmployeeGroupId);
         });
 
