@@ -316,6 +316,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.CurrencyExchangeSettings' },
   },
   {
+    path: 'accounting/cashier-closings',
+    loadComponent: () => import('./accounting/cashier-closing/cashier-closing-list.component').then(c => c.CashierClosingListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CashierClosings' },
+  },
+  {
+    path: 'accounting/cashier-closings/:id',
+    loadComponent: () => import('./accounting/cashier-closing/cashier-closing-detail.component').then(c => c.CashierClosingDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CashierClosings' },
+  },
+  {
     path: 'accounting/accounts',
     loadComponent: () => import('./accounting/accounts/chart-of-accounts.component').then(c => c.ChartOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],

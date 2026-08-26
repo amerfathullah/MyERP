@@ -75,3 +75,4 @@ export * from './upcoming-payments-due.service';
 export * from './subscription-settings.service';
 export * from './accounts-settings.service';
 export * from './currency-exchange-settings.service';
+export * from './cashier-closing.service';

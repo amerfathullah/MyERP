@@ -1032,6 +1032,15 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
     }
 
+    public static class CashierClosings
+    {
+        public const string Default = GroupName + ".CashierClosings";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

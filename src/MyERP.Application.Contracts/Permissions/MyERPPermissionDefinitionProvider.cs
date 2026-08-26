@@ -680,6 +680,12 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var currencyExchangeSettingsPermission = myGroup.AddPermission(MyERPPermissions.CurrencyExchangeSettings.Default, L("Permission:CurrencyExchangeSettings"));
         currencyExchangeSettingsPermission.AddChild(MyERPPermissions.CurrencyExchangeSettings.Edit, L("Permission:CurrencyExchangeSettings.Edit"));
+
+        var cashierClosingsPermission = myGroup.AddPermission(MyERPPermissions.CashierClosings.Default, L("Permission:CashierClosings"));
+        cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Create, L("Permission:CashierClosings.Create"));
+        cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Edit, L("Permission:CashierClosings.Edit"));
+        cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Delete, L("Permission:CashierClosings.Delete"));
+        cashierClosingsPermission.AddChild(MyERPPermissions.CashierClosings.Submit, L("Permission:CashierClosings.Submit"));
     }
 
     private static LocalizableString L(string name)

@@ -510,6 +510,10 @@ public class MyERPDbContext :
     public DbSet<CurrencyExchangeSettingsDetail> CurrencyExchangeSettingsDetails { get; set; }
     public DbSet<CurrencyExchangeSettingsResult> CurrencyExchangeSettingsResults { get; set; }
 
+    // Cashier Closing
+    public DbSet<CashierClosing> CashierClosings { get; set; }
+    public DbSet<CashierClosingPayment> CashierClosingPayments { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -5027,6 +5031,35 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.Key).IsRequired().HasMaxLength(CurrencyExchangeSettingsConsts.MaxKeyLength);
             b.HasIndex(x => x.SettingsId);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Cashier Closing
+        // ═══════════════════════════════════════════════════
+        builder.Entity<CashierClosing>(b =>
+        {
+            b.ToTable("Acc_CashierClosings", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ClosingNumber).IsRequired().HasMaxLength(CashierClosingConsts.MaxClosingNumberLength);
+            b.Property(x => x.UserName).IsRequired().HasMaxLength(CashierClosingConsts.MaxUserNameLength);
+            b.Property(x => x.Expense).HasPrecision(18, 2);
+            b.Property(x => x.Custody).HasPrecision(18, 2);
+            b.Property(x => x.Returns).HasPrecision(18, 2);
+            b.Property(x => x.OutstandingAmount).HasPrecision(18, 2);
+            b.Property(x => x.NetAmount).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.TenantId, x.ClosingNumber });
+            b.HasIndex(x => new { x.TenantId, x.Date, x.UserId });
+            b.HasMany(x => x.Payments).WithOne().HasForeignKey(x => x.CashierClosingId).IsRequired();
+            b.Navigation(x => x.Payments).AutoInclude();
+        });
+
+        builder.Entity<CashierClosingPayment>(b =>
+        {
+            b.ToTable("Acc_CashierClosingPayments", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ModeOfPayment).IsRequired().HasMaxLength(CashierClosingConsts.MaxModeOfPaymentLength);
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.HasIndex(x => x.CashierClosingId);
         });
 
         // ═══════════════════════════════════════════════════

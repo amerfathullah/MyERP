@@ -4644,6 +4644,21 @@
     "UseHttp": "Use HTTP Protocol",
     "ReqParams": "Request Parameters",
     "ResultKeys": "Result Keys",
-    "TestApi": "Test Connection"
+    "TestApi": "Test Connection",
+    "Permission:CashierClosings": "Cashier Closings",
+    "Permission:CashierClosings.Create": "Create Cashier Closing",
+    "Permission:CashierClosings.Edit": "Edit Cashier Closing",
+    "Permission:CashierClosings.Delete": "Delete Cashier Closing",
+    "Permission:CashierClosings.Submit": "Submit Cashier Closing",
+    "CashierClosing": "Cashier Closing",
+    "CashierClosings": "Cashier Closings",
+    "Menu:CashierClosing": "Cashier Closing",
+    "ClosingNumber": "Closing #",
+    "FromTime": "From Time",
+    "ToTime": "To Time",
+    "Custody": "Custody (Float)",
+    "Returns": "Returns",
+    "NetAmount": "Net Amount",
+    "FetchShiftTotals": "Fetch Shift Totals"
   }
 }

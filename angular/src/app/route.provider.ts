@@ -2372,6 +2372,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.CurrencyExchangeSettings',
       },
       {
+        path: '/accounting/cashier-closings',
+        name: '::Menu:CashierClosing',
+        iconClass: 'fas fa-cash-register',
+        order: 27,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CashierClosings',
+      },
+      {
         path: '/accounting/batch-payment',
         name: '::Menu:BatchPayment',
         iconClass: 'fas fa-money-check-dollar',

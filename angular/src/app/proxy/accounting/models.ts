@@ -2280,3 +2280,69 @@ export interface TestCurrencyExchangeApiResponseDto {
   errorMessage?: string | null;
 }
 
+export interface CashierClosingPaymentDto extends AuditedEntityDto<string> {
+  cashierClosingId: string;
+  modeOfPayment: string;
+  amount: number;
+}
+
+export interface CreateUpdateCashierClosingPaymentDto {
+  modeOfPayment: string;
+  amount: number;
+}
+
+export interface CashierClosingDto extends FullAuditedEntityDto<string> {
+  closingNumber: string;
+  userId: string;
+  userName: string;
+  date: string;
+  fromTime: string;
+  toTime: string;
+  expense: number;
+  custody: number;
+  returns: number;
+  outstandingAmount: number;
+  netAmount: number;
+  isSubmitted: boolean;
+  payments: CashierClosingPaymentDto[];
+}
+
+export interface CreateCashierClosingDto {
+  date: string;
+  fromTime: string;
+  toTime: string;
+  expense: number;
+  custody: number;
+  returns: number;
+  payments: CreateUpdateCashierClosingPaymentDto[];
+}
+
+export interface UpdateCashierClosingDto {
+  date: string;
+  fromTime: string;
+  toTime: string;
+  expense: number;
+  custody: number;
+  returns: number;
+  payments: CreateUpdateCashierClosingPaymentDto[];
+}
+
+export interface CashierClosingGetListInput extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  userId?: string | null;
+}
+
+export interface CalculateCashierClosingTotalsRequestDto {
+  date: string;
+  fromTime: string;
+  toTime: string;
+  userId?: string | null;
+}
+
+export interface CalculateCashierClosingTotalsResponseDto {
+  outstandingAmount: number;
+  suggestedPayments: CreateUpdateCashierClosingPaymentDto[];
+}
+

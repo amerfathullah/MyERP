@@ -1175,6 +1175,14 @@ public partial class CurrencyExchangeSettingsMapper : MapperBase<Accounting.Enti
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CashierClosingMapper : MapperBase<Accounting.Entities.CashierClosing, Accounting.CashierClosingDto>
+{
+    public override partial Accounting.CashierClosingDto Map(Accounting.Entities.CashierClosing source);
+    public override partial void Map(Accounting.Entities.CashierClosing source, Accounting.CashierClosingDto destination);
+    private partial Accounting.CashierClosingPaymentDto MapPayment(Accounting.Entities.CashierClosingPayment source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]
