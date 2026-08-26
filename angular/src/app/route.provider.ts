@@ -2674,5 +2674,23 @@ function configureRoutes() {
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.EInvoice',
       },
+      {
+        path: '/edi/code-lists',
+        name: '::Menu:CodeLists',
+        parentName: '::Menu:EInvoice',
+        iconClass: 'fas fa-list-alt',
+        order: 7,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CodeLists',
+      },
+      {
+        path: '/edi/common-codes',
+        name: '::Menu:CommonCodes',
+        parentName: '::Menu:EInvoice',
+        iconClass: 'fas fa-barcode',
+        order: 8,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CommonCodes',
+      },
     ]);
 }

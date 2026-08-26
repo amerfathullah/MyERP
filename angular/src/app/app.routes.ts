@@ -2328,6 +2328,59 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.IncomingCallSettings' },
   },
+  // EDI
+  {
+    path: 'edi/code-lists',
+    loadComponent: () => import('./edi/code-lists/code-list-list.component').then(c => c.CodeListListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CodeLists' },
+  },
+  {
+    path: 'edi/code-lists/new',
+    loadComponent: () => import('./edi/code-lists/code-list-form.component').then(c => c.CodeListFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CodeLists.Create' },
+  },
+  {
+    path: 'edi/code-lists/:id/edit',
+    loadComponent: () => import('./edi/code-lists/code-list-form.component').then(c => c.CodeListFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CodeLists.Edit' },
+  },
+  {
+    path: 'edi/code-lists/:id',
+    loadComponent: () => import('./edi/code-lists/code-list-form.component').then(c => c.CodeListFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CodeLists' },
+  },
+  {
+    path: 'edi/common-codes',
+    loadComponent: () => import('./edi/common-codes/common-code-list.component').then(c => c.CommonCodeListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CommonCodes' },
+  },
+  {
+    path: 'edi/common-codes/new',
+    loadComponent: () => import('./edi/common-codes/common-code-form.component').then(c => c.CommonCodeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CommonCodes.Create' },
+  },
+  {
+    path: 'edi/common-codes/:id/edit',
+    loadComponent: () => import('./edi/common-codes/common-code-form.component').then(c => c.CommonCodeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CommonCodes.Edit' },
+  },
+  {
+    path: 'edi/common-codes/:id',
+    loadComponent: () => import('./edi/common-codes/common-code-form.component').then(c => c.CommonCodeFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CommonCodes' },
+  },
   // Leave
   {
     path: 'hr/leave',

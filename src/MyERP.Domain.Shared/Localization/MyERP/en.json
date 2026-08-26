@@ -4492,6 +4492,26 @@
     "CallRoutingMode": "Routing Mode",
     "GreetingMessage": "Greeting Message",
     "AgentBusyMessage": "Agent Busy Message",
-    "AgentUnavailableMessage": "Agent Unavailable Message"
+    "AgentUnavailableMessage": "Agent Unavailable Message",
+    "Permission:CodeLists": "EDI Code Lists",
+    "Permission:CodeLists.Create": "Create Code List",
+    "Permission:CodeLists.Edit": "Edit Code List",
+    "Permission:CodeLists.Delete": "Delete Code List",
+    "CodeLists": "EDI Code Lists",
+    "Menu:CodeLists": "Code Lists",
+    "NewCodeList": "New Code List",
+    "EditCodeList": "Edit Code List",
+    "CanonicalUri": "Canonical URI",
+    "DefaultCommonCode": "Default Common Code",
+    "PublisherId": "Publisher ID",
+    "Permission:CommonCodes": "Common Codes",
+    "Permission:CommonCodes.Create": "Create Common Code",
+    "Permission:CommonCodes.Edit": "Edit Common Code",
+    "Permission:CommonCodes.Delete": "Delete Common Code",
+    "CommonCodes": "Common Codes",
+    "Menu:CommonCodes": "Common Codes",
+    "NewCommonCode": "New Common Code",
+    "EditCommonCode": "Edit Common Code",
+    "CommonCode": "Common Code"
   }
 }

@@ -639,6 +639,16 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var incomingCallSettingsPermission = myGroup.AddPermission(MyERPPermissions.IncomingCallSettings.Default, L("Permission:IncomingCallSettings"));
         incomingCallSettingsPermission.AddChild(MyERPPermissions.IncomingCallSettings.Edit, L("Permission:IncomingCallSettings.Edit"));
+
+        var codeListsPermission = myGroup.AddPermission(MyERPPermissions.CodeLists.Default, L("Permission:CodeLists"));
+        codeListsPermission.AddChild(MyERPPermissions.CodeLists.Create, L("Permission:CodeLists.Create"));
+        codeListsPermission.AddChild(MyERPPermissions.CodeLists.Edit, L("Permission:CodeLists.Edit"));
+        codeListsPermission.AddChild(MyERPPermissions.CodeLists.Delete, L("Permission:CodeLists.Delete"));
+
+        var commonCodesPermission = myGroup.AddPermission(MyERPPermissions.CommonCodes.Default, L("Permission:CommonCodes"));
+        commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Create, L("Permission:CommonCodes.Create"));
+        commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Edit, L("Permission:CommonCodes.Edit"));
+        commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Delete, L("Permission:CommonCodes.Delete"));
     }
 
     private static LocalizableString L(string name)

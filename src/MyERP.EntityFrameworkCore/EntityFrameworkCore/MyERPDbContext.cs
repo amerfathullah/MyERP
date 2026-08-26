@@ -35,6 +35,8 @@ using MyERP.Communication;
 using MyERP.Communication.Entities;
 using MyERP.Telephony;
 using MyERP.Telephony.Entities;
+using MyERP.EDI;
+using MyERP.EDI.Entities;
 using MyERP.Maintenance;
 using MyERP.Maintenance.Entities;
 using MyERP.Workflow;
@@ -479,6 +481,10 @@ public class MyERPDbContext :
     public DbSet<CallLog> CallLogs { get; set; }
     public DbSet<IncomingCallSettings> IncomingCallSettings { get; set; }
     public DbSet<IncomingCallHandlingSchedule> IncomingCallHandlingSchedules { get; set; }
+
+    // EDI
+    public DbSet<CodeList> CodeLists { get; set; }
+    public DbSet<CommonCode> CommonCodes { get; set; }
 
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
@@ -4853,6 +4859,35 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.HasIndex(x => x.IncomingCallSettingsId);
             b.HasIndex(x => x.EmployeeGroupId);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // EDI — Code Lists and Common Codes
+        // ═══════════════════════════════════════════════════
+        builder.Entity<CodeList>(b =>
+        {
+            b.ToTable("Edi_CodeLists", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(EDIConsts.MaxTitleLength);
+            b.Property(x => x.CanonicalUri).HasMaxLength(EDIConsts.MaxUriLength);
+            b.Property(x => x.Url).HasMaxLength(EDIConsts.MaxUrlLength);
+            b.Property(x => x.DefaultCommonCode).HasMaxLength(EDIConsts.MaxCodeLength);
+            b.Property(x => x.Version).HasMaxLength(EDIConsts.MaxVersionLength);
+            b.Property(x => x.Publisher).HasMaxLength(EDIConsts.MaxPublisherLength);
+            b.Property(x => x.PublisherId).HasMaxLength(EDIConsts.MaxPublisherIdLength);
+            b.Property(x => x.Description).HasMaxLength(EDIConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.Title }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CanonicalUri });
+        });
+
+        builder.Entity<CommonCode>(b =>
+        {
+            b.ToTable("Edi_CommonCodes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(EDIConsts.MaxTitleLength);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(EDIConsts.MaxCodeLength);
+            b.Property(x => x.Description).HasMaxLength(EDIConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.CodeListId, x.Code }).IsUnique();
         });
 
         // ═══════════════════════════════════════════════════

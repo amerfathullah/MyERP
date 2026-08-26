@@ -1109,6 +1109,20 @@ public partial class IncomingCallSettingsMapper : MapperBase<Telephony.Entities.
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CodeListMapper : MapperBase<EDI.Entities.CodeList, EDI.CodeListDto>
+{
+    public override partial EDI.CodeListDto Map(EDI.Entities.CodeList source);
+    public override partial void Map(EDI.Entities.CodeList source, EDI.CodeListDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CommonCodeMapper : MapperBase<EDI.Entities.CommonCode, EDI.CommonCodeDto>
+{
+    public override partial EDI.CommonCodeDto Map(EDI.Entities.CommonCode source);
+    public override partial void Map(EDI.Entities.CommonCode source, EDI.CommonCodeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

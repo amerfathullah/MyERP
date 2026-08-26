@@ -6,6 +6,7 @@ import * as Core from './core';
 import * as Communication from './communication';
 import * as Crm from './crm';
 import * as Dtos from './dtos';
+import * as Edi from './edi';
 import * as Einvoice from './einvoice';
 import * as HumanResources from './human-resources';
 import * as ImportExport from './import-export';
@@ -22,5 +23,5 @@ import * as Support from './support';
 import * as Tax from './tax';
 import * as Telephony from './telephony';
 import * as Workflow from './workflow';
-export { Accounting, Assets, Automation, Controllers, Core, Communication, Crm, Dtos, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Telephony, Workflow };
+export { Accounting, Assets, Automation, Controllers, Core, Communication, Crm, Dtos, Edi, Einvoice, HumanResources, ImportExport, Inventory, Maintenance, Manufacturing, Notification, Projects, Purchasing, Sales, Settings, Shared, Support, Tax, Telephony, Workflow };
 

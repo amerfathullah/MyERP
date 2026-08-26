@@ -961,6 +961,22 @@ public static class MyERPPermissions
         public const string Edit = Default + ".Edit";
     }
 
+    public static class CodeLists
+    {
+        public const string Default = GroupName + ".CodeLists";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class CommonCodes
+    {
+        public const string Default = GroupName + ".CommonCodes";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";
