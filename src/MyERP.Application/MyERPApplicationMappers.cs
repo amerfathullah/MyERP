@@ -1123,6 +1123,14 @@ public partial class CommonCodeMapper : MapperBase<EDI.Entities.CommonCode, EDI.
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BulkTransactionLogMapper : MapperBase<Automation.Entities.BulkTransactionLog, Automation.BulkTransactionLogDto>
+{
+    public override partial Automation.BulkTransactionLogDto Map(Automation.Entities.BulkTransactionLog source);
+    public override partial void Map(Automation.Entities.BulkTransactionLog source, Automation.BulkTransactionLogDto destination);
+    private partial Automation.BulkTransactionLogDetailDto MapChild(Automation.Entities.BulkTransactionLogDetail source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

@@ -486,6 +486,10 @@ public class MyERPDbContext :
     public DbSet<CodeList> CodeLists { get; set; }
     public DbSet<CommonCode> CommonCodes { get; set; }
 
+    // Bulk Transaction
+    public DbSet<BulkTransactionLog> BulkTransactionLogs { get; set; }
+    public DbSet<BulkTransactionLogDetail> BulkTransactionLogDetails { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4888,6 +4892,31 @@ public class MyERPDbContext :
             b.Property(x => x.Code).IsRequired().HasMaxLength(EDIConsts.MaxCodeLength);
             b.Property(x => x.Description).HasMaxLength(EDIConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.TenantId, x.CodeListId, x.Code }).IsUnique();
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Automation — Bulk Transaction Log
+        // ═══════════════════════════════════════════════════
+        builder.Entity<BulkTransactionLog>(b =>
+        {
+            b.ToTable("Auto_BulkTransactionLogs", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Title).IsRequired().HasMaxLength(BulkTransactionConsts.MaxTitleLength);
+            b.HasMany(x => x.Details).WithOne().HasForeignKey(x => x.BulkTransactionLogId).IsRequired();
+            b.Navigation(x => x.Details).AutoInclude();
+            b.HasIndex(x => new { x.TenantId, x.BatchDate });
+        });
+
+        builder.Entity<BulkTransactionLogDetail>(b =>
+        {
+            b.ToTable("Auto_BulkTransactionLogDetails", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TransactionName).IsRequired().HasMaxLength(BulkTransactionConsts.MaxTransactionNameLength);
+            b.Property(x => x.FromDocType).IsRequired().HasMaxLength(BulkTransactionConsts.MaxDocTypeLength);
+            b.Property(x => x.ToDocType).IsRequired().HasMaxLength(BulkTransactionConsts.MaxDocTypeLength);
+            b.Property(x => x.ErrorDescription).HasMaxLength(BulkTransactionConsts.MaxErrorDescriptionLength);
+            b.HasIndex(x => x.BulkTransactionLogId);
+            b.HasIndex(x => new { x.TenantId, x.TransactionName });
         });
 
         // ═══════════════════════════════════════════════════

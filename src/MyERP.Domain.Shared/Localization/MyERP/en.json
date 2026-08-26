@@ -4512,6 +4512,17 @@
     "Menu:CommonCodes": "Common Codes",
     "NewCommonCode": "New Common Code",
     "EditCommonCode": "Edit Common Code",
-    "CommonCode": "Common Code"
+    "CommonCode": "Common Code",
+    "Permission:BulkTransactionLogs": "Bulk Transaction Logs",
+    "Permission:BulkTransactionLogs.Create": "Create Bulk Transaction Log",
+    "Permission:BulkTransactionLogs.Edit": "Edit Bulk Transaction Log",
+    "Permission:BulkTransactionLogs.Delete": "Delete Bulk Transaction Log",
+    "BulkTransactionLogs": "Bulk Transaction Logs",
+    "Menu:BulkTransactionLogs": "Bulk Transactions",
+    "NewBulkTransactionLog": "New Bulk Transaction Log",
+    "FromDocType": "From DocType",
+    "ToDocType": "To DocType",
+    "ExecutedTime": "Executed Time",
+    "RetriedCount": "Retries"
   }
 }

@@ -649,6 +649,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Create, L("Permission:CommonCodes.Create"));
         commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Edit, L("Permission:CommonCodes.Edit"));
         commonCodesPermission.AddChild(MyERPPermissions.CommonCodes.Delete, L("Permission:CommonCodes.Delete"));
+
+        var bulkTransactionLogsPermission = myGroup.AddPermission(MyERPPermissions.BulkTransactionLogs.Default, L("Permission:BulkTransactionLogs"));
+        bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Create, L("Permission:BulkTransactionLogs.Create"));
+        bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Edit, L("Permission:BulkTransactionLogs.Edit"));
+        bulkTransactionLogsPermission.AddChild(MyERPPermissions.BulkTransactionLogs.Delete, L("Permission:BulkTransactionLogs.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -1394,6 +1394,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.AutomationRules',
       },
       {
+        path: '/automation/bulk-transactions',
+        name: '::Menu:BulkTransactionLogs',
+        iconClass: 'fas fa-layer-group',
+        order: 7.5,
+        parentName: '::Menu:Settings',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.BulkTransactionLogs',
+      },
+      {
         path: '/settings/einvoice',
         name: '::Menu:EInvoiceSettings',
         iconClass: 'fas fa-file-shield',

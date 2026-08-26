@@ -2381,6 +2381,19 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.CommonCodes' },
   },
+  // Bulk Transaction
+  {
+    path: 'automation/bulk-transactions',
+    loadComponent: () => import('./automation/bulk-transactions/bulk-transaction-log-list.component').then(c => c.BulkTransactionLogListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.BulkTransactionLogs' },
+  },
+  {
+    path: 'automation/bulk-transactions/:id',
+    loadComponent: () => import('./automation/bulk-transactions/bulk-transaction-log-detail.component').then(c => c.BulkTransactionLogDetailComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.BulkTransactionLogs' },
+  },
   // Leave
   {
     path: 'hr/leave',
