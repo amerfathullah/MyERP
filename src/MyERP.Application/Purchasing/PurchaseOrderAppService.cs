@@ -43,6 +43,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     private readonly PricingRuleApplicationService _pricingRuleService;
     private readonly PurchaseOrderManager _purchaseOrderManager;
     private readonly ChildItemUpdateService _childItemUpdateService;
+    private readonly ItemDefaultsResolutionService _itemDefaultsResolution;
 
     public PurchaseOrderAppService(
         IRepository<PurchaseOrder, Guid> repository,
@@ -59,7 +60,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         ItemTransactionValidationService itemValidation,
         PricingRuleApplicationService pricingRuleService,
         PurchaseOrderManager purchaseOrderManager,
-        ChildItemUpdateService childItemUpdateService)
+        ChildItemUpdateService childItemUpdateService,
+        ItemDefaultsResolutionService itemDefaultsResolution)
     {
         _repository = repository;
         _materialRequestRepository = materialRequestRepository;
@@ -76,6 +78,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         _pricingRuleService = pricingRuleService;
         _purchaseOrderManager = purchaseOrderManager;
         _childItemUpdateService = childItemUpdateService;
+        _itemDefaultsResolution = itemDefaultsResolution;
     }
 
     public async Task<PurchaseOrderDto> GetAsync(Guid id)
@@ -267,23 +270,16 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         if (fiscalYear != null)
         {
-            // Batch load all item IDs to avoid N+1 queries
-            var poItemIds = po.Items.Select(i => i.ItemId).Distinct().ToArray();
-            var itemQuery = await _itemRepository.GetQueryableAsync();
-            var itemExpenseAccounts = itemQuery
-                .Where(i => poItemIds.Contains(i.Id) && i.DefaultExpenseAccountId != null)
-                .Select(i => new { i.Id, i.DefaultExpenseAccountId })
-                .ToDictionary(i => i.Id, i => i.DefaultExpenseAccountId!.Value);
-
             var budgetItems = new List<BudgetCheckItem>();
             foreach (var poItem in po.Items)
             {
-                if (itemExpenseAccounts.TryGetValue(poItem.ItemId, out var expenseAccountId))
-                {
-                    budgetItems.Add(new BudgetCheckItem(
-                        expenseAccountId,
-                        poItem.Quantity * poItem.UnitPrice));
-                }
+                // Falls back to Item Group hierarchy when the item has no expense account of its own
+                var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(poItem.ItemId);
+                if (!expenseAccountId.HasValue) continue;
+
+                budgetItems.Add(new BudgetCheckItem(
+                    expenseAccountId.Value,
+                    poItem.Quantity * poItem.UnitPrice));
             }
 
             if (budgetItems.Any())

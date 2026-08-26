@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.DTOs;
@@ -24,19 +25,22 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly BudgetValidationService _budgetValidation;
+    private readonly ItemDefaultsResolutionService _itemDefaultsResolution;
 
     public MaterialRequestAppService(
         IRepository<MaterialRequest, Guid> repository,
         IRepository<Item, Guid> itemRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
         IDocumentNumberGenerator numberGenerator,
-        BudgetValidationService budgetValidation)
+        BudgetValidationService budgetValidation,
+        ItemDefaultsResolutionService itemDefaultsResolution)
     {
         _repository = repository;
         _itemRepository = itemRepository;
         _fiscalYearRepository = fiscalYearRepository;
         _numberGenerator = numberGenerator;
         _budgetValidation = budgetValidation;
+        _itemDefaultsResolution = itemDefaultsResolution;
     }
 
     public async Task<MaterialRequestDto> GetAsync(Guid id)
@@ -123,25 +127,26 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
             if (fiscalYear != null)
             {
-                // Batch load all item expense accounts to avoid N+1 queries
+                // Batch load item data (price only — expense account resolved via fallback chain below)
                 var mrItemIds = entity.Items.Select(i => i.ItemId).Distinct().ToArray();
                 var itemQuery = await _itemRepository.GetQueryableAsync();
                 var itemData = itemQuery
-                    .Where(i => mrItemIds.Contains(i.Id) && i.DefaultExpenseAccountId != null)
-                    .Select(i => new { i.Id, i.DefaultExpenseAccountId, i.StandardBuyingPrice })
+                    .Where(i => mrItemIds.Contains(i.Id))
+                    .Select(i => new { i.Id, i.StandardBuyingPrice })
                     .ToDictionary(i => i.Id);
 
                 var budgetItems = new List<BudgetCheckItem>();
                 foreach (var mrItem in entity.Items)
                 {
-                    if (itemData.TryGetValue(mrItem.ItemId, out var item))
-                    {
-                        // MR items don't have price — use item's standard buying price or qty as estimate
-                        var estimatedAmount = mrItem.Quantity * (item.StandardBuyingPrice ?? 1m);
-                        budgetItems.Add(new BudgetCheckItem(
-                            item.DefaultExpenseAccountId!.Value,
-                            estimatedAmount));
-                    }
+                    if (!itemData.TryGetValue(mrItem.ItemId, out var item)) continue;
+
+                    // Falls back to Item Group hierarchy when the item has no expense account of its own
+                    var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(mrItem.ItemId);
+                    if (!expenseAccountId.HasValue) continue;
+
+                    // MR items don't have price — use item's standard buying price or qty as estimate
+                    var estimatedAmount = mrItem.Quantity * (item.StandardBuyingPrice ?? 1m);
+                    budgetItems.Add(new BudgetCheckItem(expenseAccountId.Value, estimatedAmount));
                 }
 
                 if (budgetItems.Any())
