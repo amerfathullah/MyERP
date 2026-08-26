@@ -277,3 +277,21 @@ export interface UpdateItemTaxTemplateDto {
 
 export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
 }
+
+export interface TaxWithholdingGroupDto extends FullAuditedEntityDto<string> {
+  groupName: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateTaxWithholdingGroupDto {
+  groupName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetTaxWithholdingGroupListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
+

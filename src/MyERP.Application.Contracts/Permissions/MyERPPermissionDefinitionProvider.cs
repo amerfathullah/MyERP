@@ -611,6 +611,16 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Create, L("Permission:ChequePrintTemplates.Create"));
         chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Edit, L("Permission:ChequePrintTemplates.Edit"));
         chequePrintTemplatePermission.AddChild(MyERPPermissions.ChequePrintTemplates.Delete, L("Permission:ChequePrintTemplates.Delete"));
+
+        var taxWithholdingGroupPermission = myGroup.AddPermission(MyERPPermissions.TaxWithholdingGroups.Default, L("Permission:TaxWithholdingGroups"));
+        taxWithholdingGroupPermission.AddChild(MyERPPermissions.TaxWithholdingGroups.Create, L("Permission:TaxWithholdingGroups.Create"));
+        taxWithholdingGroupPermission.AddChild(MyERPPermissions.TaxWithholdingGroups.Edit, L("Permission:TaxWithholdingGroups.Edit"));
+        taxWithholdingGroupPermission.AddChild(MyERPPermissions.TaxWithholdingGroups.Delete, L("Permission:TaxWithholdingGroups.Delete"));
+
+        var opportunityTypePermission = myGroup.AddPermission(MyERPPermissions.OpportunityTypes.Default, L("Permission:OpportunityTypes"));
+        opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Create, L("Permission:OpportunityTypes.Create"));
+        opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Edit, L("Permission:OpportunityTypes.Edit"));
+        opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Delete, L("Permission:OpportunityTypes.Delete"));
     }
 
     private static LocalizableString L(string name)

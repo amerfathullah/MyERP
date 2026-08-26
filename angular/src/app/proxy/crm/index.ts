@@ -19,6 +19,7 @@ export * from './market-segment.service';
 export * from './models';
 export * from './opportunity-status.enum';
 export * from './opportunity-type.enum';
+export * from './opportunity-type.service';
 export * from './opportunity.service';
 export * from './prospect.service';
 export * from './sales-pipeline.service';

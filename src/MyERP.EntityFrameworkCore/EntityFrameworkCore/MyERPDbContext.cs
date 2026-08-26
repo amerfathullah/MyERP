@@ -273,6 +273,7 @@ public class MyERPDbContext :
     public DbSet<ItemTaxTemplate> ItemTaxTemplates { get; set; }
     public DbSet<ItemTaxTemplateDetail> ItemTaxTemplateDetails { get; set; }
     public DbSet<TaxWithholdingEntry> TaxWithholdingEntries { get; set; }
+    public DbSet<TaxWithholdingGroup> TaxWithholdingGroups { get; set; }
     public DbSet<TaxWithholdingCategory> TaxWithholdingCategories { get; set; }
     public DbSet<TaxWithholdingRate> TaxWithholdingRates { get; set; }
     public DbSet<TaxWithholdingAccount> TaxWithholdingAccounts { get; set; }
@@ -453,6 +454,7 @@ public class MyERPDbContext :
     public DbSet<CompetitorDetail> CompetitorDetails { get; set; }
     public DbSet<MarketSegment> MarketSegments { get; set; }
     public DbSet<IndustryType> IndustryTypes { get; set; }
+    public DbSet<MyERP.CRM.Entities.OpportunityType> OpportunityTypes { get; set; }
     public DbSet<SalesStage> SalesStages { get; set; }
     public DbSet<CrmNote> CrmNotes { get; set; }
     public DbSet<Campaign> Campaigns { get; set; }
@@ -3633,6 +3635,16 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
         });
 
+        // Tax Withholding Group
+        builder.Entity<TaxWithholdingGroup>(b =>
+        {
+            b.ToTable("Tax_WithholdingGroups", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.GroupName).IsRequired().HasMaxLength(TaxWithholdingGroupConsts.MaxGroupNameLength);
+            b.Property(x => x.Description).HasMaxLength(TaxWithholdingGroupConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.GroupName }).IsUnique();
+        });
+
         // Tax Withholding Category
         builder.Entity<TaxWithholdingCategory>(b =>
         {
@@ -4658,6 +4670,15 @@ public class MyERPDbContext :
             b.ToTable("CRM_IndustryTypes", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.Name).IsRequired().HasMaxLength(IndustryTypeConsts.MaxNameLength);
+            b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<MyERP.CRM.Entities.OpportunityType>(b =>
+        {
+            b.ToTable("CRM_OpportunityTypes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(OpportunityTypeConsts.MaxNameLength);
+            b.Property(x => x.Description).HasMaxLength(OpportunityTypeConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 

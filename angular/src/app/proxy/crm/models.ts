@@ -1,5 +1,5 @@
 import type { ExpiredAppointmentAction } from './expired-appointment-action.enum';
-import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AppointmentStatus } from './appointment-status.enum';
 import type { ContractStatus } from './contract-status.enum';
 import type { ContractFulfilmentStatus } from './contract-fulfilment-status.enum';
@@ -602,3 +602,21 @@ export interface GetOpportunityLostReasonListDto extends PagedAndSortedResultReq
   isDisabled?: boolean | null;
   filter?: string | null;
 }
+
+export interface OpportunityTypeDto extends FullAuditedEntityDto<string> {
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateUpdateOpportunityTypeDto {
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface GetOpportunityTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
+

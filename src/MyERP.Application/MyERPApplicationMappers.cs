@@ -821,6 +821,13 @@ public partial class TaxWithholdingCategoryMapper : MapperBase<Tax.Entities.TaxW
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class TaxWithholdingGroupMapper : MapperBase<Tax.Entities.TaxWithholdingGroup, Tax.TaxWithholdingGroupDto>
+{
+    public override partial Tax.TaxWithholdingGroupDto Map(Tax.Entities.TaxWithholdingGroup source);
+    public override partial void Map(Tax.Entities.TaxWithholdingGroup source, Tax.TaxWithholdingGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LowerDeductionCertificateMapper : MapperBase<Tax.Entities.LowerDeductionCertificate, Tax.LowerDeductionCertificateDto>
 {
     [MapperIgnoreTarget(nameof(Tax.LowerDeductionCertificateDto.SupplierName))]
@@ -1062,6 +1069,13 @@ public partial class AppNotificationMapper : MapperBase<Notification.Entities.Ap
 {
     public override partial Notification.DTOs.AppNotificationDto Map(Notification.Entities.AppNotification source);
     public override partial void Map(Notification.Entities.AppNotification source, Notification.DTOs.AppNotificationDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class OpportunityTypeMapper : MapperBase<CRM.Entities.OpportunityType, CRM.OpportunityTypeDto>
+{
+    public override partial CRM.OpportunityTypeDto Map(CRM.Entities.OpportunityType source);
+    public override partial void Map(CRM.Entities.OpportunityType source, CRM.OpportunityTypeDto destination);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

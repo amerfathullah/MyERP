@@ -4431,6 +4431,22 @@
     "AmountFiguresPosition": "Amount in Figures Position",
     "AccountNumberPosition": "Account Number Position",
     "SignatoryPosition": "Signatory Position",
-    "ChequePreview": "Cheque Layout Preview"
+    "ChequePreview": "Cheque Layout Preview",
+    "Permission:TaxWithholdingGroups": "Tax Withholding Groups",
+    "Permission:TaxWithholdingGroups.Create": "Create Tax Withholding Group",
+    "Permission:TaxWithholdingGroups.Edit": "Edit Tax Withholding Group",
+    "Permission:TaxWithholdingGroups.Delete": "Delete Tax Withholding Group",
+    "TaxWithholdingGroups": "Tax Withholding Groups",
+    "Menu:TaxWithholdingGroups": "Withholding Groups",
+    "NewTaxWithholdingGroup": "New Withholding Group",
+    "EditTaxWithholdingGroup": "Edit Withholding Group",
+    "Permission:OpportunityTypes": "Opportunity Types",
+    "Permission:OpportunityTypes.Create": "Create Opportunity Type",
+    "Permission:OpportunityTypes.Edit": "Edit Opportunity Type",
+    "Permission:OpportunityTypes.Delete": "Delete Opportunity Type",
+    "OpportunityTypes": "Opportunity Types",
+    "Menu:OpportunityTypes": "Opportunity Types",
+    "NewOpportunityType": "New Opportunity Type",
+    "EditOpportunityType": "Edit Opportunity Type"
   }
 }

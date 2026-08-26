@@ -1097,6 +1097,14 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaxCategories',
       },
       {
+        path: '/tax/tax-withholding-groups',
+        name: '::Menu:TaxWithholdingGroups',
+        iconClass: 'fas fa-users-cog',
+        order: 59.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxWithholdingGroups',
+      },
+      {
         path: '/tax/withholding-categories',
         name: '::Menu:TaxWithholdingCategories',
         iconClass: 'fas fa-percentage',
@@ -1252,6 +1260,15 @@ function configureRoutes() {
         order: 11,
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.Leads',
+      },
+      {
+        path: '/crm/opportunity-types',
+        name: '::Menu:OpportunityTypes',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-lightbulb',
+        order: 12.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.OpportunityTypes',
       },
       {
         path: '/crm/opportunity-lost-reasons',

@@ -13,7 +13,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string OpportunityNumber { get; set; } = null!;
     public string Title { get; set; } = null!;
     public OpportunityStatus Status { get; private set; }
-    public OpportunityType OpportunityType { get; set; }
+    public MyERP.CRM.OpportunityType OpportunityType { get; set; }
 
     // Source
     public Guid? LeadId { get; set; }
