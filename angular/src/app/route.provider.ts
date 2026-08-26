@@ -1562,6 +1562,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.IssueTypes',
       },
       {
+        path: '/communication/communication-media',
+        name: '::Menu:CommunicationMedia',
+        iconClass: 'fas fa-headset',
+        order: 3.5,
+        parentName: '::Menu:Support',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.CommunicationMedia',
+      },
+      {
         path: '/support/settings',
         name: '::Menu:SupportSettings',
         iconClass: 'fas fa-cog',

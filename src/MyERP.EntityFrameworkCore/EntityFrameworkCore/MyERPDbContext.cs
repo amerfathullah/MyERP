@@ -31,6 +31,8 @@ using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Support;
 using MyERP.Support.Entities;
+using MyERP.Communication;
+using MyERP.Communication.Entities;
 using MyERP.Maintenance;
 using MyERP.Maintenance.Entities;
 using MyERP.Workflow;
@@ -465,6 +467,10 @@ public class MyERPDbContext :
     public DbSet<Appointment> Appointments { get; set; }
     public DbSet<ContractTemplate> ContractTemplates { get; set; }
     public DbSet<ContractTemplateFulfilmentTerm> ContractTemplateFulfilmentTerms { get; set; }
+
+    // Communication
+    public DbSet<CommunicationMedium> CommunicationMedia { get; set; }
+    public DbSet<CommunicationMediumTimeslot> CommunicationMediumTimeslots { get; set; }
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -4771,6 +4777,26 @@ public class MyERPDbContext :
             b.ToTable("CRM_ContractTemplateFulfilmentTerms", MyERPConsts.DbSchema);
             b.Property(x => x.TermText).IsRequired().HasMaxLength(ContractTemplateConsts.MaxFulfilmentTermLength);
             b.HasIndex(x => x.ContractTemplateId);
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Communication — Medium & Timeslots
+        // ═══════════════════════════════════════════════════
+        builder.Entity<CommunicationMedium>(b =>
+        {
+            b.ToTable("Comm_CommunicationMedia", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.CommunicationChannel).HasMaxLength(CommunicationMediumConsts.MaxCommunicationChannelLength);
+            b.HasMany(x => x.Timeslots).WithOne().HasForeignKey(x => x.CommunicationMediumId).IsRequired();
+            b.Navigation(x => x.Timeslots).AutoInclude();
+        });
+
+        builder.Entity<CommunicationMediumTimeslot>(b =>
+        {
+            b.ToTable("Comm_CommunicationMediumTimeslots", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => x.CommunicationMediumId);
+            b.HasIndex(x => x.EmployeeGroupId);
         });
 
         // ═══════════════════════════════════════════════════

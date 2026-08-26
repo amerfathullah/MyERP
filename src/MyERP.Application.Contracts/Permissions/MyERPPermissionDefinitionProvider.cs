@@ -621,6 +621,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Create, L("Permission:OpportunityTypes.Create"));
         opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Edit, L("Permission:OpportunityTypes.Edit"));
         opportunityTypePermission.AddChild(MyERPPermissions.OpportunityTypes.Delete, L("Permission:OpportunityTypes.Delete"));
+
+        var communicationMediaPermission = myGroup.AddPermission(MyERPPermissions.CommunicationMedia.Default, L("Permission:CommunicationMedia"));
+        communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Create, L("Permission:CommunicationMedia.Create"));
+        communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Edit, L("Permission:CommunicationMedia.Edit"));
+        communicationMediaPermission.AddChild(MyERPPermissions.CommunicationMedia.Delete, L("Permission:CommunicationMedia.Delete"));
     }
 
     private static LocalizableString L(string name)

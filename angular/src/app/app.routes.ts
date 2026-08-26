@@ -2242,6 +2242,33 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.SupportSettings' },
   },
+  // Communication
+  {
+    path: 'communication/communication-media',
+    loadComponent: () => import('./communication/communication-media/communication-medium-list.component').then(c => c.CommunicationMediumListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CommunicationMedia' },
+  },
+  {
+    path: 'communication/communication-media/new',
+    loadComponent: () => import('./communication/communication-media/communication-medium-form.component').then(c => c.CommunicationMediumFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CommunicationMedia.Create' },
+  },
+  {
+    path: 'communication/communication-media/:id/edit',
+    loadComponent: () => import('./communication/communication-media/communication-medium-form.component').then(c => c.CommunicationMediumFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.CommunicationMedia.Edit' },
+  },
+  {
+    path: 'communication/communication-media/:id',
+    loadComponent: () => import('./communication/communication-media/communication-medium-form.component').then(c => c.CommunicationMediumFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.CommunicationMedia' },
+  },
   // Leave
   {
     path: 'hr/leave',

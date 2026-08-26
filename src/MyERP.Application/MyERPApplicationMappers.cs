@@ -1072,6 +1072,14 @@ public partial class AppNotificationMapper : MapperBase<Notification.Entities.Ap
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class CommunicationMediumMapper : MapperBase<Communication.Entities.CommunicationMedium, Communication.CommunicationMediumDto>
+{
+    public override partial Communication.CommunicationMediumDto Map(Communication.Entities.CommunicationMedium source);
+    public override partial void Map(Communication.Entities.CommunicationMedium source, Communication.CommunicationMediumDto destination);
+    private partial Communication.CommunicationMediumTimeslotDto MapChild(Communication.Entities.CommunicationMediumTimeslot source);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class OpportunityTypeMapper : MapperBase<CRM.Entities.OpportunityType, CRM.OpportunityTypeDto>
 {
     public override partial CRM.OpportunityTypeDto Map(CRM.Entities.OpportunityType source);

@@ -4447,6 +4447,18 @@
     "OpportunityTypes": "Opportunity Types",
     "Menu:OpportunityTypes": "Opportunity Types",
     "NewOpportunityType": "New Opportunity Type",
-    "EditOpportunityType": "Edit Opportunity Type"
+    "EditOpportunityType": "Edit Opportunity Type",
+    "Permission:CommunicationMedia": "Communication Media",
+    "Permission:CommunicationMedia.Create": "Create Communication Medium",
+    "Permission:CommunicationMedia.Edit": "Edit Communication Medium",
+    "Permission:CommunicationMedia.Delete": "Delete Communication Medium",
+    "CommunicationMedia": "Communication Media",
+    "Menu:CommunicationMedia": "Communication Media",
+    "NewCommunicationMedium": "New Communication Medium",
+    "EditCommunicationMedium": "Edit Communication Medium",
+    "CommunicationMediumType": "Medium Type",
+    "CommunicationChannel": "Communication Channel",
+    "CatchAllEmployeeGroup": "Catch-All Employee Group",
+    "Timeslots": "Timeslots"
   }
 }
