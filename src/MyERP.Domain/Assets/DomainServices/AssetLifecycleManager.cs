@@ -149,14 +149,14 @@ public class AssetLifecycleManager : DomainService
         if (asset.CalculateDepreciation)
         {
             if (asset.UsefulLifeMonths <= 0)
-                throw new BusinessException("MyERP:15002")
+                throw new BusinessException(MyERPDomainErrorCodes.AssetMissingRequiredField)
                     .WithData("assetName", asset.AssetName)
-                    .WithData("field", "UsefulLifeMonths");
+                    .WithData("fieldName", "UsefulLifeMonths");
 
             if (!asset.AvailableForUseDate.HasValue)
-                throw new BusinessException("MyERP:15002")
+                throw new BusinessException(MyERPDomainErrorCodes.AssetMissingRequiredField)
                     .WithData("assetName", asset.AssetName)
-                    .WithData("field", "AvailableForUseDate");
+                    .WithData("fieldName", "AvailableForUseDate");
         }
     }
 

@@ -121,6 +121,11 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> StartAsync(Guid id)
     {
         var jc = await _repository.GetAsync(id);
+
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        await jobCardManager.ValidatePreviousOperationManufacturedAsync(jc);
+        await jobCardManager.ValidateCapacityAsync(jc);
+
         jc.Start();
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);

@@ -79,7 +79,7 @@ public class JobCardManager : DomainService
     /// Validates workstation capacity before starting a Job Card.
     /// Per ERPNext: if num_slots >= workstation.ProductionCapacity → overlap error.
     /// </summary>
-    public async Task ValidateCapacityAsync(JobCard jobCard, DateTime fromTime, DateTime toTime)
+    public async Task ValidateCapacityAsync(JobCard jobCard)
     {
         if (!jobCard.WorkstationId.HasValue) return;
 

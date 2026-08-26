@@ -179,6 +179,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> SubmitAsync(Guid id)
     {
         var asset = await _assetRepository.GetAsync(id, includeDetails: true);
+        _lifecycleManager.ValidateForSubmission(asset);
         asset.Submit();
         await _assetRepository.UpdateAsync(asset);
         return _assetMapper.Map(asset);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
@@ -37,7 +38,7 @@ public class BomCreatorService : DomainService
         try
         {
             await CreateBomForItemAsync(creator, creator.FinishedGoodItemId, creator.Qty, creator.Uom,
-                creator.RoutingId, createdBomIds, generateBomNumberAsync);
+                creator.RoutingId, createdBomIds, generateBomNumberAsync, new HashSet<Guid> { creator.FinishedGoodItemId });
             creator.RecalculateCost();
             creator.MarkCompleted();
         }
@@ -49,7 +50,8 @@ public class BomCreatorService : DomainService
     }
 
     private async Task<Guid> CreateBomForItemAsync(BomCreator creator, Guid fgItemId, decimal qty, string? uom,
-        Guid? routingId, Dictionary<Guid, Guid> createdBomIds, Func<Guid, Task<string>> generateBomNumberAsync)
+        Guid? routingId, Dictionary<Guid, Guid> createdBomIds, Func<Guid, Task<string>> generateBomNumberAsync,
+        HashSet<Guid> ancestorItemIds)
     {
         if (createdBomIds.TryGetValue(fgItemId, out var existingBomId))
             return existingBomId;
@@ -70,9 +72,20 @@ public class BomCreatorService : DomainService
             Guid? subBomId = null;
             if (child.IsExpandable)
             {
+                // Guard against a cyclic staging tree (item A expandable into B expandable back
+                // into A) — without this, recursion never terminates and crashes the process with
+                // a StackOverflowException instead of a catchable BusinessException.
+                if (!ancestorItemIds.Add(child.ItemId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.BomCycleDetected)
+                        .WithData("itemId", child.ItemId);
+                }
+
                 // Sub-assemblies are recipes for 1 unit; the parent BomItem.Qty carries the consumed quantity.
                 subBomId = await CreateBomForItemAsync(creator, child.ItemId, 1m, child.Uom,
-                    null, createdBomIds, generateBomNumberAsync);
+                    null, createdBomIds, generateBomNumberAsync, ancestorItemIds);
+
+                ancestorItemIds.Remove(child.ItemId);
             }
 
             var bomItem = new BomItem(Guid.NewGuid(), bom.Id, child.ItemId, child.ItemName,
