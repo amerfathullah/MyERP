@@ -1140,6 +1140,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.BankAccountSubtypes' },
   },
   {
+    path: 'accounting/bank-account-balances',
+    loadComponent: () => import('./accounting/bank-account-balances/bank-account-balance-list.component').then(c => c.BankAccountBalanceListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.BankAccountBalances' },
+  },
+  {
+    path: 'accounting/bank-account-balances/new',
+    loadComponent: () => import('./accounting/bank-account-balances/bank-account-balance-form.component').then(c => c.BankAccountBalanceFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.BankAccountBalances.Create' },
+  },
+  {
+    path: 'accounting/bank-account-balances/:id/edit',
+    loadComponent: () => import('./accounting/bank-account-balances/bank-account-balance-form.component').then(c => c.BankAccountBalanceFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.BankAccountBalances.Edit' },
+  },
+  {
+    path: 'accounting/bank-account-balances/:id',
+    loadComponent: () => import('./accounting/bank-account-balances/bank-account-balance-form.component').then(c => c.BankAccountBalanceFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.BankAccountBalances' },
+  },
+  {
     path: 'accounting/bank-reconciliation',
     loadComponent: () => import('./accounting/bank-reconciliation/bank-reconciliation.component').then(c => c.BankReconciliationComponent),
     canActivate: [authGuard, permissionGuard],

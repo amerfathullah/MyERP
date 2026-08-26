@@ -182,6 +182,27 @@ export interface BankAccountDto extends EntityDto<string> {
   lastIntegrationDate?: string | null;
 }
 
+export interface BankAccountBalanceDto extends FullAuditedEntityDto<string> {
+  bankAccountId?: string;
+  bankAccountName?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  date?: string;
+  balance?: number;
+}
+
+export interface CreateUpdateBankAccountBalanceDto {
+  bankAccountId: string;
+  date: string;
+  balance: number;
+}
+
+export interface GetBankAccountBalanceListDto extends PagedAndSortedResultRequestDto {
+  bankAccountId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
 export interface BankClearanceDocRefDto {
   documentType: string;
   documentId: string;

@@ -2103,6 +2103,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.BankAccountSubtypes',
       },
       {
+        path: '/accounting/bank-account-balances',
+        name: '::Menu:BankAccountBalances',
+        iconClass: 'fas fa-chart-line',
+        order: 23.5,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.BankAccountBalances',
+      },
+      {
         path: '/accounting/exchange-rate-revaluation',
         name: '::Menu:ExchangeRateRevaluation',
         iconClass: 'fas fa-scale-unbalanced',

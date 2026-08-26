@@ -587,6 +587,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Edit, L("Permission:SalesPartnerTypes.Edit"));
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Delete, L("Permission:SalesPartnerTypes.Delete"));
 
+        var bankAccountBalancePermission = myGroup.AddPermission(MyERPPermissions.BankAccountBalances.Default, L("Permission:BankAccountBalances"));
+        bankAccountBalancePermission.AddChild(MyERPPermissions.BankAccountBalances.Create, L("Permission:BankAccountBalances.Create"));
+        bankAccountBalancePermission.AddChild(MyERPPermissions.BankAccountBalances.Edit, L("Permission:BankAccountBalances.Edit"));
+        bankAccountBalancePermission.AddChild(MyERPPermissions.BankAccountBalances.Delete, L("Permission:BankAccountBalances.Delete"));
+
         var supplierScorecardVariablePermission = myGroup.AddPermission(MyERPPermissions.SupplierScorecardVariables.Default, L("Permission:SupplierScorecardVariables"));
         supplierScorecardVariablePermission.AddChild(MyERPPermissions.SupplierScorecardVariables.Create, L("Permission:SupplierScorecardVariables.Create"));
         supplierScorecardVariablePermission.AddChild(MyERPPermissions.SupplierScorecardVariables.Edit, L("Permission:SupplierScorecardVariables.Edit"));

@@ -4385,6 +4385,14 @@
     "SupplierScorecardVariables": "Supplier Scorecard Variables",
     "Menu:SupplierScorecardVariables": "Scorecard Variables",
     "NewSupplierScorecardVariable": "New Supplier Scorecard Variable",
-    "EditSupplierScorecardVariable": "Edit Supplier Scorecard Variable"
+    "EditSupplierScorecardVariable": "Edit Supplier Scorecard Variable",
+    "Permission:BankAccountBalances": "Bank Account Balances",
+    "Permission:BankAccountBalances.Create": "Create Bank Account Balance",
+    "Permission:BankAccountBalances.Edit": "Edit Bank Account Balance",
+    "Permission:BankAccountBalances.Delete": "Delete Bank Account Balance",
+    "BankAccountBalances": "Bank Account Balances",
+    "Menu:BankAccountBalances": "Account Balances",
+    "NewBankAccountBalance": "New Balance Snapshot",
+    "EditBankAccountBalance": "Edit Balance Snapshot"
   }
 }

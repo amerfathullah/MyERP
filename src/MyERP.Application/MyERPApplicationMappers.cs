@@ -1730,6 +1730,20 @@ public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sa
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BankAccountBalanceMapper : MapperBase<Accounting.Entities.BankAccountBalance, Accounting.BankAccountBalanceDto>
+{
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.BankAccountName))]
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.CompanyId))]
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.CompanyName))]
+    public override partial Accounting.BankAccountBalanceDto Map(Accounting.Entities.BankAccountBalance source);
+
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.BankAccountName))]
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.CompanyId))]
+    [MapperIgnoreTarget(nameof(Accounting.BankAccountBalanceDto.CompanyName))]
+    public override partial void Map(Accounting.Entities.BankAccountBalance source, Accounting.BankAccountBalanceDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SupplierScorecardVariableMapper : MapperBase<Purchasing.Entities.SupplierScorecardVariable, Purchasing.SupplierScorecardVariableDto>
 {
     public override partial Purchasing.SupplierScorecardVariableDto Map(Purchasing.Entities.SupplierScorecardVariable source);

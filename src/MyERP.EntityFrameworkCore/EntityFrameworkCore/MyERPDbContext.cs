@@ -100,6 +100,7 @@ public class MyERPDbContext :
     public DbSet<RepostAccountingLedgerVoucher> RepostAccountingLedgerVouchers { get; set; }
     public DbSet<ProcessPaymentReconciliation> ProcessPaymentReconciliations { get; set; }
     public DbSet<BankAccount> BankAccounts { get; set; }
+    public DbSet<BankAccountBalance> BankAccountBalances { get; set; }
     public DbSet<BankAccountType> BankAccountTypes { get; set; }
     public DbSet<BankAccountSubtype> BankAccountSubtypes { get; set; }
     public DbSet<BankTransaction> BankTransactions { get; set; }
@@ -1688,6 +1689,15 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsDefault });
             b.HasIndex(x => new { x.TenantId, x.AccountId }).IsUnique()
                 .HasFilter("\"IsDeleted\" = false");
+        });
+
+        builder.Entity<BankAccountBalance>(b =>
+        {
+            b.ToTable("Acc_BankAccountBalances", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Balance).HasColumnType("decimal(18,2)");
+            b.HasOne<BankAccount>().WithMany().HasForeignKey(x => x.BankAccountId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.BankAccountId, x.Date });
         });
 
         builder.Entity<BankAccountType>(b =>

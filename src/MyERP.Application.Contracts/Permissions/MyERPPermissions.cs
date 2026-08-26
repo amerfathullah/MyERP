@@ -875,6 +875,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class BankAccountBalances
+    {
+        public const string Default = GroupName + ".BankAccountBalances";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class SupplierScorecardVariables
     {
         public const string Default = GroupName + ".SupplierScorecardVariables";
