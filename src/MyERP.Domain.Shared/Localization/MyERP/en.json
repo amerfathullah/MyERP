@@ -4377,6 +4377,14 @@
     "PartyTypes": "Party Types",
     "Menu:PartyTypes": "Party Types",
     "NewPartyType": "New Party Type",
-    "EditPartyType": "Edit Party Type"
+    "EditPartyType": "Edit Party Type",
+    "Permission:SupplierScorecardVariables": "Supplier Scorecard Variables",
+    "Permission:SupplierScorecardVariables.Create": "Create Supplier Scorecard Variable",
+    "Permission:SupplierScorecardVariables.Edit": "Edit Supplier Scorecard Variable",
+    "Permission:SupplierScorecardVariables.Delete": "Delete Supplier Scorecard Variable",
+    "SupplierScorecardVariables": "Supplier Scorecard Variables",
+    "Menu:SupplierScorecardVariables": "Scorecard Variables",
+    "NewSupplierScorecardVariable": "New Supplier Scorecard Variable",
+    "EditSupplierScorecardVariable": "Edit Supplier Scorecard Variable"
   }
 }

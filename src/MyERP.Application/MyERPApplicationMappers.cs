@@ -1730,6 +1730,13 @@ public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sa
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SupplierScorecardVariableMapper : MapperBase<Purchasing.Entities.SupplierScorecardVariable, Purchasing.SupplierScorecardVariableDto>
+{
+    public override partial Purchasing.SupplierScorecardVariableDto Map(Purchasing.Entities.SupplierScorecardVariable source);
+    public override partial void Map(Purchasing.Entities.SupplierScorecardVariable source, Purchasing.SupplierScorecardVariableDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PartyTypeMapper : MapperBase<Core.Entities.PartyType, Core.PartyTypeDto>
 {
     public override partial Core.PartyTypeDto Map(Core.Entities.PartyType source);

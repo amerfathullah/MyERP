@@ -206,6 +206,7 @@ public class MyERPDbContext :
     public DbSet<ScorecardStanding> ScorecardStandings { get; set; }
     public DbSet<ScorecardCriterion> ScorecardCriteria { get; set; }
     public DbSet<ScorecardPeriod> ScorecardPeriods { get; set; }
+    public DbSet<SupplierScorecardVariable> SupplierScorecardVariables { get; set; }
     public DbSet<RequestForQuotation> RequestForQuotations { get; set; }
     public DbSet<RfqItem> RfqItems { get; set; }
     public DbSet<RfqSupplier> RfqSuppliers { get; set; }
@@ -3773,6 +3774,18 @@ public class MyERPDbContext :
             b.Property(x => x.TotalScore).HasColumnType("decimal(18,4)");
             b.HasOne<SupplierScorecard>().WithMany().HasForeignKey(x => x.SupplierScorecardId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.SupplierId, x.StartDate, x.EndDate });
+        });
+
+        builder.Entity<SupplierScorecardVariable>(b =>
+        {
+            b.ToTable("Pur_SupplierScorecardVariables", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.VariableLabel).IsRequired().HasMaxLength(SupplierScorecardVariableConsts.MaxVariableLabelLength);
+            b.Property(x => x.ParamName).IsRequired().HasMaxLength(SupplierScorecardVariableConsts.MaxParamNameLength);
+            b.Property(x => x.Path).IsRequired().HasMaxLength(SupplierScorecardVariableConsts.MaxPathLength);
+            b.Property(x => x.Description).HasMaxLength(SupplierScorecardVariableConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.TenantId, x.VariableLabel }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ParamName }).IsUnique();
         });
 
         // Request for Quotation

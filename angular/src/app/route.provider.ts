@@ -357,6 +357,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SupplierScorecards',
       },
       {
+        path: '/purchasing/scorecard-variables',
+        name: '::Menu:SupplierScorecardVariables',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-code',
+        order: 7.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SupplierScorecardVariables',
+      },
+      {
         path: '/purchasing/reports/upcoming-payments',
         name: '::Menu:UpcomingPaymentsDue',
         parentName: '::Menu:Purchasing',

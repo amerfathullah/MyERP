@@ -23,5 +23,6 @@ export * from './supplier-payment-summary.service';
 export * from './supplier-quotation-comparison.service';
 export * from './supplier-quotation.service';
 export * from './supplier-scorecard.service';
+export * from './supplier-scorecard-variable.service';
 export * from './supplier.service';
 export { Dtos };

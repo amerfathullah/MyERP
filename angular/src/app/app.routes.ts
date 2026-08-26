@@ -2404,6 +2404,32 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SupplierScorecards' },
   },
   {
+    path: 'purchasing/scorecard-variables',
+    loadComponent: () => import('./purchasing/scorecard-variables/scorecard-variable-list.component').then(c => c.ScorecardVariableListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SupplierScorecardVariables' },
+  },
+  {
+    path: 'purchasing/scorecard-variables/new',
+    loadComponent: () => import('./purchasing/scorecard-variables/scorecard-variable-form.component').then(c => c.ScorecardVariableFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.SupplierScorecardVariables.Create' },
+  },
+  {
+    path: 'purchasing/scorecard-variables/:id/edit',
+    loadComponent: () => import('./purchasing/scorecard-variables/scorecard-variable-form.component').then(c => c.ScorecardVariableFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.SupplierScorecardVariables.Edit' },
+  },
+  {
+    path: 'purchasing/scorecard-variables/:id',
+    loadComponent: () => import('./purchasing/scorecard-variables/scorecard-variable-form.component').then(c => c.ScorecardVariableFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SupplierScorecardVariables' },
+  },
+  {
     path: 'purchasing/rfq',
     loadComponent: () => import('./purchasing/rfq/rfq-list.component').then(c => c.RfqListComponent),
     canActivate: [authGuard, permissionGuard],

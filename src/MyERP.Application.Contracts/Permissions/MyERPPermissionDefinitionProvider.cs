@@ -587,6 +587,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Edit, L("Permission:SalesPartnerTypes.Edit"));
         salesPartnerTypePermission.AddChild(MyERPPermissions.SalesPartnerTypes.Delete, L("Permission:SalesPartnerTypes.Delete"));
 
+        var supplierScorecardVariablePermission = myGroup.AddPermission(MyERPPermissions.SupplierScorecardVariables.Default, L("Permission:SupplierScorecardVariables"));
+        supplierScorecardVariablePermission.AddChild(MyERPPermissions.SupplierScorecardVariables.Create, L("Permission:SupplierScorecardVariables.Create"));
+        supplierScorecardVariablePermission.AddChild(MyERPPermissions.SupplierScorecardVariables.Edit, L("Permission:SupplierScorecardVariables.Edit"));
+        supplierScorecardVariablePermission.AddChild(MyERPPermissions.SupplierScorecardVariables.Delete, L("Permission:SupplierScorecardVariables.Delete"));
+
         var partyTypePermission = myGroup.AddPermission(MyERPPermissions.PartyTypes.Default, L("Permission:PartyTypes"));
         partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Create, L("Permission:PartyTypes.Create"));
         partyTypePermission.AddChild(MyERPPermissions.PartyTypes.Edit, L("Permission:PartyTypes.Edit"));

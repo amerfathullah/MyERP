@@ -624,6 +624,26 @@ export interface ScorecardCriterionDto extends EntityDto<string> {
   formula?: string | null;
 }
 
+export interface SupplierScorecardVariableDto extends FullAuditedEntityDto<string> {
+  variableLabel?: string;
+  paramName?: string;
+  path?: string;
+  isCustom?: boolean;
+  description?: string | null;
+}
+
+export interface CreateUpdateSupplierScorecardVariableDto {
+  variableLabel: string;
+  paramName: string;
+  path: string;
+  isCustom?: boolean;
+  description?: string | null;
+}
+
+export interface GetSupplierScorecardVariableListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface ScorecardDto extends EntityDto<string> {
   supplierId?: string;
   companyId?: string;
