@@ -80,6 +80,7 @@
                 <th>{{ '::Item' | abpLocalization }}</th>
                 <th style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
                 <th style="width: 100px;">{{ '::UOM' | abpLocalization }}</th>
+                <th style="width: 160px;">{{ 'Warehouse' | abpLocalization }}</th>
                 <th style="width: 60px;"></th>
               </tr>
             </thead>
@@ -97,6 +98,14 @@
                   </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" formControlName="warehouseId">
+                      <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+                      @for (w of warehouses(); track w.id) {
+                        <option [value]="w.id">{{ w.name }}</option>
+                      }
+                    </select>
+                  </td>
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItemRow(i)" aria-label="Remove">
                       <i class="fa fa-trash"></i>

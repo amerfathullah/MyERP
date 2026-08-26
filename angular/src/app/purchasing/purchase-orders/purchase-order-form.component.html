@@ -141,6 +141,7 @@
                 <th style="min-width: 180px">{{ '::Item' | abpLocalization }}</th>
                 <th>{{ '::Description' | abpLocalization }}</th>
                 <th style="width: 100px">{{ '::Quantity' | abpLocalization }}</th>
+                <th style="width: 90px">{{ '::UOM' | abpLocalization }}</th>
                 <th style="width: 120px">{{ '::UnitPrice' | abpLocalization }}</th>
                 <th style="width: 100px">{{ '::Tax' | abpLocalization }}</th>
                 <th style="width: 120px">{{ '::LineTotal' | abpLocalization }}</th>
@@ -155,6 +156,7 @@
                   </td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:ItemDescription' | abpLocalization" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="taxAmount" /></td>
                   <td class="font-monospace text-end align-middle">{{ getLineTotal($any(row)) | number:'1.2-2' }}</td>
