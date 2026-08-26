@@ -45,7 +45,7 @@ public class DocumentNumberGenerator : DomainService, IDocumentNumberGenerator
 
                 if (series == null)
                 {
-                    throw new BusinessException(MyERPDomainErrorCodes.CompanyNameAlreadyExists)
+                    throw new BusinessException(MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
                         .WithData("documentType", documentType);
                 }
 
@@ -77,7 +77,7 @@ public class DocumentNumberGenerator : DomainService, IDocumentNumberGenerator
             }
         }
 
-        throw new BusinessException(MyERPDomainErrorCodes.CompanyNameAlreadyExists)
+        throw new BusinessException(MyERPDomainErrorCodes.DocumentNumberGenerationFailed)
             .WithData("documentType", documentType);
     }
 

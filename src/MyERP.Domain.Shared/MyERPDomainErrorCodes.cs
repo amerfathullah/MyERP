@@ -8,6 +8,8 @@ public static class MyERPDomainErrorCodes
     public const string CompanyCurrencyLocked = "MyERP:00003";
     public const string CompanyRestrictionBlocked = "MyERP:00004";
     public const string DuplicateRecord = "MyERP:00005";
+    public const string DocumentSeriesNotConfigured = "MyERP:18003";
+    public const string DocumentNumberGenerationFailed = "MyERP:18004";
     public const string ItemNotFound = "MyERP:ItemNotFound";
     public const string ExceedsActualQty = "MyERP:ExceedsActualQty";
 
