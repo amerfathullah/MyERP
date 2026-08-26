@@ -40,6 +40,10 @@ export class MaterialRequestDetailComponent implements OnInit {
   showConvertPanel = signal(false);
   selectedSupplierId = '';
 
+  // Per-item supplier split (Create > Split by Supplier)
+  showSplitPanel = signal(false);
+  splitSelections: Record<string, { supplierId: string; quantity: number }> = {};
+
   get workflowActions(): WorkflowAction[] {
     if (!this.entity) return [];
     const s = this.entity.status;
@@ -50,6 +54,7 @@ export class MaterialRequestDetailComponent implements OnInit {
     if (s === 1) { // Submitted
       if (this.entity.requestType === 0) { // Purchase
         actions.push({ name: 'convertToPO', label: 'Create Purchase Order', icon: 'file-invoice', color: 'success' });
+        actions.push({ name: 'splitBySupplier', label: 'Split by Supplier', icon: 'code-branch', color: 'secondary' });
       }
       if (this.entity.requestType === 1 || this.entity.requestType === 2) { // Transfer/Issue
         actions.push({ name: 'createSE', label: 'Create Stock Entry', icon: 'truck', color: 'info' });
@@ -93,6 +98,7 @@ export class MaterialRequestDetailComponent implements OnInit {
     switch (action) {
       case 'submit': this.submit(); break;
       case 'convertToPO': this.convertToPO(); break;
+      case 'splitBySupplier': this.openSplitPanel(); break;
       case 'createSE': this.createStockEntry(); break;
       case 'cancel': this.cancelMR(); break;
     }
@@ -143,6 +149,55 @@ export class MaterialRequestDetailComponent implements OnInit {
         this.router.navigate(['/purchasing/orders', po.id]);
       },
       error: () => { this.actionLoading.set(false); this.toaster.error('::ConversionFailed'); },
+    });
+  }
+
+  openSplitPanel(): void {
+    this.loadSuppliers();
+    this.splitSelections = {};
+    for (const item of this.entity?.items ?? []) {
+      const pending = (item.quantity ?? 0) - (item.orderedQuantity ?? 0);
+      if (pending > 0.0001) {
+        this.splitSelections[item.id!] = { supplierId: '', quantity: pending };
+      }
+    }
+    this.showSplitPanel.set(true);
+  }
+
+  pendingQty(item: any): number {
+    return Math.max(0, (item.quantity ?? 0) - (item.orderedQuantity ?? 0));
+  }
+
+  confirmSplitConvert(): void {
+    const items = Object.entries(this.splitSelections)
+      .filter(([, sel]) => sel.supplierId && sel.quantity > 0)
+      .map(([materialRequestItemId, sel]) => ({
+        materialRequestItemId,
+        supplierId: sel.supplierId,
+        quantity: sel.quantity,
+      }));
+
+    if (!items.length) {
+      this.toaster.warn('::PleaseSelectSupplier');
+      return;
+    }
+
+    this.actionLoading.set(true);
+    this.purchaseConversionService.createPurchaseOrdersFromMaterialRequest({
+      materialRequestId: this.entity!.id!,
+      items,
+    }).subscribe({
+      next: (result) => {
+        this.actionLoading.set(false);
+        this.showSplitPanel.set(false);
+        this.toaster.success('::SuccessfullyCreated');
+        if (result.purchaseOrders?.length === 1) {
+          this.router.navigate(['/purchasing/orders', result.purchaseOrders[0].purchaseOrderId]);
+        } else {
+          this.reload();
+        }
+      },
+      error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::ConversionFailed'); },
     });
   }
 

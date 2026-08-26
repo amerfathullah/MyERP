@@ -109,6 +109,60 @@
       </div>
     }
 
+    <!-- Per-item supplier split panel for MR->PO conversion -->
+    @if (showSplitPanel()) {
+      <div class="card mb-3 border-primary">
+        <div class="card-body">
+          <h6 class="card-title mb-3"><i class="fa fa-code-branch me-2"></i>{{ '::SplitBySupplier' | abpLocalization }}</h6>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>{{ '::ItemName' | abpLocalization }}</th>
+                  <th style="width: 140px;">{{ '::PendingQty' | abpLocalization }}</th>
+                  <th style="width: 160px;">{{ '::Supplier' | abpLocalization }}</th>
+                  <th style="width: 140px;">{{ '::Quantity' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of entity.items; track item.id ?? $index) {
+                  @if (pendingQty(item) > 0.0001 && splitSelections[item.id!]) {
+                    <tr>
+                      <td>{{ item.itemName }}</td>
+                      <td class="font-monospace">{{ pendingQty(item) | number:'1.2-2' }}</td>
+                      <td>
+                        <select class="form-select form-select-sm" [(ngModel)]="splitSelections[item.id!].supplierId">
+                          <option value="">{{ '::SelectSupplier' | abpLocalization }}</option>
+                          @for (s of suppliers(); track s.id) {
+                            <option [value]="s.id">{{ s.supplierName }}</option>
+                          }
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" class="form-control form-control-sm" [(ngModel)]="splitSelections[item.id!].quantity"
+                          [max]="pendingQty(item)" min="0" step="0.01" />
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm" (click)="confirmSplitConvert()" [disabled]="actionLoading()">
+              @if (actionLoading()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              }
+              {{ '::CreatePurchaseOrders' | abpLocalization }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="showSplitPanel.set(false)">
+              {{ '::Cancel' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Items table with per-item fulfillment progress -->
     <div class="card">
       <div class="card-header">

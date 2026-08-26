@@ -1583,6 +1583,8 @@
     "Invoices": "Invoices",
     "Return": "Return",
     "ConvertToPurchaseOrder": "Convert to PO",
+    "SplitBySupplier": "Split by Supplier",
+    "CreatePurchaseOrders": "Create Purchase Orders",
     "Conversion": "Conversion",
     "SalarySlip": "Salary Slip",
     "NoSalarySlipsYet": "No salary slips found. Run payroll to generate slips.",
