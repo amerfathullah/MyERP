@@ -329,33 +329,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                 });
 
-                // Enqueue asset depreciation scheduler
-                // Per ERPNext: assets/doctype/asset/depreciation.py
-                await jobManager.EnqueueAsync(new Assets.BackgroundJobs.DepreciationSchedulerArgs
-                {
-                    CompanyId = company.Id,
-                    TenantId = company.TenantId,
-                    AsOfDate = DateTime.UtcNow.Date,
-                });
-
-                // Enqueue maintenance schedule reminders
-                // Per ERPNext: maintenance_schedule.generate_schedule
-                await jobManager.EnqueueAsync(new Maintenance.BackgroundJobs.MaintenanceScheduleReminderJobArgs
-                {
-                    CompanyId = company.Id,
-                    TenantId = company.TenantId,
-                    AsOfDate = DateTime.UtcNow.Date,
-                });
-
-                // Enqueue supplier scorecard periodic evaluation
-                // Per ERPNext: supplier_scorecard.generate_scorecards
-                await jobManager.EnqueueAsync(new Purchasing.BackgroundJobs.SupplierScorecardEvaluationJobArgs
-                {
-                    CompanyId = company.Id,
-                    TenantId = company.TenantId,
-                    AsOfDate = DateTime.UtcNow.Date,
-                });
-
                 // Enqueue unbilled orders notification digest
                 // Per ERPNext: unbilled_item_notifications
                 await jobManager.EnqueueAsync(new Sales.BackgroundJobs.UnbilledOrdersNotificationJobArgs
@@ -495,15 +468,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                 });
 
-                // Enqueue upcoming maintenance schedule visit reminders
-                // Per ERPNext: maintenance_schedule.send_maintenance_reminder
-                await jobManager.EnqueueAsync(new Maintenance.BackgroundJobs.MaintenanceScheduleReminderJobArgs
-                {
-                    CompanyId = company.Id,
-                    TenantId = company.TenantId,
-                    AsOfDate = DateTime.UtcNow.Date,
-                });
-
                 // Enqueue submitted payment orders pending bank execution
                 // Per ERPNext: payment_order.update_payment_order_status
                 await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.PaymentOrderNotificationJobArgs
@@ -568,6 +532,15 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                 // Enqueue contract expiration, auto-renewal and renewal notices
                 // Per ERPNext: contract.update_contract_status
                 await jobManager.EnqueueAsync(new CRM.BackgroundJobs.ContractExpiryJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue upcoming maintenance schedule visit reminders
+                // Per ERPNext: maintenance_schedule.send_maintenance_reminder
+                await jobManager.EnqueueAsync(new Maintenance.BackgroundJobs.MaintenanceScheduleReminderJobArgs
                 {
                     CompanyId = company.Id,
                     TenantId = company.TenantId,

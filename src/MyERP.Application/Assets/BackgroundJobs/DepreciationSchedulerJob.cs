@@ -33,6 +33,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<FinanceBook, Guid> _financeBookRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<DepreciationSchedulerJob> _logger;
 
@@ -42,6 +43,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
         IRepository<JournalEntry, Guid> journalRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<FinanceBook, Guid> financeBookRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository,
         IGuidGenerator guidGenerator,
         ILogger<DepreciationSchedulerJob> logger)
     {
@@ -50,6 +52,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
         _journalRepository = journalRepository;
         _companyRepository = companyRepository;
         _financeBookRepository = financeBookRepository;
+        _fiscalYearRepository = fiscalYearRepository;
         _guidGenerator = guidGenerator;
         _logger = logger;
     }
@@ -61,6 +64,25 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
 
         // Check frozen date — skip entries within frozen period
         var company = await _companyRepository.GetAsync(args.CompanyId);
+
+        // Resolve the open fiscal year covering today — no caller has ever actually supplied
+        // FiscalYearId (both NightlyProcessingWorker enqueue sites omit it), which silently
+        // skipped every single asset below. Resolve it here so the job is self-sufficient
+        // instead of depending on a value nothing ever populates.
+        var fiscalYearId = args.FiscalYearId;
+        if (!fiscalYearId.HasValue)
+        {
+            var fiscalYear = await _fiscalYearRepository.FindAsync(fy =>
+                fy.CompanyId == args.CompanyId && !fy.IsClosed &&
+                fy.StartDate <= today && fy.EndDate >= today);
+            fiscalYearId = fiscalYear?.Id;
+        }
+
+        if (!fiscalYearId.HasValue)
+        {
+            _logger.LogWarning("Depreciation scheduler: no open fiscal year for company {CompanyId} on {Date}, skipping", args.CompanyId, today);
+            return;
+        }
 
         var assetQuery = await _assetRepository.GetQueryableAsync();
         var assets = assetQuery
@@ -109,12 +131,6 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                 continue;
             }
 
-            if (!args.FiscalYearId.HasValue)
-            {
-                Logger.LogWarning("Skipping depreciation for asset {AssetId}: fiscal year not provided", asset.Id);
-                continue;
-            }
-
             foreach (var bookGroup in entriesByBook)
             {
                 // Resolve finance book name for JE tagging
@@ -138,7 +154,7 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                     var journal = new JournalEntry(
                         _guidGenerator.Create(),
                         asset.CompanyId,
-                        args.FiscalYearId.Value,
+                        fiscalYearId.Value,
                         entry.ScheduleDate,
                         asset.TenantId);
 
