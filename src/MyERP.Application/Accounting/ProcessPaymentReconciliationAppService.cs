@@ -106,6 +106,59 @@ public class ProcessPaymentReconciliationAppService : ApplicationService, IProce
         return ToDto(entity);
     }
 
+    /// <summary>
+    /// Pauses an ongoing/queued reconciliation job chain (Gotcha #6008).
+    /// </summary>
+    [Authorize(MyERPPermissions.ProcessPaymentReconciliation.Default)]
+    public async Task<ProcessPaymentReconciliationDto> PauseAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Pause();
+        await _repository.UpdateAsync(entity, autoSave: true);
+        return ToDto(entity);
+    }
+
+    /// <summary>
+    /// Resumes a paused reconciliation process and re-enqueues the background job chain (Gotcha #6008).
+    /// </summary>
+    [Authorize(MyERPPermissions.ProcessPaymentReconciliation.Default)]
+    public async Task<ProcessPaymentReconciliationDto> ResumeAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Resume();
+        await _repository.UpdateAsync(entity, autoSave: true);
+
+        await _jobManager.EnqueueAsync(new ProcessPaymentReconciliationJobArgs
+        {
+            RequestId = entity.Id,
+            TenantId = entity.TenantId,
+        });
+
+        return ToDto(entity);
+    }
+
+    /// <summary>
+    /// Computes real-time progress metrics for payment reconciliation (Gotcha #6008).
+    /// </summary>
+    public async Task<ProcessPaymentReconciliationProgressDto> GetProgressAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        return new ProcessPaymentReconciliationProgressDto
+        {
+            Id = entity.Id,
+            Status = (int)entity.Status,
+            StatusName = entity.Status.ToString(),
+            ReconciledCount = entity.ReconciledCount,
+            CanPause = entity.Status is Entities.ProcessPaymentReconciliationStatus.Queued or Entities.ProcessPaymentReconciliationStatus.Running,
+            CanResume = entity.Status == Entities.ProcessPaymentReconciliationStatus.Paused,
+            CanCancel = entity.Status is not (Entities.ProcessPaymentReconciliationStatus.Completed
+                                              or Entities.ProcessPaymentReconciliationStatus.PartiallyReconciled
+                                              or Entities.ProcessPaymentReconciliationStatus.Failed
+                                              or Entities.ProcessPaymentReconciliationStatus.Cancelled),
+            ErrorLog = entity.ErrorLog
+        };
+    }
+
     private static ProcessPaymentReconciliationDto ToDto(Entities.ProcessPaymentReconciliation entity) => new()
     {
         Id = entity.Id,

@@ -54,9 +54,9 @@ public class ProcessPaymentReconciliationJob : AsyncBackgroundJob<ProcessPayment
             return;
         }
 
-        if (request.Status == ProcessPaymentReconciliationStatus.Cancelled)
+        if (request.Status is ProcessPaymentReconciliationStatus.Cancelled or ProcessPaymentReconciliationStatus.Paused)
         {
-            _logger.LogInformation("ProcessPaymentReconciliationJob: {RequestId} was cancelled, stopping chain.", args.RequestId);
+            _logger.LogInformation("ProcessPaymentReconciliationJob: {RequestId} was cancelled or paused, stopping chain.", args.RequestId);
             return;
         }
 

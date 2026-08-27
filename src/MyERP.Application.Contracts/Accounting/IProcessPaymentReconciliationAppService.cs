@@ -16,4 +16,7 @@ public interface IProcessPaymentReconciliationAppService : IApplicationService
     Task<ProcessPaymentReconciliationDto> SubmitAsync(Guid id);
 
     Task<ProcessPaymentReconciliationDto> CancelAsync(Guid id);
+    Task<ProcessPaymentReconciliationDto> PauseAsync(Guid id);
+    Task<ProcessPaymentReconciliationDto> ResumeAsync(Guid id);
+    Task<ProcessPaymentReconciliationProgressDto> GetProgressAsync(Guid id);
 }

@@ -107,6 +107,24 @@ public class ProcessPaymentReconciliation : FullAuditedAggregateRoot<Guid>, IMul
 
     /// <summary>Draft/Queued/Running only — a finished or already-cancelled request can't be
     /// re-cancelled.</summary>
+    public void Pause()
+    {
+        if (Status is not (ProcessPaymentReconciliationStatus.Queued or ProcessPaymentReconciliationStatus.Running))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = ProcessPaymentReconciliationStatus.Paused;
+    }
+
+    public void Resume()
+    {
+        if (Status != ProcessPaymentReconciliationStatus.Paused)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = ProcessPaymentReconciliationStatus.Queued;
+    }
+
+    /// <summary>Draft/Queued/Running/Paused only — a finished or already-cancelled request can't be
+    /// re-cancelled.</summary>
     public void Cancel()
     {
         if (Status is ProcessPaymentReconciliationStatus.Completed
@@ -129,5 +147,6 @@ public enum ProcessPaymentReconciliationStatus
     Completed = 3,
     PartiallyReconciled = 4,
     Failed = 5,
-    Cancelled = 6
+    Cancelled = 6,
+    Paused = 7
 }

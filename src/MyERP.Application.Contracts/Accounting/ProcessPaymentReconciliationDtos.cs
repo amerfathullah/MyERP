@@ -25,3 +25,15 @@ public class CreateProcessPaymentReconciliationDto
     public Guid ReceivablePayableAccountId { get; set; }
     public Guid? DefaultAdvanceAccountId { get; set; }
 }
+
+public class ProcessPaymentReconciliationProgressDto
+{
+    public Guid Id { get; set; }
+    public int Status { get; set; }
+    public string StatusName { get; set; } = null!;
+    public int ReconciledCount { get; set; }
+    public bool CanPause { get; set; }
+    public bool CanResume { get; set; }
+    public bool CanCancel { get; set; }
+    public string? ErrorLog { get; set; }
+}
