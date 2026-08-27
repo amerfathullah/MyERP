@@ -126,8 +126,10 @@ public class AccountingRuleEngine : DomainService
 
         foreach (var rule in rules.OrderBy(r => r.SortOrder))
         {
-            var amountInTransactionCurrency = ResolveAmount(rule.AmountSource, document);
-            if (amountInTransactionCurrency <= 0) continue;
+            var rawAmount = ResolveAmount(rule.AmountSource, document);
+            if (rawAmount == 0) continue;
+
+            var (amountInTransactionCurrency, isDebit) = ResolveDirectionAndAmount(rawAmount, rule.IsDebit);
 
             var accountId = ResolveAccountId(rule, company, warehouseStockAccountOverride);
 
@@ -135,7 +137,7 @@ public class AccountingRuleEngine : DomainService
             {
                 // Multi-currency: Amount in company currency, AmountInAccountCurrency in transaction currency
                 var amountInCompanyCurrency = Math.Round(amountInTransactionCurrency * document.ExchangeRate, 4);
-                journal.AddLine(accountId, amountInCompanyCurrency, rule.IsDebit);
+                journal.AddLine(accountId, amountInCompanyCurrency, isDebit);
 
                 // Set multi-currency fields on the last added line
                 var lastLine = journal.Lines[^1];
@@ -147,7 +149,7 @@ public class AccountingRuleEngine : DomainService
             else
             {
                 // Same currency: Amount = AmountInAccountCurrency, ExchangeRate = 1
-                journal.AddLine(accountId, amountInTransactionCurrency, rule.IsDebit);
+                journal.AddLine(accountId, amountInTransactionCurrency, isDebit);
 
                 // Tag with finance book if specified
                 if (document.FinanceBook != null)
@@ -283,6 +285,23 @@ public class AccountingRuleEngine : DomainService
                 originalLine.Amount = firstPortion + remainder;
             }
         }
+    }
+
+    /// <summary>
+    /// Per ERPNext: return documents (Credit/Debit Notes) carry negative qty/amounts and reuse
+    /// the SAME GL rules as the original document — the sign alone reverses the ledger impact
+    /// there because ERPNext allows a negative amount in the debit/credit column.
+    /// JournalEntryLine.Amount here is documented as always-positive with direction from IsDebit,
+    /// so a negative resolved amount must instead flip IsDebit and post the magnitude —
+    /// otherwise every rule line for a return is silently skipped (old check was amount &lt;= 0)
+    /// and the whole return fails to post (JournalEntry.Validate() throws UnbalancedJournalEntry
+    /// on a zero-line journal).
+    /// </summary>
+    internal static (decimal Amount, bool IsDebit) ResolveDirectionAndAmount(decimal rawAmount, bool ruleIsDebit)
+    {
+        return rawAmount < 0
+            ? (-rawAmount, !ruleIsDebit)
+            : (rawAmount, ruleIsDebit);
     }
 
     private decimal ResolveAmount(AmountSource source, IAccountableDocument document)

@@ -270,6 +270,82 @@ public class AccountingRuleEngineTests
         doc.TaxAmount.ShouldBe(0);
     }
 
+    // === Return Document (negative amount) Direction Tests ===
+
+    [Fact]
+    public void ResolveDirectionAndAmount_PositiveAmount_KeepsRuleDirection()
+    {
+        var (amount, isDebit) = AccountingRuleEngine.ResolveDirectionAndAmount(1080m, ruleIsDebit: true);
+        amount.ShouldBe(1080m);
+        isDebit.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ResolveDirectionAndAmount_NegativeAmount_FlipsDirectionAndTakesAbsoluteValue()
+    {
+        // A Credit Note's GrandTotal is negative; the DR-Receivable rule must become CR
+        // and post the positive magnitude, not be skipped.
+        var (amount, isDebit) = AccountingRuleEngine.ResolveDirectionAndAmount(-1080m, ruleIsDebit: true);
+        amount.ShouldBe(1080m);
+        isDebit.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ResolveDirectionAndAmount_NegativeAmount_CreditRuleBecomesDebit()
+    {
+        var (amount, isDebit) = AccountingRuleEngine.ResolveDirectionAndAmount(-1000m, ruleIsDebit: false);
+        amount.ShouldBe(1000m);
+        isDebit.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SalesReturn_NegativeAmounts_ProducesBalancedPostableJournal()
+    {
+        // Regression test for a real bug: before the fix, every rule line for a return document
+        // (negative NetTotal/GrandTotal/TaxAmount) was skipped by "amount <= 0 continue", leaving
+        // a zero-line journal that JournalEntry.Validate() rejects with UnbalancedJournalEntry —
+        // Sales/Purchase Returns could never post at all through AccountingRuleEngine.
+        var companyId = Guid.NewGuid();
+        var fiscalYearId = Guid.NewGuid();
+        var receivableAccId = Guid.NewGuid();
+        var revenueAccId = Guid.NewGuid();
+        var taxAccId = Guid.NewGuid();
+
+        // Same SI rule set as JournalEntry_SalesInvoice_ThreeLines_Balanced, but for a return:
+        // DR Receivable(GrandTotal), CR Revenue(NetTotal), CR Tax(TaxAmount) — all negative.
+        var doc = new TestDocument
+        {
+            CompanyId = companyId,
+            NetTotal = -1000,
+            GrandTotal = -1080,
+            TaxAmount = -80,
+        };
+
+        var journal = new JournalEntry(Guid.NewGuid(), companyId, fiscalYearId, doc.PostingDate);
+        journal.ReferenceType = doc.DocumentType;
+        journal.ReferenceId = doc.Id;
+
+        void AddRuleLine(AmountSource source, bool ruleIsDebit, Guid accountId)
+        {
+            var raw = ResolveAmount(source, doc);
+            if (raw == 0) return;
+            var (amount, isDebit) = AccountingRuleEngine.ResolveDirectionAndAmount(raw, ruleIsDebit);
+            journal.AddLine(accountId, amount, isDebit);
+        }
+
+        AddRuleLine(AmountSource.GrandTotal, true, receivableAccId);
+        AddRuleLine(AmountSource.NetTotal, false, revenueAccId);
+        AddRuleLine(AmountSource.TaxAmount, false, taxAccId);
+
+        journal.Lines.Count.ShouldBe(3); // not silently dropped
+        journal.Lines.Single(l => l.AccountId == receivableAccId).IsDebit.ShouldBeFalse(); // reversed: CR
+        journal.Lines.Single(l => l.AccountId == revenueAccId).IsDebit.ShouldBeTrue();      // reversed: DR
+        journal.Lines.Single(l => l.AccountId == taxAccId).IsDebit.ShouldBeTrue();          // reversed: DR
+        journal.Lines.Sum(l => l.Amount * (l.IsDebit ? 1 : -1)).ShouldBe(0m); // balanced
+
+        Should.NotThrow(() => journal.Validate());
+    }
+
     // === Round-Off Tests ===
 
     [Fact]
