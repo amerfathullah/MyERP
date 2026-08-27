@@ -105,6 +105,30 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     AsOfDate = DateTime.UtcNow.Date,
                 });
 
+                // Enqueue recurring purchase invoice generation
+                await jobManager.EnqueueAsync(new Core.BackgroundJobs.RecurringPurchaseInvoiceJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue recurring sales order generation
+                await jobManager.EnqueueAsync(new Core.BackgroundJobs.RecurringSalesOrderJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
+                // Enqueue recurring purchase order generation
+                await jobManager.EnqueueAsync(new Core.BackgroundJobs.RecurringPurchaseOrderJobArgs
+                {
+                    CompanyId = company.Id,
+                    TenantId = company.TenantId,
+                    AsOfDate = DateTime.UtcNow.Date,
+                });
+
                 // Enqueue ledger health check (per DO-NOT: must run daily to detect GL inconsistencies)
                 await jobManager.EnqueueAsync(new Accounting.BackgroundJobs.LedgerHealthCheckJobArgs
                 {
