@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
@@ -17,4 +18,10 @@ public interface IPaymentOrderAppService : IApplicationService
 
     /// <summary>Batches all reference rows for one supplier into a single Journal Entry (bank submission run).</summary>
     Task<Guid> MakePaymentRecordsAsync(Guid id, MakePaymentRecordsDto input);
+
+    /// <summary>Gets candidate pending Payment Requests for import into Payment Order.</summary>
+    Task<List<CandidatePaymentRequestDto>> GetCandidatePaymentRequestsAsync(Guid companyId);
+
+    /// <summary>Gets candidate pending Payment Entries for import into Payment Order.</summary>
+    Task<List<CandidatePaymentEntryDto>> GetCandidatePaymentEntriesAsync(Guid companyId);
 }

@@ -100,6 +100,26 @@ public class WarrantyClaim : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = WarrantyClaimStatus.Cancelled;
     }
 
+    /// <summary>Set status back to Work In Progress (when a completed visit is cancelled but other active visits exist).</summary>
+    public void SetWorkInProgress()
+    {
+        if (Status == WarrantyClaimStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("from", Status.ToString()).WithData("to", "WorkInProgress");
+        Status = WarrantyClaimStatus.WorkInProgress;
+        ResolutionDate = null;
+    }
+
+    /// <summary>Reopen the claim back to Open (when all linked visits are cancelled).</summary>
+    public void Reopen()
+    {
+        if (Status == WarrantyClaimStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("from", Status.ToString()).WithData("to", "Open");
+        Status = WarrantyClaimStatus.Open;
+        ResolutionDate = null;
+    }
+
     /// <summary>Check if the claim is within warranty coverage.</summary>
     public bool IsUnderWarranty(DateTime? asOfDate = null)
     {

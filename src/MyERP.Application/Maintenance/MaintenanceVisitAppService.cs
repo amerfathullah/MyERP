@@ -14,10 +14,14 @@ namespace MyERP.Maintenance;
 public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitAppService
 {
     private readonly IRepository<MaintenanceVisit, Guid> _visitRepository;
+    private readonly IRepository<WarrantyClaim, Guid> _warrantyClaimRepository;
 
-    public MaintenanceVisitAppService(IRepository<MaintenanceVisit, Guid> visitRepository)
+    public MaintenanceVisitAppService(
+        IRepository<MaintenanceVisit, Guid> visitRepository,
+        IRepository<WarrantyClaim, Guid> warrantyClaimRepository)
     {
         _visitRepository = visitRepository;
+        _warrantyClaimRepository = warrantyClaimRepository;
     }
 
     public async Task<MaintenanceVisitDto> GetAsync(Guid id)
@@ -87,12 +91,15 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
 
         await _visitRepository.InsertAsync(entity, autoSave: true);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
-            "Created", entity.CompanyId,
-            entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser.Id,
-            $"Maintenance Visit {entity.Id.ToString()[..8]} created ({entity.MaintenanceType})", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+                "Created", entity.CompanyId,
+                entity.Id.ToString()[..8], "Draft", "Draft", CurrentUser?.Id,
+                $"Maintenance Visit {entity.Id.ToString()[..8]} created ({entity.MaintenanceType})", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
     }
@@ -120,12 +127,28 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         entity.Complete();
         await _visitRepository.UpdateAsync(entity, autoSave: true);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
-            "Completed", entity.CompanyId,
-            entity.Id.ToString()[..8], "Draft", "Completed", CurrentUser.Id,
-            $"Maintenance Visit {entity.Id.ToString()[..8]} completed on {entity.VisitDate:yyyy-MM-dd}", CurrentTenant.Id));
+        // Cascade resolution to linked Warranty Claim (Gotcha #4171 / #5974)
+        if (entity.WarrantyClaimId.HasValue)
+        {
+            var claim = await _warrantyClaimRepository.FindAsync(entity.WarrantyClaimId.Value);
+            if (claim != null && claim.Status != WarrantyClaimStatus.Cancelled)
+            {
+                var resolutionText = entity.Purposes.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.WorkDone))?.WorkDone
+                    ?? $"Completed via Maintenance Visit {entity.Id.ToString()[..8]}";
+                claim.Close(resolutionText);
+                await _warrantyClaimRepository.UpdateAsync(claim);
+            }
+        }
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+                "Completed", entity.CompanyId,
+                entity.Id.ToString()[..8], "Draft", "Completed", CurrentUser?.Id,
+                $"Maintenance Visit {entity.Id.ToString()[..8]} completed on {entity.VisitDate:yyyy-MM-dd}", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
     }
@@ -135,7 +158,7 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
     {
         var entity = await _visitRepository.GetAsync(id);
 
-        // Guard: must cancel newer visits first (gotcha #2199 / #2998)
+        // Guard 1: must cancel newer visits first for the same Maintenance Schedule (Gotcha #2199 / #2998)
         if (entity.MaintenanceScheduleId.HasValue)
         {
             var query = await _visitRepository.GetQueryableAsync();
@@ -153,15 +176,61 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
             }
         }
 
+        // Guard 2: must cancel newer visits first for the same Warranty Claim (Gotcha #4171 / #5974)
+        if (entity.WarrantyClaimId.HasValue)
+        {
+            var query = await _visitRepository.GetQueryableAsync();
+            var laterClaimVisits = query
+                .Where(v => v.WarrantyClaimId == entity.WarrantyClaimId.Value
+                    && v.Id != entity.Id
+                    && v.CompletionStatus != MaintenanceVisitStatus.Cancelled
+                    && (v.VisitDate > entity.VisitDate || (v.VisitDate == entity.VisitDate && v.CreationTime > entity.CreationTime)))
+                .ToList();
+
+            if (laterClaimVisits.Any())
+            {
+                throw new Volo.Abp.BusinessException("MyERP:14003")
+                    .WithData("reason", $"Cannot cancel Maintenance Visit {entity.Id.ToString()[..8]} because later active visit(s) exist for the same Warranty Claim. Cancel later visits first.");
+            }
+        }
+
         entity.Cancel();
         await _visitRepository.UpdateAsync(entity, autoSave: true);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
-            "Cancelled", entity.CompanyId,
-            entity.Id.ToString()[..8], entity.CompletionStatus.ToString(), "Cancelled", CurrentUser.Id,
-            $"Maintenance Visit {entity.Id.ToString()[..8]} cancelled", CurrentTenant.Id));
+        // Cascade restoration to linked Warranty Claim (Gotcha #4171 / #5974)
+        if (entity.WarrantyClaimId.HasValue)
+        {
+            var claim = await _warrantyClaimRepository.FindAsync(entity.WarrantyClaimId.Value);
+            if (claim != null && claim.Status != WarrantyClaimStatus.Cancelled)
+            {
+                var query = await _visitRepository.GetQueryableAsync();
+                var otherActiveVisits = query
+                    .Where(v => v.WarrantyClaimId == entity.WarrantyClaimId.Value
+                        && v.Id != entity.Id
+                        && v.CompletionStatus != MaintenanceVisitStatus.Cancelled)
+                    .ToList();
+
+                if (otherActiveVisits.Any())
+                {
+                    claim.SetWorkInProgress();
+                }
+                else
+                {
+                    claim.Reopen();
+                }
+                await _warrantyClaimRepository.UpdateAsync(claim);
+            }
+        }
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "MaintenanceVisit", entity.Id,
+                "Cancelled", entity.CompanyId,
+                entity.Id.ToString()[..8], entity.CompletionStatus.ToString(), "Cancelled", CurrentUser?.Id,
+                $"Maintenance Visit {entity.Id.ToString()[..8]} cancelled", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
     }

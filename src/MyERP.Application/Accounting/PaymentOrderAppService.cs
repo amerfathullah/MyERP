@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
@@ -22,6 +24,8 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
     private readonly IRepository<BankAccount, Guid> _bankAccountRepository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<PaymentRequest, Guid> _paymentRequestRepository;
+    private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
 
     public PaymentOrderAppService(
@@ -30,6 +34,8 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
         IRepository<BankAccount, Guid> bankAccountRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<PaymentRequest, Guid> paymentRequestRepository,
+        IRepository<PaymentEntry, Guid> paymentEntryRepository,
         IDocumentNumberGenerator numberGenerator)
     {
         _repository = repository;
@@ -37,6 +43,8 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
         _bankAccountRepository = bankAccountRepository;
         _fiscalYearRepository = fiscalYearRepository;
         _journalEntryRepository = journalEntryRepository;
+        _paymentRequestRepository = paymentRequestRepository;
+        _paymentEntryRepository = paymentEntryRepository;
         _numberGenerator = numberGenerator;
     }
 
@@ -160,6 +168,82 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
         await _journalEntryRepository.InsertAsync(je);
 
         return je.Id;
+    }
+
+    /// <summary>
+    /// Gets candidate pending Payment Requests for import into Payment Order.
+    /// Per ERPNext payment_order.js: filters to Initiated outward payment requests not already in active payment orders.
+    /// </summary>
+    public async Task<List<CandidatePaymentRequestDto>> GetCandidatePaymentRequestsAsync(Guid companyId)
+    {
+        var existingOrderRefs = (await _repository.WithDetailsAsync())
+            .Where(o => o.CompanyId == companyId && o.Status != DocumentStatus.Cancelled)
+            .SelectMany(o => o.References)
+            .Where(r => r.ReferenceType == "PaymentRequest")
+            .Select(r => r.ReferenceId)
+            .ToHashSet();
+
+        var prQuery = await _paymentRequestRepository.GetQueryableAsync();
+        var candidates = prQuery
+            .Where(pr => pr.CompanyId == companyId
+                && pr.Status == PaymentRequestStatus.Initiated
+                && pr.PaymentRequestType == "Outward"
+                && !existingOrderRefs.Contains(pr.Id))
+            .OrderByDescending(pr => pr.CreationTime)
+            .ToList();
+
+        return candidates.Select(pr => new CandidatePaymentRequestDto
+        {
+            Id = pr.Id,
+            ReferenceDoctype = pr.ReferenceDoctype,
+            ReferenceId = pr.ReferenceId,
+            ReferenceNumber = pr.ReferenceNumber,
+            PartyId = pr.PartyId,
+            PartyType = pr.PartyType,
+            PartyName = pr.PartyName,
+            GrandTotal = pr.GrandTotal,
+            OutstandingAmount = pr.OutstandingAmount,
+            Currency = pr.Currency,
+            BankAccountId = pr.BankAccountId
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Gets candidate submitted Payment Entries for import into Payment Order.
+    /// Per ERPNext payment_order.js: filters to submitted outward/pay payment entries not already in active payment orders.
+    /// </summary>
+    public async Task<List<CandidatePaymentEntryDto>> GetCandidatePaymentEntriesAsync(Guid companyId)
+    {
+        var existingOrderRefs = (await _repository.WithDetailsAsync())
+            .Where(o => o.CompanyId == companyId && o.Status != DocumentStatus.Cancelled)
+            .SelectMany(o => o.References)
+            .Where(r => r.ReferenceType == "PaymentEntry")
+            .Select(r => r.ReferenceId)
+            .ToHashSet();
+
+        var peQuery = await _paymentEntryRepository.GetQueryableAsync();
+        var candidates = peQuery
+            .Where(pe => pe.CompanyId == companyId
+                && (pe.Status == DocumentStatus.Submitted || pe.Status == DocumentStatus.Posted)
+                && pe.PaymentType != PaymentType.Receive
+                && !existingOrderRefs.Contains(pe.Id))
+            .OrderByDescending(pe => pe.PostingDate)
+            .ToList();
+
+        return candidates.Select(pe => new CandidatePaymentEntryDto
+        {
+            Id = pe.Id,
+            EntryNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8].ToUpperInvariant(),
+            PostingDate = pe.PostingDate,
+            PaymentType = pe.PaymentType.ToString(),
+            PartyId = pe.PartyId,
+            PartyType = pe.PartyType,
+            PaidAmount = pe.PaidAmount,
+            ReceivedAmount = pe.ReceivedAmount,
+            ModeOfPayment = pe.ModeOfPayment,
+            PaidFromBankAccountId = pe.PaidFromAccountId,
+            PaidToBankAccountId = pe.PaidToAccountId
+        }).ToList();
     }
 
     private static PaymentOrderDto MapToDto(PaymentOrder entity) => new()

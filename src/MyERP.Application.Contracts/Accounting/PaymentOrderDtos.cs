@@ -56,3 +56,34 @@ public class MakePaymentRecordsDto
     [Required] public Guid SupplierId { get; set; }
     public string? ModeOfPayment { get; set; }
 }
+
+public class CandidatePaymentRequestDto
+{
+    public Guid Id { get; set; }
+    public string ReferenceDoctype { get; set; } = null!;
+    public Guid ReferenceId { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public Guid PartyId { get; set; }
+    public string PartyType { get; set; } = null!;
+    public string? PartyName { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public string Currency { get; set; } = null!;
+    public Guid? BankAccountId { get; set; }
+}
+
+public class CandidatePaymentEntryDto
+{
+    public Guid Id { get; set; }
+    public string EntryNumber { get; set; } = null!;
+    public DateTime PostingDate { get; set; }
+    public string PaymentType { get; set; } = null!;
+    public Guid? PartyId { get; set; }
+    public string? PartyType { get; set; }
+    public string? PartyName { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal ReceivedAmount { get; set; }
+    public string? ModeOfPayment { get; set; }
+    public Guid? PaidToBankAccountId { get; set; }
+    public Guid? PaidFromBankAccountId { get; set; }
+}
