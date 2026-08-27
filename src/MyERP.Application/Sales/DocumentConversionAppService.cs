@@ -123,6 +123,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         salesOrder.CurrencyCode = quotation.CurrencyCode;
         salesOrder.Terms = quotation.Terms;
         salesOrder.Notes = quotation.Notes;
+        salesOrder.PriceListId = quotation.PriceListId;
 
         foreach (var item in quotation.Items)
         {

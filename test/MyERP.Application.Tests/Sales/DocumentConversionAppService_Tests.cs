@@ -94,6 +94,37 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
     }
 
     [Fact]
+    public async Task Should_Carry_PriceListId_From_Quotation_To_SalesOrder()
+    {
+        // Regression test: ConvertQuotationToSalesOrderAsync used to drop PriceListId,
+        // unlike every other Sales document clone/amend path (SalesOrderAmendmentAppService,
+        // SalesInvoiceAppService), leaving the new Sales Order on the customer's default
+        // price list instead of the one actually chosen on the quotation.
+        var (companyId, customerId, _) = await SeedDataAsync();
+
+        var priceListRepo = GetRequiredService<IRepository<PriceList, Guid>>();
+        var priceList = await priceListRepo.InsertAsync(
+            new PriceList(Guid.NewGuid(), "Wholesale", "MYR", isSelling: true, isBuying: false), autoSave: true);
+
+        var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            IssueDate = DateTime.Today,
+            PriceListId = priceList.Id,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Widget", Quantity = 5, UnitPrice = 200m, TaxAmount = 60m }
+            }
+        });
+        await _quotationService.SubmitAsync(quotation.Id);
+
+        var salesOrder = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id);
+
+        salesOrder.PriceListId.ShouldBe(priceList.Id);
+    }
+
+    [Fact]
     public async Task Should_Fail_Converting_Draft_Quotation()
     {
         // Arrange
