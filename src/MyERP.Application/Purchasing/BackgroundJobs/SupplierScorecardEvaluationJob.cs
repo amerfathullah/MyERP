@@ -123,6 +123,18 @@ public class SupplierScorecardEvaluationJob : AsyncBackgroundJob<SupplierScoreca
             }
 
             await _scorecardRepository.UpdateAsync(scorecard);
+
+            // Sync enforcement flags to the Supplier entity — SupplierScorecardAppService's manual
+            // Create/UpdateScore/SubmitPeriod paths already do this; this automated nightly path
+            // never did, so a supplier's PO-blocking status could only ever change via manual action.
+            var (preventPos, preventRfqs, _, _) = scorecard.GetEnforcementFlags();
+            var supplierEntity = await _supplierRepository.GetAsync(scorecard.SupplierId);
+            if (supplierEntity.PreventPurchaseOrders != preventPos || supplierEntity.PreventRfqs != preventRfqs)
+            {
+                supplierEntity.PreventPurchaseOrders = preventPos;
+                supplierEntity.PreventRfqs = preventRfqs;
+                await _supplierRepository.UpdateAsync(supplierEntity);
+            }
         }
 
         if (degradedScorecards > 0)

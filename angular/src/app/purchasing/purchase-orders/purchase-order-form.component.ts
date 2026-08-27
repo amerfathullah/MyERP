@@ -13,6 +13,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import type { SupplierDto } from '../../proxy/purchasing/models';
+import { SupplierHoldType } from '../../proxy/purchasing/supplier-hold-type.enum';
 import type { CompanyDto } from '../../proxy/core/models';
 import type { ItemDto } from '../../proxy/inventory/models';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
@@ -205,11 +206,11 @@ export class PurchaseOrderFormComponent implements OnInit {
 
     // Check supplier scorecard standing (warn/block per ERPNext supplier_scorecard enforcement)
     this.supplierService.get(supplierId).subscribe({
-      next: (supplier) => {
-        if ((supplier as any)?.preventPos) {
+      next: (supplier: SupplierDto) => {
+        if (supplier?.preventPurchaseOrders) {
           this.supplierBlocked.set(true);
           this.supplierScorecardWarning.set(this.l.instant('::SupplierBlockedByScorecard'));
-        } else if ((supplier as any)?.holdType === 'All') {
+        } else if (supplier?.holdType === SupplierHoldType.All) {
           this.supplierBlocked.set(true);
           this.supplierScorecardWarning.set(this.l.instant('::SupplierOnHold'));
         }
