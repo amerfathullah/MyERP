@@ -181,3 +181,18 @@ public class MaintenanceScheduleSummaryDto
     public decimal CompletionPercentage { get; set; }
     public DateTime? NextScheduledDate { get; set; }
 }
+
+public class MaintenanceVisitSummaryDto
+{
+    public Guid Id { get; set; }
+    public string VisitNumber { get; set; } = null!;
+    public string MaintenanceType { get; set; } = null!;
+    public DateTime VisitDate { get; set; }
+    public int CompletionStatus { get; set; }
+    public Guid? CustomerId { get; set; }
+    public Guid? MaintenanceScheduleId { get; set; }
+    public Guid? WarrantyClaimId { get; set; }
+    public int TotalPurposesCount { get; set; }
+    public bool CanSubmit { get; set; }
+    public bool CanCancel { get; set; }
+}

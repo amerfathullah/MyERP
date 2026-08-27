@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -233,6 +234,62 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         }
 
         return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Creates draft Maintenance Visit pre-filled from Warranty Claim (Gotchas #6010 / #4171).
+    /// </summary>
+    [Authorize(MyERPPermissions.MaintenanceVisits.Create)]
+    public async Task<CreateMaintenanceVisitDto> MakeFromWarrantyClaimAsync(Guid warrantyClaimId)
+    {
+        var claim = await _warrantyClaimRepository.GetAsync(warrantyClaimId);
+        if (claim.Status == WarrantyClaimStatus.Cancelled)
+        {
+            throw new Volo.Abp.BusinessException(MyERP.MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Cannot create Maintenance Visit for a cancelled Warranty Claim.");
+        }
+
+        return new CreateMaintenanceVisitDto
+        {
+            CompanyId = claim.CompanyId,
+            CustomerId = claim.CustomerId,
+            AddressId = claim.ServiceAddressId,
+            VisitDate = DateTime.UtcNow.Date,
+            MaintenanceType = 2, // Breakdown
+            WarrantyClaimId = claim.Id,
+            Purposes = new List<CreateMaintenanceVisitPurposeDto>
+            {
+                new CreateMaintenanceVisitPurposeDto
+                {
+                    ItemId = claim.ItemId,
+                    SerialNoId = claim.SerialNoId,
+                    WorkDone = claim.Complaint,
+                    Status = 0
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Computes summary metrics for a Maintenance Visit (Gotcha #6010).
+    /// </summary>
+    public async Task<MaintenanceVisitSummaryDto> GetSummaryAsync(Guid id)
+    {
+        var entity = await _visitRepository.GetAsync(id);
+        return new MaintenanceVisitSummaryDto
+        {
+            Id = entity.Id,
+            VisitNumber = entity.Id.ToString("N")[..8].ToUpper(),
+            MaintenanceType = entity.MaintenanceType,
+            VisitDate = entity.VisitDate,
+            CompletionStatus = (int)entity.CompletionStatus,
+            CustomerId = entity.CustomerId,
+            MaintenanceScheduleId = entity.MaintenanceScheduleId,
+            WarrantyClaimId = entity.WarrantyClaimId,
+            TotalPurposesCount = entity.Purposes.Count,
+            CanSubmit = entity.CompletionStatus == MaintenanceVisitStatus.Open,
+            CanCancel = entity.CompletionStatus == MaintenanceVisitStatus.Completed
+        };
     }
 
     private static MaintenanceVisitDto MapToDto(MaintenanceVisit entity) => new()

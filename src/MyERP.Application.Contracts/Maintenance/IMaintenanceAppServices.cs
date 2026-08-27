@@ -29,4 +29,6 @@ public interface IMaintenanceVisitAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<MaintenanceVisitDto> SubmitAsync(Guid id);
     Task<MaintenanceVisitDto> CancelAsync(Guid id);
+    Task<CreateMaintenanceVisitDto> MakeFromWarrantyClaimAsync(Guid warrantyClaimId);
+    Task<MaintenanceVisitSummaryDto> GetSummaryAsync(Guid id);
 }
