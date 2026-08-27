@@ -8,6 +8,7 @@ using MyERP.Permissions;
 using MyERP.Shared;
 using MyERP.HumanResources.DomainServices;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -18,7 +19,13 @@ namespace MyERP.HumanResources;
 public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppService
 {
     private readonly IRepository<ExpenseClaim, Guid> _repository;
-    public ExpenseClaimAppService(IRepository<ExpenseClaim, Guid> repository) => _repository = repository;
+    private readonly IRepository<Employee, Guid> _employeeRepository;
+
+    public ExpenseClaimAppService(IRepository<ExpenseClaim, Guid> repository, IRepository<Employee, Guid> employeeRepository)
+    {
+        _repository = repository;
+        _employeeRepository = employeeRepository;
+    }
 
     public async Task<PagedResultDto<ExpenseClaimDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
@@ -75,6 +82,7 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
     public async Task<ExpenseClaimDto> ApproveAsync(Guid id)
     {
         var ec = (await _repository.WithDetailsAsync()).First(e => e.Id == id);
+        await ValidateActingUserIsApproverAsync(ec);
         ec.Approve();
         await _repository.UpdateAsync(ec);
 
@@ -109,6 +117,7 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
     public async Task<ExpenseClaimDto> RejectAsync(Guid id)
     {
         var ec = await _repository.GetAsync(id);
+        await ValidateActingUserIsApproverAsync(ec);
         ec.Reject();
         await _repository.UpdateAsync(ec);
 
@@ -193,6 +202,34 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         await _repository.UpdateAsync(ec, autoSave: true);
 
         return pe.Id;
+    }
+
+    /// <summary>
+    /// Per ERPNext expense_claim.py: only the claimant's reporting manager (or an HR-manager
+    /// role) may approve/reject. Unlike LeaveApplication, ExpenseClaim never stored an approver
+    /// field to begin with (its ApprovalStatusBy is dead/unused) — resolved dynamically from the
+    /// claimant's ReportsToEmployeeId here instead, matching ERPNext's own get_approvers()
+    /// approach even more directly than the stored-field pattern used for Leave. Same
+    /// incremental-adoption behavior: a no-op until ReportsTo/UserId are both linked.
+    /// </summary>
+    private async Task ValidateActingUserIsApproverAsync(ExpenseClaim ec)
+    {
+        var claimant = await _employeeRepository.FindAsync(ec.EmployeeId);
+        if (claimant?.ReportsToEmployeeId == null)
+        {
+            return;
+        }
+
+        var manager = await _employeeRepository.FindAsync(claimant.ReportsToEmployeeId.Value);
+        if (manager?.UserId == null)
+        {
+            return;
+        }
+
+        if (manager.UserId != CurrentUser.Id)
+        {
+            throw new BusinessException("MyERP:HR:009", "Only the claimant's reporting manager may approve or reject this expense claim.");
+        }
     }
 }
 
