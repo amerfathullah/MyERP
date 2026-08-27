@@ -56,7 +56,7 @@ public class BatchPaymentAppService : ApplicationService, IBatchPaymentAppServic
                 pi.InvoiceNumber,
                 pi.SupplierId,
                 pi.CreditToAccountId,
-                pi.OutstandingAmount,
+                OutstandingAmount = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance,
                 pi.ExchangeRate,
                 pi.IsReturn,
                 pi.CurrencyCode,

@@ -151,7 +151,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
                 && l.CompanyId == input.CompanyId
                 && (l.Status == MyERP.HumanResources.LoanStatus.Disbursed
                     || l.Status == MyERP.HumanResources.LoanStatus.PartiallyRepaid)
-                && l.OutstandingBalance > 0);
+                && (l.LoanAmount - l.TotalPrincipalRepaid) > 0);
 
             if (activeLoan != null && activeLoan.Emi > 0)
             {
