@@ -1349,6 +1349,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/bom-update-tool',
+        name: '::Menu:BomUpdateTool',
+        iconClass: 'fas fa-arrows-rotate',
+        order: 13.5,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing.Edit',
+      },
+      {
         path: '/manufacturing/settings',
         name: '::Menu:ManufacturingSettings',
         iconClass: 'fas fa-sliders',

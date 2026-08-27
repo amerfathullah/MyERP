@@ -95,6 +95,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("bom/{id}/update-cost")]
     public Task<BomDto> UpdateBomCostAsync(Guid id) => _service.UpdateBomCostAsync(id);
 
+    [HttpPost("bom/replace")]
+    public Task<ReplaceBomResultDto> ReplaceBomAsync([FromBody] ReplaceBomDto input) => _service.ReplaceBomAsync(input);
+
     // Work Order
     [HttpGet("work-order/{id}")]
     public Task<WorkOrderDto> GetWorkOrderAsync(Guid id) => _service.GetWorkOrderAsync(id);

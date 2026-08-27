@@ -2115,6 +2115,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/bom-update-tool',
+    loadComponent: () => import('./manufacturing/bom/bom-update-tool.component').then(c => c.BomUpdateToolComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing.Edit' },
+  },
+  {
     path: 'manufacturing/bom-explorer',
     loadComponent: () => import('./manufacturing/bom/bom-explorer.component').then(c => c.BomExplorerComponent),
     canActivate: [authGuard, permissionGuard],

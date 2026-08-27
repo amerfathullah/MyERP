@@ -30,6 +30,21 @@ public class BomDto : AuditedEntityDto<Guid>
     public List<BomSecondaryItemDto> SecondaryItems { get; set; } = new();
 }
 
+public class ReplaceBomDto
+{
+    [Required]
+    public Guid CurrentBomId { get; set; }
+
+    [Required]
+    public Guid NewBomId { get; set; }
+}
+
+public class ReplaceBomResultDto
+{
+    public int UpdatedBomItemCount { get; set; }
+    public int RecostedBomCount { get; set; }
+}
+
 public class BomOperationDto
 {
     public Guid Id { get; set; }
@@ -274,6 +289,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input);
     Task DeleteBomAsync(Guid id);
     Task<BomDto> UpdateBomCostAsync(Guid bomId);
+    Task<ReplaceBomResultDto> ReplaceBomAsync(ReplaceBomDto input);
     Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1);
 
     // Work Order

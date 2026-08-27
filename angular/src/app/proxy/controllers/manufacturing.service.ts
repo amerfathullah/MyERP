@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
+import type { BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -301,6 +301,15 @@ export class ManufacturingService {
     },
     { apiName: this.apiName,...config });
   
+
+  replaceBom = (input: ReplaceBomDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ReplaceBomResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/bom/replace',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   recordProduction = (id: string, quantity: number, processLossQty?: number, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderDto>({

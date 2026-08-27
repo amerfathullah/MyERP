@@ -532,6 +532,16 @@ export interface CreateBomItemDto {
   rate?: number;
 }
 
+export interface ReplaceBomDto {
+  currentBomId: string;
+  newBomId: string;
+}
+
+export interface ReplaceBomResultDto {
+  updatedBomItemCount?: number;
+  recostedBomCount?: number;
+}
+
 export interface CreateBomOperationDto {
   operationId: string;
   workstationId?: string | null;

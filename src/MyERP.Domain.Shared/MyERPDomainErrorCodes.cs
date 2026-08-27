@@ -10,6 +10,8 @@ public static class MyERPDomainErrorCodes
     public const string DuplicateRecord = "MyERP:00005";
     public const string DocumentSeriesNotConfigured = "MyERP:18003";
     public const string DocumentNumberGenerationFailed = "MyERP:18004";
+    public const string BomReplaceSameBom = "MyERP:18005";
+    public const string BomReplaceItemMismatch = "MyERP:18006";
     public const string ItemNotFound = "MyERP:ItemNotFound";
     public const string ExceedsActualQty = "MyERP:ExceedsActualQty";
 

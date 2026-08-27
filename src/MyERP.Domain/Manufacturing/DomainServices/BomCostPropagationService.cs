@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
@@ -54,6 +55,45 @@ public class BomCostPropagationService : DomainService
         }
 
         return updatedCount;
+    }
+
+    /// <summary>
+    /// Replaces every reference to <paramref name="currentBomId"/> as a sub-assembly (BomItem.SubBomId)
+    /// across all parent BOMs with <paramref name="newBomId"/>, then recosts and propagates upward.
+    /// Per ERPNext "BOM Update Tool" (Replace BOM): both BOMs must produce the same item.
+    /// </summary>
+    public async Task<(int UpdatedBomItemCount, int RecostedBomCount)> ReplaceBomAsync(Guid currentBomId, Guid newBomId)
+    {
+        if (currentBomId == newBomId)
+            throw new BusinessException(MyERPDomainErrorCodes.BomReplaceSameBom);
+
+        var currentBom = await _bomRepository.GetAsync(currentBomId);
+        var newBom = await _bomRepository.GetAsync(newBomId);
+        if (currentBom.ItemId != newBom.ItemId)
+            throw new BusinessException(MyERPDomainErrorCodes.BomReplaceItemMismatch);
+
+        var newUnitCost = newBom.Quantity > 0 ? newBom.TotalCost / newBom.Quantity : newBom.TotalCost;
+
+        var parentBoms = await FindParentBomsAsync(currentBomId);
+        var updatedItemCount = 0;
+        foreach (var parentBom in parentBoms)
+        {
+            foreach (var item in parentBom.Items.Where(i => i.SubBomId == currentBomId))
+            {
+                item.SubBomId = newBomId;
+                item.Rate = newUnitCost;
+                item.Recalculate();
+                updatedItemCount++;
+            }
+
+            parentBom.RecalculateCost();
+            await _bomRepository.UpdateAsync(parentBom);
+        }
+
+        // Propagate upward from the (now newly-linked) new BOM to recost every ancestor.
+        var recostedCount = await UpdateCostAndPropagateAsync(newBomId);
+
+        return (updatedItemCount, recostedCount);
     }
 
     /// <summary>

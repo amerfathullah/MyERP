@@ -304,6 +304,31 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
     }
 
+    /// <summary>
+    /// Replaces one sub-assembly BOM with another across every parent BOM that references it,
+    /// then recosts and propagates upward. Per ERPNext "BOM Update Tool" (Replace BOM).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<ReplaceBomResultDto> ReplaceBomAsync(ReplaceBomDto input)
+    {
+        var propagationService = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.BomCostPropagationService>();
+        var (updatedItemCount, recostedCount) = await propagationService.ReplaceBomAsync(input.CurrentBomId, input.NewBomId);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        var newBom = await _bomRepository.GetAsync(input.NewBomId);
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BillOfMaterials", newBom.Id,
+            "ReplacedBom", newBom.CompanyId,
+            newBom.BomNumber, "Active", "Active", CurrentUser.Id,
+            $"BOM {newBom.BomNumber} replaced {updatedItemCount} sub-assembly reference(s) across {recostedCount} BOM(s)", CurrentTenant.Id));
+
+        return new ReplaceBomResultDto
+        {
+            UpdatedBomItemCount = updatedItemCount,
+            RecostedBomCount = recostedCount,
+        };
+    }
+
     // === Work Order ===
 
     public async Task<WorkOrderDto> GetWorkOrderAsync(Guid id)
