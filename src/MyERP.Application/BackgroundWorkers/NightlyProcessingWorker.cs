@@ -452,15 +452,6 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     TenantId = company.TenantId,
                 });
 
-                // Enqueue recurring subscription processing and billing
-                // Per ERPNext: subscription.process
-                await jobManager.EnqueueAsync(new Sales.BackgroundJobs.SubscriptionProcessingJobArgs
-                {
-                    CompanyId = company.Id,
-                    TenantId = company.TenantId,
-                    AsOfDate = DateTime.UtcNow.Date,
-                });
-
                 // Enqueue monthly stock balance closing snapshots
                 // Per ERPNext: stock_closing_entry.process
                 await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.StockClosingJobArgs

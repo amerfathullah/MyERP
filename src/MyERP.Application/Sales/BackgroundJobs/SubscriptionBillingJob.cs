@@ -98,6 +98,8 @@ public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobA
                         sub.CurrentInvoiceStart ?? args.AsOfDate, args.TenantId);
                     invoice.Notes = $"Subscription {sub.SubscriptionNumber} — " +
                         $"{sub.CurrentInvoiceStart:dd/MM/yyyy} to {sub.CurrentInvoiceEnd:dd/MM/yyyy}";
+                    invoice.DueDate = args.AsOfDate.AddDays(sub.DaysUntilDue > 0 ? sub.DaysUntilDue : 30);
+                    invoice.CostCenterId = sub.CostCenterId;
 
                     foreach (var item in items)
                         invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
