@@ -15,6 +15,8 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
 import { map, Observable } from 'rxjs';
+import { IdentityUserLookupService } from '@abp/ng.identity/proxy';
+import type { UserData } from '@abp/ng.identity/proxy';
 
 @Component({
   selector: 'app-employee-form',
@@ -32,6 +34,7 @@ export class EmployeeFormComponent implements OnInit {
   private service = inject(EmployeeService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
+  private userLookupService = inject(IdentityUserLookupService);
 
   companies = signal<CompanyDto[]>([]);
   isEditMode = false;
@@ -51,6 +54,7 @@ export class EmployeeFormComponent implements OnInit {
     socsoNumber: ['', Validators.maxLength(100)],
     taxNumber: ['', Validators.maxLength(100)],
     reportsToEmployeeId: [null as string | null],
+    userId: [null as string | null],
   });
 
   reportsToSearchFn = (filter: string): Observable<EmployeeDto[]> =>
@@ -58,6 +62,12 @@ export class EmployeeFormComponent implements OnInit {
       .pipe(map(res => (res.items ?? []).filter(e => e.id !== this.entityId)));
   reportsToGetByIdFn = (id: string) => this.service.get(id);
   reportsToDisplayFn = (e: EmployeeDto | null) => e?.fullName ?? '';
+
+  userIdSearchFn = (filter: string): Observable<UserData[]> =>
+    this.userLookupService.search({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
+      .pipe(map(res => res.items ?? []));
+  userIdGetByIdFn = (id: string) => this.userLookupService.findById(id);
+  userIdDisplayFn = (u: UserData | null) => u?.userName ?? u?.email ?? '';
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
@@ -79,6 +89,7 @@ export class EmployeeFormComponent implements OnInit {
           designation: emp.designation ?? '',
           department: emp.department ?? '',
           reportsToEmployeeId: emp.reportsToEmployeeId ?? null,
+          userId: emp.userId ?? null,
         });
       });
     }

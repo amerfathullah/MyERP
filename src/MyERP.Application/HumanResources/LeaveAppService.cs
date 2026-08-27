@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -18,15 +19,18 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
     private readonly IRepository<LeaveApplication, Guid> _leaveRepository;
     private readonly IRepository<LeaveType, Guid> _leaveTypeRepository;
     private readonly IRepository<LeaveAllocation, Guid> _allocationRepository;
+    private readonly IRepository<Employee, Guid> _employeeRepository;
 
     public LeaveAppService(
         IRepository<LeaveApplication, Guid> leaveRepository,
         IRepository<LeaveType, Guid> leaveTypeRepository,
-        IRepository<LeaveAllocation, Guid> allocationRepository)
+        IRepository<LeaveAllocation, Guid> allocationRepository,
+        IRepository<Employee, Guid> employeeRepository)
     {
         _leaveRepository = leaveRepository;
         _leaveTypeRepository = leaveTypeRepository;
         _allocationRepository = allocationRepository;
+        _employeeRepository = employeeRepository;
     }
 
     // Leave Types
@@ -89,6 +93,15 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
                 .WithData("field", "TotalLeaveDays");
         }
 
+        // Per ERPNext leave_application.py: leave_approver defaults from the employee's reporting
+        // manager when not explicitly set.
+        var leaveApproverId = input.LeaveApproverId;
+        if (!leaveApproverId.HasValue)
+        {
+            var applicant = await _employeeRepository.FindAsync(input.EmployeeId);
+            leaveApproverId = applicant?.ReportsToEmployeeId;
+        }
+
         var leave = new LeaveApplication(
             GuidGenerator.Create(), input.CompanyId, input.EmployeeId, input.LeaveTypeId,
             input.FromDate, input.ToDate, input.TotalLeaveDays, CurrentTenant.Id)
@@ -97,7 +110,7 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
             LeaveTypeName = input.LeaveTypeName,
             HalfDay = input.HalfDay,
             Reason = input.Reason,
-            LeaveApproverId = input.LeaveApproverId,
+            LeaveApproverId = leaveApproverId,
         };
 
         // Per DO-NOT: "Allow leave application with overlapping dates for same employee"
@@ -121,6 +134,7 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
     public async Task<LeaveApplicationDto> ApproveAsync(Guid id)
     {
         var leave = await _leaveRepository.GetAsync(id);
+        await ValidateActingUserIsApproverAsync(leave);
 
         // Delegate balance validation + deduction to LeaveManager (DDD pattern)
         var leaveManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.LeaveManager>();
@@ -143,6 +157,7 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
     public async Task<LeaveApplicationDto> RejectAsync(Guid id)
     {
         var leave = await _leaveRepository.GetAsync(id);
+        await ValidateActingUserIsApproverAsync(leave);
         leave.Reject();
         await _leaveRepository.UpdateAsync(leave);
 
@@ -180,5 +195,30 @@ public class LeaveAppService : ApplicationService, ILeaveAppService
             $"Leave Application for {leave.EmployeeName} cancelled", CurrentTenant.Id));
 
         return ObjectMapper.Map<LeaveApplication, LeaveApplicationDto>(leave);
+    }
+
+    /// <summary>
+    /// Per ERPNext leave_application.py::validate_leave_approver: only the designated approver
+    /// may act. Enforced only once BOTH an approver is resolved on the application AND that
+    /// approver Employee has a linked user account — orgs that haven't set up ReportsTo/UserId
+    /// yet keep today's permission-only gate rather than being silently locked out.
+    /// </summary>
+    private async Task ValidateActingUserIsApproverAsync(LeaveApplication leave)
+    {
+        if (!leave.LeaveApproverId.HasValue)
+        {
+            return;
+        }
+
+        var approver = await _employeeRepository.FindAsync(leave.LeaveApproverId.Value);
+        if (approver?.UserId == null)
+        {
+            return;
+        }
+
+        if (approver.UserId != CurrentUser.Id)
+        {
+            throw new BusinessException("MyERP:HR:007", "Only the designated leave approver may approve or reject this application.");
+        }
     }
 }

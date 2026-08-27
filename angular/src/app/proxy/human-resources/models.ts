@@ -186,6 +186,7 @@ export interface CreateUpdateEmployeeDto {
   socsoNumber?: string | null;
   taxNumber?: string | null;
   reportsToEmployeeId?: string | null;
+  userId?: string | null;
 }
 
 export interface CreateUpdateLeaveTypeDto {
@@ -246,6 +247,7 @@ export interface EmployeeDto extends FullAuditedEntityDto<string> {
   gender?: string | null;
   status?: string | null;
   reportsToEmployeeId?: string | null;
+  userId?: string | null;
 }
 
 export interface ExpenseClaimDetailDto {

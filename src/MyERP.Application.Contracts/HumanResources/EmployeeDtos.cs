@@ -24,6 +24,7 @@ public class EmployeeDto : FullAuditedEntityDto<Guid>
     public string? Gender { get; set; }
     public string? Status { get; set; }
     public Guid? ReportsToEmployeeId { get; set; }
+    public Guid? UserId { get; set; }
 }
 
 public class CreateUpdateEmployeeDto
@@ -58,6 +59,8 @@ public class CreateUpdateEmployeeDto
     public string? Gender { get; set; }
 
     public Guid? ReportsToEmployeeId { get; set; }
+
+    public Guid? UserId { get; set; }
 
     [StringLength(100)]
     public string? EpfNumber { get; set; }

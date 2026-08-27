@@ -43,6 +43,9 @@ public class Employee : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Reporting manager. Per ERPNext: an employee cannot be relieved while active employees still report to them.</summary>
     public Guid? ReportsToEmployeeId { get; set; }
 
+    /// <summary>Linked ABP Identity user account — resolves "is the current logged-in user this employee?" for approver-identity checks (Leave/Expense Claim approvals).</summary>
+    public Guid? UserId { get; set; }
+
     // Bank (PDPA-sensitive)
     public string? BankName { get; set; }
     public string? BankAccountNumber { get; set; }

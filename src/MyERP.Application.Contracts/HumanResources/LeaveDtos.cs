@@ -37,6 +37,7 @@ public class LeaveApplicationDto : AuditedEntityDto<Guid>
     public bool HalfDay { get; set; }
     public string? Reason { get; set; }
     public LeaveApplicationStatus Status { get; set; }
+    public Guid? LeaveApproverId { get; set; }
 }
 
 public class CreateLeaveApplicationDto

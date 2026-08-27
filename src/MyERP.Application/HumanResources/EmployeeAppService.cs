@@ -63,6 +63,8 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<EmployeeDto> CreateAsync(CreateUpdateEmployeeDto input)
     {
+        await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: null);
+
         var employeeId = await _numberGenerator.GenerateAsync("Employee", input.CompanyId);
 
         var employee = new Employee(
@@ -83,6 +85,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
         employee.ReportsToEmployeeId = input.ReportsToEmployeeId;
+        employee.UserId = input.UserId;
 
         await _repository.InsertAsync(employee, autoSave: true);
 
@@ -104,6 +107,8 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
             throw new Volo.Abp.BusinessException("MyERP:HR:006", "An employee cannot report to themselves.");
         }
 
+        await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
+
         var employee = await _repository.GetAsync(id);
 
         employee.FirstName = input.FirstName;
@@ -119,6 +124,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
         employee.ReportsToEmployeeId = input.ReportsToEmployeeId;
+        employee.UserId = input.UserId;
 
         await _repository.UpdateAsync(employee, autoSave: true);
 
@@ -153,6 +159,26 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         await lifecycleManager.CheckDeletionRulesAsync(id);
 
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// One IdentityUser account should map to at most one Employee — approver-identity checks
+    /// (Leave/Expense Claim) resolve "is CurrentUser this employee?" by this link, so a shared
+    /// UserId across employees would make that resolution ambiguous.
+    /// </summary>
+    private async Task ValidateUserNotAlreadyLinkedAsync(Guid? userId, Guid? currentEmployeeId)
+    {
+        if (!userId.HasValue)
+        {
+            return;
+        }
+
+        var query = await _repository.GetQueryableAsync();
+        var alreadyLinked = query.Any(e => e.UserId == userId.Value && e.Id != currentEmployeeId);
+        if (alreadyLinked)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:HR:008", "This user account is already linked to another employee.");
+        }
     }
 }
 
