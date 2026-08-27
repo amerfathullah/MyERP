@@ -286,11 +286,11 @@ export class OpeningBalanceComponent implements OnInit {
 
   loadParties(): void {
     if (this.invoiceType === 'sales') {
-      this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'customerName asc' } as any)
-        .subscribe(result => this.parties.set((result.items ?? []).map((c: any) => ({ id: c.id!, name: c.customerName ?? '' }))));
+      this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
+        .subscribe(result => this.parties.set((result.items ?? []).map((c: any) => ({ id: c.id!, name: c.name ?? '' }))));
     } else {
-      this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'supplierName asc' } as any)
-        .subscribe(result => this.parties.set((result.items ?? []).map((s: any) => ({ id: s.id!, name: s.supplierName ?? '' }))));
+      this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
+        .subscribe(result => this.parties.set((result.items ?? []).map((s: any) => ({ id: s.id!, name: s.name ?? '' }))));
     }
   }
 

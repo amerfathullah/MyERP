@@ -117,7 +117,7 @@ export class MaintenanceVisitListComponent implements OnInit {
     this.customerService.getList({ maxResultCount: 500 } as any).subscribe({
       next: (res) => {
         const map: Record<string, string> = {};
-        (res.items ?? []).forEach((c: any) => { map[c.id] = c.customerName || c.id; });
+        (res.items ?? []).forEach((c: any) => { map[c.id] = c.name || c.id; });
         this.customerNames.set(map);
       },
     });

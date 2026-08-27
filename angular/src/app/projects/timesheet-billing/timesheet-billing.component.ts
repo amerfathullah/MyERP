@@ -47,7 +47,7 @@ export class TimesheetBillingComponent implements OnInit {
   loadCustomers(): void {
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
       next: (result: any) => {
-        this.customers.set((result.items ?? []).map((c: any) => ({ id: c.id, customerName: c.customerName })));
+        this.customers.set((result.items ?? []).map((c: any) => ({ id: c.id, customerName: c.name })));
       },
     });
   }

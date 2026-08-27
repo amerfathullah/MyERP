@@ -107,7 +107,7 @@ export class DriverFormComponent implements OnInit {
     this.employeeService.getList({ maxResultCount: 500 } as any).subscribe(r =>
       this.employees.set((r.items ?? []).map((e: any) => ({ id: e.id!, fullName: e.fullName ?? e.firstName ?? '' }))));
     this.supplierService.getList({ maxResultCount: 500 } as any).subscribe(r =>
-      this.suppliers.set((r.items ?? []).map((s: any) => ({ id: s.id!, supplierName: s.supplierName ?? '' }))));
+      this.suppliers.set((r.items ?? []).map((s: any) => ({ id: s.id!, supplierName: s.name ?? '' }))));
     this.categoryService.getList({ maxResultCount: 200 } as any).subscribe(r => this.categories.set(r.items ?? []));
 
     const id = this.route.snapshot.paramMap.get('id');
