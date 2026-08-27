@@ -54,11 +54,13 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
               <input type="text" class="form-control" formControlName="toTime" placeholder="17:00:00" [readonly]="isSubmitted">
             </div>
 
-            <div class="col-12 mb-3" *ngIf="!isSubmitted">
-              <button type="button" class="btn btn-outline-info btn-sm" (click)="fetchShiftTotals()">
-                <i class="fa fa-calculator me-1"></i>Auto-Calculate Shift Totals
-              </button>
-            </div>
+            @if (!isSubmitted) {
+              <div class="col-12 mb-3">
+                <button type="button" class="btn btn-outline-info btn-sm" (click)="fetchShiftTotals()">
+                  <i class="fa fa-calculator me-1"></i>Auto-Calculate Shift Totals
+                </button>
+              </div>
+            }
 
             <div class="col-md-3 mb-3">
               <label class="form-label">Custody (Opening Float)</label>
@@ -93,7 +95,9 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
                 <tr>
                   <th style="width:60%">Mode of Payment</th>
                   <th style="width:30%" class="text-end">Amount</th>
-                  <th style="width:10%" class="text-center" *ngIf="!isSubmitted">Action</th>
+                  @if (!isSubmitted) {
+                    <th style="width:10%" class="text-center">Action</th>
+                  }
                 </tr>
               </thead>
               <tbody formArrayName="payments">
@@ -105,11 +109,13 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
                     <td>
                       <input type="number" step="0.01" class="form-control form-control-sm text-end" formControlName="amount" [readonly]="isSubmitted" (input)="recalculateLocalNet()">
                     </td>
-                    <td class="text-center" *ngIf="!isSubmitted">
-                      <button type="button" class="btn btn-danger btn-sm p-1" (click)="removePayment(i)">
-                        <i class="fa fa-trash"></i>
-                      </button>
-                    </td>
+                    @if (!isSubmitted) {
+                      <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm p-1" (click)="removePayment(i)">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </td>
+                    }
                   </tr>
                 } @empty {
                   <tr>
