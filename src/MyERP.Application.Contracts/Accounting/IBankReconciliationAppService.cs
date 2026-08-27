@@ -74,6 +74,7 @@ public class BankTransactionDto : EntityDto<Guid>
     public string? ReferenceNumber { get; set; }
     public bool IsReconciled { get; set; }
     public Guid? PaymentEntryId { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public string? MatchedDocumentRef { get; set; }
     public DateTime? ReconciledAt { get; set; }
 }
@@ -93,8 +94,10 @@ public class ReconcileBankTransactionDto
     [Required]
     public Guid TransactionId { get; set; }
 
-    [Required]
-    public Guid PaymentEntryId { get; set; }
+    /// <summary>Exactly one of PaymentEntryId / JournalEntryId must be set.</summary>
+    public Guid? PaymentEntryId { get; set; }
+
+    public Guid? JournalEntryId { get; set; }
 
     public string? MatchedDocumentRef { get; set; }
 }
@@ -138,7 +141,10 @@ public class AutoMatchResultDto
 
 public class MatchCandidateDto
 {
-    public Guid PaymentEntryId { get; set; }
+    /// <summary>"PaymentEntry" or "JournalEntry" — which field below is populated.</summary>
+    public string VoucherType { get; set; } = "PaymentEntry";
+    public Guid? PaymentEntryId { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public string? PaymentNumber { get; set; }
     public decimal Amount { get; set; }
     public DateTime PostingDate { get; set; }

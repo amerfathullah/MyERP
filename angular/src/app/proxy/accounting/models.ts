@@ -311,6 +311,7 @@ export interface BankTransactionDto extends EntityDto<string> {
   referenceNumber?: string | null;
   isReconciled?: boolean;
   paymentEntryId?: string | null;
+  journalEntryId?: string | null;
   matchedDocumentRef?: string | null;
   reconciledAt?: string | null;
 }
@@ -1328,7 +1329,9 @@ export interface MatchCandidate {
 }
 
 export interface MatchCandidateDto {
-  paymentEntryId?: string;
+  voucherType?: string;
+  paymentEntryId?: string | null;
+  journalEntryId?: string | null;
   paymentNumber?: string | null;
   amount?: number;
   postingDate?: string;
@@ -1723,7 +1726,8 @@ export interface ReconcileAllocationDto {
 
 export interface ReconcileBankTransactionDto {
   transactionId: string;
-  paymentEntryId: string;
+  paymentEntryId?: string | null;
+  journalEntryId?: string | null;
   matchedDocumentRef?: string | null;
 }
 

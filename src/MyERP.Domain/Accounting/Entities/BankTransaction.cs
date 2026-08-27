@@ -30,8 +30,13 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this transaction has been reconciled with a payment entry.</summary>
     public bool IsReconciled { get; set; }
 
-    /// <summary>Linked Payment Entry ID (set when reconciled).</summary>
+    /// <summary>Linked Payment Entry ID (set when reconciled against a Payment Entry).</summary>
     public Guid? PaymentEntryId { get; set; }
+
+    /// <summary>Linked Journal Entry ID (set when reconciled against a bank-touching JE —
+    /// e.g. a manually-booked bank fee/interest entry — instead of a Payment Entry).
+    /// Per ERPNext bank_reconciliation_tool.py: JEs are a valid match target, not just PEs.</summary>
+    public Guid? JournalEntryId { get; set; }
 
     /// <summary>Matched document reference (e.g., invoice number).</summary>
     public string? MatchedDocumentRef { get; set; }
@@ -78,6 +83,18 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         IsReconciled = true;
         PaymentEntryId = paymentEntryId;
+        JournalEntryId = null;
+        MatchedDocumentRef = matchedDocRef;
+        ReconciledAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Reconciles against a Journal Entry instead of a Payment Entry — e.g. a manually
+    /// booked bank fee/interest JE with no corresponding Payment Entry.</summary>
+    public void ReconcileWithJournalEntry(Guid journalEntryId, string? matchedDocRef)
+    {
+        IsReconciled = true;
+        JournalEntryId = journalEntryId;
+        PaymentEntryId = null;
         MatchedDocumentRef = matchedDocRef;
         ReconciledAt = DateTime.UtcNow;
     }
@@ -86,6 +103,7 @@ public class BankTransaction : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         IsReconciled = false;
         PaymentEntryId = null;
+        JournalEntryId = null;
         MatchedDocumentRef = null;
         ReconciledAt = null;
     }

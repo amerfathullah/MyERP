@@ -18,6 +18,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 {
     private readonly IRepository<BankTransaction, Guid> _repository;
     private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
+    private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<BankAccount, Guid> _bankAccountRepository;
     private readonly BankAutoMatchService _autoMatchService;
     private readonly BankInternalTransferService _internalTransferService;
@@ -25,12 +26,14 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     public BankReconciliationAppService(
         IRepository<BankTransaction, Guid> repository,
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
+        IRepository<JournalEntry, Guid> journalEntryRepository,
         IRepository<BankAccount, Guid> bankAccountRepository,
         BankAutoMatchService autoMatchService,
         BankInternalTransferService internalTransferService)
     {
         _repository = repository;
         _paymentEntryRepository = paymentEntryRepository;
+        _journalEntryRepository = journalEntryRepository;
         _bankAccountRepository = bankAccountRepository;
         _autoMatchService = autoMatchService;
         _internalTransferService = internalTransferService;
@@ -63,17 +66,31 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     public async Task<BankTransactionDto> ReconcileAsync(ReconcileBankTransactionDto input)
     {
         var tx = await _repository.GetAsync(input.TransactionId);
-        tx.Reconcile(input.PaymentEntryId, input.MatchedDocumentRef);
-        await _repository.UpdateAsync(tx);
+
+        if (input.PaymentEntryId.HasValue == input.JournalEntryId.HasValue)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Exactly one of PaymentEntryId or JournalEntryId must be set.");
 
         // A statement-line match is the most authoritative "this cleared the bank" signal there
         // is — feed it into ClearanceDate so the Bank Reconciliation Statement (which reads
         // ClearanceDate, not BankTransaction.IsReconciled) actually reflects statement matches
         // instead of only entries separately marked cleared via BankClearanceAppService.
-        var pe = await _paymentEntryRepository.GetAsync(input.PaymentEntryId);
-        pe.SetClearanceDate(tx.TransactionDate);
-        await _paymentEntryRepository.UpdateAsync(pe);
+        if (input.PaymentEntryId.HasValue)
+        {
+            var pe = await _paymentEntryRepository.GetAsync(input.PaymentEntryId.Value);
+            tx.Reconcile(pe.Id, input.MatchedDocumentRef);
+            pe.SetClearanceDate(tx.TransactionDate);
+            await _paymentEntryRepository.UpdateAsync(pe);
+        }
+        else
+        {
+            var je = await _journalEntryRepository.GetAsync(input.JournalEntryId!.Value);
+            tx.ReconcileWithJournalEntry(je.Id, input.MatchedDocumentRef);
+            je.SetClearanceDate(tx.TransactionDate);
+            await _journalEntryRepository.UpdateAsync(je);
+        }
 
+        await _repository.UpdateAsync(tx);
         return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
@@ -82,6 +99,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     {
         var tx = await _repository.GetAsync(id);
         var previousPaymentEntryId = tx.PaymentEntryId;
+        var previousJournalEntryId = tx.JournalEntryId;
         tx.Unreconcile();
         await _repository.UpdateAsync(tx);
 
@@ -92,6 +110,15 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             {
                 pe.SetClearanceDate(null);
                 await _paymentEntryRepository.UpdateAsync(pe);
+            }
+        }
+        else if (previousJournalEntryId.HasValue)
+        {
+            var je = await _journalEntryRepository.FindAsync(previousJournalEntryId.Value);
+            if (je != null && je.ClearanceDate == tx.TransactionDate)
+            {
+                je.SetClearanceDate(null);
+                await _journalEntryRepository.UpdateAsync(je);
             }
         }
 
@@ -152,7 +179,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var candidates = await _autoMatchService.GetMatchCandidatesAsync(bankTransactionId, companyId);
         return candidates.Select(c => new MatchCandidateDto
         {
+            VoucherType = c.VoucherType,
             PaymentEntryId = c.PaymentEntryId,
+            JournalEntryId = c.JournalEntryId,
             PaymentNumber = c.PaymentNumber,
             Amount = c.Amount,
             PostingDate = c.PostingDate,

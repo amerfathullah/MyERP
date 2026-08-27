@@ -139,14 +139,15 @@ export class BankReconciliationComponent implements OnInit {
     });
   }
 
-  selectCandidate(paymentEntryId: string, paymentNumber: string): void {
+  selectCandidate(candidate: MatchCandidateDto): void {
     const txId = this.selectedTransactionId();
     if (!txId) return;
 
     this.service.reconcile({
       transactionId: txId,
-      paymentEntryId,
-      matchedDocumentRef: paymentNumber,
+      paymentEntryId: candidate.voucherType === 'JournalEntry' ? null : candidate.paymentEntryId,
+      journalEntryId: candidate.voucherType === 'JournalEntry' ? candidate.journalEntryId : null,
+      matchedDocumentRef: candidate.paymentNumber ?? undefined,
     }).subscribe({
       next: (updated) => {
         this.transactions.update(txs => txs.map(t => t.id === txId ? updated : t));
