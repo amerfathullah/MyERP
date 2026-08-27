@@ -1376,6 +1376,13 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.DeliveryNotes',
       },
       {
+        path: '/settings',
+        name: '::Menu:Settings',
+        iconClass: 'fas fa-sliders',
+        order: 95,
+        layout: eLayoutType.application,
+      },
+      {
         path: '/settings/authorization-rules',
         name: '::Menu:AuthorizationRules',
         iconClass: 'fas fa-shield-halved',
