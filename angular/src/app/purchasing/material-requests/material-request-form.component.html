@@ -97,7 +97,10 @@
                     <input type="hidden" formControlName="itemName" />
                   </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
-                  <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" formControlName="uom" readonly
+                           title="{{ '::UomLockedToItemStockUnit' | abpLocalization }}" />
+                  </td>
                   <td>
                     <select class="form-select form-select-sm" formControlName="warehouseId">
                       <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>

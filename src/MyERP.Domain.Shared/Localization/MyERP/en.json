@@ -207,6 +207,7 @@
     "Total": "Total",
     "UoM": "UoM",
     "UOM": "UOM",
+    "UomLockedToItemStockUnit": "Locked to the item's stock unit — this system does not support ordering in an alternate UOM with automatic conversion.",
     "Unit": "Unit",
     "Kg": "Kg",
     "Gram": "Gram",
