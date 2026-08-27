@@ -1,4 +1,4 @@
-<abp-page [title]="'::NewRule' | abpLocalization">
+<abp-page [title]="(isEditMode ? '::EditRule' : '::NewRule') | abpLocalization">
   <form [formGroup]="form" (ngSubmit)="save()">
     <div class="card mb-4">
       <div class="card-body">

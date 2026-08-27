@@ -1,5 +1,5 @@
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
-import { withEntities, setAllEntities, updateEntity } from '@ngrx/signals/entities';
+import { withEntities, setAllEntities, updateEntity, removeEntity } from '@ngrx/signals/entities';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed, inject } from '@angular/core';
 import { pipe, switchMap, tap, catchError, EMPTY } from 'rxjs';
@@ -73,6 +73,22 @@ export const ApprovalWorkflowStore = signalStore(
           toaster.error(err?.error?.error?.message ?? 'Approve failed');
           return EMPTY;
         }),
+      )
+    ),
+
+    deleteRule: rxMethod<string>(
+      pipe(
+        switchMap((id) => service.deleteRule(id).pipe(
+          tap(() => {
+            patchState(store, removeEntity(id));
+            patchState(store, { totalCount: store.totalCount() - 1 });
+            toaster.success('::SuccessfullyDeleted');
+          }),
+          catchError((err) => {
+            toaster.error(err?.error?.error?.message ?? '::FailedToDelete');
+            return EMPTY;
+          }),
+        )),
       )
     ),
 

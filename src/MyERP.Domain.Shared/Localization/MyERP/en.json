@@ -2720,6 +2720,7 @@
     "SerialNo": "Serial No",
     "InspectionDate": "Inspection Date",
     "InspectionType": "Inspection Type",
+    "EditRule": "Edit Rule",
     "SuccessfullyCreated": "Successfully created.",
     "SuccessfullyUpdated": "Successfully updated.",
     "SuccessfullyDeleted": "Successfully deleted.",
