@@ -246,6 +246,92 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
         }).ToList();
     }
 
+    /// <summary>
+    /// Generates structured bank file (CSV) from a submitted Payment Order (Gotcha #6005).
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentOrders.Default)]
+    public async Task<BankPaymentFileResultDto> GenerateBankFileAsync(Guid id, GenerateBankFileInput? input = null)
+    {
+        var order = (await _repository.WithDetailsAsync()).First(o => o.Id == id);
+        if (order.Status != DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Bank payment files can only be generated from submitted Payment Orders.");
+        }
+
+        if (order.References.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PaymentOrderHasNoReferences);
+        }
+
+        var supplierIds = order.References.Where(r => r.SupplierId.HasValue).Select(r => r.SupplierId!.Value).Distinct().ToList();
+        var supplierQuery = await _supplierRepository.GetQueryableAsync();
+        var suppliers = supplierQuery.Where(s => supplierIds.Contains(s.Id)).ToDictionary(s => s.Id, s => s.Name);
+
+        var bankAccountIds = order.References.Select(r => r.BankAccountId).Distinct().ToList();
+        var bankQuery = await _bankAccountRepository.GetQueryableAsync();
+        var bankAccounts = bankQuery.Where(b => bankAccountIds.Contains(b.Id)).ToDictionary(b => b.Id);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("ReferenceType,ReferenceId,PaymentReference,PartyName,BankAccountNo,BankName,SwiftCode,Iban,Amount,ModeOfPayment");
+
+        decimal totalAmount = 0m;
+        foreach (var r in order.References)
+        {
+            var partyName = r.SupplierId.HasValue && suppliers.TryGetValue(r.SupplierId.Value, out var sName) ? sName : "";
+            bankAccounts.TryGetValue(r.BankAccountId, out var bAccount);
+
+            var bAccountNo = bAccount?.BankAccountNo ?? "";
+            var bName = bAccount?.BankName ?? "";
+            var swift = bAccount?.SwiftCode ?? "";
+            var iban = bAccount?.Iban ?? "";
+            var mode = r.ModeOfPayment ?? "Bank";
+
+            sb.AppendLine($"\"{r.ReferenceType}\",\"{r.ReferenceId}\",\"{r.PaymentReference ?? ""}\",\"{partyName}\",\"{bAccountNo}\",\"{bName}\",\"{swift}\",\"{iban}\",{r.Amount:F2},\"{mode}\"");
+            totalAmount += r.Amount;
+        }
+
+        var orderNum = string.IsNullOrWhiteSpace(order.OrderNumber) ? order.Id.ToString()[..8] : order.OrderNumber;
+        var fileName = $"PaymentOrder_{orderNum}_{order.PostingDate:yyyyMMdd}.csv";
+
+        return new BankPaymentFileResultDto
+        {
+            FileName = fileName,
+            FileContent = sb.ToString(),
+            MimeType = "text/csv",
+            TotalRecords = order.References.Count,
+            TotalAmount = totalAmount
+        };
+    }
+
+    /// <summary>
+    /// Calculates summary and breakdown metrics for the Payment Order (Gotcha #6005).
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentOrders.Default)]
+    public async Task<PaymentOrderSummaryDto> GetSummaryAsync(Guid id)
+    {
+        var order = (await _repository.WithDetailsAsync()).First(o => o.Id == id);
+
+        var totalAmount = order.References.Sum(r => r.Amount);
+        var totalReferences = order.References.Count;
+        var distinctSuppliers = order.References.Where(r => r.SupplierId.HasValue).Select(r => r.SupplierId!.Value).Distinct().Count();
+
+        var breakdown = order.References
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.ModeOfPayment) ? "Unspecified" : r.ModeOfPayment)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
+
+        return new PaymentOrderSummaryDto
+        {
+            PaymentOrderId = order.Id,
+            OrderNumber = order.OrderNumber,
+            Status = (int)order.Status,
+            TotalReferences = totalReferences,
+            TotalAmount = totalAmount,
+            DistinctSuppliersCount = distinctSuppliers,
+            AmountByModeOfPayment = breakdown
+        };
+    }
+
     private static PaymentOrderDto MapToDto(PaymentOrder entity) => new()
     {
         Id = entity.Id,

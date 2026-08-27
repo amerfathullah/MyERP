@@ -24,4 +24,10 @@ public interface IPaymentOrderAppService : IApplicationService
 
     /// <summary>Gets candidate pending Payment Entries for import into Payment Order.</summary>
     Task<List<CandidatePaymentEntryDto>> GetCandidatePaymentEntriesAsync(Guid companyId);
+
+    /// <summary>Generates structured bank file (CSV) from a submitted Payment Order.</summary>
+    Task<BankPaymentFileResultDto> GenerateBankFileAsync(Guid id, GenerateBankFileInput? input = null);
+
+    /// <summary>Calculates summary and breakdown metrics for the Payment Order.</summary>
+    Task<PaymentOrderSummaryDto> GetSummaryAsync(Guid id);
 }

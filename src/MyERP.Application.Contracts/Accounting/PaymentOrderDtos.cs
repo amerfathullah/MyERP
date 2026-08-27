@@ -87,3 +87,28 @@ public class CandidatePaymentEntryDto
     public Guid? PaidToBankAccountId { get; set; }
     public Guid? PaidFromBankAccountId { get; set; }
 }
+
+public class GenerateBankFileInput
+{
+    public string? FileFormat { get; set; } // "CSV", "TXT"
+}
+
+public class BankPaymentFileResultDto
+{
+    public string FileName { get; set; } = null!;
+    public string FileContent { get; set; } = null!;
+    public string MimeType { get; set; } = "text/csv";
+    public int TotalRecords { get; set; }
+    public decimal TotalAmount { get; set; }
+}
+
+public class PaymentOrderSummaryDto
+{
+    public Guid PaymentOrderId { get; set; }
+    public string? OrderNumber { get; set; }
+    public int Status { get; set; }
+    public int TotalReferences { get; set; }
+    public decimal TotalAmount { get; set; }
+    public int DistinctSuppliersCount { get; set; }
+    public Dictionary<string, decimal> AmountByModeOfPayment { get; set; } = new();
+}
