@@ -51,6 +51,15 @@ public class SendPurchaseOrderEmailDto
     public bool AttachPdf { get; set; } = true;
 }
 
+public class SendDeliveryNoteEmailDto
+{
+    public Guid DocumentId { get; set; }
+    public string? RecipientEmail { get; set; }
+    public string[]? CcEmails { get; set; }
+    public Guid? TemplateId { get; set; }
+    public bool AttachPdf { get; set; } = true;
+}
+
 public class PreviewEmailInput
 {
     public string DocumentType { get; set; } = "";

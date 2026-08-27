@@ -289,6 +289,61 @@ public class DocumentEmailAppService : ApplicationService, IDocumentEmailAppServ
         });
     }
 
+    /// <summary>
+    /// Send a Delivery Note email to the customer with optional PDF attachment.
+    /// </summary>
+    [Authorize(MyERPPermissions.DeliveryNotes.Default)]
+    public async Task SendDeliveryNoteEmailAsync(SendDeliveryNoteEmailDto input)
+    {
+        var deliveryNote = await _dnRepository.GetAsync(input.DocumentId);
+        var customer = await _customerRepository.GetAsync(deliveryNote.CustomerId);
+        var company = await _companyRepository.GetAsync(deliveryNote.CompanyId);
+
+        var recipientEmail = input.RecipientEmail ?? customer.Email;
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.RecipientEmailRequired)
+                .WithData("reason", "No email address found for customer. Please provide a recipient email.");
+
+        var variables = new Dictionary<string, string>
+        {
+            ["company_name"] = company.Name,
+            ["customer_name"] = customer.Name,
+            ["party_name"] = customer.Name,
+            ["document_number"] = deliveryNote.DeliveryNumber,
+            ["transaction_date"] = deliveryNote.PostingDate.ToString("dd/MM/yyyy"),
+        };
+
+        DeliveryNotePdfData? pdfData = null;
+        if (input.AttachPdf)
+        {
+            pdfData = new DeliveryNotePdfData
+            {
+                CompanyName = company.Name,
+                DeliveryNumber = deliveryNote.DeliveryNumber,
+                PostingDate = deliveryNote.PostingDate,
+                CustomerName = customer.Name,
+                ShippingAddress = deliveryNote.ShippingAddress,
+                TransporterInfo = deliveryNote.Transporter,
+                Items = deliveryNote.Items.Select(i => new DeliveryNoteLineItem
+                {
+                    Description = i.Description,
+                    Quantity = i.Quantity,
+                    Uom = i.Uom,
+                }).ToList(),
+            };
+        }
+
+        await _emailService.SendDeliveryNoteEmailAsync(new SendDeliveryNoteEmailInput
+        {
+            RecipientEmail = recipientEmail,
+            CcEmails = input.CcEmails,
+            TemplateId = input.TemplateId,
+            Variables = variables,
+            AttachPdf = input.AttachPdf,
+            PdfData = pdfData,
+        });
+    }
+
     [Authorize]
     public async Task SendStatementEmailAsync(SendStatementEmailDto input)
     {

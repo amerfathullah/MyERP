@@ -116,5 +116,42 @@
       [companyAddress]="companyAddress"
       [warehouseName]="warehouseName"
       [currency]="deliveryNote.currencyCode || ('' | companyCurrency)" />
+
+    <!-- Send Email Dialog -->
+    @if (showEmailDialog) {
+      <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="fa fa-envelope me-2"></i>{{ '::SendEmail' | abpLocalization }}</h5>
+              <button type="button" class="btn-close" (click)="cancelEmailDialog()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:Email' | abpLocalization" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CommaSeparatedEmails' | abpLocalization" />
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="attachPdf" [(ngModel)]="emailAttachPdf" />
+                <label class="form-check-label" for="attachPdf">{{ '::AttachPdf' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" (click)="cancelEmailDialog()">{{ '::Cancel' | abpLocalization }}</button>
+              <button type="button" class="btn btn-primary" (click)="sendEmail()" [disabled]="emailSending || !emailRecipient">
+                @if (emailSending) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="fa fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   }
 </abp-page>

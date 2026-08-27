@@ -10,5 +10,6 @@ public interface IDocumentEmailAppService : IApplicationService
     Task<EmailPreviewDto> PreviewEmailAsync(PreviewEmailInput input);
     Task SendSalesOrderEmailAsync(SendSalesOrderEmailDto input);
     Task SendPurchaseOrderEmailAsync(SendPurchaseOrderEmailDto input);
+    Task SendDeliveryNoteEmailAsync(SendDeliveryNoteEmailDto input);
     Task SendStatementEmailAsync(SendStatementEmailDto input);
 }

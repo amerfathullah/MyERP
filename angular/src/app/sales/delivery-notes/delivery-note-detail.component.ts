@@ -13,6 +13,8 @@ import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guar
 import { DeliveryNotePrintLayoutComponent } from '../../shared/components/dn-print-layout/dn-print-layout.component';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { FormsModule } from '@angular/forms';
 import { DeliveryNoteStore } from '../store/delivery-note.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
@@ -24,7 +26,7 @@ import type { DeliveryNoteDto } from '../../proxy/sales/models';
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe, FormsModule],
   templateUrl: './delivery-note-detail.component.html',
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
@@ -37,6 +39,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private router = inject(Router);
   private companyService = inject(CompanyService);
+  private documentEmailService = inject(DocumentEmailService);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
@@ -64,6 +67,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
         actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
         actions.push({ name: 'installation_note', label: 'Installation Note', icon: 'screwdriver-wrench', color: 'info' });
         actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
+        actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'envelope', color: 'secondary' });
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
         break;
       case 'Cancelled':
@@ -146,7 +150,53 @@ export class DeliveryNoteDetailComponent implements OnInit {
           next: (amended) => this.router.navigate(['/sales/delivery-notes', amended.id]),
         });
         break;
+      case 'sendEmail':
+        this.openSendEmailDialog();
+        break;
     }
+  }
+
+  // --- Send Email Dialog ---
+  showEmailDialog = false;
+  emailRecipient = '';
+  emailCc = '';
+  emailAttachPdf = true;
+  emailSending = false;
+
+  openSendEmailDialog(): void {
+    this.emailRecipient = '';
+    this.emailCc = '';
+    this.emailAttachPdf = true;
+    this.showEmailDialog = true;
+  }
+
+  sendEmail(): void {
+    if (!this.emailRecipient) {
+      this.toaster.warn('::PleaseEnterRecipientEmail');
+      return;
+    }
+    this.emailSending = true;
+    const payload = {
+      documentId: this.deliveryNote!.id,
+      recipientEmail: this.emailRecipient,
+      ccEmails: this.emailCc ? this.emailCc.split(',').map((e: string) => e.trim()) : null,
+      attachPdf: this.emailAttachPdf,
+    };
+    this.documentEmailService.sendDeliveryNoteEmail(payload as any).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullySent');
+        this.showEmailDialog = false;
+        this.emailSending = false;
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::FailedToSendEmail');
+        this.emailSending = false;
+      },
+    });
+  }
+
+  cancelEmailDialog(): void {
+    this.showEmailDialog = false;
   }
 
   private reloadAfterAction(): void {

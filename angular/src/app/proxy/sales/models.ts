@@ -1541,6 +1541,14 @@ export interface SendPurchaseOrderEmailDto {
   attachPdf?: boolean;
 }
 
+export interface SendDeliveryNoteEmailDto {
+  documentId?: string;
+  recipientEmail?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
+}
+
 export interface SendQuotationEmailDto {
   quotationId?: string;
   recipientEmail?: string | null;
