@@ -37,4 +37,6 @@ public class CreateUpdateWarehouseDto
     public bool IsGroup { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public WarehouseType WarehouseType { get; set; } = WarehouseType.Standard;
 }

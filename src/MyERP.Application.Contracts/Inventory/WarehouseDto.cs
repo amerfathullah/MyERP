@@ -17,4 +17,5 @@ public class WarehouseDto : FullAuditedEntityDto<Guid>
     public Guid? ParentWarehouseId { get; set; }
     public bool IsGroup { get; set; }
     public bool IsActive { get; set; }
+    public WarehouseType WarehouseType { get; set; }
 }

@@ -12,6 +12,7 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
+import type { WarehouseType } from './warehouse-type.enum';
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -604,6 +605,7 @@ export interface CreateUpdateWarehouseDto {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+  warehouseType?: WarehouseType;
 }
 
 export interface CreateWarehouseAccountDto {
@@ -1700,6 +1702,7 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   parentWarehouseId?: string | null;
   isGroup?: boolean;
   isActive?: boolean;
+  warehouseType?: WarehouseType;
 }
 
 export interface UomConversionDto extends EntityDto<string> {

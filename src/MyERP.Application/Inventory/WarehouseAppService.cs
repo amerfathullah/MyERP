@@ -91,6 +91,7 @@ public class WarehouseAppService :
         entity.ParentWarehouseId = input.ParentWarehouseId;
         entity.IsGroup = input.IsGroup;
         entity.IsActive = input.IsActive;
+        entity.WarehouseType = input.WarehouseType;
     }
 
     /// <summary>

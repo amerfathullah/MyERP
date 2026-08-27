@@ -8,6 +8,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import type { CompanyDto } from '../../proxy/core/models';
+import { WarehouseType, warehouseTypeOptions } from '../../proxy/inventory/warehouse-type.enum';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 
@@ -30,6 +31,7 @@ export class WarehouseFormComponent implements OnInit {
   companies = signal<CompanyDto[]>([]);
   isEditMode = false;
   entityId: string | null = null;
+  warehouseTypeOptions = warehouseTypeOptions;
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -42,6 +44,7 @@ export class WarehouseFormComponent implements OnInit {
     country: ['Malaysia', Validators.maxLength(100)],
     isGroup: [false],
     isActive: [true],
+    warehouseType: [WarehouseType.Standard],
   });
 
   ngOnInit(): void {

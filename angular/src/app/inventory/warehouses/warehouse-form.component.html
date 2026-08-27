@@ -42,6 +42,15 @@
             <label class="form-label">{{ '::Country' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="country" [class.is-invalid]="form.get('country')?.invalid && form.get('country')?.touched" />
           </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::WarehouseType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="warehouseType">
+              <option [ngValue]="0">{{ '::WarehouseType:Standard' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::WarehouseType:Transit' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::WarehouseType:Rejected' | abpLocalization }}</option>
+              <option [ngValue]="3">{{ '::WarehouseType:SampleRetention' | abpLocalization }}</option>
+            </select>
+          </div>
           <div class="col-12 mb-3">
             <div class="d-flex align-items-center gap-3">
               <div class="form-check form-switch">
