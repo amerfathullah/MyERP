@@ -184,6 +184,86 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     }
 
     /// <summary>
+    /// Reopens a closed Subcontracting Order and re-reserves RM in Bin for pending supplied items (Gotcha #5993).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<SubcontractingOrderDto> ReopenOrderAsync(Guid id)
+    {
+        var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+        sco.Reopen();
+
+        // Re-apply RM reservation for unconsumed supplied items
+        foreach (var item in sco.SuppliedItems)
+        {
+            var pendingQty = Math.Max(0, item.RequiredQty - item.ConsumedQty);
+            if (pendingQty > 0 && item.ReserveWarehouseId.HasValue)
+            {
+                await _binService.UpdateReservedQtyForSubContractAsync(
+                    item.ItemId, item.ReserveWarehouseId.Value, pendingQty);
+            }
+        }
+
+        await _scoRepository.UpdateAsync(sco);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator?.Create() ?? Guid.NewGuid(), "SubcontractingOrder", sco.Id,
+                "Reopened", sco.CompanyId,
+                sco.OrderNumber, "Closed", sco.Status.ToString(), CurrentUser?.Id,
+                $"Subcontracting Order {sco.OrderNumber} reopened", CurrentTenant?.Id));
+        }
+
+        return new SubcontractingOrderDto
+        {
+            Id = sco.Id,
+            OrderNumber = sco.OrderNumber,
+            OrderDate = sco.OrderDate,
+            SupplierId = sco.SupplierId,
+            CompanyId = sco.CompanyId,
+            NetTotal = sco.NetTotal,
+            GrandTotal = sco.GrandTotal,
+            Status = sco.Status,
+            PerReceived = sco.PerReceived,
+            SupplierWarehouseId = sco.SupplierWarehouseId,
+            Items = sco.Items.Select(i => new ScoItemDto
+            {
+                Id = i.Id,
+                ItemId = i.ItemId,
+                ItemName = i.ItemName,
+                Qty = i.Qty,
+                Rate = i.Rate,
+                ReceivedQty = i.ReceivedQty
+            }).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Computes summary metrics for a Subcontracting Order (Gotcha #5993).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Default)]
+    public async Task<SubcontractingOrderSummaryDto> GetOrderSummaryAsync(Guid id)
+    {
+        var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+        return new SubcontractingOrderSummaryDto
+        {
+            Id = sco.Id,
+            OrderNumber = sco.OrderNumber,
+            Status = (int)sco.Status,
+            NetTotal = sco.NetTotal,
+            PerReceived = sco.PerReceived,
+            TotalItemsCount = sco.Items.Count,
+            TotalSuppliedItemsCount = sco.SuppliedItems.Count,
+            TotalOrderedQty = sco.Items.Sum(i => i.Qty),
+            TotalReceivedQty = sco.Items.Sum(i => i.ReceivedQty),
+            CanReopen = sco.Status == SubcontractingOrderStatus.Closed,
+            CanClose = sco.Status is SubcontractingOrderStatus.Open or SubcontractingOrderStatus.PartiallyReceived,
+            CanCancel = sco.Status is not (SubcontractingOrderStatus.Cancelled or SubcontractingOrderStatus.Completed)
+        };
+    }
+
+    /// <summary>
     /// Creates a Draft Stock Entry (SendToSubcontractor) with pending RM items from the SCO's BOM.
     /// Per ERPNext make_rm_stock_entry: resolves RM requirements, caps at pending qty, creates SE.
     /// </summary>

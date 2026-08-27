@@ -28,7 +28,7 @@ public class BinService : DomainService
     /// Races the unique (TenantId, ItemId, WarehouseId) index on insert: if a concurrent
     /// caller wins the race, re-reads the row it created instead of failing.
     /// </summary>
-    public async Task<Bin> GetOrCreateAsync(Guid itemId, Guid warehouseId, Guid? tenantId = null)
+    public virtual async Task<Bin> GetOrCreateAsync(Guid itemId, Guid warehouseId, Guid? tenantId = null)
     {
         var query = await _binRepository.GetQueryableAsync();
         var bin = query.FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
@@ -36,7 +36,7 @@ public class BinService : DomainService
         if (bin != null)
             return bin;
 
-        bin = new Bin(GuidGenerator.Create(), itemId, warehouseId, tenantId);
+        bin = new Bin(Guid.NewGuid(), itemId, warehouseId, tenantId);
         try
         {
             // autoSave forces the insert (and its unique-index check) to happen now,
@@ -63,7 +63,7 @@ public class BinService : DomainService
     /// Apply a stock movement to the Bin (called after SLE creation).
     /// Retries up to 3 times on concurrency conflicts (concurrent bin updates).
     /// </summary>
-    public async Task ApplyStockMovementAsync(Guid itemId, Guid warehouseId, decimal qtyChange, decimal valueChange, Guid? tenantId = null)
+    public virtual async Task ApplyStockMovementAsync(Guid itemId, Guid warehouseId, decimal qtyChange, decimal valueChange, Guid? tenantId = null)
     {
         for (int attempt = 0; attempt < MaxRetries; attempt++)
         {
@@ -89,7 +89,7 @@ public class BinService : DomainService
     /// authoritative post-repost balance and an additive ApplyStockMovement (delta=0)
     /// would leave the Bin unchanged instead of syncing it.
     /// </summary>
-    public async Task SetBalanceAsync(Guid itemId, Guid warehouseId, decimal actualQty, decimal stockValue, Guid? tenantId = null)
+    public virtual async Task SetBalanceAsync(Guid itemId, Guid warehouseId, decimal actualQty, decimal stockValue, Guid? tenantId = null)
     {
         for (int attempt = 0; attempt < MaxRetries; attempt++)
         {
@@ -110,7 +110,7 @@ public class BinService : DomainService
     /// <summary>
     /// Update ordered qty (from Purchase Order submit/cancel).
     /// </summary>
-    public async Task UpdateOrderedQtyAsync(Guid itemId, Guid warehouseId, decimal orderedQtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateOrderedQtyAsync(Guid itemId, Guid warehouseId, decimal orderedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.OrderedQty += orderedQtyChange;
@@ -120,7 +120,7 @@ public class BinService : DomainService
     /// <summary>
     /// Update reserved qty (from Sales Order submit/cancel/delivery).
     /// </summary>
-    public async Task UpdateReservedQtyAsync(Guid itemId, Guid warehouseId, decimal reservedQtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateReservedQtyAsync(Guid itemId, Guid warehouseId, decimal reservedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.ReservedQty += reservedQtyChange;
@@ -130,7 +130,7 @@ public class BinService : DomainService
     /// <summary>
     /// Update planned qty (from Work Order submit/cancel/production).
     /// </summary>
-    public async Task UpdatePlannedQtyAsync(Guid itemId, Guid warehouseId, decimal plannedQtyChange, Guid? tenantId = null)
+    public virtual async Task UpdatePlannedQtyAsync(Guid itemId, Guid warehouseId, decimal plannedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.PlannedQty += plannedQtyChange;
@@ -140,7 +140,7 @@ public class BinService : DomainService
     /// <summary>
     /// Update indented qty (from Material Request submit/cancel/fulfill).
     /// </summary>
-    public async Task UpdateIndentedQtyAsync(Guid itemId, Guid warehouseId, decimal indentedQtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateIndentedQtyAsync(Guid itemId, Guid warehouseId, decimal indentedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.IndentedQty += indentedQtyChange;
@@ -151,7 +151,7 @@ public class BinService : DomainService
     /// Update reserved qty for production (from Work Order RM reservation).
     /// Formula: MAX(0, required_qty - transferred_qty) for each open WO item.
     /// </summary>
-    public async Task UpdateReservedQtyForProductionAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateReservedQtyForProductionAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.ReservedQtyForProduction = Math.Max(0, bin.ReservedQtyForProduction + qtyChange);
@@ -162,7 +162,7 @@ public class BinService : DomainService
     /// Update reserved qty for subcontracting (from SCO RM transfer tracking).
     /// Formula: MAX(0, required_qty - transferred_qty) for each open SCO supplied item.
     /// </summary>
-    public async Task UpdateReservedQtyForSubContractAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateReservedQtyForSubContractAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.ReservedQtyForSubContract = Math.Max(0, bin.ReservedQtyForSubContract + qtyChange);
@@ -172,7 +172,7 @@ public class BinService : DomainService
     /// <summary>
     /// Update reserved qty for production plan (from Production Plan MR reservation).
     /// </summary>
-    public async Task UpdateReservedQtyForProductionPlanAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
+    public virtual async Task UpdateReservedQtyForProductionPlanAsync(Guid itemId, Guid warehouseId, decimal qtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
         bin.ReservedQtyForProductionPlan = Math.Max(0, bin.ReservedQtyForProductionPlan + qtyChange);

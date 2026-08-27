@@ -57,6 +57,22 @@ public class GetScoListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
 }
 
+public class SubcontractingOrderSummaryDto
+{
+    public Guid Id { get; set; }
+    public string OrderNumber { get; set; } = null!;
+    public int Status { get; set; }
+    public decimal NetTotal { get; set; }
+    public decimal PerReceived { get; set; }
+    public int TotalItemsCount { get; set; }
+    public int TotalSuppliedItemsCount { get; set; }
+    public decimal TotalOrderedQty { get; set; }
+    public decimal TotalReceivedQty { get; set; }
+    public bool CanReopen { get; set; }
+    public bool CanClose { get; set; }
+    public bool CanCancel { get; set; }
+}
+
 // === Subcontracting Receipt DTOs ===
 
 public class SubcontractingReceiptDto : AuditedEntityDto<Guid>

@@ -95,11 +95,34 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AddLocalEvent(new Events.SubcontractingOrderClosedOrCancelledEvent(Id, TenantId));
     }
 
+    public void Reopen()
+    {
+        if (Status != SubcontractingOrderStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = PerReceived > 0
+            ? (PerReceived >= 100m ? SubcontractingOrderStatus.Completed : SubcontractingOrderStatus.PartiallyReceived)
+            : SubcontractingOrderStatus.Open;
+    }
+
     public void MarkPartiallyReceived()
     {
         if (Status is not SubcontractingOrderStatus.Open)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = SubcontractingOrderStatus.PartiallyReceived;
+    }
+
+    public void UpdateStatus()
+    {
+        if (Status is SubcontractingOrderStatus.Cancelled or SubcontractingOrderStatus.Closed or SubcontractingOrderStatus.Draft)
+            return;
+
+        if (PerReceived >= 100m)
+            Status = SubcontractingOrderStatus.Completed;
+        else if (PerReceived > 0m)
+            Status = SubcontractingOrderStatus.PartiallyReceived;
+        else
+            Status = SubcontractingOrderStatus.Open;
     }
 
     private void RecalculateTotals()

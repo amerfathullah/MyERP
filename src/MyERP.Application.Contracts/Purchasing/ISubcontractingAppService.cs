@@ -14,6 +14,8 @@ public interface ISubcontractingAppService : IApplicationService
     Task<SubcontractingOrderDto> SubmitOrderAsync(Guid id);
     Task<SubcontractingOrderDto> CancelOrderAsync(Guid id);
     Task<SubcontractingOrderDto> CloseOrderAsync(Guid id);
+    Task<SubcontractingOrderDto> ReopenOrderAsync(Guid id);
+    Task<SubcontractingOrderSummaryDto> GetOrderSummaryAsync(Guid id);
     Task<RmTransferResultDto> CreateRmTransferStockEntryAsync(Guid scoId);
 
     // Subcontracting Receipt
