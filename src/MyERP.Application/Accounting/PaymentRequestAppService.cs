@@ -202,4 +202,65 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
 
         return ObjectMapper.Map<PaymentRequest, PaymentRequestDto>(pr);
     }
+
+    /// <summary>
+    /// Resends payment link email for an initiated Payment Request (Gotcha #6012).
+    /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Default)]
+    public async Task<ResendPaymentEmailResultDto> ResendPaymentEmailAsync(Guid id)
+    {
+        var pr = await _repository.GetAsync(id);
+        if (pr.Status != PaymentRequestStatus.Initiated)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot resend email for a payment request that is not in Initiated status.");
+        }
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator?.Create() ?? Guid.NewGuid(), "PaymentRequest", pr.Id,
+                "ResentEmail", pr.CompanyId,
+                pr.PartyName ?? pr.Id.ToString()[..8], "Initiated", "Initiated",
+                CurrentUser?.Id,
+                $"Payment link email resent to {pr.EmailTo ?? pr.PartyName}", CurrentTenant?.Id));
+        }
+
+        return new ResendPaymentEmailResultDto
+        {
+            Success = true,
+            Message = $"Payment link email successfully resent to {pr.EmailTo ?? pr.PartyName}",
+            SentTo = pr.EmailTo
+        };
+    }
+
+    /// <summary>
+    /// Gets comprehensive summary metrics and capability flags for Payment Request (Gotcha #6012).
+    /// </summary>
+    public async Task<PaymentRequestSummaryDto> GetSummaryAsync(Guid id)
+    {
+        var pr = await _repository.GetAsync(id);
+        return new PaymentRequestSummaryDto
+        {
+            Id = pr.Id,
+            PaymentRequestType = pr.PaymentRequestType,
+            ReferenceDoctype = pr.ReferenceDoctype,
+            ReferenceId = pr.ReferenceId,
+            PartyType = pr.PartyType,
+            PartyId = pr.PartyId,
+            PartyName = pr.PartyName,
+            GrandTotal = pr.GrandTotal,
+            OutstandingAmount = pr.OutstandingAmount,
+            Currency = pr.Currency,
+            Status = (int)pr.Status,
+            StatusName = pr.Status.ToString(),
+            PaymentUrl = pr.PaymentUrl,
+            PaymentGateway = pr.PaymentGateway,
+            PaymentEntryId = pr.PaymentEntryId,
+            CanPay = pr.Status == PaymentRequestStatus.Initiated && pr.OutstandingAmount > 0,
+            CanResendEmail = pr.Status == PaymentRequestStatus.Initiated,
+            CanCancel = pr.Status is PaymentRequestStatus.Draft or PaymentRequestStatus.Initiated
+        };
+    }
 }

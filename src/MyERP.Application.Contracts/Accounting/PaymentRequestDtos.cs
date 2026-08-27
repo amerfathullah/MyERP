@@ -34,3 +34,32 @@ public class CreatePaymentRequestDto
     public string? Subject { get; set; }
     public string? Message { get; set; }
 }
+
+public class ResendPaymentEmailResultDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = null!;
+    public string? SentTo { get; set; }
+}
+
+public class PaymentRequestSummaryDto
+{
+    public Guid Id { get; set; }
+    public string PaymentRequestType { get; set; } = null!;
+    public string ReferenceDoctype { get; set; } = null!;
+    public Guid ReferenceId { get; set; }
+    public string PartyType { get; set; } = null!;
+    public Guid PartyId { get; set; }
+    public string? PartyName { get; set; }
+    public decimal GrandTotal { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public string Currency { get; set; } = null!;
+    public int Status { get; set; }
+    public string StatusName { get; set; } = null!;
+    public string? PaymentUrl { get; set; }
+    public string? PaymentGateway { get; set; }
+    public Guid? PaymentEntryId { get; set; }
+    public bool CanPay { get; set; }
+    public bool CanResendEmail { get; set; }
+    public bool CanCancel { get; set; }
+}

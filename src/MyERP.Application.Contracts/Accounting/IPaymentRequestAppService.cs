@@ -17,4 +17,10 @@ public interface IPaymentRequestAppService : IApplicationService
     /// <summary>Creates, submits, and posts a real Payment Entry for this request's full
     /// outstanding amount against Company default accounts, then marks the request Paid.</summary>
     Task<PaymentRequestDto> PayAsync(Guid id);
+
+    /// <summary>Resends payment link email for an initiated Payment Request (Gotcha #6012).</summary>
+    Task<ResendPaymentEmailResultDto> ResendPaymentEmailAsync(Guid id);
+
+    /// <summary>Gets comprehensive summary metrics and capability flags for Payment Request.</summary>
+    Task<PaymentRequestSummaryDto> GetSummaryAsync(Guid id);
 }
