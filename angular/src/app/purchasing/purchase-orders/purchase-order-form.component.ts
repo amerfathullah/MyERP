@@ -25,12 +25,14 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemPickerComponent } from '../../shared/components/item-picker/item-picker.component';
+import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
+import { map, Observable } from 'rxjs';
 
 @Component({
   selector: 'app-purchase-order-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective, ItemPickerComponent],
+    CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective, ItemPickerComponent, LinkPickerComponent],
   templateUrl: './purchase-order-form.component.html',
   styleUrls: ['./purchase-order-form.component.scss'],
 })
@@ -58,7 +60,6 @@ export class PurchaseOrderFormComponent implements OnInit {
   isMultiCurrency = signal(false);
 
   companies = signal<CompanyDto[]>([]);
-  suppliers = signal<SupplierDto[]>([]);
   priceLists = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
@@ -91,6 +92,12 @@ export class PurchaseOrderFormComponent implements OnInit {
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
 
+  supplierSearchFn = (filter: string): Observable<SupplierDto[]> =>
+    this.supplierService.getList({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
+      .pipe(map(res => res.items ?? []));
+  supplierGetByIdFn = (id: string) => this.supplierService.get(id);
+  supplierDisplayFn = (s: SupplierDto | null) => s?.name ?? '';
+
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
@@ -103,8 +110,6 @@ export class PurchaseOrderFormComponent implements OnInit {
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(r => this.companies.set(r.items ?? []));
-    this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'name asc' })
-      .subscribe(r => this.suppliers.set(r.items ?? []));
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(r => this.warehouses.set((r.items ?? []).filter((w: any) => !w.isGroup)));
     this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
@@ -199,16 +204,18 @@ export class PurchaseOrderFormComponent implements OnInit {
     if (!supplierId) return;
 
     // Check supplier scorecard standing (warn/block per ERPNext supplier_scorecard enforcement)
-    const supplier = this.suppliers().find(s => s.id === supplierId);
-    if (supplier) {
-      if ((supplier as any).preventPos) {
-        this.supplierBlocked.set(true);
-        this.supplierScorecardWarning.set(this.l.instant('::SupplierBlockedByScorecard'));
-      } else if ((supplier as any).holdType === 'All') {
-        this.supplierBlocked.set(true);
-        this.supplierScorecardWarning.set(this.l.instant('::SupplierOnHold'));
-      }
-    }
+    this.supplierService.get(supplierId).subscribe({
+      next: (supplier) => {
+        if ((supplier as any)?.preventPos) {
+          this.supplierBlocked.set(true);
+          this.supplierScorecardWarning.set(this.l.instant('::SupplierBlockedByScorecard'));
+        } else if ((supplier as any)?.holdType === 'All') {
+          this.supplierBlocked.set(true);
+          this.supplierScorecardWarning.set(this.l.instant('::SupplierOnHold'));
+        }
+      },
+      error: () => {},
+    });
 
     this.loadSupplierQuotations();
 

@@ -17,12 +17,15 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
+import type { CustomerDto } from '../../proxy/sales/models';
+import { map, Observable } from 'rxjs';
 
 @Component({
   selector: 'app-sales-order-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe, LinkPickerComponent],
   templateUrl: './sales-order-form.component.html',
   styleUrls: ['./sales-order-form.component.scss'],
 })
@@ -40,7 +43,6 @@ export class SalesOrderFormComponent implements OnInit {
   private taxRuleService = inject(TaxRuleService);
   private priceListService = inject(PriceListService);
 
-  customers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
   priceLists = signal<any[]>([]);
@@ -75,9 +77,6 @@ export class SalesOrderFormComponent implements OnInit {
       const cid = this.companyContext.currentCompanyId();
       if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
     }
-
-    this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
-      .subscribe(res => this.customers.set(res.items ?? []));
 
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
@@ -127,6 +126,12 @@ export class SalesOrderFormComponent implements OnInit {
   }
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
+
+  customerSearchFn = (filter: string): Observable<CustomerDto[]> =>
+    this.customerService.getList({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
+      .pipe(map(res => res.items ?? []));
+  customerGetByIdFn = (id: string) => this.customerService.get(id);
+  customerDisplayFn = (c: CustomerDto | null) => c?.name ?? '';
 
   onTaxCategoryChanged(categoryId: string): void {
     this.selectedTaxCategoryId.set(categoryId);

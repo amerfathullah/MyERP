@@ -17,11 +17,15 @@
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
-            <select class="form-select" formControlName="supplierId" (change)="onSupplierChanged()" [class.is-invalid]="form.get('supplierId')?.invalid && form.get('supplierId')?.touched">
-              @for (s of suppliers(); track s.id) {
-                <option [value]="s.id">{{ s.name }}</option>
-              }
-            </select>
+            <app-link-picker
+              formControlName="supplierId"
+              [searchFn]="supplierSearchFn"
+              [getByIdFn]="supplierGetByIdFn"
+              [displayFn]="supplierDisplayFn"
+              [placeholder]="'::Placeholder:SearchSupplier' | abpLocalization"
+              [invalid]="!!(form.get('supplierId')?.invalid && form.get('supplierId')?.touched)"
+              (linkSelected)="onSupplierChanged()">
+            </app-link-picker>
             @if (supplierScorecardWarning()) {
               <div class="alert alert-{{ supplierBlocked() ? 'danger' : 'warning' }} mt-2 mb-0 py-1 px-2 small">
                 <i class="fa fa-{{ supplierBlocked() ? 'ban' : 'triangle-exclamation' }} me-1"></i>

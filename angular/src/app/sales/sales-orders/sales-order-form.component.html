@@ -20,12 +20,14 @@
           </div>
           <div class="col-12 col-md-8 mb-3">
             <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
-            <select class="form-select" formControlName="customerId" [class.is-invalid]="form.get('customerId')?.invalid && form.get('customerId')?.touched">
-              <option value="">— Select Customer —</option>
-              @for (c of customers(); track c.id) {
-                <option [value]="c.id">{{ c.name }}</option>
-              }
-            </select>
+            <app-link-picker
+              formControlName="customerId"
+              [searchFn]="customerSearchFn"
+              [getByIdFn]="customerGetByIdFn"
+              [displayFn]="customerDisplayFn"
+              [placeholder]="'::Placeholder:SearchCustomer' | abpLocalization"
+              [invalid]="!!(form.get('customerId')?.invalid && form.get('customerId')?.touched)">
+            </app-link-picker>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
