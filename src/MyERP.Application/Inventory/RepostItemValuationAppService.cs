@@ -87,4 +87,80 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
         var query = await _repository.GetQueryableAsync();
         return query.Count(x => x.CompanyId == companyId && x.Status == RepostStatus.Queued);
     }
+
+    /// <summary>
+    /// Restarts a failed, skipped, or cancelled repost operation (Gotcha #6004).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<RepostItemValuationDto> RestartAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Restart();
+
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Cancels a queued, in-progress, or failed repost operation (Gotcha #6004).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<RepostItemValuationDto> CancelAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Cancel();
+
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Computes summary metrics for stock repost operations (Gotcha #6004).
+    /// </summary>
+    public async Task<RepostItemValuationSummaryDto> GetSummaryAsync(Guid companyId)
+    {
+        var query = await _repository.GetQueryableAsync();
+        var companyReposts = query.Where(x => x.CompanyId == companyId).ToList();
+
+        var lastProcessed = companyReposts
+            .Where(x => x.Status == RepostStatus.Completed)
+            .OrderByDescending(x => x.LastModificationTime ?? x.CreationTime)
+            .Select(x => (DateTime?)(x.LastModificationTime ?? x.CreationTime))
+            .FirstOrDefault();
+
+        return new RepostItemValuationSummaryDto
+        {
+            CompanyId = companyId,
+            QueuedCount = companyReposts.Count(x => x.Status == RepostStatus.Queued),
+            InProgressCount = companyReposts.Count(x => x.Status == RepostStatus.InProgress),
+            CompletedCount = companyReposts.Count(x => x.Status == RepostStatus.Completed),
+            FailedCount = companyReposts.Count(x => x.Status == RepostStatus.Failed),
+            SkippedCount = companyReposts.Count(x => x.Status == RepostStatus.Skipped),
+            CancelledCount = companyReposts.Count(x => x.Status == RepostStatus.Cancelled),
+            TotalEntriesProcessed = companyReposts.Sum(x => x.CurrentIndex),
+            LastProcessedDate = lastProcessed
+        };
+    }
+
+    private static RepostItemValuationDto MapToDto(RepostItemValuation entity)
+    {
+        return new RepostItemValuationDto
+        {
+            Id = entity.Id,
+            CompanyId = entity.CompanyId,
+            BasedOn = (int)entity.BasedOn,
+            ItemId = entity.ItemId,
+            WarehouseId = entity.WarehouseId,
+            PostingDate = entity.PostingDate,
+            Status = (int)entity.Status,
+            RepostGlEntries = entity.RepostGlEntries,
+            TotalAffectedEntries = entity.TotalAffectedEntries,
+            CurrentIndex = entity.CurrentIndex,
+            ErrorLog = entity.ErrorLog,
+            VoucherType = entity.VoucherType,
+            VoucherId = entity.VoucherId,
+            IsDeduplicated = entity.IsDeduplicated,
+            CreationTime = entity.CreationTime
+        };
+    }
 }

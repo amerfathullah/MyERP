@@ -32,3 +32,16 @@ public class CreateRepostItemValuationDto
     public string? VoucherType { get; set; }
     public Guid? VoucherId { get; set; }
 }
+
+public class RepostItemValuationSummaryDto
+{
+    public Guid CompanyId { get; set; }
+    public int QueuedCount { get; set; }
+    public int InProgressCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int FailedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalEntriesProcessed { get; set; }
+    public DateTime? LastProcessedDate { get; set; }
+}

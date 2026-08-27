@@ -102,11 +102,31 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ErrorLog = reason;
     }
 
+    public void Restart()
+    {
+        if (Status is not (RepostStatus.Failed or RepostStatus.Skipped or RepostStatus.Cancelled))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = RepostStatus.Queued;
+        ErrorLog = null;
+        CurrentIndex = 0;
+        IsDeduplicated = false;
+        DedupRepostId = null;
+    }
+
+    public void Cancel()
+    {
+        if (Status is RepostStatus.Completed or RepostStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = RepostStatus.Cancelled;
+    }
+
     /// <summary>Check if another repost makes this one redundant (covers same or broader scope).</summary>
     public bool IsCoveredBy(RepostItemValuation other)
     {
-        if (other.Status == RepostStatus.Completed || other.Status == RepostStatus.Skipped)
-            return false; // Already done, not covering
+        if (other.Status == RepostStatus.Completed || other.Status == RepostStatus.Skipped || other.Status == RepostStatus.Cancelled)
+            return false; // Already done/cancelled, not covering
 
         // Entire company covers everything
         if (other.BasedOn == RepostMethod.EntireCompany && other.CompanyId == CompanyId)
@@ -133,5 +153,6 @@ public enum RepostStatus
     InProgress = 1,
     Completed = 2,
     Failed = 3,
-    Skipped = 4
+    Skipped = 4,
+    Cancelled = 5
 }
