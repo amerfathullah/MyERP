@@ -67,6 +67,8 @@ public class SubcontractingReceiptDto : AuditedEntityDto<Guid>
     public Guid SubcontractingOrderId { get; set; }
     public decimal NetTotal { get; set; }
     public SubcontractingReceiptStatus Status { get; set; }
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstReceiptId { get; set; }
     public List<SubcontractingReceiptItemDto> Items { get; set; } = new();
 }
 
@@ -97,6 +99,35 @@ public class CreateScrItemDto
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public Guid? WarehouseId { get; set; }
+}
+
+public class CreateSubcontractingReceiptReturnDto
+{
+    [Required] public Guid ReturnAgainstReceiptId { get; set; }
+    [Required] public DateTime PostingDate { get; set; }
+    public List<CreateScrReturnItemDto> Items { get; set; } = new();
+}
+
+public class CreateScrReturnItemDto
+{
+    [Required] public Guid ItemId { get; set; }
+    [Required] public string ItemName { get; set; } = null!;
+    public decimal Qty { get; set; }
+    public decimal Rate { get; set; }
+    public Guid? WarehouseId { get; set; }
+}
+
+public class SubcontractingReceiptSummaryDto
+{
+    public Guid Id { get; set; }
+    public string ReceiptNumber { get; set; } = null!;
+    public int Status { get; set; }
+    public decimal NetTotal { get; set; }
+    public decimal TotalReceivedQty { get; set; }
+    public int TotalItemsCount { get; set; }
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstReceiptId { get; set; }
+    public string? ReturnAgainstReceiptNumber { get; set; }
 }
 
 public class RmTransferResultDto

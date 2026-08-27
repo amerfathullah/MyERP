@@ -20,4 +20,6 @@ public interface ISubcontractingAppService : IApplicationService
     Task<SubcontractingReceiptDto> CreateReceiptAsync(CreateSubcontractingReceiptDto input);
     Task<SubcontractingReceiptDto> SubmitReceiptAsync(Guid id);
     Task<SubcontractingReceiptDto> CancelReceiptAsync(Guid id);
+    Task<SubcontractingReceiptDto> CreateReceiptReturnAsync(CreateSubcontractingReceiptReturnDto input);
+    Task<SubcontractingReceiptSummaryDto> GetReceiptSummaryAsync(Guid id);
 }

@@ -38,6 +38,8 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
     public decimal ExchangeRate { get; set; } = 1m;
 
     public SubcontractingReceiptStatus Status { get; private set; } = SubcontractingReceiptStatus.Draft;
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstReceiptId { get; set; }
 
     private readonly List<SubcontractingReceiptItem> _items = new();
     public IReadOnlyList<SubcontractingReceiptItem> Items => _items.AsReadOnly();

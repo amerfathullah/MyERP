@@ -393,4 +393,144 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         await _scrRepository.UpdateAsync(scr);
         return ObjectMapper.Map<SubcontractingReceipt, SubcontractingReceiptDto>(scr);
     }
+
+    /// <summary>
+    /// Creates a return Subcontracting Receipt against an original submitted receipt (Gotcha #5997).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
+    public async Task<SubcontractingReceiptDto> CreateReceiptReturnAsync(CreateSubcontractingReceiptReturnDto input)
+    {
+        var original = await _scrRepository.GetAsync(input.ReturnAgainstReceiptId, includeDetails: true);
+        if (original.Status != SubcontractingReceiptStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot create a return against a non-submitted Subcontracting Receipt.");
+        }
+
+        if (original.IsReturn)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot create a return against another return Subcontracting Receipt.");
+        }
+
+        if (input.Items == null || !input.Items.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        var allReceiptsQuery = await _scrRepository.GetQueryableAsync();
+        var priorReturns = allReceiptsQuery
+            .Where(r => r.ReturnAgainstReceiptId == original.Id && r.Status != SubcontractingReceiptStatus.Cancelled)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .SelectMany(r => r.Items)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Qty)));
+
+        var originalItemsByItem = original.Items.ToDictionary(i => i.ItemId);
+
+        foreach (var retItem in input.Items)
+        {
+            if (!originalItemsByItem.TryGetValue(retItem.ItemId, out var origItem))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {retItem.ItemId} does not exist in original receipt.");
+            }
+
+            var priorReturned = priorReturnedByItem.GetValueOrDefault(retItem.ItemId, 0m);
+            var maxReturnable = origItem.Qty - priorReturned;
+
+            if (retItem.Qty > maxReturnable)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                    .WithData("itemId", retItem.ItemId)
+                    .WithData("returnQty", retItem.Qty)
+                    .WithData("maxReturnable", maxReturnable);
+            }
+        }
+
+        var number = await _numberGenerator.GenerateAsync("SCR-RET", original.CompanyId);
+        var returnReceipt = new SubcontractingReceipt(
+            Guid.NewGuid(),
+            original.CompanyId,
+            number,
+            input.PostingDate,
+            original.SupplierId,
+            original.SubcontractingOrderId,
+            original.TenantId)
+        {
+            IsReturn = true,
+            ReturnAgainstReceiptId = original.Id,
+            WarehouseId = original.WarehouseId
+        };
+
+        foreach (var retItem in input.Items)
+        {
+            var origItem = originalItemsByItem[retItem.ItemId];
+            var negativeQty = -Math.Abs(retItem.Qty);
+            returnReceipt.AddItem(new SubcontractingReceiptItem(
+                Guid.NewGuid(),
+                returnReceipt.Id,
+                retItem.ItemId,
+                retItem.ItemName,
+                negativeQty,
+                retItem.Rate > 0 ? retItem.Rate : origItem.Rate)
+            {
+                WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId
+            });
+        }
+
+        await _scrRepository.InsertAsync(returnReceipt, autoSave: true);
+        return new SubcontractingReceiptDto
+        {
+            Id = returnReceipt.Id,
+            ReceiptNumber = returnReceipt.ReceiptNumber,
+            PostingDate = returnReceipt.PostingDate,
+            SupplierId = returnReceipt.SupplierId,
+            SubcontractingOrderId = returnReceipt.SubcontractingOrderId,
+            NetTotal = returnReceipt.NetTotal,
+            Status = returnReceipt.Status,
+            IsReturn = returnReceipt.IsReturn,
+            ReturnAgainstReceiptId = returnReceipt.ReturnAgainstReceiptId,
+            Items = returnReceipt.Items.Select(i => new SubcontractingReceiptItemDto
+            {
+                Id = i.Id,
+                ItemId = i.ItemId,
+                ItemName = i.ItemName,
+                Qty = i.Qty,
+                Rate = i.Rate,
+                Amount = i.Amount,
+                WarehouseId = i.WarehouseId
+            }).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Computes summary metrics for a Subcontracting Receipt (Gotcha #5997).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Default)]
+    public async Task<SubcontractingReceiptSummaryDto> GetReceiptSummaryAsync(Guid id)
+    {
+        var scr = await _scrRepository.GetAsync(id, includeDetails: true);
+        string? returnAgainstNumber = null;
+        if (scr.ReturnAgainstReceiptId.HasValue)
+        {
+            var orig = await _scrRepository.FindAsync(scr.ReturnAgainstReceiptId.Value);
+            returnAgainstNumber = orig?.ReceiptNumber;
+        }
+
+        return new SubcontractingReceiptSummaryDto
+        {
+            Id = scr.Id,
+            ReceiptNumber = scr.ReceiptNumber,
+            Status = (int)scr.Status,
+            NetTotal = scr.NetTotal,
+            TotalReceivedQty = scr.Items.Sum(i => i.Qty),
+            TotalItemsCount = scr.Items.Count,
+            IsReturn = scr.IsReturn,
+            ReturnAgainstReceiptId = scr.ReturnAgainstReceiptId,
+            ReturnAgainstReceiptNumber = returnAgainstNumber
+        };
+    }
 }
