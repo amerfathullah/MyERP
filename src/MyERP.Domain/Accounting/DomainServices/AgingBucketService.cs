@@ -47,7 +47,7 @@ public class AgingBucketService : DomainService
         var outstandingInvoices = query
             .Where(si => si.CompanyId == companyId
                       && si.Status == Core.DocumentStatus.Posted
-                      && si.OutstandingAmount > 0
+                      && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0
                       && !si.IsReturn)
             .ToList();
 
@@ -85,7 +85,7 @@ public class AgingBucketService : DomainService
         var outstandingInvoices = query
             .Where(pi => pi.CompanyId == companyId
                       && pi.Status == Core.DocumentStatus.Posted
-                      && pi.OutstandingAmount > 0
+                      && (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0
                       && !pi.IsReturn)
             .ToList();
 

@@ -123,6 +123,17 @@ export class AgingReportComponent implements OnInit {
   sendReminder(entry: AgingDetailEntryDto): void {
     const type = this.filters.get('reportType')?.value;
     if (type !== 'receivables') return;
+
+    this.agingReportService.sendPaymentReminder({
+      partyId: entry.partyId!,
+      partyName: entry.partyName ?? '',
+      partyType: 'Customer',
+      overdueAmount: entry.outstandingAmount ?? 0,
+      invoiceCount: 1,
+    }).subscribe({
+      error: () => {},
+    });
+
     this.router.navigate(['/sales/dunnings/new'], {
       queryParams: {
         customerId: entry.partyId,
