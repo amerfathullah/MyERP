@@ -15,6 +15,9 @@ public interface IMaintenanceScheduleAppService : IApplicationService
     Task<MaintenanceScheduleDto> GenerateScheduleAsync(Guid id);
     Task<MaintenanceScheduleDto> SubmitAsync(Guid id);
     Task<MaintenanceScheduleDto> CancelAsync(Guid id);
+    Task<CreateMaintenanceVisitDto> MakeMaintenanceVisitAsync(Guid id, MakeMaintenanceVisitInput? input = null);
+    Task<CreateMaintenanceScheduleDto> CreateFromSalesOrderAsync(Guid salesOrderId);
+    Task<MaintenanceScheduleSummaryDto> GetSummaryAsync(Guid id);
 }
 
 public interface IMaintenanceVisitAppService : IApplicationService

@@ -151,14 +151,136 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
         entity.Cancel();
         await _repository.UpdateAsync(entity, autoSave: true);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
-            "Cancelled", entity.CompanyId,
-            entity.Id.ToString()[..8], entity.Status.ToString(), "Cancelled", CurrentUser.Id,
-            $"Maintenance Schedule {entity.Id.ToString()[..8]} cancelled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
+                "Cancelled", entity.CompanyId,
+                entity.Id.ToString()[..8], entity.Status.ToString(), "Cancelled", CurrentUser?.Id,
+                $"Maintenance Schedule {entity.Id.ToString()[..8]} cancelled", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Creates a pre-populated draft Maintenance Visit DTO from a submitted Maintenance Schedule (Gotcha #6009).
+    /// </summary>
+    public async Task<CreateMaintenanceVisitDto> MakeMaintenanceVisitAsync(Guid id, MakeMaintenanceVisitInput? input = null)
+    {
+        var schedule = await _repository.GetAsync(id);
+        if (schedule.Status != MaintenanceScheduleStatus.Submitted)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Maintenance visits can only be generated from submitted Maintenance Schedules.");
+        }
+
+        MaintenanceScheduleDetail? targetDetail = null;
+        if (input?.ScheduleDetailId.HasValue == true)
+        {
+            targetDetail = schedule.Details.FirstOrDefault(d => d.Id == input.ScheduleDetailId.Value);
+        }
+        else
+        {
+            targetDetail = schedule.Details.FirstOrDefault(d => !d.IsCompleted);
+        }
+
+        var visitDate = input?.VisitDate 
+            ?? targetDetail?.ScheduledDate 
+            ?? DateTime.UtcNow;
+
+        var result = new CreateMaintenanceVisitDto
+        {
+            CompanyId = schedule.CompanyId,
+            CustomerId = schedule.CustomerId ?? Guid.Empty,
+            VisitDate = visitDate,
+            MaintenanceType = input?.MaintenanceType ?? 0, // 0 = Scheduled
+            MaintenanceScheduleId = schedule.Id,
+            MaintenanceScheduleDetailId = targetDetail?.Id,
+            Purposes = new System.Collections.Generic.List<CreateMaintenanceVisitPurposeDto>
+            {
+                new()
+                {
+                    ItemId = schedule.ItemId ?? Guid.Empty,
+                    SerialNoId = schedule.SerialNoId,
+                    ServicePersonId = schedule.SalesPersonId,
+                    WorkDone = targetDetail != null 
+                        ? $"Scheduled visit on {targetDetail.ScheduledDate:yyyy-MM-dd}" 
+                        : "Preventive maintenance visit",
+                    Status = 0 // Pending
+                }
+            }
+        };
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates a draft Maintenance Schedule DTO pre-populated from a submitted Sales Order (Gotcha #6009).
+    /// </summary>
+    public async Task<CreateMaintenanceScheduleDto> CreateFromSalesOrderAsync(Guid salesOrderId)
+    {
+        var salesOrderRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soQuery = await salesOrderRepo.WithDetailsAsync(so => so.Items);
+        var so = soQuery.FirstOrDefault(s => s.Id == salesOrderId);
+        if (so == null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+        }
+
+        if (so.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Sales Order '{so.OrderNumber}' must be submitted to create Maintenance Schedule.");
+        }
+
+        var startDate = DateTime.UtcNow.Date;
+        var endDate = startDate.AddYears(1);
+
+        var result = new CreateMaintenanceScheduleDto
+        {
+            CompanyId = so.CompanyId,
+            CustomerId = so.CustomerId,
+            SalesOrderId = so.Id,
+            Items = so.Items.Select(item => new CreateMaintenanceScheduleItemDto
+            {
+                ItemId = item.ItemId,
+                StartDate = startDate,
+                EndDate = endDate,
+                Periodicity = MaintenancePeriodicity.Quarterly,
+                NoOfVisits = 4
+            }).ToList()
+        };
+
+        return result;
+    }
+
+    /// <summary>
+    /// Computes summary metrics for the given Maintenance Schedule (Gotcha #6009).
+    /// </summary>
+    public async Task<MaintenanceScheduleSummaryDto> GetSummaryAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        var total = entity.Details.Count;
+        var completed = entity.Details.Count(d => d.IsCompleted);
+        var pending = total - completed;
+        var percent = total > 0 ? Math.Round((decimal)completed / total * 100m, 2) : 0m;
+        var nextDate = entity.Details
+            .Where(d => !d.IsCompleted && d.ScheduledDate >= DateTime.UtcNow.Date)
+            .OrderBy(d => d.ScheduledDate)
+            .Select(d => (DateTime?)d.ScheduledDate)
+            .FirstOrDefault();
+
+        return new MaintenanceScheduleSummaryDto
+        {
+            ScheduleId = entity.Id,
+            TotalVisits = total,
+            CompletedVisits = completed,
+            PendingVisits = pending,
+            CompletionPercentage = percent,
+            NextScheduledDate = nextDate
+        };
     }
 
     private static MaintenanceScheduleDto MapToDto(MaintenanceSchedule entity) => new()

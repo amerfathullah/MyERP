@@ -164,3 +164,20 @@ public class GetMaintenanceVisitListDto : PagedAndSortedResultRequestDto
     public Guid? MaintenanceScheduleId { get; set; }
     public int? MaintenanceType { get; set; }
 }
+
+public class MakeMaintenanceVisitInput
+{
+    public Guid? ScheduleDetailId { get; set; }
+    public DateTime? VisitDate { get; set; }
+    public int? MaintenanceType { get; set; } // 0=Scheduled, 1=Unscheduled, 2=Breakdown
+}
+
+public class MaintenanceScheduleSummaryDto
+{
+    public Guid ScheduleId { get; set; }
+    public int TotalVisits { get; set; }
+    public int CompletedVisits { get; set; }
+    public int PendingVisits { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public DateTime? NextScheduledDate { get; set; }
+}
