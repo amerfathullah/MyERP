@@ -517,6 +517,10 @@ public class MyERPDbContext :
     // Process Deferred Accounting
     public DbSet<ProcessDeferredAccounting> ProcessDeferredAccountings { get; set; }
 
+    // Bisect Accounting Statements
+    public DbSet<BisectAccountingStatements> BisectAccountingStatements { get; set; }
+    public DbSet<BisectNode> BisectNodes { get; set; }
+
     public DbSet<ContractFulfilmentChecklistItem> ContractFulfilmentChecklistItems { get; set; }
 
     // Quality Management (additional)
@@ -5075,6 +5079,31 @@ public class MyERPDbContext :
             b.Property(x => x.ProcessNumber).IsRequired().HasMaxLength(ProcessDeferredAccountingConsts.MaxProcessNumberLength);
             b.HasIndex(x => new { x.TenantId, x.ProcessNumber });
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Type, x.PostingDate });
+        });
+
+        // ═══════════════════════════════════════════════════
+        // Accounting — Bisect Accounting Statements
+        // ═══════════════════════════════════════════════════
+        builder.Entity<BisectAccountingStatements>(b =>
+        {
+            b.ToTable("Acc_BisectAccountingStatements", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PlSummary).HasPrecision(18, 2);
+            b.Property(x => x.BsSummary).HasPrecision(18, 2);
+            b.Property(x => x.Difference).HasPrecision(18, 2);
+            b.HasMany(x => x.Nodes).WithOne().HasForeignKey(x => x.BisectAccountingStatementsId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.FromDate, x.ToDate });
+        });
+
+        builder.Entity<BisectNode>(b =>
+        {
+            b.ToTable("Acc_BisectNodes", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.PlSummary).HasPrecision(18, 2);
+            b.Property(x => x.BsSummary).HasPrecision(18, 2);
+            b.Property(x => x.Difference).HasPrecision(18, 2);
+            b.HasIndex(x => x.BisectAccountingStatementsId);
+            b.HasIndex(x => x.ParentNodeId);
         });
 
         // ═══════════════════════════════════════════════════

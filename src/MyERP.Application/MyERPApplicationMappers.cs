@@ -1195,6 +1195,25 @@ public partial class ProcessDeferredAccountingMapper : MapperBase<Accounting.Ent
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BisectAccountingStatementsMapper : MapperBase<Accounting.Entities.BisectAccountingStatements, Accounting.BisectAccountingStatementsDto>
+{
+    [MapperIgnoreTarget(nameof(Accounting.BisectAccountingStatementsDto.CompanyName))]
+    [MapperIgnoreTarget(nameof(Accounting.BisectAccountingStatementsDto.Nodes))]
+    public override partial Accounting.BisectAccountingStatementsDto Map(Accounting.Entities.BisectAccountingStatements source);
+
+    [MapperIgnoreTarget(nameof(Accounting.BisectAccountingStatementsDto.CompanyName))]
+    [MapperIgnoreTarget(nameof(Accounting.BisectAccountingStatementsDto.Nodes))]
+    public override partial void Map(Accounting.Entities.BisectAccountingStatements source, Accounting.BisectAccountingStatementsDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class BisectNodeMapper : MapperBase<Accounting.Entities.BisectNode, Accounting.BisectNodeDto>
+{
+    public override partial Accounting.BisectNodeDto Map(Accounting.Entities.BisectNode source);
+    public override partial void Map(Accounting.Entities.BisectNode source, Accounting.BisectNodeDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class LeadMapper : MapperBase<CRM.Entities.Lead, CRM.LeadDto>
 {
     [MapperIgnoreTarget(nameof(CRM.LeadDto.FullName))]

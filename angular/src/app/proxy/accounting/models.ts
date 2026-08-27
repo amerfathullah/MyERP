@@ -2392,3 +2392,49 @@ export interface ProcessDeferredAccountingGetListInput extends PagedAndSortedRes
   toDate?: string | null;
 }
 
+export enum BisectAlgorithm {
+  BFS = 1,
+  DFS = 2,
+}
+
+export interface BisectNodeDto extends FullAuditedEntityDto<string> {
+  bisectAccountingStatementsId: string;
+  parentNodeId?: string | null;
+  leftChildId?: string | null;
+  rightChildId?: string | null;
+  periodFromDate: string;
+  periodToDate: string;
+  plSummary: number;
+  bsSummary: number;
+  difference: number;
+  isGenerated: boolean;
+}
+
+export interface BisectAccountingStatementsDto extends FullAuditedEntityDto<string> {
+  companyId: string;
+  companyName?: string | null;
+  fromDate: string;
+  toDate: string;
+  algorithm: BisectAlgorithm;
+  currentNodeId?: string | null;
+  currentFromDate?: string | null;
+  currentToDate?: string | null;
+  plSummary: number;
+  bsSummary: number;
+  difference: number;
+  nodes: BisectNodeDto[];
+}
+
+export interface CreateBisectAccountingStatementsDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  algorithm: BisectAlgorithm;
+}
+
+export interface BisectAccountingStatementsGetListInput extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+

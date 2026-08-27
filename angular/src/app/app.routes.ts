@@ -340,6 +340,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ProcessDeferredAccountings' },
   },
   {
+    path: 'accounting/bisect-accounting-statements',
+    loadComponent: () => import('./accounting/bisect-statements/bisect-accounting-statements.component').then(c => c.BisectAccountingStatementsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.BisectAccountingStatements' },
+  },
+  {
     path: 'accounting/accounts',
     loadComponent: () => import('./accounting/accounts/chart-of-accounts.component').then(c => c.ChartOfAccountsComponent),
     canActivate: [authGuard, permissionGuard],

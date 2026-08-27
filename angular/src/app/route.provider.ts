@@ -2390,6 +2390,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.ProcessDeferredAccountings',
       },
       {
+        path: '/accounting/bisect-accounting-statements',
+        name: '::Menu:BisectAccountingStatements',
+        iconClass: 'fas fa-code-branch',
+        order: 29,
+        parentName: '::Menu:Accounting',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.BisectAccountingStatements',
+      },
+      {
         path: '/accounting/batch-payment',
         name: '::Menu:BatchPayment',
         iconClass: 'fas fa-money-check-dollar',

@@ -4670,6 +4670,19 @@
     "ProcessDeferredAccountings": "Process Deferred Accounting",
     "Menu:ProcessDeferredAccounting": "Process Deferred Accounting",
     "ProcessNumber": "Process #",
-    "EntriesProcessed": "Entries Processed"
+    "EntriesProcessed": "Entries Processed",
+    "Permission:BisectAccountingStatements": "Bisect Accounting Statements",
+    "Permission:BisectAccountingStatements.Create": "Create Bisect Accounting Statements",
+    "Permission:BisectAccountingStatements.Delete": "Delete Bisect Accounting Statements",
+    "BisectAccountingStatements": "Bisect Accounting Statements",
+    "Menu:BisectAccountingStatements": "Bisect Statements",
+    "BisectAlgorithm": "Algorithm",
+    "PlSummary": "P&L Net Income",
+    "BsSummary": "B/S Net Equity Change",
+    "Difference": "Difference",
+    "BisectLeft": "Bisect Left (Earlier Half)",
+    "BisectRight": "Bisect Right (Later Half)",
+    "MoveUp": "Move Up (Parent Period)",
+    "BuildTree": "Build Tree & Analyze"
   }
 }

@@ -693,6 +693,10 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Delete, L("Permission:ProcessDeferredAccountings.Delete"));
         processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Submit, L("Permission:ProcessDeferredAccountings.Submit"));
         processDeferredAccountingsPermission.AddChild(MyERPPermissions.ProcessDeferredAccountings.Cancel, L("Permission:ProcessDeferredAccountings.Cancel"));
+
+        var bisectPermission = myGroup.AddPermission(MyERPPermissions.BisectAccountingStatements.Default, L("Permission:BisectAccountingStatements"));
+        bisectPermission.AddChild(MyERPPermissions.BisectAccountingStatements.Create, L("Permission:BisectAccountingStatements.Create"));
+        bisectPermission.AddChild(MyERPPermissions.BisectAccountingStatements.Delete, L("Permission:BisectAccountingStatements.Delete"));
     }
 
     private static LocalizableString L(string name)

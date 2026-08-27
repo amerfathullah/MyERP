@@ -1051,6 +1051,13 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class BisectAccountingStatements
+    {
+        public const string Default = GroupName + ".BisectAccountingStatements";
+        public const string Create = Default + ".Create";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class Settings
     {
         public const string Default = GroupName + ".Settings";

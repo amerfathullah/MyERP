@@ -77,3 +77,4 @@ export * from './accounts-settings.service';
 export * from './currency-exchange-settings.service';
 export * from './cashier-closing.service';
 export * from './process-deferred-accounting.service';
+export * from './bisect-accounting-statements.service';
