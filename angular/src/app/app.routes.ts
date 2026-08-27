@@ -2507,10 +2507,22 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Payroll' },
   },
   {
+    path: 'hr/salary-slips/new',
+    loadComponent: () => import('./hr/salary-slips/salary-slip-form.component').then(c => c.SalarySlipFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll.Create' },
+  },
+  {
     path: 'hr/salary-slips/:id',
     loadComponent: () => import('./hr/salary-slips/salary-slip-detail.component').then(c => c.SalarySlipDetailComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Payroll' },
+  },
+  {
+    path: 'hr/salary-slips/:id/edit',
+    loadComponent: () => import('./hr/salary-slips/salary-slip-form.component').then(c => c.SalarySlipFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Payroll.Edit' },
   },
   {
     path: 'hr/holiday-lists',

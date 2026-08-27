@@ -1,0 +1,154 @@
+<app-breadcrumb />
+<abp-page [title]="(isEditMode ? 'EditSalarySlip' : 'NewSalarySlip') | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title mb-0"><i class="fa fa-file-invoice-dollar me-2"></i>{{ 'SalarySlip' | abpLocalization }}</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'Employee' | abpLocalization }}</label>
+          <select class="form-select" [ngModel]="employeeId()" (ngModelChange)="employeeId.set($event)" [disabled]="isEditMode">
+            <option value="">{{ 'SelectEmployee' | abpLocalization }}</option>
+            @for (emp of employees(); track emp.id) {
+              <option [value]="emp.id">{{ emp.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" [ngModel]="postingDate()" (ngModelChange)="postingDate.set($event)" />
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'TotalWorkingDays' | abpLocalization }}</label>
+          <input type="number" class="form-control" [ngModel]="totalWorkingDays()" (ngModelChange)="totalWorkingDays.set(+$event)" min="0" />
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'StartDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" [ngModel]="startDate()" (ngModelChange)="startDate.set($event)" />
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'EndDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" [ngModel]="endDate()" (ngModelChange)="endDate.set($event)" />
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'PaymentDays' | abpLocalization }}</label>
+          <input type="number" class="form-control" [ngModel]="paymentDays()" (ngModelChange)="paymentDays.set(+$event)" min="0" />
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+          <label class="form-label">{{ 'LeavesWithoutPay' | abpLocalization }}</label>
+          <input type="number" class="form-control" [ngModel]="leavesWithoutPay()" (ngModelChange)="leavesWithoutPay.set(+$event)" min="0" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0 text-success"><i class="fa fa-plus-circle me-1"></i>{{ 'Earnings' | abpLocalization }}</h6>
+          <button type="button" class="btn btn-outline-success btn-sm" (click)="addEarning()">
+            <i class="fa fa-plus me-1"></i>{{ 'AddRow' | abpLocalization }}
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <tbody>
+              @for (row of earnings(); track $index) {
+                <tr>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.salaryComponentId"
+                            (ngModelChange)="onEarningComponentChange($index, $event)">
+                      <option value="">{{ 'SelectComponent' | abpLocalization }}</option>
+                      @for (c of earningComponents(); track c.id) {
+                        <option [value]="c.id">{{ c.name }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="text-end" style="width: 130px;">
+                    <input type="number" class="form-control form-control-sm text-end" [ngModel]="row.amount"
+                           (ngModelChange)="updateEarningAmount($index, +$event)" step="0.01" />
+                  </td>
+                  <td class="text-center" style="width: 40px;">
+                    <button type="button" class="btn btn-link text-danger btn-sm p-0" (click)="removeEarning($index)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <td class="fw-bold">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end fw-bold">{{ totalEarnings() | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0 text-danger"><i class="fa fa-minus-circle me-1"></i>{{ 'Deductions' | abpLocalization }}</h6>
+          <button type="button" class="btn btn-outline-danger btn-sm" (click)="addDeduction()">
+            <i class="fa fa-plus me-1"></i>{{ 'AddRow' | abpLocalization }}
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <tbody>
+              @for (row of deductions(); track $index) {
+                <tr>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.salaryComponentId"
+                            (ngModelChange)="onDeductionComponentChange($index, $event)">
+                      <option value="">{{ 'SelectComponent' | abpLocalization }}</option>
+                      @for (c of deductionComponents(); track c.id) {
+                        <option [value]="c.id">{{ c.name }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="text-end" style="width: 130px;">
+                    <input type="number" class="form-control form-control-sm text-end" [ngModel]="row.amount"
+                           (ngModelChange)="updateDeductionAmount($index, +$event)" step="0.01" />
+                  </td>
+                  <td class="text-center" style="width: 40px;">
+                    <button type="button" class="btn btn-link text-danger btn-sm p-0" (click)="removeDeduction($index)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <td class="fw-bold">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end fw-bold">{{ totalDeductions() | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4" style="max-width: 300px; margin-left: auto;">
+    <div class="card-body text-end">
+      <span class="fs-4 fw-bold text-primary">{{ 'NetPay' | abpLocalization }}: {{ netPay() | number:'1.2-2' }}</span>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2">
+    <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+      <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="save()">
+      <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+    </button>
+  </div>
+</abp-page>

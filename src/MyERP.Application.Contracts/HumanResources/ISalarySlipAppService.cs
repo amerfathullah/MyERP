@@ -10,4 +10,9 @@ public interface ISalarySlipAppService : IApplicationService
 {
     Task<PagedResultDto<SalarySlipDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<SalarySlipDto> GetAsync(Guid id);
+    Task<SalarySlipDto> CreateAsync(CreateSalarySlipDto input);
+    Task<SalarySlipDto> UpdateAsync(Guid id, CreateSalarySlipDto input);
+    Task DeleteAsync(Guid id);
+    Task<SalarySlipDto> SubmitAsync(Guid id);
+    Task<SalarySlipDto> CancelAsync(Guid id);
 }

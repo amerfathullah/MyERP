@@ -14,6 +14,11 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   template: `
     <abp-page [title]="'SalarySlips' | abpLocalization">
+      <div class="d-flex justify-content-end mb-3">
+        <a routerLink="/hr/salary-slips/new" class="btn btn-primary">
+          <i class="fa fa-plus me-1"></i>{{ 'NewSalarySlip' | abpLocalization }}
+        </a>
+      </div>
       @if (isLoading()) {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
       } @else if (slips().length === 0) {

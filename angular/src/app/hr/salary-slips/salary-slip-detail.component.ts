@@ -1,8 +1,9 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { SalarySlipService } from '../../proxy/human-resources/salary-slip.service';
 import type { SalarySlipDto } from '../../proxy/human-resources/models';
 
@@ -15,6 +16,24 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   template: `
     <abp-page [title]="'SalarySlip' | abpLocalization">
       @if (slip(); as s) {
+        <div class="d-flex justify-content-end gap-2 mb-3">
+          @if (s.status === 0) {
+            <a class="btn btn-outline-primary" [routerLink]="['/hr/salary-slips', s.id, 'edit']">
+              <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+            </a>
+            <button class="btn btn-outline-danger" (click)="deleteSlip()">
+              <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+            </button>
+            <button class="btn btn-primary" (click)="submit()">
+              <i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}
+            </button>
+          }
+          @if (s.status === 1) {
+            <button class="btn btn-outline-danger" (click)="cancelSlip()">
+              <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
+            </button>
+          }
+        </div>
         <div class="card mb-3">
           <div class="card-body">
             <div class="row">
@@ -89,14 +108,48 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 })
 export class SalarySlipDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private salarySlipService = inject(SalarySlipService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   slip = signal<SalarySlipDto | null>(null);
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  private reload(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.salarySlipService.get(id).subscribe(s => {
       this.slip.set(s);
+    });
+  }
+
+  submit(): void {
+    this.salarySlipService.submit(this.slip()!.id!).subscribe({
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.reload(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+    });
+  }
+
+  cancelSlip(): void {
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.salarySlipService.cancel(this.slip()!.id!).subscribe({
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.reload(); },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+      });
+    });
+  }
+
+  deleteSlip(): void {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.salarySlipService.delete(this.slip()!.id!).subscribe({
+        next: () => this.router.navigate(['/hr/salary-slips']),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+      });
     });
   }
 }

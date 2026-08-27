@@ -184,6 +184,8 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var payrollPermission = myGroup.AddPermission(MyERPPermissions.Payroll.Default, L("Permission:Payroll"));
         payrollPermission.AddChild(MyERPPermissions.Payroll.Create, L("Permission:Payroll.Create"));
+        payrollPermission.AddChild(MyERPPermissions.Payroll.Edit, L("Permission:Payroll.Edit"));
+        payrollPermission.AddChild(MyERPPermissions.Payroll.Delete, L("Permission:Payroll.Delete"));
         payrollPermission.AddChild(MyERPPermissions.Payroll.Submit, L("Permission:Payroll.Submit"));
         payrollPermission.AddChild(MyERPPermissions.Payroll.Cancel, L("Permission:Payroll.Cancel"));
 

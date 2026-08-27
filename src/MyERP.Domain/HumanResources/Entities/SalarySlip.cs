@@ -71,6 +71,16 @@ public class SalarySlip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotals();
     }
 
+    /// <summary>Clears all earning/deduction rows so a Draft slip can be re-populated on edit.</summary>
+    public void ResetComponents()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _earnings.Clear();
+        _deductions.Clear();
+        RecalculateTotals();
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
