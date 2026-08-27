@@ -121,6 +121,53 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ResolutionByDate = resolutionByDate;
     }
 
+    /// <summary>
+    /// Resets SLA tracking metrics and recalculates deadlines.
+    /// Per ERPNext service_level_agreement.reset_service_level_agreement (#6007).
+    /// </summary>
+    public void ResetSla(
+        string resetReason,
+        Guid? newServiceLevelAgreementId = null,
+        decimal? newResponseTime = null,
+        decimal? newResolutionTime = null,
+        DateTime? newResponseBy = null,
+        DateTime? newResolutionBy = null,
+        string? newPriority = null)
+    {
+        if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Check.NotNullOrWhiteSpace(resetReason, nameof(resetReason));
+
+        if (!string.IsNullOrWhiteSpace(newPriority))
+            Priority = newPriority;
+
+        if (newServiceLevelAgreementId.HasValue)
+            ServiceLevelAgreementId = newServiceLevelAgreementId.Value;
+
+        if (newResponseTime.HasValue)
+            FirstResponseTime = newResponseTime.Value;
+
+        if (newResolutionTime.HasValue)
+            ResolutionTime = newResolutionTime.Value;
+
+        ResponseByDate = newResponseBy;
+        ResolutionByDate = newResolutionBy;
+
+        OpeningDate = DateTime.UtcNow;
+        FirstRespondedOn = null;
+        TotalHoldTime = 0;
+        HoldStartedOn = null;
+        IsSlaBreach = false;
+        ResolutionDate = null;
+        Resolution = null;
+
+        if (Status == IssueStatus.Replied || Status == IssueStatus.OnHold)
+            Status = IssueStatus.Open;
+
+        AgreementStatus = AgreementStatus.FirstResponseDue;
+    }
+
     public void Reply()
     {
         if (Status == IssueStatus.Open && !FirstRespondedOn.HasValue)

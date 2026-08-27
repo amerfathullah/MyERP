@@ -107,3 +107,19 @@ public class CreateUpdateDeliveryTripDto
     public string? Uom { get; set; }
     public List<CreateUpdateDeliveryStopDto> DeliveryStops { get; set; } = new();
 }
+
+public class GetStopsFromDeliveryNotesInput
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    [MinLength(1)]
+    public List<Guid> DeliveryNoteIds { get; set; } = new();
+}
+
+public class CalculateArrivalTimesInput
+{
+    public bool OptimizeRoute { get; set; }
+    public decimal AverageSpeedKmH { get; set; } = 40m;
+}

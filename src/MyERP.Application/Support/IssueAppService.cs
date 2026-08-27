@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MyERP.Permissions;
 using MyERP.Support.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -205,27 +206,93 @@ public class IssueAppService : ApplicationService, IIssueAppService
                 $"Issue '{splitIssue.Subject}' split from '{originalIssue.Subject}'", CurrentTenant?.Id));
         }
 
-        return new IssueDto
-        {
-            Id = splitIssue.Id,
-            CompanyId = splitIssue.CompanyId,
-            Subject = splitIssue.Subject,
-            Description = splitIssue.Description,
-            Priority = splitIssue.Priority,
-            IssueType = splitIssue.IssueType,
-            CustomerId = splitIssue.CustomerId,
-            AssignedToId = splitIssue.AssignedToId,
-            RaisedVia = splitIssue.RaisedVia,
-            OpeningDate = splitIssue.OpeningDate,
-            Status = splitIssue.Status,
-            ServiceLevelAgreementId = splitIssue.ServiceLevelAgreementId,
-            FirstResponseTime = splitIssue.FirstResponseTime,
-            ResolutionTime = splitIssue.ResolutionTime,
-            ResponseByDate = splitIssue.ResponseByDate,
-            ResolutionByDate = splitIssue.ResolutionByDate,
-            AgreementStatus = splitIssue.AgreementStatus,
-            SplitFromIssueId = splitIssue.SplitFromIssueId
-        };
+        return MapToDto(splitIssue);
     }
+
+    [Authorize(MyERPPermissions.Issues.Edit)]
+    public async Task<IssueDto> ResetSlaAsync(Guid id, ResetIssueSlaDto input)
+    {
+        if (string.IsNullOrWhiteSpace(input.ResetReason))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Reset reason is required to reset Service Level Agreement.");
+        }
+
+        var issue = await _issueRepository.GetAsync(id);
+
+        var effectivePriority = input.NewPriority ?? issue.Priority;
+        ServiceLevelAgreement? sla = null;
+        if (input.NewServiceLevelAgreementId.HasValue)
+        {
+            sla = await _slaRepository.FindAsync(input.NewServiceLevelAgreementId.Value);
+        }
+        else if (issue.ServiceLevelAgreementId.HasValue)
+        {
+            sla = await _slaRepository.FindAsync(issue.ServiceLevelAgreementId.Value);
+        }
+        else
+        {
+            sla = await FindApplicableSlaAsync(issue.CompanyId, issue.CustomerId);
+        }
+
+        decimal? responseHours = null;
+        decimal? resolutionHours = null;
+        DateTime? responseByDate = null;
+        DateTime? resolutionByDate = null;
+
+        if (sla != null)
+        {
+            var (respHours, resolHours) = sla.GetTargets(effectivePriority);
+            responseHours = respHours;
+            resolutionHours = resolHours;
+            responseByDate = sla.ComputeDeadline(DateTime.UtcNow, respHours);
+            resolutionByDate = sla.ComputeDeadline(DateTime.UtcNow, resolHours);
+        }
+
+        issue.ResetSla(
+            input.ResetReason,
+            sla?.Id,
+            responseHours,
+            resolutionHours,
+            responseByDate,
+            resolutionByDate,
+            input.NewPriority);
+
+        await _issueRepository.UpdateAsync(issue);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                Guid.NewGuid(), "Issue", issue.Id,
+                "SlaReset", issue.CompanyId,
+                issue.Subject, issue.Status.ToString(), issue.Status.ToString(), CurrentUser?.Id,
+                $"SLA reset for issue '{issue.Subject}'. Reason: {input.ResetReason}", CurrentTenant?.Id));
+        }
+
+        return MapToDto(issue);
+    }
+
+    private static IssueDto MapToDto(Issue issue) => new()
+    {
+        Id = issue.Id,
+        CompanyId = issue.CompanyId,
+        Subject = issue.Subject,
+        Description = issue.Description,
+        Priority = issue.Priority,
+        IssueType = issue.IssueType,
+        CustomerId = issue.CustomerId,
+        AssignedToId = issue.AssignedToId,
+        RaisedVia = issue.RaisedVia,
+        OpeningDate = issue.OpeningDate,
+        Status = issue.Status,
+        ServiceLevelAgreementId = issue.ServiceLevelAgreementId,
+        FirstResponseTime = issue.FirstResponseTime,
+        ResolutionTime = issue.ResolutionTime,
+        ResponseByDate = issue.ResponseByDate,
+        ResolutionByDate = issue.ResolutionByDate,
+        AgreementStatus = issue.AgreementStatus,
+        SplitFromIssueId = issue.SplitFromIssueId
+    };
 }
 

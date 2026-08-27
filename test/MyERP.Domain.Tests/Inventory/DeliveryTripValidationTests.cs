@@ -10,6 +10,7 @@ using MyERP.Sales.Entities;
 using NSubstitute;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Emailing;
 using Xunit;
 
 namespace MyERP.Domain.Tests.Inventory;
@@ -26,7 +27,10 @@ public class DeliveryTripValidationTests
 
     public DeliveryTripValidationTests()
     {
-        _appService = new DeliveryTripAppService(_tripRepo);
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        var custRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var emailSender = Substitute.For<IEmailSender>();
+        _appService = new DeliveryTripAppService(_tripRepo, dnRepo, custRepo, emailSender);
     }
 
     [Fact]

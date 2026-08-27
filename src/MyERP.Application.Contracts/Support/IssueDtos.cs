@@ -69,3 +69,16 @@ public class SplitIssueDto
     public string Subject { get; set; } = null!;
 }
 
+/// <summary>DTO for resetting SLA on an issue (Gotcha #6007).</summary>
+public class ResetIssueSlaDto
+{
+    [Required]
+    [StringLength(500)]
+    public string ResetReason { get; set; } = null!;
+
+    [StringLength(IssueConsts.MaxPriorityLength)]
+    public string? NewPriority { get; set; }
+
+    public Guid? NewServiceLevelAgreementId { get; set; }
+}
+
