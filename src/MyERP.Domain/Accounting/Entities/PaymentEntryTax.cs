@@ -1,6 +1,7 @@
 using System;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
+using MyERP.Accounting;
 
 namespace MyERP.Accounting.Entities;
 
@@ -100,18 +101,4 @@ public class PaymentEntryTax : FullAuditedEntity<Guid>, IMultiTenant
             _ => true
         };
     }
-}
-
-public enum PaymentTaxChargeType
-{
-    /// <summary>Calculated as percentage of paid amount.</summary>
-    OnPaidAmount = 0,
-    /// <summary>Fixed amount (entered directly).</summary>
-    Actual = 1,
-}
-
-public enum TaxAddDeduct
-{
-    Add = 0,
-    Deduct = 1,
 }

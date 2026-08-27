@@ -844,9 +844,26 @@ public partial class LowerDeductionCertificateMapper : MapperBase<Tax.Entities.L
 public partial class PaymentEntryMapper : MapperBase<Accounting.Entities.PaymentEntry, Accounting.PaymentEntryDto>
 {
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.Taxes))]
     public override partial Accounting.PaymentEntryDto Map(Accounting.Entities.PaymentEntry source);
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.Taxes))]
     public override partial void Map(Accounting.Entities.PaymentEntry source, Accounting.PaymentEntryDto destination);
+
+    public override void AfterMap(Accounting.Entities.PaymentEntry source, Accounting.PaymentEntryDto destination)
+        => destination.Taxes = source.Taxes.Where(t => !t.IsExchangeGainLoss).Select(t => new Accounting.PaymentEntryTaxDto
+        {
+            Id = t.Id,
+            AccountId = t.AccountId,
+            ChargeType = t.ChargeType,
+            Rate = t.Rate,
+            TaxAmount = t.TaxAmount,
+            BaseTaxAmount = t.BaseTaxAmount,
+            IncludedInPaidAmount = t.IncludedInPaidAmount,
+            AddDeductTax = t.AddDeductTax,
+            Description = t.Description,
+            CostCenterId = t.CostCenterId,
+        }).ToList();
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

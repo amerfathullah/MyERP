@@ -4,6 +4,8 @@ import type { AccountSubType } from './account-sub-type.enum';
 import type { BankGuaranteeType } from './bank-guarantee-type.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
 import type { PaymentType } from './payment-type.enum';
+import type { PaymentTaxChargeType } from './payment-tax-charge-type.enum';
+import type { TaxAddDeduct } from './tax-add-deduct.enum';
 import type { FinancialReportDataSource } from './financial-report-data-source.enum';
 import type { FinancialReportType } from './financial-report-type.enum';
 import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum';
@@ -743,6 +745,21 @@ export interface CreatePaymentEntryDto {
   againstOrderType?: string | null;
   exchangeRate?: number;
   paymentCurrency?: string | null;
+  taxes?: PaymentEntryTaxDto[] | null;
+}
+
+export interface PaymentEntryTaxDto {
+  id?: string;
+  accountId: string;
+  accountName?: string | null;
+  chargeType: PaymentTaxChargeType;
+  rate?: number;
+  taxAmount?: number;
+  baseTaxAmount?: number;
+  includedInPaidAmount?: boolean;
+  addDeductTax?: TaxAddDeduct;
+  description?: string | null;
+  costCenterId?: string | null;
 }
 
 export interface CreatePaymentOrderDto {
@@ -1538,6 +1555,7 @@ export interface PaymentEntryDto extends EntityDto<string> {
   partyType?: string | null;
   partyId?: string | null;
   partyName?: string | null;
+  taxes: PaymentEntryTaxDto[];
 }
 
 export interface PaymentLedgerRepostResultDto {

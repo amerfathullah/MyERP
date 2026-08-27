@@ -20,6 +20,25 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string? PartyType { get; set; }
     public Guid? PartyId { get; set; }
     public string? PartyName { get; set; }
+    public List<PaymentEntryTaxDto> Taxes { get; set; } = [];
+}
+
+/// <summary>Payment Entry tax/charge row — "On Paid Amount" or "Actual", per ERPNext
+/// Advance Taxes and Charges. Direction (debit/credit) resolves from PaymentType + AddDeductTax.</summary>
+public class PaymentEntryTaxDto
+{
+    public Guid Id { get; set; }
+    [Required] public Guid AccountId { get; set; }
+    public string? AccountName { get; set; }
+    [Required] public PaymentTaxChargeType ChargeType { get; set; } = PaymentTaxChargeType.OnPaidAmount;
+    public decimal Rate { get; set; }
+    /// <summary>Fixed amount for ChargeType.Actual. Ignored (recalculated) for OnPaidAmount.</summary>
+    public decimal TaxAmount { get; set; }
+    public decimal BaseTaxAmount { get; set; }
+    public bool IncludedInPaidAmount { get; set; }
+    public TaxAddDeduct AddDeductTax { get; set; } = TaxAddDeduct.Add;
+    public string? Description { get; set; }
+    public Guid? CostCenterId { get; set; }
 }
 
 public class CreatePaymentEntryDto
@@ -62,6 +81,10 @@ public class CreatePaymentEntryDto
     /// Null/empty = same as company currency (no conversion needed).
     /// </summary>
     public string? PaymentCurrency { get; set; }
+
+    /// <summary>Tax/charge rows (bank charges, withholding, etc. on the payment itself).
+    /// Per ERPNext Advance Taxes and Charges — separate engine from SI/PI taxes.</summary>
+    public List<PaymentEntryTaxDto>? Taxes { get; set; }
 }
 
 /// <summary>Individual allocation of a payment against an invoice or order.</summary>

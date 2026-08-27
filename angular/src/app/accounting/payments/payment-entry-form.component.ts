@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
 import { ProjectService } from '../../proxy/projects/project.service';
@@ -12,8 +12,10 @@ import { PaymentEntryService } from '../../proxy/accounting/payment-entry.servic
 import { AccountService } from '../../proxy/accounting/account.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
-import type { AccountDto, CreatePaymentEntryDto } from '../../proxy/accounting/models';
+import type { AccountDto, CreatePaymentEntryDto, PaymentEntryTaxDto } from '../../proxy/accounting/models';
 import { AccountSubType } from '../../proxy/accounting/account-sub-type.enum';
+import { PaymentTaxChargeType } from '../../proxy/accounting/payment-tax-charge-type.enum';
+import { TaxAddDeduct } from '../../proxy/accounting/tax-add-deduct.enum';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -23,7 +25,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-payment-entry-form',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, PageModule, AutoValidationDirective, SaveShortcutDirective, LocalizationPipe],
+    CommonModule, ReactiveFormsModule, FormsModule, PageModule, AutoValidationDirective, SaveShortcutDirective, LocalizationPipe],
   templateUrl: './payment-entry-form.component.html',
   styleUrls: ['./payment-entry-form.component.scss'],
 })
@@ -54,6 +56,14 @@ export class PaymentEntryFormComponent implements OnInit {
   totalOrderPending = signal(0);
   isEditMode = false;
   entityId: string | null = null;
+
+  // Payment Entry tax/charge rows — PE has its own tax engine, separate from SI/PI.
+  taxRows = signal<PaymentEntryTaxDto[]>([]);
+  chargeTypes = PaymentTaxChargeType;
+  addDeductOptions = TaxAddDeduct;
+  totalTaxAmount = computed(() =>
+    this.taxRows().reduce((sum, t) => sum + (t.taxAmount ?? 0), 0)
+  );
 
   // Filtered account lists by sub-type (per ERPNext PE account resolution)
   bankCashAccounts = computed(() =>
@@ -187,6 +197,7 @@ export class PaymentEntryFormComponent implements OnInit {
           reference: pe.referenceNumber ?? '',
           remarks: '',
         });
+        this.taxRows.set(pe.taxes ?? []);
       });
       return;
     }
@@ -511,6 +522,35 @@ export class PaymentEntryFormComponent implements OnInit {
     this.toaster.success(this.localization.instant('::AllocatedToInvoices', newMap.size.toString()));
   }
 
+  addTaxRow(): void {
+    this.taxRows.set([...this.taxRows(), {
+      accountId: '',
+      chargeType: PaymentTaxChargeType.Actual,
+      rate: 0,
+      taxAmount: 0,
+      includedInPaidAmount: false,
+      addDeductTax: TaxAddDeduct.Add,
+      description: '',
+      costCenterId: null,
+    }]);
+  }
+
+  removeTaxRow(index: number): void {
+    const rows = [...this.taxRows()];
+    rows.splice(index, 1);
+    this.taxRows.set(rows);
+  }
+
+  updateTaxRow(index: number, patch: Partial<PaymentEntryTaxDto>): void {
+    const rows = [...this.taxRows()];
+    const row = { ...rows[index], ...patch };
+    if (row.chargeType === PaymentTaxChargeType.OnPaidAmount) {
+      row.taxAmount = (this.form.get('amount')?.value ?? 0) * (row.rate ?? 0) / 100;
+    }
+    rows[index] = row;
+    this.taxRows.set(rows);
+  }
+
   cancel(): void {
     this.router.navigate(['/accounting/payments']);
   }
@@ -544,6 +584,8 @@ export class PaymentEntryFormComponent implements OnInit {
     } else if (allocs.length === 1) {
       dto.againstInvoiceId = allocs[0][0];
     }
+
+    dto.taxes = this.taxRows().filter(t => t.accountId);
 
     if (this.isEditMode) {
       this.paymentService.update(this.entityId!, dto).subscribe({

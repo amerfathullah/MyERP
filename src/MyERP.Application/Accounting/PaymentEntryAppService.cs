@@ -257,6 +257,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             pe.AgainstInvoiceType = input.AgainstInvoiceType;
         }
 
+        ApplyTaxRows(pe, input.Taxes);
+
         await _repository.InsertAsync(pe, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
     }
@@ -1106,8 +1108,38 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
         entry.ReferenceNumber = input.ReferenceNumber;
 
+        if (input.Taxes != null)
+        {
+            entry.Taxes.Clear();
+            ApplyTaxRows(entry, input.Taxes);
+        }
+
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(entry);
+    }
+
+    /// <summary>
+    /// Maps input tax/charge rows onto a Draft Payment Entry. Per ERPNext Advance Taxes
+    /// and Charges: PE has its own tax engine (see PaymentEntryTax) separate from SI/PI —
+    /// GL posting for these happens in PostAsync, not here.
+    /// </summary>
+    private void ApplyTaxRows(PaymentEntry pe, List<PaymentEntryTaxDto>? taxRows)
+    {
+        if (taxRows == null) return;
+        foreach (var row in taxRows)
+        {
+            var tax = new PaymentEntryTax(GuidGenerator.Create(), pe.Id, row.AccountId, pe.TenantId)
+            {
+                ChargeType = row.ChargeType,
+                Rate = row.Rate,
+                TaxAmount = row.TaxAmount,
+                IncludedInPaidAmount = row.IncludedInPaidAmount,
+                AddDeductTax = row.AddDeductTax,
+                Description = row.Description,
+                CostCenterId = row.CostCenterId,
+            };
+            pe.AddTax(tax);
+        }
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Delete)]

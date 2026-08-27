@@ -271,6 +271,94 @@
       </div>
     }
 
+    <!-- Taxes / Charges — PE's own tax engine (bank charges, withholding, etc. on the payment itself) -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0"><i class="fa fa-receipt me-2"></i>{{ '::TaxesAndCharges' | abpLocalization }}</h6>
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="addTaxRow()">
+          <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
+        </button>
+      </div>
+      @if (taxRows().length > 0) {
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::Account' | abpLocalization }}</th>
+                <th>{{ '::ChargeType' | abpLocalization }}</th>
+                <th class="text-end" style="width: 100px;">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end" style="width: 130px;">{{ '::Amount' | abpLocalization }}</th>
+                <th>{{ '::AddOrDeduct' | abpLocalization }}</th>
+                <th class="text-center">{{ '::IncludedInPaidAmount' | abpLocalization }}</th>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th style="width: 40px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of taxRows(); track $index) {
+                <tr>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.accountId" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="updateTaxRow($index, {accountId: $event})">
+                      <option value="">{{ '::SelectAccount' | abpLocalization }}</option>
+                      @for (acct of accounts(); track acct.id) {
+                        <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.chargeType" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="updateTaxRow($index, {chargeType: +$event})">
+                      <option [value]="chargeTypes.OnPaidAmount">{{ '::OnPaidAmount' | abpLocalization }}</option>
+                      <option [value]="chargeTypes.Actual">{{ '::Actual' | abpLocalization }}</option>
+                    </select>
+                  </td>
+                  <td class="text-end">
+                    @if (row.chargeType === chargeTypes.OnPaidAmount) {
+                      <input type="number" class="form-control form-control-sm text-end" [ngModel]="row.rate" [ngModelOptions]="{standalone: true}"
+                             (ngModelChange)="updateTaxRow($index, {rate: +$event})" step="0.01" min="0" />
+                    }
+                  </td>
+                  <td class="text-end">
+                    <input type="number" class="form-control form-control-sm text-end" [ngModel]="row.taxAmount"
+                           [ngModelOptions]="{standalone: true}" [readOnly]="row.chargeType === chargeTypes.OnPaidAmount"
+                           (ngModelChange)="updateTaxRow($index, {taxAmount: +$event})" step="0.01" />
+                  </td>
+                  <td>
+                    <select class="form-select form-select-sm" [ngModel]="row.addDeductTax" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="updateTaxRow($index, {addDeductTax: +$event})">
+                      <option [value]="addDeductOptions.Add">{{ '::Add' | abpLocalization }}</option>
+                      <option [value]="addDeductOptions.Deduct">{{ '::Deduct' | abpLocalization }}</option>
+                    </select>
+                  </td>
+                  <td class="text-center">
+                    <input type="checkbox" class="form-check-input" [ngModel]="row.includedInPaidAmount"
+                           [ngModelOptions]="{standalone: true}" (ngModelChange)="updateTaxRow($index, {includedInPaidAmount: $event})" />
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" [ngModel]="row.description"
+                           [ngModelOptions]="{standalone: true}" (ngModelChange)="updateTaxRow($index, {description: $event})" />
+                  </td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-link text-danger btn-sm p-0" (click)="removeTaxRow($index)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" class="text-end fw-bold">{{ '::TotalTaxes' | abpLocalization }}</td>
+                <td class="text-end fw-bold">{{ totalTaxAmount() | number:'1.2-2' }}</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
         <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>

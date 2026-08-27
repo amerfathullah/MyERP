@@ -15,3 +15,17 @@ public enum PaymentType
     Pay = 1,       // We paying supplier
     InternalTransfer = 2
 }
+
+public enum PaymentTaxChargeType
+{
+    /// <summary>Calculated as percentage of paid amount.</summary>
+    OnPaidAmount = 0,
+    /// <summary>Fixed amount (entered directly).</summary>
+    Actual = 1,
+}
+
+public enum TaxAddDeduct
+{
+    Add = 0,
+    Deduct = 1,
+}
