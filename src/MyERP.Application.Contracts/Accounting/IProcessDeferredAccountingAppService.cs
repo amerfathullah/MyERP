@@ -14,4 +14,6 @@ public interface IProcessDeferredAccountingAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<ProcessDeferredAccountingDto> SubmitAsync(Guid id);
     Task<ProcessDeferredAccountingDto> CancelAsync(Guid id);
+    Task<DeferredAccountingPreviewDto> PreviewDeferredAccountingAsync(PreviewDeferredAccountingInput input);
+    Task<ProcessDeferredAccountingSummaryDto> GetSummaryAsync(Guid id);
 }
