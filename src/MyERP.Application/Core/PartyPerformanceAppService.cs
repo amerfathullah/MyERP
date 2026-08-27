@@ -62,7 +62,7 @@ public class PartyPerformanceAppService : ApplicationService, IPartyPerformanceA
             .Where(si => si.CustomerId == customerId &&
                          si.Status == DocumentStatus.Posted &&
                          !si.IsReturn)
-            .Select(si => new { si.GrandTotal, si.IssueDate, si.DueDate, si.AmountPaid, si.OutstandingAmount })
+            .Select(si => new { si.GrandTotal, si.IssueDate, si.DueDate, si.AmountPaid, OutstandingAmount = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance })
             .ToList();
 
         if (companyId.HasValue)
@@ -72,7 +72,7 @@ public class PartyPerformanceAppService : ApplicationService, IPartyPerformanceA
                              si.CompanyId == companyId.Value &&
                              si.Status == DocumentStatus.Posted &&
                              !si.IsReturn)
-                .Select(si => new { si.GrandTotal, si.IssueDate, si.DueDate, si.AmountPaid, si.OutstandingAmount })
+                .Select(si => new { si.GrandTotal, si.IssueDate, si.DueDate, si.AmountPaid, OutstandingAmount = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance })
                 .ToList();
         }
 
@@ -176,7 +176,7 @@ public class PartyPerformanceAppService : ApplicationService, IPartyPerformanceA
         if (companyId.HasValue) baseQuery = baseQuery.Where(pi => pi.CompanyId == companyId.Value);
 
         var invoices = baseQuery
-            .Select(pi => new { pi.GrandTotal, pi.IssueDate, pi.DueDate, pi.OutstandingAmount })
+            .Select(pi => new { pi.GrandTotal, pi.IssueDate, pi.DueDate, OutstandingAmount = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance })
             .ToList();
 
         var totalSpend = invoices.Sum(i => i.GrandTotal);

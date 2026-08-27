@@ -52,7 +52,7 @@ public class StatementAutoEmailJob : AsyncBackgroundJob<StatementAutoEmailJobArg
         var openInvoices = invQuery
             .Where(i => i.CompanyId == args.CompanyId &&
                         i.Status == DocumentStatus.Posted &&
-                        i.OutstandingAmount > 0)
+                        (i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance) > 0)
             .ToList();
 
         var customerGroups = openInvoices.GroupBy(i => i.CustomerId).ToList();

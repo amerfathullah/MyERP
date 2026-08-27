@@ -258,14 +258,14 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         var monthSiQuery = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
             si.IssueDate >= monthStart && si.IssueDate <= monthEnd && !si.IsReturn);
-        var monthlyRevenue = monthSiQuery.Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
+        var monthlyRevenue = monthSiQuery.Select(si => si.GrandTotal).Sum();
         var invoiceCount = monthSiQuery.Count();
 
         // Current month expenses
         var monthPiQuery = piQuery.Where(pi =>
             pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted &&
             pi.IssueDate >= monthStart && pi.IssueDate <= monthEnd && !pi.IsReturn);
-        var monthlyExpenses = monthPiQuery.Select(pi => pi.GrandTotal).DefaultIfEmpty(0).Sum();
+        var monthlyExpenses = monthPiQuery.Select(pi => pi.GrandTotal).Sum();
         var billCount = monthPiQuery.Count();
 
         var netProfit = monthlyRevenue - monthlyExpenses;
@@ -273,11 +273,11 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         // AR/AP outstanding — server-side sum
         var arOutstanding = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted && !si.IsReturn)
-            .Select(si => si.GrandTotal - si.AmountPaid).DefaultIfEmpty(0).Sum();
+            .Select(si => si.GrandTotal - si.AmountPaid).Sum();
 
         var apOutstanding = piQuery.Where(pi =>
             pi.CompanyId == companyId && pi.Status == DocumentStatus.Posted && !pi.IsReturn)
-            .Select(pi => pi.GrandTotal - pi.AmountPaid).DefaultIfEmpty(0).Sum();
+            .Select(pi => pi.GrandTotal - pi.AmountPaid).Sum();
 
         var netCashPosition = arOutstanding - apOutstanding;
 
@@ -287,7 +287,7 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         var prevMonthRevenue = siQuery.Where(si =>
             si.CompanyId == companyId && si.Status == DocumentStatus.Posted &&
             si.IssueDate >= prevMonthStart && si.IssueDate <= prevMonthEnd && !si.IsReturn)
-            .Select(si => si.GrandTotal).DefaultIfEmpty(0).Sum();
+            .Select(si => si.GrandTotal).Sum();
 
         decimal revenueGrowth = prevMonthRevenue > 0
             ? Math.Round((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue * 100, 1)
@@ -429,9 +429,9 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(si => si.CompanyId == companyId &&
                          si.Status == DocumentStatus.Posted &&
                          !si.IsReturn &&
-                         si.OutstandingAmount > 0 &&
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0 &&
                          si.DueDate.HasValue && si.DueDate.Value < now)
-            .Select(si => si.OutstandingAmount)
+            .Select(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance)
             .ToList();
 
         // Overdue payables (PI posted, outstanding > 0, due date < today)
@@ -440,9 +440,9 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(pi => pi.CompanyId == companyId &&
                          pi.Status == DocumentStatus.Posted &&
                          !pi.IsReturn &&
-                         pi.OutstandingAmount > 0 &&
+                         (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0 &&
                          pi.DueDate.HasValue && pi.DueDate.Value < now)
-            .Select(pi => pi.OutstandingAmount)
+            .Select(pi => pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance)
             .ToList();
 
         // Pending approvals
@@ -600,8 +600,8 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(si => si.CompanyId == companyId &&
                          si.Status == DocumentStatus.Posted &&
                          !si.IsReturn &&
-                         si.OutstandingAmount > 0)
-            .Select(si => new { si.OutstandingAmount, si.DueDate })
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0)
+            .Select(si => new { OutstandingAmount = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance, si.DueDate })
             .ToList();
 
         var piQuery = await _purchaseInvoiceRepo.GetQueryableAsync();
@@ -609,8 +609,8 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(pi => pi.CompanyId == companyId &&
                          pi.Status == DocumentStatus.Posted &&
                          !pi.IsReturn &&
-                         pi.OutstandingAmount > 0)
-            .Select(pi => new { pi.OutstandingAmount, pi.DueDate })
+                         (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0)
+            .Select(pi => new { OutstandingAmount = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance, pi.DueDate })
             .ToList();
 
         var receivableBuckets = new decimal[4]; // 0-30, 31-60, 61-90, 91+
@@ -667,11 +667,11 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(si => si.CompanyId == companyId &&
                          si.Status == DocumentStatus.Posted &&
                          !si.IsReturn &&
-                         si.OutstandingAmount > 0 &&
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0 &&
                          si.DueDate.HasValue &&
                          si.DueDate.Value >= today &&
                          si.DueDate.Value <= thirtyDaysAhead)
-            .Select(si => si.OutstandingAmount)
+            .Select(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance)
             .ToList();
 
         // Expected outflows: outstanding PI due within next 30 days
@@ -680,11 +680,11 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(pi => pi.CompanyId == companyId &&
                          pi.Status == DocumentStatus.Posted &&
                          !pi.IsReturn &&
-                         pi.OutstandingAmount > 0 &&
+                         (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0 &&
                          pi.DueDate.HasValue &&
                          pi.DueDate.Value >= today &&
                          pi.DueDate.Value <= thirtyDaysAhead)
-            .Select(pi => pi.OutstandingAmount)
+            .Select(pi => pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance)
             .ToList();
 
         // Overdue amounts (already past due date but still outstanding)
@@ -692,20 +692,20 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Where(si => si.CompanyId == companyId &&
                          si.Status == DocumentStatus.Posted &&
                          !si.IsReturn &&
-                         si.OutstandingAmount > 0 &&
+                         (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0 &&
                          si.DueDate.HasValue &&
                          si.DueDate.Value < today)
-            .Select(si => si.OutstandingAmount)
+            .Select(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance)
             .ToList();
 
         var overduePayables = piQuery
             .Where(pi => pi.CompanyId == companyId &&
                          pi.Status == DocumentStatus.Posted &&
                          !pi.IsReturn &&
-                         pi.OutstandingAmount > 0 &&
+                         (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0 &&
                          pi.DueDate.HasValue &&
                          pi.DueDate.Value < today)
-            .Select(pi => pi.OutstandingAmount)
+            .Select(pi => pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance)
             .ToList();
 
         var totalInflows = upcomingReceivables.Sum();

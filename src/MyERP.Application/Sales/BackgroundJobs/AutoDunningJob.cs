@@ -53,7 +53,7 @@ public class AutoDunningJob : AsyncBackgroundJob<AutoDunningJobArgs>, ITransient
         var overdueInvoices = siQuery
             .Where(si => si.CompanyId == args.CompanyId
                 && si.Status == Core.DocumentStatus.Posted
-                && si.OutstandingAmount > 0
+                && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0
                 && si.DueDate.HasValue
                 && si.DueDate.Value < today)
             .ToList();

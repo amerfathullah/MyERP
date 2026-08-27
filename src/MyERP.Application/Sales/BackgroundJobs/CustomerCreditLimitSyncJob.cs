@@ -65,7 +65,7 @@ public class CustomerCreditLimitSyncJob : AsyncBackgroundJob<CustomerCreditLimit
         var postedInvoices = invQuery
             .Where(i => i.CompanyId == args.CompanyId &&
                         i.Status == DocumentStatus.Posted &&
-                        i.OutstandingAmount > 0)
+                        (i.GrandTotal - i.AmountPaid - i.WriteOffAmount - i.TotalAdvance) > 0)
             .ToList();
 
         var breachedAccounts = 0;
