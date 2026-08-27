@@ -90,13 +90,17 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, decimal quantity, Guid? sourceWarehouseId, Guid? targetWarehouseId, decimal? valuationRate = null)
+    public void AddItem(Guid itemId, decimal quantity, Guid? sourceWarehouseId, Guid? targetWarehouseId, decimal? valuationRate = null, bool isFinishedItem = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        _items.Add(new StockEntryItem(
-            Guid.NewGuid(), Id, itemId, quantity, sourceWarehouseId, targetWarehouseId, valuationRate));
+        var item = new StockEntryItem(
+            Guid.NewGuid(), Id, itemId, quantity, sourceWarehouseId, targetWarehouseId, valuationRate)
+        {
+            IsFinishedItem = isFinishedItem
+        };
+        _items.Add(item);
     }
 
     /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>

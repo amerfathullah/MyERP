@@ -29,6 +29,7 @@ public class StockEntryItemDto
     public Guid? TargetWarehouseId { get; set; }
     public string? TargetWarehouseName { get; set; }
     public decimal? ValuationRate { get; set; }
+    public bool IsFinishedItem { get; set; }
 }
 
 public class CreateStockEntryDto
@@ -69,6 +70,8 @@ public class CreateStockEntryItemDto
 
     [Range(0, double.MaxValue)]
     public decimal? ValuationRate { get; set; }
+
+    public bool IsFinishedItem { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>

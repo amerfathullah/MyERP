@@ -47,6 +47,14 @@ public class FiscalYearAutoCreationJob : AsyncBackgroundJob<FiscalYearAutoCreati
 
         var latestFy = currentFiscalYears.First();
 
+        // Skip short fiscal years per ERPNext fiscal_year.auto_create_fiscal_year (#5979)
+        if (latestFy.IsShortYear)
+        {
+            _logger.LogInformation("FiscalYearAutoCreationJob: Latest fiscal year '{Name}' for company {CompanyId} is a Short Year. Skipping auto-creation.",
+                latestFy.Name, args.CompanyId);
+            return;
+        }
+
         // If latest FY ends within 3 days or has already ended, create the next FY
         if (latestFy.EndDate <= asOfDate.AddDays(3))
         {
@@ -63,6 +71,7 @@ public class FiscalYearAutoCreationJob : AsyncBackgroundJob<FiscalYearAutoCreati
                     nextFyName,
                     nextStartDate,
                     nextEndDate,
+                    isShortYear: false,
                     args.TenantId);
 
                 await _repository.InsertAsync(nextFy);

@@ -109,3 +109,36 @@ public class BatchCustomerSummaryDto
     public DateTime FirstDeliveryDate { get; set; }
     public DateTime LastDeliveryDate { get; set; }
 }
+
+public class SplitBatchDto
+{
+    [Required] public Guid SourceBatchId { get; set; }
+    [Required][StringLength(100)] public string NewBatchNo { get; set; } = null!;
+    [Required] public Guid WarehouseId { get; set; }
+    [Range(0.0001, double.MaxValue)] public decimal SplitQuantity { get; set; }
+    [StringLength(500)] public string? Description { get; set; }
+}
+
+public class SplitBatchResultDto
+{
+    public Guid NewBatchId { get; set; }
+    public string NewBatchNo { get; set; } = null!;
+    public Guid StockEntryId { get; set; }
+    public string? StockEntryNumber { get; set; }
+}
+
+public class MoveBatchDto
+{
+    [Required] public Guid BatchId { get; set; }
+    [Required] public Guid SourceWarehouseId { get; set; }
+    [Required] public Guid TargetWarehouseId { get; set; }
+    [Range(0.0001, double.MaxValue)] public decimal Quantity { get; set; }
+    [StringLength(500)] public string? Description { get; set; }
+}
+
+public class MoveBatchResultDto
+{
+    public Guid BatchId { get; set; }
+    public Guid StockEntryId { get; set; }
+    public string? StockEntryNumber { get; set; }
+}

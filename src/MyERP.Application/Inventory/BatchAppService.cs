@@ -19,15 +19,18 @@ public class BatchAppService : ApplicationService, IBatchAppService
     private readonly IRepository<Batch, Guid> _repository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
+    private readonly IStockEntryAppService _stockEntryAppService;
 
     public BatchAppService(
         IRepository<Batch, Guid> repository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
-        IRepository<Warehouse, Guid> warehouseRepository)
+        IRepository<Warehouse, Guid> warehouseRepository,
+        IStockEntryAppService stockEntryAppService)
     {
         _repository = repository;
         _sleRepository = sleRepository;
         _warehouseRepository = warehouseRepository;
+        _stockEntryAppService = stockEntryAppService;
     }
 
     public async Task<BatchDto> GetAsync(Guid id)
@@ -59,7 +62,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
     [Authorize(MyERPPermissions.Items.Create)]
     public async Task<BatchDto> CreateAsync(CreateBatchDto input)
     {
-        var batch = new Batch(GuidGenerator.Create(), input.ItemId, input.BatchNo, CurrentTenant.Id)
+        var batch = new Batch(Guid.NewGuid(), input.ItemId, input.BatchNo, tenantId: null)
         {
             ManufacturingDate = input.ManufacturingDate,
             ExpiryDate = input.ExpiryDate,
@@ -262,6 +265,176 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 VoucherId = e.VoucherId,
                 IsInward = e.QuantityChange > 0,
             }).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Splits an existing batch by generating a new Batch entity and a Repack Stock Entry
+    /// to transfer the split quantity at the specified warehouse (Gotcha #5992).
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Edit)]
+    public async Task<SplitBatchResultDto> SplitBatchAsync(SplitBatchDto input)
+    {
+        if (input.SplitQuantity <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Split quantity must be greater than zero.");
+        }
+
+        var sourceBatch = await _repository.GetAsync(input.SourceBatchId);
+        if (sourceBatch.IsDisabled)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Source batch {sourceBatch.BatchNo} is disabled.");
+        }
+
+        var warehouse = await _warehouseRepository.GetAsync(input.WarehouseId);
+
+        // Verify available stock in the specified warehouse
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var availableQty = sleQuery
+            .Where(s => s.BatchId == input.SourceBatchId && s.WarehouseId == input.WarehouseId && !s.IsCancelled)
+            .Sum(s => (decimal?)s.QuantityChange) ?? 0m;
+
+        if (availableQty < input.SplitQuantity)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                .WithData("available", availableQty)
+                .WithData("required", input.SplitQuantity);
+        }
+
+        // Check if target batch number already exists for this item
+        var batchQuery = await _repository.GetQueryableAsync();
+        var batchExists = batchQuery.Any(b => b.ItemId == sourceBatch.ItemId && b.BatchNo == input.NewBatchNo);
+        if (batchExists)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("batchNo", input.NewBatchNo);
+        }
+
+        // Create new batch inheriting source attributes
+        var newBatch = new Batch(Guid.NewGuid(), sourceBatch.ItemId, input.NewBatchNo, tenantId: null)
+        {
+            ManufacturingDate = sourceBatch.ManufacturingDate,
+            ExpiryDate = sourceBatch.ExpiryDate,
+            ShelfLifeInDays = sourceBatch.ShelfLifeInDays,
+            SupplierBatchNo = sourceBatch.SupplierBatchNo,
+            Description = input.Description ?? $"Split from {sourceBatch.BatchNo}",
+        };
+        await _repository.InsertAsync(newBatch, autoSave: true);
+
+        // Generate Repack Stock Entry
+        var createEntryDto = new CreateStockEntryDto
+        {
+            CompanyId = warehouse.CompanyId,
+            EntryType = StockEntryType.Repack,
+            PostingDate = DateTime.UtcNow,
+            Notes = $"Split batch {sourceBatch.BatchNo} into {newBatch.BatchNo}",
+            Items = new List<CreateStockEntryItemDto>
+            {
+                new()
+                {
+                    ItemId = sourceBatch.ItemId,
+                    SourceWarehouseId = input.WarehouseId,
+                    Quantity = input.SplitQuantity,
+                    IsFinishedItem = false,
+                },
+                new()
+                {
+                    ItemId = sourceBatch.ItemId,
+                    TargetWarehouseId = input.WarehouseId,
+                    Quantity = input.SplitQuantity,
+                    IsFinishedItem = true,
+                }
+            }
+        };
+
+        var createdEntry = await _stockEntryAppService.CreateAsync(createEntryDto);
+        await _stockEntryAppService.SubmitAsync(createdEntry.Id);
+
+        return new SplitBatchResultDto
+        {
+            NewBatchId = newBatch.Id,
+            NewBatchNo = newBatch.BatchNo,
+            StockEntryId = createdEntry.Id,
+            StockEntryNumber = createdEntry.EntryNumber,
+        };
+    }
+
+    /// <summary>
+    /// Moves batch stock from source warehouse to target warehouse via Material Transfer Stock Entry (Gotcha #5992).
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Edit)]
+    public async Task<MoveBatchResultDto> MoveBatchAsync(MoveBatchDto input)
+    {
+        if (input.Quantity <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Move quantity must be greater than zero.");
+        }
+
+        if (input.SourceWarehouseId == input.TargetWarehouseId)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Source and target warehouses cannot be identical.");
+        }
+
+        var batch = await _repository.GetAsync(input.BatchId);
+        if (batch.IsDisabled)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Batch {batch.BatchNo} is disabled.");
+        }
+
+        var sourceWarehouse = await _warehouseRepository.GetAsync(input.SourceWarehouseId);
+        var targetWarehouse = await _warehouseRepository.GetAsync(input.TargetWarehouseId);
+
+        if (sourceWarehouse.CompanyId != targetWarehouse.CompanyId)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Source and target warehouses must belong to the same company.");
+        }
+
+        // Verify available stock in source warehouse
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var availableQty = sleQuery
+            .Where(s => s.BatchId == input.BatchId && s.WarehouseId == input.SourceWarehouseId && !s.IsCancelled)
+            .Sum(s => (decimal?)s.QuantityChange) ?? 0m;
+
+        if (availableQty < input.Quantity)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                .WithData("available", availableQty)
+                .WithData("required", input.Quantity);
+        }
+
+        // Generate Material Transfer Stock Entry
+        var createEntryDto = new CreateStockEntryDto
+        {
+            CompanyId = sourceWarehouse.CompanyId,
+            EntryType = StockEntryType.MaterialTransfer,
+            PostingDate = DateTime.UtcNow,
+            Notes = input.Description ?? $"Move batch {batch.BatchNo} from {sourceWarehouse.Name} to {targetWarehouse.Name}",
+            Items = new List<CreateStockEntryItemDto>
+            {
+                new()
+                {
+                    ItemId = batch.ItemId,
+                    SourceWarehouseId = input.SourceWarehouseId,
+                    TargetWarehouseId = input.TargetWarehouseId,
+                    Quantity = input.Quantity,
+                }
+            }
+        };
+
+        var createdEntry = await _stockEntryAppService.CreateAsync(createEntryDto);
+        await _stockEntryAppService.SubmitAsync(createdEntry.Id);
+
+        return new MoveBatchResultDto
+        {
+            BatchId = batch.Id,
+            StockEntryId = createdEntry.Id,
+            StockEntryNumber = createdEntry.EntryNumber,
         };
     }
 }

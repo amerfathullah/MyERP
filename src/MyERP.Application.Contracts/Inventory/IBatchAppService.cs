@@ -14,4 +14,10 @@ public interface IBatchAppService : IApplicationService
     Task<BatchStockBalanceDto> GetStockBalanceAsync(Guid batchId);
     Task<BatchTraceabilityDto> GetTraceabilityAsync(Guid batchId);
     Task<BatchMovementHistoryDto> GetMovementHistoryAsync(Guid batchId, int maxEntries = 50);
+
+    /// <summary>Splits a portion of an existing batch into a new batch via Repack Stock Entry.</summary>
+    Task<SplitBatchResultDto> SplitBatchAsync(SplitBatchDto input);
+
+    /// <summary>Moves batch stock from source warehouse to target warehouse via Material Transfer Stock Entry.</summary>
+    Task<MoveBatchResultDto> MoveBatchAsync(MoveBatchDto input);
 }

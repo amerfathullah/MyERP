@@ -48,6 +48,24 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
     [Authorize(MyERPPermissions.Accounts.Create)]
     public async Task<FiscalYearDto> CreateAsync(CreateFiscalYearDto input)
     {
+        if (input.EndDate <= input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "End date must be greater than start date.");
+        }
+
+        // Validate duration per ERPNext validate_dates (#5979):
+        // If not a short year, EndDate must be exactly StartDate + 1 year - 1 day.
+        if (!input.IsShortYear)
+        {
+            var expectedEndDate = input.StartDate.AddYears(1).AddDays(-1);
+            if (input.EndDate.Date != expectedEndDate.Date)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Normal fiscal year must span exactly one full year (ending on {expectedEndDate:yyyy-MM-dd}). Mark as Short Year if custom duration.");
+            }
+        }
+
         // Validate no overlapping FY for same company
         var query = await _repository.GetQueryableAsync();
         var overlap = query.Any(f =>
@@ -63,11 +81,22 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
                 .WithData("endDate", input.EndDate.ToString("yyyy-MM-dd"));
         }
 
-        var fy = new FiscalYear(GuidGenerator.Create(), input.CompanyId, input.Name,
-            input.StartDate, input.EndDate, CurrentTenant.Id);
+        var fy = new FiscalYear(Guid.NewGuid(), input.CompanyId, input.Name,
+            input.StartDate, input.EndDate, input.IsShortYear, tenantId: null);
         await _repository.InsertAsync(fy);
-        return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);
+        return MapToDto(fy);
     }
+
+    private static FiscalYearDto MapToDto(FiscalYear fy) => new()
+    {
+        Id = fy.Id,
+        CompanyId = fy.CompanyId,
+        Name = fy.Name,
+        StartDate = fy.StartDate,
+        EndDate = fy.EndDate,
+        IsClosed = fy.IsClosed,
+        IsShortYear = fy.IsShortYear
+    };
 
     /// <summary>
     /// Close a fiscal year. Enforces sequential closing: prior FY must be closed first.

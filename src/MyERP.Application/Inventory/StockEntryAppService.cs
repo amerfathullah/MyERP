@@ -145,7 +145,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         foreach (var item in input.Items)
         {
-            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate);
+            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem);
         }
 
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
