@@ -10,6 +10,7 @@ using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -22,6 +23,8 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     private readonly IRepository<MasterProductionSchedule, Guid> _repository;
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
     private readonly IRepository<MaterialRequest, Guid> _materialRequestRepository;
+    private readonly IRepository<ProductionPlan, Guid> _productionPlanRepository;
+    private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly MasterProductionScheduleService _leadTimeService;
 
@@ -29,12 +32,16 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         IRepository<MasterProductionSchedule, Guid> repository,
         IRepository<SalesOrder, Guid> salesOrderRepository,
         IRepository<MaterialRequest, Guid> materialRequestRepository,
+        IRepository<ProductionPlan, Guid> productionPlanRepository,
+        IRepository<BillOfMaterials, Guid> bomRepository,
         IDocumentNumberGenerator numberGenerator,
         MasterProductionScheduleService leadTimeService)
     {
         _repository = repository;
         _salesOrderRepository = salesOrderRepository;
         _materialRequestRepository = materialRequestRepository;
+        _productionPlanRepository = productionPlanRepository;
+        _bomRepository = bomRepository;
         _numberGenerator = numberGenerator;
         _leadTimeService = leadTimeService;
     }
@@ -235,5 +242,85 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         var query = await itemRepo.GetQueryableAsync();
         return query.Where(i => ids.Contains(i.Id)).ToDictionary(i => i.Id, i => i.ItemName);
+    }
+
+    /// <summary>
+    /// Creates a draft Production Plan directly from the MPS planned items (Gotcha #6006).
+    /// </summary>
+    [Authorize(MyERPPermissions.MasterProductionSchedules.Edit)]
+    public async Task<Guid> MakeProductionPlanAsync(Guid id, CreateProductionPlanFromMpsInput? input = null)
+    {
+        var schedule = await _repository.GetAsync(id, includeDetails: true);
+        if (schedule.Items.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.MasterProductionScheduleHasNoItems);
+        }
+
+        var planNumber = await _numberGenerator.GenerateAsync("PP", schedule.CompanyId);
+        var plan = new ProductionPlan(Guid.NewGuid(), schedule.CompanyId, planNumber, DateTime.UtcNow, schedule.TenantId)
+        {
+            ForWarehouseId = input?.ForWarehouseId ?? schedule.ParentWarehouseId,
+            CombineItems = input?.CombineItems ?? false
+        };
+
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var activeBoms = bomQuery
+            .Where(b => b.CompanyId == schedule.CompanyId && b.IsActive)
+            .ToList();
+
+        foreach (var item in schedule.Items)
+        {
+            var bomId = item.BomId;
+            if (!bomId.HasValue || bomId.Value == Guid.Empty)
+            {
+                var defaultBom = activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId && b.IsDefault)
+                    ?? activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId);
+                if (defaultBom != null)
+                {
+                    bomId = defaultBom.Id;
+                }
+            }
+
+            if (bomId.HasValue && bomId.Value != Guid.Empty)
+            {
+                var planItem = new ProductionPlanItem(
+                    Guid.NewGuid(),
+                    plan.Id,
+                    item.ItemId,
+                    item.ItemName,
+                    bomId.Value,
+                    item.PlannedQty)
+                {
+                    WarehouseId = item.WarehouseId ?? schedule.ParentWarehouseId,
+                    PlannedStartDate = item.OrderReleaseDate
+                };
+
+                plan.AddPlannedItem(planItem);
+            }
+        }
+
+        await _productionPlanRepository.InsertAsync(plan, autoSave: true);
+        return plan.Id;
+    }
+
+    /// <summary>
+    /// Computes summary metrics for a Master Production Schedule document (Gotcha #6006).
+    /// </summary>
+    [Authorize(MyERPPermissions.MasterProductionSchedules.Default)]
+    public async Task<MasterProductionScheduleSummaryDto> GetSummaryAsync(Guid id)
+    {
+        var schedule = await _repository.GetAsync(id, includeDetails: true);
+        return new MasterProductionScheduleSummaryDto
+        {
+            Id = schedule.Id,
+            ScheduleNumber = schedule.ScheduleNumber,
+            Status = (int)schedule.Status,
+            TotalItemsCount = schedule.Items.Count,
+            TotalPlannedQty = schedule.Items.Sum(i => i.PlannedQty),
+            EarliestReleaseDate = schedule.Items.Count > 0 ? schedule.Items.Min(i => i.OrderReleaseDate) : null,
+            LatestDeliveryDate = schedule.Items.Count > 0 ? schedule.Items.Max(i => i.DeliveryDate) : null,
+            SalesOrdersCount = schedule.SalesOrders.Count,
+            MaterialRequestsCount = schedule.MaterialRequests.Count
+        };
     }
 }

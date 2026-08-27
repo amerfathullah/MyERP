@@ -82,6 +82,25 @@ public class FetchMaterialRequestsDto
     public DateTime? ToDate { get; set; }
 }
 
+public class CreateProductionPlanFromMpsInput
+{
+    public Guid? ForWarehouseId { get; set; }
+    public bool CombineItems { get; set; }
+}
+
+public class MasterProductionScheduleSummaryDto
+{
+    public Guid Id { get; set; }
+    public string ScheduleNumber { get; set; } = null!;
+    public int Status { get; set; }
+    public int TotalItemsCount { get; set; }
+    public decimal TotalPlannedQty { get; set; }
+    public DateTime? EarliestReleaseDate { get; set; }
+    public DateTime? LatestDeliveryDate { get; set; }
+    public int SalesOrdersCount { get; set; }
+    public int MaterialRequestsCount { get; set; }
+}
+
 public interface IMasterProductionScheduleAppService : IApplicationService
 {
     Task<MasterProductionScheduleDto> GetAsync(Guid id);
@@ -94,4 +113,6 @@ public interface IMasterProductionScheduleAppService : IApplicationService
     Task<MasterProductionScheduleDto> ComputeActualDemandAsync(Guid id);
     Task<MasterProductionScheduleDto> SubmitAsync(Guid id);
     Task<MasterProductionScheduleDto> CancelAsync(Guid id);
+    Task<Guid> MakeProductionPlanAsync(Guid id, CreateProductionPlanFromMpsInput? input = null);
+    Task<MasterProductionScheduleSummaryDto> GetSummaryAsync(Guid id);
 }
