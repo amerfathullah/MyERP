@@ -102,6 +102,21 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
         Status = SubcontractingInwardOrderStatus.Closed;
     }
 
+    public void Reopen()
+    {
+        if (Status != SubcontractingInwardOrderStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only closed Subcontracting Inward Orders can be reopened.");
+        }
+
+        UpdateReceivedStatus();
+        if (Status == SubcontractingInwardOrderStatus.Closed)
+        {
+            Status = SubcontractingInwardOrderStatus.Open;
+        }
+    }
+
     public void Cancel()
     {
         if (Status == SubcontractingInwardOrderStatus.Draft ||

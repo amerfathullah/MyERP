@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Dtos;
 using Volo.Abp.Application.Dtos;
@@ -13,4 +14,6 @@ public interface ILandedCostVoucherAppService : IApplicationService
     Task<LandedCostVoucherDto> CreateAsync(CreateLandedCostVoucherDto input);
     Task<LandedCostVoucherDto> SubmitAsync(Guid id);
     Task<LandedCostVoucherDto> CancelAsync(Guid id);
+    Task<List<LandedCostItemDto>> GetReceiptItemsAsync(GetLandedCostReceiptItemsInput input);
+    Task<LandedCostDistributionResultDto> CalculateDistributionAsync(CalculateLandedCostDistributionDto input);
 }

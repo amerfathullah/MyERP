@@ -10,6 +10,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -381,6 +382,230 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             CurrentUser.Id, tenantId: lcv.TenantId));
 
         return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
+    }
+
+    /// <summary>
+    /// Fetches eligible items from submitted Purchase Receipts, Purchase Invoices (with update_stock),
+    /// or Stock Entries (Material Receipt) for Landed Cost Voucher allocation (Gotcha #5996).
+    /// </summary>
+    public async Task<List<LandedCostItemDto>> GetReceiptItemsAsync(GetLandedCostReceiptItemsInput input)
+    {
+        Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
+        if (input.ReceiptIds == null || input.ReceiptIds.Count == 0)
+        {
+            return new List<LandedCostItemDto>();
+        }
+
+        var result = new List<LandedCostItemDto>();
+
+        if (string.Equals(input.ReceiptType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+        {
+            var prQuery = await _purchaseReceiptRepository.WithDetailsAsync(pr => pr.Items);
+            var receipts = prQuery
+                .Where(pr => pr.CompanyId == input.CompanyId && input.ReceiptIds.Contains(pr.Id))
+                .ToList();
+
+            foreach (var receipt in receipts)
+            {
+                if (receipt.Status != Core.DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Receipt '{receipt.ReceiptNumber}' must be submitted.");
+                }
+
+                foreach (var item in receipt.Items)
+                {
+                    result.Add(new LandedCostItemDto
+                    {
+                        Id = Guid.NewGuid(),
+                        ReceiptId = receipt.Id,
+                        ReceiptType = "PurchaseReceipt",
+                        ItemId = item.ItemId,
+                        Description = item.Description,
+                        Quantity = item.Quantity,
+                        Amount = item.LineTotal,
+                        ApplicableCharges = 0m
+                    });
+                }
+            }
+        }
+        else if (string.Equals(input.ReceiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var piQuery = await _purchaseInvoiceRepository.WithDetailsAsync(pi => pi.Items);
+            var invoices = piQuery
+                .Where(pi => pi.CompanyId == input.CompanyId && input.ReceiptIds.Contains(pi.Id))
+                .ToList();
+
+            foreach (var invoice in invoices)
+            {
+                if (invoice.Status != Core.DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Invoice '{invoice.InvoiceNumber}' must be submitted.");
+                }
+
+                if (!invoice.UpdateStock)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Invoice '{invoice.InvoiceNumber}' must have Update Stock enabled for Landed Cost Voucher.");
+                }
+
+                foreach (var item in invoice.Items)
+                {
+                    result.Add(new LandedCostItemDto
+                    {
+                        Id = Guid.NewGuid(),
+                        ReceiptId = invoice.Id,
+                        ReceiptType = "PurchaseInvoice",
+                        ItemId = item.ItemId,
+                        Description = item.Description,
+                        Quantity = item.Quantity,
+                        Amount = item.LineTotal,
+                        ApplicableCharges = 0m
+                    });
+                }
+            }
+        }
+        else if (string.Equals(input.ReceiptType, "StockEntry", StringComparison.OrdinalIgnoreCase))
+        {
+            var stockEntryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+            var seQuery = await stockEntryRepo.WithDetailsAsync(se => se.Items);
+            var stockEntries = seQuery
+                .Where(se => se.CompanyId == input.CompanyId && input.ReceiptIds.Contains(se.Id))
+                .ToList();
+
+            foreach (var se in stockEntries)
+            {
+                if (se.Status != Core.DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be submitted.");
+                }
+
+                if (se.EntryType != StockEntryType.MaterialReceipt)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt.");
+                }
+
+                foreach (var item in se.Items)
+                {
+                    result.Add(new LandedCostItemDto
+                    {
+                        Id = Guid.NewGuid(),
+                        ReceiptId = se.Id,
+                        ReceiptType = "StockEntry",
+                        ItemId = item.ItemId,
+                        Description = item.ItemId.ToString(),
+                        Quantity = item.Quantity,
+                        Amount = (item.ValuationRate ?? 0m) * item.Quantity,
+                        ApplicableCharges = 0m
+                    });
+                }
+            }
+        }
+        else
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Unsupported receipt type: {input.ReceiptType}");
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Distributes total charges proportionally across item rows based on amount, quantity, or manual distribution (Gotcha #5996).
+    /// </summary>
+    public Task<LandedCostDistributionResultDto> CalculateDistributionAsync(CalculateLandedCostDistributionDto input)
+    {
+        var totalCharges = input.TotalCharges > 0 
+            ? input.TotalCharges 
+            : input.Charges.Sum(c => c.Amount);
+
+        if (input.Items == null || input.Items.Count == 0 || totalCharges <= 0)
+        {
+            return Task.FromResult(new LandedCostDistributionResultDto
+            {
+                TotalCharges = totalCharges,
+                TotalDistributedAmount = 0m,
+                DistributedItems = input.Items?.ToList() ?? new List<LandedCostItemDto>()
+            });
+        }
+
+        var items = input.Items.ToList();
+
+        if (input.DistributionMethod == LandedCostDistributionMethod.Manual)
+        {
+            var sumManual = items.Sum(i => i.ApplicableCharges);
+            return Task.FromResult(new LandedCostDistributionResultDto
+            {
+                TotalCharges = totalCharges,
+                TotalDistributedAmount = sumManual,
+                DistributedItems = items
+            });
+        }
+
+        if (input.DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity)
+        {
+            var totalQty = items.Sum(i => i.Quantity);
+            if (totalQty <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Total item quantity must be greater than zero for quantity-based distribution.");
+            }
+
+            decimal allocatedSoFar = 0m;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (i == items.Count - 1)
+                {
+                    // Last item absorbs rounding remainder
+                    item.ApplicableCharges = Math.Round(totalCharges - allocatedSoFar, 2);
+                }
+                else
+                {
+                    var share = Math.Round((item.Quantity / totalQty) * totalCharges, 2);
+                    item.ApplicableCharges = share;
+                    allocatedSoFar += share;
+                }
+            }
+        }
+        else // BasedOnAmount (default)
+        {
+            var totalAmount = items.Sum(i => i.Amount);
+            if (totalAmount <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Total item amount must be greater than zero for amount-based distribution.");
+            }
+
+            decimal allocatedSoFar = 0m;
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (i == items.Count - 1)
+                {
+                    // Last item absorbs rounding remainder
+                    item.ApplicableCharges = Math.Round(totalCharges - allocatedSoFar, 2);
+                }
+                else
+                {
+                    var share = Math.Round((item.Amount / totalAmount) * totalCharges, 2);
+                    item.ApplicableCharges = share;
+                    allocatedSoFar += share;
+                }
+            }
+        }
+
+        var totalAllocated = items.Sum(i => i.ApplicableCharges);
+
+        return Task.FromResult(new LandedCostDistributionResultDto
+        {
+            TotalCharges = totalCharges,
+            TotalDistributedAmount = totalAllocated,
+            DistributedItems = items
+        });
     }
 }
 

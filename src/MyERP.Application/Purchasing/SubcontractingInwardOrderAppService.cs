@@ -137,7 +137,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             entity.OrderNumber, "Submitted", "Cancelled", CurrentUser.Id,
             $"Subcontracting inward order '{entity.OrderNumber}' cancelled", CurrentTenant.Id));
 
-        return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
+        return MapToDto(entity);
     }
 
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
@@ -147,13 +147,134 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         entity.Close();
         await _repository.UpdateAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
-            "Closed", entity.CompanyId,
-            entity.OrderNumber, "Submitted", "Closed", CurrentUser.Id,
-            $"Subcontracting inward order '{entity.OrderNumber}' closed", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "Closed", entity.CompanyId,
+                entity.OrderNumber, "Submitted", "Closed", CurrentUser?.Id,
+                $"Subcontracting inward order '{entity.OrderNumber}' closed", CurrentTenant?.Id));
+        }
 
-        return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
+        return MapToDto(entity);
     }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<SubcontractingInwardOrderDto> ReopenAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.Reopen();
+        await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "Reopened", entity.CompanyId,
+                entity.OrderNumber, "Closed", entity.Status.ToString(), CurrentUser?.Id,
+                $"Subcontracting inward order '{entity.OrderNumber}' reopened", CurrentTenant?.Id));
+        }
+
+        return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Creates a draft Subcontracting Inward Order DTO pre-populated with items and supplier from a submitted Sales Order (Gotcha #5994).
+    /// </summary>
+    public async Task<CreateSubcontractingInwardOrderDto> MapFromSalesOrderAsync(MapSubcontractingInwardOrderFromSalesOrderDto input)
+    {
+        Check.NotDefaultOrNull<Guid>(input.SalesOrderId, nameof(input.SalesOrderId));
+        Check.NotDefaultOrNull<Guid>(input.SupplierId, nameof(input.SupplierId));
+
+        var salesOrderRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soQuery = await salesOrderRepo.WithDetailsAsync(so => so.Items);
+        var so = soQuery.FirstOrDefault(x => x.Id == input.SalesOrderId);
+        if (so == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+        }
+
+        if (so.Status != DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Sales Order '{so.OrderNumber}' must be submitted to create Subcontracting Inward Order.");
+        }
+
+        var result = new CreateSubcontractingInwardOrderDto
+        {
+            CompanyId = so.CompanyId,
+            SupplierId = input.SupplierId,
+            SalesOrderId = so.Id,
+            OrderDate = DateTime.UtcNow,
+            CurrencyCode = so.CurrencyCode ?? "MYR",
+            Items = new System.Collections.Generic.List<CreateScioItemDto>()
+        };
+
+        foreach (var soItem in so.Items)
+        {
+            result.Items.Add(new CreateScioItemDto
+            {
+                ItemId = soItem.ItemId,
+                Quantity = soItem.Quantity,
+                Rate = soItem.UnitPrice,
+                ServiceCostPerQty = 0m
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns action availability summary for the given Subcontracting Inward Order (Gotcha #5994).
+    /// </summary>
+    public async Task<SubcontractingInwardOrderActionSummaryDto> GetActionSummaryAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id);
+        var pendingItems = entity.Items.Count(i => i.PendingReceiptQty > 0);
+
+        return new SubcontractingInwardOrderActionSummaryDto
+        {
+            OrderId = entity.Id,
+            Status = entity.Status,
+            PerReceived = entity.PerReceived,
+            PerBilled = entity.PerBilled,
+            CanReopen = entity.Status == SubcontractingInwardOrderStatus.Closed,
+            CanClose = entity.Status == SubcontractingInwardOrderStatus.Open || entity.Status == SubcontractingInwardOrderStatus.PartiallyReceived,
+            CanCancel = entity.Status == SubcontractingInwardOrderStatus.Open || entity.Status == SubcontractingInwardOrderStatus.PartiallyReceived,
+            PendingItemCount = pendingItems
+        };
+    }
+
+    private static SubcontractingInwardOrderDto MapToDto(SubcontractingInwardOrder entity) => new()
+    {
+        Id = entity.Id,
+        CompanyId = entity.CompanyId,
+        OrderNumber = entity.OrderNumber,
+        OrderDate = entity.OrderDate,
+        SupplierId = entity.SupplierId,
+        SalesOrderId = entity.SalesOrderId,
+        SubcontractingOrderId = entity.SubcontractingOrderId,
+        CurrencyCode = entity.CurrencyCode,
+        NetTotal = entity.NetTotal,
+        GrandTotal = entity.GrandTotal,
+        Status = entity.Status,
+        PerReceived = entity.PerReceived,
+        PerBilled = entity.PerBilled,
+        Items = entity.Items.Select(i => new SubcontractingInwardOrderItemDto
+        {
+            Id = i.Id,
+            ItemId = i.ItemId,
+            BomId = i.BomId,
+            Quantity = i.Quantity,
+            Rate = i.Rate,
+            Amount = i.Amount,
+            ReceivedQty = i.ReceivedQty,
+            BilledQty = i.BilledQty,
+            PendingReceiptQty = i.PendingReceiptQty,
+            WarehouseId = i.WarehouseId,
+            ServiceCostPerQty = i.ServiceCostPerQty
+        }).ToList()
+    };
 }

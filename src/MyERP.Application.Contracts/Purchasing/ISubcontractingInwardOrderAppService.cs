@@ -14,4 +14,7 @@ public interface ISubcontractingInwardOrderAppService : IApplicationService
     Task<SubcontractingInwardOrderDto> SubmitAsync(Guid id);
     Task<SubcontractingInwardOrderDto> CancelAsync(Guid id);
     Task<SubcontractingInwardOrderDto> CloseAsync(Guid id);
+    Task<SubcontractingInwardOrderDto> ReopenAsync(Guid id);
+    Task<CreateSubcontractingInwardOrderDto> MapFromSalesOrderAsync(MapSubcontractingInwardOrderFromSalesOrderDto input);
+    Task<SubcontractingInwardOrderActionSummaryDto> GetActionSummaryAsync(Guid id);
 }

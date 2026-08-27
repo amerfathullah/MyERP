@@ -160,3 +160,21 @@ public class CreateScioItemDto
     public Guid? WarehouseId { get; set; }
     public decimal ServiceCostPerQty { get; set; }
 }
+
+public class MapSubcontractingInwardOrderFromSalesOrderDto
+{
+    [Required] public Guid SalesOrderId { get; set; }
+    [Required] public Guid SupplierId { get; set; }
+}
+
+public class SubcontractingInwardOrderActionSummaryDto
+{
+    public Guid OrderId { get; set; }
+    public SubcontractingInwardOrderStatus Status { get; set; }
+    public decimal PerReceived { get; set; }
+    public decimal PerBilled { get; set; }
+    public bool CanReopen { get; set; }
+    public bool CanClose { get; set; }
+    public bool CanCancel { get; set; }
+    public int PendingItemCount { get; set; }
+}

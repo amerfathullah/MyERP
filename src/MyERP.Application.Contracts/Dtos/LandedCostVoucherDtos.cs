@@ -70,3 +70,25 @@ public class GetLandedCostVoucherListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public string? Filter { get; set; }
 }
+
+public class GetLandedCostReceiptItemsInput
+{
+    public Guid CompanyId { get; set; }
+    public string ReceiptType { get; set; } = "PurchaseReceipt"; // PurchaseReceipt, PurchaseInvoice, StockEntry
+    public System.Collections.Generic.List<Guid> ReceiptIds { get; set; } = new();
+}
+
+public class CalculateLandedCostDistributionDto
+{
+    public LandedCostDistributionMethod DistributionMethod { get; set; } = LandedCostDistributionMethod.BasedOnAmount;
+    public decimal TotalCharges { get; set; }
+    public System.Collections.Generic.List<CreateLandedCostChargeDto> Charges { get; set; } = new();
+    public System.Collections.Generic.List<LandedCostItemDto> Items { get; set; } = new();
+}
+
+public class LandedCostDistributionResultDto
+{
+    public decimal TotalCharges { get; set; }
+    public decimal TotalDistributedAmount { get; set; }
+    public System.Collections.Generic.List<LandedCostItemDto> DistributedItems { get; set; } = new();
+}
