@@ -36,10 +36,10 @@ public class ManufacturingController : MyERPController
     public Task<PagedResultDto<OperationDto>> GetOperationListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _operationService.GetListAsync(input);
 
     [HttpPost("operations")]
-    public Task<OperationDto> CreateOperationAsync(CreateOperationDto input) => _operationService.CreateAsync(input);
+    public Task<OperationDto> CreateOperationAsync([FromBody] CreateOperationDto input) => _operationService.CreateAsync(input);
 
     [HttpPut("operations/{id}")]
-    public Task<OperationDto> UpdateOperationAsync(Guid id, CreateOperationDto input) => _operationService.UpdateAsync(id, input);
+    public Task<OperationDto> UpdateOperationAsync(Guid id, [FromBody] CreateOperationDto input) => _operationService.UpdateAsync(id, input);
 
     [HttpDelete("operations/{id}")]
     public Task DeleteOperationAsync(Guid id) => _operationService.DeleteAsync(id);
@@ -52,10 +52,10 @@ public class ManufacturingController : MyERPController
     public Task<PagedResultDto<RoutingDto>> GetRoutingListAsync([FromQuery] PagedAndSortedResultRequestDto input) => _routingService.GetListAsync(input);
 
     [HttpPost("routings")]
-    public Task<RoutingDto> CreateRoutingAsync(CreateRoutingDto input) => _routingService.CreateAsync(input);
+    public Task<RoutingDto> CreateRoutingAsync([FromBody] CreateRoutingDto input) => _routingService.CreateAsync(input);
 
     [HttpPut("routings/{id}")]
-    public Task<RoutingDto> UpdateRoutingAsync(Guid id, CreateRoutingDto input) => _routingService.UpdateAsync(id, input);
+    public Task<RoutingDto> UpdateRoutingAsync(Guid id, [FromBody] CreateRoutingDto input) => _routingService.UpdateAsync(id, input);
 
     [HttpDelete("routings/{id}")]
     public Task DeleteRoutingAsync(Guid id) => _routingService.DeleteAsync(id);
@@ -68,10 +68,10 @@ public class ManufacturingController : MyERPController
     public Task<PagedResultDto<WorkstationDto>> GetWorkstationListAsync([FromQuery] CompanyFilteredPagedRequestDto input) => _workstationService.GetListAsync(input);
 
     [HttpPut("workstations/{id}")]
-    public Task<WorkstationDto> UpdateWorkstationAsync(Guid id, CreateWorkstationDto input) => _workstationService.UpdateAsync(id, input);
+    public Task<WorkstationDto> UpdateWorkstationAsync(Guid id, [FromBody] CreateWorkstationDto input) => _workstationService.UpdateAsync(id, input);
 
     [HttpPost("workstations")]
-    public Task<WorkstationDto> CreateWorkstationAsync(CreateWorkstationDto input) => _workstationService.CreateAsync(input);
+    public Task<WorkstationDto> CreateWorkstationAsync([FromBody] CreateWorkstationDto input) => _workstationService.CreateAsync(input);
 
     [HttpGet("workstations/capacity-utilization")]
     public Task<System.Collections.Generic.List<WorkstationUtilizationDto>> GetCapacityUtilizationAsync([FromQuery] Guid? companyId) => _workstationService.GetCapacityUtilizationAsync(companyId);
@@ -84,10 +84,10 @@ public class ManufacturingController : MyERPController
     public Task<PagedResultDto<BomDto>> GetBomListAsync([FromQuery] MyERP.Shared.CompanyFilteredPagedRequestDto input) => _service.GetBomListAsync(input);
 
     [HttpPost("bom")]
-    public Task<BomDto> CreateBomAsync(CreateBomDto input) => _service.CreateBomAsync(input);
+    public Task<BomDto> CreateBomAsync([FromBody] CreateBomDto input) => _service.CreateBomAsync(input);
 
     [HttpPut("bom/{id}")]
-    public Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input) => _service.UpdateBomAsync(id, input);
+    public Task<BomDto> UpdateBomAsync(Guid id, [FromBody] CreateBomDto input) => _service.UpdateBomAsync(id, input);
 
     [HttpDelete("bom/{id}")]
     public Task DeleteBomAsync(Guid id) => _service.DeleteBomAsync(id);
@@ -103,7 +103,7 @@ public class ManufacturingController : MyERPController
     public Task<PagedResultDto<WorkOrderDto>> GetWorkOrderListAsync([FromQuery] GetWorkOrderListDto input) => _service.GetWorkOrderListAsync(input);
 
     [HttpPost("work-order")]
-    public Task<WorkOrderDto> CreateWorkOrderAsync(CreateWorkOrderDto input) => _service.CreateWorkOrderAsync(input);
+    public Task<WorkOrderDto> CreateWorkOrderAsync([FromBody] CreateWorkOrderDto input) => _service.CreateWorkOrderAsync(input);
 
     [HttpDelete("work-order/{id}")]
     public Task DeleteWorkOrderAsync(Guid id) => _service.DeleteWorkOrderAsync(id);
@@ -127,7 +127,7 @@ public class ManufacturingController : MyERPController
     public Task<WorkOrderDto> CancelWorkOrderAsync(Guid id) => _service.CancelWorkOrderAsync(id);
 
     [HttpPost("work-order/material-consumption")]
-    public Task<MaterialConsumptionResultDto> CreateMaterialConsumptionAsync(CreateMaterialConsumptionDto input) => _service.CreateMaterialConsumptionAsync(input);
+    public Task<MaterialConsumptionResultDto> CreateMaterialConsumptionAsync([FromBody] CreateMaterialConsumptionDto input) => _service.CreateMaterialConsumptionAsync(input);
 
     // BOM Subcontracting Lookup
     [HttpGet("bom/subcontracting-items")]

@@ -24,7 +24,7 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'POST',
       url: '/api/app/manufacturing/bom',
-      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -59,7 +59,7 @@ export class ManufacturingService {
     this.restService.request<any, MaterialConsumptionResultDto>({
       method: 'POST',
       url: '/api/app/manufacturing/work-order/material-consumption',
-      params: { workOrderId: input.workOrderId, items: input.items },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -76,7 +76,7 @@ export class ManufacturingService {
     this.restService.request<any, OperationDto>({
       method: 'POST',
       url: '/api/app/manufacturing/operations',
-      params: { name: input.name, description: input.description, workstationId: input.workstationId, workstationType: input.workstationType, workstationTypeId: input.workstationTypeId, createJobCardBasedOnBatchSize: input.createJobCardBasedOnBatchSize, batchSize: input.batchSize, isCorrectiveOperation: input.isCorrectiveOperation, isActive: input.isActive, subOperations: input.subOperations },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -85,7 +85,7 @@ export class ManufacturingService {
     this.restService.request<any, RoutingDto>({
       method: 'POST',
       url: '/api/app/manufacturing/routings',
-      params: { name: input.name, isDisabled: input.isDisabled, operations: input.operations },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -94,7 +94,7 @@ export class ManufacturingService {
     this.restService.request<any, WorkOrderDto>({
       method: 'POST',
       url: '/api/app/manufacturing/work-order',
-      params: { itemId: input.itemId, bomId: input.bomId, quantity: input.quantity, companyId: input.companyId, salesOrderId: input.salesOrderId, sourceWarehouseId: input.sourceWarehouseId, wipWarehouseId: input.wipWarehouseId, fgWarehouseId: input.fgWarehouseId, plannedStartDate: input.plannedStartDate, plannedEndDate: input.plannedEndDate, notes: input.notes },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -111,7 +111,7 @@ export class ManufacturingService {
     this.restService.request<any, WorkstationDto>({
       method: 'POST',
       url: '/api/app/manufacturing/workstations',
-      params: { companyId: input.companyId, name: input.name, workstationType: input.workstationType, workstationTypeId: input.workstationTypeId, productionCapacity: input.productionCapacity, description: input.description, costs: input.costs },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -347,7 +347,7 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'PUT',
       url: `/api/app/manufacturing/bom/${id}`,
-      params: { itemId: input.itemId, quantity: input.quantity, uom: input.uom, companyId: input.companyId, isDefault: input.isDefault, sourceWarehouseId: input.sourceWarehouseId, targetWarehouseId: input.targetWarehouseId, routingId: input.routingId, scrapWarehouseId: input.scrapWarehouseId, processLossPercentage: input.processLossPercentage, items: input.items, operations: input.operations, secondaryItems: input.secondaryItems },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -364,7 +364,7 @@ export class ManufacturingService {
     this.restService.request<any, OperationDto>({
       method: 'PUT',
       url: `/api/app/manufacturing/operations/${id}`,
-      params: { name: input.name, description: input.description, workstationId: input.workstationId, workstationType: input.workstationType, workstationTypeId: input.workstationTypeId, createJobCardBasedOnBatchSize: input.createJobCardBasedOnBatchSize, batchSize: input.batchSize, isCorrectiveOperation: input.isCorrectiveOperation, isActive: input.isActive, subOperations: input.subOperations },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -373,7 +373,7 @@ export class ManufacturingService {
     this.restService.request<any, RoutingDto>({
       method: 'PUT',
       url: `/api/app/manufacturing/routings/${id}`,
-      params: { name: input.name, isDisabled: input.isDisabled, operations: input.operations },
+      body: input,
     },
     { apiName: this.apiName,...config });
   
@@ -382,7 +382,7 @@ export class ManufacturingService {
     this.restService.request<any, WorkstationDto>({
       method: 'PUT',
       url: `/api/app/manufacturing/workstations/${id}`,
-      params: { companyId: input.companyId, name: input.name, workstationType: input.workstationType, workstationTypeId: input.workstationTypeId, productionCapacity: input.productionCapacity, description: input.description, costs: input.costs },
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

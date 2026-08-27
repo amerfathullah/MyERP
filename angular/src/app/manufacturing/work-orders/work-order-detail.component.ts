@@ -98,6 +98,10 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
         }
 
         <div class="d-flex gap-2 mb-3">
+          @if (wo()!.status === 0) {
+            <button class="btn btn-primary btn-sm" (click)="submit()"><i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}</button>
+            <button class="btn btn-outline-danger btn-sm" (click)="deleteWorkOrder()"><i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}</button>
+          }
           @if (wo()!.status === 1 || wo()!.status === 2) {
             <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
           }
@@ -468,6 +472,28 @@ export class WorkOrderDetailComponent implements OnInit {
     this.service.startWorkOrder(id).subscribe({
       next: w => { this.wo.set(w); this.toaster.success('::SuccessfullyStarted'); },
       error: () => this.toaster.error('::OperationFailed'),
+    });
+  }
+
+  submit() {
+    const id = this.wo()!.id!;
+    this.service.submitWorkOrder(id).subscribe({
+      next: w => { this.wo.set(w); this.toaster.success('::SuccessfullySubmitted'); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  deleteWorkOrder() {
+    this.confirmation.warn('::AreYouSureToDelete', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      const id = this.wo()!.id!;
+      this.service.deleteWorkOrder(id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.router.navigate(['/manufacturing/work-orders']);
+        },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
     });
   }
 
