@@ -18,7 +18,7 @@ public class AccountAppService :
         Account,
         AccountDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetAccountListDto,
         CreateUpdateAccountDto>,
     IAccountAppService
 {
@@ -30,6 +30,33 @@ public class AccountAppService :
         CreatePolicyName = MyERPPermissions.Accounts.Create;
         UpdatePolicyName = MyERPPermissions.Accounts.Edit;
         DeletePolicyName = MyERPPermissions.Accounts.Delete;
+    }
+
+    public override async Task<PagedResultDto<AccountDto>> GetListAsync(GetAccountListDto input)
+    {
+        var filter = input.Filter;
+
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return await base.GetListAsync(input);
+        }
+
+        var queryable = await Repository.GetQueryableAsync();
+
+        queryable = queryable.Where(a =>
+            a.AccountName.Contains(filter)
+            || a.AccountCode.Contains(filter));
+
+        var totalCount = queryable.Count();
+        var items = queryable
+            .OrderBy(a => a.AccountName)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
+
+        return new PagedResultDto<AccountDto>(
+            totalCount,
+            items.Select(ObjectMapper.Map<Account, AccountDto>).ToList());
     }
 
     protected override Account MapToEntity(CreateUpdateAccountDto input)

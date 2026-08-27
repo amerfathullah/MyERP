@@ -4,11 +4,16 @@ using Volo.Abp.Application.Services;
 
 namespace MyERP.Accounting;
 
+public class GetAccountListDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+}
+
 public interface IAccountAppService :
     ICrudAppService<
         AccountDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetAccountListDto,
         CreateUpdateAccountDto>
 {
 }

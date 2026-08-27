@@ -49,6 +49,10 @@ export interface AccountDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface GetAccountListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface AccountingDimensionDto extends EntityDto<string> {
   documentType?: string;
   label?: string;

@@ -14,6 +14,8 @@ import type { AccountDto, JournalEntryTemplateDto } from '../../proxy/accounting
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
+import { map, Observable } from 'rxjs';
 
 /**
  * Journal Entry voucher types — per ERPNext's 18 voucher_type values.
@@ -47,7 +49,8 @@ const VOUCHER_TYPES: { value: number; key: string; label: string }[] = [
     PageModule,
     LocalizationPipe,
     AutoValidationDirective,
-    SaveShortcutDirective],
+    SaveShortcutDirective,
+    LinkPickerComponent],
   templateUrl: './journal-entry-form.component.html',
   styleUrls: ['./journal-entry-form.component.scss'],
 })
@@ -61,7 +64,6 @@ export class JournalEntryFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
 
-  accounts = signal<AccountDto[]>([]);
   companies = signal<any[]>([]);
   templates = signal<JournalEntryTemplateDto[]>([]);
   voucherTypes = VOUCHER_TYPES;
@@ -94,8 +96,6 @@ export class JournalEntryFormComponent implements OnInit {
     const cid = this.companyContext.currentCompanyId();
     if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
 
-    this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
-      .subscribe({ next: (res) => this.accounts.set(res.items ?? []), error: () => {} });
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe({ next: (res) => this.companies.set(res.items ?? []), error: () => {} });
 
@@ -111,10 +111,9 @@ export class JournalEntryFormComponent implements OnInit {
       this.form.patchValue({ voucherType: t.voucherType });
       while (this.lines.length) this.lines.removeAt(0);
       for (const line of t.lines ?? []) {
-        const account = this.accounts().find(a => a.id === line.accountId);
         this.lines.push(this.fb.group({
           accountId: [line.accountId, Validators.required],
-          accountName: [account?.accountName ?? line.accountName ?? ''],
+          accountName: [line.accountName ?? ''],
           debit: [line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
           credit: [!line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
         }));
@@ -135,11 +134,14 @@ export class JournalEntryFormComponent implements OnInit {
     this.lines.removeAt(index);
   }
 
-  onAccountSelected(index: number, accountId: string): void {
-    const account = this.accounts().find(a => a.id === accountId);
-    if (account) {
-      this.lines.at(index).get('accountName')?.setValue(account.accountName);
-    }
+  accountSearchFn = (filter: string): Observable<AccountDto[]> =>
+    this.accountService.getList({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
+      .pipe(map(res => res.items ?? []));
+  accountGetByIdFn = (id: string) => this.accountService.get(id);
+  accountDisplayFn = (a: AccountDto | null) => a ? `${a.accountCode} — ${a.accountName}` : '';
+
+  onAccountLinkSelected(index: number, account: AccountDto | null): void {
+    this.lines.at(index).get('accountName')?.setValue(account?.accountName ?? '');
   }
 
   save(): void {

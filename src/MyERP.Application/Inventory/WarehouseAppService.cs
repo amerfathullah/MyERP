@@ -17,7 +17,7 @@ public class WarehouseAppService :
         Warehouse,
         WarehouseDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetWarehouseListDto,
         CreateUpdateWarehouseDto>,
     IWarehouseAppService
 {
@@ -29,6 +29,34 @@ public class WarehouseAppService :
         CreatePolicyName = MyERPPermissions.Warehouses.Create;
         UpdatePolicyName = MyERPPermissions.Warehouses.Edit;
         DeletePolicyName = MyERPPermissions.Warehouses.Delete;
+    }
+
+    public override async Task<PagedResultDto<WarehouseDto>> GetListAsync(GetWarehouseListDto input)
+    {
+        var filter = input.Filter;
+
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return await base.GetListAsync(input);
+        }
+
+        var queryable = await Repository.GetQueryableAsync();
+
+        queryable = queryable.Where(w =>
+            w.IsActive
+            && (w.Name.Contains(filter)
+                || (w.WarehouseCode != null && w.WarehouseCode.Contains(filter))));
+
+        var totalCount = queryable.Count();
+        var items = queryable
+            .OrderBy(w => w.Name)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .ToList();
+
+        return new PagedResultDto<WarehouseDto>(
+            totalCount,
+            items.Select(ObjectMapper.Map<Warehouse, WarehouseDto>).ToList());
     }
 
     public override async Task<WarehouseDto> CreateAsync(CreateUpdateWarehouseDto input)
@@ -122,7 +150,7 @@ public class WarehouseAppService :
         await base.DeleteAsync(id);
     }
 
-    protected override async Task<IQueryable<Warehouse>> CreateFilteredQueryAsync(PagedAndSortedResultRequestDto input)
+    protected override async Task<IQueryable<Warehouse>> CreateFilteredQueryAsync(GetWarehouseListDto input)
     {
         var query = await base.CreateFilteredQueryAsync(input);
         // Only return active, non-group (leaf) warehouses by default — group warehouses can't receive stock

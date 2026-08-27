@@ -4,11 +4,16 @@ using Volo.Abp.Application.Services;
 
 namespace MyERP.Inventory;
 
+public class GetWarehouseListDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+}
+
 public interface IWarehouseAppService :
     ICrudAppService<
         WarehouseDto,
         Guid,
-        PagedAndSortedResultRequestDto,
+        GetWarehouseListDto,
         CreateUpdateWarehouseDto>
 {
 }

@@ -1705,6 +1705,10 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   warehouseType?: WarehouseType;
 }
 
+export interface GetWarehouseListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface UomConversionDto extends EntityDto<string> {
   fromUom?: string;
   toUom?: string;

@@ -69,12 +69,14 @@
               @for (row of lines.controls; track $index; let i = $index) {
                 <tr [formGroup]="$any(row)">
                   <td>
-                    <select class="form-select form-select-sm" formControlName="accountId" (change)="onAccountSelected(i, $any(row).get('accountId')?.value)">
-                      <option value="">{{ 'SelectAccount' | abpLocalization }}</option>
-                      @for (acct of accounts(); track acct.id) {
-                        <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
-                      }
-                    </select>
+                    <app-link-picker
+                      formControlName="accountId"
+                      [searchFn]="accountSearchFn"
+                      [getByIdFn]="accountGetByIdFn"
+                      [displayFn]="accountDisplayFn"
+                      [placeholder]="'SelectAccount' | abpLocalization"
+                      (linkSelected)="onAccountLinkSelected(i, $event)">
+                    </app-link-picker>
                   </td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="debit" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="credit" /></td>
