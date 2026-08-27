@@ -39,6 +39,16 @@
             <input type="text" class="form-control" formControlName="department" [class.is-invalid]="form.get('department')?.invalid && form.get('department')?.touched" />
           </div>
           <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::ReportsTo' | abpLocalization }}</label>
+            <app-link-picker
+              formControlName="reportsToEmployeeId"
+              [searchFn]="reportsToSearchFn"
+              [getByIdFn]="reportsToGetByIdFn"
+              [displayFn]="reportsToDisplayFn"
+              [placeholder]="'::Placeholder:SearchEmployee' | abpLocalization">
+            </app-link-picker>
+          </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
             <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="phone" [class.is-invalid]="form.get('phone')?.invalid && form.get('phone')?.touched" />
           </div>

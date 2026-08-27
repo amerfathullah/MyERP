@@ -40,6 +40,9 @@ public class Employee : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Gender { get; set; }
     public EmploymentStatus Status { get; set; } = EmploymentStatus.Active;
 
+    /// <summary>Reporting manager. Per ERPNext: an employee cannot be relieved while active employees still report to them.</summary>
+    public Guid? ReportsToEmployeeId { get; set; }
+
     // Bank (PDPA-sensitive)
     public string? BankName { get; set; }
     public string? BankAccountNumber { get; set; }

@@ -9,15 +9,18 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { EmployeeStore } from '../store/employee.store';
 import type { CompanyDto } from '../../proxy/core/models';
+import type { EmployeeDto } from '../../proxy/human-resources/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
+import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
+import { map, Observable } from 'rxjs';
 
 @Component({
   selector: 'app-employee-form',
   standalone: true,
   imports: [
-    AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+    AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, LinkPickerComponent],
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss'],
 })
@@ -47,7 +50,14 @@ export class EmployeeFormComponent implements OnInit {
     epfNumber: ['', Validators.maxLength(100)],
     socsoNumber: ['', Validators.maxLength(100)],
     taxNumber: ['', Validators.maxLength(100)],
+    reportsToEmployeeId: [null as string | null],
   });
+
+  reportsToSearchFn = (filter: string): Observable<EmployeeDto[]> =>
+    this.service.getList({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
+      .pipe(map(res => (res.items ?? []).filter(e => e.id !== this.entityId)));
+  reportsToGetByIdFn = (id: string) => this.service.get(id);
+  reportsToDisplayFn = (e: EmployeeDto | null) => e?.fullName ?? '';
 
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
@@ -68,6 +78,7 @@ export class EmployeeFormComponent implements OnInit {
           email: emp.email ?? '',
           designation: emp.designation ?? '',
           department: emp.department ?? '',
+          reportsToEmployeeId: emp.reportsToEmployeeId ?? null,
         });
       });
     }

@@ -82,6 +82,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.EpfNumber = input.EpfNumber;
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
+        employee.ReportsToEmployeeId = input.ReportsToEmployeeId;
 
         await _repository.InsertAsync(employee, autoSave: true);
 
@@ -98,6 +99,11 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     [Authorize(MyERPPermissions.Employees.Edit)]
     public async Task<EmployeeDto> UpdateAsync(Guid id, CreateUpdateEmployeeDto input)
     {
+        if (input.ReportsToEmployeeId == id)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:HR:006", "An employee cannot report to themselves.");
+        }
+
         var employee = await _repository.GetAsync(id);
 
         employee.FirstName = input.FirstName;
@@ -112,6 +118,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.EpfNumber = input.EpfNumber;
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
+        employee.ReportsToEmployeeId = input.ReportsToEmployeeId;
 
         await _repository.UpdateAsync(employee, autoSave: true);
 

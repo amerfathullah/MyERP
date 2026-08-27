@@ -53,6 +53,22 @@ public class EmployeeLifecycleManager : DomainService
             employee.DateOfResignation = dateOfResignation.Value;
         }
 
+        // Per ERPNext employee.validate_status(): cannot relieve (Resigned/Terminated) an employee
+        // while other active employees still report to them — reassign subordinates first.
+        if (newStatus == EmploymentStatus.Resigned || newStatus == EmploymentStatus.Terminated)
+        {
+            var hasActiveSubordinates = await _employeeRepository.AnyAsync(e =>
+                e.ReportsToEmployeeId == employee.Id &&
+                e.Status != EmploymentStatus.Resigned &&
+                e.Status != EmploymentStatus.Terminated);
+
+            if (hasActiveSubordinates)
+            {
+                throw new BusinessException("MyERP:HR:005",
+                    "Cannot relieve this employee — one or more active employees still report to them. Reassign their reports first.");
+            }
+        }
+
         employee.Status = newStatus;
         await _employeeRepository.UpdateAsync(employee);
     }
