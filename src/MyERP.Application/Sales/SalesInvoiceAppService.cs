@@ -472,6 +472,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             {
                 invoice.ExchangeRate = await _exchangeService.GetExchangeRateAsync(
                     input.CurrencyCode, company.CurrencyCode, input.IssueDate);
+                await EnsureExchangeRateNotStaleAsync(input.CurrencyCode, company.CurrencyCode);
             }
         }
 
@@ -1567,6 +1568,24 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 Status = pe.Status.ToString()
             }).ToList();
         return payments;
+    }
+
+    private async Task EnsureExchangeRateNotStaleAsync(string fromCurrency, string toCurrency)
+    {
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountsSettings, Guid>>();
+        var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
+        if (settings == null || settings.AllowStaleExchangeRates) return;
+
+        var (isStale, rateDate, daysSinceRate) = await _exchangeService.CheckStaleRateAsync(
+            fromCurrency, toCurrency, settings.StaleDays);
+        if (isStale)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.StaleExchangeRate)
+                .WithData("fromCurrency", fromCurrency)
+                .WithData("toCurrency", toCurrency)
+                .WithData("daysSinceRate", daysSinceRate == int.MaxValue ? "no rate on record" : daysSinceRate.ToString())
+                .WithData("rateDate", rateDate?.ToString("yyyy-MM-dd") ?? "never");
+        }
     }
 }
 

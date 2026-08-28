@@ -226,6 +226,22 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var rate = await exchangeService.GetExchangeRateAsync(
                     input.PaymentCurrency, company.CurrencyCode, input.PostingDate);
                 pe.ExchangeRate = rate;
+
+                var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountsSettings, Guid>>();
+                var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
+                if (settings != null && !settings.AllowStaleExchangeRates)
+                {
+                    var (isStale, rateDate, daysSinceRate) = await exchangeService.CheckStaleRateAsync(
+                        input.PaymentCurrency, company.CurrencyCode, settings.StaleDays);
+                    if (isStale)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.StaleExchangeRate)
+                            .WithData("fromCurrency", input.PaymentCurrency)
+                            .WithData("toCurrency", company.CurrencyCode)
+                            .WithData("daysSinceRate", daysSinceRate == int.MaxValue ? "no rate on record" : daysSinceRate.ToString())
+                            .WithData("rateDate", rateDate?.ToString("yyyy-MM-dd") ?? "never");
+                    }
+                }
             }
         }
         else

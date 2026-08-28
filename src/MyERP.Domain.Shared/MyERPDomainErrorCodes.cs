@@ -531,4 +531,5 @@ public static class MyERPDomainErrorCodes
     public const string PartyFrozen = "MyERP:01021";
     public const string ItemAccountCannotBePartyAccount = "MyERP:02086";
     public const string PartyAccountCurrencyMismatch = "MyERP:02087";
+    public const string StaleExchangeRate = "MyERP:02088";
 }
