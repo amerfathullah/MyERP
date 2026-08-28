@@ -43,6 +43,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             @if (d.status === 0 || d.status === 1) { <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="action('hold')"><i class="fa fa-pause me-1"></i>{{ 'Hold' | abpLocalization }}</button> }
             @if (d.status === 1 || d.status === 2 || d.status === 3) { <button class="btn btn-sm btn-outline-primary" [disabled]="busy" (click)="action('reopen')"><i class="fa fa-rotate-left me-1"></i>{{ 'Reopen' | abpLocalization }}</button> }
             <button class="btn btn-sm btn-outline-secondary" [disabled]="busy" (click)="showSplitPrompt = !showSplitPrompt"><i class="fa fa-code-branch me-1"></i>{{ 'Split' | abpLocalization }}</button>
+            @if (d.serviceLevelAgreementId) {
+              <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="showResetSlaPrompt = !showResetSlaPrompt"><i class="fa fa-rotate me-1"></i>{{ '::ResetSla' | abpLocalization }}</button>
+            }
           </div>
           @if (showSplitPrompt) {
             <div class="mt-3 p-3 border rounded">
@@ -50,6 +53,16 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <input class="form-control mb-2" [(ngModel)]="splitSubject" [placeholder]="'Subject' | abpLocalization" />
               <button class="btn btn-sm btn-primary me-2" [disabled]="busy || !splitSubject.trim()" (click)="action('split')">{{ 'Confirm' | abpLocalization }}</button>
               <button class="btn btn-sm btn-outline-secondary" (click)="showSplitPrompt = false">{{ 'Cancel' | abpLocalization }}</button>
+            </div>
+          }
+          @if (showResetSlaPrompt) {
+            <div class="mt-3 p-3 border rounded">
+              <label class="form-label">{{ '::ResetReason' | abpLocalization }}</label>
+              <input class="form-control mb-2" [(ngModel)]="resetSlaReason" [placeholder]="'::ResetReason' | abpLocalization" />
+              <label class="form-label">{{ '::NewPriorityOptional' | abpLocalization }}</label>
+              <input class="form-control mb-2" [(ngModel)]="resetSlaNewPriority" [placeholder]="'Priority' | abpLocalization" />
+              <button class="btn btn-sm btn-warning me-2" [disabled]="busy || !resetSlaReason.trim()" (click)="action('resetSla')">{{ 'Confirm' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="showResetSlaPrompt = false">{{ 'Cancel' | abpLocalization }}</button>
             </div>
           }
         </div></div>
@@ -65,6 +78,9 @@ export class IssueDetailComponent implements OnInit {
   busy = false;
   showSplitPrompt = false;
   splitSubject = '';
+  showResetSlaPrompt = false;
+  resetSlaReason = '';
+  resetSlaNewPriority = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -78,6 +94,9 @@ export class IssueDetailComponent implements OnInit {
       this.busy = false;
       this.showSplitPrompt = false;
       this.splitSubject = '';
+      this.showResetSlaPrompt = false;
+      this.resetSlaReason = '';
+      this.resetSlaNewPriority = '';
       this.toaster.success('::SuccessfullyUpdated');
       this.ngOnInit();
     };
@@ -91,6 +110,7 @@ export class IssueDetailComponent implements OnInit {
     else if (type === 'hold') this.service.hold(id).subscribe({ next: onSuccess, error: onError });
     else if (type === 'reopen') this.service.reopen(id).subscribe({ next: onSuccess, error: onError });
     else if (type === 'split') this.service.split(id, this.splitSubject.trim()).subscribe({ next: onSuccess, error: onError });
+    else if (type === 'resetSla') this.service.resetSla(id, this.resetSlaReason.trim(), this.resetSlaNewPriority.trim() || null).subscribe({ next: onSuccess, error: onError });
   }
 
   agreementStatusLabel(status: number | undefined): string {

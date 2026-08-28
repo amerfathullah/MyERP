@@ -45,4 +45,6 @@ export class IssueDetailService {
   hold = (id: string) => this.issueService.hold(id);
   reopen = (id: string) => this.issueService.reopen(id);
   split = (id: string, subject: string) => this.issueService.split(id, { subject });
+  resetSla = (id: string, resetReason: string, newPriority?: string | null, newServiceLevelAgreementId?: string | null) =>
+    this.issueService.resetSla(id, { resetReason, newPriority, newServiceLevelAgreementId });
 }

@@ -145,6 +145,12 @@ export interface ServiceLevelPriorityDto {
   isDefault?: boolean;
 }
 
+export interface ResetIssueSlaDto {
+  resetReason: string;
+  newPriority?: string | null;
+  newServiceLevelAgreementId?: string | null;
+}
+
 export interface SplitIssueDto {
   subject: string;
 }

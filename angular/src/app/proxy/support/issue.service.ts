@@ -1,4 +1,4 @@
-import type { CreateIssueDto, GetIssueListDto, IssueDto, ResolveIssueDto, SplitIssueDto } from './models';
+import type { CreateIssueDto, GetIssueListDto, IssueDto, ResetIssueSlaDto, ResolveIssueDto, SplitIssueDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -60,6 +60,15 @@ export class IssueService {
     },
     { apiName: this.apiName,...config });
   
+
+  resetSla = (id: string, input: ResetIssueSlaDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, IssueDto>({
+      method: 'POST',
+      url: `/api/app/issue/${id}/reset-sla`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   resolve = (id: string, input: ResolveIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
