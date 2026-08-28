@@ -77,51 +77,41 @@ public class StockPostingService : DomainService
                 }
             }
 
-            // Source warehouse: stock-out (negative qty)
+            // Source warehouse: stock-out (negative qty). Goes through
+            // StockValuationService.CreateLedgerEntryAsync (not a direct StockLedgerEntry
+            // construction) so FIFO/LIFO items get their StockQueue lot-tracking updated —
+            // building the entry directly here left StockQueue permanently empty for any
+            // item received via a Stock Entry, causing the NEXT stock-out through the
+            // FIFO-aware path (e.g. a Sales/Delivery Note) to compute its balance from an
+            // empty queue and throw InsufficientStock despite real stock being available
+            // (round-77 fix — found while verifying round-76's DN cancel fix).
             if (item.SourceWarehouseId.HasValue)
             {
                 var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.SourceWarehouseId.Value);
-                var valuationRate = balance.ValuationRate;
-                var valueChange = -(item.Quantity * valuationRate);
+                var sle = await _valuationService.CreateLedgerEntryAsync(
+                    stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
+                    stockEntry.PostingDate, -item.Quantity, balance.ValuationRate,
+                    voucherType: "StockEntry", voucherId: stockEntry.Id,
+                    tenantId: stockEntry.TenantId);
 
-                var sle = new StockLedgerEntry(
-                    GuidGenerator.Create(), stockEntry.CompanyId,
-                    item.ItemId, item.SourceWarehouseId.Value,
-                    stockEntry.PostingDate, -item.Quantity,
-                    valuationRate,
-                    balance.Quantity - item.Quantity,
-                    balance.Value + valueChange,
-                    stockEntry.TenantId)
-                { VoucherType = "StockEntry", VoucherId = stockEntry.Id };
-
-                await _sleRepository.InsertAsync(sle);
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.SourceWarehouseId.Value,
-                    -item.Quantity, valueChange, stockEntry.TenantId);
+                    -item.Quantity, sle.StockValueDifference, stockEntry.TenantId);
             }
 
-            // Target warehouse: stock-in (positive qty)
+            // Target warehouse: stock-in (positive qty) — same reasoning as above.
             if (item.TargetWarehouseId.HasValue)
             {
                 var rate = item.ValuationRate ?? 0;
-                var valueChange = item.Quantity * rate;
+                var sle = await _valuationService.CreateLedgerEntryAsync(
+                    stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
+                    stockEntry.PostingDate, item.Quantity, rate,
+                    voucherType: "StockEntry", voucherId: stockEntry.Id,
+                    tenantId: stockEntry.TenantId);
 
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.TargetWarehouseId.Value);
-
-                var sle = new StockLedgerEntry(
-                    GuidGenerator.Create(), stockEntry.CompanyId,
-                    item.ItemId, item.TargetWarehouseId.Value,
-                    stockEntry.PostingDate, item.Quantity,
-                    rate,
-                    balance.Quantity + item.Quantity,
-                    balance.Value + valueChange,
-                    stockEntry.TenantId)
-                { VoucherType = "StockEntry", VoucherId = stockEntry.Id };
-
-                await _sleRepository.InsertAsync(sle);
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.TargetWarehouseId.Value,
-                    item.Quantity, valueChange, stockEntry.TenantId);
+                    item.Quantity, sle.StockValueDifference, stockEntry.TenantId);
             }
         }
     }
