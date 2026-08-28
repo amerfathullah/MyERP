@@ -30,6 +30,7 @@ public class UpdateCompanySettingsDto
     public Guid? DefaultPayableAccountId { get; set; }
     public Guid? DefaultIncomeAccountId { get; set; }
     public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? DefaultTaxPayableAccountId { get; set; }
     public Guid? DefaultBankAccountId { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
     public Guid? DepreciationExpenseAccountId { get; set; }
@@ -137,6 +138,7 @@ public class CompanyAppService :
         entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        entity.DefaultTaxPayableAccountId = input.DefaultTaxPayableAccountId;
         entity.DefaultBankAccountId = input.DefaultBankAccountId;
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
@@ -182,6 +184,7 @@ public class CompanyAppService :
         company.DefaultPayableAccountId = input.DefaultPayableAccountId;
         company.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         company.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        company.DefaultTaxPayableAccountId = input.DefaultTaxPayableAccountId;
         company.DefaultBankAccountId = input.DefaultBankAccountId;
         company.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
@@ -308,6 +311,8 @@ public class CompanyAppService :
             var lookup = accounts.ToDictionary(a => a.AccountCode ?? "", a => a.Id);
             if (lookup.TryGetValue("1130", out var receivable)) company.DefaultReceivableAccountId = receivable;
             if (lookup.TryGetValue("2110", out var payable)) company.DefaultPayableAccountId = payable;
+            if (lookup.TryGetValue("2115", out var srbnb)) company.StockReceivedButNotBilledAccountId = srbnb;
+            if (lookup.TryGetValue("2120", out var taxPayable)) company.DefaultTaxPayableAccountId = taxPayable;
             if (lookup.TryGetValue("4100", out var income)) company.DefaultIncomeAccountId = income;
             if (lookup.TryGetValue("5100", out var expense)) company.DefaultExpenseAccountId = expense;
             if (lookup.TryGetValue("1120", out var bank)) company.DefaultBankAccountId = bank;
@@ -329,7 +334,7 @@ public class CompanyAppService :
             {
                 new AccountingRule(GuidGenerator.Create(), companyId, "SI DR Receivable", "SalesInvoice", true, Accounting.AccountSource.CustomerReceivable, Accounting.AmountSource.GrandTotal) { SortOrder = 1 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "SI CR Revenue", "SalesInvoice", false, Accounting.AccountSource.ItemIncome, Accounting.AmountSource.NetTotal) { SortOrder = 2 },
-                new AccountingRule(GuidGenerator.Create(), companyId, "SI CR Tax", "SalesInvoice", false, Accounting.AccountSource.TaxPayable, Accounting.AmountSource.TaxAmount) { SortOrder = 3, FixedAccountId = company.DefaultPayableAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "SI CR Tax", "SalesInvoice", false, Accounting.AccountSource.TaxPayable, Accounting.AmountSource.TaxAmount) { SortOrder = 3, FixedAccountId = company.DefaultTaxPayableAccountId ?? company.DefaultPayableAccountId },
                 new AccountingRule(GuidGenerator.Create(), companyId, "PI DR Expense", "PurchaseInvoice", true, Accounting.AccountSource.ItemExpense, Accounting.AmountSource.NetTotal) { SortOrder = 1 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "PI CR Payable", "PurchaseInvoice", false, Accounting.AccountSource.SupplierPayable, Accounting.AmountSource.GrandTotal) { SortOrder = 2 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "PE DR Bank", "PaymentEntry", true, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.GrandTotal) { SortOrder = 1, FixedAccountId = company.DefaultBankAccountId },
@@ -337,7 +342,7 @@ public class CompanyAppService :
                 new AccountingRule(GuidGenerator.Create(), companyId, "DN DR COGS", "DeliveryNote", true, Accounting.AccountSource.ItemExpense, Accounting.AmountSource.NetTotal) { SortOrder = 1 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "DN CR Stock", "DeliveryNote", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultInventoryAccountId },
                 new AccountingRule(GuidGenerator.Create(), companyId, "PR DR Stock", "PurchaseReceipt", true, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 1, FixedAccountId = company.DefaultInventoryAccountId },
-                new AccountingRule(GuidGenerator.Create(), companyId, "PR CR SRBNB", "PurchaseReceipt", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultPayableAccountId },
+                new AccountingRule(GuidGenerator.Create(), companyId, "PR CR SRBNB", "PurchaseReceipt", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.StockReceivedButNotBilledAccountId ?? company.DefaultPayableAccountId },
             };
             foreach (var rule in rules) await ruleRepo.InsertAsync(rule, autoSave: true);
         }

@@ -123,6 +123,13 @@
               </select>
             </div>
             <div class="col-md-6 mb-3">
+              <label class="form-label">{{ 'DefaultTaxPayableAccount' | abpLocalization }}</label>
+              <select class="form-select" formControlName="defaultTaxPayableAccountId">
+                <option value="">—</option>
+                @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
               <label class="form-label">{{ 'DefaultBankAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultBankAccountId">
                 <option value="">—</option>

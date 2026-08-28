@@ -1827,6 +1827,7 @@
     "DefaultPayableAccount": "Payable Account",
     "DefaultIncomeAccount": "Income Account",
     "DefaultExpenseAccount": "Expense Account (COGS)",
+    "DefaultTaxPayableAccount": "Tax Payable Account (SST/Output Tax)",
     "DefaultWarehouse": "Default Warehouse",
     "DefaultBankAccount": "Bank Account",
     "DefaultInventoryAccount": "Inventory Account",

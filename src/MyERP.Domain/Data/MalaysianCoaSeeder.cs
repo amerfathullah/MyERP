@@ -49,6 +49,7 @@ public class MalaysianCoaSeeder : ITransientDependency
         var liabilities = await CreateGroup(companyId, "2000", "Liabilities", AccountType.Liability, null, tenantId);
         var currentLiab = await CreateGroup(companyId, "2100", "Current Liabilities", AccountType.Liability, liabilities.Id, tenantId);
         await CreateAccount(companyId, "2110", "Accounts Payable", AccountType.Liability, AccountSubType.AccountsPayable, currentLiab.Id, tenantId);
+        await CreateAccount(companyId, "2115", "Stock Received But Not Billed", AccountType.Liability, AccountSubType.CurrentLiability, currentLiab.Id, tenantId);
         await CreateAccount(companyId, "2120", "SST Payable", AccountType.Liability, AccountSubType.TaxPayable, currentLiab.Id, tenantId);
         await CreateAccount(companyId, "2130", "EPF Payable", AccountType.Liability, AccountSubType.CurrentLiability, currentLiab.Id, tenantId);
         await CreateAccount(companyId, "2140", "SOCSO Payable", AccountType.Liability, AccountSubType.CurrentLiability, currentLiab.Id, tenantId);

@@ -71,6 +71,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? DefaultIncomeAccountId { get; set; }
     /// <summary>Default Expense account (COGS).</summary>
     public Guid? DefaultExpenseAccountId { get; set; }
+    /// <summary>Default Tax Payable account (e.g. SST Payable) for output tax collected on sales.</summary>
+    public Guid? DefaultTaxPayableAccountId { get; set; }
     /// <summary>Default Bank account.</summary>
     public Guid? DefaultBankAccountId { get; set; }
     /// <summary>Default Stock/Inventory account (perpetual inventory).</summary>
