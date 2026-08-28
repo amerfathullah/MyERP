@@ -18,13 +18,16 @@ public class BudgetValidationService : DomainService
 {
     private readonly IRepository<Budget, Guid> _budgetRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
 
     public BudgetValidationService(
         IRepository<Budget, Guid> budgetRepository,
-        IRepository<JournalEntry, Guid> journalEntryRepository)
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<FiscalYear, Guid> fiscalYearRepository)
     {
         _budgetRepository = budgetRepository;
         _journalEntryRepository = journalEntryRepository;
+        _fiscalYearRepository = fiscalYearRepository;
     }
 
     /// <summary>
@@ -113,13 +116,18 @@ public class BudgetValidationService : DomainService
     private async Task<Dictionary<Guid, decimal>> GetActualSpendAsync(
         Guid companyId, Guid fiscalYearId, Guid? tenantId)
     {
-        // Query posted JEs in this fiscal year to get actual spend per account
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fiscalYearId);
+        var result = new Dictionary<Guid, decimal>();
+        if (fiscalYear == null) return result;
+
+        // Query posted JEs within the fiscal year's date range to get actual spend per account
+        // (per ERPNext budget.get_actual_expense: GL entries are scoped to budget_start_date..budget_end_date)
         var jeQueryable = await _journalEntryRepository.GetQueryableAsync();
         var postedEntries = jeQueryable
             .Where(je => je.CompanyId == companyId
-                      && je.Status == Core.DocumentStatus.Posted);
-
-        var result = new Dictionary<Guid, decimal>();
+                      && je.Status == Core.DocumentStatus.Posted
+                      && je.PostingDate >= fiscalYear.StartDate
+                      && je.PostingDate <= fiscalYear.EndDate);
 
         foreach (var je in postedEntries)
         {
