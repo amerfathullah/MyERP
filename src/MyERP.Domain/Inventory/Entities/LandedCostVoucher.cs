@@ -55,14 +55,19 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
             itemId, quantity, amount, description));
     }
 
-    public void AddCharge(string description, Guid expenseAccountId, decimal amount)
+    public void AddCharge(string description, Guid expenseAccountId, decimal amount,
+        Guid? costCenterId = null, Guid? projectId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (amount <= 0)
             throw new ArgumentException("Charge amount must be positive.", nameof(amount));
 
-        _charges.Add(new LandedCostCharge(Guid.NewGuid(), Id, description, expenseAccountId, amount));
+        _charges.Add(new LandedCostCharge(Guid.NewGuid(), Id, description, expenseAccountId, amount)
+        {
+            CostCenterId = costCenterId,
+            ProjectId = projectId,
+        });
     }
 
     /// <summary>

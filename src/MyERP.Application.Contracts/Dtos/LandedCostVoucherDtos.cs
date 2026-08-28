@@ -36,6 +36,8 @@ public class LandedCostChargeDto : EntityDto<Guid>
     public string Description { get; set; } = null!;
     public Guid ExpenseAccountId { get; set; }
     public decimal Amount { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreateLandedCostVoucherDto
@@ -63,6 +65,8 @@ public class CreateLandedCostChargeDto
     public string Description { get; set; } = null!;
     public Guid ExpenseAccountId { get; set; }
     public decimal Amount { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class GetLandedCostVoucherListDto : PagedAndSortedResultRequestDto

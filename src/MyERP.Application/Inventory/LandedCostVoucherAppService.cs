@@ -137,7 +137,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         }
 
         foreach (var charge in input.Charges)
-            lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount);
+            lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount,
+                charge.CostCenterId, charge.ProjectId);
 
         await _repository.InsertAsync(lcv);
         return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
@@ -257,7 +258,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
 
             foreach (var charge in lcv.Charges)
             {
-                je.AddLine(charge.ExpenseAccountId, charge.Amount, isDebit: false, description: charge.Description);
+                je.AddLineWithDimensions(charge.ExpenseAccountId, charge.Amount, isDebit: false,
+                    costCenterId: charge.CostCenterId, projectId: charge.ProjectId, description: charge.Description);
             }
 
             je.Validate();

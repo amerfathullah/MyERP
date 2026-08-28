@@ -12,6 +12,8 @@ public class LandedCostCharge : FullAuditedEntity<Guid>
     public string Description { get; set; } = null!;
     public Guid ExpenseAccountId { get; set; }
     public decimal Amount { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     protected LandedCostCharge() { }
 

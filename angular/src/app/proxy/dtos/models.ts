@@ -45,6 +45,8 @@ export interface CreateLandedCostChargeDto {
   description?: string;
   expenseAccountId?: string;
   amount?: number;
+  costCenterId?: string | null;
+  projectId?: string | null;
 }
 
 export interface CreateLandedCostItemDto {
@@ -137,6 +139,8 @@ export interface LandedCostChargeDto extends EntityDto<string> {
   description?: string;
   expenseAccountId?: string;
   amount?: number;
+  costCenterId?: string | null;
+  projectId?: string | null;
 }
 
 export interface LandedCostItemDto extends EntityDto<string> {

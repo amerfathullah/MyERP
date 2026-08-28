@@ -9,6 +9,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { ItemService } from '../../proxy/inventory/item.service';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
+import { CostCenterService } from '../../proxy/accounting/cost-center.service';
+import { ProjectService } from '../../proxy/projects/project.service';
 
 @Component({
   selector: 'app-lcv-form', standalone: true,
@@ -57,7 +59,7 @@ import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.
 
         <h6 class="mb-2">{{ 'Charges' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Account' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Account' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'CostCenter' | abpLocalization }}</th><th>{{ 'Project' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (ch of form.charges; track $index) {
               <tr>
@@ -71,6 +73,22 @@ import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.
                 </td>
                 <td><input class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.description" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="ch.amount" /></td>
+                <td>
+                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.costCenterId">
+                    <option [ngValue]="null">--</option>
+                    @for (cc of costCenters(); track cc.id) {
+                      <option [value]="cc.id">{{ cc.name }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.projectId">
+                    <option [ngValue]="null">--</option>
+                    @for (p of projects(); track p.id) {
+                      <option [value]="p.id">{{ p.projectName }}</option>
+                    }
+                  </select>
+                </td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.charges.splice($index,1); isDirty=true"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
@@ -96,17 +114,21 @@ export class LandedCostFormComponent implements OnInit {
   private itemService = inject(ItemService);
   private accountService = inject(AccountService);
   private purchaseReceiptService = inject(PurchaseReceiptService);
+  private costCenterService = inject(CostCenterService);
+  private projectService = inject(ProjectService);
 
   saving = false;
   isDirty = false;
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   accounts = signal<{ id: string; accountCode: string; accountName: string }[]>([]);
   receipts = signal<{ id: string; receiptNumber: string }[]>([]);
+  costCenters = signal<{ id: string; name: string }[]>([]);
+  projects = signal<{ id: string; projectName: string }[]>([]);
 
   form: any = {
     postingDate: new Date().toISOString().split('T')[0], distributionMethod: 1,
     items: [{ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }],
-    charges: [{ expenseAccountId: '', description: '', amount: 0 }]
+    charges: [{ expenseAccountId: '', description: '', amount: 0, costCenterId: null, projectId: null }]
   };
 
   ngOnInit(): void {
@@ -120,10 +142,18 @@ export class LandedCostFormComponent implements OnInit {
       next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, receiptNumber: p.receiptNumber ?? p.id }))),
       error: () => {}
     });
+    this.costCenterService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (r) => this.costCenters.set((r.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }))),
+      error: () => {}
+    });
+    this.projectService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (r) => this.projects.set((r.items ?? []).map((p: any) => ({ id: p.id, projectName: p.projectName }))),
+      error: () => {}
+    });
   }
 
   addItem() { this.form.items.push({ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }); this.isDirty = true; }
-  addCharge() { this.form.charges.push({ expenseAccountId: '', description: '', amount: 0 }); this.isDirty = true; }
+  addCharge() { this.form.charges.push({ expenseAccountId: '', description: '', amount: 0, costCenterId: null, projectId: null }); this.isDirty = true; }
   getTotalCharges(): number { return this.form.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0); }
 
   save() {
@@ -144,7 +174,10 @@ export class LandedCostFormComponent implements OnInit {
         })),
       charges: this.form.charges
         .filter((c: any) => c.expenseAccountId && c.amount > 0)
-        .map((c: any) => ({ expenseAccountId: c.expenseAccountId, description: c.description || '', amount: c.amount }))
+        .map((c: any) => ({
+          expenseAccountId: c.expenseAccountId, description: c.description || '', amount: c.amount,
+          costCenterId: c.costCenterId || null, projectId: c.projectId || null,
+        }))
     };
     this.landedCostVoucherService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/inventory/landed-costs']); },
