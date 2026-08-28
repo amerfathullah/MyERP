@@ -1,17 +1,19 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BatchService } from '../../proxy/inventory/batch.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-batch-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, FormsModule, RouterModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
   template: `
     <div class="container-fluid">
       <app-breadcrumb />
@@ -102,10 +104,16 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                         <td class="text-end font-monospace">{{ wh.valuationRate | number:'1.2-2' }}</td>
                         <td class="text-end font-monospace">{{ wh.stockValue | number:'1.2-2' }}</td>
                         <td class="text-end">
-                          <a class="btn btn-outline-primary btn-sm" [routerLink]="['/inventory/stock-entries/new']"
-                             [queryParams]="{ sourceWarehouseId: wh.warehouseId, purpose: 'MaterialTransfer' }">
-                            <i class="fas fa-exchange-alt"></i>
-                          </a>
+                          <div class="btn-group">
+                            <button class="btn btn-outline-secondary btn-sm" [disabled]="(wh.quantity ?? 0) <= 0"
+                              (click)="openSplitDialog(wh.warehouseId!, wh.quantity ?? 0)" title="{{ 'SplitBatch' | abpLocalization }}">
+                              <i class="fas fa-code-branch"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" [disabled]="(wh.quantity ?? 0) <= 0"
+                              (click)="openMoveDialog(wh.warehouseId!, wh.quantity ?? 0)" title="{{ 'MoveBatch' | abpLocalization }}">
+                              <i class="fas fa-exchange-alt"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     }
@@ -119,6 +127,67 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                   </tr></tfoot>
                 </table>
               }
+            </div>
+          </div>
+        }
+
+        @if (showSplitDialog()) {
+          <div class="card border-secondary mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fas fa-code-branch me-2"></i>{{ 'SplitBatch' | abpLocalization }}</h6>
+              <button type="button" class="btn-close btn-sm" (click)="showSplitDialog.set(false)"></button>
+            </div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label">{{ 'NewBatchNo' | abpLocalization }}</label>
+                  <input class="form-control form-control-sm" [(ngModel)]="splitNewBatchNo" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">{{ 'SplitQuantity' | abpLocalization }} ({{ 'Available' | abpLocalization }}: {{ splitAvailableQty() | number:'1.2-2' }})</label>
+                  <input type="number" class="form-control form-control-sm" [(ngModel)]="splitQuantity" min="0" [max]="splitAvailableQty()" step="0.01" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button class="btn btn-sm btn-secondary" [disabled]="isSplitting() || !splitNewBatchNo || splitQuantity() <= 0" (click)="submitSplit()">
+                    @if (isSplitting()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                    {{ 'SplitBatch' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (showMoveDialog()) {
+          <div class="card border-primary mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>{{ 'MoveBatch' | abpLocalization }}</h6>
+              <button type="button" class="btn-close btn-sm" (click)="showMoveDialog.set(false)"></button>
+            </div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label">{{ 'TargetWarehouse' | abpLocalization }}</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="moveTargetWarehouseId">
+                    <option value="">-- {{ 'SelectWarehouse' | abpLocalization }} --</option>
+                    @for (w of warehouses(); track w.id) {
+                      @if (w.id !== moveSourceWarehouseId()) {
+                        <option [value]="w.id">{{ w.name }}</option>
+                      }
+                    }
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">{{ 'MoveQuantity' | abpLocalization }} ({{ 'Available' | abpLocalization }}: {{ moveAvailableQty() | number:'1.2-2' }})</label>
+                  <input type="number" class="form-control form-control-sm" [(ngModel)]="moveQuantity" min="0" [max]="moveAvailableQty()" step="0.01" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button class="btn btn-sm btn-primary" [disabled]="isMoving() || !moveTargetWarehouseId() || moveQuantity() <= 0" (click)="submitMove()">
+                    @if (isMoving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                    {{ 'MoveBatch' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         }
@@ -174,11 +243,28 @@ export class BatchDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private confirmation = inject(ConfirmationService);
   private batchService = inject(BatchService);
+  private warehouseService = inject(WarehouseService);
+  private toaster = inject(ToasterService);
   private router = inject(Router);
 
   batch = signal<BatchDto | null>(null);
   stockBalance = signal<BatchStockBalanceDto | null>(null);
   movementHistory = signal<BatchMovementHistoryDto | null>(null);
+  warehouses = signal<{ id: string; name: string }[]>([]);
+
+  showSplitDialog = signal(false);
+  splitAvailableQty = signal(0);
+  splitNewBatchNo = signal('');
+  splitQuantity = signal(0);
+  isSplitting = signal(false);
+  private splitWarehouseId = '';
+
+  showMoveDialog = signal(false);
+  moveAvailableQty = signal(0);
+  moveSourceWarehouseId = signal('');
+  moveTargetWarehouseId = signal('');
+  moveQuantity = signal(0);
+  isMoving = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -188,6 +274,10 @@ export class BatchDetailComponent implements OnInit {
         this.loadStockData(id);
       },
       error: () => this.router.navigate(['/inventory/batches'])
+    });
+    this.warehouseService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (r: any) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, name: w.name ?? w.id }))),
+      error: () => {}
     });
   }
 
@@ -224,6 +314,70 @@ export class BatchDetailComponent implements OnInit {
           if (b) this.batch.set({ ...b, isDisabled: true });
         }
       });
+    });
+  }
+
+  openSplitDialog(warehouseId: string, availableQty: number): void {
+    this.splitWarehouseId = warehouseId;
+    this.splitAvailableQty.set(availableQty);
+    this.splitNewBatchNo.set('');
+    this.splitQuantity.set(0);
+    this.showMoveDialog.set(false);
+    this.showSplitDialog.set(true);
+  }
+
+  submitSplit(): void {
+    const b = this.batch();
+    if (!b?.id) return;
+    this.isSplitting.set(true);
+    this.batchService.splitBatch({
+      sourceBatchId: b.id,
+      newBatchNo: this.splitNewBatchNo(),
+      warehouseId: this.splitWarehouseId,
+      splitQuantity: this.splitQuantity(),
+    }).subscribe({
+      next: () => {
+        this.isSplitting.set(false);
+        this.showSplitDialog.set(false);
+        this.toaster.success('::SuccessfullySplit');
+        this.loadStockData(b.id!);
+      },
+      error: (err: any) => {
+        this.isSplitting.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
+    });
+  }
+
+  openMoveDialog(warehouseId: string, availableQty: number): void {
+    this.moveSourceWarehouseId.set(warehouseId);
+    this.moveAvailableQty.set(availableQty);
+    this.moveTargetWarehouseId.set('');
+    this.moveQuantity.set(0);
+    this.showSplitDialog.set(false);
+    this.showMoveDialog.set(true);
+  }
+
+  submitMove(): void {
+    const b = this.batch();
+    if (!b?.id) return;
+    this.isMoving.set(true);
+    this.batchService.moveBatch({
+      batchId: b.id,
+      sourceWarehouseId: this.moveSourceWarehouseId(),
+      targetWarehouseId: this.moveTargetWarehouseId(),
+      quantity: this.moveQuantity(),
+    }).subscribe({
+      next: () => {
+        this.isMoving.set(false);
+        this.showMoveDialog.set(false);
+        this.toaster.success('::SuccessfullyMoved');
+        this.loadStockData(b.id!);
+      },
+      error: (err: any) => {
+        this.isMoving.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
     });
   }
 }

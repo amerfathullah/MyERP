@@ -1,4 +1,4 @@
-import type { BatchDto, BatchMovementHistoryDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetBatchListDto } from './models';
+import type { BatchDto, BatchMovementHistoryDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetBatchListDto, MoveBatchDto, MoveBatchResultDto, SplitBatchDto, SplitBatchResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -66,6 +66,24 @@ export class BatchService {
     this.restService.request<any, BatchTraceabilityDto>({
       method: 'GET',
       url: `/api/app/batch/traceability/${batchId}`,
+    },
+    { apiName: this.apiName,...config });
+
+
+  splitBatch = (input: SplitBatchDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SplitBatchResultDto>({
+      method: 'POST',
+      url: '/api/app/batch/split-batch',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+
+  moveBatch = (input: MoveBatchDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MoveBatchResultDto>({
+      method: 'POST',
+      url: '/api/app/batch/move-batch',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

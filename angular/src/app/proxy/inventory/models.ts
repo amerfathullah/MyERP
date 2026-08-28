@@ -95,6 +95,35 @@ export interface BatchStockBalanceDto {
   warehouseBalances?: BatchWarehouseBalanceDto[];
 }
 
+export interface SplitBatchDto {
+  sourceBatchId: string;
+  newBatchNo: string;
+  warehouseId: string;
+  splitQuantity: number;
+  description?: string | null;
+}
+
+export interface SplitBatchResultDto {
+  newBatchId?: string;
+  newBatchNo?: string;
+  stockEntryId?: string;
+  stockEntryNumber?: string | null;
+}
+
+export interface MoveBatchDto {
+  batchId: string;
+  sourceWarehouseId: string;
+  targetWarehouseId: string;
+  quantity: number;
+  description?: string | null;
+}
+
+export interface MoveBatchResultDto {
+  batchId?: string;
+  stockEntryId?: string;
+  stockEntryNumber?: string | null;
+}
+
 export interface BatchTraceabilityDto {
   batchId?: string;
   batchNo?: string;

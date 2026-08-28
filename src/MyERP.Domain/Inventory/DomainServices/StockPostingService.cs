@@ -99,7 +99,7 @@ public class StockPostingService : DomainService
                     stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
                     stockEntry.PostingDate, -item.Quantity, balance.ValuationRate,
                     voucherType: "StockEntry", voucherId: stockEntry.Id,
-                    tenantId: stockEntry.TenantId);
+                    tenantId: stockEntry.TenantId, batchId: item.BatchId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.SourceWarehouseId.Value,
@@ -114,7 +114,7 @@ public class StockPostingService : DomainService
                     stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
                     stockEntry.PostingDate, item.Quantity, rate,
                     voucherType: "StockEntry", voucherId: stockEntry.Id,
-                    tenantId: stockEntry.TenantId);
+                    tenantId: stockEntry.TenantId, batchId: item.BatchId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.TargetWarehouseId.Value,

@@ -145,7 +145,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         foreach (var item in input.Items)
         {
-            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem);
+            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
         }
 
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
@@ -198,9 +198,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         // Batch expiry validation for outward stock paths
         // Per DO-NOT: must block expired batch consumption in transactions
-        // Note: SE items don't have per-item BatchId; batch tracking is via Serial and Batch Bundle.
-        // When SABB integration is fully wired, batch validation will fire via the bundle path.
-        // DN already handles batch validation in the standard delivery flow.
+        {
+            var batchOutItems = entry.Items
+                .Where(i => i.SourceWarehouseId.HasValue && i.BatchId.HasValue)
+                .Select(i => new DomainServices.BatchValidationItem(i.ItemId, i.BatchId, null))
+                .ToList();
+            if (batchOutItems.Any())
+            {
+                var batchValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.BatchExpiryValidationService>();
+                await batchValidation.ValidateForStockOutAsync(batchOutItems, entry.PostingDate);
+            }
+        }
 
         // Quality Inspection enforcement for outward stock paths
         // Per DO-NOT: Material Consumption for Manufacture is explicitly excluded
@@ -525,7 +533,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // Replace items
         entry.ClearItems();
         foreach (var item in input.Items)
-            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate);
+            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
 
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);

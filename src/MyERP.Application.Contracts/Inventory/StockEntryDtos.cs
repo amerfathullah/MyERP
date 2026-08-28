@@ -72,6 +72,8 @@ public class CreateStockEntryItemDto
     public decimal? ValuationRate { get; set; }
 
     public bool IsFinishedItem { get; set; }
+
+    public Guid? BatchId { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>

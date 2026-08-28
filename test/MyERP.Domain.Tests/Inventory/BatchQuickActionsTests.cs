@@ -106,11 +106,22 @@ public class BatchQuickActionsTests
         Assert.Equal(_warehouseAId, capturedCreateDto.Items[0].SourceWarehouseId);
         Assert.Equal(30m, capturedCreateDto.Items[0].Quantity);
         Assert.False(capturedCreateDto.Items[0].IsFinishedItem);
+        Assert.Equal(sourceBatchId, capturedCreateDto.Items[0].BatchId);
         Assert.Equal(_warehouseAId, capturedCreateDto.Items[1].TargetWarehouseId);
         Assert.Equal(30m, capturedCreateDto.Items[1].Quantity);
         Assert.True(capturedCreateDto.Items[1].IsFinishedItem);
+        Assert.Equal(insertedBatch!.Id, capturedCreateDto.Items[1].BatchId);
+
+        // The outward leg must consume the SOURCE batch and the inward leg must produce the
+        // NEW batch — not both tagged with the same id — otherwise GetStockBalanceAsync would
+        // never show the source batch's quantity actually decreasing after a split.
+        Assert.NotEqual(capturedCreateDto.Items[0].BatchId, capturedCreateDto.Items[1].BatchId);
 
         await _stockEntryAppService.Received(1).SubmitAsync(stockEntryId);
+        // CreateAsync + SubmitAsync alone leave a Stock Entry at "Submitted" with zero real
+        // effect — StockEntryAppService.PostAsync is the step that actually creates SLEs/Bin
+        // updates. Without this call, Split/Move never moved any real stock (round-93 fix).
+        await _stockEntryAppService.Received(1).PostAsync(stockEntryId);
     }
 
     [Fact]
@@ -199,8 +210,10 @@ public class BatchQuickActionsTests
         Assert.Equal(_warehouseAId, capturedCreateDto.Items[0].SourceWarehouseId);
         Assert.Equal(_warehouseBId, capturedCreateDto.Items[0].TargetWarehouseId);
         Assert.Equal(40m, capturedCreateDto.Items[0].Quantity);
+        Assert.Equal(batchId, capturedCreateDto.Items[0].BatchId);
 
         await _stockEntryAppService.Received(1).SubmitAsync(stockEntryId);
+        await _stockEntryAppService.Received(1).PostAsync(stockEntryId);
     }
 
     [Fact]

@@ -23,6 +23,9 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Cost per unit at time of transaction.</summary>
     public decimal? ValuationRate { get; set; }
 
+    /// <summary>Batch this movement is against, for batch-tracked items.</summary>
+    public Guid? BatchId { get; set; }
+
     /// <summary>Marks this item as the finished good in Manufacture/Repack entries.</summary>
     public bool IsFinishedItem { get; set; }
 

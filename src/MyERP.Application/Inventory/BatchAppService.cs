@@ -338,6 +338,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     SourceWarehouseId = input.WarehouseId,
                     Quantity = input.SplitQuantity,
                     IsFinishedItem = false,
+                    BatchId = sourceBatch.Id,
                 },
                 new()
                 {
@@ -345,12 +346,14 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     TargetWarehouseId = input.WarehouseId,
                     Quantity = input.SplitQuantity,
                     IsFinishedItem = true,
+                    BatchId = newBatch.Id,
                 }
             }
         };
 
         var createdEntry = await _stockEntryAppService.CreateAsync(createEntryDto);
         await _stockEntryAppService.SubmitAsync(createdEntry.Id);
+        await _stockEntryAppService.PostAsync(createdEntry.Id);
 
         return new SplitBatchResultDto
         {
@@ -423,12 +426,14 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     SourceWarehouseId = input.SourceWarehouseId,
                     TargetWarehouseId = input.TargetWarehouseId,
                     Quantity = input.Quantity,
+                    BatchId = batch.Id,
                 }
             }
         };
 
         var createdEntry = await _stockEntryAppService.CreateAsync(createEntryDto);
         await _stockEntryAppService.SubmitAsync(createdEntry.Id);
+        await _stockEntryAppService.PostAsync(createdEntry.Id);
 
         return new MoveBatchResultDto
         {
