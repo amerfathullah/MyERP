@@ -62,9 +62,13 @@ public class SupplierScorecardEvaluationJob : AsyncBackgroundJob<SupplierScoreca
             return;
 
         var poQuery = await _poRepository.GetQueryableAsync();
-        var pos = poQuery
-            .Where(p => p.CompanyId == args.CompanyId &&
-                        p.Status == DocumentStatus.Submitted &&
+        // Keyed by id (not lookback-filtered) so receipts can look up their PO's promised/expected
+        // delivery date even when the PO itself was raised before the lookback window.
+        var poById = poQuery
+            .Where(p => p.CompanyId == args.CompanyId)
+            .ToDictionary(p => p.Id);
+        var pos = poById.Values
+            .Where(p => p.Status == DocumentStatus.Submitted &&
                         p.OrderDate >= lookbackDate)
             .ToList();
 
@@ -95,20 +99,32 @@ public class SupplierScorecardEvaluationJob : AsyncBackgroundJob<SupplierScoreca
                 continue;
             }
 
-            // Metric 1: On-time delivery rate (0-100)
+            // Metric 1: On-time delivery rate (0-100) — receipt posting date vs. the linked PO's
+            // promised/expected delivery date. Receipts with no linkable expected date can't be
+            // judged and are excluded from the ratio (benefit-of-doubt default of 100 if none judgable).
             decimal deliveryScore = 100m;
             if (supplierReceipts.Any())
             {
-                var onTimeReceipts = supplierReceipts.Count(r => r.PostingDate <= r.PostingDate.AddDays(2));
-                deliveryScore = Math.Round((decimal)onTimeReceipts / supplierReceipts.Count * 100m, 1);
+                var judged = supplierReceipts
+                    .Where(r => r.PurchaseOrderId.HasValue && poById.ContainsKey(r.PurchaseOrderId.Value))
+                    .Select(r => (Receipt: r, ExpectedDate: poById[r.PurchaseOrderId!.Value].SupplierPromisedDate
+                        ?? poById[r.PurchaseOrderId!.Value].ExpectedDeliveryDate))
+                    .Where(x => x.ExpectedDate.HasValue)
+                    .ToList();
+
+                if (judged.Any())
+                {
+                    var onTimeReceipts = judged.Count(x => x.Receipt.PostingDate <= x.ExpectedDate!.Value);
+                    deliveryScore = Math.Round((decimal)onTimeReceipts / judged.Count * 100m, 1);
+                }
             }
 
-            // Metric 2: Order fulfillment rate (0-100)
+            // Metric 2: Order fulfillment rate (0-100) — average % of ordered qty actually received
+            // across the supplier's recent submitted POs (PurchaseOrder.PerReceived).
             decimal fulfillmentScore = 100m;
             if (supplierPos.Any())
             {
-                var completedPos = supplierPos.Count(p => p.Status == DocumentStatus.Submitted);
-                fulfillmentScore = Math.Round((decimal)completedPos / supplierPos.Count * 100m, 1);
+                fulfillmentScore = Math.Round(supplierPos.Average(p => p.PerReceived), 1);
             }
 
             // Combined overall score (weighted 50% delivery, 50% fulfillment)
