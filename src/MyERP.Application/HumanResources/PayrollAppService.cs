@@ -160,6 +160,11 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
                 var lastLine = entry.Lines.Last();
                 lastLine.LoanDeduction = emiDeduction;
                 lastLine.LoanId = activeLoan.Id;
+
+                // AddLine's own RecalculateTotals() ran before LoanDeduction was set above, so
+                // TotalNetSalary is still stale (too high, doesn't reflect the loan) until this
+                // runs again — otherwise the accrual JE credits the wrong net-salary amount.
+                entry.RecalculateTotals();
             }
 
             // Build the individual Salary Slip for this employee (payslip view, per ERPNext salary_slip).

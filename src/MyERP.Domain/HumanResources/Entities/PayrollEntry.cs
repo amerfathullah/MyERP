@@ -78,7 +78,12 @@ public class PayrollEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = DocumentStatus.Cancelled;
     }
 
-    private void RecalculateTotals()
+    /// <summary>
+    /// Re-aggregates header totals from the current lines. Must be called again after mutating
+    /// a line post-AddLine (e.g. setting LoanDeduction) — AddLine's own call only captures the
+    /// line as it existed at that moment.
+    /// </summary>
+    public void RecalculateTotals()
     {
         TotalGrossSalary = _lines.Sum(l => l.GrossSalary);
         TotalDeductions = _lines.Sum(l => l.TotalDeductions);

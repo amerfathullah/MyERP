@@ -35,6 +35,7 @@ public class PayrollPostingService : DomainService
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Accounting.Entities.FiscalYear, Guid> _fiscalYearRepository;
+    private readonly IRepository<Loan, Guid> _loanRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly IGuidGenerator _guidGenerator;
 
@@ -42,12 +43,14 @@ public class PayrollPostingService : DomainService
         IRepository<JournalEntry, Guid> journalEntryRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<Accounting.Entities.FiscalYear, Guid> fiscalYearRepository,
+        IRepository<Loan, Guid> loanRepository,
         IDocumentNumberGenerator numberGenerator,
         IGuidGenerator guidGenerator)
     {
         _journalEntryRepository = journalEntryRepository;
         _companyRepository = companyRepository;
         _fiscalYearRepository = fiscalYearRepository;
+        _loanRepository = loanRepository;
         _numberGenerator = numberGenerator;
         _guidGenerator = guidGenerator;
     }
@@ -146,6 +149,27 @@ public class PayrollPostingService : DomainService
                 amount: totalPcb,
                 isDebit: false,
                 description: $"PCB payable (income tax) - {payroll.PeriodLabel}");
+        }
+
+        // CR: Loan Receivable — employees' loan EMI deductions already reduced TotalNetSalary
+        // (via NetSalary => GrossSalary - TotalDeductions, which includes LoanDeduction), so
+        // without an offsetting credit here total debits exceed total credits by that amount
+        // and Post() below throws UnbalancedJournalEntry for any payroll run with an active
+        // loan deduction. Grouped by loan since different loans can carry different receivable
+        // accounts.
+        var loanLines = payroll.Lines.Where(l => l.LoanId.HasValue && l.LoanDeduction > 0).ToList();
+        if (loanLines.Any())
+        {
+            foreach (var group in loanLines.GroupBy(l => l.LoanId!.Value))
+            {
+                var loan = await _loanRepository.FindAsync(group.Key);
+                var loanAmount = group.Sum(l => l.LoanDeduction);
+                je.AddLine(
+                    accountId: loan?.LoanAccountId ?? company.DefaultPayableAccountId ?? company.Id,
+                    amount: loanAmount,
+                    isDebit: false,
+                    description: $"Loan repayment via payroll - {payroll.PeriodLabel}");
+            }
         }
 
         // Auto-post the JE
