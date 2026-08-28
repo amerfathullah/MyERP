@@ -348,6 +348,70 @@ public class CompanyAppService :
         }
     }
 
+    /// <summary>
+    /// One-off repair for companies provisioned before DefaultTaxPayableAccountId/
+    /// StockReceivedButNotBilledAccountId existed: their "PR CR SRBNB" and "SI CR Tax"
+    /// AccountingRule rows were seeded pointing at DefaultPayableAccountId (see commit
+    /// fixing the double-credit-to-Payable bug). Idempotent — creates the missing "2115"
+    /// account and repoints only the two rules that are still misconfigured; safe to call
+    /// repeatedly or on an already-correct company (no-ops).
+    /// </summary>
+    [Authorize(MyERPPermissions.Companies.Edit)]
+    public async Task RepairSrbnbAndTaxPayableAccountsAsync(Guid companyId)
+    {
+        var company = await Repository.GetAsync(companyId);
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accounts = (await accountRepo.GetQueryableAsync()).Where(a => a.CompanyId == companyId).ToList();
+
+        if (!company.StockReceivedButNotBilledAccountId.HasValue)
+        {
+            var srbnbAccount = accounts.FirstOrDefault(a => a.AccountCode == "2115");
+            if (srbnbAccount == null)
+            {
+                var payableAccount = accounts.FirstOrDefault(a => a.Id == company.DefaultPayableAccountId);
+                if (payableAccount != null)
+                {
+                    srbnbAccount = new Account(GuidGenerator.Create(), companyId, "2115",
+                        "Stock Received But Not Billed", Accounting.AccountType.Liability, CurrentTenant.Id)
+                    {
+                        AccountSubType = Accounting.AccountSubType.CurrentLiability,
+                        ParentAccountId = payableAccount.ParentAccountId,
+                        IsGroup = false,
+                    };
+                    await accountRepo.InsertAsync(srbnbAccount, autoSave: true);
+                }
+            }
+            if (srbnbAccount != null) company.StockReceivedButNotBilledAccountId = srbnbAccount.Id;
+        }
+
+        if (!company.DefaultTaxPayableAccountId.HasValue)
+        {
+            var taxAccount = accounts.FirstOrDefault(a => a.AccountCode == "2120");
+            if (taxAccount != null) company.DefaultTaxPayableAccountId = taxAccount.Id;
+        }
+
+        await Repository.UpdateAsync(company, autoSave: true);
+
+        var ruleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountingRule, Guid>>();
+        var rules = (await ruleRepo.GetQueryableAsync()).Where(r => r.CompanyId == companyId).ToList();
+
+        var srbnbRule = rules.FirstOrDefault(r => r.Name == "PR CR SRBNB" && r.DocumentType == "PurchaseReceipt");
+        if (srbnbRule != null && company.StockReceivedButNotBilledAccountId.HasValue
+            && srbnbRule.FixedAccountId == company.DefaultPayableAccountId)
+        {
+            srbnbRule.FixedAccountId = company.StockReceivedButNotBilledAccountId;
+            await ruleRepo.UpdateAsync(srbnbRule, autoSave: true);
+        }
+
+        var taxRule = rules.FirstOrDefault(r => r.Name == "SI CR Tax" && r.DocumentType == "SalesInvoice");
+        if (taxRule != null && company.DefaultTaxPayableAccountId.HasValue
+            && taxRule.FixedAccountId == company.DefaultPayableAccountId)
+        {
+            taxRule.FixedAccountId = company.DefaultTaxPayableAccountId;
+            await ruleRepo.UpdateAsync(taxRule, autoSave: true);
+        }
+    }
+
     private async Task ValidateWarehousesAsync(Guid companyId, CreateUpdateCompanyDto input)
     {
         var warehouseIds = new[]
