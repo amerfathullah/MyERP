@@ -1095,6 +1095,17 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("amountPaid", invoice.AmountPaid);
         }
 
+        // Guard: cannot cancel while the e-Invoice is Valid with LHDN — doing so would leave
+        // MyERP showing the document cancelled while LHDN still holds a legally valid,
+        // unresolved e-Invoice. The user must cancel the LHDN submission first (via the
+        // e-Invoice module, which enforces the 72-hour window and calls LHDN's cancel API),
+        // which flips EInvoiceStatus away from Valid before this cancel is allowed to proceed.
+        if (invoice.EInvoiceStatus == EInvoiceStatus.Valid)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CannotCancelInvoiceWithValidEInvoice)
+                .WithData("invoiceNumber", invoice.InvoiceNumber);
+        }
+
         // Loyalty cancel guard: can't cancel if earned points have been redeemed
         var customer = await _customerRepository.GetAsync(invoice.CustomerId);
         if (customer.LoyaltyProgramId.HasValue)

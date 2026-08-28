@@ -1104,6 +1104,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 .WithData("amountPaid", invoice.AmountPaid);
         }
 
+        // Guard: cannot cancel while the self-billed e-Invoice is Valid with LHDN — same
+        // reasoning as SalesInvoiceAppService.CancelAsync.
+        if (invoice.EInvoiceStatus == MyERP.Sales.EInvoiceStatus.Valid)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CannotCancelInvoiceWithValidEInvoice)
+                .WithData("invoiceNumber", invoice.InvoiceNumber);
+        }
+
         invoice.Cancel();
 
         // Auto-cancel linked system-generated Debit Note Journal Entries (gotcha #3909)

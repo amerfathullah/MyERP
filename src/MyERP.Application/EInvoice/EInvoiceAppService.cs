@@ -174,13 +174,22 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
             : (invoice.IsReturn ? "02" : "01");
 
+        // Per LHDN schema, a Credit/Debit Note's BillingReference must carry the LHDN-assigned
+        // UUID of the original invoice (from its submission response), not our internal DB id.
+        string? billingReferenceUuid = null;
+        if (invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+            billingReferenceUuid = originalInvoice?.LhdnUuid;
+        }
+
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
-            BillingReferenceNumber = invoice.ReturnAgainstId?.ToString(),
+            BillingReferenceNumber = billingReferenceUuid,
             Supplier = supplier,
             Buyer = new EInvoicePartyData
             {
@@ -220,6 +229,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
             : (invoice.IsReturn ? "12" : "11");
 
+        string? billingReferenceUuid = null;
+        if (invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+            billingReferenceUuid = originalInvoice?.LhdnUuid;
+        }
+
         // For purchase: supplier is the seller, company is the buyer
         return new EInvoiceDocumentData
         {
@@ -227,7 +243,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
-            BillingReferenceNumber = invoice.ReturnAgainstId?.ToString(),
+            BillingReferenceNumber = billingReferenceUuid,
             Supplier = new EInvoicePartyData
             {
                 Name = supplier.Name,

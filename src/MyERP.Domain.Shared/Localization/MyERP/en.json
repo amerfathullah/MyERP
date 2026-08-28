@@ -2149,6 +2149,7 @@
     "MyERP:01019": "Cannot cancel {documentType} — it has draft {dependent} documents. Delete the draft documents first.",
     "MyERP:01020": "Purchase Order Number '{poNumber}' is already used in another Sales Order ({existingOrderNumber}) for this customer.",
     "MyERP:04003": "E-Invoice status check failed. LHDN service may be unavailable.",
+    "MyERP:04040": "Cannot cancel this invoice — its e-Invoice is Valid with LHDN. Cancel the e-Invoice submission first (within the 72-hour LHDN window), then cancel the invoice.",
     "MyERP:02003": "Account is a group account and cannot receive direct postings.",
     "MyERP:06002": "Asset {assetName} with status {status} cannot be moved.",
     "MyERP:11001": "Multiple pricing rules match at the same highest priority. Please adjust rule priorities to resolve ambiguity.",

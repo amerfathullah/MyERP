@@ -22,6 +22,8 @@ public class EInvoiceValidationServiceTests
     private readonly IRepository<Company, Guid> _companyRepository = Substitute.For<IRepository<Company, Guid>>();
     private readonly IRepository<Customer, Guid> _customerRepository = Substitute.For<IRepository<Customer, Guid>>();
     private readonly IRepository<Supplier, Guid> _supplierRepository = Substitute.For<IRepository<Supplier, Guid>>();
+    private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository = Substitute.For<IRepository<SalesInvoice, Guid>>();
+    private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
     private readonly EInvoiceValidationService _validator;
 
     private readonly Guid _companyId = Guid.NewGuid();
@@ -31,7 +33,7 @@ public class EInvoiceValidationServiceTests
 
     public EInvoiceValidationServiceTests()
     {
-        _validator = new EInvoiceValidationService(_companyRepository, _customerRepository, _supplierRepository);
+        _validator = new EInvoiceValidationService(_companyRepository, _customerRepository, _supplierRepository, _salesInvoiceRepository, _purchaseInvoiceRepository);
 
         _companyRepository.GetAsync(_companyId).Returns(new Company(_companyId, "Test Corp")
         {

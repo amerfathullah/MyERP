@@ -22,15 +22,21 @@ public class EInvoiceValidationService : ITransientDependency
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
+    private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
 
     public EInvoiceValidationService(
         IRepository<Company, Guid> companyRepository,
         IRepository<Customer, Guid> customerRepository,
-        IRepository<Supplier, Guid> supplierRepository)
+        IRepository<Supplier, Guid> supplierRepository,
+        IRepository<SalesInvoice, Guid> salesInvoiceRepository,
+        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository)
     {
         _companyRepository = companyRepository;
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
+        _salesInvoiceRepository = salesInvoiceRepository;
+        _purchaseInvoiceRepository = purchaseInvoiceRepository;
     }
 
     /// <summary>
@@ -89,6 +95,15 @@ public class EInvoiceValidationService : ITransientDependency
 
             if (!invoice.ReturnAgainstId.HasValue)
                 errors.Add("Credit Note / Return Invoice must reference an original invoice (ReturnAgainstId).");
+            else
+            {
+                // LHDN requires the BillingReference to carry the original invoice's LHDN-assigned
+                // UUID — submitting a Credit Note before the original has one produces a
+                // non-compliant document LHDN cannot resolve back to the invoice it corrects.
+                var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                    errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+            }
         }
         else if (typeCode is "02" or "04")
         {
@@ -177,6 +192,12 @@ public class EInvoiceValidationService : ITransientDependency
 
             if (!invoice.ReturnAgainstId.HasValue)
                 errors.Add("Self-billed Credit Note / Return must reference an original purchase invoice (ReturnAgainstId).");
+            else
+            {
+                var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                    errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+            }
         }
 
         // All-or-nothing tax template rule
