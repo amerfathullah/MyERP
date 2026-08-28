@@ -490,6 +490,7 @@ public class ItemAppService :
     /// Returns aggregate purchase/sales metrics for an item over the last 12 months.
     /// Per ERPNext: Item dashboard shows procurement vs sales activity for inventory planning.
     /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
     public async Task<ItemTransactionSummaryDto> GetTransactionSummaryAsync(Guid itemId, Guid? companyId = null)
     {
         var item = await Repository.GetAsync(itemId);
@@ -513,7 +514,8 @@ public class ItemAppService :
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
             var poQ = await poRepo.GetQueryableAsync();
             var recentPos = poQ
-                .Where(p => poIds.Contains(p.Id) && p.OrderDate >= twelveMonthsAgo && (int)p.Status > 0)
+                .Where(p => poIds.Contains(p.Id) && p.OrderDate >= twelveMonthsAgo && (int)p.Status > 0
+                    && (companyId == null || p.CompanyId == companyId))
                 .ToList();
             var recentPoIds = recentPos.Select(p => p.Id).ToHashSet();
 
@@ -541,7 +543,8 @@ public class ItemAppService :
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
             var soQ = await soRepo.GetQueryableAsync();
             var recentSos = soQ
-                .Where(s => soIds.Contains(s.Id) && s.OrderDate >= twelveMonthsAgo && (int)s.Status > 0)
+                .Where(s => soIds.Contains(s.Id) && s.OrderDate >= twelveMonthsAgo && (int)s.Status > 0
+                    && (companyId == null || s.CompanyId == companyId))
                 .ToList();
             var recentSoIds = recentSos.Select(s => s.Id).ToHashSet();
 
