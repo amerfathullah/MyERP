@@ -352,7 +352,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     dn.CompanyId, item.ItemId, dn.WarehouseId,
                     dn.PostingDate, returnStockQty, ratePerStockUnit,
                     voucherType: "DeliveryNote", voucherId: dn.Id,
-                    tenantId: dn.TenantId);
+                    tenantId: dn.TenantId, batchId: item.BatchId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, dn.WarehouseId,
@@ -518,7 +518,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         dn.CompanyId, item.ItemId, itemWarehouseId,
                         dn.PostingDate, -item.StockQty, item.ValuationRate,
                         voucherType: "DeliveryNote", voucherId: dn.Id,
-                        tenantId: dn.TenantId);
+                        tenantId: dn.TenantId, batchId: item.BatchId);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, itemWarehouseId,
@@ -704,7 +704,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 dn.CompanyId, item.ItemId, itemWarehouseId,
                 dn.PostingDate, stockQty, item.ValuationRate,
                 voucherType: "DeliveryNote", voucherId: dn.Id,
-                tenantId: dn.TenantId);
+                tenantId: dn.TenantId, batchId: item.BatchId);
 
             await _binService.ApplyStockMovementAsync(
                 item.ItemId, itemWarehouseId,

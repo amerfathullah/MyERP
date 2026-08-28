@@ -45,7 +45,8 @@ public class StockValuationService : DomainService
         decimal incomingRate,
         string? voucherType = null,
         Guid? voucherId = null,
-        Guid? tenantId = null)
+        Guid? tenantId = null,
+        Guid? batchId = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
         var previousSle = await GetPreviousSleAsync(itemId, warehouseId, postingDate);
@@ -103,6 +104,7 @@ public class StockValuationService : DomainService
             VoucherType = voucherType,
             VoucherId = voucherId,
             StockQueue = stockQueue,
+            BatchId = batchId,
         };
 
         await _ledgerRepository.InsertAsync(entry);
