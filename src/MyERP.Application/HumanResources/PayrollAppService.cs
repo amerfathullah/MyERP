@@ -211,15 +211,11 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
 
         // Record loan repayments for employees with EMI deductions
         var loanRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
+        var loanManager = LazyServiceProvider.LazyGetRequiredService<LoanManager>();
         foreach (var line in entry.Lines.Where(l => l.LoanId.HasValue && l.LoanDeduction > 0))
         {
             var loan = await loanRepo.GetAsync(line.LoanId!.Value);
-            // For simplicity, split EMI proportionally (same as schedule if available)
-            var interestPortion = loan.AnnualInterestRate > 0
-                ? Math.Round(loan.OutstandingBalance * loan.AnnualInterestRate / 100 / 12, 2)
-                : 0;
-            var principalPortion = line.LoanDeduction - interestPortion;
-            if (principalPortion < 0) { interestPortion = line.LoanDeduction; principalPortion = 0; }
+            var (principalPortion, interestPortion) = loanManager.SplitRepayment(loan, line.LoanDeduction);
 
             loan.RecordRepayment(principalPortion, interestPortion);
             await loanRepo.UpdateAsync(loan);
