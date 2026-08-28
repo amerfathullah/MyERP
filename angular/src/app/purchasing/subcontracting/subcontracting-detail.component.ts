@@ -105,6 +105,7 @@ export class SubcontractingDetailComponent implements OnInit {
     if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
     if (s === 1 || s === 2) actions.push({ name: 'transferMaterials', label: 'Transfer Materials', icon: 'fa-truck-arrow-right', color: 'btn-outline-success' });
     if (s === 1 || s === 2) actions.push({ name: 'close', label: 'Close', icon: 'fa-lock', color: 'btn-outline-dark' });
+    if (s === 4) actions.push({ name: 'reopen', label: 'Reopen', icon: 'fa-lock-open', color: 'btn-outline-warning' });
     if (s !== 0 && s !== 5) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
     return actions;
   }
@@ -116,6 +117,7 @@ export class SubcontractingDetailComponent implements OnInit {
       case 'submit': this.service.submitOrder(id).subscribe(reload); break;
       case 'transferMaterials': this.createRmTransfer(id); break;
       case 'close': this.service.closeOrder(id).subscribe(reload); break;
+      case 'reopen': this.service.reopenOrder(id).subscribe(reload); break;
       case 'cancel': this.confirmation.warn('CancelConfirmationMessage', 'Confirm').subscribe(s => {
         if (s === Confirmation.Status.confirm) this.service.cancelOrder(id).subscribe(reload);
       }); break;

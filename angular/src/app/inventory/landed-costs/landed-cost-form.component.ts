@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { ItemService } from '../../proxy/inventory/item.service';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import { ProjectService } from '../../proxy/projects/project.service';
 
@@ -34,28 +35,46 @@ import { ProjectService } from '../../proxy/projects/project.service';
         </div>
 
         <h6 class="mb-2">{{ 'Items' | abpLocalization }} (Receipt Items)</h6>
+        <div class="row mb-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">{{ 'ReceiptType' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="loadReceiptType" (ngModelChange)="loadReceiptId=''" [ngModelOptions]="{standalone: true}">
+              <option value="PurchaseReceipt">PurchaseReceipt</option>
+              <option value="PurchaseInvoice">PurchaseInvoice</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">{{ 'SubmittedReceipt' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="loadReceiptId" [ngModelOptions]="{standalone: true}">
+              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              @for (r of filteredReceipts(); track r.id) {
+                <option [value]="r.id">{{ r.number }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-sm btn-outline-primary" [disabled]="!loadReceiptId" (click)="loadItemsFromReceipt()">
+              <i class="fa fa-download me-1"></i>{{ 'LoadItems' | abpLocalization }}
+            </button>
+          </div>
+        </div>
         <table class="table table-sm">
           <thead><tr><th>{{ 'ReceiptType' | abpLocalization }}</th><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
-                <td><select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.receiptType"><option>PurchaseReceipt</option><option>PurchaseInvoice</option></select></td>
-                <td>
-                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
-                    <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
-                    @for (i of availableItems(); track i.id) {
-                      <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
-                    }
-                  </select>
-                </td>
+                <td>{{ item.receiptType }}</td>
+                <td>{{ itemLabel(item.itemId) }}</td>
                 <td><input type="number" class="form-control form-control-sm" min="0" (ngModelChange)="isDirty=true" [(ngModel)]="item.quantity" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.amount" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1); isDirty=true"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
+            @empty {
+              <tr><td colspan="5" class="text-muted">{{ 'NoItemsLoaded' | abpLocalization }}</td></tr>
+            }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
 
         <h6 class="mb-2">{{ 'Charges' | abpLocalization }}</h6>
         <table class="table table-sm">
@@ -114,20 +133,29 @@ export class LandedCostFormComponent implements OnInit {
   private itemService = inject(ItemService);
   private accountService = inject(AccountService);
   private purchaseReceiptService = inject(PurchaseReceiptService);
+  private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private costCenterService = inject(CostCenterService);
   private projectService = inject(ProjectService);
 
   saving = false;
   isDirty = false;
+  loadReceiptType = 'PurchaseReceipt';
+  loadReceiptId = '';
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   accounts = signal<{ id: string; accountCode: string; accountName: string }[]>([]);
-  receipts = signal<{ id: string; receiptNumber: string }[]>([]);
+  receipts = signal<{ id: string; number: string; status?: string }[]>([]);
+  invoices = signal<{ id: string; number: string; status?: string }[]>([]);
   costCenters = signal<{ id: string; name: string }[]>([]);
   projects = signal<{ id: string; projectName: string }[]>([]);
 
+  filteredReceipts = computed(() => {
+    const source = this.loadReceiptType === 'PurchaseInvoice' ? this.invoices() : this.receipts();
+    return source.filter(r => r.status === 'Submitted');
+  });
+
   form: any = {
     postingDate: new Date().toISOString().split('T')[0], distributionMethod: 1,
-    items: [{ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }],
+    items: [] as any[],
     charges: [{ expenseAccountId: '', description: '', amount: 0, costCenterId: null, projectId: null }]
   };
 
@@ -139,7 +167,11 @@ export class LandedCostFormComponent implements OnInit {
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
     this.purchaseReceiptService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
-      next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, receiptNumber: p.receiptNumber ?? p.id }))),
+      next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, number: p.receiptNumber ?? p.id, status: p.status }))),
+      error: () => {}
+    });
+    this.purchaseInvoiceService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
+      next: (r) => this.invoices.set((r.items ?? []).map((p: any) => ({ id: p.id, number: p.invoiceNumber ?? p.id, status: p.status }))),
       error: () => {}
     });
     this.costCenterService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
@@ -152,7 +184,30 @@ export class LandedCostFormComponent implements OnInit {
     });
   }
 
-  addItem() { this.form.items.push({ receiptType: 'PurchaseReceipt', receiptId: '', itemId: '', quantity: 0, amount: 0 }); this.isDirty = true; }
+  itemLabel(itemId: string): string {
+    const i = this.availableItems().find(x => x.id === itemId);
+    return i ? `${i.itemCode} — ${i.itemName}` : itemId;
+  }
+
+  loadItemsFromReceipt() {
+    if (!this.loadReceiptId) return;
+    const companyId = this.companyContext.currentCompanyId();
+    this.landedCostVoucherService.getReceiptItems({
+      companyId, receiptType: this.loadReceiptType, receiptIds: [this.loadReceiptId]
+    }).subscribe({
+      next: (items) => {
+        for (const it of items) {
+          this.form.items.push({
+            receiptId: it.receiptId, receiptType: it.receiptType, itemId: it.itemId,
+            quantity: it.quantity || 0, amount: it.amount || 0,
+          });
+        }
+        this.isDirty = true;
+        this.loadReceiptId = '';
+      }
+    });
+  }
+
   addCharge() { this.form.charges.push({ expenseAccountId: '', description: '', amount: 0, costCenterId: null, projectId: null }); this.isDirty = true; }
   getTotalCharges(): number { return this.form.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0); }
 
@@ -164,9 +219,9 @@ export class LandedCostFormComponent implements OnInit {
       postingDate: this.form.postingDate,
       distributionMethod: this.form.distributionMethod,
       items: this.form.items
-        .filter((i: any) => i.itemId)
+        .filter((i: any) => i.itemId && i.receiptId)
         .map((i: any) => ({
-          receiptId: i.receiptId || undefined,
+          receiptId: i.receiptId,
           receiptType: i.receiptType,
           itemId: i.itemId,
           quantity: i.quantity || 0,

@@ -41,6 +41,13 @@ export interface CreateBudgetDto {
   accounts?: CreateBudgetAccountDto[];
 }
 
+export interface CalculateLandedCostDistributionDto {
+  distributionMethod?: LandedCostDistributionMethod;
+  totalCharges?: number;
+  charges?: CreateLandedCostChargeDto[];
+  items?: LandedCostItemDto[];
+}
+
 export interface CreateLandedCostChargeDto {
   description?: string;
   expenseAccountId?: string;
@@ -118,6 +125,12 @@ export interface GetBudgetListDto extends PagedAndSortedResultRequestDto {
   status?: string | null;
 }
 
+export interface GetLandedCostReceiptItemsInput {
+  companyId?: string;
+  receiptType?: string;
+  receiptIds?: string[];
+}
+
 export interface GetLandedCostVoucherListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   filter?: string | null;
@@ -151,6 +164,12 @@ export interface LandedCostItemDto extends EntityDto<string> {
   quantity?: number;
   amount?: number;
   applicableCharges?: number;
+}
+
+export interface LandedCostDistributionResultDto {
+  totalCharges?: number;
+  totalDistributedAmount?: number;
+  distributedItems?: LandedCostItemDto[];
 }
 
 export interface LandedCostVoucherDto extends EntityDto<string> {

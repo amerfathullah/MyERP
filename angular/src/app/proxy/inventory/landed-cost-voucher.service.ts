@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CreateLandedCostVoucherDto, GetLandedCostVoucherListDto, LandedCostVoucherDto } from '../dtos/models';
+import type { CalculateLandedCostDistributionDto, CreateLandedCostVoucherDto, GetLandedCostReceiptItemsInput, GetLandedCostVoucherListDto, LandedCostDistributionResultDto, LandedCostItemDto, LandedCostVoucherDto } from '../dtos/models';
 
 @Injectable({
   providedIn: 'root',
@@ -10,6 +10,15 @@ export class LandedCostVoucherService {
   private restService = inject(RestService);
   apiName = 'Default';
   
+
+  calculateDistribution = (input: CalculateLandedCostDistributionDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LandedCostDistributionResultDto>({
+      method: 'POST',
+      url: '/api/app/landed-cost-voucher/calculate-distribution',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
@@ -44,6 +53,15 @@ export class LandedCostVoucherService {
     },
     { apiName: this.apiName,...config });
   
+
+  getReceiptItems = (input: GetLandedCostReceiptItemsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LandedCostItemDto[]>({
+      method: 'GET',
+      url: '/api/app/landed-cost-voucher/receipt-items',
+      params: { companyId: input.companyId, receiptType: input.receiptType, receiptIds: input.receiptIds },
+    },
+    { apiName: this.apiName,...config });
+
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({

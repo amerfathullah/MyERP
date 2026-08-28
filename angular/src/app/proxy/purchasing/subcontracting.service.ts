@@ -78,6 +78,14 @@ export class SubcontractingService {
     { apiName: this.apiName,...config });
   
 
+  reopenOrder = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SubcontractingOrderDto>({
+      method: 'POST',
+      url: `/api/app/subcontracting/${id}/reopen-order`,
+    },
+    { apiName: this.apiName,...config });
+
+
   submitOrder = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubcontractingOrderDto>({
       method: 'POST',
