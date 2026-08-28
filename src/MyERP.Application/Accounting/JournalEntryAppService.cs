@@ -124,6 +124,10 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             entry.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
         }
 
+        var accountIds = input.Lines.Select(l => l.AccountId).ToArray();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("JournalEntry", input.CompanyId, accountIds: accountIds);
+
         // Validate double-entry balance before saving
         entry.Validate();
 

@@ -171,6 +171,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (input.PostingDate == default)
             input.PostingDate = DateTime.UtcNow.Date;
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PaymentEntry", input.CompanyId,
+            accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
+
         // Per gotcha #197: Receive type cannot have net negative allocation for Customer
         if (input.PaymentType == PaymentType.Receive && string.Equals(input.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
         {

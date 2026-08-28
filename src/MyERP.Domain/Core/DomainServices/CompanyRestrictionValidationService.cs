@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
@@ -27,6 +28,8 @@ public class CompanyRestrictionValidationService : DomainService
     private readonly IRepository<Item, Guid> _itemRepo;
     private readonly IRepository<Customer, Guid> _customerRepo;
     private readonly IRepository<Supplier, Guid> _supplierRepo;
+    private readonly IRepository<Account, Guid> _accountRepo;
+    private readonly IRepository<Warehouse, Guid> _warehouseRepo;
 
     /// <summary>
     /// Document types exempt from company restriction validation.
@@ -44,12 +47,16 @@ public class CompanyRestrictionValidationService : DomainService
         IRepository<CompanyRestrictionEntry, Guid> restrictionEntryRepo,
         IRepository<Item, Guid> itemRepo,
         IRepository<Customer, Guid> customerRepo,
-        IRepository<Supplier, Guid> supplierRepo)
+        IRepository<Supplier, Guid> supplierRepo,
+        IRepository<Account, Guid> accountRepo,
+        IRepository<Warehouse, Guid> warehouseRepo)
     {
         _restrictionEntryRepo = restrictionEntryRepo;
         _itemRepo = itemRepo;
         _customerRepo = customerRepo;
         _supplierRepo = supplierRepo;
+        _accountRepo = accountRepo;
+        _warehouseRepo = warehouseRepo;
     }
 
     /// <summary>
@@ -61,12 +68,16 @@ public class CompanyRestrictionValidationService : DomainService
     /// <param name="itemIds">Item IDs referenced in the document (from items/child rows).</param>
     /// <param name="customerIds">Customer IDs referenced (usually 0 or 1).</param>
     /// <param name="supplierIds">Supplier IDs referenced (usually 0 or 1).</param>
+    /// <param name="accountIds">GL Account IDs referenced (JE lines, payment from/to accounts, etc.).</param>
+    /// <param name="warehouseIds">Warehouse IDs referenced (stock movement source/target).</param>
     public async Task ValidateTransactionCompanyAsync(
         string documentType,
         Guid companyId,
         IReadOnlyCollection<Guid>? itemIds = null,
         IReadOnlyCollection<Guid>? customerIds = null,
-        IReadOnlyCollection<Guid>? supplierIds = null)
+        IReadOnlyCollection<Guid>? supplierIds = null,
+        IReadOnlyCollection<Guid>? accountIds = null,
+        IReadOnlyCollection<Guid>? warehouseIds = null)
     {
         if (IsExemptDocumentType(documentType))
             return;
@@ -95,6 +106,20 @@ public class CompanyRestrictionValidationService : DomainService
         {
             var blocked = await GetBlockedSupplierNamesAsync(supplierIds, companyId);
             blockedNames.AddRange(blocked.Select(n => $"Supplier: {n}"));
+        }
+
+        // Check Accounts
+        if (accountIds is { Count: > 0 })
+        {
+            var blocked = await GetBlockedAccountNamesAsync(accountIds, companyId);
+            blockedNames.AddRange(blocked.Select(n => $"Account: {n}"));
+        }
+
+        // Check Warehouses
+        if (warehouseIds is { Count: > 0 })
+        {
+            var blocked = await GetBlockedWarehouseNamesAsync(warehouseIds, companyId);
+            blockedNames.AddRange(blocked.Select(n => $"Warehouse: {n}"));
         }
 
         if (blockedNames.Count > 0)
@@ -186,6 +211,24 @@ public class CompanyRestrictionValidationService : DomainService
         }
 
         return blocked;
+    }
+
+    private async Task<List<string>> GetBlockedAccountNamesAsync(IReadOnlyCollection<Guid> accountIds, Guid companyId)
+    {
+        var queryable = await _accountRepo.GetQueryableAsync();
+        return queryable
+            .Where(a => accountIds.Contains(a.Id) && a.CompanyId != companyId)
+            .Select(a => a.AccountName)
+            .ToList();
+    }
+
+    private async Task<List<string>> GetBlockedWarehouseNamesAsync(IReadOnlyCollection<Guid> warehouseIds, Guid companyId)
+    {
+        var queryable = await _warehouseRepo.GetQueryableAsync();
+        return queryable
+            .Where(w => warehouseIds.Contains(w.Id) && w.CompanyId != companyId)
+            .Select(w => w.Name)
+            .ToList();
     }
 
     private async Task<HashSet<Guid>> GetAllowedParentIdsAsync(string parentType, List<Guid> parentIds, Guid companyId)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.DomainServices;
 using MyERP.Inventory.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -17,13 +18,16 @@ public class StockEntryManager : DomainService
 {
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly CompanyRestrictionValidationService _companyRestriction;
 
     public StockEntryManager(
         IRepository<Warehouse, Guid> warehouseRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        CompanyRestrictionValidationService companyRestriction)
     {
         _warehouseRepository = warehouseRepository;
         _itemRepository = itemRepository;
+        _companyRestriction = companyRestriction;
     }
 
     /// <summary>
@@ -32,6 +36,14 @@ public class StockEntryManager : DomainService
     /// </summary>
     public async Task ValidateWarehousesAsync(StockEntry entry)
     {
+        var warehouseIds = entry.Items
+            .SelectMany(i => new[] { i.SourceWarehouseId, i.TargetWarehouseId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+        await _companyRestriction.ValidateTransactionCompanyAsync("StockEntry", entry.CompanyId, warehouseIds: warehouseIds);
+
         foreach (var item in entry.Items)
         {
             var isTransfer = entry.EntryType is StockEntryType.MaterialTransfer
