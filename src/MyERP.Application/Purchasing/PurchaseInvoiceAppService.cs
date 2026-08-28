@@ -472,6 +472,30 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             invoice.CreditToAccountId = companyForAcct.DefaultPayableAccountId.Value;
         }
 
+        // Auto-resolve exchange rate for multi-currency invoices (mirrors SalesInvoiceAppService)
+        if (!string.IsNullOrEmpty(input.CurrencyCode) && input.CurrencyCode != companyForAcct.CurrencyCode)
+        {
+            var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+            invoice.ExchangeRate = await exchangeService.GetExchangeRateAsync(
+                input.CurrencyCode, companyForAcct.CurrencyCode, input.IssueDate);
+
+            var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountsSettings, Guid>>();
+            var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
+            if (settings != null && !settings.AllowStaleExchangeRates)
+            {
+                var (isStale, rateDate, daysSinceRate) = await exchangeService.CheckStaleRateAsync(
+                    input.CurrencyCode, companyForAcct.CurrencyCode, settings.StaleDays);
+                if (isStale)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.StaleExchangeRate)
+                        .WithData("fromCurrency", input.CurrencyCode)
+                        .WithData("toCurrency", companyForAcct.CurrencyCode)
+                        .WithData("daysSinceRate", daysSinceRate == int.MaxValue ? "no rate on record" : daysSinceRate.ToString())
+                        .WithData("rateDate", rateDate?.ToString("yyyy-MM-dd") ?? "never");
+                }
+            }
+        }
+
         // Opening invoices & returns: clear payment terms (gotcha #380)
         if (invoice.IsOpening || invoice.IsReturn)
         {
