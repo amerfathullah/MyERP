@@ -46,6 +46,11 @@ public class EInvoiceService : DomainService
             sourceDocumentId,
             tenantId);
 
+        // Persist before the network call so a transport-layer failure (timeout, DNS,
+        // connection reset) still leaves an audit trail — the row stays "Pending" instead
+        // of the submission attempt vanishing with no trace.
+        await _submissionRepository.InsertAsync(submission);
+
         var response = await _lhdnApiClient.SubmitDocumentAsync(accessToken, xmlDocument, environment);
 
         if (response.IsSuccess)
@@ -77,7 +82,7 @@ public class EInvoiceService : DomainService
             submission.MarkRejected(response.ErrorMessage ?? "Unknown error", response.RawJson);
         }
 
-        await _submissionRepository.InsertAsync(submission);
+        await _submissionRepository.UpdateAsync(submission);
         return submission;
     }
 
