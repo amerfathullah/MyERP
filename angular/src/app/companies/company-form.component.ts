@@ -80,7 +80,17 @@ export class CompanyFormComponent implements OnInit {
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/companies']); },
+        next: (created) => {
+          this.service.setupNewCompany(created.id!).subscribe({
+            next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/companies']); },
+            error: () => {
+              // Company row was created; only the default CoA/warehouses/rules seeding failed.
+              // Don't block navigation on it — Setup can be retried from the company list/settings.
+              this.toaster.warn('::CompanySetupIncomplete');
+              this.router.navigate(['/companies']);
+            },
+          });
+        },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }

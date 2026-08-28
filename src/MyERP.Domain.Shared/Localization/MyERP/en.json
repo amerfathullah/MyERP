@@ -1828,6 +1828,7 @@
     "DefaultIncomeAccount": "Income Account",
     "DefaultExpenseAccount": "Expense Account (COGS)",
     "DefaultTaxPayableAccount": "Tax Payable Account (SST/Output Tax)",
+    "CompanySetupIncomplete": "Company created, but default accounts/warehouses could not be set up automatically. Configure them from Company Settings.",
     "DefaultWarehouse": "Default Warehouse",
     "DefaultBankAccount": "Bank Account",
     "DefaultInventoryAccount": "Inventory Account",
