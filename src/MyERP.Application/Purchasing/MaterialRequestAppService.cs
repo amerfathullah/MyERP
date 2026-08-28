@@ -94,8 +94,12 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         };
 
         // Validate all items are active
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("MaterialRequest", input.CompanyId, itemIds);
 
         foreach (var item in input.Items)
         {

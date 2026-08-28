@@ -117,58 +117,75 @@ public class CompanyRestrictionValidationService : DomainService
     private async Task<List<string>> GetBlockedItemNamesAsync(IReadOnlyCollection<Guid> itemIds, Guid companyId)
     {
         var queryable = await _itemRepo.GetQueryableAsync();
-        var restrictedItems = queryable
-            .Where(i => itemIds.Contains(i.Id) && i.RestrictToCompanies)
-            .Select(i => new { i.Id, i.ItemCode })
+        var referencedItems = queryable
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.CompanyId, i.RestrictToCompanies })
             .ToList();
 
-        if (restrictedItems.Count == 0) return new List<string>();
-
-        var restrictedIds = restrictedItems.Select(i => i.Id).ToList();
-        var allowed = await GetAllowedParentIdsAsync("Item", restrictedIds, companyId);
-
-        return restrictedItems
-            .Where(i => !allowed.Contains(i.Id))
+        // Hard rule: Item.CompanyId is the item's owning company — a document can never
+        // reference an item owned by a different company, regardless of RestrictToCompanies.
+        var blocked = referencedItems
+            .Where(i => i.CompanyId != companyId)
             .Select(i => i.ItemCode)
             .ToList();
+
+        var restrictedItems = referencedItems.Where(i => i.CompanyId == companyId && i.RestrictToCompanies).ToList();
+        if (restrictedItems.Count > 0)
+        {
+            var restrictedIds = restrictedItems.Select(i => i.Id).ToList();
+            var allowed = await GetAllowedParentIdsAsync("Item", restrictedIds, companyId);
+            blocked.AddRange(restrictedItems.Where(i => !allowed.Contains(i.Id)).Select(i => i.ItemCode));
+        }
+
+        return blocked;
     }
 
     private async Task<List<string>> GetBlockedCustomerNamesAsync(IReadOnlyCollection<Guid> customerIds, Guid companyId)
     {
         var queryable = await _customerRepo.GetQueryableAsync();
-        var restrictedCustomers = queryable
-            .Where(c => customerIds.Contains(c.Id) && c.RestrictToCompanies)
-            .Select(c => new { c.Id, c.Name })
+        var referencedCustomers = queryable
+            .Where(c => customerIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name, c.CompanyId, c.RestrictToCompanies })
             .ToList();
 
-        if (restrictedCustomers.Count == 0) return new List<string>();
-
-        var restrictedIds = restrictedCustomers.Select(c => c.Id).ToList();
-        var allowed = await GetAllowedParentIdsAsync("Customer", restrictedIds, companyId);
-
-        return restrictedCustomers
-            .Where(c => !allowed.Contains(c.Id))
+        var blocked = referencedCustomers
+            .Where(c => c.CompanyId != companyId)
             .Select(c => c.Name)
             .ToList();
+
+        var restrictedCustomers = referencedCustomers.Where(c => c.CompanyId == companyId && c.RestrictToCompanies).ToList();
+        if (restrictedCustomers.Count > 0)
+        {
+            var restrictedIds = restrictedCustomers.Select(c => c.Id).ToList();
+            var allowed = await GetAllowedParentIdsAsync("Customer", restrictedIds, companyId);
+            blocked.AddRange(restrictedCustomers.Where(c => !allowed.Contains(c.Id)).Select(c => c.Name));
+        }
+
+        return blocked;
     }
 
     private async Task<List<string>> GetBlockedSupplierNamesAsync(IReadOnlyCollection<Guid> supplierIds, Guid companyId)
     {
         var queryable = await _supplierRepo.GetQueryableAsync();
-        var restrictedSuppliers = queryable
-            .Where(s => supplierIds.Contains(s.Id) && s.RestrictToCompanies)
-            .Select(s => new { s.Id, s.Name })
+        var referencedSuppliers = queryable
+            .Where(s => supplierIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name, s.CompanyId, s.RestrictToCompanies })
             .ToList();
 
-        if (restrictedSuppliers.Count == 0) return new List<string>();
-
-        var restrictedIds = restrictedSuppliers.Select(s => s.Id).ToList();
-        var allowed = await GetAllowedParentIdsAsync("Supplier", restrictedIds, companyId);
-
-        return restrictedSuppliers
-            .Where(s => !allowed.Contains(s.Id))
+        var blocked = referencedSuppliers
+            .Where(s => s.CompanyId != companyId)
             .Select(s => s.Name)
             .ToList();
+
+        var restrictedSuppliers = referencedSuppliers.Where(s => s.CompanyId == companyId && s.RestrictToCompanies).ToList();
+        if (restrictedSuppliers.Count > 0)
+        {
+            var restrictedIds = restrictedSuppliers.Select(s => s.Id).ToList();
+            var allowed = await GetAllowedParentIdsAsync("Supplier", restrictedIds, companyId);
+            blocked.AddRange(restrictedSuppliers.Where(s => !allowed.Contains(s.Id)).Select(s => s.Name));
+        }
+
+        return blocked;
     }
 
     private async Task<HashSet<Guid>> GetAllowedParentIdsAsync(string parentType, List<Guid> parentIds, Guid companyId)
