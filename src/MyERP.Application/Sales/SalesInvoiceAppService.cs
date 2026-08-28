@@ -1285,6 +1285,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         amended.AmendedFromId = original.Id;
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.ExchangeRate = original.ExchangeRate;
         amended.PriceListId = original.PriceListId;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
 

@@ -504,6 +504,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         amended.AmendmentIndex = original.AmendmentIndex + 1;
         amended.ExpectedDeliveryDate = original.ExpectedDeliveryDate;
         amended.CurrencyCode = original.CurrencyCode;
+        amended.ExchangeRate = original.ExchangeRate;
         amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
         amended.Notes = original.Notes;
