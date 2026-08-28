@@ -62,6 +62,9 @@ const STATUS_BADGE: Record<number, string> = { 0: 'bg-success', 1: 'bg-warning t
                         @if (d.status === 1) {
                           <button class="btn btn-outline-success" title="Reinstate" (click)="reinstate(d)"><i class="fa fa-play"></i></button>
                         }
+                        @if (d.status === 0 || d.status === 1) {
+                          <button class="btn btn-outline-secondary" title="Mark Left" (click)="markLeft(d)"><i class="fa fa-right-from-bracket"></i></button>
+                        }
                         <a class="btn btn-outline-primary" [routerLink]="['/assets/drivers', d.id, 'edit']">
                           <i class="fa fa-edit"></i>
                         </a>
@@ -116,6 +119,13 @@ export class DriverListComponent implements OnInit {
 
   reinstate(d: DriverDto): void {
     this.service.reinstate(d.id!).subscribe({ next: () => this.loadData() });
+  }
+
+  markLeft(d: DriverDto): void {
+    this.confirmation.warn('::AreYouSure', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.markLeft(d.id!).subscribe({ next: () => this.loadData() });
+    });
   }
 
   delete(d: DriverDto): void {
