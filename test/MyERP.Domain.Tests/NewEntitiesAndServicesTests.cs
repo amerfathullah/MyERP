@@ -278,7 +278,7 @@ public class NewEntitiesAndServicesTests
     [Fact]
     public void StockEntryManager_ValidateTransferQty_WithinLimit_Passes()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 100m, transferredQty: 40m, requestedQty: 50m));
     }
@@ -286,7 +286,7 @@ public class NewEntitiesAndServicesTests
     [Fact]
     public void StockEntryManager_ValidateTransferQty_ExceedsLimit_Throws()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => mgr.ValidateTransferQty(
             requiredQty: 100m, transferredQty: 80m, requestedQty: 30m));
     }
@@ -294,7 +294,7 @@ public class NewEntitiesAndServicesTests
     [Fact]
     public void StockEntryManager_ValidateTransferQty_ReturnBypass()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 100m, transferredQty: 100m, requestedQty: 50m,
             isReturn: true));
@@ -303,7 +303,7 @@ public class NewEntitiesAndServicesTests
     [Fact]
     public void StockEntryManager_ValidateTransferQty_MaterialTransferredBypass()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 100m, transferredQty: 100m, requestedQty: 50m,
             isMaterialTransferredMode: true));
@@ -312,7 +312,7 @@ public class NewEntitiesAndServicesTests
     [Fact]
     public void StockEntryManager_ValidateTransferQty_ExactLimit_Passes()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 100m, transferredQty: 60m, requestedQty: 40m));
     }

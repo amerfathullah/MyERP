@@ -25,7 +25,7 @@ public class UpstreamPR57650AndWoOverdueNotificationTests
     {
         // PR #57650 applies flt(qty, precision) before comparison in Python
         // Our C# decimal + Math.Round(qty, qtyPrecision) already does this
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 0m, requestedQty: 9.9999994m, qtyPrecision: 6));
     }
@@ -33,7 +33,7 @@ public class UpstreamPR57650AndWoOverdueNotificationTests
     [Fact]
     public void Upstream_PR57650_GenuineExcess_StillBlocked()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         // 5.01 rounds to 5.01 at precision 2, pending is 5.00 — 5.01 > 5.00 = BLOCKED
         Should.Throw<BusinessException>(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 5m, requestedQty: 5.01m, qtyPrecision: 2));

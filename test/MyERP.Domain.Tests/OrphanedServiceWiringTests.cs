@@ -76,7 +76,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_WithinLimit_Succeeds()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // No exception expected: requesting 5, allowed = 10 - 3 = 7
         manager.ValidateTransferQty(requiredQty: 10, transferredQty: 3, requestedQty: 5);
     }
@@ -84,7 +84,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_ExceedsLimit_Throws()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // allowed = 10 - 8 = 2, requesting 5 → exceeds
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             manager.ValidateTransferQty(requiredQty: 10, transferredQty: 8, requestedQty: 5));
@@ -93,7 +93,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_ExactLimit_Succeeds()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // allowed = 10 - 7 = 3, requesting exactly 3 → OK
         manager.ValidateTransferQty(requiredQty: 10, transferredQty: 7, requestedQty: 3);
     }
@@ -101,7 +101,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_ReturnBypass()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // Returns bypass the limit entirely
         manager.ValidateTransferQty(requiredQty: 10, transferredQty: 10, requestedQty: 20, isReturn: true);
     }
@@ -109,7 +109,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_MaterialTransferredModeBypass()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // "Material Transferred" backflush mode bypasses the limit
         manager.ValidateTransferQty(requiredQty: 10, transferredQty: 10, requestedQty: 20,
             isMaterialTransferredMode: true);
@@ -118,7 +118,7 @@ public class OrphanedServiceWiringTests
     [Fact]
     public void StockEntryManager_TransferQty_NegativeAllowed_ClampedToZero()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // Over-transferred: allowed = MAX(0, 10 - 15) = 0, requesting 1 → throws
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             manager.ValidateTransferQty(requiredQty: 10, transferredQty: 15, requestedQty: 1));

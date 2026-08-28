@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using Shouldly;
@@ -34,6 +35,8 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
             var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
             var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+            var stockPostingService = GetRequiredService<StockPostingService>();
+            var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
 
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Disassembly Tier Test Co"), autoSave: true);
             await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, suffix: "1");
@@ -66,6 +69,17 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             wo.RecordProduction(100m);
             await woRepository.InsertAsync(wo, autoSave: true);
 
+            // Seed enough RM stock for the Manufacture entry below to actually consume — its own
+            // AddItem-supplied rate (2.00) is what the disassembly assertion checks, not this
+            // starting balance's rate, so the exact seeded rate here doesn't matter.
+            await sleRepository.InsertAsync(new StockLedgerEntry(
+                Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+                DateTime.Today.AddDays(-1), quantityChange: 300m, valuationRate: 2.00m,
+                balanceQuantity: 300m, balanceValue: 600m)
+            {
+                StockQueue = "[[300,2.00]]",
+            }, autoSave: true);
+
             // The actual Manufacture Stock Entry: 100 FG produced, only 300 RM actually consumed
             // (3/unit, not the planned 5/unit), at a real rate of 2.00/unit.
             var manufactureEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
@@ -78,6 +92,10 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             manufactureEntry.AddItem(fgItem.Id, 100m, sourceWarehouseId: null, targetWarehouseId: fgWarehouse.Id, valuationRate: 6.00m);
             manufactureEntry.Submit();
             manufactureEntry.Post();
+            // Must actually post the stock movement (not just insert the entity) — the later
+            // disassembly step consumes real FG stock via the FIFO-aware ledger path, which needs
+            // a real posted SLE/StockQueue to draw from, not just an in-memory StockEntry row.
+            await stockPostingService.PostStockEntryAsync(manufactureEntry);
             await seRepository.InsertAsync(manufactureEntry, autoSave: true);
 
             // Act: disassemble 10 of the 100 produced units (10% of actual production).
@@ -111,6 +129,8 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
             var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
             var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+            var stockPostingService = GetRequiredService<StockPostingService>();
+            var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
 
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Disassembly Tier Test Co 2"), autoSave: true);
             await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, suffix: "2");
@@ -136,6 +156,17 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             wo.RecordProduction(100m);
             await woRepository.InsertAsync(wo, autoSave: true);
 
+            // Seed enough RM stock for both production runs below to actually consume (120 + 80 =
+            // 200 total) — their own AddItem-supplied rates are what the disassembly assertions
+            // check, not this starting balance's rate.
+            await sleRepository.InsertAsync(new StockLedgerEntry(
+                Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+                DateTime.Today.AddDays(-1), quantityChange: 200m, valuationRate: 3.00m,
+                balanceQuantity: 200m, balanceValue: 600m)
+            {
+                StockQueue = "[[200,3.00]]",
+            }, autoSave: true);
+
             // Two separate production runs at different costs: 60 units @ rate 3.00, 40 units @ rate 4.50.
             var run1 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
             { WorkOrderId = wo.Id, EntryNumber = "SE-MFG-0002A", FgCompletedQty = 60m };
@@ -143,6 +174,7 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             run1.AddItem(fgItem.Id, 60m, sourceWarehouseId: null, targetWarehouseId: fgWarehouse.Id, valuationRate: 6.00m);
             run1.Submit();
             run1.Post();
+            await stockPostingService.PostStockEntryAsync(run1);
             await seRepository.InsertAsync(run1, autoSave: true);
 
             var run2 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
@@ -151,6 +183,7 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             run2.AddItem(fgItem.Id, 40m, sourceWarehouseId: null, targetWarehouseId: fgWarehouse.Id, valuationRate: 6.00m);
             run2.Submit();
             run2.Post();
+            await stockPostingService.PostStockEntryAsync(run2);
             await seRepository.InsertAsync(run2, autoSave: true);
 
             // Act: disassemble 20 of the 100 total produced (20% of the aggregated 100 FG qty).

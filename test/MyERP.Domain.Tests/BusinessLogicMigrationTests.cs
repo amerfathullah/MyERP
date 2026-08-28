@@ -151,14 +151,14 @@ public class BusinessLogicMigrationTests
         // Only incoming items (no outgoing) — should fail
         entry.AddItem(Guid.NewGuid(), 10, null, Guid.NewGuid());
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateRepackItems(entry));
     }
 
     [Fact]
     public void Repack_SingleFG_AutoRateCalculation()
     {
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
 
         var items = new List<StockEntryItem>
         {
@@ -185,7 +185,7 @@ public class BusinessLogicMigrationTests
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh);
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh);
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateRepackItems(entry));
     }
 
@@ -195,7 +195,7 @@ public class BusinessLogicMigrationTests
         var entry = CreateStockEntry(StockEntryType.MaterialReceipt);
         entry.AddItem(Guid.NewGuid(), 10, null, Guid.NewGuid());
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         // Should not throw for non-Repack types
         Should.NotThrow(() => manager.ValidateRepackItems(entry));
     }
@@ -215,7 +215,7 @@ public class BusinessLogicMigrationTests
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh);  // FG #1
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh);  // FG #2 — different item code
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateManufactureItems(entry));
     }
 
@@ -231,7 +231,7 @@ public class BusinessLogicMigrationTests
         entry.AddItem(fgItemId, 3, null, targetWh);
         entry.AddItem(fgItemId, 2, null, targetWh); // same FG item, qty split across rows
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => manager.ValidateManufactureItems(entry));
     }
 
@@ -243,7 +243,7 @@ public class BusinessLogicMigrationTests
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh);
         entry.AddItem(Guid.NewGuid(), 5, null, targetWh); // multiple distinct FGs — fine for Repack
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => manager.ValidateManufactureItems(entry));
     }
 
@@ -264,7 +264,7 @@ public class BusinessLogicMigrationTests
         sourceEntry.FgCompletedQty = 10;
         entry.GetType().GetProperty("SourceStockEntryId")!.SetValue(entry, (Guid?)sourceEntry.Id);
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateDisassembleItems(entry, sourceEntry));
     }
 
@@ -277,7 +277,7 @@ public class BusinessLogicMigrationTests
         entry.FgCompletedQty = 15;
         sourceEntry.FgCompletedQty = 10;
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateDisassembleItems(entry, sourceEntry));
     }
 
@@ -290,7 +290,7 @@ public class BusinessLogicMigrationTests
         entry.FgCompletedQty = 5;
         sourceEntry.FgCompletedQty = 10;
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => manager.ValidateDisassembleItems(entry, sourceEntry));
     }
 
@@ -312,7 +312,7 @@ public class BusinessLogicMigrationTests
         };
         disassemblyItems[0].ItemId = sourceItems[0].ItemId;
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => manager.ValidateDisassembleScaleFactor(
             disassemblyItems, sourceItems, disassembleQty, sourceFgQty));
     }
@@ -334,7 +334,7 @@ public class BusinessLogicMigrationTests
         };
         disassemblyItems[0].ItemId = sourceItems[0].ItemId;
 
-        var manager = new StockEntryManager(null!, null!);
+        var manager = new StockEntryManager(null!, null!, null!);
         Should.Throw<BusinessException>(() => manager.ValidateDisassembleScaleFactor(
             disassemblyItems, sourceItems, disassembleQty, sourceFgQty));
     }

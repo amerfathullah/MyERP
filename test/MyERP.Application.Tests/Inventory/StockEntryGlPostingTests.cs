@@ -51,11 +51,20 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         // interacting with back-to-back [UnitOfWork]-wrapped AppService calls), unrelated to the
         // production GL logic itself (already proven correct by the single-post tests here and by
         // DisassemblySourceResolutionTests).
+        // Item defaults to FIFO valuation. StockValuationService.CreateLedgerEntryAsync (which the
+        // Material Issue below goes through) deserializes StockQueue to consume stock — a directly-
+        // inserted seed row with no StockQueue looks like an empty FIFO queue and makes the
+        // consumption below throw InsufficientStock despite BalanceQuantity correctly showing 20.
+        // Must seed the queue explicitly to match what a real StockEntryAppService-posted receipt
+        // would have produced (round 78 finding, see also round 77's StockPostingService fix).
         var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, warehouse,
             DateTime.Today.AddDays(-1), quantityChange: 20m, valuationRate: 9m,
-            balanceQuantity: 20m, balanceValue: 180m), autoSave: true);
+            balanceQuantity: 20m, balanceValue: 180m)
+        {
+            StockQueue = "[[20,9]]",
+        }, autoSave: true);
 
         var created = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -123,7 +132,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 7m,
-            balanceQuantity: 10m, balanceValue: 70m), autoSave: true);
+            balanceQuantity: 10m, balanceValue: 70m)
+        {
+            StockQueue = "[[10,7]]",
+        }, autoSave: true);
 
         var transferEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -164,7 +176,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 5m,
-            balanceQuantity: 10m, balanceValue: 50m), autoSave: true);
+            balanceQuantity: 10m, balanceValue: 50m)
+        {
+            StockQueue = "[[10,5]]",
+        }, autoSave: true);
 
         var transferEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -204,7 +219,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 6m,
-            balanceQuantity: 10m, balanceValue: 60m), autoSave: true);
+            balanceQuantity: 10m, balanceValue: 60m)
+        {
+            StockQueue = "[[10,6]]",
+        }, autoSave: true);
 
         var repackEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -246,7 +264,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 4m,
-            balanceQuantity: 10m, balanceValue: 40m), autoSave: true);
+            balanceQuantity: 10m, balanceValue: 40m)
+        {
+            StockQueue = "[[10,4]]",
+        }, autoSave: true);
 
         var sendEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -303,7 +324,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 3m,
-            balanceQuantity: 10m, balanceValue: 30m), autoSave: true);
+            balanceQuantity: 10m, balanceValue: 30m)
+        {
+            StockQueue = "[[10,3]]",
+        }, autoSave: true);
 
         var deliveryEntry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
         {
@@ -414,7 +438,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 20m, valuationRate: 4m,
-            balanceQuantity: 20m, balanceValue: 80m), autoSave: true);
+            balanceQuantity: 20m, balanceValue: 80m)
+        {
+            StockQueue = "[[20,4]]",
+        }, autoSave: true);
 
         // Raw domain-service calls (StockPostingService/DocumentPostingOrchestrator, not AppServices)
         // need an ambient UnitOfWork to keep the same DbContext alive across the sequence below —
@@ -475,7 +502,10 @@ public abstract class StockEntryGlPostingTests<TStartupModule> : MyERPApplicatio
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, sourceWarehouse,
             DateTime.Today.AddDays(-1), quantityChange: 20m, valuationRate: 4m,
-            balanceQuantity: 20m, balanceValue: 80m), autoSave: true);
+            balanceQuantity: 20m, balanceValue: 80m)
+        {
+            StockQueue = "[[20,4]]",
+        }, autoSave: true);
 
         await WithUnitOfWorkAsync(async () =>
         {

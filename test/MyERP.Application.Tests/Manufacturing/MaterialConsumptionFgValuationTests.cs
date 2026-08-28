@@ -99,7 +99,10 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
             DateTime.Today.AddDays(-1), quantityChange: 1000m, valuationRate: 10m,
-            balanceQuantity: 1000m, balanceValue: 10000m), autoSave: true);
+            balanceQuantity: 1000m, balanceValue: 10000m)
+        {
+            StockQueue = "[[1000,10]]",
+        }, autoSave: true);
 
         // Top-level await #1: its own request/UnitOfWork boundary, same as production.
         await manufacturingAppService.CreateMaterialConsumptionAsync(new CreateMaterialConsumptionDto
@@ -184,7 +187,10 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
             await sleRepository.InsertAsync(new StockLedgerEntry(
                 Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
                 DateTime.Today.AddDays(-1), quantityChange: 1000m, valuationRate: 10m,
-                balanceQuantity: 1000m, balanceValue: 10000m), autoSave: true);
+                balanceQuantity: 1000m, balanceValue: 10000m)
+            {
+                StockQueue = "[[1000,10]]",
+            }, autoSave: true);
 
             // Record actual consumption of 200 bolts ahead of completing production — the whole
             // point of the MaterialConsumption setting. This alone used to throw
@@ -300,7 +306,10 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
             await sleRepository.InsertAsync(new StockLedgerEntry(
                 Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
                 DateTime.Today.AddDays(-1), quantityChange: 1000m, valuationRate: 10m,
-                balanceQuantity: 1000m, balanceValue: 10000m), autoSave: true);
+                balanceQuantity: 1000m, balanceValue: 10000m)
+            {
+                StockQueue = "[[1000,10]]",
+            }, autoSave: true);
 
             // Record 200 consumed ahead of time — same as the other test.
             await manufacturingAppService.CreateMaterialConsumptionAsync(new CreateMaterialConsumptionDto

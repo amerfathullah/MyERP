@@ -249,7 +249,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_CalculateReimbursable_Basic()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AddExpense(DateTime.UtcNow, "Travel", 1000m);
         claim.Approve();
@@ -261,7 +261,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_CalculateReimbursable_WithAdvance()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AddExpense(DateTime.UtcNow, "Travel", 1000m);
         claim.AdvanceAmount = 300m;
@@ -273,7 +273,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_CalculateReimbursable_FullyReimbursed()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AddExpense(DateTime.UtcNow, "Travel", 1000m);
         claim.Approve();
@@ -285,7 +285,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_ValidateForReimbursement_NotSubmitted_Throws()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AddExpense(DateTime.UtcNow, "Travel", 1000m);
         // Still Draft
@@ -296,7 +296,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_ValidateAdvanceLinkage_ExceedsPayment_Throws()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AdvancePaymentEntryId = Guid.NewGuid();
         claim.AdvanceAmount = 5000m;
@@ -308,7 +308,7 @@ public class DomainServicesRound2Tests
     [Fact]
     public void ExpenseClaimManager_ValidateAdvanceLinkage_WithinLimit_Passes()
     {
-        var mgr = new ExpenseClaimManager(null!);
+        var mgr = new ExpenseClaimManager();
         var claim = new ExpenseClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         claim.AdvancePaymentEntryId = Guid.NewGuid();
         claim.AdvanceAmount = 2000m;

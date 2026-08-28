@@ -19,7 +19,7 @@ public class UpstreamSyncJuly31PrecisionAndScioTests
     [Fact]
     public void ValidateTransferQty_PrecisionRounding_FloatingPointArtifact_Passes()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         // 9.9999999 rounds to 10.000000 at precision 6, pending is 10.000000 — no excess
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 0m, requestedQty: 9.9999999m, qtyPrecision: 6));
@@ -28,7 +28,7 @@ public class UpstreamSyncJuly31PrecisionAndScioTests
     [Fact]
     public void ValidateTransferQty_PrecisionRounding_StillBlocksGenuineExcess()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         // 5.001 rounds to 5.00 at precision 2, pending is 5.00 — 5.00 > 5.00 is false, passes
         // But 5.01 rounds to 5.01 at precision 2, pending is 5.00 — 5.01 > 5.00 = BLOCKED
         Should.Throw<BusinessException>(() => mgr.ValidateTransferQty(
@@ -38,7 +38,7 @@ public class UpstreamSyncJuly31PrecisionAndScioTests
     [Fact]
     public void ValidateTransferQty_DefaultPrecision_Is6()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 3m, requestedQty: 7m));
     }
@@ -46,7 +46,7 @@ public class UpstreamSyncJuly31PrecisionAndScioTests
     [Fact]
     public void ValidateTransferQty_HighPrecision_AllowsNearExact()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 3m, requestedQty: 7.0000001m, qtyPrecision: 6));
     }
@@ -54,7 +54,7 @@ public class UpstreamSyncJuly31PrecisionAndScioTests
     [Fact]
     public void ValidateTransferQty_PendingRoundedDown_AllowsTransfer()
     {
-        var mgr = new StockEntryManager(null!, null!);
+        var mgr = new StockEntryManager(null!, null!, null!);
         Should.NotThrow(() => mgr.ValidateTransferQty(
             requiredQty: 10m, transferredQty: 2.9999999m, requestedQty: 7m, qtyPrecision: 6));
     }
