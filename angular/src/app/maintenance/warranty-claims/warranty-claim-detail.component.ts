@@ -98,6 +98,10 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <button class="btn btn-success btn-sm" (click)="closePrompt()">
               <i class="fa fa-check me-1"></i>{{ 'Close' | abpLocalization }}
             </button>
+            <button class="btn btn-outline-primary btn-sm" [disabled]="creatingVisit()" (click)="createMaintenanceVisit()">
+              @if (creatingVisit()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-truck-medical me-1"></i>{{ '::CreateMaintenanceVisit' | abpLocalization }}
+            </button>
             <button class="btn btn-outline-danger btn-sm" (click)="cancelClaim()">
               <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
             </button>
@@ -137,6 +141,7 @@ export class WarrantyClaimDetailComponent implements OnInit {
   claim = signal<WarrantyClaimDto | null>(null);
   isLoading = signal(true);
   showResolutionPrompt = signal(false);
+  creatingVisit = signal(false);
   claimId = '';
 
   private statusNames = ['Open', 'Work In Progress', 'Closed', 'Cancelled'];
@@ -181,6 +186,22 @@ export class WarrantyClaimDetailComponent implements OnInit {
         next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.loadClaim(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'))
       });
+    });
+  }
+
+  createMaintenanceVisit() {
+    this.creatingVisit.set(true);
+    this.claimService.createMaintenanceVisit(this.claimId).subscribe({
+      next: (visitId: string) => {
+        this.creatingVisit.set(false);
+        this.toaster.success(this.l('::SuccessfullyCreated'));
+        // responseType:'text' on this endpoint returns the raw JSON-quoted string, not a parsed value
+        this.router.navigate(['/maintenance/visits', visitId.replace(/^"|"$/g, '')]);
+      },
+      error: (err: any) => {
+        this.creatingVisit.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'));
+      }
     });
   }
 

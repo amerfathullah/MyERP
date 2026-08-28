@@ -321,7 +321,8 @@ export class SalesOrderDetailComponent implements OnInit {
         this.conversionService.convertSalesOrderToMaterialRequest(id).subscribe({
           next: (mrId) => {
             this.toaster.success('::MaterialRequestCreated');
-            this.router.navigate(['/purchasing/material-requests', mrId]);
+            // responseType:'text' on this endpoint returns the raw JSON-quoted string, not a parsed value
+            this.router.navigate(['/purchasing/material-requests', mrId.replace(/^"|"$/g, '')]);
           },
           error: (err) => this.toaster.error(err?.error?.error?.message || '::ConversionFailed'),
         });

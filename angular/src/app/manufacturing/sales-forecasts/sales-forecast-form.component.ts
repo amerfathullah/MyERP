@@ -249,7 +249,8 @@ export class SalesForecastFormComponent implements OnInit {
       next: (mpsId) => {
         this.saving.set(false);
         this.toaster.success('::SuccessfullySaved');
-        this.router.navigate(['/manufacturing/master-production-schedules', mpsId]);
+        // responseType:'text' on this endpoint returns the raw JSON-quoted string, not a parsed value
+        this.router.navigate(['/manufacturing/master-production-schedules', mpsId.replace(/^"|"$/g, '')]);
       },
       error: () => this.saving.set(false),
     });

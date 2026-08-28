@@ -87,7 +87,8 @@ export class LeadDetailComponent implements OnInit {
     this.service.convertToCustomer({ leadId: this.lead!.id! }).subscribe({
       next: (customerId) => {
         this.toaster.success('::SuccessfullyConverted');
-        this.router.navigate(['/customers', customerId, 'edit']);
+        // responseType:'text' on this endpoint returns the raw JSON-quoted string, not a parsed value
+        this.router.navigate(['/customers', customerId.replace(/^"|"$/g, ''), 'edit']);
       },
       error: (err: any) => {
         this.toaster.error(err?.error?.error?.message ?? 'Conversion failed');
