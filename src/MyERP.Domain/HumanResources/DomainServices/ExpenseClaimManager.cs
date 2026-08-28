@@ -1,10 +1,8 @@
 using System;
-using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.HumanResources.Entities;
 using Volo.Abp;
-using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
 namespace MyERP.HumanResources.DomainServices;
@@ -16,13 +14,6 @@ namespace MyERP.HumanResources.DomainServices;
 /// </summary>
 public class ExpenseClaimManager : DomainService
 {
-    private readonly IRepository<ExpenseClaim, Guid> _claimRepository;
-
-    public ExpenseClaimManager(IRepository<ExpenseClaim, Guid> claimRepository)
-    {
-        _claimRepository = claimRepository;
-    }
-
     /// <summary>
     /// Calculates the reimbursable amount for an expense claim.
     /// Reimbursable = TotalSanctioned - AdvanceAmount - AlreadyReimbursed.
@@ -56,17 +47,6 @@ public class ExpenseClaimManager : DomainService
                 .WithData("advance", claim.AdvanceAmount)
                 .WithData("alreadyReimbursed", claim.TotalAmountReimbursed);
         }
-    }
-
-    /// <summary>
-    /// Records reimbursement after Payment Entry is created.
-    /// Updates TotalAmountReimbursed on the claim.
-    /// </summary>
-    public async Task RecordReimbursementAsync(Guid claimId, decimal amount)
-    {
-        var claim = await _claimRepository.GetAsync(claimId);
-        claim.TotalAmountReimbursed += amount;
-        await _claimRepository.UpdateAsync(claim);
     }
 
     /// <summary>

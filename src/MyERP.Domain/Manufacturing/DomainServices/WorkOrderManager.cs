@@ -74,18 +74,6 @@ public class WorkOrderManager : DomainService
     }
 
     /// <summary>
-    /// Gets the effective overproduction percentage from ManufacturingSettings.
-    /// Falls back to 0% if no settings exist for the company.
-    /// </summary>
-    public async Task<decimal> GetOverproductionPercentageAsync(Guid companyId)
-    {
-        var settings = await _settingsRepository
-            .FindAsync(s => s.CompanyId == companyId);
-
-        return settings?.OverproductionPercentage ?? 0m;
-    }
-
-    /// <summary>
     /// Calculates proportional raw material quantities for a given production quantity.
     /// bomItem.Quantity × (produceQty / bom.Quantity)
     /// </summary>

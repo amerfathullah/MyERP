@@ -161,16 +161,6 @@ public class AssetLifecycleManager : DomainService
     }
 
     /// <summary>
-    /// Validates depreciation schedule entries are not in a frozen accounting period.
-    /// Per DO-NOT: "Post depreciation entries for schedule dates within company's accounts_frozen_till_date".
-    /// </summary>
-    public async Task<DateTime?> GetFrozenDateAsync(Guid companyId)
-    {
-        var company = await _companyRepository.FindAsync(companyId);
-        return company?.AccountsFrozenTillDate;
-    }
-
-    /// <summary>
     /// Resolves GL accounts for depreciation journal entries.
     /// Priority: AssetCategory → Company defaults.
     /// Returns (depreciationExpenseAccountId, accumulatedDepreciationAccountId).
@@ -220,23 +210,6 @@ public class AssetLifecycleManager : DomainService
         }
 
         return (true, true);
-    }
-
-    /// <summary>
-    /// Gets unbooked depreciation schedule entries that are due on or before a given date.
-    /// Excludes entries in frozen accounting periods.
-    /// </summary>
-    public async Task<DepreciationScheduleEntry[]> GetDueDepreciationEntriesAsync(
-        Asset asset, DateTime asOfDate)
-    {
-        var frozenDate = await GetFrozenDateAsync(asset.CompanyId);
-
-        return asset.DepreciationSchedule
-            .Where(e => !e.IsBooked
-                     && e.ScheduleDate <= asOfDate
-                     && (!frozenDate.HasValue || e.ScheduleDate > frozenDate.Value))
-            .OrderBy(e => e.ScheduleDate)
-            .ToArray();
     }
 
     /// <summary>
