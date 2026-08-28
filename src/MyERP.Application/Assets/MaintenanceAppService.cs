@@ -149,6 +149,22 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
         var visit = await _visitRepo.GetAsync(id);
         visit.Complete();
         await _visitRepo.UpdateAsync(visit);
+
+        // Mark the schedule's oldest outstanding visit date as done so its progress %,
+        // "next due" lookup, and the nightly reminder job (which only nags on !IsCompleted)
+        // actually reflect completed work instead of tracking it forever.
+        if (visit.MaintenanceScheduleId.HasValue)
+        {
+            var schedule = await _scheduleRepo.FindAsync(visit.MaintenanceScheduleId.Value);
+            var nextDetail = schedule?.Details.Where(d => !d.IsCompleted).OrderBy(d => d.ScheduledDate).FirstOrDefault();
+            if (nextDetail != null)
+            {
+                nextDetail.IsCompleted = true;
+                nextDetail.ActualDate = visit.VisitDate;
+                await _scheduleRepo.UpdateAsync(schedule!);
+            }
+        }
+
         return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
     }
 
