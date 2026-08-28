@@ -94,7 +94,7 @@ public static class MyERPDomainErrorCodes
     public const string GroupWarehouseCannotReceiveStock = "MyERP:05014";
     public const string ValuationMethodChangeLocked = "MyERP:05015";
     public const string MissingWarehouse = "MyERP:05016";
-    public const string SameWarehouseTransfer = "MyERP:05017";
+    public const string SameWarehouseTransfer = "MyERP:05063"; // was hardcoded "MyERP:05017" (collided with raw-string ItemAppService "cannot deactivate item" throws)
     public const string CannotDeleteItem = "MyERP:05018";
 
     // Barcode Scanner

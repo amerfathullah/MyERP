@@ -28,7 +28,7 @@ interface PendingTransfer {
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0"><i class="fa fa-truck-moving me-2"></i>{{ 'TransitTransfers' | abpLocalization }}</h5>
           <div class="btn-group btn-group-sm">
-            <a routerLink="/inventory/stock-entries/new" [queryParams]="{ purpose: 'SendToWarehouse' }"
+            <a routerLink="/inventory/transit-transfers/new"
                class="btn btn-outline-primary">
               <i class="fa fa-paper-plane me-1"></i>{{ '::NewTransfer' | abpLocalization }}
             </a>

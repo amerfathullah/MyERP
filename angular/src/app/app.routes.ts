@@ -933,6 +933,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/transit-transfers/new',
+    loadComponent: () => import('./inventory/transit-transfers/transit-transfer-new.component').then(c => c.TransitTransferNewComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries.Create' },
+  },
+  {
     path: 'inventory/standard-costs',
     loadComponent: () => import('./inventory/item-standard-cost/item-standard-cost-list.component').then(c => c.ItemStandardCostListComponent),
     canActivate: [authGuard, permissionGuard],
