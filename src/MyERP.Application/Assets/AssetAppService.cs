@@ -98,6 +98,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> CreateAsync(CreateAssetDto input)
     {
         var number = await _numberGenerator.GenerateAsync("Asset", input.CompanyId);
+        var accountsSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.AccountsSettings, Guid>>();
+        var useTotalDays = (await accountsSettingsRepo.GetQueryableAsync()).FirstOrDefault()?.CalculateDeprUsingTotalDays ?? false;
         var asset = new Asset(
             GuidGenerator.Create(), input.CompanyId, number, input.AssetName,
             input.PurchaseDate, input.PurchaseAmount, CurrentTenant.Id)
@@ -119,6 +121,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation,
             AssetQuantity = input.AssetQuantity > 0 ? input.AssetQuantity : 1,
             Notes = input.Notes,
+            UseTotalDaysForDepreciation = useTotalDays,
         };
 
         if (asset.CalculateDepreciation)

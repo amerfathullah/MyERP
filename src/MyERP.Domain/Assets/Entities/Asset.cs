@@ -55,6 +55,14 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal OpeningAccumulatedDepreciation { get; set; }
     public decimal ValueAfterDepreciation { get; set; }
     public bool IsFullyDepreciated { get; set; }
+    /// <summary>
+    /// Snapshot of AccountsSettings.CalculateDeprUsingTotalDays at asset creation — captured
+    /// once rather than re-read live, so a later change to the company-wide setting doesn't
+    /// retroactively alter an existing asset's already-communicated schedule. When true,
+    /// Straight Line periods are weighted by actual elapsed calendar days instead of divided
+    /// equally, so a period spanning a shorter month depreciates proportionally less.
+    /// </summary>
+    public bool UseTotalDaysForDepreciation { get; set; }
 
     // Disposal
     public DateTime? DisposalDate { get; set; }
@@ -241,7 +249,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             }
             else
             {
-                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i);
+                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i, startDate);
                 amount = Math.Min(amount, bookValue); // never exceed remaining book value
             }
 
@@ -289,7 +297,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
             var fullPeriodAmount = i == totalPeriods - 1
                 ? Math.Max(bookValue, 0)
-                : Math.Min(CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i), bookValue);
+                : Math.Min(CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i, startDate), bookValue);
 
             if (fullPeriodAmount <= 0) break;
 
@@ -313,15 +321,37 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         return Math.Max(bookValue, 0);
     }
 
-    private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int totalPeriods, int periodIndex)
+    private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int totalPeriods, int periodIndex, DateTime startDate)
     {
         return DepreciationMethod switch
         {
-            DepreciationMethod.StraightLine => Math.Round(depreciableAmount / totalPeriods, 2),
+            DepreciationMethod.StraightLine => UseTotalDaysForDepreciation
+                ? CalculateStraightLineByTotalDays(depreciableAmount, totalPeriods, periodIndex, startDate)
+                : Math.Round(depreciableAmount / totalPeriods, 2),
             DepreciationMethod.DoubleDecliningBalance => Math.Round(bookValue * (2m / totalPeriods), 2),
             DepreciationMethod.WrittenDownValue => Math.Round(bookValue * (DepreciationRate / 100m), 2),
             _ => 0,
         };
+    }
+
+    /// <summary>
+    /// Per ERPNext AccountsSettings.calculate_depreciation_using_total_days: instead of dividing
+    /// the depreciable amount equally across periods, weight each period by its actual elapsed
+    /// calendar days (a period spanning a shorter month depreciates proportionally less). Only
+    /// meaningful for Straight Line — WDV/DDB already derive each period from book value x rate,
+    /// not from an equal division of the total.
+    /// </summary>
+    private decimal CalculateStraightLineByTotalDays(decimal depreciableAmount, int totalPeriods, int periodIndex, DateTime startDate)
+    {
+        var scheduleStartDate = startDate.AddMonths(totalPeriods * FrequencyMonths);
+        var totalDays = (scheduleStartDate - startDate).TotalDays;
+        if (totalDays <= 0) return Math.Round(depreciableAmount / totalPeriods, 2);
+
+        var periodStart = startDate.AddMonths(periodIndex * FrequencyMonths);
+        var periodEnd = startDate.AddMonths((periodIndex + 1) * FrequencyMonths);
+        var periodDays = (periodEnd - periodStart).TotalDays;
+
+        return Math.Round(depreciableAmount * (decimal)(periodDays / totalDays), 2);
     }
 
     public void ApplyRepairCapitalization(decimal additionalCost, int increaseInUsefulLifeMonths)
