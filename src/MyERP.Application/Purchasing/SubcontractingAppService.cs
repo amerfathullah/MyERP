@@ -587,6 +587,43 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     }
 
     /// <summary>
+    /// Lists Subcontracting Receipts (including returns) created against a given Subcontracting Order,
+    /// newest first — needed by the UI to offer a return against a specific submitted receipt.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Default)]
+    public async Task<List<SubcontractingReceiptDto>> GetReceiptsForOrderAsync(Guid subcontractingOrderId)
+    {
+        var query = await _scrRepository.WithDetailsAsync(r => r.Items);
+        var receipts = query
+            .Where(r => r.SubcontractingOrderId == subcontractingOrderId)
+            .OrderByDescending(r => r.CreationTime)
+            .ToList();
+
+        return receipts.Select(scr => new SubcontractingReceiptDto
+        {
+            Id = scr.Id,
+            ReceiptNumber = scr.ReceiptNumber,
+            PostingDate = scr.PostingDate,
+            SupplierId = scr.SupplierId,
+            SubcontractingOrderId = scr.SubcontractingOrderId,
+            NetTotal = scr.NetTotal,
+            Status = scr.Status,
+            IsReturn = scr.IsReturn,
+            ReturnAgainstReceiptId = scr.ReturnAgainstReceiptId,
+            Items = scr.Items.Select(i => new SubcontractingReceiptItemDto
+            {
+                Id = i.Id,
+                ItemId = i.ItemId,
+                ItemName = i.ItemName,
+                Qty = i.Qty,
+                Rate = i.Rate,
+                Amount = i.Amount,
+                WarehouseId = i.WarehouseId
+            }).ToList()
+        }).ToList();
+    }
+
+    /// <summary>
     /// Computes summary metrics for a Subcontracting Receipt (Gotcha #5997).
     /// </summary>
     [Authorize(MyERPPermissions.PurchaseReceipts.Default)]

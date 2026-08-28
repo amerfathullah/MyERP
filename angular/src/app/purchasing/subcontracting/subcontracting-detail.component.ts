@@ -82,6 +82,79 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
           </div>
         }
 
+        @if (receipts().length > 0) {
+          <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0">{{ 'Receipts' | abpLocalization }}</h6></div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead><tr>
+                  <th>{{ 'ReceiptNumber' | abpLocalization }}</th>
+                  <th>{{ 'Date' | abpLocalization }}</th>
+                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  @for (r of receipts(); track r.id) {
+                    <tr>
+                      <td>{{ r.receiptNumber }} @if (r.isReturn) { <span class="badge bg-secondary ms-1">{{ 'Return' | abpLocalization }}</span> }</td>
+                      <td>{{ r.postingDate | date:'dd/MM/yyyy' }}</td>
+                      <td><app-status-badge [status]="r.status + ''" /></td>
+                      <td class="text-end">{{ r.netTotal | number:'1.2-2' }}</td>
+                      <td>
+                        @if (r.status === 1 && !r.isReturn) {
+                          <button class="btn btn-sm btn-outline-danger" (click)="openReturnDialog(r)">
+                            <i class="fa fa-rotate-left me-1"></i>{{ 'Return' | abpLocalization }}
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (showReturnDialog()) {
+          <div class="card border-danger mb-3">
+            <div class="card-header bg-danger bg-opacity-10 d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fa fa-rotate-left me-2"></i>{{ 'ReturnReceipt' | abpLocalization }} — {{ returnAgainst()?.receiptNumber }}</h6>
+              <button type="button" class="btn-close btn-sm" (click)="showReturnDialog.set(false)"></button>
+            </div>
+            <div class="card-body">
+              <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ 'Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
+                    <th class="text-center" style="width: 120px">{{ 'ReturnQty' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of returnItems(); track item.itemId) {
+                    <tr>
+                      <td>{{ item.itemName }}</td>
+                      <td class="text-end">{{ item.qty | number:'1.0-2' }}</td>
+                      <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-center"
+                          [(ngModel)]="item.returnQty" [max]="item.qty" min="0" step="0.01">
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              <div class="d-flex justify-content-end gap-2 mt-2">
+                <button class="btn btn-sm btn-secondary" (click)="showReturnDialog.set(false)">{{ 'Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-danger" (click)="submitReturn()" [disabled]="isReturning() || !hasReturnQty()">
+                  @if (isReturning()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                  <i class="fa fa-check me-1"></i>{{ 'ReturnReceipt' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
         @if (showReceiptDialog()) {
           <div class="card border-success mb-3">
             <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
@@ -159,12 +232,73 @@ export class SubcontractingDetailComponent implements OnInit {
   receiptWarehouseId = '';
   isCreatingReceipt = signal(false);
 
+  receipts = signal<any[]>([]);
+  showReturnDialog = signal(false);
+  returnAgainst = signal<any>(null);
+  returnItems = signal<{ itemId: string; itemName: string; qty: number; rate: number; returnQty: number }[]>([]);
+  isReturning = signal(false);
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) this.service.getOrder(id).subscribe(o => this.order.set(o));
+    if (id) {
+      this.service.getOrder(id).subscribe(o => this.order.set(o));
+      this.loadReceipts(id);
+    }
     this.warehouseService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r: any) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, warehouseName: w.name ?? w.id }))),
       error: () => {}
+    });
+  }
+
+  loadReceipts(subcontractingOrderId: string): void {
+    this.service.getReceiptsForOrder(subcontractingOrderId).subscribe({
+      next: (r: any) => this.receipts.set(r ?? []),
+      error: () => {}
+    });
+  }
+
+  openReturnDialog(receipt: any): void {
+    this.returnAgainst.set(receipt);
+    this.returnItems.set((receipt.items ?? []).map((i: any) => ({
+      itemId: i.itemId, itemName: i.itemName, qty: i.qty, rate: i.rate, returnQty: i.qty,
+    })));
+    this.showReturnDialog.set(true);
+  }
+
+  hasReturnQty(): boolean {
+    return this.returnItems().some(i => i.returnQty > 0);
+  }
+
+  submitReturn(): void {
+    const against = this.returnAgainst();
+    const items = this.returnItems().filter(i => i.returnQty > 0);
+    if (!against || !items.length) return;
+    this.isReturning.set(true);
+    this.service.createReceiptReturn({
+      returnAgainstReceiptId: against.id,
+      postingDate: new Date().toISOString().split('T')[0],
+      items: items.map(i => ({ itemId: i.itemId, itemName: i.itemName, qty: i.returnQty, rate: i.rate })),
+    }).subscribe({
+      next: (returnReceipt: any) => {
+        this.service.submitReceipt(returnReceipt.id).subscribe({
+          next: () => {
+            this.isReturning.set(false);
+            this.showReturnDialog.set(false);
+            this.toaster.success('::ReceiptCreatedSuccessfully');
+            const id = this.order()!.id!;
+            this.loadReceipts(id);
+            this.service.getOrder(id).subscribe(o => this.order.set(o));
+          },
+          error: (err: any) => {
+            this.isReturning.set(false);
+            this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+          },
+        });
+      },
+      error: (err: any) => {
+        this.isReturning.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 
@@ -242,6 +376,7 @@ export class SubcontractingDetailComponent implements OnInit {
             this.showReceiptDialog.set(false);
             this.toaster.success('::ReceiptCreatedSuccessfully');
             this.service.getOrder(o.id!).subscribe(updated => this.order.set(updated));
+            this.loadReceipts(o.id!);
           },
           error: (err: any) => {
             this.isCreatingReceipt.set(false);

@@ -994,6 +994,8 @@
     "DistributionMethod": "Distribution Method",
     "SubmittedReceipt": "Submitted Document",
     "ReceiveFinishedGoods": "Receive Finished Goods",
+    "ReturnReceipt": "Return Receipt",
+    "ReturnQty": "Return Qty",
     "Select": "Select...",
     "LoadItems": "Load Items",
     "NoItemsLoaded": "No items loaded. Select a submitted Purchase Receipt or Purchase Invoice above and click Load Items.",

@@ -1,4 +1,4 @@
-import type { CreateSubcontractingOrderDto, CreateSubcontractingReceiptDto, GetScoListDto, RmTransferResultDto, SubcontractingOrderDto, SubcontractingReceiptDto } from './models';
+import type { CreateSubcontractingOrderDto, CreateSubcontractingReceiptDto, CreateSubcontractingReceiptReturnDto, GetScoListDto, RmTransferResultDto, SubcontractingOrderDto, SubcontractingReceiptDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -53,6 +53,15 @@ export class SubcontractingService {
     { apiName: this.apiName,...config });
   
 
+  createReceiptReturn = (input: CreateSubcontractingReceiptReturnDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SubcontractingReceiptDto>({
+      method: 'POST',
+      url: '/api/app/subcontracting/receipt-return',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+
   createRmTransferStockEntry = (scoId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RmTransferResultDto>({
       method: 'POST',
@@ -68,6 +77,14 @@ export class SubcontractingService {
     },
     { apiName: this.apiName,...config });
   
+
+  getReceiptsForOrder = (subcontractingOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SubcontractingReceiptDto[]>({
+      method: 'GET',
+      url: `/api/app/subcontracting/receipts-for-order/${subcontractingOrderId}`,
+    },
+    { apiName: this.apiName,...config });
+
 
   getOrderList = (input: GetScoListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SubcontractingOrderDto>>({

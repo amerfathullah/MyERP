@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -23,5 +24,6 @@ public interface ISubcontractingAppService : IApplicationService
     Task<SubcontractingReceiptDto> SubmitReceiptAsync(Guid id);
     Task<SubcontractingReceiptDto> CancelReceiptAsync(Guid id);
     Task<SubcontractingReceiptDto> CreateReceiptReturnAsync(CreateSubcontractingReceiptReturnDto input);
+    Task<List<SubcontractingReceiptDto>> GetReceiptsForOrderAsync(Guid subcontractingOrderId);
     Task<SubcontractingReceiptSummaryDto> GetReceiptSummaryAsync(Guid id);
 }

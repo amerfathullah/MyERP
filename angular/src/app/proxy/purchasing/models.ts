@@ -228,6 +228,20 @@ export interface CreateSubcontractingOrderDto {
   items?: CreateScoItemDto[];
 }
 
+export interface CreateScrReturnItemDto {
+  itemId: string;
+  itemName: string;
+  qty?: number;
+  rate?: number;
+  warehouseId?: string | null;
+}
+
+export interface CreateSubcontractingReceiptReturnDto {
+  returnAgainstReceiptId: string;
+  postingDate: string;
+  items?: CreateScrReturnItemDto[];
+}
+
 export interface CreateSubcontractingReceiptDto {
   companyId: string;
   supplierId: string;
