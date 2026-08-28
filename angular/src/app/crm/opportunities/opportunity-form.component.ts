@@ -87,12 +87,12 @@ export class OpportunityFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, value as any).subscribe({
-        next: () => this.router.navigate(['/crm/opportunities']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/opportunities']); },
         error: () => {},
       });
     } else {
       this.service.create(value as any).subscribe({
-        next: () => this.router.navigate(['/crm/opportunities']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/opportunities']); },
         error: () => {},
       });
     }

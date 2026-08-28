@@ -64,6 +64,7 @@ export class ApprovalRuleFormComponent implements OnInit {
       const dto = this.form.getRawValue() as unknown as UpdateApprovalRuleDto;
       this.service.updateRule(this.ruleId!, dto).subscribe({
         next: () => {
+          this.form.markAsPristine();
           this.toaster.success('::SuccessfullyUpdated');
           this.router.navigate(['/workflow/rules']);
         },
@@ -75,6 +76,7 @@ export class ApprovalRuleFormComponent implements OnInit {
     const dto = this.form.getRawValue() as unknown as CreateApprovalRuleDto;
     this.service.createRule(dto).subscribe({
       next: () => {
+        this.form.markAsPristine();
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/workflow/rules']);
       },

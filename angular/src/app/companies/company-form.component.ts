@@ -75,12 +75,13 @@ export class CompanyFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/companies']); },
+        next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/companies']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
       this.service.create(dto).subscribe({
         next: (created) => {
+          this.form.markAsPristine();
           this.service.setupNewCompany(created.id!).subscribe({
             next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/companies']); },
             error: () => {

@@ -145,6 +145,7 @@ export class IssueFormComponent implements OnInit {
       customerId: val.customerId || undefined,
     }).subscribe({
       next: (created) => {
+        this.form.markAsPristine();
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/support/issues']);
       },

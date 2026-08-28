@@ -71,12 +71,12 @@ export class LeadFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, value as any).subscribe({
-        next: () => this.router.navigate(['/crm/leads']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/leads']); },
         error: () => {},
       });
     } else {
       this.service.create(value as any).subscribe({
-        next: () => this.router.navigate(['/crm/leads']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/leads']); },
         error: () => {},
       });
     }

@@ -79,12 +79,12 @@ export class AccountFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.accountService.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/accounting/accounts']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/accounting/accounts']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
       this.accountService.create(dto).subscribe({
-        next: () => this.router.navigate(['/accounting/accounts']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/accounting/accounts']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }

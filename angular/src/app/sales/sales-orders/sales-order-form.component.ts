@@ -180,12 +180,12 @@ export class SalesOrderFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.soService.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/sales/orders', this.entityId]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/orders', this.entityId]); },
         error: () => {},
       });
     } else {
       this.soService.create(dto).subscribe({
-        next: () => this.router.navigate(['/sales/orders']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/orders']); },
         error: () => {},
       });
     }

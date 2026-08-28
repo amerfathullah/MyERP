@@ -104,12 +104,12 @@ export class EmployeeFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/hr/employees']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/hr/employees']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => this.router.navigate(['/hr/employees']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/hr/employees']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }

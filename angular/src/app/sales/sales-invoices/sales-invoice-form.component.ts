@@ -588,7 +588,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     };
 
     this.service.create(dto).subscribe({
-      next: () => this.router.navigate(['/sales/invoices']),
+      next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/invoices']); },
       error: () => { /* handled by global error interceptor */ },
     });
   }

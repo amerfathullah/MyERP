@@ -62,8 +62,7 @@ export class HolidayListFormComponent {
   save() {
     this.saving = true;
     this.holidayListService.create(this.form)
-      .subscribe({ next: () => this.router.navigate(['/hr/holiday-lists']), error: () => { this.saving = false;
-  this.isDirty = false; } });
+      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/hr/holiday-lists']); }, error: () => { this.saving = false; } });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

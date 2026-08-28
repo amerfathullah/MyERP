@@ -90,8 +90,7 @@ export class PricingRuleFormComponent {
   save() {
     this.saving = true;
     this.service.create(this.form)
-      .subscribe({ next: () => this.router.navigate(['/sales/pricing-rules']), error: () => { this.saving = false;
-  this.isDirty = false; } });
+      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/sales/pricing-rules']); }, error: () => { this.saving = false; } });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

@@ -404,12 +404,12 @@ export class StockEntryFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullyUpdated'); this.router.navigate(['/inventory/stock-entries', this.entityId]); },
+        next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyUpdated'); this.router.navigate(['/inventory/stock-entries', this.entityId]); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Update failed'),
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/inventory/stock-entries']); },
+        next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/inventory/stock-entries']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
       });
     }

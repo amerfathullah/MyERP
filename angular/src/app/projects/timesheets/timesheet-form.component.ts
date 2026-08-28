@@ -153,7 +153,7 @@ export class TimesheetFormComponent implements OnInit {
         description: d.description,
       })),
     }).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/projects/timesheets']); },
+      next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/projects/timesheets']); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
     });
   }

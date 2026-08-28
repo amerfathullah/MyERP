@@ -590,6 +590,7 @@ export class PaymentEntryFormComponent implements OnInit {
     if (this.isEditMode) {
       this.paymentService.update(this.entityId!, dto).subscribe({
         next: () => {
+          this.form.markAsPristine();
           this.toaster.success(this.localization.instant('::SuccessfullyUpdated'));
           this.router.navigate(['/accounting/payments', this.entityId]);
         },
@@ -600,6 +601,7 @@ export class PaymentEntryFormComponent implements OnInit {
     } else {
       this.paymentService.create(dto).subscribe({
         next: () => {
+          this.form.markAsPristine();
           this.toaster.success(this.localization.instant('::SuccessfullyCreated'));
           this.router.navigate(['/accounting/payments']);
         },

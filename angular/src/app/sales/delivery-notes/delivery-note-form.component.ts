@@ -292,12 +292,12 @@ export class DeliveryNoteFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({
-        next: () => this.router.navigate(['/sales/delivery-notes', this.entityId]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/delivery-notes', this.entityId]); },
         error: () => {},
       });
     } else {
       this.service.create(value).subscribe({
-        next: () => this.router.navigate(['/sales/delivery-notes']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/delivery-notes']); },
         error: () => {},
       });
     }

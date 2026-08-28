@@ -64,12 +64,12 @@ export class WarehouseFormComponent implements OnInit {
     const dto = this.form.getRawValue() as any;
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/inventory/warehouses']); },
+        next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/inventory/warehouses']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/inventory/warehouses']); },
+        next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/inventory/warehouses']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::SaveFailed'),
       });
     }

@@ -257,7 +257,7 @@ export class BomFormComponent implements OnInit {
       ? this.manufacturingService.updateBom(this.entityId!, payload as any)
       : this.manufacturingService.createBom(payload as any);
     req.subscribe({
-      next: () => { this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/manufacturing/bom']); },
+      next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullySaved'); this.router.navigate(['/manufacturing/bom']); },
       error: () => this.toaster.error('::SaveFailed'),
     });
   }

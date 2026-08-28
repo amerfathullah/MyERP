@@ -136,6 +136,7 @@ export class SupplierFormComponent implements OnInit {
 
     op.subscribe({
       next: () => {
+        this.form.markAsPristine();
         this.toaster.success(this.isEditMode ? 'Supplier updated' : 'Supplier created');
         this.router.navigate(['/suppliers']);
       },

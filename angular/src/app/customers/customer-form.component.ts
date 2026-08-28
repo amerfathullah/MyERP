@@ -134,6 +134,7 @@ export class CustomerFormComponent implements OnInit {
 
     op.subscribe({
       next: () => {
+        this.form.markAsPristine();
         this.toaster.success(this.isEditMode ? 'Customer updated' : 'Customer created');
         this.router.navigate(['/customers']);
       },

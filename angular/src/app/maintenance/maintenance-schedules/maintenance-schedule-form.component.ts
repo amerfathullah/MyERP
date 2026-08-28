@@ -88,6 +88,7 @@ export class MaintenanceScheduleFormComponent implements OnInit {
     this.service.createSchedule(dto).subscribe({
       next: (res) => {
         this.saving.set(false);
+        this.form.markAsPristine();
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/maintenance/schedules', res.id]);
       },

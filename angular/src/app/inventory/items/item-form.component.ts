@@ -211,12 +211,12 @@ export class ItemFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({
-        next: () => this.router.navigate(['/inventory/items']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/inventory/items']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
     } else {
       this.service.create(value).subscribe({
-        next: () => this.router.navigate(['/inventory/items']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/inventory/items']); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
     }

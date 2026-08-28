@@ -229,6 +229,7 @@ export class PurchaseReceiptFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => {
+          this.form.markAsPristine();
           this.toaster.success('::SuccessfullyUpdated');
           this.router.navigate(['/purchasing/receipts', this.entityId]);
         },
@@ -237,6 +238,7 @@ export class PurchaseReceiptFormComponent implements OnInit {
     } else {
       this.service.create(dto).subscribe({
         next: () => {
+          this.form.markAsPristine();
           this.toaster.success('::SuccessfullyCreated');
           this.router.navigate(['/purchasing/receipts']);
         },

@@ -435,13 +435,13 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/purchasing/invoices', this.entityId]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/invoices', this.entityId]); },
         error: () => {},
       });
       return;
     }
     this.service.create(dto).subscribe({
-      next: () => this.router.navigate(['/purchasing/invoices']),
+      next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/invoices']); },
       error: () => { /* handled by global error interceptor */ },
     });
   }

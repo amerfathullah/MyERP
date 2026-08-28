@@ -149,6 +149,7 @@ export class ShipmentFormComponent implements OnInit {
     };
     this.shipmentService.create(dto as any).subscribe({
       next: (result) => {
+        this.form.markAsPristine();
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/shipments', result.id]);
       },

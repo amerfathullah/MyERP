@@ -77,12 +77,12 @@ export class ProjectFormComponent implements OnInit {
     dto.projectTemplateId = dto.projectTemplateId || null;
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/projects', this.entityId]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/projects', this.entityId]); },
         error: () => {},
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => this.router.navigate(['/projects']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/projects']); },
         error: () => {},
       });
     }

@@ -149,7 +149,7 @@ export class MaterialRequestFormComponent implements OnInit {
       })),
     };
     this.service.create(dto).subscribe({
-      next: () => this.router.navigate(['/purchasing/material-requests']),
+      next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/material-requests']); },
       error: () => {},
     });
   }

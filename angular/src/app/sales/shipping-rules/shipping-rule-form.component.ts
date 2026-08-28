@@ -135,7 +135,7 @@ export class ShippingRuleFormComponent {
     this.saving = true;
     const dto = { ...this.form.value, countries: this.countries, isEnabled: true };
     this.service.create(dto as any).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/shipping-rules']); },
+      next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/shipping-rules']); },
       error: () => { this.saving = false; }
     });
   }

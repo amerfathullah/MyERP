@@ -392,12 +392,12 @@ export class PurchaseOrderFormComponent implements OnInit {
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
-        next: () => this.router.navigate(['/purchasing/orders', this.entityId]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/orders', this.entityId]); },
         error: () => { /* handled by global error interceptor */ },
       });
     } else {
       this.service.create(dto).subscribe({
-        next: () => this.router.navigate(['/purchasing/orders']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/orders']); },
         error: () => { /* handled by global error interceptor */ },
       });
     }

@@ -140,12 +140,12 @@ export class AssetFormComponent implements OnInit {
     const rawValue = this.form.getRawValue();
     if (this.isEdit() && this.assetId()) {
       this.assetService.update(this.assetId()!, rawValue as any).subscribe({
-        next: () => this.router.navigate(['/assets', this.assetId()]),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/assets', this.assetId()]); },
         error: () => { /* handled by global error interceptor */ },
       });
     } else {
       this.assetService.create(rawValue as any).subscribe({
-        next: () => this.router.navigate(['/assets']),
+        next: () => { this.form.markAsPristine(); this.router.navigate(['/assets']); },
         error: () => { /* handled by global error interceptor */ },
       });
     }

@@ -69,8 +69,7 @@ export class SalaryStructureFormComponent {
   save() {
     this.saving = true;
     this.salaryStructureService.create(this.form)
-      .subscribe({ next: () => this.router.navigate(['/hr/salary-structures']), error: () => { this.saving = false;
-  this.isDirty = false; } });
+      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/hr/salary-structures']); }, error: () => { this.saving = false; } });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

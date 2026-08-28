@@ -80,7 +80,7 @@ export class AutomationRuleFormComponent {
       isActive: value.isActive ?? true,
       priority: value.priority ?? 0,
     } as any).subscribe({
-      next: () => this.router.navigate(['/automation']),
+      next: () => { this.form.markAsPristine(); this.router.navigate(['/automation']); },
       error: () => {},
     });
   }

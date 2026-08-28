@@ -120,7 +120,7 @@ export class QuotationFormComponent implements OnInit {
       : this.quotationService.create(dto);
 
     request$.subscribe({
-      next: (result) => this.router.navigate(['/sales/quotations', result?.id ?? this.entityId]),
+      next: (result) => { this.form.markAsPristine(); this.router.navigate(['/sales/quotations', result?.id ?? this.entityId]); },
       error: () => { /* handled by global error interceptor */ },
     });
   }

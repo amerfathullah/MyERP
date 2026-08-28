@@ -156,6 +156,7 @@ export class JournalEntryFormComponent implements OnInit {
     const dto = this.form.getRawValue() as any;
     this.journalEntryService.create(dto).subscribe({
       next: () => {
+        this.form.markAsPristine();
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/accounting/journal-entries']);
       },
