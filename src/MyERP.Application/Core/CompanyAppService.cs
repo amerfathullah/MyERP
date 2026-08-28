@@ -354,60 +354,62 @@ public class CompanyAppService :
         // for each type under Settings > Document Series (discovered repeatedly during live
         // testing — see migration session notes 2026-08-28 rounds 60/62).
         var seriesRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentSeries, Guid>>();
-        var hasSeries = (await seriesRepo.GetQueryableAsync()).Any(s => s.CompanyId == companyId);
-        if (!hasSeries)
-        {
-            // (documentType, friendlyName, prefix) — documentType must exactly match the string
-            // literal each *AppService passes to GenerateAsync. Some document types have two
-            // distinct series by design (a user-facing one and an auxiliary one used only for
-            // system-generated documents of the same underlying kind, e.g. reversal/LCV/
-            // StockReconciliation journal entries vs. user-created ones) — both need their own row.
-            var seriesDefs = new (string DocumentType, string Name, string Prefix)[]
-            {
-                ("SalesOrder", "Sales Order Numbering", "SO-"),
-                ("SalesInvoice", "Sales Invoice Numbering", "SI-"),
-                ("Quotation", "Quotation Numbering", "QTN-"),
-                ("DeliveryNote", "Delivery Note Numbering", "DN-"),
-                ("PurchaseOrder", "Purchase Order Numbering", "PO-"),
-                ("PurchaseInvoice", "Purchase Invoice Numbering", "PI-"),
-                ("PurchaseReceipt", "Purchase Receipt Numbering", "PR-"),
-                ("RFQ", "Request for Quotation Numbering", "RFQ-"),
-                ("SQ", "Supplier Quotation Numbering", "SQ-"),
-                ("MR", "Material Request Numbering", "MR-"),
-                ("StockEntry", "Stock Entry Numbering", "SE-"),
-                ("SE", "System Stock Entry Numbering", "SEX-"),
-                ("QI", "Quality Inspection Numbering", "QI-"),
-                ("JournalEntry", "Journal Entry Numbering", "JV-"),
-                ("JE", "System Journal Entry Numbering", "JEX-"),
-                ("PaymentEntry", "Payment Entry Numbering", "PE-"),
-                ("PaymentOrder", "Payment Order Numbering", "PMO-"),
-                ("LCV", "Landed Cost Voucher Numbering", "LCV-"),
-                ("Asset", "Asset Numbering", "AST-"),
-                ("BOM", "Bill of Materials Numbering", "BOM-"),
-                ("WO", "Work Order Numbering", "WO-"),
-                ("PP", "Production Plan Numbering", "PP-"),
-                ("MPS", "Master Production Schedule Numbering", "MPS-"),
-                ("SF", "Sales Forecast Numbering", "SF-"),
-                ("SCO", "Subcontracting Order Numbering", "SCO-"),
-                ("SCR", "Subcontracting Receipt Numbering", "SCR-"),
-                ("SCR-RET", "Subcontracting Receipt Return Numbering", "SCRR-"),
-                ("Employee", "Employee Numbering", "EMP-"),
-                ("LOAN", "Employee Loan Numbering", "LN-"),
-                ("Payroll", "Payroll Numbering", "PAY-"),
-                ("Project", "Project Numbering", "PROJ-"),
-                ("Contract", "Contract Numbering", "CON-"),
-                ("SHIP", "Shipment Numbering", "SHIP-"),
-                ("IN", "Installation Note Numbering", "IN-"),
-                ("POS", "POS Invoice Numbering", "POS-"),
-                ("PRO", "Proforma Invoice Numbering", "PRO-"),
-            };
+        var existingSeriesTypes = (await seriesRepo.GetQueryableAsync())
+            .Where(s => s.CompanyId == companyId)
+            .Select(s => s.DocumentType)
+            .ToHashSet();
 
-            foreach (var (documentType, name, prefix) in seriesDefs)
-            {
-                await seriesRepo.InsertAsync(
-                    new DocumentSeries(GuidGenerator.Create(), companyId, name, documentType, prefix, CurrentTenant.Id),
-                    autoSave: true);
-            }
+        // (documentType, friendlyName, prefix) — documentType must exactly match the string
+        // literal each *AppService passes to GenerateAsync. Some document types have two
+        // distinct series by design (a user-facing one and an auxiliary one used only for
+        // system-generated documents of the same underlying kind, e.g. reversal/LCV/
+        // StockReconciliation journal entries vs. user-created ones) — both need their own row.
+        var seriesDefs = new (string DocumentType, string Name, string Prefix)[]
+        {
+            ("SalesOrder", "Sales Order Numbering", "SO-"),
+            ("SalesInvoice", "Sales Invoice Numbering", "SI-"),
+            ("Quotation", "Quotation Numbering", "QTN-"),
+            ("DeliveryNote", "Delivery Note Numbering", "DN-"),
+            ("PurchaseOrder", "Purchase Order Numbering", "PO-"),
+            ("PurchaseInvoice", "Purchase Invoice Numbering", "PI-"),
+            ("PurchaseReceipt", "Purchase Receipt Numbering", "PR-"),
+            ("RFQ", "Request for Quotation Numbering", "RFQ-"),
+            ("SQ", "Supplier Quotation Numbering", "SQ-"),
+            ("MR", "Material Request Numbering", "MR-"),
+            ("StockEntry", "Stock Entry Numbering", "SE-"),
+            ("SE", "System Stock Entry Numbering", "SEX-"),
+            ("QI", "Quality Inspection Numbering", "QI-"),
+            ("JournalEntry", "Journal Entry Numbering", "JV-"),
+            ("JE", "System Journal Entry Numbering", "JEX-"),
+            ("PaymentEntry", "Payment Entry Numbering", "PE-"),
+            ("PaymentOrder", "Payment Order Numbering", "PMO-"),
+            ("LCV", "Landed Cost Voucher Numbering", "LCV-"),
+            ("Asset", "Asset Numbering", "AST-"),
+            ("BOM", "Bill of Materials Numbering", "BOM-"),
+            ("WO", "Work Order Numbering", "WO-"),
+            ("PP", "Production Plan Numbering", "PP-"),
+            ("MPS", "Master Production Schedule Numbering", "MPS-"),
+            ("SF", "Sales Forecast Numbering", "SF-"),
+            ("SCO", "Subcontracting Order Numbering", "SCO-"),
+            ("SCR", "Subcontracting Receipt Numbering", "SCR-"),
+            ("SCR-RET", "Subcontracting Receipt Return Numbering", "SCRR-"),
+            ("Employee", "Employee Numbering", "EMP-"),
+            ("LOAN", "Employee Loan Numbering", "LN-"),
+            ("Payroll", "Payroll Numbering", "PAY-"),
+            ("Project", "Project Numbering", "PROJ-"),
+            ("Contract", "Contract Numbering", "CON-"),
+            ("SHIP", "Shipment Numbering", "SHIP-"),
+            ("IN", "Installation Note Numbering", "IN-"),
+            ("POS", "POS Invoice Numbering", "POS-"),
+            ("PRO", "Proforma Invoice Numbering", "PRO-"),
+        };
+
+        foreach (var (documentType, name, prefix) in seriesDefs)
+        {
+            if (existingSeriesTypes.Contains(documentType)) continue;
+            await seriesRepo.InsertAsync(
+                new DocumentSeries(GuidGenerator.Create(), companyId, name, documentType, prefix, CurrentTenant.Id),
+                autoSave: true);
         }
     }
 
