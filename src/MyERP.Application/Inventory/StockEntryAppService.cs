@@ -335,6 +335,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         entry.Cancel();
 
+        // Keep WorkOrder.ProducedQuantity in sync when a Manufacture entry is cancelled — it's
+        // the only signal CancelWorkOrderAsync's own stock-reversal block has for "how much of
+        // this WO's production is still unreversed." Without this, cancelling this Stock Entry
+        // (which already reverses SLE/Bin/GL below) then cancelling the WO would reverse the
+        // same units a second time via that block (round-76 fix).
+        if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Manufacture)
+        {
+            var workOrderRepoForProduction = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var producingWorkOrder = await workOrderRepoForProduction.FindAsync(entry.WorkOrderId.Value);
+            if (producingWorkOrder != null)
+            {
+                producingWorkOrder.ProducedQuantity = Math.Max(0, producingWorkOrder.ProducedQuantity - entry.FgCompletedQty);
+                await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
+            }
+        }
+
         // Reverse the Subcontracting Order's supplied-item TransferredQty (mirrors PostAsync).
         if (entry.EntryType == StockEntryType.SendToSubcontractor && entry.SubcontractingOrderId.HasValue)
         {
