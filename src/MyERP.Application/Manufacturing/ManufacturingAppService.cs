@@ -419,6 +419,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
         wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);
 
+        // Validate warehouses belong to the WO's company and aren't group warehouses
+        var warehouseRepoForValidation = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        await woManager.ValidateWarehouseCompanyAsync(wo, warehouseRepoForValidation);
+
         // Populate required items from BOM
         var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
         foreach (var bi in bom.Items)
