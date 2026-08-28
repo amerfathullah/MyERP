@@ -27,7 +27,19 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal TotalMaterialCost { get; set; }
     public decimal OperatingCost { get; set; }
-    public decimal TotalCost => TotalMaterialCost + OperatingCost;
+
+    /// <summary>
+    /// Portion of TotalMaterialCost allocated away to scrap/by-product secondary items —
+    /// that raw-material spend produces the secondary item's own stock value, not the
+    /// finished good's, so it must not also count toward the FG's cost (per ERPNext
+    /// bom/services/costing.py: total_cost = operating_cost + raw_material_cost -
+    /// secondary_items_cost). Mirrors the per-item allocation RecalculateCost() applies.
+    /// </summary>
+    public decimal SecondaryItemsCost => SecondaryItems
+        .Where(s => s.CostAllocationPercentage > 0)
+        .Sum(s => TotalMaterialCost * (s.CostAllocationPercentage / 100m));
+
+    public decimal TotalCost => TotalMaterialCost + OperatingCost - SecondaryItemsCost;
 
     /// <summary>Whether this BOM defines routing operations.</summary>
     public bool WithOperations { get; set; }

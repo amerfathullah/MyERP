@@ -8,7 +8,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto } from '../../proxy/manufacturing/models';
+import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto, ProductionCostBreakdownDto } from '../../proxy/manufacturing/models';
 import { ItemService } from '../../proxy/inventory/item.service';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -286,6 +286,32 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           </div>
         }
 
+        @if (costBreakdown(); as cb) {
+          <div class="card mb-3">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+              <span><i class="fa fa-calculator me-2"></i>{{ '::ProductionCostBreakdown' | abpLocalization }}</span>
+              <span class="badge" [class.bg-danger]="(cb.costVariancePercent ?? 0) > 0" [class.bg-success]="(cb.costVariancePercent ?? 0) <= 0">
+                {{ '::CostVariance' | abpLocalization }}: {{ cb.costVariancePercent ?? 0 | number:'1.1-1' }}%
+              </span>
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <tbody>
+                  <tr><td>{{ '::TotalRmCost' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.totalRmCost | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ '::ProcessLossValue' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.processLossValue | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ '::AdditionalCosts' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.additionalCosts | number:'1.2-2' }}</td></tr>
+                  <tr class="table-light fw-bold"><td>{{ '::TotalProductionCost' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.totalProductionCost | number:'1.2-2' }}</td></tr>
+                  <tr><td>{{ '::FgUnitCost' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.fgUnitCost | number:'1.2-4' }}</td></tr>
+                  <tr><td>{{ '::BomStandardCost' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.bomStandardCost | number:'1.2-4' }}</td></tr>
+                  <tr [class.text-danger]="(cb.costVariance ?? 0) > 0" [class.text-success]="(cb.costVariance ?? 0) <= 0">
+                    <td>{{ '::CostVariance' | abpLocalization }}</td><td class="text-end font-monospace">{{ cb.costVariance | number:'1.2-4' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
         @if (jobCards().length > 0) {
           <div class="card mb-3">
             <div class="card-header fw-bold d-flex justify-content-between align-items-center">
@@ -429,6 +455,7 @@ export class WorkOrderDetailComponent implements OnInit {
   isCreatingJobCards = signal(false);
   qiRequired = signal(false);
   qiStatus = signal<string>('');
+  costBreakdown = signal<ProductionCostBreakdownDto | null>(null);
 
   hasShortage(): boolean {
     return this.materialAvailability().some(m => !m.hasSufficientStock);
@@ -460,6 +487,13 @@ export class WorkOrderDetailComponent implements OnInit {
           // Check QI requirement for FG item (non-blocking advisory)
           if (w.itemId && status >= 3) {
             this.loadQiStatus(w.id!, w.itemId);
+          }
+          // Actual-vs-standard cost breakdown — only meaningful once some FG has been produced
+          if ((w.producedQuantity ?? 0) > 0) {
+            this.service.getProductionCostBreakdown(w.id!).subscribe({
+              next: cb => this.costBreakdown.set(cb),
+              error: () => {},
+            });
           }
         },
         error: () => this.isLoading.set(false),

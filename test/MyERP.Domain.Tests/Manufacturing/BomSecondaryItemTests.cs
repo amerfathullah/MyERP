@@ -230,6 +230,30 @@ public class BomSecondaryItemTests
         bom.TotalMaterialCost.ShouldBe(600m);
         // SI rate = 600 × 20% / 10 = 12
         si.Rate.ShouldBe(12m);
+
+        // Per ERPNext bom/services/costing.py: total_cost = raw_material_cost +
+        // operating_cost - secondary_items_cost. The 20% (=120) given to the secondary
+        // item must NOT also count toward the finished good's cost (round-97 fix).
+        bom.SecondaryItemsCost.ShouldBe(120m);
+        bom.TotalCost.ShouldBe(480m); // 600 - 120, no operations here
+    }
+
+    [Fact]
+    public void BOM_TotalCost_SubtractsSecondaryItemsCost_IncludingOperatingCost()
+    {
+        var bom = CreateBom();
+        bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "Steel", 10, 50)); // 500
+        bom.Operations.Add(new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 1, 60m) { OperatingCost = 150m });
+
+        var scrap = CreateSecondaryItem(bom.Id, costAllocation: 10m, qty: 5); // 500 × 10% = 50
+        bom.AddSecondaryItem(scrap);
+
+        bom.RecalculateCost();
+
+        bom.TotalMaterialCost.ShouldBe(500m);
+        bom.OperatingCost.ShouldBe(150m);
+        bom.SecondaryItemsCost.ShouldBe(50m);
+        bom.TotalCost.ShouldBe(600m); // 500 + 150 - 50, not the pre-fix 650
     }
 
     [Fact]
