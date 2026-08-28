@@ -60,6 +60,14 @@ public static class MyERPPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class PosProfiles
+    {
+        public const string Default = GroupName + ".PosProfiles";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
+
     public static class TaxCategories
     {
         public const string Default = GroupName + ".TaxCategories";

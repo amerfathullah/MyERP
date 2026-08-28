@@ -46,6 +46,11 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         warehousesPermission.AddChild(MyERPPermissions.Warehouses.Edit, L("Permission:Warehouses.Edit"));
         warehousesPermission.AddChild(MyERPPermissions.Warehouses.Delete, L("Permission:Warehouses.Delete"));
 
+        var posProfilesPermission = myGroup.AddPermission(MyERPPermissions.PosProfiles.Default, L("Permission:PosProfiles"));
+        posProfilesPermission.AddChild(MyERPPermissions.PosProfiles.Create, L("Permission:PosProfiles.Create"));
+        posProfilesPermission.AddChild(MyERPPermissions.PosProfiles.Edit, L("Permission:PosProfiles.Edit"));
+        posProfilesPermission.AddChild(MyERPPermissions.PosProfiles.Delete, L("Permission:PosProfiles.Delete"));
+
         var taxCategoriesPermission = myGroup.AddPermission(MyERPPermissions.TaxCategories.Default, L("Permission:TaxCategories"));
         taxCategoriesPermission.AddChild(MyERPPermissions.TaxCategories.Create, L("Permission:TaxCategories.Create"));
         taxCategoriesPermission.AddChild(MyERPPermissions.TaxCategories.Edit, L("Permission:TaxCategories.Edit"));

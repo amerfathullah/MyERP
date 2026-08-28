@@ -119,6 +119,37 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         await SeedPeggedCurrenciesAsync();
         await SeedFinancialReportTemplatesAsync();
         await SeedEmailTemplatesAsync();
+        await GrantAdminPosProfilePermissionsAsync();
+    }
+
+    /// <summary>
+    /// PosProfileAppService had no [Authorize] or PolicyName wiring at all until this fix — any
+    /// authenticated user could create/edit/enable/disable POS profiles (which control GL
+    /// accounts, tax templates, and payment methods for POS transactions). ABP does not
+    /// retroactively grant newly-added permissions to existing roles, so the admin role needs
+    /// this backfilled explicitly or POS Profile management becomes inaccessible to everyone,
+    /// including admin, the moment the new permission starts being enforced.
+    /// </summary>
+    private async Task GrantAdminPosProfilePermissionsAsync()
+    {
+        var permissionManager = _serviceProvider.GetRequiredService<Volo.Abp.PermissionManagement.IPermissionManager>();
+        // Domain can't reference MyERP.Application.Contracts (MyERPPermissions lives there) —
+        // these string literals must stay in sync with MyERPPermissions.PosProfiles.*.
+        var permissions = new[]
+        {
+            "MyERP.PosProfiles",
+            "MyERP.PosProfiles.Create",
+            "MyERP.PosProfiles.Edit",
+            "MyERP.PosProfiles.Delete",
+        };
+        foreach (var permission in permissions)
+        {
+            var grant = await permissionManager.GetAsync(permission, "R", "admin");
+            if (!grant.IsGranted)
+            {
+                await permissionManager.SetAsync(permission, "R", "admin", true);
+            }
+        }
     }
 
     private async Task SeedItemGroupsAsync()

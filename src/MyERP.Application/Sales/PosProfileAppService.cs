@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -24,6 +26,11 @@ public class PosProfileAppService : CrudAppService<
         : base(repository)
     {
         _posProfileRepository = repository;
+        GetPolicyName = MyERPPermissions.PosProfiles.Default;
+        GetListPolicyName = MyERPPermissions.PosProfiles.Default;
+        CreatePolicyName = MyERPPermissions.PosProfiles.Create;
+        UpdatePolicyName = MyERPPermissions.PosProfiles.Edit;
+        DeletePolicyName = MyERPPermissions.PosProfiles.Delete;
     }
 
     protected override async Task<IQueryable<PosProfile>> CreateFilteredQueryAsync(GetPosProfileListDto input)
@@ -151,6 +158,7 @@ public class PosProfileAppService : CrudAppService<
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
     }
 
+    [Authorize(MyERPPermissions.PosProfiles.Edit)]
     public async Task<PosProfileDto> EnableAsync(Guid id)
     {
         var entity = await _posProfileRepository.GetAsync(id);
@@ -159,6 +167,7 @@ public class PosProfileAppService : CrudAppService<
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
     }
 
+    [Authorize(MyERPPermissions.PosProfiles.Edit)]
     public async Task<PosProfileDto> DisableAsync(Guid id)
     {
         var entity = await _posProfileRepository.GetAsync(id);
