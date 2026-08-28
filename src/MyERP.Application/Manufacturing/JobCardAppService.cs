@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Core.DomainServices;
+using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
@@ -186,10 +188,29 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
             wo.RecordProduction(delta, overproductionPercentage: overproductionPct);
 
-            // Create actual stock movements (RM consumption + FG receipt)
-            // Per ERPNext: Job Card completion triggers Manufacture Stock Entry
+            // Build a real Manufacture Stock Entry instead of moving stock directly — mirrors
+            // the round-58f fix already applied to ManufacturingAppService.RecordProductionAsync.
+            // Moving stock via valuationService/binService straight through here (as this method
+            // used to) creates SLE/Bin movement with NO backing Stock Entry document and NO GL
+            // posting at all, silently skipping both the audit trail and the accounting impact
+            // for every unit produced through Job Card completion (round-78 fix).
+            var postingOrchestrator = LazyServiceProvider
+                .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+            await postingOrchestrator.ValidatePostingPeriodAsync(wo.CompanyId, DateTime.UtcNow, "WorkOrder");
+
             var valuationService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
             var binService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.BinService>();
+            var numberGen = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+
+            var entry = new Inventory.Entities.StockEntry(
+                GuidGenerator.Create(), wo.CompanyId, StockEntryType.Manufacture,
+                DateTime.UtcNow.Date, CurrentTenant.Id)
+            {
+                WorkOrderId = wo.Id,
+                EntryNumber = await numberGen.GenerateAsync("SE", wo.CompanyId),
+                FgCompletedQty = delta,
+                Notes = $"Production recorded — WO {wo.WorkOrderNumber} (Job Card {jc.Id} completion)",
+            };
 
             decimal totalRmCost = 0;
             var productionRatio = wo.Quantity > 0 ? delta / wo.Quantity : 0m;
@@ -205,14 +226,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                     var rmRate = rmBalance.ValuationRate;
                     totalRmCost += issueQty * rmRate;
 
-                    await valuationService.CreateLedgerEntryAsync(
-                        wo.CompanyId, item.ItemId, warehouseId.Value,
-                        DateTime.UtcNow, -issueQty, rmRate,
-                        voucherType: "WorkOrder", voucherId: wo.Id,
-                        tenantId: wo.TenantId);
-
-                    await binService.ApplyStockMovementAsync(
-                        item.ItemId, warehouseId.Value, -issueQty, -(issueQty * rmRate), wo.TenantId);
+                    entry.AddItem(
+                        itemId: item.ItemId, quantity: issueQty,
+                        sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
+                        valuationRate: rmRate);
 
                     await binService.UpdateReservedQtyForProductionAsync(
                         item.ItemId, warehouseId.Value, -issueQty, wo.TenantId);
@@ -220,27 +237,53 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             }
 
             // Receive finished goods at absorbed cost
-            if (wo.FgWarehouseId.HasValue)
+            if (wo.FgWarehouseId.HasValue && delta > 0)
             {
-                var fgRate = delta > 0 ? totalRmCost / delta : 0;
+                var fgRate = totalRmCost / delta;
 
-                await valuationService.CreateLedgerEntryAsync(
-                    wo.CompanyId, wo.ItemId, wo.FgWarehouseId.Value,
-                    DateTime.UtcNow, delta, fgRate,
-                    voucherType: "WorkOrder", voucherId: wo.Id,
-                    tenantId: wo.TenantId);
-
-                await binService.ApplyStockMovementAsync(
-                    wo.ItemId, wo.FgWarehouseId.Value, delta, totalRmCost, wo.TenantId);
+                entry.AddItem(
+                    itemId: wo.ItemId, quantity: delta,
+                    sourceWarehouseId: null, targetWarehouseId: wo.FgWarehouseId.Value,
+                    valuationRate: fgRate);
 
                 await binService.UpdatePlannedQtyAsync(
                     wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
             }
 
+            // Submit + post the entry: StockPostingService creates the SLE/Bin movement,
+            // DocumentPostingOrchestrator posts the GL Journal Entry, then the entry itself is
+            // persisted so this production event is auditable via the normal Stock Entry list.
+            entry.Submit();
+            entry.Post();
+            var stockPostingService = LazyServiceProvider
+                .LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
+            await stockPostingService.PostStockEntryAsync(entry);
+            await FlushPendingChangesAsync();
+            await postingOrchestrator.PostStockEntryAsync(entry);
+
+            var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+            await seRepo.InsertAsync(entry, autoSave: true);
+
             await woRepo.UpdateAsync(wo, autoSave: true);
         }
 
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    /// <summary>
+    /// Flushes pending changes (e.g. StockPostingService's just-inserted SLEs) to the DB without
+    /// completing/committing the ambient UnitOfWork — needed before
+    /// DocumentPostingOrchestrator.PostStockEntryAsync's own SLE query, which otherwise sees zero
+    /// rows and silently skips building the GL Journal Entry. Same helper as
+    /// ManufacturingAppService.FlushPendingChangesAsync.
+    /// </summary>
+    private async Task FlushPendingChangesAsync()
+    {
+        var uowManager = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+        if (uowManager.Current != null)
+        {
+            await uowManager.Current.SaveChangesAsync();
+        }
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]

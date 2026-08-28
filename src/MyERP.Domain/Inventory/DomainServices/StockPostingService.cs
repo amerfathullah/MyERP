@@ -85,6 +85,13 @@ public class StockPostingService : DomainService
             // FIFO-aware path (e.g. a Sales/Delivery Note) to compute its balance from an
             // empty queue and throw InsufficientStock despite real stock being available
             // (round-77 fix — found while verifying round-76's DN cancel fix).
+            //
+            // Use the entry's StockValue field for the Bin update, not StockValueDifference —
+            // the 9-arg StockLedgerEntry constructor CreateLedgerEntryAsync calls only sets
+            // StockValue (= quantityChange * valuationRate); StockValueDifference is set only by
+            // the OTHER constructor overload (with postingTime/voucherType params) and stays 0
+            // here, which silently zeroed out every stock-in Bin value until caught live-testing
+            // round 78's JobCard fix (GL showed the correct 100, Bin.StockValue showed 0).
             if (item.SourceWarehouseId.HasValue)
             {
                 var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.SourceWarehouseId.Value);
@@ -96,7 +103,7 @@ public class StockPostingService : DomainService
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.SourceWarehouseId.Value,
-                    -item.Quantity, sle.StockValueDifference, stockEntry.TenantId);
+                    -item.Quantity, sle.StockValue, stockEntry.TenantId);
             }
 
             // Target warehouse: stock-in (positive qty) — same reasoning as above.
@@ -111,7 +118,7 @@ public class StockPostingService : DomainService
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.TargetWarehouseId.Value,
-                    item.Quantity, sle.StockValueDifference, stockEntry.TenantId);
+                    item.Quantity, sle.StockValue, stockEntry.TenantId);
             }
         }
     }
