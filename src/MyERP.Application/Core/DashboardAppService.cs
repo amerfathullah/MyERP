@@ -133,7 +133,7 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         if (input.ItemIds == null || input.ItemIds.Count == 0)
             throw new Volo.Abp.BusinessException("MyERP:01007");
 
-        var items = await _itemRepo.GetListAsync(i => input.ItemIds.Contains(i.Id) && i.IsActive);
+        var items = await _itemRepo.GetListAsync(i => input.ItemIds.Contains(i.Id) && i.IsActive && i.CompanyId == input.CompanyId);
         if (!items.Any())
             throw new Volo.Abp.BusinessException("MyERP:01007");
 
@@ -445,11 +445,15 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Select(pi => pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance)
             .ToList();
 
-        // Pending approvals
+        // Pending approvals — scoped via the triggering ApprovalRule's CompanyId
+        // (ApprovalRequest itself has no CompanyId; DocumentType/DocumentId is polymorphic).
         var approvalRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ApprovalRequest, Guid>>();
+        var approvalRuleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Workflow.Entities.ApprovalRule, Guid>>();
         var approvalQuery = await approvalRepo.GetQueryableAsync();
+        var ruleQuery = await approvalRuleRepo.GetQueryableAsync();
+        var companyRuleIds = ruleQuery.Where(r => r.CompanyId == companyId).Select(r => r.Id).ToHashSet();
         var pendingApprovals = approvalQuery
-            .Count(ar => ar.Status == MyERP.Workflow.ApprovalStatus.Pending);
+            .Count(ar => ar.Status == MyERP.Workflow.ApprovalStatus.Pending && companyRuleIds.Contains(ar.ApprovalRuleId));
 
         // Overdue purchase orders (active POs past expected delivery date)
         var poQuery = await _purchaseOrderRepo.GetQueryableAsync();
