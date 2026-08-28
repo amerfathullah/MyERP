@@ -399,6 +399,16 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                 creditNote.Submit();
                 await siRepo.InsertAsync(creditNote, autoSave: true);
+
+                // Submit() is a status-only transition (Draft -> Submitted); the actual GL
+                // journal entry only gets built by Post(), which this auto-generated credit
+                // note never reached — it sat in "Submitted" with the stock reversed but the
+                // customer's AR/COGS never reversed, and no error surfaced since nothing threw.
+                creditNote.Post();
+                var glService = LazyServiceProvider
+                    .LazyGetRequiredService<Accounting.DomainServices.GlRepostService>();
+                await glService.RebuildSalesInvoiceGlAsync(creditNote);
+                await siRepo.UpdateAsync(creditNote, autoSave: true);
             }
             catch (Exception ex)
             {
