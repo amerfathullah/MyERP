@@ -155,6 +155,7 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         var ts = await _repository.GetAsync(id, includeDetails: true);
         ts.Submit();
         await _repository.UpdateAsync(ts);
+        await RollupToProjectsAsync(ts, reverse: false);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -170,8 +171,13 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
     public async Task<TimesheetDto> CancelAsync(Guid id)
     {
         var ts = await _repository.GetAsync(id, includeDetails: true);
+        var wasSubmitted = ts.Status == TimesheetStatus.Submitted;
         ts.Cancel();
         await _repository.UpdateAsync(ts);
+        if (wasSubmitted)
+        {
+            await RollupToProjectsAsync(ts, reverse: true);
+        }
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -181,6 +187,34 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
             $"Timesheet for {ts.EmployeeName} ({ts.StartDate:yyyy-MM-dd} to {ts.EndDate:yyyy-MM-dd}) cancelled", CurrentTenant.Id));
 
         return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
+    }
+
+    /// <summary>
+    /// Rolls each timesheet detail's costing/billable-billing amount up onto its linked Project.
+    /// Per ERPNext project.py::update_costing() — MyERP had no equivalent anywhere, so
+    /// Project.TotalCostingAmount/TotalBillingAmount stayed at 0 forever and the Project Detail
+    /// page's billing/margin KPI cards never rendered real data. Grouped by ProjectId since a
+    /// single timesheet's detail rows can span multiple projects.
+    /// </summary>
+    private async Task RollupToProjectsAsync(Timesheet ts, bool reverse)
+    {
+        var projectGroups = ts.Details.Where(d => d.ProjectId.HasValue).GroupBy(d => d.ProjectId!.Value);
+        if (!projectGroups.Any()) return;
+
+        var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+        foreach (var group in projectGroups)
+        {
+            var project = await projectRepo.FindAsync(group.Key);
+            if (project == null) continue;
+
+            var costing = group.Sum(d => d.CostingAmount);
+            var billing = group.Where(d => d.IsBillable).Sum(d => d.BillingAmount);
+            var sign = reverse ? -1 : 1;
+
+            project.TotalCostingAmount += sign * costing;
+            project.TotalBillingAmount += sign * billing;
+            await projectRepo.UpdateAsync(project);
+        }
     }
 
     /// <summary>
@@ -236,6 +270,22 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         foreach (var ts in timesheets.Where(t => t.Details.Any(d => d.SalesInvoiceId == invoice.Id)))
         {
             await _repository.UpdateAsync(ts);
+        }
+
+        // Roll the newly-billed amount up onto each linked Project's TotalBilledAmount — same gap
+        // as the costing/billing rollup on Submit (see RollupToProjectsAsync), just for the
+        // "actually invoiced" figure instead of the "logged" one.
+        var billedByProject = unbilledDetails.Where(d => d.ProjectId.HasValue).GroupBy(d => d.ProjectId!.Value);
+        if (billedByProject.Any())
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            foreach (var group in billedByProject)
+            {
+                var project = await projectRepo.FindAsync(group.Key);
+                if (project == null) continue;
+                project.TotalBilledAmount += group.Sum(d => d.BillingAmount);
+                await projectRepo.UpdateAsync(project);
+            }
         }
 
         return new TimesheetBillingResultDto
