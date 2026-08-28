@@ -28,6 +28,7 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
     private readonly IRepository<Quotation, Guid> _quotationRepository;
     private readonly IRepository<DeliveryNote, Guid> _dnRepository;
+    private readonly IRepository<SalesOrder, Guid> _soRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
@@ -38,6 +39,7 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
         IRepository<PurchaseOrder, Guid> poRepository,
         IRepository<Quotation, Guid> quotationRepository,
         IRepository<DeliveryNote, Guid> dnRepository,
+        IRepository<SalesOrder, Guid> soRepository,
         IRepository<Customer, Guid> customerRepository,
         IRepository<Supplier, Guid> supplierRepository,
         IRepository<Company, Guid> companyRepository)
@@ -47,6 +49,7 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
         _poRepository = poRepository;
         _quotationRepository = quotationRepository;
         _dnRepository = dnRepository;
+        _soRepository = soRepository;
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
         _companyRepository = companyRepository;
@@ -215,6 +218,47 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
             PdfBytes = pdfBytes,
             FileName = $"{dn.DeliveryNumber}.pdf",
             DocumentType = "Delivery Note",
+        };
+    }
+
+    /// <summary>
+    /// Generate PDF for a Sales Order.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Default)]
+    public async Task<DocumentPrintResult> GetSalesOrderPrintAsync(Guid orderId)
+    {
+        var so = await _soRepository.GetAsync(orderId);
+        var customer = await _customerRepository.GetAsync(so.CustomerId);
+        var company = await _companyRepository.GetAsync(so.CompanyId);
+
+        var data = new SalesOrderPdfData
+        {
+            CompanyName = company.Name,
+            CompanyAddress = company.Address,
+            OrderNumber = so.OrderNumber,
+            OrderDate = so.OrderDate,
+            DeliveryDate = so.DeliveryDate,
+            CustomerName = customer.Name,
+            CustomerAddress = customer.Address,
+            Currency = so.CurrencyCode,
+            NetTotal = so.NetTotal,
+            TaxAmount = so.TaxAmount,
+            GrandTotal = so.GrandTotal,
+            Terms = so.Terms,
+            Items = so.Items.Select(i => new PdfLineItem
+            {
+                Description = i.Description,
+                Quantity = i.Quantity,
+                Rate = i.UnitPrice,
+            }).ToList(),
+        };
+
+        var pdfBytes = await _pdfService.GenerateSalesOrderPdfAsync(data);
+        return new DocumentPrintResult
+        {
+            PdfBytes = pdfBytes,
+            FileName = $"{so.OrderNumber}.pdf",
+            DocumentType = "Sales Order",
         };
     }
 }

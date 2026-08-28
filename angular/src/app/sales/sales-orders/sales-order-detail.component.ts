@@ -22,6 +22,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print-layout/so-print-layout.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
 import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
 
 @Component({
@@ -44,6 +46,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private stockBalanceService = inject(StockBalanceService);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
+  private documentPrintService = inject(DocumentPrintService);
   private companyService = inject(CompanyService);
   private salesOrderService = inject(SalesOrderService);
   private l = inject(LocalizationService);
@@ -230,6 +233,18 @@ export class SalesOrderDetailComponent implements OnInit {
 
   printOrder(): void {
     window.print();
+  }
+
+  downloadPdf(): void {
+    if (!this.order?.id) return;
+    this.documentPrintService.getSalesOrderPrint(this.order.id).subscribe({
+      next: (result) => {
+        if (!downloadPdfFromResult(result, 'sales-order.pdf')) {
+          this.toaster.error('::OperationFailed');
+        }
+      },
+      error: () => this.toaster.error('::OperationFailed'),
+    });
   }
 
   private loadCompanyData(companyId: string | undefined): void {

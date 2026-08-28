@@ -30,6 +30,7 @@ import { InvoicePrintLayoutComponent } from '../../shared/components/invoice-pri
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
 
 @Component({
   selector: 'app-sales-invoice-detail',
@@ -263,22 +264,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
     this.documentPrintService.getSalesInvoicePrint(this.invoice!.id!)
       .subscribe({
         next: (result) => {
-          if (!result.pdfBytes) {
+          if (!downloadPdfFromResult(result, 'invoice.pdf')) {
             this.toaster.error('::OperationFailed');
-            return;
           }
-          const binary = atob(result.pdfBytes);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: 'application/pdf' });
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = result.fileName || 'invoice.pdf';
-          link.click();
-          window.URL.revokeObjectURL(url);
         },
         error: () => this.toaster.error('::OperationFailed'),
       });

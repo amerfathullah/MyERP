@@ -14,6 +14,8 @@ import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guar
 import { PurchaseOrderPrintLayoutComponent } from '../../shared/components/po-print-layout/po-print-layout.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { PartyPerformanceService } from '../../proxy/core/party-performance.service';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
@@ -39,6 +41,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   private documentEmailService = inject(DocumentEmailService);
+  private documentPrintService = inject(DocumentPrintService);
   private supplierProxyService = inject(SupplierService);
   private partyPerformanceService = inject(PartyPerformanceService);
 
@@ -135,6 +138,18 @@ export class PurchaseOrderDetailComponent implements OnInit {
 
   printOrder(): void {
     window.print();
+  }
+
+  downloadPdf(): void {
+    if (!this.order?.id) return;
+    this.documentPrintService.getPurchaseOrderPrint(this.order.id).subscribe({
+      next: (result) => {
+        if (!downloadPdfFromResult(result, 'purchase-order.pdf')) {
+          this.toaster.error('::OperationFailed');
+        }
+      },
+      error: () => this.toaster.error('::OperationFailed'),
+    });
   }
 
   private loadReceiptsAndPayments(orderId: string): void {

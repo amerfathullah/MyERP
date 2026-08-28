@@ -20,6 +20,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
 import type { DeliveryNoteDto } from '../../proxy/sales/models';
 
 @Component({
@@ -40,6 +42,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private router = inject(Router);
   private companyService = inject(CompanyService);
   private documentEmailService = inject(DocumentEmailService);
+  private documentPrintService = inject(DocumentPrintService);
 
   deliveryNote: DeliveryNoteDto | null = null;
   itemColumns = ['description', 'quantity', 'uom'];
@@ -87,6 +90,18 @@ export class DeliveryNoteDetailComponent implements OnInit {
 
   printDeliveryNote(): void {
     window.print();
+  }
+
+  downloadPdf(): void {
+    if (!this.deliveryNote?.id) return;
+    this.documentPrintService.getDeliveryNotePrint(this.deliveryNote.id).subscribe({
+      next: (result) => {
+        if (!downloadPdfFromResult(result, 'delivery-note.pdf')) {
+          this.toaster.error('::OperationFailed');
+        }
+      },
+      error: () => this.toaster.error('::OperationFailed'),
+    });
   }
 
   private loadCompanyData(companyId: string | undefined): void {

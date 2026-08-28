@@ -22,6 +22,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { QuotationPrintLayoutComponent } from '../../shared/components/quotation-print-layout/quotation-print-layout.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
 
 @Component({
   selector: 'app-quotation-detail',
@@ -43,6 +45,7 @@ export class QuotationDetailComponent implements OnInit {
   private l = inject(LocalizationService);
   private emailService = inject(DocumentEmailService);
   private competitorService = inject(CompetitorService);
+  private documentPrintService = inject(DocumentPrintService);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
@@ -179,6 +182,18 @@ export class QuotationDetailComponent implements OnInit {
 
   print(): void {
     window.print();
+  }
+
+  downloadPdf(): void {
+    if (!this.quotation?.id) return;
+    this.documentPrintService.getQuotationPrint(this.quotation.id).subscribe({
+      next: (result) => {
+        if (!downloadPdfFromResult(result, 'quotation.pdf')) {
+          this.toaster.error('::OperationFailed');
+        }
+      },
+      error: () => this.toaster.error('::OperationFailed'),
+    });
   }
 
   openSendEmailDialog(): void {

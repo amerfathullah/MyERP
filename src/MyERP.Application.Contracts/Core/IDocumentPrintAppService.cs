@@ -10,4 +10,5 @@ public interface IDocumentPrintAppService : IApplicationService
     Task<DocumentPrintResult> GetPurchaseOrderPrintAsync(Guid orderId);
     Task<DocumentPrintResult> GetQuotationPrintAsync(Guid quotationId);
     Task<DocumentPrintResult> GetDeliveryNotePrintAsync(Guid deliveryNoteId);
+    Task<DocumentPrintResult> GetSalesOrderPrintAsync(Guid orderId);
 }
