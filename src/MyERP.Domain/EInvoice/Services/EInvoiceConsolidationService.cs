@@ -21,15 +21,18 @@ public class EInvoiceConsolidationService : DomainService
 {
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<EInvoiceConsolidation, Guid> _consolidationRepository;
+    private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IGuidGenerator _guidGenerator;
 
     public EInvoiceConsolidationService(
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<EInvoiceConsolidation, Guid> consolidationRepository,
+        IRepository<Customer, Guid> customerRepository,
         IGuidGenerator guidGenerator)
     {
         _salesInvoiceRepository = salesInvoiceRepository;
         _consolidationRepository = consolidationRepository;
+        _customerRepository = customerRepository;
         _guidGenerator = guidGenerator;
     }
 
@@ -48,6 +51,25 @@ public class EInvoiceConsolidationService : DomainService
 
         if (invoices.Count == 0)
             throw new BusinessException("EInvoice:003", "No valid Sales Invoices found.");
+
+        // B2C consolidation only — reject any invoice whose buyer has a real registered TIN.
+        // LHDN requires B2B invoices to carry the actual buyer TIN on their own individual
+        // e-Invoice; merging one into an anonymous consolidated document would lose that TIN
+        // entirely. Checked here too (not just at the candidate-list level) since this method
+        // is the one that actually performs the merge and shouldn't trust its caller.
+        var customerIds = invoices.Select(i => i.CustomerId).Distinct().ToList();
+        var customerTins = (await _customerRepository.GetQueryableAsync())
+            .Where(c => customerIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.Tin);
+        var b2bInvoices = invoices
+            .Where(i => !string.IsNullOrWhiteSpace(i.BuyerTin)
+                     || (customerTins.TryGetValue(i.CustomerId, out var tin) && !string.IsNullOrWhiteSpace(tin)))
+            .ToList();
+        if (b2bInvoices.Count > 0)
+        {
+            throw new BusinessException("EInvoice:005", "Cannot consolidate B2B invoices — invoices with a registered buyer TIN must be submitted individually.")
+                .WithData("invoiceNumbers", string.Join(", ", b2bInvoices.Select(i => i.InvoiceNumber)));
+        }
 
         // Check if any already consolidated
         var existingConsolidations = await _consolidationRepository.GetListAsync(c => invoiceIds.Contains(c.OriginalInvoiceId));

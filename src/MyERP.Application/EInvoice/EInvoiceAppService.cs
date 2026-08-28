@@ -904,9 +904,15 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var maxAmount = input.MaxAmount ?? 10000m;
         salesQuery = salesQuery.Where(x => x.GrandTotal <= maxAmount);
 
+        // B2C consolidation only: LHDN requires B2B invoices (real buyer TIN) to be submitted
+        // individually so the buyer's own TIN is on record — never merged into an anonymous
+        // consolidated document. "Has a real TIN" mirrors the same resolution
+        // EInvoiceAppService.BuildFromSalesInvoiceAsync uses: invoice.BuyerTin first, else
+        // customer.Tin; only the generic consumer fallback ("no TIN on either") is eligible.
         var query = from si in salesQuery
                     join c in custQuery on si.CustomerId equals c.Id into custJoin
                     from c in custJoin.DefaultIfEmpty()
+                    where (si.BuyerTin == null || si.BuyerTin == "") && (c == null || c.Tin == null || c.Tin == "")
                     orderby si.IssueDate descending, si.InvoiceNumber descending
                     select new ConsolidationCandidateDto
                     {

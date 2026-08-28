@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.EInvoice.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
@@ -25,6 +26,7 @@ public class LhdnConsolidationReminderJob : AsyncBackgroundJob<LhdnConsolidation
     private readonly IRepository<EInvoiceConsolidation, Guid> _consolidationRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<IdentityUser, Guid> _userRepository;
+    private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IEmailSender _emailSender;
     private readonly ILogger<LhdnConsolidationReminderJob> _logger;
 
@@ -33,6 +35,7 @@ public class LhdnConsolidationReminderJob : AsyncBackgroundJob<LhdnConsolidation
         IRepository<EInvoiceConsolidation, Guid> consolidationRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<IdentityUser, Guid> userRepository,
+        IRepository<Customer, Guid> customerRepository,
         IEmailSender emailSender,
         ILogger<LhdnConsolidationReminderJob> logger)
     {
@@ -40,6 +43,7 @@ public class LhdnConsolidationReminderJob : AsyncBackgroundJob<LhdnConsolidation
         _consolidationRepository = consolidationRepository;
         _companyRepository = companyRepository;
         _userRepository = userRepository;
+        _customerRepository = customerRepository;
         _emailSender = emailSender;
         _logger = logger;
     }
@@ -62,11 +66,26 @@ public class LhdnConsolidationReminderJob : AsyncBackgroundJob<LhdnConsolidation
         if (company == null) return;
 
         var invQuery = await _invoiceRepository.GetQueryableAsync();
-        var b2cInvoices = invQuery
+        var candidateInvoices = invQuery
             .Where(i => i.CompanyId == args.CompanyId &&
                         i.Status == DocumentStatus.Posted &&
+                        // Already submitted individually (e.g. correctly as a B2B invoice, or
+                        // manually) — nothing left to consolidate for this one.
+                        i.EInvoiceStatus != EInvoiceStatus.Valid &&
                         i.IssueDate >= prevMonthStart &&
                         i.IssueDate <= prevMonthEnd)
+            .ToList();
+
+        // B2C only — the same "no real buyer TIN" rule GetConsolidationCandidatesAsync and
+        // ConsolidateInvoicesAsync use. A B2B invoice belongs in this job's target set as much
+        // as it belongs in an anonymous consolidated submission: not at all.
+        var candidateCustomerIds = candidateInvoices.Select(i => i.CustomerId).Distinct().ToList();
+        var candidateCustomerTins = (await _customerRepository.GetQueryableAsync())
+            .Where(c => candidateCustomerIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.Tin);
+        var b2cInvoices = candidateInvoices
+            .Where(i => string.IsNullOrWhiteSpace(i.BuyerTin)
+                     && (!candidateCustomerTins.TryGetValue(i.CustomerId, out var tin) || string.IsNullOrWhiteSpace(tin)))
             .ToList();
 
         if (!b2cInvoices.Any())
