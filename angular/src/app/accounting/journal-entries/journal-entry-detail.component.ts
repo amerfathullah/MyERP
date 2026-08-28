@@ -168,6 +168,7 @@ export class JournalEntryDetailComponent implements OnInit {
     }
     if (j.status === 'Posted') {
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'reverse', label: 'CreateReversal', icon: 'rotate-left', color: 'warning' });
     }
     if (j.status === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -203,6 +204,16 @@ export class JournalEntryDetailComponent implements OnInit {
         this.journalEntryService.amend(id).subscribe({
           next: (amended: any) => this.router.navigate(['/accounting/journal-entries', amended.id]),
           error: () => {},
+        });
+        break;
+      case 'reverse':
+        this.confirmation.warn('::CreateReversalConfirmation', '::AreYouSure').subscribe(s => {
+          if (s === Confirmation.Status.confirm) {
+            this.journalEntryService.createReversal(id).subscribe({
+              next: (reversal: any) => this.router.navigate(['/accounting/journal-entries', reversal.id]),
+              error: () => {},
+            });
+          }
         });
         break;
     }

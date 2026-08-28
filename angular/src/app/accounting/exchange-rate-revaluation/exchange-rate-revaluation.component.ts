@@ -82,6 +82,7 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
               <th>{{ 'PostingDate' | abpLocalization }}</th>
               <th class="text-end">Total Gain/Loss</th>
               <th>{{ 'Status' | abpLocalization }}</th>
+              <th></th>
             </tr></thead>
             <tbody>
               @for (r of revaluations; track r.id) {
@@ -94,6 +95,13 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
                     @if (r.status === 1) { <span class="badge bg-success">Submitted</span> }
                     @else if (r.status === 2) { <span class="badge bg-secondary">Cancelled</span> }
                     @else { <span class="badge bg-warning text-dark">Draft</span> }
+                  </td>
+                  <td>
+                    @if (r.status === 1) {
+                      <button class="btn btn-sm btn-outline-warning" [disabled]="reversingId === r.id" (click)="reverse(r.id)">
+                        <i class="fa fa-rotate-left me-1"></i>{{ 'CreateReversal' | abpLocalization }}
+                      </button>
+                    }
                   </td>
                 </tr>
               }
@@ -116,6 +124,7 @@ export class ExchangeRateRevaluationComponent implements OnInit {
   isLoading = false;
   isCreating = false;
   totalGainLoss = 0;
+  reversingId: string | null = null;
 
   ngOnInit() { this.loadHistory(); }
 
@@ -155,6 +164,18 @@ export class ExchangeRateRevaluationComponent implements OnInit {
         this.loadHistory();
       },
       error: () => { this.isCreating = false; }
+    });
+  }
+
+  reverse(journalEntryId: string) {
+    this.reversingId = journalEntryId;
+    this.revaluationService.createReversal(journalEntryId).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyCreated');
+        this.reversingId = null;
+        this.loadHistory();
+      },
+      error: () => { this.reversingId = null; }
     });
   }
 }
