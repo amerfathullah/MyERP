@@ -195,7 +195,71 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
         pe.PartyId = ec.EmployeeId;
         pe.Notes = $"Reimbursement for expense claim {ec.ExpenseType} (Posted: {ec.PostingDate:yyyy-MM-dd})";
 
+        // Reference row: this is what ExpenseClaimPaymentStatusJob matches on (ReferenceType ==
+        // "ExpenseClaim") to keep TotalAmountReimbursed in sync — without it the nightly job finds
+        // zero matching references for this claim and resets TotalAmountReimbursed back to 0,
+        // silently un-reimbursing it even though this (now-posted) Payment Entry still exists.
+        pe.References.Add(new MyERP.Accounting.Entities.PaymentEntryReference(
+            GuidGenerator.Create(), pe.Id, "ExpenseClaim", ec.Id,
+            totalAmount: ec.TotalSanctionedAmount, outstandingAmount: reimbursableAmount,
+            allocatedAmount: reimbursableAmount));
+
         await peRepo.InsertAsync(pe, autoSave: true);
+
+        // Per DO-NOT / the class's own doc comment: reimbursement must actually post GL, not just
+        // flip status. PaymentEntryAppService.PostAsync's GL block only fires for payments against
+        // a specific invoice/order — a standalone employee reimbursement has neither, so calling it
+        // would silently post nothing either. Build the accrual+payment JE directly instead: DR
+        // each claim line's expense account (there's no earlier accrual JE anywhere in this
+        // entity's lifecycle — Approve/Submit don't post GL — so expense recognition happens here,
+        // at reimbursement, same as the cash-basis Payment-Entry-only flow ERPNext uses when no
+        // separate Journal Entry accrual exists), CR the bank/cash account actually paid from.
+        pe.Submit();
+        pe.Post();
+        await peRepo.UpdateAsync(pe, autoSave: true);
+
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f => f.CompanyId == ec.CompanyId
+            && f.StartDate <= pe.PostingDate && f.EndDate >= pe.PostingDate);
+        var fiscalYearId = fy?.Id ?? ec.CompanyId;
+
+        var je = new MyERP.Accounting.Entities.JournalEntry(
+            GuidGenerator.Create(), ec.CompanyId, fiscalYearId, pe.PostingDate, ec.TenantId)
+        {
+            ReferenceType = "PaymentEntry",
+            ReferenceId = pe.Id,
+            Narration = $"Expense claim reimbursement for {ec.EmployeeName} ({paymentNumber})",
+        };
+
+        var claimedTotal = ec.Expenses.Sum(e => e.Amount);
+        if (claimedTotal > 0)
+        {
+            // Last line absorbs the rounding remainder so the sum of debit lines is exactly
+            // reimbursableAmount — per-line proportional rounding alone can leave the JE a cent
+            // short/over and Validate() rejects anything but an exact debit/credit match.
+            var expenses = ec.Expenses.ToList();
+            decimal allocated = 0;
+            for (int i = 0; i < expenses.Count; i++)
+            {
+                var expense = expenses[i];
+                var share = i == expenses.Count - 1
+                    ? reimbursableAmount - allocated
+                    : Math.Round(expense.Amount / claimedTotal * reimbursableAmount, 2);
+                allocated += share;
+                if (share <= 0) continue;
+                je.AddLine(
+                    accountId: expense.ExpenseAccountId ?? ec.PayableAccountId ?? paidFromAccountId,
+                    amount: share,
+                    isDebit: true,
+                    description: expense.Description);
+            }
+        }
+        je.AddLine(paidFromAccountId, reimbursableAmount, isDebit: false, description: "Expense claim reimbursement");
+
+        je.Post();
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+        await jeRepo.InsertAsync(je, autoSave: true);
 
         // Update expense claim with reimbursement amount
         ec.TotalAmountReimbursed += reimbursableAmount;
