@@ -993,6 +993,7 @@
     "VoucherNumber": "Voucher Number",
     "DistributionMethod": "Distribution Method",
     "SubmittedReceipt": "Submitted Document",
+    "ReceiveFinishedGoods": "Receive Finished Goods",
     "Select": "Select...",
     "LoadItems": "Load Items",
     "NoItemsLoaded": "No items loaded. Select a submitted Purchase Receipt or Purchase Invoice above and click Load Items.",
