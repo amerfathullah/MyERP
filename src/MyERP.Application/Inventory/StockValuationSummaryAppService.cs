@@ -41,10 +41,13 @@ public class StockValuationSummaryAppService : ApplicationService, IStockValuati
         var itemQuery = await _itemRepository.GetQueryableAsync();
         var whQuery = await _warehouseRepository.GetQueryableAsync();
 
-        // Get all bins with positive stock
+        // Get all bins with positive stock, scoped to the requesting company's warehouses
         var bins = binQuery
             .Where(b => b.ActualQty > 0)
             .ToList();
+
+        var companyWhIds = whQuery.Where(w => w.CompanyId == companyId).Select(w => w.Id).ToHashSet();
+        bins = bins.Where(b => companyWhIds.Contains(b.WarehouseId)).ToList();
 
         // Filter by warehouse if specified
         if (warehouseId.HasValue)

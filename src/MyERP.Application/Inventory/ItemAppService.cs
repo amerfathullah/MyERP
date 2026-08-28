@@ -611,7 +611,7 @@ public class ItemAppService :
 
         // Batch-load items and bins
         var itemQuery = await Repository.GetQueryableAsync();
-        var items = itemQuery.Where(i => itemIds.Contains(i.Id) && i.IsActive && i.MaintainStock).ToList();
+        var items = itemQuery.Where(i => itemIds.Contains(i.Id) && i.IsActive && i.MaintainStock && i.CompanyId == companyId).ToList();
         var itemMap = items.ToDictionary(i => i.Id);
 
         var binQuery = await binRepo.GetQueryableAsync();

@@ -37,8 +37,13 @@ public class InventoryTurnoverAppService : ApplicationService, IInventoryTurnove
     public async Task<InventoryTurnoverReportDto> GetReportAsync(
         Guid companyId, DateTime fromDate, DateTime toDate, Guid? warehouseId = null)
     {
+        var companyWarehouseIds = (await _warehouseRepo.GetQueryableAsync())
+            .Where(w => w.CompanyId == companyId)
+            .Select(w => w.Id)
+            .ToHashSet();
+
         var sleQuery = await _sleRepo.GetQueryableAsync();
-        sleQuery = sleQuery.Where(s => s.PostingDate >= fromDate && s.PostingDate <= toDate && !s.IsCancelled);
+        sleQuery = sleQuery.Where(s => s.PostingDate >= fromDate && s.PostingDate <= toDate && !s.IsCancelled && s.CompanyId == companyId);
 
         if (warehouseId.HasValue)
             sleQuery = sleQuery.Where(s => s.WarehouseId == warehouseId.Value);
@@ -52,6 +57,7 @@ public class InventoryTurnoverAppService : ApplicationService, IInventoryTurnove
 
         // Get current stock per item from Bins
         var binQuery = await _binRepo.GetQueryableAsync();
+        binQuery = binQuery.Where(b => companyWarehouseIds.Contains(b.WarehouseId));
         if (warehouseId.HasValue)
             binQuery = binQuery.Where(b => b.WarehouseId == warehouseId.Value);
 
