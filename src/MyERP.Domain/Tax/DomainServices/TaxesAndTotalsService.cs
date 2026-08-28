@@ -73,6 +73,15 @@ public class TaxesAndTotalsService : DomainService
         // Track per-item running totals for cascade
         var perItemGrandTotal = new decimal[orderedTaxes.Count];
 
+        // Per-item, per-row tax contribution — reset (via overwrite) every item, since rows are
+        // always processed 0..N-1 in order and a reference row is always an earlier index within
+        // the SAME item's pass. Needed by "On Previous Row Amount", which per ERPNext must read
+        // THIS item's own contribution at the referenced row (tax_amount_for_current_item), not
+        // tax.TaxAmount — that field is a running total across every item processed so far, so
+        // reading it here previously double/triple-counted earlier items' contributions into
+        // every later item's cascade (round-98 fix).
+        var perItemTaxAmount = new decimal[orderedTaxes.Count];
+
         foreach (var item in items)
         {
             for (int i = 0; i < orderedTaxes.Count; i++)
@@ -92,12 +101,13 @@ public class TaxesAndTotalsService : DomainService
                     effectiveRate = overrideRate;
                 }
 
-                decimal currentTaxAmount = CalculateTaxForItem(tax, item, orderedTaxes, i, netTotal, perItemGrandTotal, effectiveRate);
+                decimal currentTaxAmount = CalculateTaxForItem(tax, item, netTotal, perItemGrandTotal, perItemTaxAmount, effectiveRate);
 
                 if (roundRowWiseTax)
                     currentTaxAmount = Math.Round(currentTaxAmount, 2);
 
                 tax.TaxAmount += currentTaxAmount;
+                perItemTaxAmount[i] = currentTaxAmount;
 
                 // Update running grand total for this item across tax rows
                 perItemGrandTotal[i] = (i == 0)
@@ -179,17 +189,17 @@ public class TaxesAndTotalsService : DomainService
     private static decimal CalculateTaxForItem(
         TransactionTaxRow tax,
         TransactionItem item,
-        List<TransactionTaxRow> allTaxes,
-        int taxIndex,
         decimal netTotal,
         decimal[] perItemGrandTotal,
+        decimal[] perItemTaxAmount,
         decimal effectiveRate)
     {
         return tax.ChargeType switch
         {
             "On Net Total" => (effectiveRate / 100m) * item.NetAmount,
-            "On Previous Row Amount" when tax.ReferenceRowIndex.HasValue =>
-                (effectiveRate / 100m) * GetPreviousRowItemAmount(allTaxes, tax.ReferenceRowIndex.Value - 1),
+            "On Previous Row Amount" when tax.ReferenceRowIndex.HasValue
+                    && tax.ReferenceRowIndex.Value - 1 >= 0 && tax.ReferenceRowIndex.Value - 1 < perItemTaxAmount.Length =>
+                (effectiveRate / 100m) * perItemTaxAmount[tax.ReferenceRowIndex.Value - 1],
             "On Previous Row Total" when tax.ReferenceRowIndex.HasValue && tax.ReferenceRowIndex.Value - 1 < perItemGrandTotal.Length =>
                 (effectiveRate / 100m) * perItemGrandTotal[tax.ReferenceRowIndex.Value - 1],
             "On Item Quantity" => effectiveRate * item.Qty,
@@ -200,13 +210,6 @@ public class TaxesAndTotalsService : DomainService
             // Default: use item.NetAmount (same as On Net Total) — override via hook.
             _ => (effectiveRate / 100m) * item.NetAmount,
         };
-    }
-
-    private static decimal GetPreviousRowItemAmount(List<TransactionTaxRow> taxes, int refIndex)
-    {
-        if (refIndex >= 0 && refIndex < taxes.Count)
-            return taxes[refIndex].TaxAmount;
-        return 0;
     }
 
     /// <summary>

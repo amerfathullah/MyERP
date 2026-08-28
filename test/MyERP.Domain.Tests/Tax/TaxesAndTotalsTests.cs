@@ -72,6 +72,34 @@ public class TaxesAndTotalsTests
     }
 
     [Fact]
+    public void Calculate_MultipleItems_OnPreviousRowAmount_UsesEachItemsOwnContribution()
+    {
+        // Round-98 regression: "On Previous Row Amount" must read each item's OWN row-0 tax
+        // contribution, not the row's cumulative running total across every item processed so
+        // far. Item A (net 100): row0 = 10, row1 = 10% of A's own 10 = 1. Item B (net 200):
+        // row0 = 20, row1 = 10% of B's own 20 = 2. Expected row1 total = 1 + 2 = 3, not the
+        // pre-fix 10%×10 (A) + 10%×(10+20) (B, polluted by A's row0) = 1 + 3 = 4.
+        var parentId = Guid.NewGuid();
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 100, NetAmount = 100 },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 200, NetAmount = 200 },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "SI", parentId, 1, "SST 10%", "On Net Total", 10),
+            new(Guid.NewGuid(), "SI", parentId, 2, "Cess 10% on SST", "On Previous Row Amount", 10) { ReferenceRowIndex = 1 },
+        };
+
+        var result = _service.Calculate(items, taxes);
+
+        result.NetTotal.ShouldBe(300m);
+        taxes[1].TaxAmount.ShouldBe(3m);
+        result.TotalTax.ShouldBe(33m); // 30 (row0) + 3 (row1)
+        result.GrandTotal.ShouldBe(333m);
+    }
+
+    [Fact]
     public void Calculate_RoundRowWiseTaxOff_Default_SumsUnroundedThenRoundsOnce()
     {
         // 3 items × 5% of 0.05 = 0.0025 each. Summed unrounded = 0.0075, rounded once → 0.01.
