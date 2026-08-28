@@ -597,6 +597,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
             var pricingRuleId = await couponService.ValidateAndApplyAsync(
                 input.CouponCode, input.CustomerId, input.IssueDate);
+            invoice.CouponCode = input.CouponCode;
             invoice.Notes = string.IsNullOrEmpty(invoice.Notes)
                 ? $"Coupon: {input.CouponCode}"
                 : $"{invoice.Notes} | Coupon: {input.CouponCode}";
@@ -1107,6 +1108,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         invoice.Cancel();
+
+        if (!string.IsNullOrWhiteSpace(invoice.CouponCode))
+        {
+            var couponServiceCancel = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
+            await couponServiceCancel.ReverseUsageAsync(invoice.CouponCode);
+        }
 
         // Auto-cancel linked system-generated Credit Note Journal Entries (gotcha #3909)
         var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();

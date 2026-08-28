@@ -389,6 +389,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
             var pricingRuleId = await couponService.ValidateAndApplyAsync(
                 input.CouponCode, input.CustomerId, input.OrderDate);
+            order.CouponCode = input.CouponCode;
             order.Notes = string.IsNullOrEmpty(order.Notes)
                 ? $"Coupon: {input.CouponCode}"
                 : $"{order.Notes} | Coupon: {input.CouponCode}";
@@ -648,6 +649,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await soManager.ValidateCanCancelAsync(order, dnRepo, siRepo);
 
         order.Cancel();
+
+        if (!string.IsNullOrWhiteSpace(order.CouponCode))
+        {
+            var couponServiceCancel = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
+            await couponServiceCancel.ReverseUsageAsync(order.CouponCode);
+        }
 
         // Release consumed Blanket Order allocations (reverse of submit)
         await ReleaseBlanketOrdersAsync(order);

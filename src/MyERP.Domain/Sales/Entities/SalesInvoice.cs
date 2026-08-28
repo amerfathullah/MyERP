@@ -119,6 +119,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public DateTime? LhdnSubmittedAt { get; set; }
 
     public string? Notes { get; set; }
+    /// <summary>Coupon code applied at creation — persisted so cancellation can reverse the usage count.</summary>
+    public string? CouponCode { get; set; }
 
     /// <summary>Link to project for timesheet-based billing.</summary>
     public Guid? ProjectId { get; set; }
