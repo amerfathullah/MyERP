@@ -247,8 +247,14 @@ export class StockReorderComponent implements OnInit {
   }
 
   loadItems(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) {
+      this.items.set([]);
+      return;
+    }
+
     this.loading.set(true);
-    this.dashboardService.getLowStockItems().subscribe({
+    this.dashboardService.getLowStockItems(companyId).subscribe({
       next: (result) => {
         this.loading.set(false);
         this.items.set((result ?? []).map(i => ({

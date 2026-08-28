@@ -60,11 +60,11 @@ export class HomeComponent implements OnInit {
         },
         error: () => this.isLoading.set(false),
       });
-      this.dashboardService.getLowStockItems()
-        .subscribe({ next: items => this.lowStockItems.set(items ?? []), error: () => {} });
       // Load batches expiring within 30 days for compliance alert
       const cid = this.companyContext.currentCompanyId();
       if (cid) {
+        this.dashboardService.getLowStockItems(cid)
+          .subscribe({ next: items => this.lowStockItems.set(items ?? []), error: () => {} });
         this.dashboardService.getExpiringBatches(cid, 30)
           .subscribe({ next: batches => this.expiringBatches.set(batches ?? []), error: () => {} });
         this.dashboardService.getTopDebtors(cid)

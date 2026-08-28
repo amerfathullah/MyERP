@@ -8,7 +8,7 @@ namespace MyERP.Core;
 public interface IDashboardAppService : IApplicationService
 {
     Task<DashboardSummaryDto> GetSummaryAsync();
-    Task<List<LowStockItemDto>> GetLowStockItemsAsync();
+    Task<List<LowStockItemDto>> GetLowStockItemsAsync(Guid companyId);
     Task<QuickReorderResultDto> CreateReorderMaterialRequestAsync(QuickReorderDto input);
     Task<List<RevenueTrendDto>> GetRevenueTrendAsync();
     Task<List<RevenueVsExpenseDto>> GetRevenueVsExpenseTrendAsync();

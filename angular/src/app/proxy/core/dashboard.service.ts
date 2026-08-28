@@ -77,10 +77,10 @@ export class DashboardService {
     { apiName: this.apiName,...config });
   
 
-  getLowStockItems = (config?: Partial<Rest.Config>) =>
+  getLowStockItems = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LowStockItemDto[]>({
       method: 'GET',
-      url: '/api/app/dashboard/low-stock-items',
+      url: `/api/app/dashboard/low-stock-items/${companyId}`,
     },
     { apiName: this.apiName,...config });
   

@@ -90,9 +90,9 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
     /// Returns items whose projected qty is at or below their reorder level.
     /// Used by the dashboard low-stock alert widget.
     /// </summary>
-    public async Task<List<LowStockItemDto>> GetLowStockItemsAsync()
+    public async Task<List<LowStockItemDto>> GetLowStockItemsAsync(Guid companyId)
     {
-        var items = await _itemRepo.GetListAsync(i => i.ReorderLevel > 0 && i.IsActive);
+        var items = await _itemRepo.GetListAsync(i => i.ReorderLevel > 0 && i.IsActive && i.CompanyId == companyId);
         if (!items.Any()) return new List<LowStockItemDto>();
 
         var itemIds = items.Select(i => i.Id).ToHashSet();
@@ -353,7 +353,7 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         // Low stock items (from existing method logic)
         try
         {
-            var lowStock = await GetLowStockItemsAsync();
+            var lowStock = await GetLowStockItemsAsync(companyId);
             metrics.LowStockItems = lowStock?.Count ?? 0;
         }
         catch (Exception ex) { Logger.LogWarning(ex, "Low stock query failed"); metrics.LowStockItems = 0; }
@@ -877,9 +877,12 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         var today = DateTime.UtcNow.Date;
         var cutoff = today.AddDays(daysAhead);
 
+        var itemQuery = await _itemRepo.GetQueryableAsync();
+        var companyItemIds = itemQuery.Where(i => i.CompanyId == companyId).Select(i => i.Id).ToHashSet();
+
         var batchQuery = await batchRepo.GetQueryableAsync();
         var expiringBatches = batchQuery
-            .Where(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value >= today && b.ExpiryDate.Value <= cutoff && !b.IsDisabled)
+            .Where(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value >= today && b.ExpiryDate.Value <= cutoff && !b.IsDisabled && companyItemIds.Contains(b.ItemId))
             .OrderBy(b => b.ExpiryDate)
             .Take(50)
             .ToList();
@@ -887,7 +890,6 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         if (!expiringBatches.Any()) return new List<ExpiringBatchDto>();
 
         var itemIds = expiringBatches.Select(b => b.ItemId).Distinct().ToList();
-        var itemQuery = await _itemRepo.GetQueryableAsync();
         var items = itemQuery.Where(i => itemIds.Contains(i.Id))
             .Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList()
             .ToDictionary(i => i.Id);
@@ -1102,7 +1104,7 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
             .Select(w => w.Id).ToList();
 
         var reorderItems = itemQuery
-            .Where(i => i.IsActive && i.MaintainStock && i.ReorderLevel > 0)
+            .Where(i => i.IsActive && i.MaintainStock && i.ReorderLevel > 0 && i.CompanyId == companyId)
             .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.ReorderLevel, i.StandardBuyingPrice })
             .ToList();
 
