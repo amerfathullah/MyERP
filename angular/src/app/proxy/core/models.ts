@@ -417,7 +417,7 @@ export interface DocumentConnectionsDto {
 }
 
 export interface DocumentPrintResult {
-  html?: string;
+  pdfBytes?: string;
   fileName?: string;
   documentType?: string;
 }

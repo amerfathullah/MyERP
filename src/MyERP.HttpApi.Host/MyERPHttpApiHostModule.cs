@@ -91,6 +91,11 @@ public class MyERPHttpApiHostModule : AbpModule
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        // Required by QuestPDF before any Document is generated (DocumentPdfService).
+        // Community license: free for organizations with < $1M USD annual gross revenue —
+        // see https://www.questpdf.com/license/. Revisit if that threshold is ever exceeded.
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
         var configuration = context.Services.GetConfiguration();
         var hostingEnvironment = context.Services.GetHostingEnvironment();
 

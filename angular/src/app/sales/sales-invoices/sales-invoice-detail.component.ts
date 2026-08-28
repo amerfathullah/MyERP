@@ -263,15 +263,22 @@ export class SalesInvoiceDetailComponent implements OnInit {
     this.documentPrintService.getSalesInvoicePrint(this.invoice!.id!)
       .subscribe({
         next: (result) => {
-          // Open in new window for printing/PDF save
-          const printWindow = window.open('', '_blank');
-          if (printWindow) {
-            printWindow.document.write(result.html);
-            printWindow.document.close();
-            printWindow.focus();
-            // Auto-trigger print dialog after content loads
-            printWindow.onload = () => printWindow.print();
+          if (!result.pdfBytes) {
+            this.toaster.error('::OperationFailed');
+            return;
           }
+          const binary = atob(result.pdfBytes);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = result.fileName || 'invoice.pdf';
+          link.click();
+          window.URL.revokeObjectURL(url);
         },
         error: () => this.toaster.error('::OperationFailed'),
       });

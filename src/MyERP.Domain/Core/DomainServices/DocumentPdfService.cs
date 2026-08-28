@@ -1,21 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Threading.Tasks;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Volo.Abp.DependencyInjection;
 
 namespace MyERP.Core.DomainServices;
 
 /// <summary>
 /// PDF generation service for document printing.
-/// Generates PDF bytes from structured document data using HTML template rendering.
-/// 
-/// Uses a lightweight HTML-to-PDF approach: renders an HTML template with document data,
-/// then converts to PDF. This avoids heavy dependencies like Puppeteer/wkhtmltopdf.
-/// 
-/// For production deployments, replace the HTML rendering with a proper PDF library
-/// (e.g., QuestPDF, IronPDF, or an external microservice).
+/// Renders structured document data directly to PDF bytes via QuestPDF (pure .NET, no
+/// external binaries/services). Called by DocumentPrintAppService for the "Download PDF"
+/// action on document detail pages.
 /// </summary>
 public interface IDocumentPdfService
 {
@@ -38,233 +35,442 @@ public interface IDocumentPdfService
     Task<byte[]> GenerateFromTemplateAsync(string templateName, Dictionary<string, object> data);
 }
 
-/// <summary>
-/// HTML-based PDF generator. Renders structured data into an HTML template
-/// suitable for conversion to PDF. Uses simple string templating for speed.
-/// 
-/// In production, this HTML output can be piped to:
-/// - QuestPDF for .NET-native PDF generation
-/// - A headless browser service for pixel-perfect rendering
-/// - An external PDF API service
-/// </summary>
 public class DocumentPdfService : IDocumentPdfService, ITransientDependency
 {
-    public Task<byte[]> GenerateSalesInvoicePdfAsync(SalesInvoicePdfData data)
+    private static readonly string AccentColor = Colors.Blue.Darken2;
+    private static readonly string MutedColor = Colors.Grey.Darken1;
+    private static readonly string BorderColor = Colors.Grey.Lighten1;
+    private static readonly string HeaderFillColor = Colors.Grey.Lighten4;
+
+    public Task<byte[]> GenerateSalesInvoicePdfAsync(SalesInvoicePdfData d)
     {
-        var html = RenderSalesInvoiceHtml(data);
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+        var bytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+
+                page.Header().Element(header =>
+                {
+                    header.Row(row =>
+                    {
+                        row.RelativeItem().Column(col =>
+                        {
+                            col.Item().Text(d.CompanyName).FontSize(16).Bold().FontColor(AccentColor);
+                            if (!string.IsNullOrEmpty(d.CompanyTin)) col.Item().Text($"TIN: {d.CompanyTin}").FontSize(8).FontColor(MutedColor);
+                            if (!string.IsNullOrEmpty(d.CompanySst)) col.Item().Text($"SST: {d.CompanySst}").FontSize(8).FontColor(MutedColor);
+                            if (!string.IsNullOrEmpty(d.CompanyAddress)) col.Item().Text(d.CompanyAddress).FontSize(8).FontColor(MutedColor);
+                            if (!string.IsNullOrEmpty(d.CompanyPhone)) col.Item().Text($"Tel: {d.CompanyPhone}").FontSize(8).FontColor(MutedColor);
+                        });
+                        row.RelativeItem().Column(col =>
+                        {
+                            col.Item().AlignRight().Text(d.IsReturn ? "CREDIT NOTE" : "TAX INVOICE").FontSize(14).Bold();
+                            col.Item().AlignRight().Text(d.InvoiceNumber).FontSize(11).SemiBold();
+                            col.Item().AlignRight().Text($"Date: {d.IssueDate:dd/MM/yyyy}").FontSize(9);
+                            if (d.DueDate.HasValue) col.Item().AlignRight().Text($"Due: {d.DueDate:dd/MM/yyyy}").FontSize(9);
+                        });
+                    });
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().PaddingTop(8).Column(party =>
+                    {
+                        party.Item().Text("BILL TO").FontSize(8).FontColor(MutedColor);
+                        party.Item().Text(d.CustomerName).Bold();
+                        if (!string.IsNullOrEmpty(d.CustomerTin)) party.Item().Text($"TIN: {d.CustomerTin}").FontSize(9);
+                        if (!string.IsNullOrEmpty(d.CustomerAddress)) party.Item().Text(d.CustomerAddress).FontSize(9);
+                    });
+
+                    col.Item().Element(c => ComposeItemsTable(c, d.Items, d.Currency));
+
+                    col.Item().AlignRight().Width(220).Column(totals =>
+                    {
+                        AddTotalRow(totals, "Net Total", d.Currency, d.NetTotal);
+                        if (d.DiscountAmount > 0) AddTotalRow(totals, "Discount", d.Currency, -d.DiscountAmount);
+                        if (d.TaxAmount > 0) AddTotalRow(totals, "Tax", d.Currency, d.TaxAmount);
+                        AddGrandTotalRow(totals, d.Currency, d.GrandTotal);
+                    });
+
+                    if (!string.IsNullOrEmpty(d.Notes))
+                        col.Item().BorderTop(1).BorderColor(BorderColor).PaddingTop(6).Text(d.Notes).FontSize(9);
+                    if (!string.IsNullOrEmpty(d.BankDetails))
+                        col.Item().Column(bank =>
+                        {
+                            bank.Item().Text("BANK DETAILS").FontSize(8).FontColor(MutedColor);
+                            bank.Item().Text(d.BankDetails).FontSize(9);
+                        });
+
+                    col.Item().AlignCenter().PaddingTop(10).Text("Thank you for your business.").Italic().FontColor(MutedColor);
+                });
+
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
+
+        return Task.FromResult(bytes);
     }
 
-    public Task<byte[]> GeneratePurchaseOrderPdfAsync(PurchaseOrderPdfData data)
+    public Task<byte[]> GeneratePurchaseOrderPdfAsync(PurchaseOrderPdfData d)
     {
-        var html = RenderPurchaseOrderHtml(data);
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+        var bytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+
+                page.Header().Row(row =>
+                {
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text(d.CompanyName).FontSize(16).Bold().FontColor(AccentColor);
+                        if (!string.IsNullOrEmpty(d.CompanyAddress)) col.Item().Text(d.CompanyAddress).FontSize(8).FontColor(MutedColor);
+                    });
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().AlignRight().Text("PURCHASE ORDER").FontSize(14).Bold();
+                        col.Item().AlignRight().Text(d.OrderNumber).FontSize(11).SemiBold();
+                        col.Item().AlignRight().Text($"Date: {d.OrderDate:dd/MM/yyyy}").FontSize(9);
+                        if (d.ExpectedDeliveryDate.HasValue) col.Item().AlignRight().Text($"Expected: {d.ExpectedDeliveryDate:dd/MM/yyyy}").FontSize(9);
+                    });
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().PaddingTop(8).Column(party =>
+                    {
+                        party.Item().Text("SUPPLIER").FontSize(8).FontColor(MutedColor);
+                        party.Item().Text(d.SupplierName).Bold();
+                        if (!string.IsNullOrEmpty(d.SupplierAddress)) party.Item().Text(d.SupplierAddress).FontSize(9);
+                    });
+
+                    col.Item().Element(c => ComposeItemsTable(c, d.Items, d.Currency));
+
+                    col.Item().AlignRight().Width(220).Column(totals => AddGrandTotalRow(totals, d.Currency, d.GrandTotal, "Total"));
+
+                    if (!string.IsNullOrEmpty(d.Terms))
+                        col.Item().Column(terms =>
+                        {
+                            terms.Item().Text("TERMS & CONDITIONS").FontSize(8).FontColor(MutedColor);
+                            terms.Item().Text(d.Terms).FontSize(9);
+                        });
+                });
+
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
+
+        return Task.FromResult(bytes);
     }
 
-    public Task<byte[]> GenerateDeliveryNotePdfAsync(DeliveryNotePdfData data)
+    public Task<byte[]> GenerateDeliveryNotePdfAsync(DeliveryNotePdfData d)
     {
-        var html = RenderDeliveryNoteHtml(data);
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+        var bytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+
+                page.Header().Row(row =>
+                {
+                    row.RelativeItem().Text(d.CompanyName).FontSize(16).Bold().FontColor(AccentColor);
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().AlignRight().Text("DELIVERY NOTE").FontSize(14).Bold();
+                        col.Item().AlignRight().Text(d.DeliveryNumber).FontSize(11).SemiBold();
+                        col.Item().AlignRight().Text($"Date: {d.PostingDate:dd/MM/yyyy}").FontSize(9);
+                    });
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().PaddingTop(8).Column(party =>
+                    {
+                        party.Item().Text("DELIVER TO").FontSize(8).FontColor(MutedColor);
+                        party.Item().Text(d.CustomerName).Bold();
+                        if (!string.IsNullOrEmpty(d.ShippingAddress)) party.Item().Text(d.ShippingAddress).FontSize(9);
+                    });
+
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(c =>
+                        {
+                            c.ConstantColumn(30);
+                            c.RelativeColumn(4);
+                            c.RelativeColumn(1);
+                            c.RelativeColumn(1);
+                        });
+
+                        table.Header(h =>
+                        {
+                            HeaderCell(h, "#");
+                            HeaderCell(h, "Description");
+                            HeaderCell(h, "Qty", HorizontalAlignment.Right);
+                            HeaderCell(h, "UOM", HorizontalAlignment.Right);
+                        });
+
+                        for (int i = 0; i < d.Items.Count; i++)
+                        {
+                            var item = d.Items[i];
+                            BodyCell(table, (i + 1).ToString(), HorizontalAlignment.Center);
+                            BodyCell(table, item.Description);
+                            BodyCell(table, item.Quantity.ToString("N2"), HorizontalAlignment.Right);
+                            BodyCell(table, item.Uom, HorizontalAlignment.Right);
+                        }
+                    });
+
+                    if (!string.IsNullOrEmpty(d.TransporterInfo))
+                        col.Item().Text($"Transporter: {d.TransporterInfo}").FontSize(9);
+                });
+
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
+
+        return Task.FromResult(bytes);
     }
 
-    public Task<byte[]> GenerateQuotationPdfAsync(QuotationPdfData data)
+    public Task<byte[]> GenerateQuotationPdfAsync(QuotationPdfData d)
     {
-        var html = RenderQuotationHtml(data);
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+        var bytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+
+                page.Header().Row(row =>
+                {
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text(d.CompanyName).FontSize(16).Bold().FontColor(AccentColor);
+                        if (!string.IsNullOrEmpty(d.CompanyAddress)) col.Item().Text(d.CompanyAddress).FontSize(8).FontColor(MutedColor);
+                    });
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().AlignRight().Text("QUOTATION").FontSize(14).Bold();
+                        col.Item().AlignRight().Text(d.QuotationNumber).FontSize(11).SemiBold();
+                        col.Item().AlignRight().Text($"Date: {d.TransactionDate:dd/MM/yyyy}").FontSize(9);
+                        if (d.ValidTill.HasValue) col.Item().AlignRight().Text($"Valid Till: {d.ValidTill:dd/MM/yyyy}").FontSize(9);
+                    });
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().PaddingTop(8).Column(party =>
+                    {
+                        party.Item().Text("TO").FontSize(8).FontColor(MutedColor);
+                        party.Item().Text(d.PartyName).Bold();
+                    });
+
+                    col.Item().Element(c => ComposeItemsTable(c, d.Items, d.Currency));
+
+                    col.Item().AlignRight().Width(220).Column(totals =>
+                    {
+                        AddTotalRow(totals, "Net Total", d.Currency, d.NetTotal);
+                        if (d.TaxAmount > 0) AddTotalRow(totals, "Tax", d.Currency, d.TaxAmount);
+                        AddGrandTotalRow(totals, d.Currency, d.GrandTotal);
+                    });
+
+                    if (!string.IsNullOrEmpty(d.Terms))
+                        col.Item().Column(terms =>
+                        {
+                            terms.Item().Text("TERMS & CONDITIONS").FontSize(8).FontColor(MutedColor);
+                            terms.Item().Text(d.Terms).FontSize(9);
+                        });
+                });
+
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
+
+        return Task.FromResult(bytes);
     }
 
-    public Task<byte[]> GenerateSalesOrderPdfAsync(SalesOrderPdfData data)
+    public Task<byte[]> GenerateSalesOrderPdfAsync(SalesOrderPdfData d)
     {
-        var html = $"<html><body><h1>Sales Order {data.OrderNumber}</h1><p>Customer: {data.CustomerName}</p><p>Date: {data.OrderDate:dd/MM/yyyy}</p><p>Grand Total: {data.Currency} {data.GrandTotal:N2}</p></body></html>";
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
+        var bytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+
+                page.Header().Row(row =>
+                {
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text(d.CompanyName).FontSize(16).Bold().FontColor(AccentColor);
+                        if (!string.IsNullOrEmpty(d.CompanyAddress)) col.Item().Text(d.CompanyAddress).FontSize(8).FontColor(MutedColor);
+                    });
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().AlignRight().Text("SALES ORDER").FontSize(14).Bold();
+                        col.Item().AlignRight().Text(d.OrderNumber).FontSize(11).SemiBold();
+                        col.Item().AlignRight().Text($"Date: {d.OrderDate:dd/MM/yyyy}").FontSize(9);
+                        if (d.DeliveryDate.HasValue) col.Item().AlignRight().Text($"Delivery: {d.DeliveryDate:dd/MM/yyyy}").FontSize(9);
+                    });
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(12);
+
+                    col.Item().PaddingTop(8).Column(party =>
+                    {
+                        party.Item().Text("CUSTOMER").FontSize(8).FontColor(MutedColor);
+                        party.Item().Text(d.CustomerName).Bold();
+                        if (!string.IsNullOrEmpty(d.CustomerAddress)) party.Item().Text(d.CustomerAddress).FontSize(9);
+                    });
+
+                    col.Item().Element(c => ComposeItemsTable(c, d.Items, d.Currency));
+
+                    col.Item().AlignRight().Width(220).Column(totals =>
+                    {
+                        AddTotalRow(totals, "Net Total", d.Currency, d.NetTotal);
+                        if (d.TaxAmount > 0) AddTotalRow(totals, "Tax", d.Currency, d.TaxAmount);
+                        AddGrandTotalRow(totals, d.Currency, d.GrandTotal);
+                    });
+
+                    if (!string.IsNullOrEmpty(d.Terms))
+                        col.Item().Column(terms =>
+                        {
+                            terms.Item().Text("TERMS & CONDITIONS").FontSize(8).FontColor(MutedColor);
+                            terms.Item().Text(d.Terms).FontSize(9);
+                        });
+                });
+
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
+
+        return Task.FromResult(bytes);
     }
 
     public Task<byte[]> GenerateFromTemplateAsync(string templateName, Dictionary<string, object> data)
     {
-        // Extensible template-based generation — for custom formats
-        var html = $"<html><body><h1>{templateName}</h1><pre>{System.Text.Json.JsonSerializer.Serialize(data)}</pre></body></html>";
-        return Task.FromResult(Encoding.UTF8.GetBytes(html));
-    }
-
-    private static string RenderSalesInvoiceHtml(SalesInvoicePdfData d)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" />");
-        sb.AppendLine("<style>");
-        sb.AppendLine(GetCommonStyles());
-        sb.AppendLine("</style></head><body>");
-        sb.AppendLine("<div class=\"document\">");
-
-        // Header
-        sb.AppendLine("<div class=\"header\">");
-        sb.AppendLine($"<div class=\"company\"><h1>{Encode(d.CompanyName)}</h1>");
-        if (!string.IsNullOrEmpty(d.CompanyTin)) sb.AppendLine($"<p>TIN: {Encode(d.CompanyTin)}</p>");
-        if (!string.IsNullOrEmpty(d.CompanySst)) sb.AppendLine($"<p>SST: {Encode(d.CompanySst)}</p>");
-        if (!string.IsNullOrEmpty(d.CompanyAddress)) sb.AppendLine($"<p>{Encode(d.CompanyAddress)}</p>");
-        if (!string.IsNullOrEmpty(d.CompanyPhone)) sb.AppendLine($"<p>Tel: {Encode(d.CompanyPhone)}</p>");
-        sb.AppendLine("</div>");
-        sb.AppendLine($"<div class=\"doc-title\"><h2>{(d.IsReturn ? "CREDIT NOTE" : "TAX INVOICE")}</h2>");
-        sb.AppendLine($"<p class=\"doc-number\">{Encode(d.InvoiceNumber)}</p>");
-        sb.AppendLine($"<p>Date: {d.IssueDate:dd/MM/yyyy}</p>");
-        if (d.DueDate.HasValue) sb.AppendLine($"<p>Due: {d.DueDate:dd/MM/yyyy}</p>");
-        sb.AppendLine("</div></div>");
-
-        // Customer
-        sb.AppendLine("<div class=\"parties\"><div class=\"party\">");
-        sb.AppendLine("<h4>BILL TO</h4>");
-        sb.AppendLine($"<p><strong>{Encode(d.CustomerName)}</strong></p>");
-        if (!string.IsNullOrEmpty(d.CustomerTin)) sb.AppendLine($"<p>TIN: {Encode(d.CustomerTin)}</p>");
-        if (!string.IsNullOrEmpty(d.CustomerAddress)) sb.AppendLine($"<p>{Encode(d.CustomerAddress)}</p>");
-        sb.AppendLine("</div></div>");
-
-        // Items table
-        sb.AppendLine("<table class=\"items\"><thead><tr>");
-        sb.AppendLine("<th class=\"sno\">#</th><th>Description</th><th class=\"r\">Qty</th><th class=\"r\">Rate</th><th class=\"r\">Amount</th>");
-        sb.AppendLine("</tr></thead><tbody>");
-        for (int i = 0; i < d.Items.Count; i++)
+        var bytes = Document.Create(container =>
         {
-            var item = d.Items[i];
-            sb.AppendLine($"<tr><td class=\"sno\">{i + 1}</td>");
-            sb.AppendLine($"<td>{Encode(item.Description)}</td>");
-            sb.AppendLine($"<td class=\"r\">{item.Quantity:N2}</td>");
-            sb.AppendLine($"<td class=\"r\">{item.Rate:N2}</td>");
-            sb.AppendLine($"<td class=\"r\">{item.Amount:N2}</td></tr>");
-        }
-        sb.AppendLine("</tbody></table>");
+            container.Page(page =>
+            {
+                ConfigurePage(page);
+                page.Header().Text(templateName).FontSize(14).Bold();
+                page.Content().Column(col =>
+                {
+                    foreach (var kvp in data)
+                    {
+                        col.Item().Row(row =>
+                        {
+                            row.ConstantItem(140).Text(kvp.Key).SemiBold();
+                            row.RelativeItem().Text(kvp.Value?.ToString() ?? "");
+                        });
+                    }
+                });
+                ComposeFooter(page);
+            });
+        }).GeneratePdf();
 
-        // Totals
-        sb.AppendLine("<div class=\"totals\"><table>");
-        sb.AppendLine($"<tr><td>Net Total</td><td class=\"r\">{d.Currency} {d.NetTotal:N2}</td></tr>");
-        if (d.DiscountAmount > 0) sb.AppendLine($"<tr><td>Discount</td><td class=\"r\">- {d.Currency} {d.DiscountAmount:N2}</td></tr>");
-        if (d.TaxAmount > 0) sb.AppendLine($"<tr><td>Tax</td><td class=\"r\">{d.Currency} {d.TaxAmount:N2}</td></tr>");
-        sb.AppendLine($"<tr class=\"grand\"><td><strong>Grand Total</strong></td><td class=\"r\"><strong>{d.Currency} {d.GrandTotal:N2}</strong></td></tr>");
-        sb.AppendLine("</table></div>");
-
-        // Footer
-        if (!string.IsNullOrEmpty(d.Notes))
-            sb.AppendLine($"<div class=\"notes\"><p>{Encode(d.Notes)}</p></div>");
-        if (!string.IsNullOrEmpty(d.BankDetails))
-            sb.AppendLine($"<div class=\"bank\"><h4>Bank Details</h4><p>{Encode(d.BankDetails)}</p></div>");
-
-        sb.AppendLine("<div class=\"thank-you\"><p>Thank you for your business.</p></div>");
-        sb.AppendLine("</div></body></html>");
-        return sb.ToString();
+        return Task.FromResult(bytes);
     }
 
-    private static string RenderPurchaseOrderHtml(PurchaseOrderPdfData d)
+    private static void ConfigurePage(PageDescriptor page)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>");
-        sb.AppendLine(GetCommonStyles());
-        sb.AppendLine("</style></head><body><div class=\"document\">");
-        sb.AppendLine("<div class=\"header\"><div class=\"company\">");
-        sb.AppendLine($"<h1>{Encode(d.CompanyName)}</h1>");
-        if (!string.IsNullOrEmpty(d.CompanyAddress)) sb.AppendLine($"<p>{Encode(d.CompanyAddress)}</p>");
-        sb.AppendLine($"</div><div class=\"doc-title\"><h2>PURCHASE ORDER</h2>");
-        sb.AppendLine($"<p class=\"doc-number\">{Encode(d.OrderNumber)}</p>");
-        sb.AppendLine($"<p>Date: {d.OrderDate:dd/MM/yyyy}</p>");
-        if (d.ExpectedDeliveryDate.HasValue) sb.AppendLine($"<p>Expected: {d.ExpectedDeliveryDate:dd/MM/yyyy}</p>");
-        sb.AppendLine("</div></div>");
-        sb.AppendLine($"<div class=\"parties\"><div class=\"party\"><h4>SUPPLIER</h4>");
-        sb.AppendLine($"<p><strong>{Encode(d.SupplierName)}</strong></p>");
-        if (!string.IsNullOrEmpty(d.SupplierAddress)) sb.AppendLine($"<p>{Encode(d.SupplierAddress)}</p>");
-        sb.AppendLine("</div></div>");
-        sb.AppendLine("<table class=\"items\"><thead><tr><th class=\"sno\">#</th><th>Description</th><th class=\"r\">Qty</th><th class=\"r\">Rate</th><th class=\"r\">Amount</th></tr></thead><tbody>");
-        for (int i = 0; i < d.Items.Count; i++)
-        {
-            var item = d.Items[i];
-            sb.AppendLine($"<tr><td class=\"sno\">{i + 1}</td><td>{Encode(item.Description)}</td><td class=\"r\">{item.Quantity:N2}</td><td class=\"r\">{item.Rate:N2}</td><td class=\"r\">{item.Amount:N2}</td></tr>");
-        }
-        sb.AppendLine("</tbody></table>");
-        sb.AppendLine($"<div class=\"totals\"><table><tr class=\"grand\"><td><strong>Total</strong></td><td class=\"r\"><strong>{d.Currency} {d.GrandTotal:N2}</strong></td></tr></table></div>");
-        if (!string.IsNullOrEmpty(d.Terms)) sb.AppendLine($"<div class=\"notes\"><h4>Terms & Conditions</h4><p>{Encode(d.Terms)}</p></div>");
-        sb.AppendLine("</div></body></html>");
-        return sb.ToString();
+        page.Size(PageSizes.A4);
+        page.Margin(30);
+        page.DefaultTextStyle(x => x.FontSize(9));
     }
 
-    private static string RenderDeliveryNoteHtml(DeliveryNotePdfData d)
+    private static void ComposeFooter(PageDescriptor page)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>");
-        sb.AppendLine(GetCommonStyles());
-        sb.AppendLine("</style></head><body><div class=\"document\">");
-        sb.AppendLine($"<div class=\"header\"><div class=\"company\"><h1>{Encode(d.CompanyName)}</h1></div>");
-        sb.AppendLine($"<div class=\"doc-title\"><h2>DELIVERY NOTE</h2><p class=\"doc-number\">{Encode(d.DeliveryNumber)}</p>");
-        sb.AppendLine($"<p>Date: {d.PostingDate:dd/MM/yyyy}</p></div></div>");
-        sb.AppendLine($"<div class=\"parties\"><div class=\"party\"><h4>DELIVER TO</h4><p><strong>{Encode(d.CustomerName)}</strong></p>");
-        if (!string.IsNullOrEmpty(d.ShippingAddress)) sb.AppendLine($"<p>{Encode(d.ShippingAddress)}</p>");
-        sb.AppendLine("</div></div>");
-        sb.AppendLine("<table class=\"items\"><thead><tr><th class=\"sno\">#</th><th>Description</th><th class=\"r\">Qty</th><th class=\"r\">UOM</th></tr></thead><tbody>");
-        for (int i = 0; i < d.Items.Count; i++)
+        page.Footer().AlignCenter().Text(x =>
         {
-            var item = d.Items[i];
-            sb.AppendLine($"<tr><td class=\"sno\">{i + 1}</td><td>{Encode(item.Description)}</td><td class=\"r\">{item.Quantity:N2}</td><td class=\"r\">{Encode(item.Uom)}</td></tr>");
-        }
-        sb.AppendLine("</tbody></table>");
-        if (!string.IsNullOrEmpty(d.TransporterInfo)) sb.AppendLine($"<div class=\"notes\"><p>Transporter: {Encode(d.TransporterInfo)}</p></div>");
-        sb.AppendLine("</div></body></html>");
-        return sb.ToString();
+            x.CurrentPageNumber();
+            x.Span(" / ");
+            x.TotalPages();
+        });
     }
 
-    private static string RenderQuotationHtml(QuotationPdfData d)
+    private static void ComposeItemsTable(IContainer container, List<PdfLineItem> items, string currency)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>");
-        sb.AppendLine(GetCommonStyles());
-        sb.AppendLine("</style></head><body><div class=\"document\">");
-        sb.AppendLine($"<div class=\"header\"><div class=\"company\"><h1>{Encode(d.CompanyName)}</h1>");
-        if (!string.IsNullOrEmpty(d.CompanyAddress)) sb.AppendLine($"<p>{Encode(d.CompanyAddress)}</p>");
-        sb.AppendLine($"</div><div class=\"doc-title\"><h2>QUOTATION</h2><p class=\"doc-number\">{Encode(d.QuotationNumber)}</p>");
-        sb.AppendLine($"<p>Date: {d.TransactionDate:dd/MM/yyyy}</p>");
-        if (d.ValidTill.HasValue) sb.AppendLine($"<p>Valid Till: {d.ValidTill:dd/MM/yyyy}</p>");
-        sb.AppendLine("</div></div>");
-        sb.AppendLine($"<div class=\"parties\"><div class=\"party\"><h4>TO</h4><p><strong>{Encode(d.PartyName)}</strong></p></div></div>");
-        sb.AppendLine("<table class=\"items\"><thead><tr><th class=\"sno\">#</th><th>Description</th><th class=\"r\">Qty</th><th class=\"r\">Rate</th><th class=\"r\">Amount</th></tr></thead><tbody>");
-        for (int i = 0; i < d.Items.Count; i++)
+        container.Table(table =>
         {
-            var item = d.Items[i];
-            sb.AppendLine($"<tr><td class=\"sno\">{i + 1}</td><td>{Encode(item.Description)}</td><td class=\"r\">{item.Quantity:N2}</td><td class=\"r\">{item.Rate:N2}</td><td class=\"r\">{item.Amount:N2}</td></tr>");
-        }
-        sb.AppendLine("</tbody></table>");
-        sb.AppendLine($"<div class=\"totals\"><table><tr><td>Net Total</td><td class=\"r\">{d.Currency} {d.NetTotal:N2}</td></tr>");
-        if (d.TaxAmount > 0) sb.AppendLine($"<tr><td>Tax</td><td class=\"r\">{d.Currency} {d.TaxAmount:N2}</td></tr>");
-        sb.AppendLine($"<tr class=\"grand\"><td><strong>Grand Total</strong></td><td class=\"r\"><strong>{d.Currency} {d.GrandTotal:N2}</strong></td></tr></table></div>");
-        if (!string.IsNullOrEmpty(d.Terms)) sb.AppendLine($"<div class=\"notes\"><h4>Terms & Conditions</h4><p>{Encode(d.Terms)}</p></div>");
-        sb.AppendLine("</div></body></html>");
-        return sb.ToString();
+            table.ColumnsDefinition(c =>
+            {
+                c.ConstantColumn(30);
+                c.RelativeColumn(4);
+                c.RelativeColumn(1);
+                c.RelativeColumn(1.2f);
+                c.RelativeColumn(1.2f);
+            });
+
+            table.Header(h =>
+            {
+                HeaderCell(h, "#");
+                HeaderCell(h, "Description");
+                HeaderCell(h, "Qty", HorizontalAlignment.Right);
+                HeaderCell(h, "Rate", HorizontalAlignment.Right);
+                HeaderCell(h, "Amount", HorizontalAlignment.Right);
+            });
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                BodyCell(table, (i + 1).ToString(), HorizontalAlignment.Center);
+                BodyCell(table, item.Description);
+                BodyCell(table, item.Quantity.ToString("N2"), HorizontalAlignment.Right);
+                BodyCell(table, item.Rate.ToString("N2"), HorizontalAlignment.Right);
+                BodyCell(table, item.Amount.ToString("N2"), HorizontalAlignment.Right);
+            }
+        });
     }
 
-    private static string GetCommonStyles() => @"
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20mm; color: #333; font-size: 10pt; }
-        .document { max-width: 210mm; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1976d2; padding-bottom: 12px; margin-bottom: 20px; }
-        .company h1 { color: #1976d2; margin: 0 0 4px; font-size: 18pt; }
-        .company p { margin: 2px 0; font-size: 9pt; color: #555; }
-        .doc-title { text-align: right; }
-        .doc-title h2 { margin: 0; font-size: 14pt; }
-        .doc-number { font-weight: 600; font-size: 11pt; }
-        .parties { margin-bottom: 16px; }
-        .party h4 { color: #888; font-size: 8pt; text-transform: uppercase; margin: 0 0 4px; }
-        .party p { margin: 2px 0; }
-        .items { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        .items th { background: #f5f7fa; border: 1px solid #ddd; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
-        .items td { border: 1px solid #ddd; padding: 5px 8px; font-size: 9pt; }
-        .items .sno { width: 30px; text-align: center; }
-        .items .r { text-align: right; }
-        .totals { display: flex; justify-content: flex-end; margin-bottom: 16px; }
-        .totals table { width: 250px; }
-        .totals td { padding: 4px 8px; }
-        .totals .r { text-align: right; }
-        .totals .grand td { border-top: 2px solid #333; padding-top: 8px; font-size: 11pt; }
-        .notes { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; font-size: 9pt; }
-        .bank { margin-top: 12px; font-size: 9pt; }
-        .bank h4 { margin: 0 0 4px; font-size: 8pt; text-transform: uppercase; color: #888; }
-        .thank-you { text-align: center; font-style: italic; margin-top: 20px; color: #888; }
-        @media print { body { padding: 10mm; } }
-    ";
+    private static void HeaderCell(TableCellDescriptor h, string text, HorizontalAlignment alignment = HorizontalAlignment.Left)
+    {
+        var cell = h.Cell().Background(HeaderFillColor).Border(1).BorderColor(BorderColor).Padding(4);
+        ApplyAligned(cell, text, alignment, bold: true, fontSize: 8);
+    }
 
-    private static string Encode(string? value) =>
-        System.Net.WebUtility.HtmlEncode(value ?? "");
+    private static void BodyCell(TableDescriptor table, string text, HorizontalAlignment alignment = HorizontalAlignment.Left)
+    {
+        var cell = table.Cell().Border(1).BorderColor(BorderColor).Padding(4);
+        ApplyAligned(cell, text, alignment, bold: false, fontSize: 9);
+    }
+
+    private static void ApplyAligned(IContainer container, string text, HorizontalAlignment alignment, bool bold, int fontSize)
+    {
+        var aligned = alignment switch
+        {
+            HorizontalAlignment.Right => container.AlignRight(),
+            HorizontalAlignment.Center => container.AlignCenter(),
+            _ => container,
+        };
+        var span = aligned.Text(text).FontSize(fontSize);
+        if (bold) span.Bold();
+    }
+
+    private static void AddTotalRow(ColumnDescriptor totals, string label, string currency, decimal amount)
+    {
+        totals.Item().Row(row =>
+        {
+            row.RelativeItem().Text(label);
+            row.RelativeItem().AlignRight().Text($"{currency} {amount:N2}");
+        });
+    }
+
+    private static void AddGrandTotalRow(ColumnDescriptor totals, string currency, decimal amount, string label = "Grand Total")
+    {
+        totals.Item().BorderTop(2).PaddingTop(4).Row(row =>
+        {
+            row.RelativeItem().Text(label).Bold().FontSize(11);
+            row.RelativeItem().AlignRight().Text($"{currency} {amount:N2}").Bold().FontSize(11);
+        });
+    }
 }
 
 // --- PDF Data Models ---

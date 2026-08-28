@@ -91,11 +91,11 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
             }).ToList(),
         };
 
-        var htmlBytes = await _pdfService.GenerateSalesInvoicePdfAsync(data);
+        var pdfBytes = await _pdfService.GenerateSalesInvoicePdfAsync(data);
         return new DocumentPrintResult
         {
-            Html = System.Text.Encoding.UTF8.GetString(htmlBytes),
-            FileName = $"{invoice.InvoiceNumber}.html",
+            PdfBytes = pdfBytes,
+            FileName = $"{invoice.InvoiceNumber}.pdf",
             DocumentType = invoice.IsReturn ? "Credit Note" : "Tax Invoice",
         };
     }
@@ -130,11 +130,11 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
             }).ToList(),
         };
 
-        var htmlBytes = await _pdfService.GeneratePurchaseOrderPdfAsync(data);
+        var pdfBytes = await _pdfService.GeneratePurchaseOrderPdfAsync(data);
         return new DocumentPrintResult
         {
-            Html = System.Text.Encoding.UTF8.GetString(htmlBytes),
-            FileName = $"{po.OrderNumber}.html",
+            PdfBytes = pdfBytes,
+            FileName = $"{po.OrderNumber}.pdf",
             DocumentType = "Purchase Order",
         };
     }
@@ -174,11 +174,11 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
             }).ToList(),
         };
 
-        var htmlBytes = await _pdfService.GenerateQuotationPdfAsync(data);
+        var pdfBytes = await _pdfService.GenerateQuotationPdfAsync(data);
         return new DocumentPrintResult
         {
-            Html = System.Text.Encoding.UTF8.GetString(htmlBytes),
-            FileName = $"{quotation.QuotationNumber ?? "Quotation"}.html",
+            PdfBytes = pdfBytes,
+            FileName = $"{quotation.QuotationNumber ?? "Quotation"}.pdf",
             DocumentType = "Quotation",
         };
     }
@@ -209,11 +209,11 @@ public class DocumentPrintAppService : ApplicationService, IDocumentPrintAppServ
             }).ToList(),
         };
 
-        var htmlBytes = await _pdfService.GenerateDeliveryNotePdfAsync(data);
+        var pdfBytes = await _pdfService.GenerateDeliveryNotePdfAsync(data);
         return new DocumentPrintResult
         {
-            Html = System.Text.Encoding.UTF8.GetString(htmlBytes),
-            FileName = $"{dn.DeliveryNumber}.html",
+            PdfBytes = pdfBytes,
+            FileName = $"{dn.DeliveryNumber}.pdf",
             DocumentType = "Delivery Note",
         };
     }
