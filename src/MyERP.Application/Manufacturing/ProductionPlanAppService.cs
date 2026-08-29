@@ -96,6 +96,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             Notes = input.Notes,
         };
 
+        // Validate Raw Material Group Warehouse hierarchy (ERPNext PR #56948)
+        await ValidateRawMaterialGroupWarehouseAsync(input.CompanyId, input.RawMaterialGroupWarehouseId, input.ForWarehouseId);
+
         // Validate all planned items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
@@ -416,6 +419,49 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             plannedQty = item.MinOrderQty;
 
         return plannedQty;
+    }
+
+    private async Task ValidateRawMaterialGroupWarehouseAsync(Guid companyId, Guid? rawMaterialGroupWarehouseId, Guid? forWarehouseId)
+    {
+        if (!rawMaterialGroupWarehouseId.HasValue) return;
+
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var groupWh = await whRepo.FindAsync(rawMaterialGroupWarehouseId.Value);
+        if (groupWh == null || groupWh.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("reason", "Raw Material Group Warehouse not found for this company");
+        }
+        if (!groupWh.IsGroup)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Raw Material Group Warehouse must be a group warehouse");
+        }
+
+        if (forWarehouseId.HasValue)
+        {
+            var forWh = await whRepo.FindAsync(forWarehouseId.Value);
+            if (forWh != null && forWh.ParentWarehouseId != groupWh.Id)
+            {
+                var allWhs = (await whRepo.GetQueryableAsync()).Where(w => w.CompanyId == companyId).ToList();
+                var curr = forWh;
+                bool isChild = false;
+                while (curr?.ParentWarehouseId != null)
+                {
+                    if (curr.ParentWarehouseId == groupWh.Id)
+                    {
+                        isChild = true;
+                        break;
+                    }
+                    curr = allWhs.FirstOrDefault(w => w.Id == curr.ParentWarehouseId);
+                }
+                if (!isChild)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "For Warehouse must be a child of the Raw Material Group Warehouse");
+                }
+            }
+        }
     }
 }
 
