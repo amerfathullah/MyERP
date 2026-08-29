@@ -33,7 +33,7 @@ public class StockReservationManager : DomainService
     /// Validates that sufficient unreserved stock exists before creating a reservation.
     /// Available = Bin.ActualQty - SUM(active SRE reserved qty for same item+warehouse).
     /// </summary>
-    public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty)
+    public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty, Guid? batchId = null)
     {
         // Get actual stock
         var binQueryable = await _binRepository.GetQueryableAsync();
@@ -47,6 +47,7 @@ public class StockReservationManager : DomainService
         var reservedQty = sreQueryable
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
+                && (batchId == null || s.BatchId == batchId)
                 && s.Status == DocumentStatus.Submitted)
             .Sum(s => s.ReservedQty - s.DeliveredQty);
 

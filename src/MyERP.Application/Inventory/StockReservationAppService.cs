@@ -85,7 +85,7 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
 
         // Validate availability using domain service
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
-        await reservationManager.ValidateAvailabilityAsync(input.ItemId, input.WarehouseId, input.ReservedQty);
+        await reservationManager.ValidateAvailabilityAsync(input.ItemId, input.WarehouseId, input.ReservedQty, input.BatchId);
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), input.CompanyId, input.ItemId, input.WarehouseId,
