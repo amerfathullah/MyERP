@@ -153,7 +153,10 @@ public class WarehouseAppService :
     protected override async Task<IQueryable<Warehouse>> CreateFilteredQueryAsync(GetWarehouseListDto input)
     {
         var query = await base.CreateFilteredQueryAsync(input);
-        // Only return active, non-group (leaf) warehouses by default — group warehouses can't receive stock
+        // Only filters by active — group warehouses are deliberately included here (tree/hierarchy
+        // views need them); callers that need leaf-only warehouses (e.g. stock transfer dropdowns)
+        // filter IsGroup out client-side. Group warehouses are still blocked from receiving stock at
+        // posting time (StockPostingService/StockEntryManager), so this list including them is safe.
         return query.Where(w => w.IsActive);
     }
 }
