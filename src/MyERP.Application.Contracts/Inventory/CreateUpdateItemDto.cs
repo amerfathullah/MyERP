@@ -92,6 +92,9 @@ public class CreateUpdateItemDto
     public Guid? TaxCategoryId { get; set; }
 
     public bool MaintainStock { get; set; } = true;
+    public bool HasSerialNo { get; set; }
+    public bool HasBatchNo { get; set; }
+    public bool AllowNegativeStock { get; set; }
 
     public Guid? DefaultIncomeAccountId { get; set; }
 

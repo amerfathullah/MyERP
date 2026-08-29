@@ -840,7 +840,7 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                     .Select(pl => new ExistingDraftDto
                     {
                         Id = pl.Id,
-                        DocumentNumber = pl.PickListNumber,
+                        DocumentNumber = pl.PickListNumber ?? string.Empty,
                         TargetDocType = "PickList",
                         Amount = null,
                         Date = pl.CreationTime

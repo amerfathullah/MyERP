@@ -49,6 +49,19 @@ public class ItemAppService :
             await ValidateCanDeactivateAsync(id);
         }
 
+        // If unsetting HasSerialNo, validate no active serial numbers exist (ERPNext PR #56773)
+        if (existing.HasSerialNo && !input.HasSerialNo)
+        {
+            var serialRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SerialNo, Guid>>();
+            var serialQuery = await serialRepo.GetQueryableAsync();
+            var hasActiveSerials = serialQuery.Any(s => s.ItemId == id && s.Status == SerialNoStatus.Active);
+            if (hasActiveSerials)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot change Item {existing.ItemName} from serialized to non-serialized because active serial numbers exist for it. Please delete or cancel them first.");
+            }
+        }
+
         // MapToEntity assigns ValuationMethod directly (shared with CreateAsync, which has no
         // prior stock history to protect) — for an update, route a real change through the
         // domain guard first so StandardCost lock / WeightedAverage-to-FIFO restrictions still
@@ -246,6 +259,9 @@ public class ItemAppService :
         entity.StandardBuyingPrice = input.StandardBuyingPrice;
         entity.TaxCategoryId = input.TaxCategoryId;
         entity.MaintainStock = input.MaintainStock;
+        entity.HasSerialNo = input.HasSerialNo;
+        entity.HasBatchNo = input.HasBatchNo;
+        entity.AllowNegativeStock = input.AllowNegativeStock;
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
         entity.GrantCommission = input.GrantCommission;
