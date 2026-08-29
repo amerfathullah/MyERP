@@ -91,16 +91,22 @@ public class BomValidationService : DomainService
             }
         }
 
-        // Aggregate same items (per DO-NOT: use Min(IsPhantom) in GROUP BY)
+        // Aggregate same items (per DO-NOT: use Min(IsPhantom) in GROUP BY; per PR #57708: weighted rate)
         return result
             .GroupBy(x => x.ItemId)
-            .Select(g => new ExplodedBomItem(
-                g.Key,
-                g.First().ItemName,
-                g.Sum(x => x.Quantity),
-                g.Max(x => x.Rate),
-                g.First().Uom,
-                g.First().SubBomId))
+            .Select(g =>
+            {
+                var totalQty = g.Sum(x => x.Quantity);
+                var totalCost = g.Sum(x => x.Quantity * x.Rate);
+                var rate = totalQty > 0 ? totalCost / totalQty : g.First().Rate;
+                return new ExplodedBomItem(
+                    g.Key,
+                    g.First().ItemName,
+                    totalQty,
+                    rate,
+                    g.First().Uom,
+                    g.First().SubBomId);
+            })
             .ToList();
     }
     /// <summary>

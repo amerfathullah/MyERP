@@ -56,9 +56,18 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
         var materialLines = new List<BomMaterialAvailabilityDto>();
         decimal minManufacturable = decimal.MaxValue;
 
-        foreach (var bomItem in bom.Items)
+        var groupedBomItems = bom.Items
+            .GroupBy(i => i.ItemId)
+            .Select(g => new
+            {
+                ItemId = g.Key,
+                TotalQuantity = g.Sum(i => i.Quantity)
+            })
+            .ToList();
+
+        foreach (var bomItem in groupedBomItems)
         {
-            var requiredForBatch = bomItem.Quantity * (requiredQty / (bom.Quantity > 0 ? bom.Quantity : 1));
+            var requiredForBatch = bomItem.TotalQuantity * (requiredQty / (bom.Quantity > 0 ? bom.Quantity : 1));
             var available = stockMap.GetValueOrDefault(bomItem.ItemId, 0);
             var shortage = Math.Max(0, requiredForBatch - available);
             var canMake = requiredForBatch > 0 ? available / requiredForBatch : decimal.MaxValue;
@@ -67,7 +76,7 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             {
                 ItemId = bomItem.ItemId,
                 ItemName = itemNameMap.GetValueOrDefault(bomItem.ItemId, bomItem.ItemId.ToString().Substring(0, 8)),
-                RequiredQtyPerUnit = bomItem.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1),
+                RequiredQtyPerUnit = bomItem.TotalQuantity / (bom.Quantity > 0 ? bom.Quantity : 1),
                 RequiredQtyForBatch = Math.Round(requiredForBatch, 4),
                 AvailableQty = Math.Round(available, 4),
                 Shortage = Math.Round(shortage, 4),
