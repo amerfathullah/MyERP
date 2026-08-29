@@ -242,4 +242,16 @@ public class JournalEntryTests
             fiscalYearId: Guid.NewGuid(),
             postingDate: DateTime.Today);
     }
+
+    [Fact]
+    public void JournalEntry_ReversalProperties_CanBeSet()
+    {
+        var sourceId = Guid.NewGuid();
+        var entry = CreateJournalEntry();
+        entry.VoucherType = JournalEntryVoucherType.Reversal;
+        entry.ReversalOfId = sourceId;
+
+        entry.VoucherType.ShouldBe(JournalEntryVoucherType.Reversal);
+        entry.ReversalOfId.ShouldBe(sourceId);
+    }
 }

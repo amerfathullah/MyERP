@@ -242,6 +242,24 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 .WithData("status", source.Status.ToString());
         }
 
+        // Per ERPNext PR #58092 / gotcha: cannot reverse a reversal entry (cancel it instead)
+        if (source.ReversalOfId.HasValue || source.VoucherType == JournalEntryVoucherType.Reversal)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JournalEntry")
+                .WithData("detail", "Cannot reverse a Journal Entry that is already a reversal. Cancel it instead.");
+        }
+
+        // Check if an active reversal already exists for this entry
+        var query = await _repository.GetQueryableAsync();
+        var existingReversal = query.Any(x => x.ReversalOfId == sourceId && x.Status != Core.DocumentStatus.Cancelled);
+        if (existingReversal)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JournalEntry")
+                .WithData("detail", "A reversal Journal Entry already exists for this entry.");
+        }
+
         var number = await _numberGenerator.GenerateAsync("JE", source.CompanyId);
         var reversal = new JournalEntry(
             GuidGenerator.Create(), source.CompanyId, source.FiscalYearId,
