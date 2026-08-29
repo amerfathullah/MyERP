@@ -214,7 +214,6 @@ public class PaymentReconciliationEngine : DomainService
         string partyType,
         Guid partyAccountId)
     {
-        if (!company.ExchangeGainLossAccountId.HasValue) return;
         if (partyAccountId == Guid.Empty) return;
 
         decimal paymentExchangeRate = 1m;
@@ -228,6 +227,11 @@ public class PaymentReconciliationEngine : DomainService
         if (Math.Abs(gainLoss) < 0.01m) return;
 
         var effectiveGainLoss = partyType == "Supplier" ? -gainLoss : gainLoss;
+        var isGain = effectiveGainLoss > 0;
+
+        // Resolve exchange gain/loss account: explicit override > gain/loss split > fallback (PR #57839)
+        var exchangeAccountId = alloc.DifferenceAccountId ?? company.GetExchangeGainLossAccountId(isGain);
+        if (!exchangeAccountId.HasValue) return;
 
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
         var fy = fyQuery.FirstOrDefault(f =>
@@ -241,19 +245,19 @@ public class PaymentReconciliationEngine : DomainService
             ReferenceType = alloc.PaymentVoucherType,
             ReferenceId = alloc.PaymentVoucherId,
         };
-        je.Narration = $"Exchange {(effectiveGainLoss > 0 ? "Gain" : "Loss")} on reconciliation";
+        je.Narration = $"Exchange {(isGain ? "Gain" : "Loss")} on reconciliation";
 
-        var exchangeAccountId = company.ExchangeGainLossAccountId.Value;
+        var targetAccount = exchangeAccountId.Value;
         var absGainLoss = Math.Abs(effectiveGainLoss);
 
-        if (effectiveGainLoss > 0)
+        if (isGain)
         {
             je.AddLine(partyAccountId, absGainLoss, true);
-            je.AddLine(exchangeAccountId, absGainLoss, false);
+            je.AddLine(targetAccount, absGainLoss, false);
         }
         else
         {
-            je.AddLine(exchangeAccountId, absGainLoss, true);
+            je.AddLine(targetAccount, absGainLoss, true);
             je.AddLine(partyAccountId, absGainLoss, false);
         }
 
@@ -401,6 +405,7 @@ public class ReconciliationAllocation
     public string InvoiceVoucherType { get; set; } = null!;
     public Guid InvoiceVoucherId { get; set; }
     public decimal AllocatedAmount { get; set; }
+    public Guid? DifferenceAccountId { get; set; }
 }
 
 /// <summary>Result of a batch reconciliation operation.</summary>
