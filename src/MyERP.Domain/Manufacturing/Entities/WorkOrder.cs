@@ -153,6 +153,20 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>
+    /// Refreshes process loss quantity and checks completion for semi-finished goods tracking.
+    /// Per ERPNext commit 0eb61c9fac / PR #57895.
+    /// </summary>
+    public void SetProcessLossQty(decimal totalProcessLoss)
+    {
+        ProcessLossQty = totalProcessLoss;
+        if (ProducedQuantity + ProcessLossQty >= Quantity && Status != WorkOrderStatus.Cancelled && Status != WorkOrderStatus.Draft)
+        {
+            Status = WorkOrderStatus.Completed;
+            ActualEndDate ??= DateTime.UtcNow;
+        }
+    }
+
     public void RecordMaterialTransfer(decimal quantity)
     {
         MaterialTransferred += quantity;
