@@ -376,7 +376,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             // Reduce linked SO DeliveredQty (return reverses prior delivery — with concurrency retry)
             if (dn.SalesOrderId.HasValue)
             {
-                await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
+                await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: false, isReturn: true);
             }
 
             // Auto-create Credit Note (negative Sales Invoice) for the return
@@ -734,7 +734,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Reverse linked Sales Order fulfillment tracking
         if (dn.SalesOrderId.HasValue)
         {
-            await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true);
+            await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true, isReturn: dn.IsReturn);
             await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
         }
 
@@ -779,14 +779,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(amended);
     }
 
-    /// <summary>
-    /// Updates SO fulfillment counters with optimistic concurrency retry.
-    /// Prevents lost updates when concurrent DN submissions modify the same SO.
-    /// </summary>
     private async Task UpdateSoFulfillmentWithRetryAsync(
         Guid salesOrderId,
         IReadOnlyCollection<DeliveryNoteItem> dnItems,
-        bool isReversal)
+        bool isReversal,
+        bool isReturn = false)
     {
         for (int attempt = 1; attempt <= 3; attempt++)
         {
@@ -799,10 +796,31 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
                     if (soItem == null) continue;
 
-                    if (isReversal)
-                        soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - Math.Abs(dnItem.Quantity));
+                    var qty = Math.Abs(dnItem.Quantity);
+                    if (isReturn)
+                    {
+                        if (isReversal) // cancelling a return DN
+                        {
+                            soItem.ReturnedQty = Math.Max(0, soItem.ReturnedQty - qty);
+                            soItem.DeliveredQty += qty;
+                        }
+                        else // posting a return DN
+                        {
+                            soItem.ReturnedQty += qty;
+                            soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - qty);
+                        }
+                    }
                     else
-                        soItem.DeliveredQty += dnItem.Quantity;
+                    {
+                        if (isReversal) // cancelling a regular DN
+                        {
+                            soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - qty);
+                        }
+                        else // posting a regular DN
+                        {
+                            soItem.DeliveredQty += qty;
+                        }
+                    }
                 }
                 so.UpdateFulfillmentStatus();
                 await _salesOrderRepository.UpdateAsync(so, autoSave: true);

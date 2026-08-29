@@ -1452,7 +1452,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         {
             foreach (var item in so.Items)
             {
-                var unbilledQty = item.Quantity - item.BilledQty;
+                var unbilledQty = item.PendingBillingQty;
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledOrderItemDto

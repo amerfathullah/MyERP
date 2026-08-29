@@ -300,14 +300,24 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity already invoiced via Sales Invoices.</summary>
     public decimal BilledQty { get; set; }
 
+    /// <summary>Quantity returned via sales returns (Delivery Note return).</summary>
+    public decimal ReturnedQty { get; set; }
+
+    /// <summary>
+    /// Billable quantity accounting for deliveries, returns, and re-deliveries.
+    /// Per ERPNext PR #114ba42850:
+    /// min(ordered_qty, max(ordered_qty - returned_qty, delivered_qty))
+    /// </summary>
+    public decimal BillableQty => Math.Min(Quantity, Math.Max(Quantity - ReturnedQty, DeliveredQty));
+
     /// <summary>For service/non-stock items when SkipDeliveryNoteForServiceItems is active or Maintenance order.</summary>
     public bool SkipDelivery { get; set; }
 
     /// <summary>Remaining qty to deliver.</summary>
     public decimal PendingDeliveryQty => SkipDelivery ? 0 : Math.Max(0, Quantity - DeliveredQty);
 
-    /// <summary>Remaining qty to bill.</summary>
-    public decimal PendingBillingQty => Math.Max(0, Quantity - BilledQty);
+    /// <summary>Remaining qty to bill accounting for returns and re-deliveries.</summary>
+    public decimal PendingBillingQty => Math.Max(0, BillableQty - BilledQty);
 
     /// <summary>Target warehouse for this item (for stock reservation).</summary>
     public Guid? WarehouseId { get; set; }
