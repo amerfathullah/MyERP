@@ -58,6 +58,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
     public bool TrackSemiFinishedGoods { get; set; }
+    public bool SkipTransfer { get; set; }
 
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 

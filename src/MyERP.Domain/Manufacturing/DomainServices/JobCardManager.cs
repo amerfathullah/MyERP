@@ -233,7 +233,7 @@ public class JobCardManager : DomainService
         if (jobCard.IsCorrective) return;
 
         var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
-        if (wo == null || !wo.RequiredItems.Any()) return;
+        if (wo == null || !wo.RequiredItems.Any() || wo.SkipTransfer) return;
 
         var matchingItems = jobCard.BomOperationId.HasValue
             ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()

@@ -221,4 +221,29 @@ public class JobCardTests
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateMaterialTransferAsync_WhenSkipTransfer_PassesWithoutTransfer()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var woRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var woId = Guid.NewGuid();
+        var wo = new WorkOrder(woId, Guid.NewGuid(), "WO-002", Guid.NewGuid(), Guid.NewGuid(), 10m)
+        {
+            SkipTransfer = true
+        };
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), woId, Guid.NewGuid(), "Raw Mat 1", 10m)
+        {
+            TransferredQuantity = 0m,
+        });
+
+        woRepo.FindAsync(woId).Returns(System.Threading.Tasks.Task.FromResult<WorkOrder?>(wo));
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, 1);
+
+        await Should.NotThrowAsync(() => manager.ValidateMaterialTransferAsync(jc, woRepo));
+    }
 }
