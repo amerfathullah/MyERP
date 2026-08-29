@@ -583,7 +583,20 @@ public interface IAssetShiftAllocationAppService : IApplicationService
     System.Threading.Tasks.Task<AssetShiftAllocationDto> CancelAsync(Guid id);
 }
 
-// === Interfaces ===
+public class AssetPurchaseDocValuesDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime PurchaseDate { get; set; }
+    public decimal PurchaseAmount { get; set; }
+    public int AssetQuantity { get; set; } = 1;
+    public Guid? ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? LocationId { get; set; }
+    public string? Location { get; set; }
+    public Guid? PurchaseReceiptId { get; set; }
+    public Guid? PurchaseInvoiceId { get; set; }
+}
 
 public interface IAssetAppService : IApplicationService
 {
@@ -600,4 +613,5 @@ public interface IAssetAppService : IApplicationService
     System.Threading.Tasks.Task<AssetCategoryDto[]> GetCategoriesAsync();
     System.Threading.Tasks.Task<AssetCategoryDto> CreateCategoryAsync(CreateUpdateAssetCategoryDto input);
     System.Threading.Tasks.Task<AssetDto> SplitAsync(Guid id, int splitQty);
+    System.Threading.Tasks.Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null);
 }

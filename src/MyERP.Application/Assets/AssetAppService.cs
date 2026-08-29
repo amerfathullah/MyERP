@@ -6,6 +6,7 @@ using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -391,5 +392,69 @@ public class AssetAppService : ApplicationService, IAssetAppService
             $"Asset '{splitAsset.AssetName}' created by splitting from asset ID {id} with quantity {splitQty}", CurrentTenant.Id));
 
         return _assetMapper.Map(splitAsset);
+    }
+
+    /// <summary>
+    /// Fetches asset header and item values from a Purchase Receipt or Purchase Invoice
+    /// for manually or semi-automatically creating an asset (per ERPNext PR #57618 / commit 46e01c2d92).
+    /// </summary>
+    public async Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null)
+    {
+        if (string.Equals(purchaseDocType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+        {
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var pr = await prRepo.GetAsync(purchaseDocId, includeDetails: true);
+            var item = itemId.HasValue
+                ? pr.Items.FirstOrDefault(i => i.ItemId == itemId.Value)
+                : pr.Items.FirstOrDefault();
+
+            if (item == null)
+                throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+            // Per PR #57618 / commit 46e01c2d92: purchase amount sourced from valuation rate / expense amount
+            var amount = item.PurchaseExpenseGlAmount > 0 ? item.PurchaseExpenseGlAmount : item.LineTotal;
+            var qty = (int)Math.Max(1, Math.Round(item.Quantity));
+
+            return new AssetPurchaseDocValuesDto
+            {
+                CompanyId = pr.CompanyId,
+                PurchaseDate = pr.PostingDate,
+                PurchaseAmount = amount,
+                AssetQuantity = qty,
+                ItemId = item.ItemId,
+                ItemName = item.Description,
+                PurchaseReceiptId = pr.Id,
+            };
+        }
+        else if (string.Equals(purchaseDocType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.GetAsync(purchaseDocId, includeDetails: true);
+            var item = itemId.HasValue
+                ? pi.Items.FirstOrDefault(i => i.ItemId == itemId.Value)
+                : pi.Items.FirstOrDefault();
+
+            if (item == null)
+                throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+            var amount = item.LineTotal;
+            var qty = (int)Math.Max(1, Math.Round(item.Quantity));
+
+            return new AssetPurchaseDocValuesDto
+            {
+                CompanyId = pi.CompanyId,
+                PurchaseDate = pi.IssueDate,
+                PurchaseAmount = amount,
+                AssetQuantity = qty,
+                ItemId = item.ItemId,
+                ItemName = item.Description,
+                PurchaseInvoiceId = pi.Id,
+            };
+        }
+        else
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Unsupported purchase document type '{purchaseDocType}'.");
+        }
     }
 }
