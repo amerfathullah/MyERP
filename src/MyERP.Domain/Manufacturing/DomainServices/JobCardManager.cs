@@ -242,10 +242,10 @@ public class JobCardManager : DomainService
         if (!matchingItems.Any()) return;
 
         var pendingItems = matchingItems.Where(i => i.TransferredQuantity < i.RequiredQuantity).ToList();
-        if (pendingItems.Any() && matchingItems.All(i => i.TransferredQuantity == 0))
+        if (pendingItems.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Material transfer must be completed before starting or completing Job Card.");
+                .WithData("detail", $"Materials need to be transferred to the work in progress warehouse before starting or completing Job Card (sequence {jobCard.SequenceId}).");
         }
     }
 }

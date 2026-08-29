@@ -196,4 +196,29 @@ public class JobCardTests
 
         await manager.ValidateMaterialTransferAsync(jc, woRepo);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateMaterialTransferAsync_ThrowsWhenPartialMaterialsTransferred()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var woRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var woId = Guid.NewGuid();
+        var wo = new WorkOrder(woId, Guid.NewGuid(), "WO-001", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), woId, Guid.NewGuid(), "Raw Mat 1", 10m)
+        {
+            TransferredQuantity = 5m, // Only partially transferred
+        });
+
+        woRepo.FindAsync(woId).Returns(System.Threading.Tasks.Task.FromResult<WorkOrder?>(wo));
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, 1);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateMaterialTransferAsync(jc, woRepo));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }
