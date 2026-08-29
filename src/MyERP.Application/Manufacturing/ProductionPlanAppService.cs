@@ -93,6 +93,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem,
             RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId,
             ForWarehouseId = input.ForWarehouseId,
+            ReserveStock = input.ReserveStock,
             Notes = input.Notes,
         };
 

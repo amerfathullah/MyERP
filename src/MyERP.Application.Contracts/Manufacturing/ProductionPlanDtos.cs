@@ -22,6 +22,7 @@ public class ProductionPlanDto : AuditedEntityDto<Guid>
     public bool SkipAvailableSubAssemblyItem { get; set; }
     public Guid? RawMaterialGroupWarehouseId { get; set; }
     public Guid? ForWarehouseId { get; set; }
+    public bool ReserveStock { get; set; }
     public string? Notes { get; set; }
     public List<ProductionPlanItemDto> PlannedItems { get; set; } = new();
     public List<ProductionPlanMrItemDto> MaterialRequirements { get; set; } = new();
@@ -70,6 +71,7 @@ public class CreateProductionPlanDto
     public bool SkipAvailableSubAssemblyItem { get; set; }
     public Guid? RawMaterialGroupWarehouseId { get; set; }
     public Guid? ForWarehouseId { get; set; }
+    public bool ReserveStock { get; set; }
     [StringLength(ProductionPlanConsts.MaxNoteLength)] public string? Notes { get; set; }
     public List<CreateProductionPlanItemDto> Items { get; set; } = new();
 }
