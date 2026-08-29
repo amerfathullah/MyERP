@@ -194,26 +194,33 @@ public class StockEntryManager : DomainService
 
     /// <summary>
     /// Validates Manufacture Stock Entry rules.
-    /// Per ERPNext stock_entry.py: only ONE unique finished item is allowed per Manufacture
-    /// entry (multiple rows of the SAME item, qty split across, are fine — different item
-    /// codes are not). Repack is the only purpose that allows multiple distinct FG items.
-    /// FG rows are identified the same way the rest of the codebase already infers them for
-    /// Manufacture entries (target warehouse only, no source warehouse) since IsFinishedItem
-    /// is never populated on this purpose's items.
+    /// Per ERPNext stock_entry.py:
+    /// 1. Only ONE unique finished item is allowed per Manufacture entry.
+    /// 2. For Quantity (Manufactured Qty / FgCompletedQty) is mandatory when linked to a Work Order (PR #58005).
     /// </summary>
-    public void ValidateManufactureItems(StockEntry entry)
+    public void ValidateManufactureItems(StockEntry entry, bool trackSemiFinishedGoods = false)
     {
-        if (entry.EntryType != StockEntryType.Manufacture) return;
+        if (entry.EntryType != StockEntryType.Manufacture && entry.EntryType != StockEntryType.MaterialConsumptionForManufacture) return;
 
-        var distinctFgItemCount = entry.Items
-            .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
-            .Select(i => i.ItemId)
-            .Distinct()
-            .Count();
-
-        if (distinctFgItemCount > 1)
+        if (entry.EntryType == StockEntryType.Manufacture)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ManufactureMultiFgItemsNotAllowed);
+            var distinctFgItemCount = entry.Items
+                .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                .Select(i => i.ItemId)
+                .Distinct()
+                .Count();
+
+            if (distinctFgItemCount > 1)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ManufactureMultiFgItemsNotAllowed);
+            }
+        }
+
+        // Per ERPNext PR #58005: mandatory manufactured qty check for manufacture entries
+        if (entry.WorkOrderId.HasValue && !trackSemiFinishedGoods && entry.FgCompletedQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "For Quantity (Manufactured Qty) is mandatory for Work Order manufacture stock entries.");
         }
     }
 

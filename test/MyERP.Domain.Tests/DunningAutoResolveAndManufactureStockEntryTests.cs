@@ -292,4 +292,43 @@ public class DunningAutoResolveAndManufactureStockEntryTests
         Assert.Equal(1000m, dunning.TotalOutstanding);
         Assert.Equal(2, dunning.OverduePayments.Count);
     }
+
+    [Fact]
+    public void StockEntryManager_ValidateManufactureItems_ThrowsWhenManufacturedQtyMissing()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        var se = new StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(),
+            StockEntryType.Manufacture, DateTime.UtcNow);
+        se.WorkOrderId = Guid.NewGuid();
+        se.FgCompletedQty = 0m; // Missing manufactured qty
+
+        var targetWh = Guid.NewGuid();
+        var sourceWh = Guid.NewGuid();
+        se.AddItem(Guid.NewGuid(), 5m, sourceWh, null, valuationRate: 10m);
+        se.AddItem(Guid.NewGuid(), 10m, null, targetWh, valuationRate: 5m);
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() =>
+            manager.ValidateManufactureItems(se, trackSemiFinishedGoods: false));
+
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public void StockEntryManager_ValidateManufactureItems_SucceedsWithManufacturedQty()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        var se = new StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(),
+            StockEntryType.Manufacture, DateTime.UtcNow);
+        se.WorkOrderId = Guid.NewGuid();
+        se.FgCompletedQty = 10m;
+
+        var targetWh = Guid.NewGuid();
+        var sourceWh = Guid.NewGuid();
+        se.AddItem(Guid.NewGuid(), 5m, sourceWh, null, valuationRate: 10m);
+        se.AddItem(Guid.NewGuid(), 10m, null, targetWh, valuationRate: 5m);
+
+        manager.ValidateManufactureItems(se, trackSemiFinishedGoods: false);
+    }
 }
