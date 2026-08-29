@@ -135,6 +135,19 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    public void SetDowntime()
+    {
+        if (Status == AssetRepairStatus.Completed && FailureDate.HasValue && CompletionDate.HasValue)
+        {
+            var hours = (decimal)(CompletionDate.Value - FailureDate.Value).TotalHours;
+            Downtime = $"{Math.Round(hours, 2)} Hrs";
+        }
+        else if (Status != AssetRepairStatus.Completed)
+        {
+            Downtime = null;
+        }
+    }
+
     public void Complete()
     {
         if (Status != AssetRepairStatus.Pending)
@@ -142,6 +155,7 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
         CalculateTotals();
         CompletionDate ??= DateTime.UtcNow;
         Status = AssetRepairStatus.Completed;
+        SetDowntime();
     }
 
     public void Cancel()

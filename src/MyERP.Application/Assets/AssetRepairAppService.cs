@@ -143,6 +143,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         repair.ApplyFullyDepreciatedRules(!_lifecycleManager.GetRepairOptions(asset).CanCapitalize);
 
         repair.CalculateTotals();
+        repair.SetDowntime();
 
         await _repository.InsertAsync(repair);
         return _mapper.Map(repair);
@@ -231,6 +232,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         repair.ApplyFullyDepreciatedRules(!_lifecycleManager.GetRepairOptions(asset).CanCapitalize);
 
         repair.CalculateTotals();
+        repair.SetDowntime();
 
         await _repository.UpdateAsync(repair);
         return _mapper.Map(repair);
