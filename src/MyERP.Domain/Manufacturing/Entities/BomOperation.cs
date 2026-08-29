@@ -45,6 +45,12 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     /// <summary>Whether this is a subcontracted operation (done externally).</summary>
     public bool IsSubcontracted { get; set; }
 
+    /// <summary>FG or Semi-FG item produced by this operation (per PR #57885).</summary>
+    public Guid? FinishedGoodItemId { get; set; }
+
+    /// <summary>Whether this is the final finished good operation of the BOM.</summary>
+    public bool IsFinalFinishedGood { get; set; }
+
     protected BomOperation() { }
 
     public BomOperation(Guid id, Guid bomId, Guid operationId, int sequenceId,

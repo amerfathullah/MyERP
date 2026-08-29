@@ -98,4 +98,56 @@ public class BomAndWorkOrderValidationTests
         var ex = Assert.Throws<BusinessException>(() => wo.ValidateDates());
         Assert.Equal(MyERPDomainErrorCodes.PlannedEndDateBeforeStartDate, ex.Code);
     }
+
+    [Fact]
+    public void BillOfMaterials_TrackSemiFinishedGoods_MissingOperationFG_ThrowsValidationException()
+    {
+        var bom = new BillOfMaterials(Guid.NewGuid(), _companyId, "BOM-SEMI-001", _fgItemId)
+        {
+            WithOperations = true,
+            TrackSemiFinishedGoods = true
+        };
+
+        var op1 = new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 1, 30m); // Non-final, no FG
+        var op2 = new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 2, 60m)
+        {
+            FinishedGoodItemId = _fgItemId,
+            IsFinalFinishedGood = true
+        };
+
+        bom.Operations.Add(op1);
+        bom.Operations.Add(op2);
+
+        var ex = Assert.Throws<BusinessException>(() => bom.ValidateOperations());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("FG / Semi FG Item is required", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void BillOfMaterials_TrackSemiFinishedGoods_SetsFinalFgItemToBomItem()
+    {
+        var bom = new BillOfMaterials(Guid.NewGuid(), _companyId, "BOM-SEMI-002", _fgItemId)
+        {
+            WithOperations = true,
+            TrackSemiFinishedGoods = true
+        };
+
+        var intermediateItem = Guid.NewGuid();
+        var op1 = new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 1, 30m)
+        {
+            FinishedGoodItemId = intermediateItem
+        };
+        var op2 = new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 2, 60m)
+        {
+            IsFinalFinishedGood = true // No explicit FG set
+        };
+
+        bom.Operations.Add(op1);
+        bom.Operations.Add(op2);
+
+        bom.ValidateOperations();
+
+        Assert.Equal(intermediateItem, op1.FinishedGoodItemId);
+        Assert.Equal(_fgItemId, op2.FinishedGoodItemId);
+    }
 }

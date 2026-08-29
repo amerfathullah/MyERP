@@ -129,6 +129,29 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Transfer Material Against is mandatory when With Operations is enabled.");
         }
+
+        // Per ERPNext PR #57885 / commit 3497a6a6bf:
+        // When TrackSemiFinishedGoods is enabled, every operation must specify a FinishedGoodItemId
+        // (or defaults to BOM.ItemId if it's the final operation).
+        if (TrackSemiFinishedGoods && Operations.Any())
+        {
+            var maxSeq = Operations.Max(o => o.SequenceId);
+            foreach (var op in Operations)
+            {
+                if (!op.FinishedGoodItemId.HasValue)
+                {
+                    if (op.SequenceId == maxSeq || op.IsFinalFinishedGood)
+                    {
+                        op.FinishedGoodItemId = ItemId;
+                    }
+                    else
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"FG / Semi FG Item is required for operation (Sequence #{op.SequenceId}) when Track Semi Finished Goods is enabled.");
+                    }
+                }
+            }
+        }
     }
 
     public void AddOperation(BomOperation operation)
