@@ -86,10 +86,14 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public void ValidateWholeNumberQuantity(bool mustBeWholeNumber)
     {
-        if (mustBeWholeNumber && Math.Abs(Math.Round(Quantity) - Quantity) > 0.0000001m)
+        if (mustBeWholeNumber)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Quantity {Quantity} must be a whole number for this item's UOM.");
+            var rounded = Math.Round(Quantity, 4);
+            if (Math.Abs(Math.Round(rounded, 0) - rounded) > 0.0000001m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Quantity {Quantity} must be a whole number for this item's UOM.");
+            }
         }
     }
 

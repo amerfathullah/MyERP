@@ -150,4 +150,12 @@ public class BomAndWorkOrderValidationTests
         Assert.Equal(intermediateItem, op1.FinishedGoodItemId);
         Assert.Equal(_fgItemId, op2.FinishedGoodItemId);
     }
+
+    [Fact]
+    public void WorkOrder_ValidateWholeNumberQuantity_ConversionDust_Succeeds()
+    {
+        // 1999.999999 is conversion dust for 2000
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "MFG-WO-2026-0004", _fgItemId, Guid.NewGuid(), 1999.999999m);
+        wo.ValidateWholeNumberQuantity(mustBeWholeNumber: true); // Should succeed after rounding to precision 4
+    }
 }
