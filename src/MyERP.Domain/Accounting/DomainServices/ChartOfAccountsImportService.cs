@@ -87,6 +87,7 @@ public class ChartOfAccountsImportService : DomainService
                 company.ExchangeGainLossAccountId = null;
                 company.ExchangeGainAccountId = null;
                 company.ExchangeLossAccountId = null;
+                company.BankChargesAccountId = null;
                 company.DepreciationExpenseAccountId = null;
                 company.AccumulatedDepreciationAccountId = null;
                 company.RoundOffAccountId = null;
@@ -152,6 +153,7 @@ public class ChartOfAccountsImportService : DomainService
             company.DefaultStockAdjustmentAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Stock Adjustment", StringComparison.OrdinalIgnoreCase))?.Id;
             company.StockReceivedButNotBilledAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Stock Received But Not Billed", StringComparison.OrdinalIgnoreCase))?.Id;
             company.ExchangeGainLossAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Exchange Gain", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.BankChargesAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Bank Charges", StringComparison.OrdinalIgnoreCase) || a.AccountName.Contains("Bank Fee", StringComparison.OrdinalIgnoreCase))?.Id;
             company.DepreciationExpenseAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.DepreciationExpense || a.AccountName.Contains("Depreciation Expense", StringComparison.OrdinalIgnoreCase))?.Id;
             company.AccumulatedDepreciationAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.AccumulatedDepreciation || a.AccountName.Contains("Accumulated Depreciation", StringComparison.OrdinalIgnoreCase))?.Id;
             company.RoundOffAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Round Off", StringComparison.OrdinalIgnoreCase))?.Id;
