@@ -445,6 +445,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> CreateWorkOrderFromSalesOrderAsync(
         Guid salesOrderId, Guid itemId, decimal quantity, Guid companyId, Guid? salesOrderItemId = null)
     {
+        if (salesOrderId != default)
+        {
+            await AuthorizationService.CheckAsync(MyERPPermissions.SalesOrders.Default);
+        }
+
         // Find the default active BOM for this item (or its template if it's a variant)
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var bom = bomQuery.FirstOrDefault(b =>
