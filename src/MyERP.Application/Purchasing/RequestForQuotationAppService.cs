@@ -82,8 +82,23 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
 
         foreach (var supplier in input.Suppliers)
         {
-            // Validate supplier scorecard: prevent_rfqs blocks
             var supplierEntity = await _supplierRepository.GetAsync(supplier.SupplierId);
+
+            // Per ERPNext PR #57983 / commit 4bf65ffc1d: block disabled or on-hold suppliers
+            if (!supplierEntity.IsActive)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PartyDisabled)
+                    .WithData("partyType", "Supplier")
+                    .WithData("partyName", supplierEntity.Name);
+            }
+
+            if (supplierEntity.IsOnHold)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.SupplierOnHold)
+                    .WithData("supplierName", supplierEntity.Name);
+            }
+
+            // Validate supplier scorecard: prevent_rfqs blocks
             if (supplierEntity.PreventRfqs)
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ScorecardBlockedRFQ)
                     .WithData("supplierName", supplierEntity.Name);

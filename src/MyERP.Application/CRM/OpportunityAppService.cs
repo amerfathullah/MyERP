@@ -118,6 +118,18 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
             await itemValidation.ValidateItemsForTransactionAsync(itemIds);
         }
 
+        if (input.CustomerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+            if (customer != null && !customer.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PartyDisabled)
+                    .WithData("partyType", "Customer")
+                    .WithData("partyName", customer.Name);
+            }
+        }
+
         var oppNumber = $"OPP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var opp = new Opportunity(
             GuidGenerator.Create(),
@@ -165,6 +177,18 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     public async Task<OpportunityDto> UpdateAsync(Guid id, UpdateOpportunityDto input)
     {
         var opp = await _repository.GetAsync(id, includeDetails: true);
+
+        if (opp.CustomerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(opp.CustomerId.Value);
+            if (customer != null && !customer.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PartyDisabled)
+                    .WithData("partyType", "Customer")
+                    .WithData("partyName", customer.Name);
+            }
+        }
 
         opp.Title = input.Title;
         opp.OpportunityType = input.OpportunityType;

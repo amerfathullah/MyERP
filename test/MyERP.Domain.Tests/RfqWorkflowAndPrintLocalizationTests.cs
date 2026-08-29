@@ -213,4 +213,36 @@ public class RfqWorkflowAndPrintLocalizationTests
         //   repost-item-valuation
         Assert.True(true);
     }
+
+    // --- Disabled / On-Hold Party Validation Tests (PR #57983 / #57984) ---
+
+    [Fact]
+    public void Supplier_PartyValidationService_ThrowsWhenDisabled()
+    {
+        var service = new MyERP.Core.DomainServices.PartyValidationService();
+        var ex = Assert.Throws<BusinessException>(() =>
+            service.ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: true, partyName: "Inactive Supplier"));
+
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.PartyDisabled, ex.Code);
+    }
+
+    [Fact]
+    public void Supplier_PartyValidationService_ThrowsWhenFrozen()
+    {
+        var service = new MyERP.Core.DomainServices.PartyValidationService();
+        var ex = Assert.Throws<BusinessException>(() =>
+            service.ValidatePartyStatus("Supplier", isFrozen: true, isDisabled: false, partyName: "Frozen Supplier"));
+
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.PartyFrozen, ex.Code);
+    }
+
+    [Fact]
+    public void Customer_PartyValidationService_ThrowsWhenDisabled()
+    {
+        var service = new MyERP.Core.DomainServices.PartyValidationService();
+        var ex = Assert.Throws<BusinessException>(() =>
+            service.ValidatePartyStatus("Customer", isFrozen: false, isDisabled: true, partyName: "Disabled Customer"));
+
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.PartyDisabled, ex.Code);
+    }
 }
