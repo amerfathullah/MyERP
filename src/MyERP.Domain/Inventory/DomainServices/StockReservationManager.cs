@@ -181,18 +181,22 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Creates a new Stock Reservation Entry and validates availability.
     /// Per ERPNext auto_reserve_stock_for_sales_order_on_purchase: auto-reserves on PR submit.
+    /// Supports batch-specific stock reservation.
     /// </summary>
     public async Task ReserveStockAsync(
         Guid itemId, Guid warehouseId, Guid companyId,
-        decimal qty, string voucherType, Guid voucherId, Guid? tenantId = null)
+        decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null)
     {
         if (qty <= 0) return;
 
-        await ValidateAvailabilityAsync(itemId, warehouseId, qty);
+        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), companyId, itemId, warehouseId,
-            voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId);
+            voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId)
+        {
+            BatchId = batchId
+        };
 
         sre.Submit();
         await _sreRepository.InsertAsync(sre);
