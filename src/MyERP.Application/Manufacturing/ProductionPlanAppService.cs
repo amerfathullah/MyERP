@@ -362,7 +362,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 var itemEntity = await itemRepo.GetAsync(item.ItemId);
                 
                 var uomService = LazyServiceProvider.LazyGetRequiredService<UomConversionService>();
-                var conversionFactor = await uomService.GetConversionFactorAsync(item.ItemId, item.Uom ?? "Unit", itemEntity.Uom);
+                var conversionFactor = await uomService.GetConversionFactorAsync(item.ItemId, item.Uom ?? "Unit", itemEntity.Uom, itemEntity.VariantOfId);
                 
                 var requestedQty = conversionFactor > 0 ? item.PlannedQty / conversionFactor : item.PlannedQty;
 
