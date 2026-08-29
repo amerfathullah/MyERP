@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using MyERP.Purchasing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -109,5 +111,60 @@ public class PurchaseInvoiceManagerTests
         pi.IsReturn = isReturn;
         pi.ReturnAgainstId = returnAgainstId;
         return pi;
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PI_ValidateExchangeRateWithPurchaseReceipt_ThrowsOnMismatch()
+    {
+        var prRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PurchaseReceipt, Guid>>();
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PR-001", DateTime.UtcNow)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.40m,
+        };
+        pr.AddItem(Guid.NewGuid(), "Item 1", 10m, 100m, 0m);
+
+        var pi = CreatePI();
+        pi.CurrencyCode = "USD";
+        pi.ExchangeRate = 4.50m; // Different exchange rate
+        pi.AddItem(Guid.NewGuid(), "Item 1", 10m, 100m, 0m);
+        pi.Items[0].PurchaseReceiptItemId = pr.Items[0].Id;
+
+        prRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<PurchaseReceipt> { pr }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateExchangeRateWithPurchaseReceiptAsync(pi, prRepo, isPerpetualInventory: true, setLandedCostBasedOnPiRate: false));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnExchangeRateMismatch);
+        ex.Data["expected"].ShouldBe(4.40m);
+        ex.Data["actual"].ShouldBe(4.50m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PI_ValidateExchangeRateWithPurchaseReceipt_SucceedsOnMatch()
+    {
+        var prRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PurchaseReceipt, Guid>>();
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PR-001", DateTime.UtcNow)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.40m,
+        };
+        pr.AddItem(Guid.NewGuid(), "Item 1", 10m, 100m, 0m);
+
+        var pi = CreatePI();
+        pi.CurrencyCode = "USD";
+        pi.ExchangeRate = 4.40m; // Matches
+        pi.AddItem(Guid.NewGuid(), "Item 1", 10m, 100m, 0m);
+        pi.Items[0].PurchaseReceiptItemId = pr.Items[0].Id;
+
+        prRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<PurchaseReceipt> { pr }.AsQueryable()));
+
+        await manager.ValidateExchangeRateWithPurchaseReceiptAsync(pi, prRepo, isPerpetualInventory: true, setLandedCostBasedOnPiRate: false);
     }
 }

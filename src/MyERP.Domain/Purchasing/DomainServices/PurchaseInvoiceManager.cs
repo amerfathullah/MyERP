@@ -367,4 +367,42 @@ public class PurchaseInvoiceManager : DomainService
             await prRepo.UpdateAsync(pr, autoSave: true);
         }
     }
+
+    /// <summary>
+    /// Validates exchange rate parity between Purchase Invoice and linked Purchase Receipts.
+    /// Per ERPNext PR #58177: when billing against a PR under perpetual inventory, the PI exchange rate
+    /// must match the PR exchange rate unless set_landed_cost_based_on_purchase_invoice_rate is enabled.
+    /// </summary>
+    public async Task ValidateExchangeRateWithPurchaseReceiptAsync(
+        PurchaseInvoice invoice,
+        IRepository<PurchaseReceipt, Guid> prRepository,
+        bool isPerpetualInventory = true,
+        bool setLandedCostBasedOnPiRate = false)
+    {
+        if (!isPerpetualInventory || setLandedCostBasedOnPiRate || invoice.IsReturn) return;
+
+        var prItemIds = invoice.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!prItemIds.Any()) return;
+
+        var prQuery = await prRepository.GetQueryableAsync();
+        var linkedPrs = prQuery
+            .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id)))
+            .ToList();
+
+        foreach (var pr in linkedPrs)
+        {
+            if (pr.CurrencyCode == invoice.CurrencyCode && pr.ExchangeRate > 0 && pr.ExchangeRate != invoice.ExchangeRate)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnExchangeRateMismatch)
+                    .WithData("expected", pr.ExchangeRate)
+                    .WithData("actual", invoice.ExchangeRate)
+                    .WithData("purchaseReceiptNumber", pr.ReceiptNumber ?? pr.Id.ToString());
+            }
+        }
+    }
 }
