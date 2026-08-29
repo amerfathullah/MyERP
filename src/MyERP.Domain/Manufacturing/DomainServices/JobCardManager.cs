@@ -221,4 +221,31 @@ public class JobCardManager : DomainService
 
         return total;
     }
+
+    /// <summary>
+    /// Validates material transfer before Job Card start or completion.
+    /// Per ERPNext PR #58009: when material transfer is required,
+    /// start and completion require transferred materials to be ready (transferred_qty >= required_qty).
+    /// Exempt: corrective job cards and job cards without required items.
+    /// </summary>
+    public async Task ValidateMaterialTransferAsync(JobCard jobCard, IRepository<WorkOrder, Guid> woRepository)
+    {
+        if (jobCard.IsCorrective) return;
+
+        var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
+        if (wo == null || !wo.RequiredItems.Any()) return;
+
+        var matchingItems = jobCard.BomOperationId.HasValue
+            ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()
+            : wo.RequiredItems;
+
+        if (!matchingItems.Any()) return;
+
+        var pendingItems = matchingItems.Where(i => i.TransferredQuantity < i.RequiredQuantity).ToList();
+        if (pendingItems.Any() && matchingItems.All(i => i.TransferredQuantity == 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Material transfer must be completed before starting or completing Job Card.");
+        }
+    }
 }

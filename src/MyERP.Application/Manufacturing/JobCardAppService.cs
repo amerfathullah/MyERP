@@ -125,6 +125,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var jc = await _repository.GetAsync(id);
 
         var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
         await jobCardManager.ValidatePreviousOperationManufacturedAsync(jc);
         await jobCardManager.ValidateCapacityAsync(jc);
 
@@ -152,6 +154,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     {
         var jc = await _repository.GetAsync(id);
 
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
+
         var settingsRepoForTimeLogs = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
         var mfgSettings = await settingsRepoForTimeLogs.FindAsync(s => s.CompanyId == jc.CompanyId);
         if (mfgSettings?.EnforceTimeLogs == true && !jc.TimeLogs.Any())
@@ -171,7 +177,6 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         // Update Work Order produced qty using bottleneck formula (MIN across operations)
         var jcManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
-        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
         var completedQty = await jcManager.GetWorkOrderCompletedQtyAsync(wo.Id);
 
